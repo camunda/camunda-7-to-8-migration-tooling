@@ -45,11 +45,11 @@ import {
 // server.tomcat.max-part-count in application.yaml, which is where the
 // server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
 // sync if that value ever changes). createFormData() always appends
-// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 5 config
+// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 6 config
 // options), so the actual per-batch file limit is lower than the raw part
 // count.
 const MAX_MULTIPART_PARTS = 100;
-const FIXED_FORM_FIELD_COUNT = 6;
+const FIXED_FORM_FIELD_COUNT = 7;
 const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 // Warn a bit before the hard limit so users can trim the batch (or switch to
 // the local converter) before a combined download fails outright.
@@ -121,6 +121,7 @@ function App() {
     alwaysUseDefaultJobType: false,
     addDataMigrationExecutionListener: false,
     dataMigrationExecutionListenerJobType: "migrator",
+    appendDocumentationOnlyTaskAndWarning: false,
   });
 
 
@@ -308,6 +309,11 @@ function App() {
 
     if (configOptions.dataMigrationExecutionListenerJobType !== undefined)
       formData.append("dataMigrationExecutionListenerJobType", configOptions.dataMigrationExecutionListenerJobType);
+    if (configOptions.appendDocumentationOnlyTaskAndWarning !== undefined)
+      formData.append(
+        "appendDocumentationOnlyTaskAndWarning",
+        configOptions.appendDocumentationOnlyTaskAndWarning
+      );
     return formData;
   }
 
@@ -844,6 +850,31 @@ function App() {
                     <legend className="px-1 text-sm font-medium text-foreground">
                       Advanced options
                     </legend>
+                    <label className="flex items-center gap-2">
+                      <Checkbox
+                        id="appendDocumentationOnlyTaskAndWarning"
+                        checked={configOptions.appendDocumentationOnlyTaskAndWarning}
+                        aria-describedby="appendDocumentationOnlyTaskAndWarningHint"
+                        onCheckedChange={(checked) =>
+                          setConfigOptions((prev) => ({
+                            ...prev,
+                            appendDocumentationOnlyTaskAndWarning: checked === true,
+                          }))
+                        }
+                      />
+                      <span>Append only WARNING and TASK findings to BPMN documentation</span>
+                    </label>
+                    <p
+                      id="appendDocumentationOnlyTaskAndWarningHint"
+                      className="configOptionHint"
+                    >
+                      Writes "No direct mapping" (WARNING) and "Manual action required" (TASK)
+                      findings into the documentation of each BPMN element, so you can act on
+                      them in the Modeler. "Verify after conversion" (REVIEW) and "No action
+                      needed" (INFO) findings are left out, and DMN and form files are not
+                      affected.
+                    </p>
+                    <div className="form-spacer" />
                     <label className="flex items-center gap-2">
                       <Checkbox
                         id="addDataMigrationExecutionListener"

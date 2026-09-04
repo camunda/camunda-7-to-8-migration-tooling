@@ -10,6 +10,7 @@ package io.camunda.migration.diagram.converter;
 import static io.camunda.migration.diagram.converter.BpmnElementFactory.*;
 
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
+import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import java.util.Comparator;
 import java.util.List;
 import org.camunda.bpm.model.xml.instance.DomDocument;
@@ -27,8 +28,19 @@ public class ConversionElementAppender {
   }
 
   public void appendDocumentation(DomElement element, List<ElementCheckMessage> messages) {
+    appendDocumentation(element, messages, false);
+  }
+
+  public void appendDocumentation(
+      DomElement element, List<ElementCheckMessage> messages, boolean onlyTaskAndWarning) {
+    List<ElementCheckMessage> messagesToAppend =
+        onlyTaskAndWarning ? messages.stream().filter(this::isTaskOrWarning).toList() : messages;
+    if (onlyTaskAndWarning && messagesToAppend.isEmpty()) {
+      return;
+    }
     DomElement documentation = getDocumentation(element);
-    documentation.setTextContent(createDocumentation(documentation.getTextContent(), messages));
+    documentation.setTextContent(
+        createDocumentation(documentation.getTextContent(), messagesToAppend));
   }
 
   public void appendReferences(DomElement element, List<String> references) {
@@ -63,6 +75,10 @@ public class ConversionElementAppender {
 
   private String formatMessage(ElementCheckMessage message) {
     return "- " + message.getSeverity() + ": " + message.getMessage() + "\n";
+  }
+
+  private boolean isTaskOrWarning(ElementCheckMessage message) {
+    return message.getSeverity() == Severity.TASK || message.getSeverity() == Severity.WARNING;
   }
 
   private DomElement createMessage(ElementCheckMessage message, DomDocument document) {

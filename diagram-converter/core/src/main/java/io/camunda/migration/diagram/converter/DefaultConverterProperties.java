@@ -21,6 +21,7 @@ public class DefaultConverterProperties implements ConverterProperties {
   private Boolean alwaysUseDefaultJobType;
   private Boolean addDataMigrationExecutionListener;
   private Boolean appendDocumentation;
+  private Boolean appendDocumentationOnlyTaskAndWarning;
   private Boolean appendElements;
 
   @Override
@@ -30,6 +31,16 @@ public class DefaultConverterProperties implements ConverterProperties {
 
   public void setAppendDocumentation(Boolean appendDocumentation) {
     this.appendDocumentation = appendDocumentation;
+  }
+
+  @Override
+  public Boolean getAppendDocumentationOnlyTaskAndWarning() {
+    return appendDocumentationOnlyTaskAndWarning;
+  }
+
+  public void setAppendDocumentationOnlyTaskAndWarning(
+      Boolean appendDocumentationOnlyTaskAndWarning) {
+    this.appendDocumentationOnlyTaskAndWarning = appendDocumentationOnlyTaskAndWarning;
   }
 
   @Override
