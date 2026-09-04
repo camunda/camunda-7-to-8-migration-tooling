@@ -22,9 +22,9 @@ These items are not in the catalog:
 - Check Spring Boot compatibility from the selected starter or BOM POM on Maven Central. Do not
   assume a pairing works because both versions are "latest".
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
-  `spring-boot-starter-web` when it exposed no REST endpoint. This includes a dependency added
+  `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
-- Remove `org.camunda.bpm.*`, `camunda-bom`, and the embedded-engine deps (H2, JDBC starter).
+- Remove dependencies with groupId `org.camunda.bpm`, `camunda-bom`, and the embedded-engine deps (H2, JDBC starter).
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:

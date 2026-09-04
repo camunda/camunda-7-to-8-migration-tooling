@@ -22,11 +22,11 @@ of the code inventory to those items, then fetch that set:
 | Config, dependencies | `10-general/dependencies.md` |
 | Any variable handling | `10-general/process-variables.md` |
 | Client code | `20-client-code/10-process-engine/<mapping>.md` |
-| JavaDelegate | `30-glue-code/10-java-spring-delegate/` |
-| External task worker | `30-glue-code/20-java-spring-external-task-worker/` |
+| JavaDelegate | `30-glue-code/10-java-spring-delegate/README.md` |
+| External task worker | `30-glue-code/20-java-spring-external-task-worker/README.md` |
 | Listener | `30-glue-code/30-java-spring-listeners/listeners.md` |
 | HTTP connector code | `30-glue-code/outbound-http-rest-connector.md` |
-| Test code | `40-test-assertions/10-assertions/` |
+| Test code | `40-test-assertions/10-assertions/README.md` |
 
 Fetch `ALL_IN_ONE.md` only when the inventory spans most of the catalog, or when a path above returns
 404 and you need to find the moved file. (MAY)

@@ -214,7 +214,7 @@ Each item below is a check to run and a condition that must hold at exit. Record
 #### Code checks, when code was migrated
 
 1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
-2. **Camunda 7 dependencies** — no `org.camunda.bpm.*` dependency remains in the build files.
+2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files.
 3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
    migration.
 4. **Migration TODOs** — search `// TODO`. Each one needs manual review, and each is resolved or
