@@ -252,21 +252,24 @@ target version. See the linting section in `references/model-migration-approache
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
-5. Every accepted form is a standard Camunda 8 `.form`. It parses, it validates or renders with
-   target-compatible form-js tooling where that tooling exists, it has a matching
-   `zeebe:formDefinition`, and it is deployed with its BPMN.
-6. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
+5. Every accepted form is a standard Camunda 8 `.form`.
+6. Every accepted form parses.
+7. The skill validates or renders every accepted form with target-compatible form-js tooling where
+   that tooling exists.
+8. Every accepted form has a matching `zeebe:formDefinition`.
+9. The skill deploys every accepted form with its BPMN.
+10. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
-7. Every referenced form and every form-free owner has a recorded per-category decision and a final
+11. Every referenced form and every form-free owner has a recorded per-category decision and a final
    status of `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked`. The in-progress
    statuses `pending` and `draft` must not remain. A `deferred` or `blocked` item stays open follow-up
    work. A kept external reference is never reported as a completed migration, and no category is
    closed as **no action** because the converter copied a reference.
-8. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded
+12. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded
    binding decision: `bindingType` written for `deployment` and `versionTag`, or `latest` left
    deliberately to the Camunda 8 default. The copied Camunda 7 `externalReference` or `formKey` is
    gone from that element.
-9. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
+13. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
    `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
    definitions-level XPath `expressionLanguage` attribute.
 
