@@ -80,12 +80,13 @@ vocabulary and is not redistributable, so this repository keeps the structural r
 2. Active voice with a named actor: the skill, the converter, the CLI, the user.
 3. Simple tenses.
 4. No phrasal verb where one plain verb exists: "start", not "spin up"; "remove", not "take off".
-5. At most 20 words for an instruction, and at most 25 for an explanation.
-6. No semicolon. Write two sentences.
-7. At most three words in a noun cluster.
-8. Keep the subject, the verb, and the article. Do not drop words to save space.
-9. One term per concept. Never rotate synonyms — see the glossary below.
-10. Keep every hedge that carries a condition. "The report can be stale" is a fact about the world,
+5. Keep each instruction within 20 words when precision permits. (SHOULD)
+6. Keep each explanation within 25 words when precision permits. (SHOULD)
+7. No semicolon. Write two sentences.
+8. At most three words in a noun cluster.
+9. Keep the subject, the verb, and the article. Do not drop words to save space.
+10. One term per concept. Never rotate synonyms — see the glossary below.
+11. Keep every hedge that carries a condition. "The report can be stale" is a fact about the world,
     not padding.
 
 ## 5. Cut these

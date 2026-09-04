@@ -48,8 +48,8 @@ Catalog: `20-client-code/10-process-engine/`. One file per mapping: `starting-pr
 
 These items are not in the catalog:
 
-- Replace ProcessEngine and service autowiring (RuntimeService, TaskService, HistoryService,
-  DecisionService, ManagementService) with CamundaClient.
+- Replace direct service injection (RuntimeService, TaskService, HistoryService, DecisionService,
+  ManagementService) with CamundaClient.
 - When a C7 API has a C8 counterpart, use the matching CamundaClient API instead of new process
   variables carrying what the API can already return.
 - Flag the business-key semantic difference in `MIGRATION_REPORT.md` when the migrated process
@@ -82,9 +82,7 @@ Catalog: `30-glue-code/20-java-spring-external-task-worker/`, with the same five
 Catalog: `30-glue-code/30-java-spring-listeners/listeners.md`. It owns the ExecutionListener,
 TaskListener, and global user task listener mappings with their version requirements.
 
-This item is not in the catalog:
-
-- Flag a multi-instance body listener that prepares a collection. It requires a model change.
+The catalog covers listener mappings, including the multi-instance collection limitation.
 
 ---
 
@@ -95,8 +93,7 @@ Catalog: `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-proce
 
 These items are not in the catalog:
 
-- Disable real workers where mocked: `camunda.client.worker.defaults.enabled=false` with per-worker
-  overrides.
+- Add per-worker overrides when mocked workers need exceptions.
 - When a large suite on 8.9+ uses one runtime configuration, use CPT shared-runtime mode.
 
 ---
