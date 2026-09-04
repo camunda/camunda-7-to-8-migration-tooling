@@ -220,7 +220,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
 4. **Migration TODOs** — search `// TODO`. Each one needs manual review, and each is resolved or
    recorded.
 5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.
-   Both are deprecated and removed in 8.10. Use `CamundaClient`.
+   The legacy `zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
+   Use `CamundaClient`.
 6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
 7. **Configuration** — `camunda.client.*` keys replace the `camunda.*` keys in
