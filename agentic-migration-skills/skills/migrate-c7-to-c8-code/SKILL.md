@@ -7,7 +7,7 @@ license: Camunda License 1.0
 
 # Camunda 7 to 8 Migration
 
-Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds of asset:
+Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds of assets:
 
 - **Code** — Java/Spring glue and client code, config, tests. Migrated with OpenRewrite recipes
   (deterministic) plus AI cleanup.

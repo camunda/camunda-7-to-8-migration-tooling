@@ -87,9 +87,11 @@ definitions, then runs the Diagram Converter locally. While local models exist, 
 request engine access. REST supports optional Basic authentication and either the latest or a named
 BPMN/DMN definition. Database-only access and OIDC access need a separately supported extractor.
 
-At run time the skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md)
-and the diagram-converter docs, and resolves the latest Diagram Converter CLI release automatically.
-It describes what the agent must inspect, download, and run, instead of prescribing one shell dialect.
+At run time the skill fetches only the [pattern-catalog files required by the code
+inventory](skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md), with `ALL_IN_ONE.md`
+as a fallback. It also fetches the diagram-converter docs and resolves the latest Diagram Converter
+CLI release automatically. It describes what the agent must inspect, download, and run, instead of
+prescribing one shell dialect.
 
 ## Structure
 
