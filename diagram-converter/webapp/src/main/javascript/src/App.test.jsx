@@ -663,9 +663,9 @@ describe("advanced options", () => {
 
     const checkboxDescriptions = [
       {
-        label: "Append only WARNING and TASK findings to BPMN documentation",
+        label: "Append WARNING and TASK findings to BPMN documentation",
         descriptionId: "appendDocumentationOnlyTaskAndWarningHint",
-        text: 'Writes "No direct mapping" (WARNING) and "Manual action required" (TASK) findings into the documentation of each BPMN element, so you can act on them in the Modeler. "Verify after conversion" (REVIEW) and "No action needed" (INFO) findings are left out, and DMN and form files are not affected.',
+        text: "Appends findings with WARNING or TASK severity to the documentation of each BPMN element, so you can act on them in the Modeler. REVIEW and INFO messages are left out.",
       },
       {
         label: "Add data migration execution listener",
@@ -696,7 +696,7 @@ describe("advanced options", () => {
 
     expect(
       screen.getByText(
-        /Writes "No direct mapping" \(WARNING\) and "Manual action required" \(TASK\) findings into the documentation of each BPMN element/
+        /Appends findings with WARNING or TASK severity to the documentation of each BPMN element, so you can act on them in the Modeler\. REVIEW and INFO messages are left out\./
       )
     ).toBeTruthy();
     expect(
@@ -727,7 +727,7 @@ describe("advanced options", () => {
     fireEvent.click(screen.getByRole("button", { name: "Advanced options" }));
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: "Append only WARNING and TASK findings to BPMN documentation",
+        name: "Append WARNING and TASK findings to BPMN documentation",
       })
     );
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
