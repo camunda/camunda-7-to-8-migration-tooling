@@ -9,7 +9,7 @@ Use the assessment model scan before choosing a path.
 - If local model files exist under the project root, use local mode. Never offer or request C7 engine access.
 - If none exist and the user selected E1, fetch definitions from C7 first.
 
-Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted output. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
+Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
 ## Pre-flight: Leftover Artifacts
 
@@ -34,7 +34,7 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Run `java -version` from `PATH`, capture stderr, and record the actual major version. The Diagram Converter CLI requires major version `21` or higher. Do not apply the OpenRewrite upper bound. If `java` is missing or below 21, request an alternate JDK home through AskUserQuestion. Validate its `bin/java` (Windows: `bin/java.exe`) and check its actual version first. If several validated compatible homes exist, choose the lowest (prefer 21) for reproducible runs. Use the validated executable and home only for the converter invocation.
+Run `java -version` from `PATH`, capture stderr, and record the actual major version. The Diagram Converter CLI requires major version `21` or higher. Do not apply the OpenRewrite upper bound. If `java` is missing or below 21, request an alternate JDK home through AskUserQuestion. Validate its `bin/java` (Windows: `bin/java.exe`) and check its actual version first. If several validated compatible homes exist, choose the lowest. Prefer 21 for reproducible runs. (SHOULD) Use the validated executable and home only for the converter invocation.
 
 > The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
@@ -66,7 +66,7 @@ Recommended flags:
 - `--json` - always pass this. The JSON report is the machine-readable input for step 5. It needs a CLI release with the flag (0.3.6 or later). If the run fails with `Unknown option: '--json'`, the JAR predates it. Re-resolve the latest release (step 2).
 - `--xlsx` - always pass this. The XLSX report is the human-readable report for reviewing and sharing findings with the customer.
 - `-o` / `--override` - overwrite pre-existing outputs in place. Destructive — do not pass by default (see Pre-flight: Leftover Artifacts). Without it, a diagram whose converted target already exists is skipped with a `File already exists` error, and reports are written under ` (n)`-suffixed names.
-- `--check` - analyze-only (no converted diagrams exported)
+- `--check` - analyze-only (no converted copies exported)
 - `-nr` / `--not-recursive` - disable recursive search
 
 Other options:
@@ -221,7 +221,7 @@ Never collapse these into one `form-reference` category. Never mark any of them 
 - **Check what C8 forms do natively before adding a worker.** Many C7 projects carry flattening/computing service tasks that exist only because C7 forms could not bind or compute. C8 forms removed those limitations:
   - Field `key` supports path-as-key binding into nested variables (e.g. `customerInfo.firstName`), so no flattening worker is needed for passthrough fields.
   - `text` components support FEEL templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}`. Counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).
-  - A dedicated `documentPreview` component (property `dataSource`, a FEEL expression over an array of document references) renders an inline preview and download link for a Document API reference. Prefer it over a plain-text filename display or a hand-built HTML anchor. When the process variable holds one document-reference object, wrap it in a one-element array in the form's FEEL only. Never change the variable to a form-specific array or a filename.
+  - A dedicated `documentPreview` component (property `dataSource`, a FEEL expression over an array of document references) renders an inline preview and download link for a Document API reference. Prefer it over a plain-text filename display or a hand-built HTML anchor. (SHOULD) When the process variable holds one document-reference object, wrap it in a one-element array in the form's FEEL only. Never change the variable to a form-specific array or a filename.
 - **Add a worker only when the form genuinely cannot do it**: real business logic, external calls, side effects. A service task that only reshapes variables for form consumption is a C7 workaround. Never port it.
 
 ## Approach M2 - Agentic AI (direct XML rewrite)
@@ -273,7 +273,7 @@ Create `.camunda-migration/c7-models`. Query the C7 REST process-definition and 
 1. Fetch its `/xml` resource through the secure authentication mechanism. Parse the JSON response and extract the nonempty `bpmn20Xml` or `dmnXml` string. Never write the JSON envelope as a diagram.
 2. Group definitions by resource name and exact XML payload. A deployment resource may contain multiple processes/decisions, so persist each unique resource/payload pair once, not once per definition. If one resource name has distinct payloads, derive collision-safe deterministic filenames from the sorted definition keys.
 3. Write only the extracted XML payload to a deterministic `.bpmn`/`.dmn` path under `.camunda-migration/c7-models`.
-4. Record every corresponding definition id/key against that source path so the converted output can be paired exactly.
+4. Record every corresponding definition id/key against that source path so the converted copy can be paired exactly.
 5. Run M1 local mode on `.camunda-migration/c7-models`.
 
 Treat the fetched XML as the original source for `form-migration.md` and `form-reference-migration.md`, and keep the exact mapping between fetched and converted paths. Do not use the CLI `engine` subcommand here: it does not persist the raw source XML needed to generate forms safely. Embedded form HTML and `.form` files are not part of the fetched BPMN, so referenced form content is normally unavailable in this mode. Record it as such rather than treating the reference as resolved.

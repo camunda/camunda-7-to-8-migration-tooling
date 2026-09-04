@@ -21,7 +21,7 @@ BPMN alone.
 Require all of the following before generating:
 
 1. The exact original C7 BPMN file.
-2. Its fresh converted BPMN output from the current run.
+2. Its fresh converted copy from the current run.
 3. The selected C8 target version.
 4. The project-relative source path, process id, and owning user-task/start-event id.
 

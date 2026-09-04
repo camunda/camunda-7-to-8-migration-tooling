@@ -23,8 +23,7 @@ This skill needs complex, multi-file reasoning. Before the scan, read the active
 capability metadata that the host exposes. Never infer it and never read undocumented variables.
 Recommended examples: `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`,
 `gpt-5.6-sol`. Caution examples: `gpt-5-mini`, `gpt-5.4-mini`, `gemini-3.7-flash`. These are routing
-examples, not a benchmark and not a ranking. Prefer host capability metadata, and treat an unknown
-identifier as unverified.
+examples, not a benchmark and not a ranking. Prefer host capability metadata. (SHOULD) Treat an unknown identifier as unverified.
 
 If the model is lightweight (mini, small, lite, flash, haiku, and similar) or unverified, then warn
 the user and ask through AskUserQuestion, or the host equivalent:
@@ -41,7 +40,9 @@ model in `MIGRATION_REPORT.md`.
 ## Entry Criteria
 
 1. The project declares Camunda 7 (camunda-bpm) dependencies in Maven or Gradle.
-2. The project holds at least one of the asset kinds named in this skill's description.
+2. The project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers,
+   ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
+   `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
 4. Where OpenRewrite is selected (recommended), Maven or Gradle is available.
 5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
@@ -67,8 +68,9 @@ These rules apply to every later step.
 
 **Assets and tools**
 
-- Route code to OpenRewrite and AI. Route models to the Diagram Converter.
-- The Diagram Converter converts the models in M1, M3, and E1.
+- Route each asset kind to the selected Part A or Part B approach.
+- For code, use the selected Part A approach: OpenRewrite plus AI, AI only, or assessment only.
+- For models, use the Diagram Converter in M1, M3, or E1, or agentic editing in M2.
 - Only M2 edits BPMN/DMN agentically, and only on a converted copy.
 - Never hand-edit BPMN or DMN in the code flow.
 - Use project-local models first. While local models exist, never offer or request Camunda 7 engine

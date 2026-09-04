@@ -63,7 +63,7 @@ Use `form-migration.md` as the mapping contract. Documentation is not evidence t
 ## Loading Rules
 
 - Load the reference before editing. Never guess API/XML mappings.
-- For gaps not covered by pattern catalogs, prefer docs.camunda.io via WebFetch over training knowledge.
+- For gaps not covered by pattern catalogs, prefer docs.camunda.io via WebFetch over training knowledge. (SHOULD)
 - Always respect the target version: do not offer 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, or 8.8 workarounds to 8.9+.
 
 ## Properties Reference

@@ -23,6 +23,8 @@ These items are not in the catalog:
   unless the user explicitly opts into a patch upgrade.
 - Check Spring Boot compatibility from the selected starter or BOM POM on Maven Central. Do not
   assume a pairing works because both versions are "latest".
+- Ensure Spring Boot dependency management is set through a parent or BOM before adding a Camunda
+  starter.
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.

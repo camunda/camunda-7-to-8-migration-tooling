@@ -65,7 +65,7 @@ Run the platform-appropriate command:
    - The recipe module supports Java 21-25 (`[21,26)`). Check the selected project's OpenRewrite configuration for a stricter requirement first.
    - If `java` is missing or outside that window, ask via AskUserQuestion for an alternate JDK home (the directory containing `bin/java`). Never install Java or change the user's system configuration automatically.
    - Validate the supplied home: run its `bin/java` (Windows: `bin/java.exe`) with `-version`, capture stderr, and check the actual major version. Reject a missing `bin/javac` (Windows: `bin/javac.exe`), a stale path, a JRE-only directory, or an incompatible version.
-   - If multiple validated compatible homes exist, choose the lowest compatible major version to keep runs reproducible: prefer 21, then 22, 23, 24, 25.
+   - If multiple validated compatible homes exist, choose the lowest compatible major version to keep runs reproducible. Prefer 21, then 22, 23, 24, or 25 when several choices remain. (SHOULD)
    - Use the validated home only for this rewrite invocation: set `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never use an unvalidated `java` on `PATH`.
 
 2. Check the build files for a Spotless configuration.
