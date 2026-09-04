@@ -7,210 +7,330 @@ license: Camunda License 1.0
 
 # Camunda 7 to 8 Migration
 
-Migrate a Camunda 7 project to Camunda 8. A project can contain two independent kinds of assets, each with its own migration path:
+Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds of assets:
 
-- Code: Java/Spring glue and client code, config, tests. Migrated with OpenRewrite recipes (deterministic) plus AI cleanup.
-- Models: BPMN/DMN diagrams using the camunda: namespace. Migrated with the Diagram Converter (deterministic) or agentically.
+- **Code** — Java/Spring glue and client code, config, tests. Migrated with OpenRewrite recipes
+  (deterministic) plus AI cleanup.
+- **Models** — BPMN/DMN diagrams in the `camunda:` namespace. Migrated with the Diagram Converter
+  (deterministic) or agentically.
 
-## Step 0: Model suitability
+Every instruction here is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an
+option is marked (MAY).
 
-Before scanning, inspect any active model identifier or capability metadata exposed by the host; do not infer it or use undocumented variables. This skill is intended for complex, multi-file reasoning. Illustrative recommended IDs include `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`; illustrative caution IDs include `gpt-5-mini`, `gpt-5.4-mini`, and `gemini-3.7-flash`. These are routing examples, not a benchmark or exhaustive ranking; use host capability metadata when available and treat unknown IDs as unverified.
+## Step 0: Model preflight
 
-If the model is explicitly lightweight (mini, small, lite, flash, haiku, etc.) or cannot be verified, warn the user and use AskUserQuestion (or the host equivalent):
-- **Switch to a model intended for complex reasoning (recommended)** — explain the host's model selector, wait for the user's confirmation, then re-read host-provided model metadata before continuing.
-- **Continue** — use deterministic approaches and extra human review; after the project root is confirmed, record the warning and choice in `MIGRATION_REPORT.md`.
+This skill needs complex, multi-file reasoning. Before the scan, read the active model identifier or
+capability metadata that the host exposes. Never infer it and never read undocumented variables.
+Recommended examples: `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`,
+`gpt-5.6-sol`. Caution examples: `gpt-5-mini`, `gpt-5.4-mini`, `gemini-3.7-flash`. These are routing
+examples, not a benchmark and not a ranking. Prefer host capability metadata. (SHOULD) Treat an unknown identifier as unverified.
 
-Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model changes. Record the model status in `MIGRATION_REPORT.md` after the project root is confirmed.
+If the model is lightweight (mini, small, lite, flash, haiku, and similar) or unverified, then warn
+the user and ask through AskUserQuestion, or the host equivalent:
+
+- **Switch to a model built for complex reasoning (recommended)** — explain the host model selector,
+  wait for confirmation, then read the host model metadata again.
+- **Continue** — use deterministic approaches and ask for extra human review.
+
+Where the host permits a model change, repeat this check before AI-only migration, an agentic
+rewrite, and AI cleanup. Once the user confirms the project root, record the preflight result, the
+model identifier or its unverified status, and any decision to continue on a caution or unverified
+model in `MIGRATION_REPORT.md`.
 
 ## Entry Criteria
 
-1. Project uses Camunda 7 (camunda-bpm) dependencies in Maven or Gradle
-2. Project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with camunda: namespace, or application config with camunda.* keys
-3. Target is Camunda 8 version 8.8, 8.9, or 8.10
-4. For OpenRewrite approach (recommended): Maven or Gradle build system available
-5. For Diagram Converter CLI: Java 21+ is available on `PATH` or through a user-supplied JDK home (alternatives exist if not)
+1. The project declares Camunda 7 (camunda-bpm) dependencies in Maven or Gradle.
+2. The project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers,
+   ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
+   `camunda:` namespace, or application config with `camunda.*` keys.
+3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
+4. Where OpenRewrite is selected (recommended), Maven or Gradle is available.
+5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
+   Alternatives exist when it is not.
 
 ## Implementation Steps
 
 ### Step 1: Gather Inputs
 
-See `references/interview-questions.md` for the full question set and batching rules.
+See `references/interview-questions.md` for the question set and the batching rules.
 
-1. Detect project root, build tool (pom.xml or build.gradle/build.gradle.kts), and model files (*.bpmn, *.bpmn20.xml, *.dmn, *.dmn11.xml).
-2. Ask Question 1 (project location) via AskUserQuestion.
-3. After confirmation, re-scan the confirmed root if it differs from the candidate.
-4. Ask Questions 2-3 (target version, scope) together.
-5. Ask conditional Questions 4-6 (code approach, model approach, build tool) as applicable.
-6. When user accepts defaults, proceed directly.
+1. Detect the project root, the build tool (`pom.xml`, or `build.gradle` / `build.gradle.kts`), and
+   the model files (`*.bpmn`, `*.bpmn20.xml`, `*.dmn`, `*.dmn11.xml`).
+2. Ask Question 1 (project location) through AskUserQuestion.
+3. If the confirmed root differs from the candidate, then scan the confirmed root again.
+4. Ask Questions 2 and 3 (target version, scope) together.
+5. Ask Questions 4 to 6 (code approach, model approach, build tool) where they apply.
+6. When the user accepts the defaults, continue without further questions.
 
-Shared rules that apply throughout all subsequent steps:
-- Distinguish code from models. OpenRewrite/AI handles code. The Diagram Converter handles models
-  for M1, M3, and E1; only M2 performs agentic BPMN/DMN edits, and only on converted copies. Never
-  hand-edit BPMN/DMN in the code flow.
-- Use project-local models first. Do not offer C7 engine access when local models are present.
-- Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit; never commit without an explicit user request.
-- Prefer intent over shell dialect. Use platform-appropriate invocations for the current environment.
-- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact. When migrating into a separate target location (e.g. a sibling C8 project), treat the C7 project as read-only: copy assets over, never edit in place.
-- Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
-- Respect the target version. Do not offer features from a higher version than selected.
-- For every Java-dependent phase, check `java -version` on `PATH` first. If
-  its major version is missing or incompatible, ask for and validate an
-  alternate JDK home before proceeding; keep it scoped to that phase.
-- Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
-- Conversion is not completion. Converter WARNING, TASK, and REVIEW findings need human follow-up.
-  INFO findings are informational unless a later cross-check identifies work.
-- Converter annotations are temporary review metadata. After the model verdict table is complete,
-  strip `conversion:*` elements and attributes from converted copies with namespace-aware XML tooling;
-  keep the verdict table in `MIGRATION_REPORT.md`.
-- Do not redo what the tools changed. Check for existing transforms before rewriting.
-- Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
-- Keep changes minimal. No refactors, renames, or improvements beyond the migration.
-- Preserve fidelity: package names, class names, file/folder layout, resource paths, startup behavior, and dependency footprint (e.g. no REST endpoints → no spring-boot-starter-web) carry over unchanged wherever a C8 equivalent exists. Rename or delete only what has no C8 equivalent, and record why in MIGRATION_REPORT.md.
-- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API). Verify whether C8 removed the limitation before replicating the pattern or adding a worker. Converter findings flagging natively-supported capabilities drive the same check for deleting C7-side workaround code — see `references/composing-code-and-models.md`.
-- Keep `MIGRATION_REPORT.md` in the confirmed project root current as the single source of truth for inventories, decisions, phase status, incompatibilities, and validation results; update as work proceeds, not in scattered notes.
-- Include the model preflight result, model identifier or unverified status, and any user decision to continue with a caution/unverified model in `MIGRATION_REPORT.md`.
-- The form inventory always comes from the original BPMN source, never from converter findings. Parse the source in the assessment step and treat findings as corroboration: a report can be stale, imported, produced by an older converter that reported every form-key type as one generic `form-key` finding, or absent entirely (M2 runs no converter). Some form types produce no finding at all — a user task or process-level none start event with no form metadata is invisible in every report, yet it silently loses its Camunda 7 Tasklist rendering. If a finding and the source disagree, report the disagreement instead of silently picking one.
-- Generated Task Forms are an agentic follow-up, not a Diagram Converter feature. Preserve the converter's `form-data` manual finding, generate standard `.form` resources from the exact original BPMN, and use `references/form-migration.md` for every decision and linkage.
-- Referenced forms are never migrated by copying a reference. Embedded HTML/JavaScript, external/custom application form keys, Camunda Form references, and user tasks or process-level none start events with no form at all each need their own decision — use `references/form-reference-migration.md`. Offer to rebuild a form as a Camunda 8 form, but generate one only when the user explicitly asks; a rebuilt form reproduces the data contract, never the Camunda 7 user interface.
-- Never accept, link, or deploy a generated form until the user has reviewed it. Ask about every semantic gap or unsupported construct; do not invent replacements.
+#### Shared rules
+
+These rules apply to every later step.
+
+**Assets and tools**
+
+- Route each asset kind to the selected Part A or Part B approach.
+- For code, use the selected Part A approach: OpenRewrite plus AI, AI only, or assessment only.
+- For models, use the Diagram Converter in M1, M3, or E1, or agentic editing in M2.
+- Only M2 edits BPMN/DMN agentically, and only on a converted copy.
+- Never hand-edit BPMN or DMN in the code flow.
+- Use project-local models first. While local models exist, never offer or request Camunda 7 engine
+  access.
+- Prefer the deterministic path: OpenRewrite plus AI over AI-only for code, the CLI over an agentic
+  rewrite for models. (SHOULD)
+- Use invocations that suit the current platform. Never assume one shell dialect.
+
+**Safety**
+
+- Before the first change, check for uncommitted changes. If the working tree is dirty, then ask the
+  user to commit or stash.
+- Never commit without an explicit user request.
+- Write each converted model to a `converted-c8-*` copy. Leave every original file unchanged.
+- Where the target is a separate location, such as a sibling Camunda 8 project, treat the Camunda 7
+  project as read-only and copy the assets across.
+- Before any edit, load the pattern catalog. See `references/pattern-catalog-sources.md`.
+- Never guess an API mapping or an XML mapping.
+- Never offer a feature from a version above the selected target.
+- Before each Java-dependent phase, run `java -version` on `PATH`. If that major version is missing
+  or incompatible, then ask for an alternate JDK home and check it before continuing.
+- Scope that JDK home to one phase.
+- Apply a mapping unasked only when it is an unambiguous 1:1 mapping.
+- Ask before changing a high-complexity file or an edge case.
+
+**Minimal, faithful change**
+
+- Never refactor, rename, or improve anything beyond the migration.
+- Before rewriting code, check whether a tool already transformed it.
+- Carry package names, class names, file and folder layout, resource paths, startup behavior, and the
+  dependency footprint across unchanged wherever a Camunda 8 equivalent exists.
+- Rename or delete only what has no Camunda 8 equivalent, and record why in `MIGRATION_REPORT.md`.
+- Many Camunda 7 patterns exist only because of a Camunda 7 limitation: flat form binding, no
+  computed display value, the in-process engine API. Before replicating such a pattern or adding a
+  worker, check whether Camunda 8 no longer has the limitation.
+- When a finding reports that Zeebe now supports a capability natively, run the same check on the
+  Camunda 7 workaround code. See `references/composing-code-and-models.md`.
+
+**Findings and report**
+
+- A finished conversion is not a finished migration. Every WARNING, TASK, and REVIEW finding needs
+  human follow-up.
+- An INFO finding is informational until a later cross-check identifies work.
+- Converter annotations are temporary review metadata. Once the verdict table is complete, strip
+  `conversion:*` elements and attributes from the converted copies with namespace-aware XML tooling.
+- Keep `MIGRATION_REPORT.md` in the confirmed project root and keep it current. It holds the verdict
+  table, and it is the single source of truth for inventories, decisions, phase status,
+  incompatibilities, and validation results. Never scatter this record across separate notes.
+
+**Forms**
+
+A **form-free owner** is a user task or a process-level none start event that carries no form metadata
+at all.
+
+- Build the form inventory from the original BPMN source in Step 2, never from converter findings.
+  Treat findings as corroboration only.
+- If a finding and the source disagree, then report the disagreement. Never pick one side silently.
+- Generated Task Forms are an agentic follow-up, not a Diagram Converter feature. Keep the converter's
+  `form-data` manual finding, generate standard `.form` resources from the exact original BPMN, and
+  follow `references/form-migration.md` for every decision and every link.
+- Copying a reference does not migrate a referenced form. Embedded HTML/JavaScript keys, external or
+  custom application keys, Camunda Form references, and form-free owners each need their own
+  decision. See `references/form-reference-migration.md`.
+- Offer to rebuild a form as a Camunda 8 form, and generate one only on an explicit user request. A
+  rebuilt form reproduces the data contract, never the Camunda 7 user interface.
+- Never accept, link, or deploy a generated form before the user reviews it. Ask about every semantic
+  gap and every unsupported construct, and never invent a replacement.
 
 ### Step 2: Assessment (always runs)
 
-Scan the project and produce inventories relevant to the chosen scope.
+Scan the project and produce the inventories that the chosen scope needs.
 
 #### Code Inventory
 
-Identify and classify all Camunda 7 related Java/config files into a table with columns: File, Type, Complexity, Notes. See `references/code-transform-checklist.md` for detection hints and type classifications.
+Classify every Camunda 7 related Java file and config file into a table with the columns File, Type,
+Complexity, Notes. See `references/code-transform-checklist.md` for the detection hints and the type
+classifications.
 
 #### Model Inventory
 
-Glob for model files. For each, note whether it uses the camunda: namespace and record its path in a table with columns: File, Type, Uses camunda: ns, Notes.
+Glob for the model files. Record each one in a table with the columns File, Type, Uses `camunda:` ns,
+Notes.
 
-Namespace-parse every original BPMN and add a Camunda 7 form inventory covering all form surfaces:
+Then parse every original BPMN with a namespace-aware parser and inventory all three Camunda 7 form
+surfaces:
 
-- **Generated Task Forms**: source file, process id, owning user task/start event,
-  `formData`/`formProperty`, field count, business-key field, custom types/validators, and initial
-  status. This source inventory is required because converted BPMN no longer contains the C7 form
-  metadata and form-property-only models may not emit a `form-data` finding with older converter
-  releases.
-- **Referenced forms**: every `camunda:formKey` and `camunda:formRef`. Classify each `formKey` by
-  exact, case-sensitive prefix (or by `${`/`#{` expression markers when no known prefix applies)
-  and classify every `formRef` as a Camunda Form reference. Record whether the referenced HTML or
-  `.form` file exists in the project.
-- **Generic Task Forms**: user tasks and process-level none start events with no form metadata at
-  all; their Camunda 7 ad-hoc Tasklist rendering has no Camunda 8 equivalent.
+| Surface | Record |
+|---|---|
+| Generated Task Forms (`camunda:formData`, `camunda:formProperty`) | source file, process id, owning user task or start event, field count, business-key field, custom types and validators, initial status |
+| Referenced forms (`camunda:formKey`, `camunda:formRef`) | the classification, and whether the referenced HTML or `.form` file exists in the project |
+| Generic Task Forms (no form metadata at all) | every form-free owner affected |
 
-See `references/form-reference-migration.md` for the classification rules and inventory columns.
-Classify from the original source, not from converter findings: older converter releases report all
-form-key types with one generic finding.
+See `references/form-reference-migration.md` for the classification rules and the full inventory
+columns.
 
-If the model-file inventory is empty and the user selected model migration, record that no local
-models were found and that E1 was offered.
+If the model inventory is empty and the user selected model migration, then record that no local
+model was found and that E1 was offered.
 
 #### Summary
 
-Present: total code/model files, overall complexity, whether OpenRewrite would help, blockers requiring manual decision, the model preflight result (including any user acknowledgment), and a note that running instances/history/audit data are out of scope (point to Data Migrator).
+Present the code file count, the model file count, the overall complexity, whether OpenRewrite would
+help, the blockers that need a manual decision, and the Step 0 preflight result including any user
+acknowledgment. State that running instances, history, and audit data are out of scope, and point the
+user to the Data Migrator.
 
-Write assessment to MIGRATION_REPORT.md. Use AskUserQuestion to wait for confirmation before proceeding.
+Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3, using
+AskUserQuestion.
 
 ### Step 3: Execute Migration
 
-Run Part A if scope includes code, Part B if scope includes models. For Code + models, see `references/composing-code-and-models.md`.
+Run Part A when the scope includes code. Run Part B when the scope includes models. For Code +
+models, see `references/composing-code-and-models.md`.
 
 #### Part A - Code Migration
 
-Apply the Transform checklist from `references/code-transform-checklist.md` using the selected approach:
+Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
+in Question 4. See `references/code-migration-approaches.md` for all three.
 
-- Approach A (OpenRewrite + AI): See `references/code-migration-approaches.md` for full OpenRewrite setup, Java compatibility checks, and AI cleanup procedure.
-- Approach B (AI only): Load pattern catalog, work full checklist items 1-8 in order, confirming each.
-- Approach C (Assessment only): Detailed report with effort estimates, no code changes.
+- **A. OpenRewrite + AI** (recommended) — run the recipes, then clean up what they left.
+- **B. AI only** — work checklist items 1 to 8 in order, confirming each one.
+- **C. Assessment only** — report with effort estimates, no code changes.
 
 #### Part B - Model Migration
 
-Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approach:
+Convert BPMN/DMN from the `camunda:` namespace to `zeebe:` with the approach chosen in Question 5.
+See `references/model-migration-approaches.md` for all four.
 
-- Approach M1 (Diagram Converter CLI + AI): See `references/model-migration-approaches.md` for CLI download, execution, and findings handling.
-- Approach M2 (Agentic AI): Direct XML rewrite without CLI. See `references/model-migration-approaches.md`.
-- Approach M3 (Online Converter): User uploads at hosted service manually.
-- Approach E1 (C7 Engine Source): Fetch from C7 REST API when no local models. See `references/model-migration-approaches.md`.
+- **M1. Diagram Converter CLI + AI** (recommended) — download and run the CLI, then handle the
+  findings.
+- **M2. Agentic AI** — rewrite the XML directly, without the CLI.
+- **M3. Online Converter** — the user uploads the diagrams at the hosted service.
+- **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
+  model exists.
 
-For every approach, run the Generated Task Form procedure in `references/form-migration.md` after
-the original and converted BPMN files are paired. It deterministically creates draft Camunda 8
-forms, collects required user decisions, and links only explicitly accepted forms.
-
-Then run `references/form-reference-migration.md` for referenced and missing forms. It inventories
-every embedded, external, Camunda Form, dynamic, and form-free owner, collects one decision per
-integration group within each category, relinks Camunda Forms, and rebuilds a Camunda 8 form only
-on explicit request.
-
+For every approach, once each original BPMN is paired with its converted copy, run
+`references/form-migration.md` for the Generated Task Forms, then
+`references/form-reference-migration.md` for the referenced forms and the form-free owners.
 ### Step 4: Validation (always runs)
 
-#### Code Validation (if code was migrated)
+Each item below is a check to run and a condition that must hold at exit. Record every result in
+`MIGRATION_REPORT.md`.
 
-1. Compile: run `mvn compile` or platform-appropriate Gradle compile task. Fix all errors.
-2. Check for remaining C7 references: search for `org.camunda.bpm` imports. Each is a missed migration.
-3. Check for remaining TODOs: search for `// TODO` migration comments. Each needs manual review.
-4. Check for legacy C8 client: search for `ZeebeClient` and `zeebe-client-java` (deprecated, removed in 8.10; migrate to CamundaClient).
-5. Check for leftover business keys: search for `businessKey`. Map per the pattern catalog (businessId 8.9+ / tags 8.8); keys mutated during the process stay a `businessKey` process variable.
-6. Run tests: run `mvn test` or platform-appropriate Gradle test task. Fix failures.
-7. Check common pitfalls:
-   - Critical naming swap: C7 processDefinitionKey (string key) becomes C8 bpmnProcessId; C7 processDefinitionId (UUID) becomes C8 processDefinitionKey. Same for decision definitions.
-   - Process instance IDs changed from String to Long.
-   - VariableMap usage: variables are now plain JSON, TypedValue API is gone.
-   - HistoryService references: map to search endpoints (eventually consistent).
-   - Batch operations: available since 8.8; only custom batch handlers need manual design.
+#### Code checks, when code was migrated
 
-#### Model Validation (if models were migrated)
+1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
+2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files. No dependency with a groupId that starts with `org.camunda.bpm.` remains either.
+3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
+   migration.
+4. **Migration TODOs** — search for `// TODO` comments that OpenRewrite inserted or that mark
+   migration work. Review each matching TODO and resolve or record it.
+5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.
+   Use `CamundaClient`.
+6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on
+   8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
+7. **Configuration** — `camunda.client.*` keys replace the `camunda.*` keys in
+   `application.properties` or `.yaml`.
+8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
+   documented with an explanation.
 
-After any manual BPMN edit, lint the converted file with the Camunda compatibility ruleset for the target version — see the linting section in `references/model-migration-approaches.md`.
+Check these pitfalls as well:
 
-1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
-2. Every WARNING/TASK/REVIEW finding is either fixed or classified in the per-category verdict table (category, count, cross-referenced code artifact, verdict: no action / needs review / needs fix) recorded in MIGRATION_REPORT.md — see `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not sufficient.
-3. Originals are intact and were not overwritten.
-4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
-5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
-6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
-7. Every referenced form (embedded, external, Camunda Form, dynamic) and every form-free user task or process-level none start event is accounted for with a recorded per-category decision and status — `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked`. The in-progress statuses `pending` and `draft` from `references/form-reference-migration.md` must not remain at validation time. Deferred or blocked items remain open follow-up work, and no such category is closed as "no action" merely because the converter copied a reference.
-8. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded binding decision (`bindingType` written for `deployment`/`versionTag`, or `latest` deliberately left to the Camunda 8 default), and the copied Camunda 7 `externalReference`/`formKey` is removed from that element.
-9. Temporary converter annotations are stripped from converted copies after the verdict table is
-   complete: no `conversion:*` nodes or attributes, no unused Camunda 7 namespace declarations,
-   and no leftover BPMN definitions-level XPath `expressionLanguage` attribute.
+- Naming swap: Camunda 7 `processDefinitionKey` (a string key) becomes Camunda 8 `bpmnProcessId`, and
+  Camunda 7 `processDefinitionId` (a UUID) becomes Camunda 8 `processDefinitionKey`. Decision
+  definitions swap the same way.
+- Camunda 7 `processInstanceId` is a `String`. Camunda 8 `processInstanceKey` is a `Long`. Update declarations and call sites, not only the names.
+- Variables are plain JSON and the `TypedValue` API is gone, so every `VariableMap` use changes.
+- `HistoryService` calls map to search endpoints, which are eventually consistent.
+- Batch operations exist since 8.8. Only a custom batch handler needs a manual design.
 
-Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
+#### Model checks, when models were migrated
+
+After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
+target version. See the linting section in `references/model-migration-approaches.md`.
+
+1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
+2. Every original file is intact and was never overwritten.
+3. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
+   with its category, count, cross-referenced code artifact, and verdict. See
+   `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
+4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
+   form-property-only definition. None is silently omitted.
+5. Every accepted form is a standard Camunda 8 `.form`.
+6. Every accepted form parses.
+7. Where a target-compatible official schema exists, the skill validates every accepted form with it.
+8. Where target-compatible form-js tooling exists, the skill imports or renders every accepted form
+   with it.
+9. Every accepted form has a matching `zeebe:formDefinition`.
+10. The skill deploys every accepted form with its BPMN.
+11. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
+   decision is recorded.
+12. Every referenced form and every form-free owner has a recorded per-category decision and a final
+   status of `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked`. The in-progress
+   statuses `pending` and `draft` must not remain. A `deferred` or `blocked` item stays open follow-up
+   work. A kept external reference is never reported as a completed migration, and no category is
+   closed as **no action** because the converter copied a reference.
+13. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded
+   binding decision: `bindingType` written for `deployment` and `versionTag`, or `latest` left
+   deliberately to the Camunda 8 default. The copied Camunda 7 `externalReference` or `formKey` is
+   gone from that element.
+14. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
+   `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
+   definitions-level XPath `expressionLanguage` attribute.
+
+#### Summary
+
+Present a validation summary that states the status of compilation, remaining Camunda 7 imports,
+remaining migration TODOs, `businessKey` uses, tests, converted models, and the findings that still
+need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
-If there are remaining TODOs, findings, compilation issues, deletion candidates, or unresolved items, proactively offer to resolve them. For model findings, work from the per-category verdict table (Step 4): categories with verdict **needs fix** are the follow-up work items; do not present findings as one undifferentiated list.
+If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
+to resolve it:
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
-Use AskUserQuestion with options:
-- Yes, fix what you can (recommended): AI resolves unambiguous items, proposes each for review.
-- Show me the list first: Present full list grouped by type, then ask which to fix.
-- No, I will handle the rest manually: Stop here; record remaining items in MIGRATION_REPORT.md.
+Use AskUserQuestion with these options:
 
-When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`: generate drafts deterministically, present each form for explicit review, and link only accepted forms. Handle the form-reference categories through `references/form-reference-migration.md`: present the inventory, take one decision per integration group within each category, grouping only owners that share an integration, and rebuild a form only when the user explicitly asks for it. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
+- **Yes, fix what you can (recommended)** — resolve the unambiguous items, and propose each one for
+  review.
+- **Show me the list first** — present the full list grouped by type, then ask which items to fix.
+- **No, I will handle the rest manually** — stop, and record the remaining items in
+  `MIGRATION_REPORT.md`.
 
-A second action type beyond fixing TODOs/findings is **delete now-redundant code**: the model/code cross-check flags C7-side workaround code as deletion candidates when a finding reports the capability is now native in Zeebe (see `references/composing-code-and-models.md`, "Now-redundant workaround code"). Deleting code is never unambiguous — even under "Yes, fix what you can", present every deletion candidate via AskUserQuestion with its reasoning (the triggering finding, what the code did, why it is now redundant) and delete only on explicit confirmation. Record confirmed deletions and declined candidates in MIGRATION_REPORT.md.
+#### Action 1: fix findings and migration TODOs
 
-## Validation / Exit Criteria
+For model findings, work from the Step 4 verdict table. Never present model findings as one
+undifferentiated list.
 
-1. All Camunda 7 dependencies (org.camunda.bpm.*) are removed from build files
-2. No remaining org.camunda.bpm imports in Java source files
-3. Project compiles successfully with Camunda 8 dependencies
-4. All tests pass (or failures are documented with explanation)
-5. All // TODO migration comments are resolved or explicitly recorded
-6. No ZeebeClient/zeebe-client-java references remain (deprecated)
-7. businessKey usages are mapped per the pattern catalog (businessId 8.9+ / tags 8.8), or kept as a `businessKey` process variable when the key is mutated during the process
-8. Configuration uses camunda.client.* keys instead of camunda.* keys
-9. For model migration: converted-c8-* files exist for all in-scope diagrams
-10. For model migration: all WARNING/TASK/REVIEW findings are resolved or classified in the verdict table in MIGRATION_REPORT.md
-11. MIGRATION_REPORT.md contains complete inventories, decisions, and validation results
-12. Original model files are intact (never overwritten)
-13. Every original Generated Task Form is accounted for, including form-property-only definitions
-14. Every accepted generated form is a standard Camunda 8 `.form`, explicitly accepted, linked by matching form id, and covered by deployment
-15. No draft, blocked, or declined generated form is linked or deployed
-16. Every Camunda 7 form reference and every form-free user task or process-level none start event is inventoried with a recorded per-category decision, and no kept external reference is reported as a completed migration
-17. Converted model copies contain no temporary `conversion:*` nodes or attributes, no unused
-    Camunda 7 namespace declarations, and no leftover BPMN definitions-level XPath
-    `expressionLanguage` attribute
+| Verdict | Action |
+|---|---|
+| **needs fix** | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs review** | Collect the pending user decision through AskUserQuestion before any fix. |
+| **no action** | Do not offer the category. |
+
+- Apply an unambiguous fix directly, using the pattern catalog.
+- Propose an ambiguous fix through AskUserQuestion. Skip whatever the user declines.
+- Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`:
+  generate the drafts deterministically, and link only an accepted form.
+- Handle the form-reference categories through `references/form-reference-migration.md`: present the
+  inventory, and take one decision per integration group inside each category, grouping only owners
+  that share an integration.
+- After each batch, ask whether to commit.
+- For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
+
+#### Action 2: delete now-redundant code
+
+The model/code cross-check flags Camunda 7 workaround code as a deletion candidate when a finding
+reports that Zeebe now provides the capability natively. See "Now-redundant workaround code" in
+`references/composing-code-and-models.md`.
+
+Deleting code is never unambiguous. Even under "Yes, fix what you can", present every deletion
+candidate through AskUserQuestion with its reasoning: the triggering finding, what the code did, and
+why it is now redundant. Delete only on an explicit confirmation. Record the confirmed deletions and
+the declined candidates in `MIGRATION_REPORT.md`.
+
+## Exit Criteria
+
+The migration run may exit when every pass condition in Step 4 holds and `MIGRATION_REPORT.md` holds
+the complete inventories, the decisions, and the validation results.
+The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
+issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
+Otherwise, the skill reports the migration as incomplete and records the follow-up work.

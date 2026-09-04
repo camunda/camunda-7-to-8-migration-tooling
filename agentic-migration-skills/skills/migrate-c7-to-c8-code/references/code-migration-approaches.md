@@ -1,5 +1,7 @@
 # Code Migration Approaches (Part A)
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 ## Approach A - OpenRewrite + AI (recommended)
 
 ### 1. Run OpenRewrite
@@ -8,11 +10,11 @@ RECIPES_VERSION by Camunda target (use latest from these minor versions):
 - 8.8: 0.2.x
 - 8.9 and 8.10: 0.3.x
 
-REWRITE_VERSION: Resolve latest released version via WebFetch:
+REWRITE_VERSION: resolve the latest released version via WebFetch:
 - rewrite-maven-plugin: https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml
-- Select highest stable version from versions, excluding snapshots and pre-releases.
+- Select the highest stable version, excluding snapshots and pre-releases.
 
-Check if the OpenRewrite plugin is already in the build file. If not, add it:
+If the OpenRewrite plugin is not already in the build file, add it:
 
 #### Maven - add to pom.xml:
 
@@ -52,41 +54,24 @@ rewrite {
 }
 ```
 
-Run platform-appropriate command:
+Run the platform-appropriate command:
 - macOS/Linux: `./gradlew rewriteRun`
 - Windows PowerShell: `.\gradlew.bat rewriteRun`
 - Windows cmd: `gradlew.bat rewriteRun`
 
 ### Java Compatibility for OpenRewrite
 
-Before running, check Java runtime compatibility:
+1. Run `java -version` from `PATH` (capture stderr) and record the actual major version. Show which executable runs: `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java` in Windows Command Prompt.
+   - The recipe module supports Java 21-25 (`[21,26)`). Check the selected project's OpenRewrite configuration for a stricter requirement first.
+   - If `java` is missing or outside that window, ask via AskUserQuestion for an alternate JDK home (the directory containing `bin/java`). Never install Java or change the user's system configuration automatically.
+   - Validate the supplied home: run its `bin/java` (Windows: `bin/java.exe`) with `-version`, capture stderr, and check the actual major version. Reject a missing `bin/javac` (Windows: `bin/javac.exe`), a stale path, a JRE-only directory, or an incompatible version.
+   - If multiple validated compatible homes exist, choose the lowest compatible major version to keep runs reproducible. Prefer 21, then 22, 23, 24, or 25 when several choices remain. (SHOULD)
+   - Use the validated home only for this rewrite invocation: set `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never use an unvalidated `java` on `PATH`.
 
-1. Run `java -version` from `PATH`, capturing stderr, and record the actual
-   major version. Use `command -v java` on macOS/Linux, `Get-Command java` in
-   PowerShell, or `where java` in Windows Command Prompt to show which
-   executable is being checked.
-   - The repository's recipe module supports Java 21-25 (`[21,26)`). Check
-     the selected project's OpenRewrite configuration for any stricter
-     requirement before running.
-   - If `java` is missing or outside that window, use AskUserQuestion to ask
-     for an alternate JDK home (the directory containing `bin/java`). Do not
-     install Java or change the user's system configuration automatically.
-   - Validate the supplied home by executing its
-     `bin/java` (Windows: `bin/java.exe`) with `-version`, capturing stderr,
-     and checking the actual major version. Reject missing `bin/javac`
-     (Windows: `bin/javac.exe`), stale paths, JRE-only directories, and
-     incompatible versions.
-   - If multiple validated compatible homes are available, choose the lowest
-     compatible major version to keep runs reproducible: prefer 21, then 22,
-     23, 24, 25.
-   - Use the validated home only for this rewrite invocation: set
-     `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never fall back
-     to an unvalidated `java` on `PATH`.
+2. Check the build files for a Spotless configuration.
 
-2. Inspect the build files to determine whether Spotless is configured.
-
-3. If Spotless is present AND selected Java major version >= 17:
-   - Run the OpenRewrite goal with JVM flags Spotless needs on Java 17+:
+3. If Spotless is present AND the selected Java major version >= 17:
+   - Run the OpenRewrite goal with the JVM flags Spotless needs on Java 17+:
      - `--add-opens=java.base/java.lang=ALL-UNNAMED`
      - `--add-opens=java.base/java.util=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED`
@@ -94,10 +79,10 @@ Before running, check Java runtime compatibility:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - Apply flags using a portable Maven JVM option mechanism:
-     - If .mvn directory exists, prefer appending to .mvn/jvm.config temporarily while preserving existing content.
-     - Otherwise, use JAVA_TOOL_OPTIONS rather than creating repository configuration solely for this temporary step.
-     - Arrange cleanup so it runs whether mvn rewrite:run succeeds or fails: restore previous .mvn/jvm.config content or remove if this step created it.
+   - Apply the flags via a portable Maven JVM option mechanism:
+     - If a `.mvn` directory exists, append to `.mvn/jvm.config` temporarily and preserve existing content (SHOULD).
+     - Otherwise use `JAVA_TOOL_OPTIONS`, not new repository configuration for this temporary step.
+     - Arrange cleanup to run whether `mvn rewrite:run` succeeds or fails: restore the previous `.mvn/jvm.config` content, or remove it if this step created it.
      - Do not stage or commit the temporary changes.
    - If this still fails with a Spotless error, ask: "Spotless is incompatible with your current Java version. Would you like to skip it (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK within the compatibility window?"
 
@@ -105,7 +90,7 @@ Before running, check Java runtime compatibility:
 
 ### 2. AI Cleanup After OpenRewrite
 
-Ask the user whether to run AI cleanup; proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then work the Transform checklist for what OpenRewrite left:
+Ask the user whether to run AI cleanup. Proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then work the Transform checklist for what OpenRewrite left:
 
 - Resolve all `// TODO` comments it inserted, and fix compile errors.
 - Apply checklist items 1 (deps/config), 5 (listeners), 6 (tests), 7 (JUEL), 8 (generated-form dependencies), and any 2 (client code) the recipes did not cover.
@@ -127,7 +112,7 @@ Use this when:
 
 ## Approach C - Assessment Only
 
-Present the code assessment table with additional detail:
+Present the code assessment table with extra detail:
 - Per-file effort estimate (hours)
 - Total estimated effort
 - Which files OpenRewrite can handle automatically vs. require manual AI work

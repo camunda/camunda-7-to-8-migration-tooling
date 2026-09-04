@@ -41,6 +41,7 @@ See the module-specific instructions for implementation and testing details:
 - [data-migrator/AGENTS.md](data-migrator/AGENTS.md)
 - [diagram-converter/AGENTS.md](diagram-converter/AGENTS.md)
 - [code-conversion/AGENTS.md](code-conversion/AGENTS.md)
+- [agentic-migration-skills/AGENTS.md](agentic-migration-skills/AGENTS.md) - writing conventions for skill text
 
 ## Build pipeline
 

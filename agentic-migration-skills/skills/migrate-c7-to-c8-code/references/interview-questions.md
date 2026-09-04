@@ -1,12 +1,14 @@
 # Interview Questions Reference
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 ## Pre-Interview Detection
 
-Before asking questions, pick a candidate project root (use provided argument or current working directory), then:
-1. Detect build tool by checking for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle)
+Pick a candidate project root (use provided argument or current working directory), then:
+1. Detect build tool from `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle)
 2. Glob for models: `**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`
 
-This shapes the scope question. The confirmed scan after Q1 gates whether C7 engine options are offered.
+This shapes the scope question. The confirmed scan after Q1 gates whether to offer C7 engine options.
 
 ## Question Batching Rules
 
@@ -37,7 +39,7 @@ Record the concrete major.minor and use it throughout. Also pass to Diagram Conv
 
 ## Question 3 - Migration Scope
 
-Tailor wording to what was detected. Options:
+Tailor wording to the detection. Options:
 - Code + models (recommended when both present, default)
 - Code only - Java/Spring code, runs Part A
 - Models only - BPMN/DMN diagrams, runs Part B
@@ -69,7 +71,7 @@ Include only if user selected model migration.
 - E1. Camunda 7 engine (recommended) - fetch definitions from C7 REST API
 - E2. Provide a model path - wait for user to provide another file/directory
 
-Any of M1-M3 can run in analyze-only mode first (--check flag).
+Any of M1-M3 can run in analyze-only mode first (`--check` flag).
 
 ---
 
