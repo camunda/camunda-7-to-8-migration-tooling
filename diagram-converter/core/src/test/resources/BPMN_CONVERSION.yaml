@@ -603,6 +603,141 @@ categories:
         expectedMessages: |
           <conversion:message severity="INFO">Called element reference binding has been mapped.</conversion:message>
           <conversion:message severity="INFO">Called element reference version tag has been mapped.</conversion:message>
+  - category: Camunda 8.10 conversion support
+    cases:
+      - name: New mappings are reported for a Camunda 8.8 target
+        properties:
+          platformVersion: "8.8"
+        givenBpmn: |
+          <bpmn:callActivity id="callWithBusinessKey" calledElement="childProcess">
+            <bpmn:extensionElements>
+              <camunda:in businessKey="#{execution.processBusinessKey}" />
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task id="taskWithListenerHeader">
+            <bpmn:extensionElements>
+              <camunda:executionListener class="listenerJob" event="start">
+                <camunda:field name="headerName">
+                  <camunda:string>headerValue</camunda:string>
+                </camunda:field>
+              </camunda:executionListener>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask id="ruleWithDynamicVersion" camunda:decisionRef="decision" camunda:decisionRefBinding="versionTag" camunda:decisionRefVersionTag="${decisionVersion}" />
+        expectedBpmn: |
+          <bpmn:callActivity calledElement="childProcess" completionQuantity="1" id="callWithBusinessKey" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledElement processId="childProcess" propagateAllChildVariables="false" propagateAllParentVariables="false"/>
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task completionQuantity="1" id="taskWithListenerHeader" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="listenerJob"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask completionQuantity="1" id="ruleWithDynamicVersion" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision bindingType="versionTag" decisionId="decision" resultVariable="decisionResult"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Element 'In' is not supported in Zeebe version '8.8'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="WARNING">Element 'Field' is not supported in Zeebe version '8.8'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'listenerJob' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="WARNING">Attribute 'decisionRefVersionTag' with value '${decisionVersion}' on 'businessRuleTask' is not supported.</conversion:message>
+          <conversion:message severity="INFO">Decision reference binding has been mapped.</conversion:message>
+      - name: New mappings are reported for a Camunda 8.9 target
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:callActivity id="callWithBusinessKey" calledElement="childProcess">
+            <bpmn:extensionElements>
+              <camunda:in businessKey="#{execution.processBusinessKey}" />
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task id="taskWithListenerHeader">
+            <bpmn:extensionElements>
+              <camunda:executionListener class="listenerJob" event="start">
+                <camunda:field name="headerName">
+                  <camunda:string>headerValue</camunda:string>
+                </camunda:field>
+              </camunda:executionListener>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask id="ruleWithDynamicVersion" camunda:decisionRef="decision" camunda:decisionRefBinding="versionTag" camunda:decisionRefVersionTag="${decisionVersion}" />
+        expectedBpmn: |
+          <bpmn:callActivity calledElement="childProcess" completionQuantity="1" id="callWithBusinessKey" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledElement processId="childProcess" propagateAllChildVariables="false" propagateAllParentVariables="false"/>
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task completionQuantity="1" id="taskWithListenerHeader" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="listenerJob"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask completionQuantity="1" id="ruleWithDynamicVersion" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision bindingType="versionTag" decisionId="decision" resultVariable="decisionResult"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Element 'In' is not supported in Zeebe version '8.9'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="WARNING">Element 'Field' is not supported in Zeebe version '8.9'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'listenerJob' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="WARNING">Attribute 'decisionRefVersionTag' with value '${decisionVersion}' on 'businessRuleTask' is not supported.</conversion:message>
+          <conversion:message severity="INFO">Decision reference binding has been mapped.</conversion:message>
+      - name: New mappings are converted for a Camunda 8.10 target
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:callActivity id="callWithBusinessKey" calledElement="childProcess">
+            <bpmn:extensionElements>
+              <camunda:in businessKey="#{execution.processBusinessKey}" />
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task id="taskWithListenerHeader">
+            <bpmn:extensionElements>
+              <camunda:executionListener class="listenerJob" event="start">
+                <camunda:field name="headerName">
+                  <camunda:string>headerValue</camunda:string>
+                </camunda:field>
+              </camunda:executionListener>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask id="ruleWithDynamicVersion" camunda:decisionRef="decision" camunda:decisionRefBinding="versionTag" camunda:decisionRefVersionTag="${decisionVersion}" />
+        expectedBpmn: |
+          <bpmn:callActivity calledElement="childProcess" completionQuantity="1" id="callWithBusinessKey" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledElement businessId="=camunda.processInstance.businessId" processId="childProcess" propagateAllChildVariables="false" propagateAllParentVariables="false"/>
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task completionQuantity="1" id="taskWithListenerHeader" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="listenerJob">
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="headerName" value="headerValue"/>
+                  </zeebe:taskHeaders>
+                </zeebe:executionListener>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask completionQuantity="1" id="ruleWithDynamicVersion" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision bindingType="versionTag" decisionId="decision" resultVariable="decisionResult" versionTag="=decisionVersion"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Element 'camunda:in' with businessKey '#{execution.processBusinessKey}' was mapped to 'businessId' on 'zeebe:calledElement'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'listenerJob' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="INFO">Execution listener field 'headerName' was mapped to a task header.</conversion:message>
+          <conversion:message severity="REVIEW">Decision reference version tag: Please review transformed expression: '${decisionVersion}' -&gt; '=decisionVersion'.</conversion:message>
+          <conversion:message severity="INFO">Decision reference binding has been mapped.</conversion:message>
   - category: Expressions
     cases:
       - name: Condition Expressions

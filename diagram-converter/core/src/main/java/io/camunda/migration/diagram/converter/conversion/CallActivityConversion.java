@@ -32,6 +32,10 @@ public class CallActivityConversion extends AbstractTypedConversion<CallActivity
       calledElement.setAttribute(
           ZEEBE, "versionTag", convertible.getZeebeCalledElement().getVersionTag());
     }
+    if (convertible.getZeebeCalledElement().getBusinessId() != null) {
+      calledElement.setAttribute(
+          ZEEBE, "businessId", convertible.getZeebeCalledElement().getBusinessId());
+    }
     calledElement.setAttribute(
         "propagateAllChildVariables",
         Boolean.toString(convertible.getZeebeCalledElement().isPropagateAllChildVariables()));

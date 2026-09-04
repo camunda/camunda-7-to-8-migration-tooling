@@ -44,6 +44,20 @@ public class ExecutionListenerConversion
     if (StringUtils.isNotBlank(executionListener.getRetries())) {
       executionListenerDom.setAttribute(ZEEBE, "retries", executionListener.getRetries());
     }
+    if (!executionListener.getZeebeTaskHeaders().isEmpty()) {
+      DomElement taskHeaders =
+          executionListenerDom.getDocument().createElement(ZEEBE, "taskHeaders");
+      executionListener
+          .getZeebeTaskHeaders()
+          .forEach(
+              header -> {
+                DomElement headerDom = taskHeaders.getDocument().createElement(ZEEBE, "header");
+                headerDom.setAttribute("key", header.key());
+                headerDom.setAttribute("value", header.value());
+                taskHeaders.appendChild(headerDom);
+              });
+      executionListenerDom.appendChild(taskHeaders);
+    }
     executionListeners.appendChild(executionListenerDom);
   }
 

@@ -16,6 +16,7 @@ import io.camunda.migration.diagram.converter.convertible.CallActivityConvertibl
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
+import io.camunda.migration.diagram.converter.message.EmptyMessage;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
@@ -26,6 +27,13 @@ import org.camunda.bpm.model.xml.instance.DomElement;
 public abstract class InOutVisitor extends AbstractCamundaElementVisitor {
   private static final String IN = "in";
   private static final String OUT = "out";
+  private static final String BUSINESS_KEY = "businessKey";
+  private static final String C7_PROCESS_BUSINESS_KEY_EXPRESSION =
+      "#{execution.processBusinessKey}";
+  private static final String C7_PROCESS_BUSINESS_KEY_EXPRESSION_WITH_DOLLAR =
+      "${execution.processBusinessKey}";
+  private static final String C8_PARENT_BUSINESS_ID_EXPRESSION =
+      "=camunda.processInstance.businessId";
 
   private boolean isSignalThrowEvent(DomElementVisitorContext context) {
     return isOnBpmnElement(context, BPMN, "signalEventDefinition")
@@ -57,7 +65,14 @@ public abstract class InOutVisitor extends AbstractCamundaElementVisitor {
   @Override
   public boolean canBeTransformed(DomElementVisitorContext context) {
     DomElement element = context.getElement();
-    return !isBusinessKey(element);
+    return !isBusinessKey(element) || isBusinessKeySupported(context);
+  }
+
+  @Override
+  protected SemanticVersion availableFrom(DomElementVisitorContext context) {
+    return isProcessBusinessKeyMapping(context)
+        ? SemanticVersion._8_10
+        : super.availableFrom(context);
   }
 
   @Override
@@ -92,6 +107,16 @@ public abstract class InOutVisitor extends AbstractCamundaElementVisitor {
         throw mustBeInOrOut();
       }
     } else if (isBusinessKey(context.getElement())) {
+      if (isBusinessKeySupported(context)) {
+        context.addConversion(
+            CallActivityConvertible.class,
+            conversion ->
+                conversion.getZeebeCalledElement().setBusinessId(C8_PARENT_BUSINESS_ID_EXPRESSION));
+        return MessageFactory.inOutBusinessKey(element.getAttribute(BUSINESS_KEY));
+      }
+      if (isProcessBusinessKeyMapping(context)) {
+        return new EmptyMessage();
+      }
       return MessageFactory.inOutBusinessKeyNotSupported(context.getElement().getLocalName());
     } else {
       String target = element.getAttribute("target");
@@ -126,7 +151,30 @@ public abstract class InOutVisitor extends AbstractCamundaElementVisitor {
   }
 
   private boolean isBusinessKey(DomElement element) {
-    return element.getAttribute("businessKey") != null;
+    return element.getAttribute(BUSINESS_KEY) != null;
+  }
+
+  private boolean isBusinessKeySupported(DomElementVisitorContext context) {
+    SemanticVersion targetVersion =
+        SemanticVersion.parse(context.getProperties().getPlatformVersion());
+    return targetVersion.ordinal() >= SemanticVersion._8_10.ordinal()
+        && isProcessBusinessKeyMapping(context);
+  }
+
+  private boolean isProcessBusinessKeyMapping(DomElementVisitorContext context) {
+    if (!isIn(context.getElement()) || !isOnBpmnElement(context, BPMN, "callActivity")) {
+      return false;
+    }
+    return isProcessBusinessKeyMapping(context.getElement());
+  }
+
+  private boolean isProcessBusinessKeyMapping(DomElement element) {
+    String businessKey = element.getAttribute(BUSINESS_KEY);
+    if (businessKey == null) {
+      return false;
+    }
+    return C7_PROCESS_BUSINESS_KEY_EXPRESSION.equals(businessKey.trim())
+        || C7_PROCESS_BUSINESS_KEY_EXPRESSION_WITH_DOLLAR.equals(businessKey.trim());
   }
 
   public static class InVisitor extends InOutVisitor {

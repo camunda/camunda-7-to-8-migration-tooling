@@ -30,6 +30,7 @@ public abstract class AbstractExecutionListenerConvertible
     private String listenerType;
     private String retries;
     private EventType eventType;
+    private final List<ZeebeTaskHeader> zeebeTaskHeaders = new ArrayList<>();
 
     public String getListenerType() {
       return listenerType;
@@ -55,9 +56,19 @@ public abstract class AbstractExecutionListenerConvertible
       this.eventType = eventType;
     }
 
+    public List<ZeebeTaskHeader> getZeebeTaskHeaders() {
+      return zeebeTaskHeaders;
+    }
+
+    public void addZeebeTaskHeader(String key, String value) {
+      zeebeTaskHeaders.add(new ZeebeTaskHeader(key, value));
+    }
+
     public enum EventType {
       start,
       end
     }
+
+    public record ZeebeTaskHeader(String key, String value) {}
   }
 }
