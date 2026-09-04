@@ -219,8 +219,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
 2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files. No dependency with a groupId that starts with `org.camunda.bpm.` remains either.
 3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
    migration.
-4. **Migration TODOs** — search `// TODO`. Each one needs manual review, and each is resolved or
-   recorded.
+4. **Migration TODOs** — search for `// TODO` comments that OpenRewrite inserted or that mark
+   migration work. Review each matching TODO and resolve or record it.
 5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.
    Use `CamundaClient`.
 6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on
@@ -273,12 +273,12 @@ target version. See the linting section in `references/model-migration-approache
 #### Summary
 
 Present a validation summary that states the status of compilation, remaining Camunda 7 imports,
-remaining TODOs, `businessKey` uses, tests, converted models, and the findings that still need
-follow-up. Record it in `MIGRATION_REPORT.md`.
+remaining migration TODOs, `businessKey` uses, tests, converted models, and the findings that still
+need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
-If any TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
+If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
 to resolve it:
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
@@ -291,7 +291,7 @@ Use AskUserQuestion with these options:
 - **No, I will handle the rest manually** — stop, and record the remaining items in
   `MIGRATION_REPORT.md`.
 
-#### Action 1: fix findings and TODOs
+#### Action 1: fix findings and migration TODOs
 
 Work from the Step 4 verdict table. Never present the findings as one undifferentiated list.
 

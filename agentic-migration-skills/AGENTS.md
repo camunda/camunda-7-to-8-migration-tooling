@@ -40,8 +40,8 @@ not an obligation.
 
 ## 2. EARS gives conditional rules their shape
 
-Write each conditional rule in one [EARS](https://alistairmavin.com/ears/) pattern. Drop the subject,
-because the declared convention already supplies it.
+Write each conditional rule in one [EARS](https://alistairmavin.com/ears/) pattern. Omit repeated
+obligation keywords. Keep the actor and subject explicit.
 
 | Pattern | Template |
 | --- | --- |
@@ -128,7 +128,8 @@ claims, and a length cap is the most common reason a rewrite silently swaps one 
 - [ ] Every rule you touched is still present, one rule per sentence.
 - [ ] Every preference carries `(SHOULD)` and every option carries `(MAY)`. Everything else reads as
       mandatory.
-- [ ] Every new classification rule is a table. No existing bullet list became a table.
+- [ ] Every new classification rule is a table. Convert existing decision logic to a table when it
+      improves readability, not only to reduce tokens.
 - [ ] No new synonym for a glossary term.
 - [ ] `README.md`, `plugin.json`, `skills/`, and `fixtures/` still agree with each other.
 - [ ] The fixture walkthroughs still describe what the skill does.

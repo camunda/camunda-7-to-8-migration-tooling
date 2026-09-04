@@ -186,8 +186,8 @@ Offer these options:
 
 `c7-camunda-form-reference` rows skip this question. Relink them (see below).
 `c7-dynamic-form-reference` rows, `camunda:formHandlerClass`, and conflicting form definitions stay
-`needs review` until the user resolves them explicitly. A form key computed at runtime may resolve to
-several forms, so enumerate the possible values with the user before you migrate any of them.
+`needs review` until the user resolves them explicitly. A form key computed at runtime may resolve
+to several forms. The skill enumerates the possible values with the user before migration.
 
 Never treat silence, a general "migrate everything" instruction, or an earlier approval of a
 different category as consent to rebuild a form.
@@ -211,7 +211,7 @@ For both:
 2. Read the form's own `id` from the converted `.form` file. Do not derive it from the file name. Do
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
-   path, and ask the user which side changes. Do not relink until you resolve it.
+   path. Ask the user which side changes. The skill does not relink until the user decides.
 3. Ensure the converted element carries exactly one `zeebe:formDefinition` with `formId` set to that
    id, and remove any copied Camunda 7 reference (`externalReference` or `formKey`).
 4. Confirm the binding as a recorded decision, not an accident. Write `bindingType` for `deployment`
@@ -272,9 +272,9 @@ Every row is a *candidate* the user must confirm.
 Insert a visible `MigrationWarning_...` component for every unresolved row, exactly as
 `form-migration.md` describes, and record the same gap in `MIGRATION_REPORT.md`.
 
-Layout, styling, custom JavaScript behavior, and conditional logic are never carried over. Say so
-explicitly when you present the draft: a rebuilt form reproduces the *data contract*, not the
-Camunda 7 user interface. Never claim behavioral equivalence.
+Layout, styling, custom JavaScript behavior, and conditional logic are never carried over. The skill
+states this explicitly when it presents the draft. A rebuilt form reproduces the *data contract*,
+not the Camunda 7 user interface. The skill never claims behavioral equivalence.
 
 ### Link an accepted rebuilt form
 

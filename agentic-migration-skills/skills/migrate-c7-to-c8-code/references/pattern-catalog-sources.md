@@ -18,11 +18,13 @@ Where the catalog and this skill disagree, the catalog wins. Report the disagree
 **Fetch only the files the code inventory needs.** `ALL_IN_ONE.md` concatenates the whole catalog into
 one 12,000-word file. Fetching it whole costs more context than a migration usually needs.
 `code-transform-checklist.md` names the catalog path for each of its items 1 to 6. Map the Type column
-of the code inventory to those items, then fetch that set:
+and detected patterns in the Notes column of the code inventory to those items, then fetch that set.
+Fetch cross-cutting files when the Notes column identifies the related pattern, regardless of the
+primary Type.
 
 | Inventory Type | Catalog path |
 |---|---|
-| Config, dependencies | `10-general/dependencies.md` |
+| Config, dependencies | `10-general/dependencies.md`; add `20-client-code/10-process-engine/handle-resources.md` when `@EnableProcessApplication`, implicit classpath deployment, or model-resource wiring is detected |
 | Any variable handling | `10-general/process-variables.md` |
 | Client code | Fetch the files for the detected operations: `20-client-code/10-process-engine/adjusting-the-java-class.md`, `20-client-code/10-process-engine/batch-operations.md`, `20-client-code/10-process-engine/broadcast-signals.md`, `20-client-code/10-process-engine/business-key-and-tags.md`, `20-client-code/10-process-engine/cancel-process-instance.md`, `20-client-code/10-process-engine/correlate-messages.md`, `20-client-code/10-process-engine/evaluate-decisions.md`, `20-client-code/10-process-engine/handle-files-and-documents.md`, `20-client-code/10-process-engine/handle-process-variables.md`, `20-client-code/10-process-engine/handle-resources.md`, `20-client-code/10-process-engine/handle-user-tasks.md`, `20-client-code/10-process-engine/query-history.md`, `20-client-code/10-process-engine/raise-incidents.md`, `20-client-code/10-process-engine/search-process-definitions.md`, `20-client-code/10-process-engine/starting-process-instances.md` |
 | JavaDelegate | Fetch the files for the detected operations: `30-glue-code/10-java-spring-delegate/adjusting-the-java-class.md`, `30-glue-code/10-java-spring-delegate/handling-a-bpmn-error.md`, `30-glue-code/10-java-spring-delegate/handling-a-failure.md`, `30-glue-code/10-java-spring-delegate/handling-an-incident.md`, `30-glue-code/10-java-spring-delegate/handling-process-variables.md` |
@@ -31,8 +33,13 @@ of the code inventory to those items, then fetch that set:
 | HTTP connector code | `30-glue-code/outbound-http-rest-connector.md` |
 | Test code | Fetch the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md` |
 
+When Notes identify `FileValue` or `Variables.fileValue(...)`, add
+`10-general/process-variables.md` and `20-client-code/10-process-engine/handle-files-and-documents.md`.
+When Notes identify `camunda:connector`, `http-connector`, or HTTP client code in a delegate, add
+`30-glue-code/outbound-http-rest-connector.md`.
+
 Fetch `ALL_IN_ONE.md` only when the inventory spans most of the catalog, or when a path above returns
-404 and you need to find the moved file. (MAY)
+404 and the skill needs to find the moved file. (MAY)
 
 ## Model/Diagram Patterns
 
