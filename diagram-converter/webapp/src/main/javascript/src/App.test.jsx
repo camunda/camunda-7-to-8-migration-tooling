@@ -968,7 +968,7 @@ describe("advanced options", () => {
     const hints = [
       {
         id: "appendDocumentationOnlyTaskAndWarningHint",
-        text: 'Writes "No direct mapping" (WARNING) and "Manual action required" (TASK) findings into the documentation of each BPMN element, so you can act on them in the Modeler. "Verify after conversion" (REVIEW) and "No action needed" (INFO) findings are left out, and DMN and form files are not affected.',
+        text: "Appends findings with WARNING or TASK severity to the documentation of each BPMN element, so you can act on them in the Modeler. REVIEW and INFO messages are left out.",
       },
       {
         id: "addDataMigrationExecutionListenerHint",
