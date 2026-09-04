@@ -100,7 +100,7 @@ export const task_local_variable = [
 		},
 		target: {},
 		mappedExplanation:
-			"In Camunda 8.10, there is no endpoint to delete a process variables. You can update it to null or an empty string.",
+			"In Camunda 8.10, there is no endpoint to delete a process variable. You can update it to null or an empty string.",
 	},
 	{
 		origin: {

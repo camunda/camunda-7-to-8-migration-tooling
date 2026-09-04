@@ -100,10 +100,6 @@ export const external_task = [
 					rightEntry: <pre>(int64) requestTimeout</pre>,
 				},
 				{
-					leftEntry: <pre>(int64) asyncResponseTimeout</pre>,
-					rightEntry: <pre>(int64) requestTimeout</pre>,
-				},
-				{
 					leftEntry: <pre>(string) topics[].topicName</pre>,
 					rightEntry: (
 						<>

@@ -101,7 +101,7 @@ export const task_variable = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"There is no endpoint yet to delete a process variables in Camunda 8.10. You can update it to null or an empty string.",
+			"There is no endpoint yet to delete a process variable in Camunda 8.10. You can update it to null or an empty string.",
 	},
 	{
 		origin: {
