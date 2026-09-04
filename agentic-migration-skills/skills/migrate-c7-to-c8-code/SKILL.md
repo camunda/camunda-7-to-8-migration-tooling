@@ -233,7 +233,7 @@ Check these pitfalls as well:
 - Naming swap: Camunda 7 `processDefinitionKey` (a string key) becomes Camunda 8 `bpmnProcessId`, and
   Camunda 7 `processDefinitionId` (a UUID) becomes Camunda 8 `processDefinitionKey`. Decision
   definitions swap the same way.
-- A process instance id changed from `String` to `Long`.
+- Camunda 7 `processInstanceId` becomes Camunda 8 `processInstanceKey`.
 - Variables are plain JSON and the `TypedValue` API is gone, so every `VariableMap` use changes.
 - `HistoryService` calls map to search endpoints, which are eventually consistent.
 - Batch operations exist since 8.8. Only a custom batch handler needs a manual design.

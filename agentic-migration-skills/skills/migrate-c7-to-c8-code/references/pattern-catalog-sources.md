@@ -7,7 +7,8 @@ Fetch individual catalog files from
 `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/<catalog-path>`.
 
 The catalog is the source of truth for every API mapping, artifact id, and version-specific
-workaround. CI regenerates `README.md` and `ALL_IN_ONE.md` during validation, then checks that they
+workaround. CI regenerates `code-conversion/patterns/README.md` and
+`code-conversion/patterns/ALL_IN_ONE.md` during validation, then checks that they
 match the generated catalog. CI does not commit generated changes. The catalog and this skill can
 change together.
 Where the catalog and this skill disagree, the catalog wins. Report the disagreement.
