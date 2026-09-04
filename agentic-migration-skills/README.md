@@ -1,6 +1,6 @@
 # Agentic Migration Skills
 
-[Agent Skills](https://agentskills.io/) that migrate Camunda 7 projects to Camunda 8, both Java code and BPMN/DMN models. The skill states intent instead of commands, so a compatible AI coding agent can run it on Windows, macOS, or Linux.
+[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8 — both Java code and BPMN/DMN models. The skill is written in intent-first, platform-agnostic terms so compatible AI coding agents can adapt execution to Windows, macOS, or Linux.
 
 ## Install
 
