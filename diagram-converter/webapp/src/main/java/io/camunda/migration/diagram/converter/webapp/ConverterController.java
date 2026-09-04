@@ -335,6 +335,11 @@ public class ConverterController {
       @RequestParam("file") MultipartFile diagramFile,
       @RequestParam(value = "appendDocumentation", required = false, defaultValue = "false")
           Boolean appendDocumentation,
+      @RequestParam(
+              value = "appendDocumentationOnlyTaskAndWarning",
+              required = false,
+              defaultValue = "false")
+          Boolean appendDocumentationOnlyTaskAndWarning,
       @RequestParam(value = "defaultJobType", required = false) String defaultJobType,
       @RequestParam(value = "platformVersion", required = false) String platformVersion,
       @RequestParam(value = "keepJobTypeBlank", required = false, defaultValue = "false")
@@ -399,6 +404,7 @@ public class ConverterController {
       bpmnConverter.convert(
           modelInstance,
           appendDocumentation,
+          appendDocumentationOnlyTaskAndWarning,
           defaultJobType,
           normalizePlatformVersion(platformVersion),
           keepJobTypeBlank,
@@ -433,6 +439,11 @@ public class ConverterController {
       @RequestParam("file") List<MultipartFile> diagramFiles,
       @RequestParam(value = "appendDocumentation", required = false, defaultValue = "false")
           Boolean appendDocumentation,
+      @RequestParam(
+              value = "appendDocumentationOnlyTaskAndWarning",
+              required = false,
+              defaultValue = "false")
+          Boolean appendDocumentationOnlyTaskAndWarning,
       @RequestParam(value = "defaultJobType", required = false) String defaultJobType,
       @RequestParam(value = "platformVersion", required = false) String platformVersion,
       @RequestParam(value = "keepJobTypeBlank", required = false, defaultValue = "false")
@@ -501,6 +512,7 @@ public class ConverterController {
         bpmnConverter.convert(
             modelInstance,
             appendDocumentation,
+            appendDocumentationOnlyTaskAndWarning,
             defaultJobType,
             normalizePlatformVersion(platformVersion),
             keepJobTypeBlank,

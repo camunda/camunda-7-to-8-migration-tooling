@@ -38,11 +38,15 @@ import {
 
 // Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
 // every uploaded file plus the config fields in a single multipart request.
-// The server accepts at most 100 multipart parts (server.tomcat.max-part-count)
-// and createFormData() always appends 6 non-file fields, leaving 94 parts
-// available for files. Keep these values in sync with the server configuration.
+// The server accepts at most MAX_MULTIPART_PARTS parts total (mirrors
+// server.tomcat.max-part-count in application.yaml, which is where the
+// server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
+// sync if that value ever changes). createFormData() always appends
+// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 6 config
+// options), so the actual per-batch file limit is lower than the raw part
+// count.
 const MAX_MULTIPART_PARTS = 100;
-const FIXED_FORM_FIELD_COUNT = 6;
+const FIXED_FORM_FIELD_COUNT = 7;
 const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 // Warn a bit before the hard limit so users can trim the batch (or switch to
 // the local converter) before a combined download fails outright.
@@ -85,6 +89,7 @@ function App() {
     alwaysUseDefaultJobType: false,
     addDataMigrationExecutionListener: false,
     dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
+    appendDocumentationOnlyTaskAndWarning: false,
   });
 
   function handleVersionKeyDown(event) {
@@ -256,6 +261,11 @@ function App() {
 
     if (configOptions.dataMigrationExecutionListenerJobType !== undefined)
       formData.append("dataMigrationExecutionListenerJobType", configOptions.dataMigrationExecutionListenerJobType);
+    if (configOptions.appendDocumentationOnlyTaskAndWarning !== undefined)
+      formData.append(
+        "appendDocumentationOnlyTaskAndWarning",
+        configOptions.appendDocumentationOnlyTaskAndWarning
+      );
     return formData;
   }
 
@@ -787,6 +797,29 @@ function App() {
               </h2>
             {showConfig && (
                 <FormGroup legendText="">
+                  <Checkbox
+                    id="appendDocumentationOnlyTaskAndWarning"
+                    labelText="Append only WARNING and TASK findings to BPMN documentation"
+                    checked={configOptions.appendDocumentationOnlyTaskAndWarning}
+                    aria-describedby="appendDocumentationOnlyTaskAndWarningHint"
+                    onChange={(e, { checked }) =>
+                      setConfigOptions((prev) => ({
+                        ...prev,
+                        appendDocumentationOnlyTaskAndWarning: checked,
+                      }))
+                    }
+                  />
+                  <p
+                    id="appendDocumentationOnlyTaskAndWarningHint"
+                    className="configOptionHint"
+                  >
+                    Writes "No direct mapping" (WARNING) and "Manual action required" (TASK)
+                    findings into the documentation of each BPMN element, so you can act on
+                    them in the Modeler. "Verify after conversion" (REVIEW) and "No action
+                    needed" (INFO) findings are left out, and DMN and form files are not
+                    affected.
+                  </p>
+                  <div className="form-spacer" />
                   <Checkbox
                     id="addDataMigrationExecutionListener"
                     labelText="Add data migration execution listener"
