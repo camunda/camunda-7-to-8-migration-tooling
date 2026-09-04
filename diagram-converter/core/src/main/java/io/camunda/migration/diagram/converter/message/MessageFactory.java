@@ -114,6 +114,11 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message inOutBusinessKey(String businessKey) {
+    return INSTANCE.composeMessage(
+        "in-out-business-key", ContextBuilder.builder().entry("businessKey", businessKey).build());
+  }
+
   public static Message elementNotSupported(String elementLocalName, String semanticVersion) {
     return INSTANCE.composeMessage(
         "element-not-supported",
@@ -204,6 +209,11 @@ public class MessageFactory {
             .entry("event", event)
             .entry("implementation", implementation)
             .build());
+  }
+
+  public static Message executionListenerField(String fieldName) {
+    return INSTANCE.composeMessage(
+        "execution-listener-field", ContextBuilder.builder().entry("fieldName", fieldName).build());
   }
 
   public static Message taskListenerNotSupported(String event, String type, String implementation) {
