@@ -10,6 +10,23 @@ import { EndpointInfo } from "./EndpointInfo";
 import { MappingTableEntry } from "./MappingTableEntry";
 import styles from "./mappingTable.module.css";
 
+function EndpointInfos({ endpointInfo }) {
+	if (!endpointInfo) {
+		return null;
+	}
+
+	const endpointInfos = Array.isArray(endpointInfo)
+		? endpointInfo
+		: [endpointInfo];
+
+	return endpointInfos.map((info) => (
+		<EndpointInfo
+			key={info.path + info.operation}
+			endpointInfo={info}
+		/>
+	));
+}
+
 export const MappingTableRows = ({ endpoint }) => (
 	<>
 		{endpoint.endpoints.map(
@@ -31,9 +48,7 @@ export const MappingTableRows = ({ endpoint }) => (
 									<EndpointInfo endpointInfo={c7Info} />
 								</td>
 								<td rowSpan="3">
-									{c8Info ? (
-										<EndpointInfo endpointInfo={c8Info} />
-									) : null}
+									<EndpointInfos endpointInfo={c8Info} />
 								</td>
 								{direct ? (
 									<td className={styles.green}>
@@ -94,7 +109,7 @@ export const MappingTableRows = ({ endpoint }) => (
 							</td>
 							<td>
 								{c8Info ? (
-									<EndpointInfo endpointInfo={c8Info} />
+									<EndpointInfos endpointInfo={c8Info} />
 								) : discontinuedExplanation ? (
 									<div>no suitable mapping</div>
 								) : roadmapExplanation ? (
