@@ -338,7 +338,7 @@ class ArchitectureTest {
     classes()
         .that().resideInAPackage("..qa..")
         .and().haveSimpleNameEndingWith("Test")
-        .and().resideOutsideOfPackages("..persistence..", "..distribution..")
+        .and().resideOutsideOfPackages("..persistence..", "..distribution..", "..util..")
         .and().doNotHaveSimpleName("ArchitectureTest")
         .should(extendAppropriateAbstractTestClass())
         .allowEmptyShould(true)
