@@ -460,7 +460,10 @@ export const variable_instance = [
 						to cursor traversal because C8 does not allow offset
 						and cursor pagination together. Apply{" "}
 						<code>firstResult</code> and{" "}
-						<code>maxResults</code>.
+						<code>maxResults</code>. Include{" "}
+						<code>?truncateValues=false</code> when complete
+						variable values are required; the search endpoint
+						truncates values by default.
 					</p>
 					<p>
 						Use one Camunda 8 request per{" "}
@@ -640,15 +643,18 @@ export const variable_instance = [
 		discontinuedExplanation: (
 			<p>
 				Camunda 8.10 does not provide a generic binary variable download
-				endpoint. For a document-backed variable, call{" "}
+				endpoint. The C7 variable-instance <code>id</code> is not a
+				Camunda 8 <code>variableKey</code>; resolve the
+				migration-specific ID-to-key correlation before calling{" "}
 				<code>GET /variables/{"{variableKey}"}</code>
-				, resolve its <code>DocumentReference</code>, and download the
-				content with <code>GET /documents/{"{documentId}"}</code>,
-				always passing <code>storeId</code> and including{" "}
+				. Resolve its <code>DocumentReference</code> and download the
+				content with <code>GET /documents/{"{documentId}"}</code>.
+				Pass its <code>storeId</code> and include{" "}
 				<code>contentHash</code> only when it is non-null as query
-				parameters. See the
-				process-variable mapping for this conditional flow. Other
-				non-document binary variable types have no equivalent endpoint.
+				parameters. See the process-variable mapping for these
+				<code>DocumentReference</code> fields and the conditional
+				flow. Other non-document binary variable types have no
+				equivalent endpoint.
 			</p>
 		),
 	},

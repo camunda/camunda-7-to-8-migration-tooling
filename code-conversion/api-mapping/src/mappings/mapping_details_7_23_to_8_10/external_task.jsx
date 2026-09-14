@@ -385,29 +385,23 @@ export const external_task = [
 				{
 					leftEntry: <pre>(string[]) externalTaskIds</pre>,
 					rightEntry: (
-						<>
-							<pre>(string[]) filter.jobKey.$in</pre>
-							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
-							</p>
-						</>
+						<p>
+							Resolve these identifiers to current, deduplicated
+							Camunda 8 job keys through the candidate-search
+							flow below. Do not pass them directly as a batch
+							update filter.
+						</p>
 					),
 				},
 				{
 					leftEntry: <pre>(string[]) processInstanceIds</pre>,
 					rightEntry: (
-						<>
-							<pre>(string[]) filter.processInstanceKey.$in</pre>
-							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
-							</p>
-						</>
+						<p>
+							Resolve the matching current, deduplicated Camunda
+							8 job keys through the candidate-search flow below.
+							Do not pass process-instance keys directly as a
+							batch update filter.
+						</p>
 					),
 				},
 				{
@@ -491,8 +485,12 @@ export const external_task = [
 							</pre>
 							<p>
 								Use the advanced comparison operators shown
-								above; these criteria must not be copied as
-								top-level fields.
+								above only when searching candidates. Validate
+								each C7 priority bound against the signed
+								32-bit C8 range. Jobs created before Camunda
+								8.10 may have no stored priority and are
+								excluded by priority filters; preserve source
+								correlation or mark that selector unsupported.
 							</p>
 						</>
 					),
@@ -523,11 +521,13 @@ export const external_task = [
 								(string[]) filter.tenantId.$in
 							</pre>
 							<p>
-								Translate each supported field into the nested{" "}
-								<code>filter</code> object. A C7 process
+								Use these fields only to search candidate
+								<code>BPMN_ELEMENT</code> jobs. A C7 process
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
-								interchangeable with it.
+								interchangeable with it. Do not pass this
+								selector directly to the batch update; submit
+								only the deduplicated current job keys.
 							</p>
 						</>
 					),
@@ -544,10 +544,12 @@ export const external_task = [
 						<>
 							<pre>(string) filter.processDefinitionKey</pre>
 							<p>
-								Translate each version-specific Camunda 7
-								process definition ID to the corresponding
-								Camunda 8 process definition key before
-								applying this filter.
+								Use this only to search candidates. Translate
+								each version-specific Camunda 7 process
+								definition ID to the corresponding Camunda 8
+								process definition key, then submit only the
+								deduplicated current job keys to the batch
+								update.
 							</p>
 						</>
 					),
@@ -688,29 +690,23 @@ export const external_task = [
 				{
 					leftEntry: <pre>(string[]) externalTaskIds</pre>,
 					rightEntry: (
-						<>
-							<pre>(string[]) filter.jobKey.$in</pre>
-							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
-							</p>
-						</>
+						<p>
+							Resolve these identifiers to current, deduplicated
+							Camunda 8 job keys through the candidate-search
+							flow below. Do not pass them directly as a batch
+							update filter.
+						</p>
 					),
 				},
 				{
 					leftEntry: <pre>(string[]) processInstanceIds</pre>,
 					rightEntry: (
-						<>
-							<pre>(string[]) filter.processInstanceKey.$in</pre>
-							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
-							</p>
-						</>
+						<p>
+							Resolve the matching current, deduplicated Camunda
+							8 job keys through the candidate-search flow below.
+							Do not pass process-instance keys directly as a
+							batch update filter.
+						</p>
 					),
 				},
 				{
@@ -794,8 +790,12 @@ export const external_task = [
 							</pre>
 							<p>
 								Use the advanced comparison operators shown
-								above; these criteria must not be copied as
-								top-level fields.
+								above only when searching candidates. Validate
+								each C7 priority bound against the signed
+								32-bit C8 range. Jobs created before Camunda
+								8.10 may have no stored priority and are
+								excluded by priority filters; preserve source
+								correlation or mark that selector unsupported.
 							</p>
 						</>
 					),
@@ -826,11 +826,13 @@ export const external_task = [
 								(string[]) filter.tenantId.$in
 							</pre>
 							<p>
-								Translate each supported field into the nested{" "}
-								<code>filter</code> object. A C7 process
+								Use these fields only to search candidate
+								<code>BPMN_ELEMENT</code> jobs. A C7 process
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
-								interchangeable with it.
+								interchangeable with it. Do not pass this
+								selector directly to the batch update; submit
+								only the deduplicated current job keys.
 							</p>
 						</>
 					),
@@ -847,10 +849,12 @@ export const external_task = [
 						<>
 							<pre>(string) filter.processDefinitionKey</pre>
 							<p>
-								Translate each version-specific Camunda 7
-								process definition ID to the corresponding
-								Camunda 8 process definition key before
-								applying this filter.
+								Use this only to search candidates. Translate
+								each version-specific Camunda 7 process
+								definition ID to the corresponding Camunda 8
+								process definition key, then submit only the
+								deduplicated current job keys to the batch
+								update.
 							</p>
 						</>
 					),
