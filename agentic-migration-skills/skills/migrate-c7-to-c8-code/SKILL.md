@@ -310,7 +310,7 @@ target version. See the linting section in `references/model-migration-approache
 9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted or relinked form
    with it.
 10. Every accepted or relinked form has a matching `zeebe:formDefinition`.
-11. The skill deploys every accepted or relinked form with its BPMN.
+11. The skill deploys every accepted or relinked form with `bindingType=deployment` in the same deployment as its owning BPMN.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final

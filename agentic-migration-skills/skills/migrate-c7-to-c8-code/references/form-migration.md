@@ -379,7 +379,8 @@ Where deployment uses Spring Boot `@Deployment`, retain any target prefix that t
 Where deployment uses Spring Boot `@Deployment`, use explicit accepted resource paths derived from
 each normalized packaged path when possible.
 Where deployment uses Spring Boot `@Deployment`, derive a recursive pattern from the normalized
-packaged paths, including any selected prefix, only when it cannot include drafts or declined forms.
+packaged paths of accepted or relinked forms with `bindingType=deployment`, including any selected
+prefix, only when it cannot include draft, blocked, or declined forms.
 Where deployment uses an explicit `CamundaClient` command, validate each deployment-bound accepted
 or relinked form against the source used by the explicit deployment command.
 Where deployment uses an explicit `CamundaClient` command, confirm that the command supplies the
