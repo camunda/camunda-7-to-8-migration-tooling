@@ -14,15 +14,21 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.command.ProblemException;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.client.api.search.response.Tenant;
+import io.camunda.client.api.search.response.TenantUser;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -79,21 +85,105 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
     // C8
-    List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    for (ProcessInstance i : items) {
-      try {
-        camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-      } catch (ClientStatusException | ProblemException e) {
-        if (!e.getMessage().contains("NOT_FOUND")) {
-          throw e;
-        }
-        // Ignore NOT_FOUND errors as the instance might have been deleted already
-      }
-    }
+    awaitProcessInstanceCleanup();
 
     // Migrator
     dbClient.deleteAllMappings();
     runtimeMigrator.setMode(MIGRATE);
+  }
+
+  protected void awaitProcessInstanceCleanup() {
+    AtomicInteger consecutiveEmptySearches = new AtomicInteger();
+    Awaitility.await().ignoreException(ClientException.class).until(() -> {
+      List<ProcessInstance> items = findAllProcessInstances();
+      boolean allProcessInstancesCleared = deleteProcessInstances(items);
+      if (items.isEmpty() || allProcessInstancesCleared) {
+        return consecutiveEmptySearches.incrementAndGet() >= 3;
+      }
+      consecutiveEmptySearches.set(0);
+      return false;
+    });
+  }
+
+  protected boolean deleteProcessInstances(List<ProcessInstance> items) {
+    boolean allProcessInstancesCleared = true;
+    for (ProcessInstance i : items) {
+      try {
+        if (i.getState() == ProcessInstanceState.ACTIVE || i.getState() == ProcessInstanceState.SUSPENDED) {
+          camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
+          allProcessInstancesCleared = false;
+        } else {
+          camundaClient.newDeleteProcessInstanceCommand(i.getProcessInstanceKey()).execute();
+        }
+      } catch (ClientStatusException | ProblemException e) {
+        if (!e.getMessage().contains("NOT_FOUND")) {
+          throw e;
+        }
+        // The search result is stale; the instance is already gone.
+      }
+    }
+    return allProcessInstancesCleared;
+  }
+
+  protected List<ProcessInstance> findAllProcessInstances() {
+    final List<ProcessInstance> items = new ArrayList<>();
+    String cursor = null;
+
+    while (true) {
+      final var request = camundaClient.newProcessInstanceSearchRequest();
+      if (cursor != null) {
+        final String pageCursor = cursor;
+        request.page(page -> page.after(pageCursor));
+      }
+
+      final var response = request.execute();
+      items.addAll(response.items());
+
+      final String nextCursor = response.page().endCursor();
+      if (response.items().isEmpty() || nextCursor == null || nextCursor.equals(cursor)) {
+        return items;
+      }
+      cursor = nextCursor;
+    }
+  }
+
+  protected void awaitTenantVisible(String tenantId) {
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() ->
+        assertThat(camundaClient.newTenantsSearchRequest().filter(filter -> filter.tenantId(tenantId)).execute().items())
+            .extracting(Tenant::getTenantId)
+            .contains(tenantId));
+  }
+
+  protected void awaitUserTenantMembership(String username, String tenantId) {
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() ->
+        assertThat(camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items())
+            .extracting(TenantUser::getUsername)
+            .contains(username));
+  }
+
+  protected void awaitRuntimeMigratorStart() {
+    Awaitility.await().atMost(Duration.ofSeconds(30)).until(() -> {
+      try {
+        runtimeMigrator.start();
+        return true;
+      } catch (RuntimeMigratorException e) {
+        if (isAuthorizationPropagationFailure(e)) {
+          return false;
+        }
+        throw e;
+      }
+    });
+  }
+
+  protected boolean isAuthorizationPropagationFailure(RuntimeMigratorException exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause.getMessage() != null && cause.getMessage().contains("user is not authorized")) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 
   protected Optional<Variable> getVariableByScope(Long processInstanceKey, Long scopeKey, String variableName) {
