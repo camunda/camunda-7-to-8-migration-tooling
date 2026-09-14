@@ -19,8 +19,8 @@ Use `.camunda-migration/m2/` for M2 converted copies. Record every M2 converted-
 Before any approach (M1, M2, M3, E1), scan for outputs of previous migration attempts:
 
 - M1/E1 converted copies from previous runs, regardless of the selected `--prefix`
-- M2 converted copies under `.camunda-migration/m2/` and every path recorded in
-  `MIGRATION_REPORT.md`
+- M2 converted copies under `.camunda-migration/m2/`, beside their source from older skill
+  versions, and every path recorded in `MIGRATION_REPORT.md`
 - M3 downloaded converted files
 - accepted generated forms beside converted BPMN, and drafts under `.camunda-migration/generated-form-drafts/`
 - `analysis-results.<ext>` and `analysis-results (n).<ext>` findings reports, where `n` is a positive integer and `<ext>` is `.csv`, `.json`, `.md`, or `.xlsx`
