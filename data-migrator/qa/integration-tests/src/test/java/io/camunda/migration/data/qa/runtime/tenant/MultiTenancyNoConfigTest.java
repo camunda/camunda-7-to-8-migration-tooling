@@ -53,8 +53,6 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     // assign the default user to the tenants
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_1).execute();
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).execute();
-    awaitUserTenantMembership(DEFAULT_USERNAME, TENANT_ID_1);
-    awaitUserTenantMembership(DEFAULT_USERNAME, TENANT_ID_2);
   }
 
   @Test

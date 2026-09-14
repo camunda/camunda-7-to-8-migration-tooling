@@ -48,7 +48,6 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
     awaitTenantVisible(TENANT_ID_1);
     // assign the default user to the tenant
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_1).execute();
-    awaitUserTenantMembership(DEFAULT_USERNAME, TENANT_ID_1);
   }
 
   @Test
@@ -81,7 +80,6 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
     client.newCreateTenantCommand().tenantId(TENANT_ID_2).name(TENANT_ID_2).execute();
     awaitTenantVisible(TENANT_ID_2);
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).execute();
-    awaitUserTenantMembership(DEFAULT_USERNAME, TENANT_ID_2);
     deployer.deployCamunda8Process(SIMPLE_PROCESS_BPMN, TENANT_ID_2);
 
     runtimeMigrator.setMode(MigratorMode.RETRY_SKIPPED);
