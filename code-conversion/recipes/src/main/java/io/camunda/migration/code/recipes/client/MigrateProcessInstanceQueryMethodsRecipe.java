@@ -125,6 +125,30 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
     specs.add(new ReplacementUtils.BuilderReplacementSpec(
         new MethodMatcher("org.camunda.bpm.engine.query.Query list()"),
+        Set.of(),
+        Collections.emptyList(),
+        RecipeUtils.createSimpleJavaTemplate(
+            """
+            #{camundaClient:any(io.camunda.client.CamundaClient)}
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                .send()
+                .join()
+                .items()
+            """,
+            PROCESS_INSTANCE_STATE,
+            "io.camunda.client.api.search.response.ProcessInstance",
+            "io.camunda.client.api.search.filter.ProcessInstanceFilter"),
+        RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+        "List<io.camunda.client.api.search.response.ProcessInstance>",
+        ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+        Collections.emptyList(),
+        Collections.emptyList(),
+        List.of(PROCESS_INSTANCE_STATE),
+        Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
+
+    specs.add(new ReplacementUtils.BuilderReplacementSpec(
+        new MethodMatcher("org.camunda.bpm.engine.query.Query list()"),
         Set.of("processInstanceBusinessKey"),
         Collections.emptyList(),
         RecipeUtils.createSimpleJavaTemplate(
@@ -580,17 +604,19 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   @Override
   protected String manualMigrationComment(J.MethodInvocation invocation, Cursor cursor) {
     Expression select = unwrapParentheses(invocation.getSelect());
-    String variableName = null;
+    Expression trackedVariable = null;
     if (invocation.getSimpleName().equals("size")) {
-      variableName = getTrackedVariableName(select);
+      trackedVariable = select;
     } else if (invocation.getSimpleName().equals("count")
         && select instanceof J.MethodInvocation stream
-        && stream.getSimpleName().equals("stream")
-        ) {
-      variableName = getTrackedVariableName(unwrapParentheses(stream.getSelect()));
+        && stream.getSimpleName().equals("stream")) {
+      trackedVariable = unwrapParentheses(stream.getSelect());
     }
 
-    return variableName != null && isTrackedQueryResultVariable(variableName, cursor)
+    String variableName =
+        trackedVariable == null ? null : getTrackedVariableName(trackedVariable);
+    return variableName != null
+            && isTrackedQueryResultVariable(trackedVariable, cursor)
         ? MigrationMessages.formatQueryResultCount(variableName)
         : null;
   }

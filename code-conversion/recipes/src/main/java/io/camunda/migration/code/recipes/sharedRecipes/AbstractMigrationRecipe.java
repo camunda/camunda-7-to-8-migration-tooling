@@ -16,6 +16,7 @@ import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaPrinter;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.tree.*;
 
@@ -23,6 +24,88 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
   private static final String QUERY_RESULT_VARIABLE_STATES_MESSAGE =
       "migration.query-result-variable-states";
+
+  private static final class QueryResultVariable {
+    private final String name;
+    private final String fieldSymbol;
+    private final String receiver;
+
+    private QueryResultVariable(
+        String name, String fieldSymbol, String receiver) {
+      this.name = name;
+      this.fieldSymbol = fieldSymbol;
+      this.receiver = receiver;
+    }
+
+    private static QueryResultVariable local(String name) {
+      return new QueryResultVariable(name, null, null);
+    }
+
+    private static QueryResultVariable fromDeclaration(
+        J.Identifier identifier, Cursor declarationScope) {
+      if (declarationScope == null
+          || !(declarationScope.getValue() instanceof J.ClassDeclaration)) {
+        return local(identifier.getSimpleName());
+      }
+
+      QueryResultVariable field = from(identifier);
+      return field.isField()
+          ? field
+          : new QueryResultVariable(identifier.getSimpleName(), null, "this");
+    }
+
+    private static QueryResultVariable from(Expression expression) {
+      if (expression instanceof J.Identifier identifier) {
+        JavaType.Variable fieldType = identifier.getFieldType();
+        return new QueryResultVariable(
+            identifier.getSimpleName(),
+            fieldType == null ? null : fieldType.toString(),
+            null);
+      }
+      if (expression instanceof J.FieldAccess fieldAccess) {
+        JavaType.Variable fieldType = fieldAccess.getName().getFieldType();
+        return new QueryResultVariable(
+            fieldAccess.getName().getSimpleName(),
+            fieldType == null ? null : fieldType.toString(),
+            fieldType == null
+                ? fieldAccess.getTarget().printTrimmed(new JavaPrinter<>())
+                : null);
+      }
+      return null;
+    }
+
+    private boolean isField() {
+      return fieldSymbol != null || receiver != null;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof QueryResultVariable variable)
+          || isField() != variable.isField()) {
+        return false;
+      }
+      if (!isField()) {
+        return name.equals(variable.name);
+      }
+      if (fieldSymbol != null || variable.fieldSymbol != null) {
+        return Objects.equals(fieldSymbol, variable.fieldSymbol);
+      }
+      return name.equals(variable.name) && Objects.equals(receiver, variable.receiver);
+    }
+
+    @Override
+    public int hashCode() {
+      if (!isField()) {
+        return name.hashCode();
+      }
+      return fieldSymbol != null
+          ? fieldSymbol.hashCode()
+          : Objects.hash(name, receiver);
+    }
+  }
 
   /** Instantiates a new instance. */
   public AbstractMigrationRecipe() {}
@@ -91,24 +174,33 @@ public abstract class AbstractMigrationRecipe extends Recipe {
   }
 
   private void updateQueryResultVariableState(
-      Cursor cursor, String variableName, boolean tracked) {
-    Cursor scope = findQueryResultVariableScope(cursor, variableName);
+      Cursor cursor, QueryResultVariable variable, boolean tracked) {
+    if (variable == null) {
+      return;
+    }
+
+    Cursor scope = findQueryResultVariableScope(cursor, variable);
     if (scope == null) {
       return;
     }
 
-    putQueryResultVariableState(scope, variableName, tracked);
+    putQueryResultVariableState(scope, variable, tracked);
   }
 
   private void putQueryResultVariableState(
-      Cursor scope, String variableName, boolean tracked) {
-    Map<String, Boolean> states = scope.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
+      Cursor scope, QueryResultVariable variable, boolean tracked) {
+    Map<QueryResultVariable, Boolean> states =
+        scope.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
     states = states == null ? new HashMap<>() : new HashMap<>(states);
-    states.put(variableName, tracked);
+    // Keep field tracking conservative because assignments in different methods are unordered.
+    if (!tracked && variable.isField() && Boolean.TRUE.equals(states.get(variable))) {
+      return;
+    }
+    states.put(variable, tracked);
     scope.putMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE, states);
   }
 
-  private Cursor findQueryResultVariableScope(Cursor cursor, String variableName) {
+  private Cursor findQueryResultVariableScope(Cursor cursor, QueryResultVariable variable) {
     Cursor current = cursor;
     Cursor nearestBlock = null;
     while (current != null) {
@@ -121,13 +213,26 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             nearestBlock = current;
           }
         }
-        Map<String, Boolean> states = current.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
-        if (states != null && states.containsKey(variableName)) {
+        Map<QueryResultVariable, Boolean> states =
+            current.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
+        if (states != null && states.containsKey(variable)) {
           return current;
         }
       }
       current = current.getParent();
     }
+
+    if (variable.isField()) {
+      current = cursor;
+      while (current != null) {
+        if (current.getValue() instanceof J.ClassDeclaration) {
+          return current;
+        }
+        current = current.getParent();
+      }
+      return null;
+    }
+
     return nearestBlock;
   }
 
@@ -135,9 +240,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
     Cursor current = cursor;
     while (current != null) {
       Object value = current.getValue();
-      if (value instanceof J.Block
-          || value instanceof J.MethodDeclaration
-          || value instanceof J.ClassDeclaration) {
+      if (value instanceof J.Block) {
+        Cursor parent = current.getParent();
+        return parent != null && parent.getValue() instanceof J.ClassDeclaration
+            ? parent
+            : current;
+      }
+      if (value instanceof J.MethodDeclaration || value instanceof J.ClassDeclaration) {
         return current;
       }
       current = current.getParent();
@@ -145,12 +254,70 @@ public abstract class AbstractMigrationRecipe extends Recipe {
     return null;
   }
 
-  protected boolean isTrackedQueryResultVariable(String variableName, Cursor cursor) {
+  protected boolean isTrackedQueryResultVariable(Expression variable, Cursor cursor) {
+    QueryResultVariable queryResultVariable = resolveQueryResultVariable(variable, cursor);
+    return queryResultVariable != null
+        && isTrackedQueryResultVariable(queryResultVariable, cursor);
+  }
+
+  private QueryResultVariable resolveQueryResultVariable(
+      Expression variable, Cursor cursor) {
+    QueryResultVariable localVariable =
+        variable instanceof J.Identifier identifier
+            ? QueryResultVariable.local(identifier.getSimpleName())
+            : null;
+    if (localVariable != null && hasQueryResultVariableState(localVariable, cursor)) {
+      return localVariable;
+    }
+    if (variable instanceof J.Identifier identifier) {
+      QueryResultVariable fieldVariable =
+          findFieldVariableState(cursor, identifier.getSimpleName());
+      if (fieldVariable != null) {
+        return fieldVariable;
+      }
+    }
+    return QueryResultVariable.from(variable);
+  }
+
+  private QueryResultVariable findFieldVariableState(Cursor cursor, String name) {
     Cursor current = cursor;
     while (current != null) {
-      Map<String, Boolean> states = current.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
-      if (states != null && states.containsKey(variableName)) {
-        return Boolean.TRUE.equals(states.get(variableName));
+      Map<QueryResultVariable, Boolean> states =
+          current.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
+      if (states != null) {
+        for (QueryResultVariable variable : states.keySet()) {
+          if (variable.isField() && variable.name.equals(name)) {
+            return variable;
+          }
+        }
+      }
+      current = current.getParent();
+    }
+    return null;
+  }
+
+  private boolean hasQueryResultVariableState(
+      QueryResultVariable variable, Cursor cursor) {
+    Cursor current = cursor;
+    while (current != null) {
+      Map<QueryResultVariable, Boolean> states =
+          current.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
+      if (states != null && states.containsKey(variable)) {
+        return true;
+      }
+      current = current.getParent();
+    }
+    return false;
+  }
+
+  private boolean isTrackedQueryResultVariable(
+      QueryResultVariable variable, Cursor cursor) {
+    Cursor current = cursor;
+    while (current != null) {
+      Map<QueryResultVariable, Boolean> states =
+          current.getMessage(QUERY_RESULT_VARIABLE_STATES_MESSAGE);
+      if (states != null && states.containsKey(variable)) {
+        return Boolean.TRUE.equals(states.get(variable));
       }
       current = current.getParent();
     }
@@ -191,7 +358,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                           .isPresent();
               if (declarationScope != null) {
                 putQueryResultVariableState(
-                    declarationScope, variable.getName().getSimpleName(), tracksQueryResult);
+                    declarationScope,
+                    QueryResultVariable.fromDeclaration(variable.getName(), declarationScope),
+                    tracksQueryResult);
               }
             }
 
@@ -347,14 +516,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             }
 
             Expression originalAssignment = unwrapParentheses(assignment.getAssignment());
-            String assignedVariableName = getAssignedVariableName(assignment.getVariable());
+            QueryResultVariable assignedVariable =
+                resolveQueryResultVariable(assignment.getVariable(), getCursor());
             if (!(originalAssignment instanceof J.MethodInvocation invocation)) {
-              if (assignedVariableName != null) {
-                updateQueryResultVariableState(
-                    getCursor(),
-                    assignedVariableName,
-                    false);
-              }
+              updateQueryResultVariableState(getCursor(), assignedVariable, false);
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -362,12 +527,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             ReplacementUtils.ReplacementSpec matchingSpec =
                 findReplacementSpec(invocation).orElse(null);
 
-            if (assignedVariableName != null) {
-              updateQueryResultVariableState(
-                  getCursor(),
-                  assignedVariableName,
-                  matchingSpec != null && shouldTrackQueryResultVariable(invocation, matchingSpec));
-            }
+            updateQueryResultVariableState(
+                getCursor(),
+                assignedVariable,
+                matchingSpec != null && shouldTrackQueryResultVariable(invocation, matchingSpec));
 
             if (matchingSpec != null) {
               ReplacementUtils.ReplacementSpec spec = matchingSpec;
@@ -816,16 +979,6 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               expression = nested;
             }
             return expression;
-          }
-
-          private String getAssignedVariableName(Expression variable) {
-            if (variable instanceof J.Identifier identifier) {
-              return identifier.getSimpleName();
-            }
-            if (variable instanceof J.FieldAccess fieldAccess) {
-              return fieldAccess.getName().getSimpleName();
-            }
-            return null;
           }
 
           private boolean hasAnyMethodInReceiverChain(
