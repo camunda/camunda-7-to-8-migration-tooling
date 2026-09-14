@@ -394,6 +394,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void countQueries() {
                     int listSize = camundaClient
                             .newProcessInstanceSearchRequest()
@@ -521,6 +522,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int countProcessInstances() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -531,6 +533,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue();
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int countProcessInstancesWithTernary(boolean useCount) {
                     int count = useCount
                             ? camundaClient
@@ -544,6 +547,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     return count;
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int countProcessInstancesWithAssignment() {
                     int count = 0;
                     count = camundaClient
@@ -556,6 +560,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     return count;
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int countProcessInstancesWithMultipleVariables() {
                     int other = 0, count = camundaClient
                             .newProcessInstanceSearchRequest()
@@ -569,6 +574,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
                 private void acceptInt(int count) {}
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void countProcessInstancesAsMethodArgument() {
                     acceptInt(camundaClient
                             .newProcessInstanceSearchRequest()
@@ -579,6 +585,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue());
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void countProcessInstancesAsParenthesizedMethodArgument() {
                     acceptInt((camundaClient
                             .newProcessInstanceSearchRequest()
@@ -774,6 +781,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int switchOnCount() {
                     switch (camundaClient
                             .newProcessInstanceSearchRequest()
@@ -789,6 +797,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     }
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int arrayIndex(int[] values) {
                     return values[camundaClient
                             .newProcessInstanceSearchRequest()
@@ -799,6 +808,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue()];
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int[] arrayDimension() {
                     return new int[camundaClient
                             .newProcessInstanceSearchRequest()
@@ -809,6 +819,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue()];
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int[] arrayInitializer() {
                     int[] values = {camundaClient
                             .newProcessInstanceSearchRequest()
@@ -820,6 +831,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     return values;
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public IntSupplier intSupplier() {
                     IntSupplier count = () -> camundaClient
                             .newProcessInstanceSearchRequest()
@@ -835,6 +847,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
                 private void acceptInts(int... counts) {}
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void nestedMethodArguments() {
                     acceptInt(camundaClient
                             .newProcessInstanceSearchRequest()
@@ -852,6 +865,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue());
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int[] nestedArrayDimension() {
                     return new int[camundaClient
                             .newProcessInstanceSearchRequest()
@@ -862,6 +876,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue() + 1];
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int nestedSwitchSelector() {
                     switch (camundaClient
                             .newProcessInstanceSearchRequest()
@@ -877,6 +892,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     }
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public String nestedSwitchExpression() {
                     return switch (camundaClient
                             .newProcessInstanceSearchRequest()
@@ -890,6 +906,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     };
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int[] nestedArrayInitializer() {
                     return new int[] {camundaClient
                             .newProcessInstanceSearchRequest()
@@ -900,6 +917,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue() + 1};
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int parenthesizedListSize() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -910,6 +928,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue();
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long parenthesizedStreamCount() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -920,6 +939,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().longValue();
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int parenthesizedReceiverChainListSize() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -930,6 +950,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue();
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public int parenthesizedFilteredListSize() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1011,6 +1032,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void countQueries() {
                     int total = 0;
                     total += camundaClient
@@ -1105,7 +1127,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
                 }
             }
             """));
@@ -1178,6 +1200,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public Object objectCount() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1188,6 +1211,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().intValue();
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public Number numberCount() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1200,6 +1224,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
                 private void acceptObject(Object count) {}
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void genericArgument() {
                     acceptObject(camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1286,7 +1311,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
                 }
 
                 public int countUnfilteredInstances() {
@@ -1297,7 +1322,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
                 }
             }
             """));
@@ -1403,7 +1428,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
                 }
 
                 public long countDeclaredStreamInstances() {
@@ -1415,7 +1440,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.stream().count();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.stream().count();
                 }
 
                 public int countNestedAssignedInstances() {
@@ -1430,7 +1455,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                                 .join()
                                 .items();
                     }
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
                 }
 
                 public void assignFieldInstances() {
@@ -1445,7 +1470,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 }
 
                 public int countFieldInstances() {
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: fieldInstances */ fieldInstances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: fieldInstances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ fieldInstances.size();
                 }
             }
             """));
@@ -1509,6 +1534,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long countProcessInstances() {
                     return camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1519,6 +1545,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems();
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long assignProcessInstances() {
                     long count = camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1599,6 +1626,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public void countQueries(String activityId, String businessKey) {
                     long activityCount = camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1694,6 +1722,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long countWithRepeatedProcessDefinitionKey(
                         String firstProcessDefinitionKey, String secondProcessDefinitionKey) {
                     return camundaClient
@@ -1760,6 +1789,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 private ProcessEngine engine;
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long[] arrayDimension() {
                     long[] values = new long[camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1771,6 +1801,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     return values;
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long switchSelector() {
                     long result = switch (camundaClient
                             .newProcessInstanceSearchRequest()
@@ -1875,7 +1906,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 }
 
                 public int fieldQueryResult() {
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
                 }
 
                 public int reassignedQueryResult() {
@@ -1889,6 +1920,221 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .items();
                     instances = new ArrayList<>();
                     return instances.size();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void keepsPossibleQueryResultAfterConditionalReassignment() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class ConditionalQueryResultTrackingTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public int countAfterConditionalReassignment(boolean reset) {
+                    List<?> instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list();
+                    if (reset) {
+                        instances = new ArrayList<>();
+                    }
+                    return instances.size();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import io.camunda.client.api.search.response.ProcessInstance;
+
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class ConditionalQueryResultTrackingTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public int countAfterConditionalReassignment(boolean reset) {
+                    List<ProcessInstance> instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                    if (reset) {
+                        instances = new ArrayList<>();
+                    }
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void flagsDerivedProcessInstanceStreamCounts() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class DerivedProcessInstanceStreamCountTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public long directDerivedCount() {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list()
+                            .stream()
+                            .filter(instance -> true)
+                            .count();
+                }
+
+                public long assignedDerivedCount() {
+                    List<?> instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list();
+                    return instances.stream()
+                            .filter(instance -> true)
+                            .count();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import io.camunda.client.api.search.response.ProcessInstance;
+
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class DerivedProcessInstanceStreamCountTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public long directDerivedCount() {
+                    return /* TODO: Manual migration required - preserve the complete query count before applying stream operations to the paginated result. */ camundaClient
+                                    .newProcessInstanceSearchRequest()
+                                    .filter(filter -> filter
+                                            .processDefinitionId("order-process")
+                                            .state(ProcessInstanceState.ACTIVE))
+                                    .send()
+                                    .join()
+                                    .items()
+                            .stream()
+                            .filter(instance -> true)
+                            .count();
+                }
+
+                public long assignedDerivedCount() {
+                    List<ProcessInstance> instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                    return /* TODO: Manual migration required - preserve the complete query count before applying stream operations to the paginated result. */ instances.stream()
+                            .filter(instance -> true)
+                            .count();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void tracksFieldQueryResultsBeforeTheirAssignments() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class FieldQueryResultOrderTestClass {
+
+                private List<?> instances;
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public int countFieldBeforeLoad() {
+                    return instances.size();
+                }
+
+                public void loadField() {
+                    instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class FieldQueryResultOrderTestClass {
+
+                private List<?> instances;
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public int countFieldBeforeLoad() {
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ instances.size();
+                }
+
+                public void loadField() {
+                    instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
                 }
             }
             """));
@@ -1962,7 +2208,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 }
 
                 public int countThisField() {
-                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ this.instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances. Check page().hasMoreTotalItems() because totalItems() can be a lower bound. */ this.instances.size();
                 }
 
                 public int countOtherField() {
@@ -2182,6 +2428,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
             import org.camunda.bpm.engine.ProcessEngine;
             import org.springframework.beans.factory.annotation.Autowired;
             import org.springframework.stereotype.Component;
+            import java.util.List;
 
             @Component
             public class GenuinelyUnfilteredProcessInstanceCountsTestClass {
@@ -2204,8 +2451,58 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .count();
                 }
 
+                public int assignedListSize() {
+                    List<?> instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list();
+                    return instances.size();
+                }
+
                 public long directCount() {
                     return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .count();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+            import java.util.List;
+
+            @Component
+            public class GenuinelyUnfilteredProcessInstanceCountsTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                public int listSize() {
+                    return /* TODO: Manual migration required - preserve the unfiltered process-instance count, including suspended instances, before migration. */ engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list()
+                            .size();
+                }
+
+                public long streamCount() {
+                    return /* TODO: Manual migration required - preserve the unfiltered process-instance count, including suspended instances, before migration. */ engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list()
+                            .stream()
+                            .count();
+                }
+
+                public int assignedListSize() {
+                    List<?> instances = /* TODO: Manual migration required - preserve the unfiltered process-instance count, including suspended instances, before migration. */ engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list();
+                    return instances.size();
+                }
+
+                public long directCount() {
+                    return /* TODO: Manual migration required - preserve the unfiltered process-instance count, including suspended instances, before migration. */ engine.getRuntimeService()
                             .createProcessInstanceQuery()
                             .count();
                 }
@@ -2272,6 +2569,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long directCount() {
                     long count = camundaClient
                             .newProcessInstanceSearchRequest()
@@ -2283,6 +2581,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     return count + other;
                 }
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 public long streamCount() {
                     long count = camundaClient
                             .newProcessInstanceSearchRequest()
