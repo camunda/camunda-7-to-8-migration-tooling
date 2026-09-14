@@ -143,8 +143,10 @@ export const variable_instance = [
 								operator. For <code>eq</code> and{" "}
 								<code>neq</code>, resolve the migrated variable
 								type before serializing the value: encode
-								numbers and booleans as native JSON values and
-								actual strings with their quotes. If the type
+								numbers and booleans as JSON literals inside the
+								string filter value, and actual strings with
+								their quotes. The C8 <code>filter.value</code>
+								property remains a string. If the type
 								cannot be resolved, omit the value filter and
 								search or post-filter using C7 string semantics
 								instead of assuming a JSON string. For{" "}

@@ -386,10 +386,15 @@ export const external_task = [
 					leftEntry: <pre>(string[]) externalTaskIds</pre>,
 					rightEntry: (
 						<p>
-							Resolve these identifiers to current, deduplicated
-							Camunda 8 job keys through the candidate-search
-							flow below. Do not pass them directly as a batch
-							update filter.
+							These identifiers are not exposed as a Camunda 8
+							job field. Resolve each one through
+							migration-specific correlation from the C7
+							external-task ID to its corresponding current C8
+							job key; a candidate search alone cannot establish
+							that relationship. If the correlation is
+							unavailable, mark this selector unsupported.
+							Deduplicate the correlated keys and do not pass
+							the IDs directly as a batch update filter.
 						</p>
 					),
 				},
@@ -432,6 +437,8 @@ export const external_task = [
 								(string) filter.jobKey
 								<br />
 								(string[]) filter.jobKey.$in
+								<br />
+								(string) filter.kind
 								<br />
 								(string) filter.type
 								<br />
@@ -491,6 +498,11 @@ export const external_task = [
 								8.10 may have no stored priority and are
 								excluded by priority filters; preserve source
 								correlation or mark that selector unsupported.
+								For <code>noRetriesLeft</code>, emit{" "}
+								<code>filter.retries.$eq=0</code> only when
+								the C7 flag is <code>true</code>;{" "}
+								<code>false</code> and an omitted flag are
+								no-ops and must not add a retry predicate.
 							</p>
 						</>
 					),
@@ -569,11 +581,15 @@ export const external_task = [
 						<code>BPMN_ELEMENT</code>. For a selector with a C7
 						topic, also set its corresponding{" "}
 						<code>filter.type</code>. A selector without a topic
-						requires a complete allowlist of all external-task job
-						types and one search per type; a single arbitrary type
+						that is not constrained by an exact job key requires a
+						complete allowlist of all external-task job types and
+						one search per type; a single arbitrary type
 						under-selects, while <code>filter.kind</code> alone
-						over-selects. If that allowlist is unavailable, mark the
-						selector unsupported and do not run the batch update.
+						over-selects. If that allowlist is unavailable, mark
+						the selector unsupported and do not run the batch
+						update. An exact job key or correlated
+						<code>jobKey.$in</code> selector does not need that
+						allowlist.
 					</p>
 					<p>
 						For retry updates, a kind/type filter can still match
@@ -691,10 +707,15 @@ export const external_task = [
 					leftEntry: <pre>(string[]) externalTaskIds</pre>,
 					rightEntry: (
 						<p>
-							Resolve these identifiers to current, deduplicated
-							Camunda 8 job keys through the candidate-search
-							flow below. Do not pass them directly as a batch
-							update filter.
+							These identifiers are not exposed as a Camunda 8
+							job field. Resolve each one through
+							migration-specific correlation from the C7
+							external-task ID to its corresponding current C8
+							job key; a candidate search alone cannot establish
+							that relationship. If the correlation is
+							unavailable, mark this selector unsupported.
+							Deduplicate the correlated keys and do not pass
+							the IDs directly as a batch update filter.
 						</p>
 					),
 				},
@@ -737,6 +758,8 @@ export const external_task = [
 								(string) filter.jobKey
 								<br />
 								(string[]) filter.jobKey.$in
+								<br />
+								(string) filter.kind
 								<br />
 								(string) filter.type
 								<br />
@@ -796,6 +819,11 @@ export const external_task = [
 								8.10 may have no stored priority and are
 								excluded by priority filters; preserve source
 								correlation or mark that selector unsupported.
+								For <code>noRetriesLeft</code>, emit{" "}
+								<code>filter.retries.$eq=0</code> only when
+								the C7 flag is <code>true</code>;{" "}
+								<code>false</code> and an omitted flag are
+								no-ops and must not add a retry predicate.
 							</p>
 						</>
 					),
@@ -874,11 +902,15 @@ export const external_task = [
 						<code>BPMN_ELEMENT</code>. For a selector with a C7
 						topic, also set its corresponding{" "}
 						<code>filter.type</code>. A selector without a topic
-						requires a complete allowlist of all external-task job
-						types and one search per type; a single arbitrary type
+						that is not constrained by an exact job key requires a
+						complete allowlist of all external-task job types and
+						one search per type; a single arbitrary type
 						under-selects, while <code>filter.kind</code> alone
-						over-selects. If that allowlist is unavailable, mark the
-						selector unsupported and do not run the batch update.
+						over-selects. If that allowlist is unavailable, mark
+						the selector unsupported and do not run the batch
+						update. An exact job key or correlated
+						<code>jobKey.$in</code> selector does not need that
+						allowlist.
 					</p>
 					<p>
 						Apply the same current-task restriction to this
@@ -1003,10 +1035,13 @@ export const external_task = [
 				check. C7 and C8 lifecycle and nullable-retry semantics are not
 				fully equivalent; preserve source correlation for exact
 				exhausted/nullable cases or mark those cases unsupported.
-				C7 exposes <code>withRetriesLeft</code>, but its null branch
-				cannot be represented by the non-null C8{" "}
-				<code>retries</code> field. Do not add a retry predicate when
-				the flag is absent; retain all current candidates. C7 has no{" "}
+				C7 exposes <code>withRetriesLeft</code>. When it is{" "}
+				<code>true</code>, add{" "}
+				<code>filter.retries.$gt=0</code> and include correlated
+				source tasks whose C7 retry value is null; if those null
+				values cannot be correlated, mark the mapping unsupported.
+				When the flag is absent, do not add a retry predicate and
+				retain all current candidates. C7 has no{" "}
 				<code>noRetriesLeft</code> parameter for this endpoint.
 				<code>withLockedTasks</code> and{" "}
 				<code>withUnlockedTasks</code> are mutually exclusive; when
