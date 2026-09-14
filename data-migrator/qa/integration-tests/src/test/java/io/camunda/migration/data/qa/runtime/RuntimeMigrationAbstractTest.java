@@ -19,6 +19,7 @@ import io.camunda.client.api.search.response.Tenant;
 import io.camunda.client.api.search.response.TenantUser;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
@@ -26,6 +27,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -82,7 +84,27 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
     // C8
-    List<ProcessInstance> items = findAllProcessInstances();
+    awaitProcessInstanceCleanup();
+
+    // Migrator
+    dbClient.deleteAllMappings();
+    runtimeMigrator.setMode(MIGRATE);
+  }
+
+  protected void awaitProcessInstanceCleanup() {
+    AtomicInteger consecutiveEmptySearches = new AtomicInteger();
+    Awaitility.await().ignoreException(ClientException.class).until(() -> {
+      List<ProcessInstance> items = findAllProcessInstances();
+      deleteProcessInstances(items);
+      if (items.isEmpty()) {
+        return consecutiveEmptySearches.incrementAndGet() >= 3;
+      }
+      consecutiveEmptySearches.set(0);
+      return false;
+    });
+  }
+
+  protected void deleteProcessInstances(List<ProcessInstance> items) {
     for (ProcessInstance i : items) {
       try {
         camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
@@ -93,12 +115,6 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
         // Ignore NOT_FOUND errors as the instance might have been deleted already
       }
     }
-    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() ->
-        assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).isEmpty());
-
-    // Migrator
-    dbClient.deleteAllMappings();
-    runtimeMigrator.setMode(MIGRATE);
   }
 
   protected List<ProcessInstance> findAllProcessInstances() {
@@ -135,6 +151,31 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
         assertThat(camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items())
             .extracting(TenantUser::getUsername)
             .contains(username));
+  }
+
+  protected void awaitRuntimeMigratorStart() {
+    Awaitility.await().atMost(Duration.ofSeconds(30)).until(() -> {
+      try {
+        runtimeMigrator.start();
+        return true;
+      } catch (RuntimeMigratorException e) {
+        if (isAuthorizationPropagationFailure(e)) {
+          return false;
+        }
+        throw e;
+      }
+    });
+  }
+
+  protected boolean isAuthorizationPropagationFailure(RuntimeMigratorException exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause.getMessage() != null && cause.getMessage().contains("user is not authorized")) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 
   protected Optional<Variable> getVariableByScope(Long processInstanceKey, Long scopeKey, String variableName) {
