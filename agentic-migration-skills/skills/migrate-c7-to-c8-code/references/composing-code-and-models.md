@@ -199,15 +199,8 @@ only, then do not ask this question and preserve existing deployment wiring.
     resource type has an inventory entry under a packaged resource directory.
   - Where deployment uses Spring Boot `@Deployment`, add or update a migration-managed
     deployment pattern only when its packaged-classpath matches are limited to inventory entries.
-  - Where deployment uses Spring Boot `@Deployment`, confirm that every inventory entry
-    matches at least one effective deployment pattern, including preserved patterns.
-  - Where deployment uses an explicit `CamundaClient` command, confirm that every inventory
-    entry is supplied by an explicit deployment command.
-  - Where deployment uses Spring Boot `@Deployment`, confirm that every effective deployment
-    pattern matches at least one packaged classpath resource.
   - Where deployment uses Spring Boot `@Deployment` and the inventory is non-empty, confirm that
     every migration-managed deployment pattern matches at least one inventory entry.
-  - Validate that each deployment-bound form and its owning converted BPMN share the same deployment declaration or invocation.
   - Where deployment uses Spring Boot `@Deployment`, normalize each recorded project-relative
     path to `/` separators.
   - Where deployment uses Spring Boot `@Deployment`, resolve the packaged classpath-relative
@@ -240,13 +233,27 @@ only, then do not ask this question and preserve existing deployment wiring.
   - If the Spring Boot deployment inventory is non-empty, then migration-managed patterns must not
     target original diagrams, draft forms, blocked forms, declined forms, or resource types with no migration
     inventory entry.
-  - If a preserved `migration-managed=false` pattern matches an original diagram, draft form,
-    blocked form, declined form, or resource type without a migration inventory entry, stop and
-    ask the user to remove, narrow, or explicitly retain the pattern. Record the decision in
-    `MIGRATION_REPORT.md` before reporting success.
   - If the Spring Boot deployment inventory is empty, then preserve existing deployment wiring.
   - Preserve pre-existing deployment entries that are not migration-managed.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+
+## Deployment Validation
+
+Validate the current deployment wiring before reporting success, regardless of the deployment option.
+
+- Where deployment uses Spring Boot `@Deployment`, confirm that every effective deployment pattern
+  matches at least one packaged classpath resource.
+- Where deployment uses Spring Boot `@Deployment` and the inventory is non-empty, confirm that
+  every inventory entry matches at least one effective deployment pattern, including preserved
+  patterns.
+- Where deployment uses an explicit `CamundaClient` command, confirm that every inventory entry is
+  supplied by an explicit deployment command.
+- Validate that each deployment-bound form and its owning converted BPMN share the same deployment
+  declaration or invocation.
+- If a preserved `migration-managed=false` pattern matches an original diagram, draft form,
+  blocked form, declined form, or resource type without a migration inventory entry, stop and ask
+  the user to remove, narrow, or explicitly retain the pattern. Record the decision in
+  `MIGRATION_REPORT.md` before reporting success.
 
 ## Report Keeping
 

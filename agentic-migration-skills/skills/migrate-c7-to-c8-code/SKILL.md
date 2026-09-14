@@ -252,20 +252,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
    `application.properties` or `.yaml`.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
-9. **Deployment resources** — Where model migration is in scope, validate deployment inventory and
-   resource coverage for every existing Spring Boot `@Deployment` and explicit `CamundaClient`
-   command, regardless of whether application code changes. Where the selected code approach can
-   mutate application code and the user chose **Yes, add/update deployment for converted files**,
-   apply `references/composing-code-and-models.md` as the deployment-wiring authority and update
-   the wiring. Where the user chose **No**, or the selected code approach is assessment only, do
-   not modify application code. Record the external deployment procedure and coverage in
-   `MIGRATION_REPORT.md`.
-10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
-   `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
-   search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
-   missing entry fails the check. See the mandatory open items in
-   `references/code-transform-checklist.md`.
-11. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
+9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
+    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
+    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
+    missing entry fails the check. See the mandatory open items in
+    `references/code-transform-checklist.md`.
+10. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
@@ -285,6 +277,14 @@ Check these pitfalls as well:
 
 After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
 target version. See the linting section in `references/model-migration-approaches.md`.
+
+**Deployment resources** — Validate deployment inventory and resource coverage for every existing
+Spring Boot `@Deployment` and explicit `CamundaClient` command before reporting success. Where the
+selected code approach can mutate application code and the user chose **Yes, add/update deployment
+for converted files**, apply `references/composing-code-and-models.md` as the deployment-wiring
+authority and update the wiring. Where the user chose **No**, or the selected code approach is
+assessment only, do not modify application code. Record the external deployment procedure and
+coverage in `MIGRATION_REPORT.md`.
 
 1. Build the converted-copy inventory from paths recorded during the current run. Never infer a
    converted copy from filesystem existence or a filename prefix. If M1 or E1 reports `File already
