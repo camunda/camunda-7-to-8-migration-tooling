@@ -50,13 +50,12 @@ export const variable_instance = [
 								<code>*</code>, and <code>?</code> with the
 								Camunda 8 backslash escape so C7 literal
 								characters do not become C8 wildcards. Camunda
-								8 treats <code>%</code> literally. C7
-								<code>variableNameLike</code> is
-								case-insensitive, but C8{" "}
-								<code>filter.name.$like</code> has no
-								case-insensitive option. Apply the C7 predicate
-								client-side before pagination and counting, or
-								mark requests using it unsupported.
+								8 treats <code>%</code> literally.{" "}
+								The C7 7.23 contract does not define
+								case-insensitive matching for{" "}
+								<code>variableNameLike</code>. Do not add case
+								folding; apply the documented C7 wildcard
+								semantics.
 							</p>
 						</>
 					),
@@ -146,16 +145,16 @@ export const variable_instance = [
 								<code>name_operator_value</code>. Map{" "}
 								<code>eq</code>, <code>neq</code>, and{" "}
 								<code>like</code> to the corresponding C8
-								operator. For <code>eq</code> and{" "}
-								<code>neq</code>, resolve the migrated variable
-								type before serializing the value: encode
-								numbers and booleans as JSON literals inside the
-								string filter value, and actual strings with
-								their quotes. The C8 <code>filter.value</code>
-								property remains a string. If the type
-								cannot be resolved, omit the value filter and
-								search or post-filter using C7 string semantics
-								instead of assuming a JSON string. For{" "}
+								operator. For GET requests, C7 treats each{" "}
+								<code>variableValues</code> token as a{" "}
+								<code>String</code> object. Do not infer a
+								number or boolean from the token or serialize it
+								as a typed JSON literal. Omit the C8 value
+								predicate, retrieve all untruncated pages, and
+								apply the C7 string predicate client-side before
+								pagination and counting. The C8{" "}
+								<code>filter.value</code> property remains a
+								string. For{" "}
 								<code>like</code>, mark filters on non-string
 								variables unsupported. For string-valued
 								variables, escape literal backslashes,{" "}
@@ -234,12 +233,10 @@ export const variable_instance = [
 						advanced name filter. Do not send scalar{" "}
 						<code>filter.name</code> alongside{" "}
 						<code>filter.name.$like</code>. Apply the same rule
-						when the POST mapping reuses these filters. Because C7
-						<code>variableNameLike</code> is case-insensitive and
-						C8 <code>filter.name.$like</code> has no equivalent
-						option, apply that predicate client-side before
-						pagination and counting, or mark the request
-						unsupported.
+						when the POST mapping reuses these filters. The C7 7.23
+						contract does not define case-insensitive matching for{" "}
+						<code>variableNameLike</code>, so do not add case
+						folding; apply the documented C7 wildcard semantics.
 					</p>
 					<p>
 						Use the advanced <code>$in</code> and{" "}
@@ -249,17 +246,13 @@ export const variable_instance = [
 						<code>filter.value</code> must use their serialized JSON
 						representation. For GET requests,{" "}
 						<code>variableValues</code> query values are always C7
-						<code>String</code> tokens, but C8 compares serialized
-						JSON values with type-sensitive equality. Resolve the
-						migrated variable type before constructing an{" "}
-						<code>eq</code> or <code>neq</code> filter: serialize
-						numbers and booleans as JSON literals inside the string
-						filter value, and actual strings with their quotes. The
-						C8 filter property remains a string. If the type cannot
-						be resolved, search without the value filter and
-						post-filter using C7 string semantics. Do not
-						unconditionally quote every GET token. For POST
-						requests, use the same JSON-encoded string produced by{" "}
+						<code>String</code> tokens. Do not infer a JSON number or
+						boolean from the token text. Omit the C8 value filter,
+						retrieve all untruncated pages, and apply the C7 string
+						predicate client-side before pagination and counting;
+						C8's typed serialized equality cannot represent this
+						coercion safely. For POST requests, use the same
+						JSON-encoded string produced by{" "}
 						<code>JSON.stringify</code>; string values include
 						quotes. For <code>like</code>, non-string
 						variable values are unsupported. For
@@ -458,13 +451,10 @@ export const variable_instance = [
 						level. When both <code>variableName</code> and{" "}
 						<code>variableNameLike</code> are supplied, use{" "}
 						<code>filter.name.$eq</code> and{" "}
-						<code>filter.name.$like</code> together.
-						Because C7 <code>variableNameLike</code> is
-						case-insensitive and C8{" "}
-						<code>filter.name.$like</code> has no equivalent
-						option, apply that predicate client-side before
-						pagination and counting, or mark the request
-						unsupported.
+						<code>filter.name.$like</code> together. The C7 7.23
+						contract does not define case-insensitive matching for{" "}
+						<code>variableNameLike</code>, so do not add case
+						folding; apply the documented C7 wildcard semantics.
 					</p>
 					<p>
 						See the GET <code>/variable-instance</code> mapping for
@@ -541,9 +531,9 @@ export const variable_instance = [
 				<code>page.totalItems</code> and{" "}
 				<code>page.hasMoreTotalItems</code> from the Camunda 8 search
 				response. When <code>hasMoreTotalItems</code> is{" "}
-				<code>false</code> for a single search,{" "}
-				<code>page.totalItems</code> is exact and can be returned
-				directly. When it is <code>true</code>,{" "}
+				<code>false</code> for a single search and no client-side
+				post-filter is required, <code>page.totalItems</code> is exact
+				and can be returned directly. When it is <code>true</code>,{" "}
 				<code>page.totalItems</code> is only a lower bound, not the
 				exact C7 count; follow <code>page.endCursor</code> and count
 				all returned items. For multiple{" "}
@@ -553,10 +543,10 @@ export const variable_instance = [
 				every request, apply the required complete-page union or
 				intersection by <code>variableKey</code>, and count the
 				deduplicated result. Do not sum capped totals or read one
-				search total as the combined C7 count. If a value predicate
-				was omitted for client-side type resolution or post-filtering,
-				fetch all untruncated pages and count only after applying the
-				C7 predicate; an uncapped total would otherwise count the
+				search total as the combined C7 count. If any C7 predicate
+				requires client-side post-filtering, ignore the C8 total, fetch
+				all untruncated pages, and count only after applying the C7
+				predicate; an uncapped total would otherwise count the
 				unfiltered superset. The C8 search is eventually consistent,
 				so the count describes the current C8 index and may lag C7.
 			</p>
@@ -578,9 +568,9 @@ export const variable_instance = [
 				<code>page.totalItems</code> and{" "}
 				<code>page.hasMoreTotalItems</code> from the Camunda 8 search
 				response. When <code>hasMoreTotalItems</code> is{" "}
-				<code>false</code> for a single search,{" "}
-				<code>page.totalItems</code> is exact and can be returned
-				directly. When it is <code>true</code>,{" "}
+				<code>false</code> for a single search and no client-side
+				post-filter is required, <code>page.totalItems</code> is exact
+				and can be returned directly. When it is <code>true</code>,{" "}
 				<code>page.totalItems</code> is only a lower bound, not the
 				exact C7 count; follow <code>page.endCursor</code> and count
 				all returned items. For multiple{" "}
@@ -590,10 +580,10 @@ export const variable_instance = [
 				every request, apply the required complete-page union or
 				intersection by <code>variableKey</code>, and count the
 				deduplicated result. Do not sum capped totals or read one
-				search total as the combined C7 count. If a value predicate
-				was omitted for client-side type resolution or post-filtering,
-				fetch all untruncated pages and count only after applying the
-				C7 predicate; an uncapped total would otherwise count the
+				search total as the combined C7 count. If any C7 predicate
+				requires client-side post-filtering, ignore the C8 total, fetch
+				all untruncated pages, and count only after applying the C7
+				predicate; an uncapped total would otherwise count the
 				unfiltered superset. The C8 search is eventually consistent,
 				so the count describes the current C8 index and may lag C7.
 				Sorting is not needed for a count.
