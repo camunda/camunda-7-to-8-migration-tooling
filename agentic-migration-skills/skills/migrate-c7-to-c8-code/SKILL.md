@@ -234,8 +234,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
 2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files. No dependency with a groupId that starts with `org.camunda.bpm.` remains either.
 3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
    migration.
-4. **Migration TODOs** — search for `// TODO` comments that OpenRewrite inserted or that mark
-   migration work. Review each matching TODO and resolve or record it.
+4. **Migration TODOs** — search for TODO comments in both line (`// TODO`) and block (`/* TODO`) forms.
+   Review each matching TODO and resolve or record it.
 5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.
    Use `CamundaClient`.
 6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on

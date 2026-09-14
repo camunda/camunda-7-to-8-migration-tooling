@@ -2141,6 +2141,51 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void warnsForCountInFieldInitializer() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class FieldInitializerCountTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+                private int count = engine.getRuntimeService()
+                        .createProcessInstanceQuery()
+                        .active()
+                        .list()
+                        .size();
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
+            public class FieldInitializerCountTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+                private int count = camundaClient
+                        .newProcessInstanceSearchRequest()
+                        .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                        .send()
+                        .join()
+                        .page()
+                        .totalItems().intValue();
+            }
+            """));
+  }
+
+  @Test
   void keepsQueryResultTrackingReceiverSpecificForFields() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
@@ -2495,7 +2540,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 }
 
                 public int assignedListSize() {
-                    List<?> instances = /* TODO: Manual migration required - preserve the unfiltered process-instance count, including suspended instances, before migration. */ engine.getRuntimeService()
+                    List<?> instances = /* TODO: Manual migration required - preserve unfiltered process-instance query semantics, including suspended instances, before migration. */ engine.getRuntimeService()
                             .createProcessInstanceQuery()
                             .list();
                     return instances.size();

@@ -91,6 +91,7 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                 @Autowired
                 private CamundaClient camundaClient;
 
+                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 @JobWorker(type = "exampleWorkflowDelegate", autoComplete = true)
                 public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();

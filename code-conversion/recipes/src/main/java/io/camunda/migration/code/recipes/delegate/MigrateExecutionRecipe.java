@@ -143,7 +143,8 @@ public class MigrateExecutionRecipe extends Recipe {
                           .withBody(jobWorkerMethod.getBody().withStatements(delegateStatements))
                           .withName(jobWorkerMethod.getName().withSimpleName("executeJobMigrated"))
                           .withMethodType(
-                              jobWorkerMethod.getMethodType().withName("executeJobMigrated"));
+                              jobWorkerMethod.getMethodType().withName("executeJobMigrated"))
+                          .withComments(mergeMethodComments(jobWorkerMethod, delegateMethod));
 
                   List<Statement> updatedStatements = new ArrayList<>();
                   for (Statement stmt : currentStatements) {
@@ -217,6 +218,18 @@ public class MigrateExecutionRecipe extends Recipe {
         classDeclaration.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate");
   }
 
+  private static List<Comment> mergeMethodComments(
+      J.MethodDeclaration target, J.MethodDeclaration source) {
+    List<Comment> comments =
+        target.getComments() == null
+            ? new ArrayList<>()
+            : new ArrayList<>(target.getComments());
+    if (source.getComments() != null) {
+      comments.addAll(source.getComments());
+    }
+    return comments;
+  }
+
   private static class CopyExecutionListenerToJobWorkerRecipe extends Recipe {
 
     public CopyExecutionListenerToJobWorkerRecipe() {}
@@ -255,9 +268,11 @@ public class MigrateExecutionRecipe extends Recipe {
 
               // 1) find notify(...) body
               J.Block notifyBody = null;
+              J.MethodDeclaration notifyMethod = null;
               for (Statement stmt : current) {
                 if (stmt instanceof J.MethodDeclaration m
                     && "notify".equals(m.getSimpleName())) {
+                  notifyMethod = m;
                   notifyBody = m.getBody();
                 }
               }
@@ -280,7 +295,8 @@ public class MigrateExecutionRecipe extends Recipe {
                         m.withBody(jobBody.withStatements(listenerStmts))
                             .withName(m.getName().withSimpleName("executeJobMigrated"))
                             .withMethodType(
-                                m.getMethodType().withName("executeJobMigrated")));
+                                m.getMethodType().withName("executeJobMigrated"))
+                            .withComments(mergeMethodComments(m, notifyMethod)));
                   } else {
                     updated.add(stmt);
                   }

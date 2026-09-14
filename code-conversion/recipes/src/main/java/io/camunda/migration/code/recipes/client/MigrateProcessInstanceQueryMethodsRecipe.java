@@ -30,6 +30,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   private static final String PROCESS_INSTANCE_STATE = "io.camunda.client.api.search.enums.ProcessInstanceState";
   private static final String TOTAL_ITEMS_CAP_WARNING_MARKER =
       "migration.total-items-cap-warning";
+  private static final String TOTAL_ITEMS_CAP_WARNING_CLASS_MARKER =
+      "migration.total-items-cap-warning-class";
   private static final Set<String> UNFILTERED_QUERY_METHODS =
       Set.of("active", "count", "createProcessInstanceQuery", "getRuntimeService", "list");
   private static final Set<String> PROCESS_INSTANCE_FILTER_METHODS =
@@ -608,7 +610,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       J.MethodInvocation replacement, J.MethodInvocation replacementTarget, Cursor cursor) {
     if (replacementTarget.getSimpleName().equals("size")
         || replacementTarget.getSimpleName().equals("count")) {
-      markMethodForTotalItemsWarning(cursor);
+      markOwnerForTotalItemsWarning(cursor);
     }
     return replacement;
   }
@@ -616,6 +618,13 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   @Override
   protected String methodMigrationComment(J.MethodDeclaration method, Cursor cursor) {
     return Boolean.TRUE.equals(cursor.getMessage(TOTAL_ITEMS_CAP_WARNING_MARKER))
+        ? MigrationMessages.formatTotalItemsCap()
+        : null;
+  }
+
+  @Override
+  protected String classMigrationComment(J.ClassDeclaration classDeclaration, Cursor cursor) {
+    return Boolean.TRUE.equals(cursor.getMessage(TOTAL_ITEMS_CAP_WARNING_CLASS_MARKER))
         ? MigrationMessages.formatTotalItemsCap()
         : null;
   }
@@ -681,7 +690,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     if (invocation.getSimpleName().equals("list")
         && isUnfilteredProcessInstanceQuery(invocation)
         && !isInsideCountExpression(cursor)) {
-      return MigrationMessages.formatUnfilteredProcessInstanceCount();
+      return MigrationMessages.formatUnfilteredProcessInstanceQuery();
     }
     return null;
   }
@@ -696,11 +705,15 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return null;
   }
 
-  private void markMethodForTotalItemsWarning(Cursor cursor) {
+  private void markOwnerForTotalItemsWarning(Cursor cursor) {
     Cursor current = cursor;
     while (current != null) {
       if (current.getValue() instanceof J.MethodDeclaration) {
         current.putMessage(TOTAL_ITEMS_CAP_WARNING_MARKER, true);
+        return;
+      }
+      if (current.getValue() instanceof J.ClassDeclaration) {
+        current.putMessage(TOTAL_ITEMS_CAP_WARNING_CLASS_MARKER, true);
         return;
       }
       current = current.getParent();

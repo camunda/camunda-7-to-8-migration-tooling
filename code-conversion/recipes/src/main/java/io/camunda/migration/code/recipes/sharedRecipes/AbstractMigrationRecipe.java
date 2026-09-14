@@ -160,6 +160,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
     return null;
   }
 
+  protected String classMigrationComment(J.ClassDeclaration classDeclaration, Cursor cursor) {
+    return null;
+  }
+
   protected boolean preserveVariableDeclarationType(
       J.VariableDeclarations declarations,
       J.MethodInvocation invocation,
@@ -449,7 +453,26 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
             fieldQueryResults.forEach(
                 field -> putQueryResultVariableState(getCursor(), field, true));
-            return super.visitClassDeclaration(classDeclaration, ctx);
+            J.ClassDeclaration modifiedClass = super.visitClassDeclaration(classDeclaration, ctx);
+            String migrationComment = classMigrationComment(modifiedClass, getCursor());
+            if (migrationComment == null
+                || modifiedClass.getComments().stream()
+                    .anyMatch(
+                        comment ->
+                            comment instanceof TextComment textComment
+                                && textComment.getText().contains(migrationComment))) {
+              return modifiedClass;
+            }
+            return modifiedClass.withComments(
+                Stream.concat(
+                        modifiedClass.getComments().stream(),
+                        Stream.of(
+                            new TextComment(
+                                true,
+                                " " + migrationComment + " ",
+                                "\n" + modifiedClass.getPrefix().getIndent(),
+                                Markers.EMPTY)))
+                    .toList());
           }
 
           @Override
