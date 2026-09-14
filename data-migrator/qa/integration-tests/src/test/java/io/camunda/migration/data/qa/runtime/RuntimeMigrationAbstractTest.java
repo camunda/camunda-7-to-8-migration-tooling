@@ -14,6 +14,7 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.command.ProblemException;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Tenant;
 import io.camunda.client.api.search.response.TenantUser;
@@ -95,8 +96,8 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     AtomicInteger consecutiveEmptySearches = new AtomicInteger();
     Awaitility.await().ignoreException(ClientException.class).until(() -> {
       List<ProcessInstance> items = findAllProcessInstances();
-      deleteProcessInstances(items);
-      if (items.isEmpty()) {
+      boolean allProcessInstancesCleared = deleteProcessInstances(items);
+      if (items.isEmpty() || allProcessInstancesCleared) {
         return consecutiveEmptySearches.incrementAndGet() >= 3;
       }
       consecutiveEmptySearches.set(0);
@@ -104,17 +105,24 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     });
   }
 
-  protected void deleteProcessInstances(List<ProcessInstance> items) {
+  protected boolean deleteProcessInstances(List<ProcessInstance> items) {
+    boolean allProcessInstancesCleared = true;
     for (ProcessInstance i : items) {
       try {
-        camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
+        if (i.getState() == ProcessInstanceState.ACTIVE || i.getState() == ProcessInstanceState.SUSPENDED) {
+          camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
+          allProcessInstancesCleared = false;
+        } else {
+          camundaClient.newDeleteProcessInstanceCommand(i.getProcessInstanceKey()).execute();
+        }
       } catch (ClientStatusException | ProblemException e) {
         if (!e.getMessage().contains("NOT_FOUND")) {
           throw e;
         }
-        // Ignore NOT_FOUND errors as the instance might have been deleted already
+        // The search result is stale; the instance is already gone.
       }
     }
+    return allProcessInstancesCleared;
   }
 
   protected List<ProcessInstance> findAllProcessInstances() {
