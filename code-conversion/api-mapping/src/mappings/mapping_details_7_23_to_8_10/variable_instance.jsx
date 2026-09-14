@@ -50,7 +50,13 @@ export const variable_instance = [
 								<code>*</code>, and <code>?</code> with the
 								Camunda 8 backslash escape so C7 literal
 								characters do not become C8 wildcards. Camunda
-								8 treats <code>%</code> literally.
+								8 treats <code>%</code> literally. C7
+								<code>variableNameLike</code> is
+								case-insensitive, but C8{" "}
+								<code>filter.name.$like</code> has no
+								case-insensitive option. Apply the C7 predicate
+								client-side before pagination and counting, or
+								mark requests using it unsupported.
 							</p>
 						</>
 					),
@@ -228,7 +234,12 @@ export const variable_instance = [
 						advanced name filter. Do not send scalar{" "}
 						<code>filter.name</code> alongside{" "}
 						<code>filter.name.$like</code>. Apply the same rule
-						when the POST mapping reuses these filters.
+						when the POST mapping reuses these filters. Because C7
+						<code>variableNameLike</code> is case-insensitive and
+						C8 <code>filter.name.$like</code> has no equivalent
+						option, apply that predicate client-side before
+						pagination and counting, or mark the request
+						unsupported.
 					</p>
 					<p>
 						Use the advanced <code>$in</code> and{" "}
@@ -448,6 +459,12 @@ export const variable_instance = [
 						<code>variableNameLike</code> are supplied, use{" "}
 						<code>filter.name.$eq</code> and{" "}
 						<code>filter.name.$like</code> together.
+						Because C7 <code>variableNameLike</code> is
+						case-insensitive and C8{" "}
+						<code>filter.name.$like</code> has no equivalent
+						option, apply that predicate client-side before
+						pagination and counting, or mark the request
+						unsupported.
 					</p>
 					<p>
 						See the GET <code>/variable-instance</code> mapping for
@@ -652,7 +669,7 @@ export const variable_instance = [
 				content with <code>GET /documents/{"{documentId}"}</code>.
 				Pass its <code>storeId</code> and include{" "}
 				<code>contentHash</code> only when it is non-null as query
-				parameters. See the process-variable mapping for these
+				parameters. See the process-instance mapping for these
 				<code>DocumentReference</code> fields and the conditional
 				flow. Other non-document binary variable types have no
 				equivalent endpoint.

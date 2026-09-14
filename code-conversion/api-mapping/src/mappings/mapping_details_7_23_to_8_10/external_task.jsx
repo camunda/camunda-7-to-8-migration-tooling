@@ -572,7 +572,11 @@ export const external_task = [
 							<br />
 							(string[]) processInstanceQuery.processDefinitionKeyIn
 							<br />
+							(string[]) processInstanceQuery.processDefinitionKeyNotIn
+							<br />
 							(string[]) processInstanceQuery.tenantIdIn
+							<br />
+							(boolean) processInstanceQuery.withoutTenantId
 						</pre>
 					),
 					rightEntry: (
@@ -586,14 +590,24 @@ export const external_task = [
 								<br />
 								(string[]) filter.processDefinitionId.$in
 								<br />
+								(string[]) filter.processDefinitionId.$notIn
+								<br />
 								(string[]) filter.tenantId.$in
+								<br />
+								(string) filter.tenantId
 							</pre>
 							<p>
 								Use these fields only to search candidate
 								<code>BPMN_ELEMENT</code> jobs. A C7 process
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
-								interchangeable with it. Do not pass this
+								interchangeable with it. Map
+								<code>processDefinitionKeyNotIn</code> to{" "}
+								<code>filter.processDefinitionId.$notIn</code>{" "}
+								and <code>withoutTenantId=true</code> to the
+								C8 default-tenant alias{" "}
+								<code>&lt;default&gt;</code> in{" "}
+								<code>filter.tenantId</code>. Do not pass this
 								selector directly to the batch update; submit
 								only the deduplicated current job keys.
 							</p>
@@ -904,7 +918,11 @@ export const external_task = [
 							<br />
 							(string[]) processInstanceQuery.processDefinitionKeyIn
 							<br />
+							(string[]) processInstanceQuery.processDefinitionKeyNotIn
+							<br />
 							(string[]) processInstanceQuery.tenantIdIn
+							<br />
+							(boolean) processInstanceQuery.withoutTenantId
 						</pre>
 					),
 					rightEntry: (
@@ -918,14 +936,24 @@ export const external_task = [
 								<br />
 								(string[]) filter.processDefinitionId.$in
 								<br />
+								(string[]) filter.processDefinitionId.$notIn
+								<br />
 								(string[]) filter.tenantId.$in
+								<br />
+								(string) filter.tenantId
 							</pre>
 							<p>
 								Use these fields only to search candidate
 								<code>BPMN_ELEMENT</code> jobs. A C7 process
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
-								interchangeable with it. Do not pass this
+								interchangeable with it. Map
+								<code>processDefinitionKeyNotIn</code> to{" "}
+								<code>filter.processDefinitionId.$notIn</code>{" "}
+								and <code>withoutTenantId=true</code> to the
+								C8 default-tenant alias{" "}
+								<code>&lt;default&gt;</code> in{" "}
+								<code>filter.tenantId</code>. Do not pass this
 								selector directly to the batch update; submit
 								only the deduplicated current job keys.
 							</p>
@@ -1108,10 +1136,12 @@ export const external_task = [
 				fully equivalent; preserve source correlation for exact
 				exhausted/nullable cases or mark those cases unsupported.
 				C7 exposes <code>withRetriesLeft</code>. When it is{" "}
-				<code>true</code>, add{" "}
-				<code>filter.retries.$gt=0</code> and include correlated
-				source tasks whose C7 retry value is null; if those null
-				values cannot be correlated, mark the mapping unsupported.
+				<code>true</code>, do not add{" "}
+				<code>filter.retries.$gt=0</code> alone because that omits
+				jobs whose migrated C7 retry value is null. Search without a
+				retry predicate and apply a source-correlated post-filter for
+				C7 retry values greater than zero or null; if that correlation
+				is unavailable, mark the mapping unsupported.
 				When the flag is absent, do not add a retry predicate and
 				retain all current candidates. C7 has no{" "}
 				<code>noRetriesLeft</code> parameter for this endpoint.
