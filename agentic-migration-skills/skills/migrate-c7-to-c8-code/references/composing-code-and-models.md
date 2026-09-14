@@ -148,10 +148,11 @@ only, then do not ask this question and preserve existing deployment wiring.
 
     Apply only the row that matches the application and inventory.
   - Where deployment uses Spring Boot `@Deployment`, treat every resource directory that the
-    selected build configures for inclusion in its application artifact as a packaged resource
-    directory.
-  - Where deployment uses Spring Boot `@Deployment`, include `src/main/resources` when it
-    exists.
+    selected build's effective resource mapping includes in its application artifact as a packaged
+    resource directory.
+  - Where deployment uses Spring Boot `@Deployment`, treat `src/main/resources` as packaged only
+    when it exists and the selected build's effective resource mapping retains its default
+    inclusion.
   - Where deployment uses an explicit `CamundaClient` command, validate each inventory entry
     against the source used by the explicit deployment command instead of requiring a packaged
     classpath resource.
@@ -168,7 +169,12 @@ only, then do not ask this question and preserve existing deployment wiring.
   - Store one current report row per pattern with its owning declaration, exact pattern, source
     path, and `migration-managed` marker.
   - Preserve a prior `migration-managed` marker for an existing pattern.
-  - If no prior marker exists, record `migration-managed=false`.
+  - Before applying the preservation rule to a pattern without a prior marker, inspect
+    `MIGRATION_REPORT.md` and migration history for legacy skill ownership.
+  - If a pattern matches a legacy skill-generated pattern, ask the user to confirm its ownership.
+    Record `migration-managed=true` only after confirmation.
+  - If legacy ownership is not confirmed, record `migration-managed=false` and ask the user whether
+    to remove or replace the pattern before reporting success.
   - Never edit an existing pattern recorded as `migration-managed=false`. Add a distinct pattern
     with `migration-managed=true` when migration wiring needs another match.
   - When updating a pattern recorded as `migration-managed=true`, keep the marker true and replace
@@ -234,6 +240,10 @@ only, then do not ask this question and preserve existing deployment wiring.
   - If the Spring Boot deployment inventory is non-empty, then migration-managed patterns must not
     target original diagrams, draft forms, blocked forms, declined forms, or resource types with no migration
     inventory entry.
+  - If a preserved `migration-managed=false` pattern matches an original diagram, draft form,
+    blocked form, declined form, or resource type without a migration inventory entry, stop and
+    ask the user to remove, narrow, or explicitly retain the pattern. Record the decision in
+    `MIGRATION_REPORT.md` before reporting success.
   - If the Spring Boot deployment inventory is empty, then preserve existing deployment wiring.
   - Preserve pre-existing deployment entries that are not migration-managed.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.

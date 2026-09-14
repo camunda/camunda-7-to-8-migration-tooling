@@ -252,11 +252,14 @@ Each item below is a check to run and a condition that must hold at exit. Record
    `application.properties` or `.yaml`.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
-9. **Deployment resources** — Where model migration is in scope, the selected code approach can
-   mutate application code, and the user chose **Yes, add/update deployment for converted files**,
-   apply `references/composing-code-and-models.md` as the deployment-wiring authority. If the
-   selected code approach is assessment only, then do not modify application code and preserve
-   existing deployment wiring.
+9. **Deployment resources** — Where model migration is in scope, validate deployment inventory and
+   resource coverage for every existing Spring Boot `@Deployment` and explicit `CamundaClient`
+   command, regardless of whether application code changes. Where the selected code approach can
+   mutate application code and the user chose **Yes, add/update deployment for converted files**,
+   apply `references/composing-code-and-models.md` as the deployment-wiring authority and update
+   the wiring. Where the user chose **No**, or the selected code approach is assessment only, do
+   not modify application code. Record the external deployment procedure and coverage in
+   `MIGRATION_REPORT.md`.
 10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
@@ -292,9 +295,11 @@ target version. See the linting section in `references/model-migration-approache
    - For M2, use the converted copy with the actual filename recorded after the rewrite.
    - For M3, use the downloaded converted copy paired with its original.
 2. Every original file is intact and was never overwritten.
-3. Treat every resource directory that the selected build configures for inclusion in its
-   application artifact as a packaged resource directory. Include `src/main/resources` when it
-   exists. No findings report named `analysis-results.<ext>` or `analysis-results (n).<ext>` remains
+3. Treat every resource directory that the selected build's effective resource mapping includes in
+   its application artifact as a packaged resource directory. Treat `src/main/resources` as
+   packaged only when it exists and the effective mapping retains its default inclusion. Do not
+   classify a directory as packaged from existence alone. No findings report named
+   `analysis-results.<ext>` or `analysis-results (n).<ext>` remains
    under a packaged resource directory, where `n` is a positive integer and `<ext>` is `.csv`,
    `.json`, `.md`, or `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when
    the selected build does not package that directory. Otherwise, use another explicitly
@@ -310,7 +315,10 @@ target version. See the linting section in `references/model-migration-approache
 9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted or relinked form
    with it.
 10. Every accepted or relinked form has a matching `zeebe:formDefinition`.
-11. The skill deploys every accepted or relinked form with `bindingType=deployment` in the same deployment as its owning BPMN.
+11. Where the user chose **Yes, add/update deployment for converted files**, deploy every accepted
+    or relinked form with `bindingType=deployment` in the same deployment as its owning BPMN,
+    using the selected deployment mechanism. Where the user chose **No**, record each
+    deployment-bound form's external deployment procedure and coverage in `MIGRATION_REPORT.md`.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final

@@ -37,8 +37,10 @@ pairing downloaded files with originals. Treat files already present as imported
 Use an imported output only after the imported-report version and exact original/converted pairing
 checks in step 5. Record only converted files from pairs that pass those checks.
 
-A packaged resource directory is any resource directory that the selected build includes in its
-application artifact. Include `src/main/resources` when it exists.
+A packaged resource directory is any resource directory that the selected build's effective
+resource mapping includes in its application artifact. Treat `src/main/resources` as packaged only
+when it exists and the effective mapping retains its default inclusion. Do not classify a directory
+as packaged from existence alone.
 
 Treat report files already under `.camunda-migration/reports/` as intentional non-packaged artifacts
 only after confirming that the build does not package that directory. If the build packages that
@@ -138,8 +140,9 @@ Do not overwrite an existing file in the chosen reports directory. Choose an ava
 name and use the moved path as the authoritative report path. If relocation fails, stop model
 validation and report the error. Do not claim a complete migration.
 
-Before packaging the project, inspect every resource directory that the build configures for
-packaging, including `src/main/resources` when it exists. No findings report named
+Before packaging the project, inspect every resource directory that the build's effective resource
+mapping includes. Include `src/main/resources` only when it exists and the effective mapping retains
+its default inclusion. No findings report named
 `analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
 `.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
 directory. Otherwise, use another explicitly non-packaged directory.
@@ -185,9 +188,12 @@ If the report's version does not match the chosen target, or cannot be determine
 
 Complete this check after the imported report version check and before consuming any M3 output.
 
-Build one manifest row for each uploaded original, downloaded converted copy, and imported JSON
-report entry. Define the model identity as its model type and complete set of stable definition IDs.
-For BPMN, use every `bpmn:process` and `bpmn:collaboration` ID. For DMN, use every `dmn:decision` ID.
+After parsing the JSON report, group all finding objects by source `filename` into one report-file
+record per source. Include a record with an empty findings list for every uploaded original that
+has no finding. Build one manifest row for each uploaded original and downloaded converted copy
+pair, and attach the source's report-file record to that row.
+Define the model identity as its model type and complete set of stable definition IDs. For BPMN,
+use every `bpmn:process` and `bpmn:collaboration` ID. For DMN, use every `dmn:decision` ID.
 Parse the original and converted XML with a namespace-aware parser.
 
 Require all checks in this table before accepting a pair:
@@ -198,6 +204,7 @@ Require all checks in this table before accepting a pair:
 | Model type | The original and converted copy are both BPMN or both DMN. |
 | Definition identity | The original and converted copy have the same complete set of stable definition IDs. |
 | One-to-one mapping | Each original and converted copy occurs in exactly one manifest row. |
+| Conversion evidence | Validate the downloaded converted copy with the target-version compatibility ruleset or equivalent converter evidence before accepting it. Reject a file based only on matching type and IDs. |
 
 Do not infer a pair from a converted filename, a timestamp, or similar content. When a download was
 renamed, preserve the original-to-download mapping in the manifest or ask the user to identify it.
