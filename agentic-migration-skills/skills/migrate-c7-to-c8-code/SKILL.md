@@ -304,13 +304,13 @@ target version. See the linting section in `references/model-migration-approache
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
-6. Every accepted form is a standard Camunda 8 `.form`.
-7. Every accepted form parses.
-8. Where a target-compatible official schema exists, the skill validates every accepted form with it.
-9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted form
+6. Every accepted or relinked form is a standard Camunda 8 `.form`.
+7. Every accepted or relinked form parses.
+8. Where a target-compatible official schema exists, the skill validates every accepted or relinked form with it.
+9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted or relinked form
    with it.
-10. Every accepted form has a matching `zeebe:formDefinition`.
-11. The skill deploys every accepted form with its BPMN.
+10. Every accepted or relinked form has a matching `zeebe:formDefinition`.
+11. The skill deploys every accepted or relinked form with its BPMN.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final

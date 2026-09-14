@@ -364,11 +364,11 @@ another user question.
 
 ## Deployment and validation
 
-Deployment binding requires the converted BPMN and accepted `.form` file in the same deployment.
-Apply the following resource-mapping and path rules only to accepted forms with
+Deployment binding requires the converted BPMN and an accepted or relinked `.form` file in the same deployment.
+Apply the following resource-mapping and path rules only to accepted or relinked forms with
 `bindingType=deployment`.
 Where deployment uses Spring Boot `@Deployment`, inspect the selected build's application-artifact
-resource mapping for each deployment-bound accepted form, using Maven resource configuration or
+resource mapping for each deployment-bound accepted or relinked form, using Maven resource configuration or
 Gradle resource-destination settings as examples.
 Where deployment uses Spring Boot `@Deployment`, resolve the packaged classpath-relative path from
 that mapping.
@@ -381,7 +381,7 @@ each normalized packaged path when possible.
 Where deployment uses Spring Boot `@Deployment`, derive a recursive pattern from the normalized
 packaged paths, including any selected prefix, only when it cannot include drafts or declined forms.
 Where deployment uses an explicit `CamundaClient` command, validate each deployment-bound accepted
-form against the source used by the explicit deployment command.
+or relinked form against the source used by the explicit deployment command.
 Where deployment uses an explicit `CamundaClient` command, confirm that the command supplies the
 form with its owning converted BPMN.
 Where deployment uses an explicit `CamundaClient` command, do not require a packaged
@@ -394,8 +394,8 @@ Before reporting a form complete:
    adding a new validation dependency to the user's project.
 3. Import/render it with a target-compatible Camunda Modeler or form-js viewer when available.
 4. Parse the converted BPMN with a Camunda 8 BPMN model/parser.
-5. Confirm every accepted form id exactly matches one `zeebe:formDefinition@formId`.
-6. Confirm every accepted user task has exactly one `zeebe:userTask`.
+5. Confirm every accepted or relinked form id exactly matches one `zeebe:formDefinition@formId`.
+6. Confirm every accepted or relinked user-task owner has exactly one `zeebe:userTask`.
 7. Confirm draft, blocked, and declined forms are neither linked nor deployed.
 8. Confirm source field and enum order, component/key uniqueness, and stable rows.
 9. Rerun generation from the same source and decisions and compare bytes.

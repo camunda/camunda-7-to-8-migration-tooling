@@ -181,6 +181,33 @@ If the report's version does not match the chosen target, or cannot be determine
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
 - **Keep the imported report** — proceed as-is and record in MIGRATION_REPORT.md that the findings target a different or unknown version.
 
+#### M3 hosted output pairing
+
+Complete this check after the imported report version check and before consuming any M3 output.
+
+Build one manifest row for each uploaded original, downloaded converted copy, and imported JSON
+report entry. Define the model identity as its model type and complete set of stable definition IDs.
+For BPMN, use every `bpmn:process` and `bpmn:collaboration` ID. For DMN, use every `dmn:decision` ID.
+Parse the original and converted XML with a namespace-aware parser.
+
+Require all checks in this table before accepting a pair:
+
+| Pairing check | Requirement |
+|---|---|
+| Source mapping | Match the report entry to exactly one uploaded original by its source filename or captured upload manifest. |
+| Model type | The original and converted copy are both BPMN or both DMN. |
+| Definition identity | The original and converted copy have the same complete set of stable definition IDs. |
+| One-to-one mapping | Each original and converted copy occurs in exactly one manifest row. |
+
+Do not infer a pair from a converted filename, a timestamp, or similar content. When a download was
+renamed, preserve the original-to-download mapping in the manifest or ask the user to identify it.
+If any check fails or a stable definition ID set is empty, stop M3 follow-up and ask the user to
+identify the exact original and converted copy.
+
+Record each passing pair in `MIGRATION_REPORT.md` with the original path, converted path, report
+entry, model type, stable definition IDs, and pairing evidence. Record only passing pairs in the
+converted-copy inventory, form procedures, and deployment inventory.
+
 #### 5a. Parse the JSON report
 
 Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
