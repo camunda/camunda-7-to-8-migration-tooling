@@ -49,6 +49,19 @@ export const external_task = [
 				post-filter before applying C7 pagination, or mark the mapping
 				unsupported. A false value is a no-op in C7; do not silently
 				omit a true filter.
+				C7 criteria not listed above must not be silently dropped.
+				Translate <code>workerId</code>, process/activity/tenant
+				selectors, priority bounds, and sorting only when migration
+				metadata and the corresponding C8 field preserve their
+				semantics. Validate priority bounds against C8's signed
+				32-bit range and account for jobs without stored priority.
+				<code>externalTaskId</code> and{" "}
+				<code>externalTaskIdIn</code> have no C8 job-field equivalent.
+				The <code>locked</code>, <code>notLocked</code>,{" "}
+				<code>lockExpirationAfter</code>, and{" "}
+				<code>lockExpirationBefore</code> criteria require a
+				source-correlated post-filter. Apply these predicates before
+				C7 pagination, or mark the request unsupported.
 			</div>
 		),
 	},
@@ -95,6 +108,19 @@ export const external_task = [
 				post-filter before applying C7 pagination, or mark the mapping
 				unsupported. A false value is a no-op in C7; do not silently
 				omit a true filter.
+				C7 criteria not listed above must not be silently dropped.
+				Translate <code>workerId</code>, process/activity/tenant
+				selectors, priority bounds, and sorting only when migration
+				metadata and the corresponding C8 field preserve their
+				semantics. Validate priority bounds against C8's signed
+				32-bit range and account for jobs without stored priority.
+				<code>externalTaskId</code> and{" "}
+				<code>externalTaskIdIn</code> have no C8 job-field equivalent.
+				The <code>locked</code>, <code>notLocked</code>,{" "}
+				<code>lockExpirationAfter</code>, and{" "}
+				<code>lockExpirationBefore</code> criteria require a
+				source-correlated post-filter. Apply these predicates before
+				C7 pagination, or mark the request unsupported.
 			</div>
 		),
 	},
@@ -141,6 +167,19 @@ export const external_task = [
 				post-filter before counting, or mark the mapping unsupported.
 				A false value is a no-op in C7; do not silently omit a true
 				filter.
+				C7 criteria not listed above must not be silently dropped.
+				Translate <code>workerId</code>, process/activity/tenant
+				selectors, priority bounds, and sorting only when migration
+				metadata and the corresponding C8 field preserve their
+				semantics. Validate priority bounds against C8's signed
+				32-bit range and account for jobs without stored priority.
+				<code>externalTaskId</code> and{" "}
+				<code>externalTaskIdIn</code> have no C8 job-field equivalent.
+				The <code>locked</code>, <code>notLocked</code>,{" "}
+				<code>lockExpirationAfter</code>, and{" "}
+				<code>lockExpirationBefore</code> criteria require a
+				source-correlated post-filter. Apply these predicates before
+				counting, or mark the request unsupported.
 				The C8 search is eventually consistent, so even a fully paged
 				count describes the current C8 index and may lag Camunda 7.
 			</div>
@@ -189,6 +228,19 @@ export const external_task = [
 				post-filter before counting, or mark the mapping unsupported.
 				A false value is a no-op in C7; do not silently omit a true
 				filter.
+				C7 criteria not listed above must not be silently dropped.
+				Translate <code>workerId</code>, process/activity/tenant
+				selectors, priority bounds, and sorting only when migration
+				metadata and the corresponding C8 field preserve their
+				semantics. Validate priority bounds against C8's signed
+				32-bit range and account for jobs without stored priority.
+				<code>externalTaskId</code> and{" "}
+				<code>externalTaskIdIn</code> have no C8 job-field equivalent.
+				The <code>locked</code>, <code>notLocked</code>,{" "}
+				<code>lockExpirationAfter</code>, and{" "}
+				<code>lockExpirationBefore</code> criteria require a
+				source-correlated post-filter. Apply these predicates before
+				counting, or mark the request unsupported.
 				The C8 search is eventually consistent, so even a fully paged
 				count describes the current C8 index and may lag Camunda 7.
 			</div>
@@ -402,10 +454,14 @@ export const external_task = [
 					leftEntry: <pre>(string[]) processInstanceIds</pre>,
 					rightEntry: (
 						<p>
-							Resolve the matching current, deduplicated Camunda
-							8 job keys through the candidate-search flow below.
-							Do not pass process-instance keys directly as a
-							batch update filter.
+							Translate each C7 process-instance ID through
+							migration-specific ID-to-key correlation before
+							searching. If that correlation is unavailable, mark
+							the selector unsupported. Resolve the matching
+							current, deduplicated Camunda 8 job keys through
+							the candidate-search flow below and do not pass
+							C7 process-instance IDs directly as a batch update
+							filter.
 						</p>
 					),
 				},
@@ -438,7 +494,7 @@ export const external_task = [
 								<br />
 								(string[]) filter.jobKey.$in
 								<br />
-								(string) filter.kind
+								(JobKindEnum) filter.kind
 								<br />
 								(string) filter.type
 								<br />
@@ -601,9 +657,16 @@ export const external_task = [
 						correlation for exact exhausted/nullable cases and mark
 						the selector unsupported when it is unavailable. Submit
 						only the resulting deduplicated{" "}
-						<code>jobKey.$in</code>. An exact job key must pass the
-						same check; never send a broad kind/type filter directly
-						when C7 current-task semantics are required.
+						<code>jobKey.$in</code> together with{" "}
+						<code>filter.endTime.$exists=false</code> to protect
+						against jobs ending after candidate search. An exact
+						job key must pass the same check; never send a broad
+						kind/type filter directly when C7 current-task
+						semantics are required. A C7 <code>retries=0</code>
+						request creates an incident, while the C8 batch
+						changeset only changes the retry count; reject this
+						value or route it through a separate per-job
+						failure/incident flow.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
@@ -723,10 +786,14 @@ export const external_task = [
 					leftEntry: <pre>(string[]) processInstanceIds</pre>,
 					rightEntry: (
 						<p>
-							Resolve the matching current, deduplicated Camunda
-							8 job keys through the candidate-search flow below.
-							Do not pass process-instance keys directly as a
-							batch update filter.
+							Translate each C7 process-instance ID through
+							migration-specific ID-to-key correlation before
+							searching. If that correlation is unavailable, mark
+							the selector unsupported. Resolve the matching
+							current, deduplicated Camunda 8 job keys through
+							the candidate-search flow below and do not pass
+							C7 process-instance IDs directly as a batch update
+							filter.
 						</p>
 					),
 				},
@@ -759,7 +826,7 @@ export const external_task = [
 								<br />
 								(string[]) filter.jobKey.$in
 								<br />
-								(string) filter.kind
+								(JobKindEnum) filter.kind
 								<br />
 								(string) filter.type
 								<br />
@@ -923,8 +990,13 @@ export const external_task = [
 						correlation for exact exhausted/nullable cases and mark
 						the selector unsupported when it is unavailable.
 						Deduplicate the resulting job keys and submit the
-						update with <code>filter.jobKey.$in</code>. Check exact
-						job keys with the same check before updating.
+						update with <code>filter.jobKey.$in</code> and{" "}
+						<code>filter.endTime.$exists=false</code>. Check exact
+						job keys with the same check before updating. A C7{" "}
+						<code>retries=0</code> request creates an incident,
+						while the C8 batch changeset only changes the retry
+						count; reject this value or route it through a
+						separate per-job failure/incident flow.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a

@@ -159,8 +159,8 @@ export const variable_instance = [
 								has no numeric comparison operator for variable
 								values, so{" "}
 								<code>gt</code>, <code>gteq</code>,{" "}
-								<code>lt</code>, <code>lteq</code>, and{" "}
-								<code>notLike</code> are unsupported.
+								<code>lt</code>, and <code>lteq</code> are
+								unsupported.
 							</p>
 						</>
 					),
@@ -242,14 +242,15 @@ export const variable_instance = [
 						JSON values with type-sensitive equality. Resolve the
 						migrated variable type before constructing an{" "}
 						<code>eq</code> or <code>neq</code> filter: serialize
-						numbers and booleans as native JSON values and actual
-						strings with their quotes. If the type cannot be
-						resolved, search without the value filter and
+						numbers and booleans as JSON literals inside the string
+						filter value, and actual strings with their quotes. The
+						C8 filter property remains a string. If the type cannot
+						be resolved, search without the value filter and
 						post-filter using C7 string semantics. Do not
 						unconditionally quote every GET token. For POST
-						requests, preserve the resolved number, boolean, and
-						string types with <code>JSON.stringify</code>; string
-						values include quotes. For <code>like</code>, non-string
+						requests, use the same JSON-encoded string produced by{" "}
+						<code>JSON.stringify</code>; string values include
+						quotes. For <code>like</code>, non-string
 						variable values are unsupported. For
 						string-valued variables, escape literal backslashes,
 						<code>*</code>, and{" "}
@@ -263,8 +264,7 @@ export const variable_instance = [
 						<code>like</code> operators. The C8 filter does not
 						support the numeric comparison operators{" "}
 						<code>gt</code>, <code>gteq</code>,{" "}
-						<code>lt</code>, <code>lteq</code>, or{" "}
-						<code>notLike</code>.
+						<code>lt</code>, or <code>lteq</code>.
 					</p>
 					<p>
 						Camunda 8 defaults <code>page.limit</code> to 100. For
@@ -404,9 +404,8 @@ export const variable_instance = [
 								<code>*</code>, and JSON-encode the complete
 								string pattern. The numeric{" "}
 								<code>gt</code>, <code>gteq</code>,{" "}
-								<code>lt</code>, <code>lteq</code>, and{" "}
-								<code>notLike</code> operators are unsupported
-								for C8 variable values.
+								<code>lt</code> and <code>lteq</code> operators
+								are unsupported for C8 variable values.
 							</p>
 						</>
 					),
