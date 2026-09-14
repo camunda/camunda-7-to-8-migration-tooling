@@ -456,6 +456,10 @@ has no source binding in the table. Do not replace a method-specific type with t
 When the selected run is not analyze-only, produce a new converted copy under
 `.camunda-migration/m2/` with a recorded filename. Never edit the original. Apply:
 
+- Preserve the source model type and suffix in the recorded filename. Use `.bpmn` or `.bpmn20.xml`
+  for BPMN and `.dmn` or `.dmn11.xml` for DMN.
+- Reject a recorded M2 copy when its suffix is missing or does not match the source model type
+  before adding it to the deployment inventory.
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners

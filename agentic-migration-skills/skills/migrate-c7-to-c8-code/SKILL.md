@@ -236,6 +236,23 @@ For every approach, once each original BPMN is paired with its converted copy, r
 Each item below is a check to run and a condition that must hold at exit. Record every result in
 `MIGRATION_REPORT.md`.
 
+#### Deployment checks
+
+Run deployment-resource validation for code-only, models-only, and combined migrations. Validate
+every existing Spring Boot `@Deployment` and explicit `CamundaClient` command before reporting
+success.
+
+- Where code migration is in scope and the selected code approach can mutate application code, ask
+  via AskUserQuestion whether to wire deployment of converted files in application code.
+- Where the user chooses **Yes, add/update deployment for converted files**, apply
+  `references/composing-code-and-models.md` as the deployment-wiring authority and update the
+  wiring.
+- Where the user chooses **No**, the selected code approach is assessment only, or code migration
+  is out of scope, do not modify application code. Preserve existing deployment wiring and record
+  the external deployment procedure and coverage in `MIGRATION_REPORT.md`.
+- When deployment wiring changes application code, apply it before the compile and test checks
+  below, then rerun both checks after the wiring update.
+
 #### Code checks, when code was migrated
 
 1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
@@ -277,14 +294,6 @@ Check these pitfalls as well:
 
 After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
 target version. See the linting section in `references/model-migration-approaches.md`.
-
-**Deployment resources** — Validate deployment inventory and resource coverage for every existing
-Spring Boot `@Deployment` and explicit `CamundaClient` command before reporting success. Where the
-selected code approach can mutate application code and the user chose **Yes, add/update deployment
-for converted files**, apply `references/composing-code-and-models.md` as the deployment-wiring
-authority and update the wiring. Where the user chose **No**, or the selected code approach is
-assessment only, do not modify application code. Record the external deployment procedure and
-coverage in `MIGRATION_REPORT.md`.
 
 1. Build the converted-copy inventory from paths recorded during the current run. Never infer a
    converted copy from filesystem existence or a filename prefix. If M1 or E1 reports `File already

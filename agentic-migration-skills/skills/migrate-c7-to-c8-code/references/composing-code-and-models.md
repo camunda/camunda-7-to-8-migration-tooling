@@ -145,8 +145,11 @@ only, then do not ask this question and preserve existing deployment wiring.
     | Spring Boot `@Deployment` | Empty | Existing deployment declaration | Preserve existing deployment wiring. |
     | Explicit `CamundaClient` command | Non-empty | The source used by the explicit deployment command | Supply each inventory entry explicitly, then apply the command coverage and co-location rules. |
     | Explicit `CamundaClient` command | Empty | Existing deployment command | Preserve existing deployment wiring. |
+    | No deployment mechanism | Non-empty | A user-selected deployment mechanism | Create Spring Boot `@Deployment` or an explicit `CamundaClient` command, then apply its coverage rules. |
 
     Apply only the row that matches the application and inventory.
+  - If the inventory is non-empty and no deployment mechanism exists, ask the user to choose a
+    mechanism before applying the decision table.
   - Where deployment uses Spring Boot `@Deployment`, treat every resource directory that the
     selected build's effective resource mapping includes in its application artifact as a packaged
     resource directory.
@@ -163,7 +166,10 @@ only, then do not ask this question and preserve existing deployment wiring.
   - Filter the recorded converted paths to BPMN and DMN files before building the model deployment inventory.
   - Exclude findings reports and other non-deployable artifacts from the deployment inventory.
   - Add every form with a recorded `bindingType=deployment` and a terminal status of `accepted` or `relinked` to the deployment inventory.
-  - Record each deployment-bound form's final project-relative path in the deployment inventory.
+  - Where deployment uses Spring Boot `@Deployment`, record each deployment-bound form's final
+    project-relative path in the deployment inventory.
+  - Where deployment uses an explicit `CamundaClient` command, record each deployment-bound form's
+    actual command source reference in the deployment inventory.
   - Record each deployment-bound form's owning converted BPMN path.
   - Record every existing deployment pattern in `MIGRATION_REPORT.md` before editing.
   - Store one current report row per pattern with its owning declaration, exact pattern, source
@@ -239,17 +245,24 @@ only, then do not ask this question and preserve existing deployment wiring.
 
 ## Deployment Validation
 
-Validate the current deployment wiring before reporting success, regardless of the deployment option.
+Validate the current deployment wiring before reporting success. Run liveness checks for existing
+wiring for every deployment option. Require application-startup coverage only when the user chooses
+to update application deployment wiring.
 
 - Where deployment uses Spring Boot `@Deployment`, confirm that every effective deployment pattern
   matches at least one packaged classpath resource.
-- Where deployment uses Spring Boot `@Deployment` and the inventory is non-empty, confirm that
-  every inventory entry matches at least one effective deployment pattern, including preserved
-  patterns.
-- Where deployment uses an explicit `CamundaClient` command, confirm that every inventory entry is
-  supplied by an explicit deployment command.
-- Validate that each deployment-bound form and its owning converted BPMN share the same deployment
-  declaration or invocation.
+- Where the user chose **Yes, add/update deployment for converted files** and deployment uses
+  Spring Boot `@Deployment`, confirm that every inventory entry matches at least one effective
+  deployment pattern, including preserved patterns.
+- Where the user chose **Yes, add/update deployment for converted files** and deployment uses an
+  explicit `CamundaClient` command, confirm that every inventory entry is supplied by that command.
+- Where the user chose **Yes, add/update deployment for converted files**, validate that each
+  deployment-bound form and its owning converted BPMN share the same deployment declaration or
+  invocation.
+- Where the user chose **No**, the selected code approach is assessment only, or code migration is
+  out of scope, record each inventory entry's external deployment source and coverage in
+  `MIGRATION_REPORT.md` instead of requiring application-startup coverage. Record the intended
+  co-location of each deployment-bound form and its owning converted BPMN.
 - If a preserved `migration-managed=false` pattern matches an original diagram, draft form,
   blocked form, declined form, or resource type without a migration inventory entry, stop and ask
   the user to remove, narrow, or explicitly retain the pattern. Record the decision in
