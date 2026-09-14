@@ -89,10 +89,14 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
     public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
 
-        engine.getRuntimeService().createProcessInstanceQuery()
-                .activityIdIn(activityIdIn)
-                .active()
-                .list();
+        camundaClient
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter
+                        .elementId(activityIdIn)
+                        .state(ProcessInstanceState.ACTIVE))
+                .send()
+                .join()
+                .items();
 
         // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
         camundaClient
@@ -1231,6 +1235,158 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void flagsCountsForParenthesizedQueryResultsAndFieldAssignments() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ParenthesizedProcessInstanceListCountTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                private List<?> fieldInstances;
+
+                public int countDeclaredInstances() {
+                    List<?> instances = (engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list());
+                    return instances.size();
+                }
+
+                public long countDeclaredStreamInstances() {
+                    List<?> instances = (engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list());
+                    return instances.stream().count();
+                }
+
+                public int countNestedAssignedInstances() {
+                    List<?> instances;
+                    if (true) {
+                        instances = (engine.getRuntimeService()
+                                .createProcessInstanceQuery()
+                                .processDefinitionKey("order-process")
+                                .active()
+                                .list());
+                    }
+                    return instances.size();
+                }
+
+                public void assignFieldInstances() {
+                    fieldInstances = (engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list());
+                }
+
+                public int countFieldInstances() {
+                    return fieldInstances.size();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import io.camunda.client.api.search.response.ProcessInstance;
+
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ParenthesizedProcessInstanceListCountTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                private List<?> fieldInstances;
+
+                public int countDeclaredInstances() {
+                    List<ProcessInstance> instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
+             instances.size();
+                }
+
+                public long countDeclaredStreamInstances() {
+                    List<ProcessInstance> instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
+             instances.stream().count();
+                }
+
+                public int countNestedAssignedInstances() {
+                    List<?> instances;
+                    if (true) {
+                        instances = camundaClient
+                                .newProcessInstanceSearchRequest()
+                                .filter(filter -> filter
+                                        .processDefinitionId("order-process")
+                                        .state(ProcessInstanceState.ACTIVE))
+                                .send()
+                                .join()
+                                .items();
+                    }
+                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
+             instances.size();
+                }
+
+                public void assignFieldInstances() {
+                    fieldInstances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                }
+
+                public int countFieldInstances() {
+                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: fieldInstances
+             fieldInstances.size();
+                }
+            }
+            """));
+  }
+
+  @Test
   void preservesLongResultForListSizeExpressions() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
@@ -1379,17 +1535,25 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 private CamundaClient camundaClient;
 
                 public void countQueries(String activityId, String businessKey) {
-                    long activityCount = engine.getRuntimeService()
-                            .createProcessInstanceQuery()
-                            .activityIdIn(activityId)
-                            .count();
+                    long activityCount = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .elementId(activityId)
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().longValue();
 
-                    int activityListSize = engine.getRuntimeService()
-                            .createProcessInstanceQuery()
-                            .activityIdIn(activityId)
-                            .active()
-                            .list()
-                            .size();
+                    int activityListSize = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .elementId(activityId)
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().intValue();
 
                     // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
                     long businessCount = camundaClient
@@ -1670,6 +1834,48 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .createProcessInstanceQuery()
                             .activityIdIn(activityIds)
                             .active()
+                            .count();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotRewriteGenuinelyUnfilteredProcessInstanceCounts() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class GenuinelyUnfilteredProcessInstanceCountsTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                public int listSize() {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list()
+                            .size();
+                }
+
+                public long streamCount() {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list()
+                            .stream()
+                            .count();
+                }
+
+                public long directCount() {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
                             .count();
                 }
             }

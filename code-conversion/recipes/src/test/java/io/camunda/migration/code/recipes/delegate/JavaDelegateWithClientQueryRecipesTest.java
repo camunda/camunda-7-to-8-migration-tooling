@@ -102,7 +102,7 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                             .send()
                             .join()
                             .page()
-                            .totalItems() % 2 == 0;
+                            .totalItems().intValue() % 2 == 0;
 
                     long activeCount = camundaClient
                             .newProcessInstanceSearchRequest()

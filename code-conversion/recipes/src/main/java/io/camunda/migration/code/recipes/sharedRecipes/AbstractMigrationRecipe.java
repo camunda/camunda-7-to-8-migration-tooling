@@ -104,6 +104,29 @@ public abstract class AbstractMigrationRecipe extends Recipe {
     }
   }
 
+  private void trackAssignedQueryResultVariable(
+      Cursor cursor, String variableName, boolean classScoped) {
+    if (classScoped) {
+      trackQueryResultVariable(cursor, variableName, true);
+      return;
+    }
+
+    Cursor current = cursor;
+    while (current != null) {
+      Object value = current.getValue();
+      Cursor parent = current.getParent();
+      if (value instanceof J.Block
+          && parent != null
+          && parent.getValue() instanceof J.MethodDeclaration) {
+        current.putMessage(TRACKED_QUERY_RESULT_VARIABLE_PREFIX + variableName, "true");
+        return;
+      }
+      current = parent;
+    }
+
+    trackQueryResultVariable(cursor, variableName, false);
+  }
+
   protected boolean isTrackedQueryResultVariable(String variableName, Cursor cursor) {
     return cursor.getNearestMessage(TRACKED_QUERY_RESULT_VARIABLE_PREFIX + variableName) != null;
   }
@@ -133,7 +156,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             }
 
             for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-              if (variable.getInitializer() instanceof J.MethodInvocation invocation) {
+              Expression initializer = unwrapParentheses(variable.getInitializer());
+              if (initializer instanceof J.MethodInvocation invocation) {
                 findReplacementSpec(invocation)
                     .filter(spec -> shouldTrackQueryResultVariable(invocation, spec))
                     .ifPresent(
@@ -148,7 +172,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             // Analyze first variable
             J.VariableDeclarations.NamedVariable firstVar = declarations.getVariables().get(0);
             J.Identifier originalName = firstVar.getName();
-            Expression originalInitializer = firstVar.getInitializer();
+            Expression originalInitializer = unwrapParentheses(firstVar.getInitializer());
 
             // work with initializer that is a method invocation
             if (originalInitializer instanceof J.MethodInvocation invocation) {
@@ -296,7 +320,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               return assignment;
             }
 
-            if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
+            Expression originalAssignment = unwrapParentheses(assignment.getAssignment());
+            if (!(originalAssignment instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -309,10 +334,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               String assignedVariableName = getAssignedVariableName(assignment.getVariable());
               if (assignedVariableName != null
                   && shouldTrackQueryResultVariable(invocation, spec)) {
-                trackQueryResultVariable(
+                trackAssignedQueryResultVariable(
                     getCursor(),
                     assignedVariableName,
-                    assignment.getVariable() instanceof J.FieldAccess);
+                    isClassField(assignment.getVariable()));
               }
 
               if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
@@ -762,6 +787,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               return fieldAccess.getName().getSimpleName();
             }
             return null;
+          }
+
+          private boolean isClassField(Expression variable) {
+            if (variable instanceof J.FieldAccess) {
+              return true;
+            }
+            return variable instanceof J.Identifier identifier && identifier.getFieldType() != null;
           }
 
           private boolean hasAnyMethodInReceiverChain(
