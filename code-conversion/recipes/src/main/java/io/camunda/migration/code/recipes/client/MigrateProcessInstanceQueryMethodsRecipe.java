@@ -145,7 +145,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
         List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
         Collections.emptyList(),
-        Collections.emptyList(),
+        List.of(PROCESS_INSTANCE_STATE),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
 
     specs.add(new ReplacementUtils.BuilderReplacementSpec(
@@ -613,6 +613,32 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     while (current != null) {
       Object value = current.getValue();
 
+      if (value instanceof J.NewArray newArray
+          && newArray.getInitializer() != null
+          && (isIntContextType(newArray.getType())
+              || (newArray.getTypeExpression() != null
+                  && isIntContextType(newArray.getTypeExpression().getType())))
+          && newArray.getInitializer().stream()
+              .anyMatch(
+                  initializer -> containsReplacementTarget(initializer, replacementTarget))) {
+        return SizeResultType.INT;
+      }
+
+      if (value instanceof J.ArrayDimension arrayDimension
+          && containsReplacementTarget(arrayDimension.getIndex(), replacementTarget)) {
+        return SizeResultType.INT;
+      }
+
+      if (value instanceof J.Switch switchStatement
+          && containsReplacementTarget(switchStatement.getSelector().getTree(), replacementTarget)) {
+        return SizeResultType.INT;
+      }
+
+      if (value instanceof J.SwitchExpression switchExpression
+          && containsReplacementTarget(switchExpression.getSelector().getTree(), replacementTarget)) {
+        return SizeResultType.INT;
+      }
+
       if (value instanceof J.VariableDeclarations declarations) {
         SizeResultType resultType = resultTypeFor(declarations.getType());
         if (resultType != SizeResultType.UNKNOWN) {
@@ -689,32 +715,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             return resultType;
           }
         }
-      }
-
-      if (value instanceof J.NewArray newArray
-          && newArray.getInitializer() != null
-          && (isIntContextType(newArray.getType())
-              || (newArray.getTypeExpression() != null
-                  && isIntContextType(newArray.getTypeExpression().getType())))
-          && newArray.getInitializer().stream()
-              .anyMatch(
-                  initializer -> containsReplacementTarget(initializer, replacementTarget))) {
-        return SizeResultType.INT;
-      }
-
-      if (value instanceof J.ArrayDimension arrayDimension
-          && containsReplacementTarget(arrayDimension.getIndex(), replacementTarget)) {
-        return SizeResultType.INT;
-      }
-
-      if (value instanceof J.Switch switchStatement
-          && containsReplacementTarget(switchStatement.getSelector().getTree(), replacementTarget)) {
-        return SizeResultType.INT;
-      }
-
-      if (value instanceof J.SwitchExpression switchExpression
-          && containsReplacementTarget(switchExpression.getSelector().getTree(), replacementTarget)) {
-        return SizeResultType.INT;
       }
 
       current = current.getParent();

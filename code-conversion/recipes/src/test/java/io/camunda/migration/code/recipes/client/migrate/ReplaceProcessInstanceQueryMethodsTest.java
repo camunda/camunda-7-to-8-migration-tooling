@@ -127,6 +127,57 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void addsStateImportForBusinessKeyListQueries() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class BusinessKeyListQueryTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public void query(String businessKey) {
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processInstanceBusinessKey(businessKey)
+                            .active()
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class BusinessKeyListQueryTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public void query(String businessKey) {
+                    // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
+                    camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                }
+            }
+            """));
+  }
+
+  @Test
   void doesNotRewriteTaskQueryListChains() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
@@ -1054,8 +1105,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
-             instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
                 }
             }
             """));
@@ -1227,8 +1277,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
-             instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
                 }
             }
             """));
@@ -1334,8 +1383,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
-             instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
                 }
 
                 public long countDeclaredStreamInstances() {
@@ -1347,8 +1395,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .send()
                             .join()
                             .items();
-                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
-             instances.stream().count();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.stream().count();
                 }
 
                 public int countNestedAssignedInstances() {
@@ -1363,8 +1410,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                                 .join()
                                 .items();
                     }
-                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: instances
-             instances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
                 }
 
                 public void assignFieldInstances() {
@@ -1379,8 +1425,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 }
 
                 public int countFieldInstances() {
-                    return //TODO: Manual migration required - use page().totalItems() for the complete query count of: fieldInstances
-             fieldInstances.size();
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: fieldInstances */ fieldInstances.size();
                 }
             }
             """));
@@ -1640,6 +1685,182 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .join()
                             .page()
                             .totalItems().longValue();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesIntResultInStrictContextsInsideLongDeclarations() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class ProcessInstanceQueryStrictContextTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public long[] arrayDimension() {
+                    long[] values = new long[engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active()
+                            .list()
+                            .size()];
+                    return values;
+                }
+
+                public long switchSelector() {
+                    long result = switch (engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active()
+                            .list()
+                            .size()) {
+                        case 0 -> 0L;
+                        default -> 1L;
+                    };
+                    return result;
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class ProcessInstanceQueryStrictContextTestClass {
+
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public long[] arrayDimension() {
+                    long[] values = new long[camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().intValue()];
+                    return values;
+                }
+
+                public long switchSelector() {
+                    long result = switch (camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().intValue()) {
+                        case 0 -> 0L;
+                        default -> 1L;
+                    };
+                    return result;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotFlagShadowedOrReassignedQueryResultVariables() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class QueryResultTrackingScopeTestClass {
+
+                private List<?> instances;
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public void loadFieldQueryResult() {
+                    instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list();
+                }
+
+                public int shadowedFieldQueryResult(List<?> instances) {
+                    return instances.size();
+                }
+
+                public int fieldQueryResult() {
+                    return instances.size();
+                }
+
+                public int reassignedQueryResult() {
+                    List<?> instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey("order-process")
+                            .active()
+                            .list();
+                    instances = new ArrayList<>();
+                    return instances.size();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import io.camunda.client.api.search.response.ProcessInstance;
+
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+
+            public class QueryResultTrackingScopeTestClass {
+
+                private List<?> instances;
+                private ProcessEngine engine;
+                private CamundaClient camundaClient;
+
+                public void loadFieldQueryResult() {
+                    instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                }
+
+                public int shadowedFieldQueryResult(List<?> instances) {
+                    return instances.size();
+                }
+
+                public int fieldQueryResult() {
+                    return /* TODO: Manual migration required - use page().totalItems() for the complete query count of: instances */ instances.size();
+                }
+
+                public int reassignedQueryResult() {
+                    List<ProcessInstance> instances = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId("order-process")
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                    instances = new ArrayList<>();
+                    return instances.size();
                 }
             }
             """));
