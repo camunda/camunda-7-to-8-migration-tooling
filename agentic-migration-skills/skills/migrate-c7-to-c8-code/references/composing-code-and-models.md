@@ -57,6 +57,31 @@ Cross-check for this shape: exactly one worker subscribes to the shared job type
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
+When a many-to-one category has a **needs fix** verdict because no dispatcher exists, offer a
+scaffold through AskUserQuestion before asking the user to implement the dispatcher manually:
+
+- **Generate a dispatcher scaffold (recommended)** — show the shared job type, the retained header
+  key, and every distinct original expression before generating the file.
+- **I will implement the dispatcher manually** — do not create a source file, and keep the category
+  as **needs fix**.
+
+Generate the scaffold only after the user chooses the first option. Create a new source file beside
+the migrated worker sources, using the project's conventional package, license header, naming, and
+formatting. Never overwrite an existing file. If the proposed path exists, choose a new path and
+tell the user which file was created.
+
+The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
+the project's worker registration convention, such as `@Component` for Spring. Use a method
+signature compatible with its Camunda 8 SDK. Read the original expression from the retained
+`zeebe:header` using its original C7 key. Prepopulate a routing map or switch with one entry for
+every distinct original expression in the findings rows. Put a `TODO` in every route for the actual
+legacy bean or method invocation. Add an explicit missing-or-unknown-header path instead of
+silently accepting an unroutable job.
+
+After generation, rerun the same cross-check used for hand-written dispatchers. The scaffold is
+not a completed remediation: keep the category **needs fix** while any generated `TODO` remains,
+and record the generated file and uncovered implementation work in MIGRATION_REPORT.md.
+
 ### 3. FEEL method-invocation category
 
 Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). These are the model-side occurrences of FEEL method-invocation (`code-transform-checklist.md` item 7): a JUEL expression invoked a Java method, on a bean or a plain variable (e.g. `${execution.getVariable("a").size()}`). The category applies regardless of element type: sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...). The remediation is the same in every case: a preceding job worker, execution listener, or DMN business rule table computes the value into a plain variable that FEEL can read.
