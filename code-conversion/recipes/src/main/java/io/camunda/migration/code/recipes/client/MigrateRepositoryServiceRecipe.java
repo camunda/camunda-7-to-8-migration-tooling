@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.TreeVisitor;
@@ -44,6 +45,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
           + "or REST endpoint.";
   private static final String USAGE_TODO =
       " TODO: RepositoryService usage was not migrated automatically. Migrate it manually.";
+  private static final Set<String> INJECTION_BINDING_ANNOTATIONS =
+      Set.of("Autowired", "Inject", "Named", "Qualifier", "Resource");
 
   private static final MethodMatcher CREATE_DEPLOYMENT =
       new MethodMatcher(REPOSITORY_SERVICE + " createDeployment()");
@@ -226,6 +229,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                     && (!hasStaticRepositoryServiceField
                         || (existingClientIdentifier != null && existingClientIsStatic))
                     && !hasNamedRepositoryServiceField(classDeclaration)
+                    && !hasMismatchedExistingClientInjection(
+                        classDeclaration, existingClientIdentifier)
                     && !containsProcessEngineRepositoryServiceGetter(classDeclaration, ctx)
                     && !hasNestedClass(classDeclaration, ctx);
             Map<String, String> repositoryServiceClients = new HashMap<>();
@@ -302,6 +307,54 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                             || annotationType.endsWith(".Resource"));
           }
 
+          private boolean hasMismatchedExistingClientInjection(
+              J.ClassDeclaration classDeclaration, String existingClientIdentifier) {
+            if (existingClientIdentifier == null) {
+              return false;
+            }
+
+            J.VariableDeclarations clientDeclaration =
+                classDeclaration.getBody().getStatements().stream()
+                    .filter(J.VariableDeclarations.class::isInstance)
+                    .map(J.VariableDeclarations.class::cast)
+                    .filter(
+                        declaration ->
+                            TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT)
+                                && declaration.getVariables().stream()
+                                    .anyMatch(
+                                        variable ->
+                                            variable
+                                                .getSimpleName()
+                                                .equals(existingClientIdentifier)))
+                    .findFirst()
+                    .orElse(null);
+            if (clientDeclaration == null) {
+              return true;
+            }
+
+            Set<String> clientBindings = injectionBindings(clientDeclaration);
+            return classDeclaration.getBody().getStatements().stream()
+                .filter(J.VariableDeclarations.class::isInstance)
+                .map(J.VariableDeclarations.class::cast)
+                .filter(this::isDirectRepositoryServiceType)
+                .anyMatch(
+                    repositoryServiceDeclaration ->
+                        !injectionBindings(repositoryServiceDeclaration).equals(clientBindings));
+          }
+
+          private Set<String> injectionBindings(J.VariableDeclarations declaration) {
+            Set<String> bindings = new HashSet<>();
+            for (J.Annotation annotation : declaration.getLeadingAnnotations()) {
+              String annotationType = annotation.getAnnotationType().toString();
+              String simpleName =
+                  annotationType.substring(annotationType.lastIndexOf('.') + 1);
+              if (INJECTION_BINDING_ANNOTATIONS.contains(simpleName)) {
+                bindings.add(annotationType + annotation.getArguments());
+              }
+            }
+            return bindings;
+          }
+
           private boolean isExternallyAccessibleRepositoryServiceField(
               J.VariableDeclarations declaration) {
             return isDirectRepositoryServiceType(declaration)
@@ -374,7 +427,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                       && CREATE_DEPLOYMENT.matches(sourceMethods.get(0))) {
                     migratedCreateDeployments.add(sourceMethods.get(0).getId());
                     if (!isSupportedDeploymentChain(invocation)
-                        || !(getCursor().getParentTreeCursor().getValue() instanceof J.Block)) {
+                        || !isStandaloneDeployment(getCursor())) {
                       unsupportedUsage[0] = true;
                     }
                   }
@@ -636,7 +689,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
           private J.MethodInvocation migrateDeployment(
               J.MethodInvocation deployInvocation, ExecutionContext ctx) {
-            if (!(getCursor().getParentTreeCursor().getValue() instanceof J.Block)) {
+            if (!isStandaloneDeployment(getCursor())) {
               return deployInvocation;
             }
 
@@ -688,8 +741,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   }
                   templateCode.append(
                       "\n    .addResourceStringUtf8(#{any(java.lang.String)}, #{any(java.lang.String)})");
-                  arguments.add(method.getArguments().get(1));
                   arguments.add(method.getArguments().get(0));
+                  arguments.add(method.getArguments().get(1));
                   hasResource = true;
                 }
                 case "tenantId" -> {
@@ -733,6 +786,15 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                     RecipeUtils.applyTemplate(
                         template, deployInvocation, getCursor(), templateArguments, List.of());
             return maybeAutoFormat(deployInvocation, replacement, ctx);
+          }
+
+          private boolean isStandaloneDeployment(Cursor cursor) {
+            Object parent = cursor.getParentTreeCursor().getValue();
+            return parent instanceof J.Block
+                || parent instanceof J.If
+                || parent instanceof J.ForLoop
+                || parent instanceof J.WhileLoop
+                || parent instanceof J.DoWhileLoop;
           }
 
           private boolean isSupportedDeploymentChain(J.MethodInvocation deployInvocation) {

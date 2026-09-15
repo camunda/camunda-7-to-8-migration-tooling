@@ -51,17 +51,17 @@ public class CleanupEngineDependencyRecipe extends Recipe {
     return Preconditions.check(
         check,
         new JavaIsoVisitor<>() {
-          private boolean preserveRepositoryServiceFields;
+          private Set<String> deferredEngineDependencyFieldNames = Set.of();
 
           @Override
           public J.CompilationUnit visitCompilationUnit(
               J.CompilationUnit compilationUnit, ExecutionContext ctx) {
-            boolean previousPreserveRepositoryServiceFields =
-                preserveRepositoryServiceFields;
-            preserveRepositoryServiceFields =
-                containsDeferredRepositoryServiceMigration(compilationUnit, ctx);
+            Set<String> previousDeferredEngineDependencyFieldNames =
+                deferredEngineDependencyFieldNames;
+            deferredEngineDependencyFieldNames =
+                findDeferredEngineDependencyFieldNames(compilationUnit, ctx);
             J.CompilationUnit visited = super.visitCompilationUnit(compilationUnit, ctx);
-            preserveRepositoryServiceFields = previousPreserveRepositoryServiceFields;
+            deferredEngineDependencyFieldNames = previousDeferredEngineDependencyFieldNames;
             if (!containsRepositoryServiceReference(visited, ctx)) {
               return visited.withImports(
                   visited.getImports().stream()
@@ -85,26 +85,17 @@ public class CleanupEngineDependencyRecipe extends Recipe {
           @Override
           public J.ClassDeclaration visitClassDeclaration(
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
-            boolean preserveAllEngineDependencies =
-                containsDeferredRepositoryServiceMigration(classDeclaration, ctx);
-            if (preserveAllEngineDependencies) {
-              return classDeclaration;
-            }
-
             List<Statement> newStatements = new ArrayList<>();
             for (Statement statement : classDeclaration.getBody().getStatements()) {
               if (!(statement instanceof J.VariableDeclarations varDecls)) {
                 newStatements.add(statement);
                 continue;
               }
-              if (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
-                  || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
-                  || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)) {
+              if (isEngineDependencyType(varDecls)
+                  && varDecls.getVariables().stream()
+                      .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                      .noneMatch(deferredEngineDependencyFieldNames::contains)) {
                 // This is the statement we want to remove, so skip adding it
-                continue;
-              }
-              if (isDirectRepositoryServiceType(varDecls)
-                  && !preserveRepositoryServiceFields) {
                 continue;
               }
               newStatements.add(statement);
@@ -118,8 +109,27 @@ public class CleanupEngineDependencyRecipe extends Recipe {
                 classDeclaration.getBody().withStatements(newStatements));
           }
 
-          private boolean containsDeferredRepositoryServiceMigration(J tree, ExecutionContext ctx) {
-            boolean[] found = {false};
+          private Set<String> findDeferredEngineDependencyFieldNames(
+              J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+            Set<String> engineDependencyFieldNames = new HashSet<>();
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.ClassDeclaration visitClassDeclaration(
+                  J.ClassDeclaration classDeclaration, ExecutionContext nestedCtx) {
+                classDeclaration.getBody().getStatements().stream()
+                    .filter(J.VariableDeclarations.class::isInstance)
+                    .map(J.VariableDeclarations.class::cast)
+                    .filter(CleanupEngineDependencyRecipe.this::isEngineDependencyType)
+                    .flatMap(
+                        declaration ->
+                            declaration.getVariables().stream()
+                                .map(J.VariableDeclarations.NamedVariable::getSimpleName))
+                    .forEach(engineDependencyFieldNames::add);
+                return super.visitClassDeclaration(classDeclaration, nestedCtx);
+              }
+            }.visit(compilationUnit, ctx);
+
+            Set<String> deferredFieldNames = new HashSet<>();
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
               public J preVisit(J tree, ExecutionContext nestedCtx) {
@@ -129,12 +139,21 @@ public class CleanupEngineDependencyRecipe extends Recipe {
                             comment instanceof TextComment textComment
                                 && REPOSITORY_SERVICE_TODOS.stream()
                                     .anyMatch(textComment.getText()::contains))) {
-                  found[0] = true;
+                  new JavaIsoVisitor<ExecutionContext>() {
+                    @Override
+                    public J.Identifier visitIdentifier(
+                        J.Identifier identifier, ExecutionContext identifierCtx) {
+                      if (engineDependencyFieldNames.contains(identifier.getSimpleName())) {
+                        deferredFieldNames.add(identifier.getSimpleName());
+                      }
+                      return super.visitIdentifier(identifier, identifierCtx);
+                    }
+                  }.visit(tree, nestedCtx);
                 }
                 return super.preVisit(tree, nestedCtx);
               }
-            }.visit(tree, ctx);
-            return found[0];
+            }.visit(compilationUnit, ctx);
+            return deferredFieldNames;
           }
 
           private boolean containsRepositoryServiceReference(J tree, ExecutionContext ctx) {
@@ -157,17 +176,24 @@ public class CleanupEngineDependencyRecipe extends Recipe {
             return found[0];
           }
 
-          private boolean isDirectRepositoryServiceType(
-              J.VariableDeclarations declarations) {
-            TypeTree typeExpression = declarations.getTypeExpression();
-            boolean hasRepositoryServiceName =
-                (typeExpression instanceof J.Identifier identifier
-                        && identifier.getSimpleName().equals("RepositoryService"))
-                    || (typeExpression instanceof J.FieldAccess fieldAccess
-                        && fieldAccess.getName().getSimpleName().equals("RepositoryService"));
-            return hasRepositoryServiceName
-                && TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE);
-          }
         });
+  }
+
+  private boolean isDirectRepositoryServiceType(J.VariableDeclarations declarations) {
+    TypeTree typeExpression = declarations.getTypeExpression();
+    boolean hasRepositoryServiceName =
+        (typeExpression instanceof J.Identifier identifier
+                && identifier.getSimpleName().equals("RepositoryService"))
+            || (typeExpression instanceof J.FieldAccess fieldAccess
+                && fieldAccess.getName().getSimpleName().equals("RepositoryService"));
+    return hasRepositoryServiceName
+        && TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE);
+  }
+
+  private boolean isEngineDependencyType(J.VariableDeclarations declarations) {
+    return TypeUtils.isOfClassType(declarations.getType(), PROCESS_ENGINE)
+        || TypeUtils.isOfClassType(declarations.getType(), RUNTIME_SERVICE)
+        || TypeUtils.isOfClassType(declarations.getType(), TASK_SERVICE)
+        || isDirectRepositoryServiceType(declarations);
   }
 }

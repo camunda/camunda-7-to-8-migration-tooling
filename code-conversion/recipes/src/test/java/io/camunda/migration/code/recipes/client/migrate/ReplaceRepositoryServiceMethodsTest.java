@@ -30,6 +30,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
 
             @Component
             class Deployer {
+              @Autowired
               private CamundaClient camundaClient;
 
               @Autowired
@@ -52,6 +53,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
 
             @Component
             class Deployer {
+              @Autowired
               private CamundaClient camundaClient;
 
               void deploy() {
@@ -103,9 +105,50 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
                           .join();
                   repositoryService
                           .newDeployResourceCommand()
-                          .addResourceStringUtf8(text, "text.bpmn")
+                          .addResourceStringUtf8("text.bpmn", text)
                           .send()
                           .join();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void replacesUnbracedConditionalDeployment() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              void deploy(boolean condition) {
+                if (condition)
+                  repositoryService.createDeployment()
+                      .addClasspathResource("bpmn/order.bpmn")
+                      .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+
+            class Deployer {
+              private CamundaClient repositoryService;
+
+              void deploy(boolean condition) {
+                if (condition)
+                    repositoryService
+                            .newDeployResourceCommand()
+                            .addResourceFromClasspath("bpmn/order.bpmn")
+                            .send()
+                            .join();
               }
             }
             """));
@@ -188,6 +231,54 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
                   }
                 }
                 """));
+  }
+
+  @Test
+  void defersExistingClientBindingWhenRepositoryServiceInjectionDiffers() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+            import org.springframework.beans.factory.annotation.Autowired;
+
+            class Deployer {
+              private CamundaClient client;
+
+              @Autowired
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+            import org.springframework.beans.factory.annotation.Autowired;
+
+            class Deployer {
+              private CamundaClient client;
+
+              @Autowired
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
   }
 
   @Test

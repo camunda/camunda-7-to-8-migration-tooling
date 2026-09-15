@@ -124,7 +124,6 @@ public class VariousProcessEngineFunctionsTestClass {
     package org.camunda.community.migration.example;
 
     import io.camunda.client.CamundaClient;
-    import org.camunda.bpm.engine.ProcessEngine;
     import org.camunda.bpm.engine.RepositoryService;
     import org.springframework.beans.factory.annotation.Autowired;
 
@@ -132,8 +131,6 @@ public class VariousProcessEngineFunctionsTestClass {
 
         @Autowired
         private CamundaClient camundaClient;
-
-        private ProcessEngine engine;
         private RepositoryService repositoryService;
 
         public void deploy() {
@@ -172,7 +169,6 @@ public class VariousProcessEngineFunctionsTestClass {
     package org.camunda.community.migration.example;
 
     import io.camunda.client.CamundaClient;
-    import org.camunda.bpm.engine.ProcessEngine;
     import org.camunda.bpm.engine.RepositoryService;
     import org.springframework.beans.factory.annotation.Autowired;
 
@@ -180,8 +176,6 @@ public class VariousProcessEngineFunctionsTestClass {
 
         @Autowired
         private CamundaClient camundaClient;
-
-        private ProcessEngine engine;
         // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
         public RepositoryService repositoryService;
     }
