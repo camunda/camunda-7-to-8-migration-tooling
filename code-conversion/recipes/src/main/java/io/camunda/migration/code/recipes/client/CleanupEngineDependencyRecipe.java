@@ -8,6 +8,7 @@
 package io.camunda.migration.code.recipes.client;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.*;
@@ -31,6 +32,7 @@ public class CleanupEngineDependencyRecipe extends Recipe {
   String RUNTIME_SERVICE = "org.camunda.bpm.engine.RuntimeService";
   String TASK_SERVICE = "org.camunda.bpm.engine.TaskService";
   String REPOSITORY_SERVICE = "org.camunda.bpm.engine.RepositoryService";
+  String REPOSITORY_SERVICE_TODO = "TODO: RepositoryService";
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -59,6 +61,19 @@ public class CleanupEngineDependencyRecipe extends Recipe {
           @Override
           public J.ClassDeclaration visitClassDeclaration(
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            if (containsDeferredRepositoryServiceMigration(classDeclaration)) {
+              return classDeclaration;
+            }
+
+            Set<UUID> fieldDeclarationIds =
+                classDeclaration.getBody().getStatements().stream()
+                    .filter(J.VariableDeclarations.class::isInstance)
+                    .map(J.VariableDeclarations.class::cast)
+                    .map(J.VariableDeclarations::getId)
+                    .collect(Collectors.toSet());
+            boolean hasRepositoryServiceTypeOutsideFields =
+                hasRepositoryServiceTypeOutsideFields(
+                    classDeclaration, fieldDeclarationIds, ctx);
 
             List<Statement> newStatements = new ArrayList<>();
             for (Statement statement : classDeclaration.getBody().getStatements()) {
@@ -66,7 +81,8 @@ public class CleanupEngineDependencyRecipe extends Recipe {
                   && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
                       || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
                       || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE))) {
+                      || (TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE)
+                          && !hasRepositoryServiceTypeOutsideFields))) {
                 // This is the statement we want to remove, so skip adding it
                 continue;
               }
@@ -76,10 +92,46 @@ public class CleanupEngineDependencyRecipe extends Recipe {
             maybeRemoveImport(PROCESS_ENGINE);
             maybeRemoveImport(RUNTIME_SERVICE);
             maybeRemoveImport(TASK_SERVICE);
-            maybeRemoveImport(REPOSITORY_SERVICE);
+            if (!hasRepositoryServiceTypeOutsideFields) {
+              maybeRemoveImport(REPOSITORY_SERVICE);
+            }
 
             return classDeclaration.withBody(
                 classDeclaration.getBody().withStatements(newStatements));
+          }
+
+          private boolean containsDeferredRepositoryServiceMigration(
+              J.ClassDeclaration classDeclaration) {
+            return classDeclaration.print().contains(REPOSITORY_SERVICE_TODO);
+          }
+
+          private boolean hasRepositoryServiceTypeOutsideFields(
+              J.ClassDeclaration classDeclaration,
+              Set<UUID> fieldDeclarationIds,
+              ExecutionContext ctx) {
+            boolean[] found = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.VariableDeclarations visitVariableDeclarations(
+                  J.VariableDeclarations declarations, ExecutionContext nestedCtx) {
+                if (TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE)
+                    && !fieldDeclarationIds.contains(declarations.getId())) {
+                  found[0] = true;
+                }
+                return super.visitVariableDeclarations(declarations, nestedCtx);
+              }
+
+              @Override
+              public J.MethodDeclaration visitMethodDeclaration(
+                  J.MethodDeclaration method, ExecutionContext nestedCtx) {
+                if (method.getReturnTypeExpression() != null
+                    && method.getReturnTypeExpression().toString().equals("RepositoryService")) {
+                  found[0] = true;
+                }
+                return super.visitMethodDeclaration(method, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+            return found[0];
           }
         });
   }

@@ -79,4 +79,27 @@ class RemoveEngineDependencyTest implements RewriteTest {
         );
     }
 
+    @Test
+    void preservesDeferredRepositoryServiceMigration() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.ProcessEngine;
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private ProcessEngine engine;
+                          private RepositoryService repositoryService;
+
+                          void deploy() {
+                            // TODO: RepositoryService deployment method was not migrated automatically
+                            repositoryService.createDeployment().name("orders").deploy();
+                          }
+                        }
+                        """));
+    }
+
 }

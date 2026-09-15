@@ -719,4 +719,140 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
             }
             """));
   }
+
+  @Test
+  void doesNotRewriteWhenExistingClientIsShadowed() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient client;
+              private RepositoryService repositoryService;
+
+              void deploy(String client) {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient client;
+              private RepositoryService repositoryService;
+
+              void deploy(String client) {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotRewriteQualifiedRepositoryServiceField() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Holder {
+              RepositoryService repositoryService;
+            }
+
+            class Deployer {
+              private RepositoryService repositoryService;
+              private Holder holder;
+
+              void deploy() {
+                holder.repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Holder {
+              RepositoryService repositoryService;
+            }
+
+            class Deployer {
+              private RepositoryService repositoryService;
+              private Holder holder;
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                holder.repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotAnnotateUnrelatedQueryText() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+              private Other other;
+
+              void inspect() {
+                repositoryService.createProcessDefinitionQuery();
+                other.createOrderQuery();
+              }
+            }
+
+            class Other {
+              void createOrderQuery() {}
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+              private Other other;
+
+              void inspect() {
+                // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+                repositoryService.createProcessDefinitionQuery();
+                other.createOrderQuery();
+              }
+            }
+
+            class Other {
+              void createOrderQuery() {}
+            }
+            """));
+  }
 }
