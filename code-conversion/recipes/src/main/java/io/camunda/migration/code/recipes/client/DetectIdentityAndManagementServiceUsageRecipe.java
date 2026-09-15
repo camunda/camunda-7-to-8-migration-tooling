@@ -263,7 +263,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                       " Use CamundaClient identity APIs (for example, newUsersSearchRequest(), newCreateUserCommand(), newGroupsSearchRequest(), newAssignUserToGroupCommand(), and newAuthorizationSearchRequest()) or the Orchestration Cluster REST API where available."),
                   RecipeUtils.createSimpleComment(
                       declaration,
-                      " For bulk migration of authorizations and tenants, use the Identity Data Migrator."),
+                      " For bulk migration of users, groups, authorizations, and tenants, use the Identity Data Migrator."),
                   RecipeUtils.createSimpleComment(
                       declaration,
                       " For authentication, use transport-level JWT/OAuth and configure the identity provider."),
@@ -321,7 +321,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   && serviceCall.singleJobRetry()) {
                 return "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               }
-              return "Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join() for each job.";
+              return "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
             }
             return MANAGEMENT_METHOD_HINTS.getOrDefault(
                 serviceCall.methodName(),

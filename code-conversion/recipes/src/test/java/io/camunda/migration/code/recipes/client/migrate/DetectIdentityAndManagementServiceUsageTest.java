@@ -66,7 +66,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 // TODO: IdentityService usage requires method-specific migration guidance in Camunda 8.
                 // Use CamundaClient identity APIs (for example, newUsersSearchRequest(), newCreateUserCommand(), newGroupsSearchRequest(), newAssignUserToGroupCommand(), and newAuthorizationSearchRequest()) or the Orchestration Cluster REST API where available.
-                // For bulk migration of authorizations and tenants, use the Identity Data Migrator.
+                // For bulk migration of users, groups, authorizations, and tenants, use the Identity Data Migrator.
                 // For authentication, use transport-level JWT/OAuth and configure the identity provider.
                 // See: https://docs.camunda.io/docs/apis-tools/java-client/
                 // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
@@ -172,11 +172,11 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(jobId, retries);
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
-                    // Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join() for each job.
+                    // For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(java.util.List.of(jobId), retries);
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
-                    // Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join() for each job.
+                    // For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(retries);
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
@@ -283,7 +283,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 // TODO: IdentityService usage requires method-specific migration guidance in Camunda 8.
                 // Use CamundaClient identity APIs (for example, newUsersSearchRequest(), newCreateUserCommand(), newGroupsSearchRequest(), newAssignUserToGroupCommand(), and newAuthorizationSearchRequest()) or the Orchestration Cluster REST API where available.
-                // For bulk migration of authorizations and tenants, use the Identity Data Migrator.
+                // For bulk migration of users, groups, authorizations, and tenants, use the Identity Data Migrator.
                 // For authentication, use transport-level JWT/OAuth and configure the identity provider.
                 // See: https://docs.camunda.io/docs/apis-tools/java-client/
                 // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
