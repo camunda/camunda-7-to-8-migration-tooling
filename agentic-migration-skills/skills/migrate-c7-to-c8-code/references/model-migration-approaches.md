@@ -425,10 +425,13 @@ no manual edit was needed. Record the exact before-and-after evidence in `MIGRAT
    deterministic check covers it. Keep the category at **needs fix** when parsing fails.
 5. Where the CLI supports the edited file, run
    `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version
-   "<target>" --check --csv` with the validated Java executable and converter JAR. Capture the
-   CLI's `Created ...` CSV path, command, and exit code as supplementary evidence. Do not use CSV
-   rows as findings input or as the pass/fail criterion. Move the CSV to a non-packaged evidence
-   directory or remove it after recording it. Use JSON for findings input.
+   "<target>" --check --csv` with the validated Java executable and converter JAR. On Windows
+   PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Require exit code
+   `0`. Treat any non-zero exit code or CSV-generation failure as a failed verification and keep
+   the category at **needs fix** or **needs review**. Record the command, exit code, and the CLI's
+   `Created ...` CSV path. Record the final evidence path after relocation, or `removed` after
+   cleanup deletes the CSV. Record `not created` when the command produces no CSV. Do not use CSV
+   rows as findings input or as the pass/fail criterion. Use JSON for findings input.
 
 Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
 artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
@@ -444,8 +447,9 @@ or FEEL semantics. The namespace-aware checks and code cross-checks therefore re
 If any verification check fails, record the failure with its before-and-after values. Keep the
 category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
 design decision or an unavailable deterministic check remains. Do not mark it **no action**. Do not
-run an automatic fix loop. Escalate after one failed pass when another remediation attempt or a
-design decision is required.
+run an automatic fix loop. Update the nonterminal verdict in both the findings inventory and
+verification table. Escalate after one failed pass when another remediation attempt or a design
+decision is required.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 

@@ -80,10 +80,10 @@ no manual edit was needed. Use the recorded converted copies, never the original
 | Verification | Scope | Evidence |
 |---|---|---|
 | XML parse | Every converted BPMN or DMN file participating in the category, including no-edit files | Namespace-aware parser command, exit code, and file list |
-| Conversion cleanup | Every converted file participating in the category, scoped to the category's touched elements | Namespace-aware counts by URI for remaining Camunda 7 elements or attributes and conversion nodes or attributes. At final validation, also count unused Camunda 7 or conversion namespace declarations and the leftover BPMN definitions-level XPath `expressionLanguage`. |
+| Conversion cleanup | Every converted file participating in the category, scoped to the category's touched elements | Record namespace-aware before-and-after counts by URI. Require zero remaining Camunda 7 elements or attributes and conversion nodes or attributes for the category's touched elements before marking it **no action**. At final validation, also require and record zero unused Camunda 7 or conversion namespace declarations and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
 | Runtime wiring | Remediations that introduce or change task wiring, listeners, headers, dispatchers, or DMN/precompute wiring | Element IDs, matching XML declarations, and code-side match and coverage evidence. Record `not applicable` when no such wiring is introduced. |
 | FEEL syntax | Each changed FEEL expression | Target FEEL parser and result. If no parser is available, record the limitation and keep the category at **needs review** unless another deterministic check covers it. Keep the category at **needs fix** when parsing fails. |
-| Converter regression | Each converted file supported by the CLI | `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR. Record the captured `Created ...` CSV path, command, and exit code as supplementary evidence. Do not use CSV rows as findings input or as the pass/fail criterion. Move the CSV to a non-packaged evidence directory or remove it after recording it. |
+| Converter regression | Each converted file supported by the CLI | Run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Require exit code `0`. Treat any non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. Record the command, exit code, and captured `Created ...` CSV path. Record the final evidence path after relocation, or `removed` after cleanup deletes the CSV. Record `not created` when the command produces no CSV. Do not use CSV rows as findings input or as the pass/fail criterion. |
 
 Keep the per-category findings inventory defined in
 `references/model-migration-approaches.md` step 5d with its `Category`, `Count`,
@@ -101,8 +101,9 @@ Record the category, edited paths, checks, command results, and before-and-after
 `MIGRATION_REPORT.md`. If a check fails, record the failure with its before-and-after values. Keep
 the category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
 design decision or an unavailable deterministic check remains. Do not mark it **no action**. Do not
-start an automatic fix loop. Escalate after one failed verification pass when another remediation
-attempt or a design decision is required.
+start an automatic fix loop. Update the nonterminal verdict in both the findings inventory and
+verification table. Escalate after one failed verification pass when another remediation attempt or
+a design decision is required.
 
 ### 4. Generated-form code and behavior
 
