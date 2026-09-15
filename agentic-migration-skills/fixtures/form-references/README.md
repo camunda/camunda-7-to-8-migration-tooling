@@ -107,6 +107,9 @@ The evaluation is complete when the agent has:
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
   external reference;
+* captured the immutable baseline for every participating BPMN or `.form`
+  resource and recorded its verification-table row as `passed` before closing
+  any category or completing the evaluation;
 * left the original Camunda 7 BPMN and HTML untouched; and
 * left no form-reference category marked "no action" on the strength of the
   copied reference alone.
