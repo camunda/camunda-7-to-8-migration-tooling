@@ -17,16 +17,17 @@ Cross-reference the grouped Diagram Converter findings (see `model-migration-app
 When M2 is in scope without a Diagram Converter report, enumerate every source
 `camunda:executionListener` and `camunda:taskListener` declaration and every emitted
 `zeebe:taskDefinition/@type`, `zeebe:executionListener/@type`, and `zeebe:taskListener/@type` in
-each converted BPMN file. Key each source listener by its owner element, event, and implementation.
-Match each source listener with its corresponding emitted listener by owner, event, and normalized
-emitted type. If a source
-listener has no emitted pair, record a synthetic `execution-listener` or `task-listener` finding
-with the source implementation and no emitted job type. Apply the Blocking rule for that category
-in `model-migration-approaches.md`. Read the corresponding original Camunda 7 implementation
-attribute, listener implementation, topic, or connector ID. Derive the expected type from the M2
-binding rules in `model-migration-approaches.md`. Create one normalized input row with the columns
-`original` and `jobType` for each original-binding-to-emitted-type pair. Apply the same 1:1 or
-many-to-one check.
+each converted BPMN file. Key each source listener by its owner element and event. Keep its
+implementation as the source binding. Match each source listener with its corresponding emitted
+listener by owner and event first. If a source listener has no emitted pair, record a synthetic
+`execution-listener` or `task-listener` finding with the source implementation and no emitted job
+type. Apply the Blocking rule for that category in `model-migration-approaches.md`. When an
+emitted pair exists, compare its normalized type with the expected type and report a mismatch
+through the corresponding supported-listener worker cross-check. Read the corresponding original
+Camunda 7 implementation attribute, listener implementation, topic, or connector ID. Derive the
+expected type from the M2 binding rules in `model-migration-approaches.md`. Create one normalized
+input row with the columns `original` and `jobType` for each original-binding-to-emitted-type
+pair. Apply the same 1:1 or many-to-one check.
 Do not wait for converter findings, because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
@@ -35,10 +36,12 @@ Build the normalized input rows from the `delegate-expression-as-job-type`,
 `delegate-implementation`, `expression-method-as-job-type`, `execution-listener-supported`,
 `task-listener-supported`, `script-job-type`, `topic`, and `connector-id` findings and the M2 scan.
 For a converter finding, parse the original binding from the `message` when the message contains
-it. For `script-job-type`, `topic`, and `connector-id` findings without a binding in the message,
-read the paired source model and use the converted model for the emitted type. If neither source
-model nor message provides the binding, record the row as unresolved and do not mark the mapping
-as a covered 1:1 mapping. For an M2 row, use the `original` and `jobType` columns created above.
+it. For `execution-listener-supported` and `task-listener-supported` findings, match the source
+listener by owner and event, then read the paired converted listener's `@type`. For
+`script-job-type`, `topic`, and `connector-id` findings without a binding in the message, read the
+paired source model and use the converted model for the emitted type. If neither source model nor
+message provides the binding, record the row as unresolved and do not mark the mapping as a
+covered 1:1 mapping. For an M2 row, use the `original` and `jobType` columns created above.
 Treat the normalized binding identity as the source binding plus the listener event for listener
 rows. Each normalized row has the shape:
 

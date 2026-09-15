@@ -305,6 +305,8 @@ Use the following rules:
 | `error-event-definition` when source inspection shows no active executable use | **Advisory** | The definition does not affect deployed execution. Record the finding for cleanup or review. |
 | `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
 | `error-code-no-expression`, `escalation-code-no-expression` on an unused definition | **Advisory** | The unused definition does not block deployed execution. Record the finding for cleanup or review. |
+| `camunda-script` when source inspection shows that the non-FEEL script belongs to an executable task, listener, event, or input/output mapping | **Blocking** | The converter creates no C8 transformation for the script. Record the source script format, owner, and behavior that needs replacement. |
+| `camunda-script` when source inspection shows no executable use | **Advisory** | The script does not prove a deployment or execution failure. Record the source context for cleanup or review. |
 | Every other known category not covered above, including form references, listener-field findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 Apply this verdict override before the severity fallback:
@@ -416,7 +418,7 @@ Rules:
 - Include `blank-dmn-decision-id` even when the JSON report has no matching `messageId`.
   Give it `Blocking` runtime impact, `TASK` effective severity, `needs fix` verdict, and no
   dedicated cross-check.
-- Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
+- Copy each finding's `link` into the `Link` column. For a source-derived category without a finding link, write `n/a` or a category-specific remediation link. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
