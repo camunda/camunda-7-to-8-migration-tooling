@@ -11,17 +11,36 @@ Use the assessment model scan before choosing a path.
 
 Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
+Use `.camunda-migration/m2/` for M2 converted copies. Record every M2 converted-copy path in
+`MIGRATION_REPORT.md`.
+
 ## Pre-flight: Leftover Artifacts
 
-Before any local approach (M1, M2, E1), scan for outputs of previous migration attempts:
+Before any approach (M1, M2, M3, E1), scan for outputs of previous migration attempts:
 
-- `converted-c8-*.bpmn` / `converted-c8-*.dmn` (or the `--prefix` equivalent)
+- M1/E1 converted copies from previous runs, regardless of the selected `--prefix`
+- M2 converted copies under `.camunda-migration/m2/`, beside their source from older skill
+  versions, and every path recorded in `MIGRATION_REPORT.md`
+- M3 downloaded converted files
 - accepted generated forms beside converted BPMN, and drafts under `.camunda-migration/generated-form-drafts/`
 - `analysis-results.<ext>` and `analysis-results (n).<ext>` findings reports, where `n` is a positive integer and `<ext>` is `.csv`, `.json`, `.md`, or `.xlsx`
 
 Never flag the `.camunda-migration/` CLI JAR — an intentional cache, not a leftover.
 
-A packaged resource directory is any resource directory that Maven or Gradle includes in an application artifact. Include `src/main/resources` when it exists.
+For M2, scan the complete `.camunda-migration/m2/` directory before conversion. Treat every BPMN or
+DMN file already present as a stale converted-copy candidate, including files recorded in an older
+`MIGRATION_REPORT.md`. Do not use a pre-existing M2 file in the current inventory.
+
+For M3, choose a new collision-safe download destination or move existing converted files before
+downloading. Do not allow the browser to overwrite an existing file. Scan the destination before
+pairing downloaded files with originals. Treat files already present as imported hosted outputs.
+Use an imported output only after the imported-report version and exact original/converted pairing
+checks in step 5. Record only converted files from pairs that pass those checks.
+
+A packaged resource directory is any resource directory that the selected build's effective
+resource mapping includes in its application artifact. Treat `src/main/resources` as packaged only
+when it exists and the effective mapping retains its default inclusion. Do not classify a directory
+as packaged from existence alone.
 
 Treat report files already under `.camunda-migration/reports/` as intentional non-packaged artifacts
 only after confirming that the build does not package that directory. If the build packages that
@@ -33,12 +52,31 @@ If a findings report exists under a packaged resource directory, stop before con
 
 If anything else is found, warn through AskUserQuestion before converting:
 
-> Found outputs from a previous migration attempt: `<list>`. This run will not overwrite them. Fresh findings reports are written beside the source. The CLI adds a ` (n)` suffix only when the unsuffixed name already exists. Relocate fresh findings reports to `.camunda-migration/reports/` when that directory is not packaged, or to another explicitly non-packaged directory, before validation. Only this run's own outputs are used — stale files are never consumed. Diagrams whose `converted-c8-*` target already exists are skipped with an error, so for a full re-conversion, cancel and delete or move the old files first.
+> Found outputs from a previous migration attempt: `<list>`. This run will not overwrite them. For
+> M1 and E1, fresh findings reports are written beside the input and the CLI adds a ` (n)` suffix
+> when the unsuffixed name already exists. Relocate those reports to
+> `.camunda-migration/reports/` when that directory is not packaged, or to another explicitly
+> non-packaged directory, before validation. For M2, produce the findings summary directly and do
+> not treat an existing converted copy as current. For M3, treat existing hosted files as imported
+> candidates. Use them only after the imported-report version and exact original/converted pairing
+> checks in step 5. Record only validated pairs. For M1 and E1, diagrams whose target with the
+> selected prefix already exists are skipped with an error. For a full re-conversion, cancel and
+> delete or move the old files first. For M2, never overwrite an existing converted copy. Choose a
+> collision-safe filename and record it.
 
-- **OK, proceed** — when no findings report remains under a packaged resource directory, run without `-o`/`--override`. Old files stay untouched.
+For M1 and E1, record only converted copies created during the current run. For M2, record only
+converted copies created during the current non-analyze-only run. For M3, record only converted
+files from imported pairs that pass the version and pairing checks.
+
+- **OK, proceed** — when no findings report remains under a packaged resource directory:
+  - For M1 and E1, run without `-o`/`--override`. Old files stay untouched.
+  - For M2, use a collision-safe filename and never overwrite an existing converted copy.
 - **Cancel** — stop so the user can back up or clean up first.
 
-For local approaches (M1, M2, E1), never consume a pre-existing report or converted file found on disk. It may come from an interrupted attempt or a different `--platform-version`. The findings flow (M1 steps 3-5) works only from this session's own run. M3 is the exception: hosted-converter outputs are allowed only after the imported-report version and pairing checks in step 5.
+For local approaches (M1, M2, E1), never consume a pre-existing report or converted file found on
+disk. It may come from an interrupted attempt or a different `--platform-version`. The findings
+flow (M1 steps 3-5) works only from this session's own run. For M3, consume hosted-converter
+outputs only after the imported-report version and pairing checks in step 5.
 
 ## Approach M1 - Diagram Converter CLI + AI (recommended)
 
@@ -83,27 +121,28 @@ Other options:
 - `--prefix <str>` - prefix for generated filenames (default `converted-c8-`)
 - `--md` - write analysis report in markdown format
 
-The converter writes a new file next to the source (e.g., `converted-c8-order-process.bpmn`), so originals are never mutated in place.
+The converter writes a new file next to the source (for example, `converted-c8-order-process.bpmn`), so originals are never mutated in place.
 
-Capture the exact paths of everything the run produces from the `Created ...` lines in the CLI console output (e.g. `Created analysis-results (1).json`). These paths are authoritative until the report relocation below completes. Never glob for `analysis-results.json` or `converted-c8-*` on disk, which may match stale files from a previous attempt or a different `--platform-version`.
+Capture the exact paths of everything the run produces from the `Created ...` lines in the CLI console output (e.g. `Created analysis-results (1).json`). These paths are authoritative until the report relocation below completes. Never glob for `analysis-results.json` or converted files on disk, which may match stale files from a previous attempt or a different `--platform-version`.
 
 ### 3a. Relocate findings reports
 
 The CLI writes converted copies and findings reports beside the input. A report under a packaged
-resource directory is included in a Maven or Gradle application artifact.
+resource directory is included in the application artifact produced by the selected build.
 
 After the CLI exits, create `.camunda-migration/reports/` in the project root when the build does
 not package that directory. Otherwise, create another explicitly non-packaged reports directory in
 the project root. Move every fresh findings report captured from a `Created ...` line into that
-directory before validation, including ` (n)`-suffixed names. Keep every `converted-c8-*` file beside
-its source model.
+directory before validation, including ` (n)`-suffixed names. Keep every converted copy with the
+selected prefix beside its source model.
 
 Do not overwrite an existing file in the chosen reports directory. Choose an available ` (n)`-suffixed
 name and use the moved path as the authoritative report path. If relocation fails, stop model
 validation and report the error. Do not claim a complete migration.
 
-Before packaging the project, inspect every resource directory that the build configures for
-packaging, including `src/main/resources` when it exists. No findings report named
+Before packaging the project, inspect every resource directory that the build's effective resource
+mapping includes. Include `src/main/resources` only when it exists and the effective mapping retains
+its default inclusion. No findings report named
 `analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
 `.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
 directory. Otherwise, use another explicitly non-packaged directory.
@@ -111,7 +150,8 @@ directory. Otherwise, use another explicitly non-packaged directory.
 ### 4. Surface Outputs
 
 After the run and report relocation, report:
-- Converted files: every `converted-c8-*.bpmn` / `*.dmn` produced (from the captured `Created ...` lines).
+- Converted copies: every converted copy path captured from the `Created ...` lines, including the
+  selected `--prefix` and the full filename suffix.
 - Skipped files: any `File already exists` errors, naming the stale targets. Those diagrams were NOT converted. Offer to re-run once the user removes the stale copies (see Pre-flight: Leftover Artifacts).
 - Analysis findings: summarize from CLI stdout and/or the JSON report, grouped by severity (WARNING / TASK / REVIEW / INFO).
 - Analysis artifacts: point the user to the relocated XLSX report (human-readable), and note the relocated JSON report is the step 5 input.
@@ -122,7 +162,7 @@ Severity counts are only a headline. Never start per-finding work from them. Par
 
 ### 5. Follow Up on Findings
 
-REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
+REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the recorded converted copies, never the originals.
 
 Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
 
@@ -143,6 +183,37 @@ If the report's version does not match the chosen target, or cannot be determine
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
 - **Keep the imported report** — proceed as-is and record in MIGRATION_REPORT.md that the findings target a different or unknown version.
+
+#### M3 hosted output pairing
+
+Complete this check after the imported report version check and before consuming any M3 output.
+
+After parsing the JSON report, group all finding objects by source `filename` into one report-file
+record per source. Include a record with an empty findings list for every uploaded original that
+has no finding. Build one manifest row for each uploaded original and downloaded converted copy
+pair, and attach the source's report-file record to that row.
+Define the model identity as its model type and complete set of stable definition IDs. For BPMN,
+use every `bpmn:process` and `bpmn:collaboration` ID. For DMN, use every `dmn:decision` ID.
+Parse the original and converted XML with a namespace-aware parser.
+
+Require all checks in this table before accepting a pair:
+
+| Pairing check | Requirement |
+|---|---|
+| Source mapping | Match the report entry to exactly one uploaded original by its source filename or captured upload manifest. |
+| Model type | The original and converted copy are both BPMN or both DMN. |
+| Definition identity | The original and converted copy have the same complete set of stable definition IDs. |
+| One-to-one mapping | Each original and converted copy occurs in exactly one manifest row. |
+| Conversion evidence | Validate the downloaded converted copy with the target-version compatibility ruleset or equivalent converter evidence before accepting it. Reject a file based only on matching type and IDs. |
+
+Do not infer a pair from a converted filename, a timestamp, or similar content. When a download was
+renamed, preserve the original-to-download mapping in the manifest or ask the user to identify it.
+If any check fails or a stable definition ID set is empty, stop M3 follow-up and ask the user to
+identify the exact original and converted copy.
+
+Record each passing pair in `MIGRATION_REPORT.md` with the original path, converted path, report
+entry, model type, stable definition IDs, and pairing evidence. Record only passing pairs in the
+converted-copy inventory, form procedures, and deployment inventory.
 
 #### 5a. Parse the JSON report
 
@@ -284,7 +355,7 @@ Rules:
 
 #### 5e. Strip converter annotations from converted models
 
-After every finding has a verdict, remove the temporary converter annotations from the fresh `converted-c8-*` copies. The verdict table and `MIGRATION_REPORT.md` are the durable record. Never leave the report embedded in the deployable model.
+After every finding has a verdict, remove the temporary converter annotations from the fresh recorded converted copies. The verdict table and `MIGRATION_REPORT.md` are the durable record. Never leave the report embedded in the deployable model.
 
 Use a namespace-aware XML parser or XML tooling, never regular expressions. For each converted BPMN/DMN file:
 
@@ -382,8 +453,13 @@ Treat a job type that differs from this table as an intentional deviation only w
 job type, and the confirmed rationale. Record the same decision for a custom or shared job type that
 has no source binding in the table. Do not replace a method-specific type with the bean-only type.
 
-For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
+When the selected run is not analyze-only, produce a new converted copy under
+`.camunda-migration/m2/` with a recorded filename. Never edit the original. Apply:
 
+- Preserve the source model type and suffix in the recorded filename. Use `.bpmn` or `.bpmn20.xml`
+  for BPMN and `.dmn` or `.dmn11.xml` for DMN.
+- Reject a recorded M2 copy when its suffix is missing or does not match the source model type
+  before adding it to the deployment inventory.
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
@@ -393,7 +469,11 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+When the selected run is not analyze-only, emit a findings summary mirroring CLI severities
+(WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the
+linting section below. After the converted copy exists, run `form-migration.md` and
+`form-reference-migration.md` against the original/converted pair. When the selected run is
+analyze-only, do not write a converted copy or edit BPMN. Follow Analyze-Only Mode instead.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 

@@ -84,7 +84,15 @@ These rules apply to every later step.
 - Before the first change, check for uncommitted changes. If the working tree is dirty, then ask the
   user to commit or stash.
 - Never commit without an explicit user request.
-- Write each converted model to a `converted-c8-*` copy. Leave every original file unchanged.
+- If the selected model approach is M1 or E1 and the run is not analyze-only, then write each
+  converted copy with the selected `--prefix`.
+- If the selected model approach is M1 or E1 and the run is not analyze-only, then use `converted-c8-`
+  when no prefix is selected.
+- If the selected model approach is M2 and the run is not analyze-only, then write each converted
+  copy and record its actual filename.
+- If the selected model approach is M3 and the run is not analyze-only, then record the actual
+  filename of each downloaded converted copy and pair it with its original.
+- Leave every original file unchanged.
 - Where the target is a separate location, such as a sibling Camunda 8 project, treat the Camunda 7
   project as read-only and copy the assets across.
 - Before any edit, load the pattern catalog. See `references/pattern-catalog-sources.md`.
@@ -228,6 +236,23 @@ For every approach, once each original BPMN is paired with its converted copy, r
 Each item below is a check to run and a condition that must hold at exit. Record every result in
 `MIGRATION_REPORT.md`.
 
+#### Deployment checks
+
+Run deployment-resource validation for code-only, models-only, and combined migrations. Validate
+every existing Spring Boot `@Deployment` and explicit `CamundaClient` command before reporting
+success.
+
+- Where code migration is in scope and the selected code approach can mutate application code, ask
+  via AskUserQuestion whether to wire deployment of converted files in application code.
+- Where the user chooses **Yes, add/update deployment for converted files**, apply
+  `references/composing-code-and-models.md` as the deployment-wiring authority and update the
+  wiring.
+- Where the user chooses **No**, the selected code approach is assessment only, or code migration
+  is out of scope, do not modify application code. Preserve existing deployment wiring and record
+  the external deployment procedure and coverage in `MIGRATION_REPORT.md`.
+- When deployment wiring changes application code, apply it before the compile and test checks
+  below, then rerun both checks after the wiring update.
+
 #### Code checks, when code was migrated
 
 1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
@@ -245,10 +270,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
 9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
-   `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
-   search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
-   missing entry fails the check. See the mandatory open items in
-   `references/code-transform-checklist.md`.
+    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
+    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
+    missing entry fails the check. See the mandatory open items in
+    `references/code-transform-checklist.md`.
 10. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
@@ -270,27 +295,39 @@ Check these pitfalls as well:
 After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
 target version. See the linting section in `references/model-migration-approaches.md`.
 
-1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
+1. Build the converted-copy inventory from paths recorded during the current run. Never infer a
+   converted copy from filesystem existence or a filename prefix. If M1 or E1 reports `File already
+   exists`, treat the diagram as missing a converted copy until the current run records a fresh path.
+   A converted copy exists for every in-scope diagram, unless the run is analyze-only:
+   - For M1 and E1, use a converted copy with the selected `--prefix`. The default is
+     `converted-c8-`.
+   - For M2, use the converted copy with the actual filename recorded after the rewrite.
+   - For M3, use the downloaded converted copy paired with its original.
 2. Every original file is intact and was never overwritten.
-3. Treat every resource directory that the build configures for inclusion in a Maven or Gradle
-   application artifact as a packaged resource directory. Include `src/main/resources` when it
-   exists. No findings report named `analysis-results.<ext>` or `analysis-results (n).<ext>` remains
+3. Treat every resource directory that the selected build's effective resource mapping includes in
+   its application artifact as a packaged resource directory. Treat `src/main/resources` as
+   packaged only when it exists and the effective mapping retains its default inclusion. Do not
+   classify a directory as packaged from existence alone. No findings report named
+   `analysis-results.<ext>` or `analysis-results (n).<ext>` remains
    under a packaged resource directory, where `n` is a positive integer and `<ext>` is `.csv`,
    `.json`, `.md`, or `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when
-   the build does not package that directory. Otherwise, use another explicitly non-packaged
-   directory.
+   the selected build does not package that directory. Otherwise, use another explicitly
+   non-packaged directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
    with its category, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
-6. Every accepted form is a standard Camunda 8 `.form`.
-7. Every accepted form parses.
-8. Where a target-compatible official schema exists, the skill validates every accepted form with it.
-9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted form
+6. Every accepted or relinked form is a standard Camunda 8 `.form`.
+7. Every accepted or relinked form parses.
+8. Where a target-compatible official schema exists, the skill validates every accepted or relinked form with it.
+9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted or relinked form
    with it.
-10. Every accepted form has a matching `zeebe:formDefinition`.
-11. The skill deploys every accepted form with its BPMN.
+10. Every accepted or relinked form has a matching `zeebe:formDefinition`.
+11. Where the user chose **Yes, add/update deployment for converted files**, deploy every accepted
+    or relinked form with `bindingType=deployment` in the same deployment as its owning BPMN,
+    using the selected deployment mechanism. Where the user chose **No**, record each
+    deployment-bound form's external deployment procedure and coverage in `MIGRATION_REPORT.md`.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final
