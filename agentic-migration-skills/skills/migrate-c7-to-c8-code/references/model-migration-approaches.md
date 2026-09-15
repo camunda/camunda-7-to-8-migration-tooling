@@ -193,7 +193,7 @@ The current dedicated cross-check categories are:
 
 | Category | Dedicated cross-check |
 |---|---|
-| `delegate-expression-as-job-type`, `delegate-implementation` | Check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md` |
+| `delegate-expression-as-job-type`, `delegate-implementation`, `topic` | Check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md` |
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
