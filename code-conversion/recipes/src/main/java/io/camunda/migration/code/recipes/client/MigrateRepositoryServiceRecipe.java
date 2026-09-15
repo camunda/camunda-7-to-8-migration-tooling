@@ -54,18 +54,21 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
     private final Set<String> nonFieldRepositoryServiceVariables;
     private final boolean canConvertRepositoryServiceFields;
     private final boolean hasCamundaClient;
+    private final boolean hasSplitDeploymentBuilder;
 
     private ClassContext(
         Map<String, String> repositoryServiceClients,
         Set<String> repositoryServiceFields,
         Set<String> nonFieldRepositoryServiceVariables,
         boolean canConvertRepositoryServiceFields,
-        boolean hasCamundaClient) {
+        boolean hasCamundaClient,
+        boolean hasSplitDeploymentBuilder) {
       this.repositoryServiceClients = repositoryServiceClients;
       this.repositoryServiceFields = repositoryServiceFields;
       this.nonFieldRepositoryServiceVariables = nonFieldRepositoryServiceVariables;
       this.canConvertRepositoryServiceFields = canConvertRepositoryServiceFields;
       this.hasCamundaClient = hasCamundaClient;
+      this.hasSplitDeploymentBuilder = hasSplitDeploymentBuilder;
     }
   }
 
@@ -115,6 +118,9 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             if (!classContext.canConvertRepositoryServiceFields
                 && (!classContext.repositoryServiceFields.isEmpty()
                     || !classContext.nonFieldRepositoryServiceVariables.isEmpty())) {
+              repositoryServiceImportRequired = true;
+            }
+            if (hasRepositoryServiceReturnType(classDeclaration, ctx)) {
               repositoryServiceImportRequired = true;
             }
 
@@ -186,18 +192,18 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 collectNonFieldRepositoryServiceVariables(
                     classDeclaration, fieldDeclarationIds, ctx);
             boolean canConvertRepositoryServiceFields =
-              !repositoryServiceFields.isEmpty()
-                  && nonFieldRepositoryServiceVariables.isEmpty()
-                  && !hasUnsupportedRepositoryServiceUsage(
-                      classDeclaration,
-                      repositoryServiceFields,
-                      nonFieldRepositoryServiceVariables,
-                      ctx);
+                !repositoryServiceFields.isEmpty()
+                    && nonFieldRepositoryServiceVariables.isEmpty()
+                    && !hasUnsupportedRepositoryServiceUsage(
+                        classDeclaration,
+                        repositoryServiceFields,
+                        nonFieldRepositoryServiceVariables,
+                        ctx);
             Map<String, String> repositoryServiceClients = new HashMap<>();
             if (existingClientIdentifier != null) {
               String clientIdentifier = existingClientIdentifier;
               repositoryServiceFields.forEach(
-                    field -> {
+                  field -> {
                     if (!nonFieldRepositoryServiceVariables.contains(field)) {
                       repositoryServiceClients.put(field, clientIdentifier);
                     }
@@ -210,7 +216,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 repositoryServiceFields,
                 nonFieldRepositoryServiceVariables,
                 canConvertRepositoryServiceFields,
-                existingClientIdentifier != null);
+                existingClientIdentifier != null,
+                hasSplitDeploymentBuilder(classDeclaration, ctx));
           }
 
           private boolean hasUnsupportedRepositoryServiceUsage(
@@ -236,6 +243,13 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                     || repositoryServiceFields.contains(receiver)) {
                   unsupportedUsage[0] = true;
                 }
+                if (invocation.getArguments().stream()
+                    .anyMatch(
+                        argument ->
+                            isRepositoryServiceFieldReference(
+                                argument, repositoryServiceFields))) {
+                  unsupportedUsage[0] = true;
+                }
 
                 if (DEPLOY.matches(invocation)) {
                   List<J.MethodInvocation> sourceMethods = sourceMethods(invocation);
@@ -257,6 +271,47 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             }
 
             return unsupportedUsage[0];
+          }
+
+          private boolean hasSplitDeploymentBuilder(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            Set<UUID> createDeployments = new HashSet<>();
+            Set<UUID> chainedDeployments = new HashSet<>();
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.MethodInvocation visitMethodInvocation(
+                  J.MethodInvocation invocation, ExecutionContext nestedCtx) {
+                if (CREATE_DEPLOYMENT.matches(invocation)) {
+                  createDeployments.add(invocation.getId());
+                } else if (DEPLOY.matches(invocation)) {
+                  List<J.MethodInvocation> sourceMethods = sourceMethods(invocation);
+                  if (!sourceMethods.isEmpty()
+                      && CREATE_DEPLOYMENT.matches(sourceMethods.get(0))) {
+                    chainedDeployments.add(sourceMethods.get(0).getId());
+                  }
+                }
+                return super.visitMethodInvocation(invocation, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+            return !createDeployments.isEmpty()
+                && !createDeployments.equals(chainedDeployments);
+          }
+
+          private boolean hasRepositoryServiceReturnType(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            boolean[] hasReturnType = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.MethodDeclaration visitMethodDeclaration(
+                  J.MethodDeclaration method, ExecutionContext nestedCtx) {
+                if (method.getReturnTypeExpression() != null
+                    && method.getReturnTypeExpression().toString().equals("RepositoryService")) {
+                  hasReturnType[0] = true;
+                }
+                return super.visitMethodDeclaration(method, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+            return hasReturnType[0];
           }
 
           private Set<String> collectNonFieldRepositoryServiceVariables(
@@ -287,7 +342,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             for (Statement statement : visited.getStatements()) {
               if (containsRepositoryQuery(statement.toString())) {
                 statements.add(addCommentIfMissing(statement, QUERY_TODO));
-              } else if (containsRepositoryDeployment(statement.toString())) {
+              } else if (containsRepositoryDeployment(statement.toString())
+                  || (classContext != null
+                      && classContext.hasSplitDeploymentBuilder
+                      && containsDeploymentBuilderDeploy(statement.toString()))) {
                 statements.add(addCommentIfMissing(statement, DEPLOYMENT_TODO));
               } else {
                 statements.add(statement);
@@ -469,6 +527,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             return source.matches("(?s).*createDeployment\\s*\\(.*");
           }
 
+          private boolean containsDeploymentBuilderDeploy(String source) {
+            return source.matches("(?s).*\\bdeploy\\s*\\(.*");
+          }
+
           private J.VariableDeclarations replaceType(J.VariableDeclarations declaration) {
             J.Identifier type = RecipeUtils.createSimpleIdentifier("CamundaClient", CAMUNDA_CLIENT);
             if (declaration.getTypeExpression() instanceof J.Identifier identifier) {
@@ -548,6 +610,15 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               return fieldAccess.getName().getSimpleName();
             }
             return null;
+          }
+
+          private boolean isRepositoryServiceFieldReference(
+              Expression expression, Set<String> repositoryServiceFields) {
+            return (expression instanceof J.Identifier identifier
+                    && repositoryServiceFields.contains(identifier.getSimpleName()))
+                || (expression instanceof J.FieldAccess fieldAccess
+                    && repositoryServiceFields.contains(
+                        fieldAccess.getName().getSimpleName()));
           }
 
           private J.Return addCommentIfMissing(J.Return statement, String text) {
