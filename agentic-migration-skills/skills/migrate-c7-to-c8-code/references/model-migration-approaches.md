@@ -367,11 +367,11 @@ Use the shared verification gate before changing any M2 category verdict to **no
 
 Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
-Set the Modeler namespace `executionPlatformVersion` attribute to the selected target version on
-every M2 converted copy before the verification gate. If M2 cannot set target metadata, run the
-CLI check as applicable and do not use the standard converted-copy exception based only on Zeebe
-structure. Record M2 findings in the summary for this run. Do not consume an unrelated JSON
-report.
+Set the Modeler namespace `executionPlatformVersion` attribute to the selected target version in
+canonical patch-zero form, such as `8.10.0` for target `8.10`, on every M2 converted copy before
+the verification gate. If M2 cannot set target metadata, run the CLI check as applicable and do not
+use the standard converted-copy exception based only on Zeebe structure. Record M2 findings in the
+summary for this run. Do not consume an unrelated JSON report.
 
 ### Job type naming
 
@@ -416,10 +416,11 @@ Run it after each remediation batch, or on every converted copy participating in
 no manual edit was needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
 Keep a provisional INFO category out of the human follow-up flow until its verification pass
 completes. Before each remediation batch, capture an immutable baseline for every participating
-converted copy. Include namespace counts, wiring references, and FEEL state in the baseline. Use
-that baseline for `Before` evidence. Do not reconstruct it from the original Camunda 7 model. Do
-not run this gate for analyze-only runs that create no converted copies. Apply it when a converted
-copy participates in the verification or when the run resolves a category verdict.
+converted copy. Immediately before verifying a no-edit category, capture the same baseline. Include
+namespace counts, wiring references, and FEEL state in the baseline. Use that baseline for `Before`
+evidence. Do not reconstruct it from the original Camunda 7 model. Do not run this gate for
+analyze-only runs that create no converted copies. Apply it when a converted copy participates in
+the verification or when the run resolves a category verdict.
 
 1. Re-parse every participating converted BPMN or DMN file with a namespace-aware XML parser,
    including files with no manual edit. For M1, use paths captured from this run's `Created ...`
@@ -452,11 +453,12 @@ copy participates in the verification or when the run resolves a category verdic
    metadata, run the CLI check as applicable. Record that output and rely on the XML, namespace,
    and code checks. Require exit code `0` for every applicable file. Treat any other non-zero exit
    code or CSV-generation failure as a failed verification and keep the category at **needs fix**
-   or **needs review**. Record the command, exit code, and the CLI's `Created ...` CSV path. Record
-   the final evidence path after relocation, or `removed` after cleanup deletes the CSV. Record
-   `not created` when the command produces no CSV. Do not use CSV rows as findings input or as the
-   pass/fail criterion. Use JSON findings input for M1, M3, and E1. For M2, use the direct-rewrite
-   findings summary recorded for the run and do not consume an unrelated JSON report.
+   or **needs review**. Record the command, exit code, and the CLI's `Created ...` CSV path. Before
+   continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports
+   directory. Record the final evidence path after relocation, or `removed` after cleanup deletes
+   the CSV. Record `not created` when the command produces no CSV. Do not use CSV rows as findings
+   input or as the pass/fail criterion. Use JSON findings input for M1, M3, and E1. For M2, use the
+   direct-rewrite findings summary recorded for the run and do not consume an unrelated JSON report.
 
 Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
 artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
@@ -468,8 +470,9 @@ and conversion pipeline without exporting a converted copy. Detect the Modeler n
 `executionPlatformVersion` attribute by namespace URI and local name, not by the serialized prefix.
 On a standard converted `zeebe` copy whose value starts with `8`, the BPMN and DMN visitors reject
 the file with `This diagram is already a Camunda 8 diagram`. Record that expected CLI limitation as
-`not applicable` and rely on the XML, namespace, and code checks. For M2, set target metadata
-before applying this exception. If M2 cannot set target metadata, run the CLI check as applicable.
+`not applicable` and rely on the XML, namespace, and code checks. For M2, set target metadata in
+canonical patch-zero form, such as `8.10.0` for target `8.10`, before applying this exception.
+If M2 cannot set target metadata, run the CLI check as applicable.
 The CLI does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener,
 header, or FEEL semantics. Treat the CLI result as supplementary evidence, not as a replacement for
 the namespace-aware and code cross-checks above.
