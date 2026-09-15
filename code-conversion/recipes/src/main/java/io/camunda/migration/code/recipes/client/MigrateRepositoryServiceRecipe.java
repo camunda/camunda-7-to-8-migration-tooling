@@ -37,10 +37,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
   private static final MethodMatcher CREATE_DEPLOYMENT =
       new MethodMatcher(REPOSITORY_SERVICE + " createDeployment()");
-  private static final MethodMatcher CREATE_PROCESS_DEFINITION_QUERY =
-      new MethodMatcher(REPOSITORY_SERVICE + " createProcessDefinitionQuery()");
-  private static final MethodMatcher CREATE_DEPLOYMENT_QUERY =
-      new MethodMatcher(REPOSITORY_SERVICE + " createDeploymentQuery()");
+  private static final MethodMatcher REPOSITORY_SERVICE_QUERY =
+      new MethodMatcher(REPOSITORY_SERVICE + " create*Query(..)");
   private static final MethodMatcher DEPLOY =
       new MethodMatcher("org.camunda.bpm.engine.repository.DeploymentBuilder deploy()");
 
@@ -61,30 +59,28 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
         Preconditions.or(
             new org.openrewrite.java.search.UsesMethod<>(REPOSITORY_SERVICE + " createDeployment()", true),
             new org.openrewrite.java.search.UsesMethod<>(
-                REPOSITORY_SERVICE + " createProcessDefinitionQuery()", true),
-            new org.openrewrite.java.search.UsesMethod<>(
-                REPOSITORY_SERVICE + " createDeploymentQuery()", true)),
+                REPOSITORY_SERVICE + " create*Query(..)", true)),
         new JavaIsoVisitor<>() {
           private String clientIdentifier = "camundaClient";
 
           @Override
           public J.ClassDeclaration visitClassDeclaration(
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
-            boolean hasCamundaClient =
+            String existingClientIdentifier =
                 classDeclaration.getBody().getStatements().stream()
                     .filter(VariableDeclarations.class::isInstance)
                     .map(VariableDeclarations.class::cast)
-                    .anyMatch(
-                        declaration ->
-                            declaration.getVariables().stream()
-                                .anyMatch(variable -> variable.getSimpleName().equals("camundaClient"))
-                                || TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT));
-            if (hasCamundaClient) {
-              clientIdentifier = "camundaClient";
-            }
+                    .filter(
+                        declaration -> TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT))
+                    .flatMap(declaration -> declaration.getVariables().stream())
+                    .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                    .findFirst()
+                    .orElse(null);
+            boolean hasCamundaClient = existingClientIdentifier != null;
+            clientIdentifier =
+                existingClientIdentifier == null ? "camundaClient" : existingClientIdentifier;
             boolean hasRepositoryQuery =
-                classDeclaration.getBody().toString().contains("createProcessDefinitionQuery")
-                    || classDeclaration.getBody().toString().contains("createDeploymentQuery");
+                classDeclaration.getBody().toString().matches("(?s).*create\\w+Query\\s*\\(.*");
 
             List<Statement> statements = new ArrayList<>();
             for (Statement statement : classDeclaration.getBody().getStatements()) {
@@ -96,32 +92,20 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
               if (hasCamundaClient) {
                 if (hasRepositoryQuery) {
-                  if (declaration.getTypeExpression() instanceof J.Identifier type) {
-                    declaration =
-                        declaration.withTypeExpression(
-                            type
-                                .withSimpleName("CamundaClient")
-                                .withType(JavaType.ShallowClass.build(CAMUNDA_CLIENT)));
-                  }
-                  statements.add(declaration.withType(JavaType.ShallowClass.build(CAMUNDA_CLIENT)));
+                  statements.add(replaceType(declaration));
                 }
                 continue;
               }
 
-              if (declaration.getTypeExpression() instanceof J.Identifier type) {
-                declaration =
-                    declaration.withTypeExpression(
-                        type
-                            .withSimpleName("CamundaClient")
-                            .withType(JavaType.ShallowClass.build(CAMUNDA_CLIENT)));
-              }
-              declaration = declaration.withType(JavaType.ShallowClass.build(CAMUNDA_CLIENT));
+              declaration = replaceType(declaration);
               clientIdentifier = declaration.getVariables().get(0).getSimpleName();
               statements.add(declaration);
               hasCamundaClient = true;
             }
 
-            maybeAddImport(CAMUNDA_CLIENT);
+            if (hasCamundaClient) {
+              maybeAddImport(CAMUNDA_CLIENT);
+            }
             J.ClassDeclaration visited =
                 super.visitClassDeclaration(
                     classDeclaration.withBody(classDeclaration.getBody().withStatements(statements)),
@@ -147,6 +131,29 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               return migrateDeployment(visited, ctx);
             }
 
+            return visited;
+          }
+
+          @Override
+          public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+            J.Block visited = super.visitBlock(block, ctx);
+            List<Statement> statements = new ArrayList<>();
+            for (Statement statement : visited.getStatements()) {
+              statements.add(
+                  containsRepositoryQuery(statement.toString())
+                      ? addCommentIfMissing(statement, QUERY_TODO)
+                      : statement);
+            }
+            return visited.withStatements(statements);
+          }
+
+          @Override
+          public J.VariableDeclarations visitVariableDeclarations(
+              J.VariableDeclarations declarations, ExecutionContext ctx) {
+            J.VariableDeclarations visited = super.visitVariableDeclarations(declarations, ctx);
+            if (containsRepositoryQuery(visited.toString())) {
+              return addCommentIfMissing(visited, QUERY_TODO);
+            }
             return visited;
           }
 
@@ -177,6 +184,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                         + "\n    .newDeployResourceCommand()");
             List<Expression> arguments = new ArrayList<>();
             List<String> comments = new ArrayList<>();
+            boolean hasResource = false;
+            Expression tenantId = null;
 
             for (J.MethodInvocation method : sourceMethods.subList(1, sourceMethods.size())) {
               switch (method.getSimpleName()) {
@@ -186,6 +195,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   }
                   templateCode.append("\n    .addResourceFromClasspath(#{any(java.lang.String)})");
                   arguments.add(method.getArguments().get(0));
+                  hasResource = true;
                 }
                 case "addInputStream" -> {
                   if (method.getArguments().size() != 2) {
@@ -195,6 +205,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                       "\n    .addResourceStream(#{any(java.io.InputStream)}, #{any(java.lang.String)})");
                   arguments.add(method.getArguments().get(1));
                   arguments.add(method.getArguments().get(0));
+                  hasResource = true;
                 }
                 case "addString" -> {
                   if (method.getArguments().size() != 2) {
@@ -204,13 +215,16 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                       "\n    .addResourceStringUtf8(#{any(java.lang.String)}, #{any(java.lang.String)})");
                   arguments.add(method.getArguments().get(0));
                   arguments.add(method.getArguments().get(1));
+                  hasResource = true;
                 }
                 case "tenantId" -> {
                   if (method.getArguments().size() != 1) {
                     return addCommentIfMissing(deployInvocation, DEPLOYMENT_TODO);
                   }
-                  templateCode.append("\n    .tenantId(#{any(java.lang.String)})");
-                  arguments.add(method.getArguments().get(0));
+                  if (tenantId != null) {
+                    return addCommentIfMissing(deployInvocation, DEPLOYMENT_TODO);
+                  }
+                  tenantId = method.getArguments().get(0);
                 }
                 case "name", "source" -> {
                   // Deployment names and sources have no direct equivalent in the C8 command.
@@ -221,6 +235,14 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               }
             }
 
+            if (!hasResource) {
+              return addCommentIfMissing(deployInvocation, DEPLOYMENT_TODO);
+            }
+
+            if (tenantId != null) {
+              templateCode.append("\n    .tenantId(#{any(java.lang.String)})");
+              arguments.add(tenantId);
+            }
             templateCode.append("\n    .send()\n    .join()");
             JavaTemplate template =
                 RecipeUtils.createSimpleJavaTemplate(
@@ -239,8 +261,56 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
           }
 
           private boolean containsRepositoryQuery(J.MethodInvocation invocation) {
-            return containsMethod(invocation, CREATE_PROCESS_DEFINITION_QUERY)
-                || containsMethod(invocation, CREATE_DEPLOYMENT_QUERY);
+            return containsMethod(invocation, REPOSITORY_SERVICE_QUERY);
+          }
+
+          private boolean containsRepositoryQuery(String source) {
+            return source.matches("(?s).*create\\w+Query\\s*\\(.*");
+          }
+
+          private J.VariableDeclarations replaceType(J.VariableDeclarations declaration) {
+            J.Identifier type = RecipeUtils.createSimpleIdentifier("CamundaClient", CAMUNDA_CLIENT);
+            if (declaration.getTypeExpression() instanceof J.Identifier identifier) {
+              type = type.withPrefix(identifier.getPrefix());
+            } else if (declaration.getTypeExpression() instanceof J.FieldAccess fieldAccess) {
+              type = type.withPrefix(fieldAccess.getPrefix());
+            }
+            return declaration
+                .withTypeExpression(type)
+                .withType(JavaType.ShallowClass.build(CAMUNDA_CLIENT));
+          }
+
+          private J.VariableDeclarations addCommentIfMissing(
+              J.VariableDeclarations declaration, String text) {
+            if (declaration.getComments().stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment.getText().contains(text.trim()))) {
+              return declaration;
+            }
+            return declaration.withComments(
+                java.util.stream.Stream.concat(
+                        declaration.getComments().stream(),
+                        java.util.stream.Stream.of(
+                            RecipeUtils.createSimpleComment(declaration, text)))
+                    .toList());
+          }
+
+          private Statement addCommentIfMissing(Statement statement, String text) {
+            if (statement.getComments().stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment.getText().contains(text.trim()))) {
+              return statement;
+            }
+            return statement.withComments(
+                java.util.stream.Stream.concat(
+                        statement.getComments().stream(),
+                        java.util.stream.Stream.of(
+                            RecipeUtils.createSimpleComment(statement, text)))
+                    .toList());
           }
 
           private boolean containsMethod(J.MethodInvocation invocation, MethodMatcher matcher) {
