@@ -18,6 +18,7 @@ Before any local approach (M1, M2, E1), scan for outputs of previous migration a
 - `converted-c8-*.bpmn` / `converted-c8-*.dmn` (or the `--prefix` equivalent)
 - accepted generated forms beside converted BPMN, and drafts under `.camunda-migration/generated-form-drafts/`
 - `analysis-results.<ext>` and `analysis-results (n).<ext>` findings reports, where `n` is a positive integer and `<ext>` is `.csv`, `.json`, `.md`, or `.xlsx`
+- `findings-by-category.json` and `findings-by-category (n).json` artifacts, where `n` is a positive integer
 
 Never flag the `.camunda-migration/` CLI JAR — an intentional cache, not a leftover.
 
@@ -104,9 +105,11 @@ validation and report the error. Do not claim a complete migration.
 
 Before packaging the project, inspect every resource directory that the build configures for
 packaging, including `src/main/resources` when it exists. No findings report named
-`analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
-`.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
-directory. Otherwise, use another explicitly non-packaged directory.
+`analysis-results.<ext>`, `analysis-results (n).<ext>`, `findings-by-category.json`, or
+`findings-by-category (n).json` may remain there, where `<ext>` is `.csv`, `.json`, `.md`, or
+`.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/`
+only when the build does not package that directory. Otherwise, use another explicitly non-packaged
+directory.
 
 ### 4. Surface Outputs
 
@@ -227,7 +230,7 @@ owner name, decision, and status. For referenced-form inventories, set `referenc
 inventories, omit `reference` because `form-migration.md` defines no report-safe reference.
 Preserve the form kind, fields, form id, and status for `generated-form-property-source`.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
-Never copy raw form keys or credentials into the artifact. This representation gives every
+Never copy unsanitized form keys or credentials into the artifact. This representation gives every
 synthetic category a complete element list.
 
 For a legacy generic `form-key` finding, match each converter finding to the unique source
@@ -347,7 +350,8 @@ Rules:
   complete list available for the AI follow-up. The grouped summary remains one example per
   category.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
-- Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
+- Assign `needs review` to `form-key-unmatched` regardless of the retained finding severity.
+- Copy each finding's `link` into the `Link` column. Use `n/a` when the finding has no link. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
@@ -472,9 +476,15 @@ Create that directory before writing the report. Choose
 suffixes in ascending order and use the first unused path, such as
 `<selected-directory>/analysis-results (1).json`. Never overwrite an existing report. Write the
 file as a JSON array with one object per finding and the fields `filename`, `elementName`,
-`elementId`, `elementType`, `severity`, `messageId`, `message`, and `link`. Record its path as the
-M2 `sourceReport`. Treat this JSON report as the authoritative input for step 5a. Lint every
-rewritten BPMN file per the linting section below. After the converted copy exists, run
+`elementId`, `elementType`, `severity`, `messageId`, `message`, and `link`. Resolve `link` from the
+guidance URL for the finding's `messageId` in the current Diagram Converter message catalog. Set
+`link` to `n/a` when no catalog mapping exists, and record the missing mapping in
+`MIGRATION_REPORT.md`. Apply this contract to every finding in the M2 JSON report, not only
+converter findings. Render form-key-bearing values with the `Reference (report-safe)` rules in
+`form-reference-migration.md`. Redact credential-like URL query values and URL userinfo passwords
+before writing `analysis-results.json`. Never write unsanitized form keys or credentials to the M2
+report. Record its path as the M2 `sourceReport`. Treat this JSON report as the authoritative input
+for step 5a. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run
 `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
 ## Approach M3 - Online Diagram Converter (hosted)

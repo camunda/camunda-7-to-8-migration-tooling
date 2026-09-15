@@ -274,11 +274,11 @@ target version. See the linting section in `references/model-migration-approache
 2. Every original file is intact and was never overwritten.
 3. Treat every resource directory that the build configures for inclusion in a Maven or Gradle
    application artifact as a packaged resource directory. Include `src/main/resources` when it
-   exists. No findings report named `analysis-results.<ext>` or `analysis-results (n).<ext>` remains
-   under a packaged resource directory, where `n` is a positive integer and `<ext>` is `.csv`,
-   `.json`, `.md`, or `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when
-   the build does not package that directory. Otherwise, use another explicitly non-packaged
-   directory.
+   exists. No findings report named `analysis-results.<ext>`, `analysis-results (n).<ext>`,
+   `findings-by-category.json`, or `findings-by-category (n).json` remains under a packaged
+   resource directory, where `n` is a positive integer and `<ext>` is `.csv`, `.json`, `.md`, or
+   `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when the build does not
+   package that directory. Otherwise, use another explicitly non-packaged directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
    with its category, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. Every category with verdict `needs fix` or
