@@ -33,17 +33,20 @@ retains that header.
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type` and
-`delegate-implementation` findings and the M2 scan. A findings report's `filename` identifies the
-source model, not the converted copy. Resolve it to the exact converted copy path captured from the
-converter output, using the configured prefix (`converted-c8-` by default) when necessary. Pair
-each finding with its converted BPMN element by that path and `elementId`. Read the emitted job type
-from its task definition and the original C7 key and value from its `zeebe:header`.
+Build the normalized input rows from the `delegate-expression-as-job-type`, `delegate-implementation`,
+and `topic` findings and the M2 scan. A findings report's `filename` identifies the source model, not
+the converted copy. Resolve it to the exact converted copy path captured from the converter output,
+using the configured prefix (`converted-c8-` by default) when necessary. Pair each finding with its
+converted BPMN element by that path and `elementId`. Read the emitted job type from its task
+definition and the original C7 key and value from its `zeebe:header`.
 For a converter finding, use the paired header instead of parsing only its `message`. For a
 `delegate-implementation` finding, retain the original class or expression from its binding
 context or the paired original source attribute, then resolve its header pair on the converted
 element. For an M2 row, use the original source attribute and `jobType` created above, and verify
-the same pair in the converted element. Each normalized row has the shape:
+the same pair in the converted element. For a `topic` finding, set `headerKey` to `topic` and
+`original` to the paired `camunda:topic` value. Treat a missing retained `topic` header as an
+incomplete row. Do not classify a topic and delegate or class that share a job type as 1:1 without
+that routing discriminator. Each normalized row has the shape:
 
 > `filename`: Converted BPMN file
 > `elementId`: Converted element identifier
@@ -56,6 +59,10 @@ Identify incomplete rows before grouping:
 | Row state | Condition | Action |
 |---|---|---|
 | **Incomplete** | A row has a missing or blank `jobType`, or lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the model-edit follow-up. The model must also retain the header pair. |
+
+While any incomplete row remains in a category, do not offer or generate a dispatcher scaffold for
+any group in that category. Resolve the row through model migration or the model-edit follow-up.
+Then rebuild the normalized rows and regroup before applying the mapping and verdict checks.
 
 Group the remaining normalized rows by `jobType`, then classify each job-type group by its
 distinct `(headerKey, original)` pairs:
@@ -112,20 +119,23 @@ Use this decision table for each shared job type:
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct original expressions grouped by retained key. |
-| **needs fix** | One or more | Do not offer generation. Ask the user to extend an existing dispatcher, or to merge or remove a non-dispatcher registration before creating one. |
+| **needs fix** | Exactly one | Do not offer generation. Ask the user to extend the registration if it is a dispatcher, or merge or remove the non-dispatcher before creating one. |
+| **needs fix** | More than one | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher. Extend one dispatcher and merge or remove every other registration before resolving the group. |
 
-Generate the scaffold only after the user chooses the first option. Create a new source file beside
-the migrated worker sources, using the project's conventional package, license header, naming, and
-formatting. Derive the class and file names from the exact shared job type with a deterministic
-sanitizer. Make the class name a legal Java identifier and the file name a safe path segment.
+Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
+directory outside every runtime source set and every source tree scanned for `@JobWorker`
+registrations. Use the project's conventional package, license header, naming, and formatting.
+Derive the class and file names from the exact shared job type with a deterministic sanitizer. Make
+the class name a legal Java identifier and the file name a safe path segment.
 Append `Worker` to the sanitized base unless it already ends with `Worker`, and use that same
 `Worker` stem for the class and file.
 Include a stable hash of the original job type to prevent collisions between sanitized names.
-Resolve the proposed path and verify that it stays inside the intended source tree before writing.
-If it does not, stop and ask the user to choose a safe source tree. Never overwrite an existing
-file. If the proposed path exists, choose a new collision-safe class and file name from the same
-candidate stem, then tell the user which file was created. Never reuse the original class name with
-a renamed file.
+Resolve the proposed quarantine path and verify that it stays inside the chosen quarantine directory
+before writing. Resolve the eventual runtime path separately before moving the accepted source. If
+either path escapes its intended directory, stop and ask the user to choose a safe directory. Never
+overwrite an existing file. If the proposed path exists, choose a new collision-safe class and file
+name from the same candidate stem, then tell the user which file was created. Never reuse the
+original class name with a renamed file.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
 the project's worker registration convention, such as `@Component` for Spring. Use a method
@@ -139,16 +149,16 @@ the source. Put a `TODO` in every route for the actual legacy bean or method inv
 TODO route fail explicitly until its implementation exists. Add an explicit missing-or-unknown-header
 path that also fails instead of silently accepting or auto-completing an unroutable job.
 
-After generation, present the complete source or diff to the user for explicit review. Do not commit
-the scaffold until the user accepts it. Do not deploy the scaffold until every TODO route is removed
-and every applicable post-generation check passes. If the user rejects the scaffold, then remove the
-generated file or quarantine it outside every scanned source tree before continuing. Do not leave the
-file beside the migrated sources or let a later scan treat it as an existing subscriber. Then rerun
-the same cross-check used for hand-written dispatchers. Run the applicable formatter, compile, and
-test checks after writing the source. Record each validation result in MIGRATION_REPORT.md. The
-scaffold is not a completed remediation. Keep the category **needs fix** while any generated TODO
-route remains, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
-check fails.
+After generation, present the complete source or diff to the user for explicit review. Keep the draft
+in quarantine until the user accepts it. Do not move or enable the draft while any TODO route remains.
+After acceptance, remove every TODO route, move the source into the intended worker source tree, and
+run the applicable formatter, compile, and test checks before deployment. If the user rejects the
+scaffold, remove the draft or keep it outside every scanned source tree. Do not leave the file beside
+the migrated sources or let a later scan treat it as an existing subscriber. Then rerun the same
+cross-check used for hand-written dispatchers. Record each validation result in
+MIGRATION_REPORT.md. The scaffold is not a completed remediation. Keep the category **needs fix**
+while any generated TODO route remains, the cross-check finds an uncovered pair, or any applicable
+formatter, compile, or test check fails.
 Mark the category **no action** only after the cross-check confirms coverage, the generated source
 has zero TODO routes, and all applicable post-generation checks pass. Record the generated file and
 uncovered implementation work in MIGRATION_REPORT.md.
@@ -201,7 +211,13 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 ### 6. Assign verdicts to the verdict table
 
-Before assigning a verdict, aggregate all normalized rows and shared job-type groups in the category.
+Use this table only for categories with normalized rows from sections 1–2. This cross-check includes
+`delegate-expression-as-job-type`, `delegate-implementation`, and `topic` findings. Do not apply this
+table to categories with dedicated procedures, including `delegate-implementation-no-default-job-type`,
+`collection-hint`, and form categories. Use those procedures to assign their verdicts. An empty
+normalized-row set never produces **no action**.
+
+Before assigning a verdict, aggregate all normalized rows and all job-type groups in the category.
 The table's cross-reference column names the matched code artifact:
 
 | Evidence across every normalized row and shared job type | Verdict |
