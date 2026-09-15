@@ -14,7 +14,7 @@ Follow the user's preference.
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 
-If the user selects Approach C, the skill keeps this cross-check report-only. The skill does not offer
+When the user selects Approach C, the skill keeps this cross-check report-only. The skill does not offer
 or generate a dispatcher scaffold. The skill records the category, its routing gaps, and the
 recommended Approach A or B in `MIGRATION_REPORT.md`.
 
@@ -26,7 +26,7 @@ normalized input row with the columns `filename`, `elementId`, `headerKey`, `ori
 from the matching `zeebe:header` on the converted element. Apply the same 1:1 or many-to-one
 check. Do not wait for `delegate-expression-as-job-type` findings, because M2-only runs do not
 produce them. If the converted element has no header matching the original C7 attribute and value,
-keep the category **needs fix** and do not offer a dispatcher scaffold until M2 adds or retains
+then keep the category **needs fix** and do not offer a dispatcher scaffold until M2 adds or retains
 that header.
 
 ### 1. Detect many-to-one job-type collapse
@@ -88,7 +88,7 @@ When a many-to-one category has a **needs fix** verdict, process each shared job
 Before asking for a decision, enumerate every existing `@JobWorker` registration and resolve its
 effective type. When an `@JobWorker` omits `type`, use the annotated method name as its effective
 type. Include equivalent worker registrations whose effective type resolves to the shared type. If
-any registration already subscribes to that type, stop scaffold generation. Do not create a second
+any registration already subscribes to that type, then stop scaffold generation. Do not create a second
 subscriber.
 
 Use this decision table for each shared job type:
@@ -97,13 +97,18 @@ Use this decision table for each shared job type:
 |---|---|---|
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
-| **needs fix** | None | Ask whether to **Generate a dispatcher scaffold (recommended)** or **I will implement the dispatcher manually**. In the generation prompt, show the shared job type, every retained header key, and the distinct original expressions grouped by retained key. |
+| **needs fix** | None | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct original expressions grouped by retained key. |
 | **needs fix** | One or more | Do not offer generation. Ask the user to extend an existing dispatcher, or to merge or remove a non-dispatcher registration before creating one. |
 
 Generate the scaffold only after the user chooses the first option. Create a new source file beside
 the migrated worker sources, using the project's conventional package, license header, naming, and
-formatting. Never overwrite an existing file. If the proposed path exists, choose a new path and
-tell the user which file was created.
+formatting. Derive the class and file names from the exact shared job type with a deterministic
+sanitizer. Make the class name a legal Java identifier and the file name a safe path segment.
+Include a stable hash of the original job type to prevent collisions between sanitized names.
+Resolve the proposed path and verify that it stays inside the intended source tree before writing.
+If it does not, stop and ask the user to choose a safe source tree. Never overwrite an existing
+file. If the proposed path exists, choose a new collision-safe path and tell the user which file was
+created.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
 the project's worker registration convention, such as `@Component` for Spring. Use a method
@@ -118,7 +123,9 @@ TODO route fail explicitly until its implementation exists. Add an explicit miss
 path that also fails instead of silently accepting or auto-completing an unroutable job.
 
 After generation, present the complete source or diff to the user for explicit review. Do not commit
-or deploy the scaffold until the user accepts it. Then rerun the same cross-check used for
+or deploy the scaffold until the user accepts it. If the user rejects the scaffold, remove or
+quarantine the generated file before continuing. Do not leave the file beside the migrated sources
+or let a later scan treat it as an existing subscriber. Then rerun the same cross-check used for
 hand-written dispatchers. Run the applicable formatter, compile, and test checks after writing the
 source. Record each validation result in MIGRATION_REPORT.md. The scaffold is not a completed
 remediation. Keep the category **needs fix** while any generated TODO route remains or the
@@ -176,7 +183,9 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, a dispatcher covering every distinct `(headerKey, original)` pair, and no generated TODO routes: **no action** (the category is fully covered).
+- A 1:1 job-type match is confirmed: **no action** (the category is fully covered).
+- A dispatcher covers every distinct `(headerKey, original)` pair and has no generated TODO routes:
+  **no action** (the category is fully covered).
 - Mismatched job types, uncovered `(headerKey, original)` pairs, generated TODO routes, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
