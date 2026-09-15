@@ -39,10 +39,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             camunda.bpm.history-level=full
             """,
             """
-            camunda.client.security.plaintext=true
-            # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-            camunda.client.zeebe.grpc-address=http://localhost:26500
-            camunda.client.zeebe.rest-address=http://localhost:8080
+            camunda.client.grpc-address=http://localhost:26500
+            # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+            camunda.client.mode=self-managed
+            camunda.client.rest-address=http://localhost:8080
             spring.datasource.url=jdbc:h2:file:./camunda-h2-database
             spring.datasource.username=sa
             spring.datasource.password=sa
@@ -81,12 +81,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
                 password: sa
             camunda:
               client:
-                # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-                zeebe:
-                  grpc-address: http://localhost:26500
-                  rest-address: http://localhost:8080
-                security:
-                  plaintext: true
+                # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+                mode: self-managed
+                grpc-address: http://localhost:26500
+                rest-address: http://localhost:8080
             """,
             spec -> spec.path("src/main/resources/application.yml")));
   }
@@ -104,10 +102,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             server.port=7070
             """,
             """
-            camunda.client.security.plaintext=true
-            # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-            camunda.client.zeebe.grpc-address=http://localhost:26500
-            camunda.client.zeebe.rest-address=http://localhost:8080
+            camunda.client.grpc-address=http://localhost:26500
+            # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+            camunda.client.mode=self-managed
+            camunda.client.rest-address=http://localhost:8080
             server.port=7070""",
             spec -> spec.path("src/main/resources/application.properties")));
   }
@@ -131,12 +129,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
               port: 7070
             camunda:
               client:
-                # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-                zeebe:
-                  grpc-address: http://localhost:26500
-                  rest-address: http://localhost:8080
-                security:
-                  plaintext: true
+                # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+                mode: self-managed
+                grpc-address: http://localhost:26500
+                rest-address: http://localhost:8080
             """,
             spec -> spec.path("src/main/resources/application.yaml")));
   }
@@ -155,12 +151,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             """
             camunda:
               client:
-                # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-                zeebe:
-                  grpc-address: http://localhost:26500
-                  rest-address: http://localhost:8080
-                security:
-                  plaintext: true
+                # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+                mode: self-managed
+                grpc-address: http://localhost:26500
+                rest-address: http://localhost:8080
             """,
             spec -> spec.path("src/main/resources/application.yaml")));
   }
@@ -179,10 +173,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             server.port=7070
             """,
             """
-            camunda.client.security.plaintext=true
-            # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-            camunda.client.zeebe.grpc-address=http://localhost:26500
-            camunda.client.zeebe.rest-address=http://localhost:8080
+            camunda.client.grpc-address=http://localhost:26500
+            # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+            camunda.client.mode=self-managed
+            camunda.client.rest-address=http://localhost:8080
             # TODO(migration): Camunda 8 runs job workers remotely (no embedded job executor). Tune worker concurrency via camunda.client.worker.defaults.max-jobs-active and camunda.client.execution-threads.
             server.port=7070""",
             spec -> spec.path("src/main/resources/application.properties")));
@@ -207,12 +201,10 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
               port: 7070
             camunda:
               client:
-                # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
-                zeebe:
-                  grpc-address: http://localhost:26500
-                  rest-address: http://localhost:8080
-                security:
-                  plaintext: true
+                # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+                mode: self-managed
+                grpc-address: http://localhost:26500
+                rest-address: http://localhost:8080
             """,
             spec -> spec.path("src/main/resources/application.yml")));
   }
