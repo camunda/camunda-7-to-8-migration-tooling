@@ -433,8 +433,9 @@ Apply these model-specific additions:
 
 - For M2, use the recorded original-to-converted pair paths and the structured direct-rewrite
   findings summary. Do not discover participating files with a filesystem glob.
-- For M3, use the exact original-to-converted pair paths and record `unavailable` when the local
-  CLI, Java executable, or converter JAR is unavailable. Keep the category at **needs review**.
+- For M3, use the exact original-to-converted pair paths. Record `unavailable` in the supplementary
+  converter check when the local CLI, Java executable, or converter JAR is unavailable. The category
+  may pass after every other required check and the finding-specific postcondition pass.
 - For E1, preserve the definition-to-source and source-to-converted path mapping captured during
   acquisition.
 - Capture the immutable baseline before each remediation batch and before each no-edit check.
