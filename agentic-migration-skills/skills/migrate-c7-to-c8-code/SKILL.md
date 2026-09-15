@@ -342,9 +342,9 @@ undifferentiated list.
 For `needs fix` categories, sequence the follow-up work by runtime impact:
 
 Before applying this order, assign an effective severity to every `needs fix` category. Use the
-converter severity for converter categories. For source-derived `c7-*` and
-`generated-form-property-source` categories, and for `blank-executable-task-job-type`, use `TASK`
-as the effective severity. Effective severity only orders follow-up and does not change the
+converter severity for converter categories. For source-derived `c7-*`, `generated-form-property-source`,
+`blank-executable-task-job-type`, and `blank-dmn-decision-id` categories, use `TASK` as the
+effective severity. Effective severity only orders follow-up and does not change the
 finding severity.
 
 | Order | Runtime impact | Secondary order |
