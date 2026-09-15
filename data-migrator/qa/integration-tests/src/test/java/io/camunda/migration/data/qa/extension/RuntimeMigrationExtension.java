@@ -182,4 +182,3 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     });
   }
 }
-
