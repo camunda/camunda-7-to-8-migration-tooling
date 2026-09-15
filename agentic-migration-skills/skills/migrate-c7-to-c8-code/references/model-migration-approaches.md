@@ -293,7 +293,7 @@ Apply the table after grouping and matching:
 | Match | Destination category | Artifact action |
 |---|---|---|
 | An eligible authoritative report finding matches an owner-level inventory group with more than one form definition. | `form-reference-conflict` | Keep one artifact object. Set its `messageId` to `form-reference-conflict`, preserve its other authoritative fields, set `sourceDerived` to `true`, and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. Do not add a second synthetic object. |
-| An eligible authoritative report finding matches an owner-level inventory group with one form definition. | The finding's authoritative `messageId` | Keep one artifact object for the authoritative finding. For every eligible source-inventory finding other than `form-data`, set `sourceDerived` to `true` and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. For `form-data`, keep the authoritative `sourceDerived: false` value, attach the complete `sourceInventory` as provenance, and do not add a synthetic object. |
+| An eligible authoritative report finding matches an owner-level inventory group with one form definition. | The finding's authoritative `messageId` | Keep one artifact object for the authoritative finding. For every eligible authoritative report finding other than `form-data`, set `sourceDerived` to `true` and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. For `form-data`, keep the authoritative `sourceDerived: false` value, attach the complete `sourceInventory` as provenance, and do not add a synthetic object. |
 | An owner-level inventory group has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, `generated-form-property-source`, or `m2-manual-review` for a form-handler-class or non-process-level none-start-event condition | Add one `sourceDerived: true` object to the `findings` array. |
 | A source-derived authoritative report finding has no matched owner-level inventory group. | Its existing `messageId` | Preserve the finding in its existing category and record the inventory mismatch in `MIGRATION_REPORT.md`. |
 
@@ -304,9 +304,9 @@ with one object for each inventory row. Repeat the group keys `sourceBpmn`, `pro
 `ownerName`, `ownerType`, `sourceClassification`, and `status` in each object. For referenced-form
 inventory rows, set `reference` to the `Reference (report-safe)` value from
 `form-reference-migration.md`. For generated-form inventory rows, omit `reference` because
-`form-migration.md` defines no report-safe reference. Preserve the form kind, fields, form id, and
-status for `generated-form-property-source`. For `form-handler-class` inventory rows, preserve
-the class name in `handlerClass` and omit referenced-form and generated-form fields. Keep a matched
+`form-migration.md` defines no report-safe reference. Preserve `c7FormKind`, `fields`, `c8FormId`,
+and `status` for every generated-form inventory row. For `form-handler-class` inventory rows,
+preserve the class name in `handlerClass` and omit referenced-form and generated-form fields. Keep a matched
 authoritative report finding in its authoritative `messageId` category, except when the
 multi-definition rule above reclassifies it as `form-reference-conflict`. This includes
 `generated-form-property-source` and any `c7-*` category.
@@ -588,7 +588,7 @@ after the first applicable row:
 | The source contains form-property-only metadata. | `generated-form-property-source` | TASK | `true` | `n/a` |
 | The source contains `camunda:formHandlerClass`. | `m2-manual-review` | REVIEW | `true` | `n/a` |
 | The source contains a form reference on a non-process-level none start event. | `m2-manual-review` | REVIEW | `true` | `n/a` |
-| The source contains a referenced form without a form-definition conflict. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
+| The source contains a referenced form without a form-definition conflict on a user task or process-level none start event. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
 | The source contains a form-free owner. | `c7-generic-task-form` | REVIEW | `true` | `n/a` |
 | The rewrite exposes a condition with a current catalog message not listed above. | The exact catalog message ID | The catalog severity | `false` | The catalog guidance URL or `n/a` |
 | The rewrite needs manual review and has no catalog message. | `m2-manual-review` | REVIEW | `false` | `n/a` |
