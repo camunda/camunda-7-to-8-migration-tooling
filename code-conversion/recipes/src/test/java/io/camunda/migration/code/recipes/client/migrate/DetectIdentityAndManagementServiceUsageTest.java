@@ -49,6 +49,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     identityService.createGroupQuery().list();
                     identityService.createMembership(userId, groupId);
                     identityService.setAuthenticatedUserId(userId);
+                    identityService.setAuthentication(userId, java.util.List.of(groupId));
                 }
             }
             """,
@@ -94,6 +95,10 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Authentication and password operations are handled by the identity provider; use its API instead.
                     // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                     identityService.setAuthenticatedUserId(userId);
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (setAuthentication()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
+                    // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
+                    identityService.setAuthentication(userId, java.util.List.of(groupId));
                 }
             }
             """));
@@ -121,6 +126,8 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     managementService.createJobQuery().list();
                     managementService.getRegisteredDeployments();
                     managementService.setJobRetries(jobId, retries);
+                    managementService.setJobRetries(java.util.List.of(jobId), retries);
+                    managementService.setJobRetries(retries);
                 }
             }
             """,
@@ -153,6 +160,14 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(jobId, retries);
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
+                    // Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateRetriesCommand(jobKey).retries(n) for each job.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetries(java.util.List.of(jobId), retries);
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
+                    // Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateRetriesCommand(jobKey).retries(n) for each job.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetries(retries);
                 }
             }
             """));

@@ -201,13 +201,13 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
           private ServiceCall serviceCall(J.MethodInvocation invocation) {
             if (SET_JOB_RETRIES_MATCHER.matches(invocation)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName());
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), true);
             }
             if (new MethodMatcher(IDENTITY_SERVICE_FQN + " *(..)").matches(invocation)) {
-              return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName());
+              return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName(), false);
             }
             if (new MethodMatcher(MANAGEMENT_SERVICE_FQN + " *(..)").matches(invocation)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName());
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), false);
             }
             return null;
           }
@@ -316,6 +316,10 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
+            if ("setJobRetries".equals(serviceCall.methodName())
+                && !serviceCall.singleJobRetry()) {
+              return "Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateRetriesCommand(jobKey).retries(n) for each job.";
+            }
             return MANAGEMENT_METHOD_HINTS.getOrDefault(
                 serviceCall.methodName(),
                 "Use CamundaClient or the Orchestration Cluster REST API.");
@@ -350,7 +354,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                     : ORCHESTRATION_API_URL;
           }
 
-          private record ServiceCall(String serviceFqn, String methodName) {}
+          private record ServiceCall(
+              String serviceFqn, String methodName, boolean singleJobRetry) {}
         });
   }
 }
