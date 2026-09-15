@@ -46,6 +46,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 public void manage(String userId, String groupId) {
                     identityService.createUserQuery().list();
                     identityService.saveUser(null);
+                    identityService.createGroupQuery().list();
                     identityService.createMembership(userId, groupId);
                     identityService.setAuthenticatedUserId(userId);
                 }
@@ -61,30 +62,36 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
             @Component
             public class IdentityUser {
 
-                // TODO: IdentityService requires method-specific migration guidance in Camunda 8.
-                // Use method-specific Camunda Java Client, Orchestration Cluster REST API, or identity provider guidance.
-                // For bulk migration of users/groups/authorizations, use the Identity Data Migrator.
+                // TODO: IdentityService usage requires method-specific migration guidance in Camunda 8.
+                // Use CamundaClient identity APIs (for example, newUsersSearchRequest(), newCreateUserCommand(), newGroupsSearchRequest(), newAssignUserToGroupCommand(), and newAuthorizationSearchRequest()) or the Orchestration Cluster REST API where available.
+                // For bulk migration of authorizations and tenants, use the Identity Data Migrator.
+                // For authentication, use transport-level JWT/OAuth and configure the identity provider.
                 // See: https://docs.camunda.io/docs/apis-tools/java-client/
                 // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                 // See: https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/identity/
                 @Autowired
                 private IdentityService identityService;
 
                 public void manage(String userId, String groupId) {
-                    // TODO: IdentityService requires method-specific migration guidance in Camunda 8 (createUserQuery()).
+                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createUserQuery()).
                     // Use CamundaClient.newUsersSearchRequest().
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.createUserQuery().list();
-                    // TODO: IdentityService requires method-specific migration guidance in Camunda 8 (saveUser()).
-                    // Use CamundaClient.newCreateUserCommand() or newUpdateUserCommand(userId).
+                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (saveUser()).
+                    // Use CamundaClient.newCreateUserCommand() for new users or newUpdateUserCommand(userId) for existing users.
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.saveUser(null);
-                    // TODO: IdentityService requires method-specific migration guidance in Camunda 8 (createMembership()).
-                    // Use CamundaClient.newAssignUserToGroupCommand().
+                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createGroupQuery()).
+                    // Use CamundaClient.newGroupsSearchRequest().
+                    // See: https://docs.camunda.io/docs/apis-tools/java-client/
+                    identityService.createGroupQuery().list();
+                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createMembership()).
+                    // Use CamundaClient.newAssignUserToGroupCommand().username(userId).groupId(groupId).
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.createMembership(userId, groupId);
-                    // TODO: IdentityService requires method-specific migration guidance in Camunda 8 (setAuthenticatedUserId()).
-                    // Authentication is handled at the transport layer with JWT/OAuth; configure the identity provider instead.
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (setAuthenticatedUserId()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
                     // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                     identityService.setAuthenticatedUserId(userId);
                 }
@@ -179,8 +186,8 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
             public class ServiceParameters {
 
                 public void use(IdentityService identityService, ManagementService managementService) {
-                    // TODO: IdentityService requires method-specific migration guidance in Camunda 8 (clearAuthentication()).
-                    // Authentication is handled at the transport layer with JWT/OAuth; configure the identity provider instead.
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (clearAuthentication()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
                     // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                     identityService.clearAuthentication();
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (getRegisteredDeployments()).
@@ -244,11 +251,13 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
             public class CombinedServiceUse {
 
-                // TODO: IdentityService requires method-specific migration guidance in Camunda 8.
-                // Use method-specific Camunda Java Client, Orchestration Cluster REST API, or identity provider guidance.
-                // For bulk migration of users/groups/authorizations, use the Identity Data Migrator.
+                // TODO: IdentityService usage requires method-specific migration guidance in Camunda 8.
+                // Use CamundaClient identity APIs (for example, newUsersSearchRequest(), newCreateUserCommand(), newGroupsSearchRequest(), newAssignUserToGroupCommand(), and newAuthorizationSearchRequest()) or the Orchestration Cluster REST API where available.
+                // For bulk migration of authorizations and tenants, use the Identity Data Migrator.
+                // For authentication, use transport-level JWT/OAuth and configure the identity provider.
                 // See: https://docs.camunda.io/docs/apis-tools/java-client/
                 // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                 // See: https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/identity/
                 private IdentityService identityService;
                 // TODO: ManagementService has no direct Java client equivalent in Camunda 8.
@@ -259,7 +268,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 private void use(Object first, Object second) {}
 
                 public void manage() {
-                    // TODO: IdentityService requires method-specific migration guidance in Camunda 8 (createUserQuery()).
+                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createUserQuery()).
                     // Use CamundaClient.newUsersSearchRequest().
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (getRegisteredDeployments()).
