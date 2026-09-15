@@ -282,8 +282,8 @@ target version. See the linting section in `references/model-migration-approache
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
    with its category, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. Every category with verdict `needs fix` or
-   `needs review` has a complete element list in
-   `.camunda-migration/findings-by-category.json`. A flat "fixed or recorded" note is not enough.
+   `needs review` has a complete element list in the `artifactPath` selected in step 5b. A flat
+   "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
 6. Every accepted form is a standard Camunda 8 `.form`.
