@@ -319,8 +319,10 @@ target version. See the linting section in `references/model-migration-approache
     listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
     finding with the source implementation and no emitted job type. For every emitted pair, verify
     target-version and event support before adding a source-derived
-    `execution-listener-supported` or `task-listener-supported` row. Record an unsupported pair as
-    a source-derived listener row with Blocking runtime impact instead of marking it supported.
+    `execution-listener-supported` or `task-listener-supported` row. Record an unsupported
+    execution-listener pair under the source-derived `execution-listener` category, or an
+    unsupported task-listener pair under the source-derived `task-listener` category, with
+    Blocking runtime impact instead of marking it supported.
     Record the supported row with `n/a` converter severity before the worker cross-check. Include
     these pairing rows in the grouped summary and verdict table, including for models-only M2 runs.
     If the emitted type differs, require a confirmed decision-log entry in

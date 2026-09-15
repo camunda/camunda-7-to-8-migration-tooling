@@ -32,11 +32,13 @@ If a source listener has no emitted pair, record a synthetic `execution-listener
 finding with the source implementation and no emitted job type. Apply the Blocking rule for that
 category in `model-migration-approaches.md`. For every emitted pair, verify target-version and
 event support before adding a source-derived `execution-listener-supported` or
-`task-listener-supported` category row. Record an unsupported pair as a source-derived listener
-row with Blocking runtime impact instead of marking it supported. Record each supported row with
-its owner, normalized event, ordinal, source implementation, emitted type, and `n/a` converter
-severity. Add every row to the grouped summary and verdict table. In a models-only run, record
-`n/a` for the code artifact and assign the models-only `needs review` result.
+`task-listener-supported` category row. Record an unsupported execution-listener pair under the
+source-derived `execution-listener` category, or an unsupported task-listener pair under the
+source-derived `task-listener` category, with Blocking runtime impact instead of marking it
+supported. Record each supported row with its owner, normalized event, ordinal, source
+implementation, emitted type, and `n/a` converter severity. Add every row to the grouped summary
+and verdict table. In a models-only run, record `n/a` for the code artifact and assign the
+models-only `needs review` result.
 
 For every emitted `zeebe:taskDefinition/@type`, pair the converted service, send, non-DMN business
 rule, or non-internal script task with its source element by model ID. Exclude DMN business-rule
