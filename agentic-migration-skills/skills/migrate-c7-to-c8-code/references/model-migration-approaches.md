@@ -227,16 +227,19 @@ Before copying any report finding into the artifact, apply the `Reference (repor
 applies to converter findings and M2 findings. Never copy an unsanitized form key or credential
 into the artifact.
 
-For source-derived categories, use the source inventory as the complete element list. For each
-source inventory entry without a matched report finding, serialize one object in the `findings`
-array. Set `sourceDerived` to `true`, map the source path to `filename`, the owner id to
-`elementId`, and the owner type to `elementType`. Write the source classification in `message`.
-Preserve the remaining fields present in the source inventory, such as process id, owner name,
-decision, and status. For referenced-form inventories, set `reference` to the `Reference
-(report-safe)` value from `form-reference-migration.md`. For generated-form inventories, omit
-`reference` because `form-migration.md` defines no report-safe reference. Preserve the form kind,
-fields, form id, and status for `generated-form-property-source`. Merge a matched source-derived
-finding with its source inventory entry instead of adding a second object.
+For source-derived categories, use the source inventory as the complete element list. Match each
+source inventory entry against every authoritative report finding, including source-derived
+findings. For each source inventory entry without a matched authoritative report finding,
+serialize one object in the `findings` array. Set `sourceDerived` to `true`, map the source path to
+`filename`, the owner id to `elementId`, and the owner type to `elementType`. Write the source
+classification in `message`. Preserve the remaining fields present in the source inventory, such
+as process id, owner name, decision, and status. For referenced-form inventories, set `reference`
+to the `Reference (report-safe)` value from `form-reference-migration.md`. For generated-form
+inventories, omit `reference` because `form-migration.md` defines no report-safe reference.
+Preserve the form kind, fields, form id, and status for `generated-form-property-source`. Merge a
+matched authoritative report finding with its source inventory entry instead of adding a second
+object. Keep the matched finding in its authoritative `messageId` category, including
+`form-reference-conflict`, `generated-form-property-source`, and any `c7-*` category.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
 synthetic category a complete element list.
@@ -255,11 +258,12 @@ After classification, add `sourceDerived: true` and the matched source inventory
 in `form-reference-conflict` and assign `needs review` to that category. Preserve the same
 sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that fallback
 category.
-For each source inventory entry without a matched converter finding, add a `sourceDerived: true`
-entry to its authoritative `c7-*` or `form-reference-conflict` category. Apply the source-derived
-serialization rules above, including report-safe references for referenced forms and omission for
-generated forms. Keep matched converter findings in the same category. Do not create a second
-source-derived entry for a source inventory entry represented by a matched converter finding.
+For each source inventory entry without a matched authoritative report finding, add a
+`sourceDerived: true` entry to its authoritative `c7-*` or `form-reference-conflict` category.
+Apply the source-derived serialization rules above, including report-safe references for referenced
+forms and omission for generated forms. Keep matched authoritative report findings in their
+existing report categories. Do not create a second source-derived entry for a source inventory
+entry represented by a matched authoritative report finding.
 
 #### 5c. Present the grouped summary
 
