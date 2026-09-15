@@ -92,4 +92,62 @@ public class VariousProcessEngineFunctionsTestClass {
 }
 """));
   }
+
+  @Test
+  void preservesDeferredRepositoryServiceDependenciesInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+    """
+    package org.camunda.community.migration.example;
+
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+
+    public class Deployer {
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public void deploy() {
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+
+        public long count() {
+            return repositoryService.createProcessDefinitionQuery().count();
+        }
+    }
+    """,
+    """
+    package org.camunda.community.migration.example;
+
+    import io.camunda.client.CamundaClient;
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class Deployer {
+
+        @Autowired
+        private CamundaClient camundaClient;
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public void deploy() {
+            // TODO: RepositoryService deployment method was not migrated automatically
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+
+        public long count() {
+            // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+            return repositoryService.createProcessDefinitionQuery().count();
+        }
+    }
+    """));
+  }
 }

@@ -932,6 +932,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
               private RepositoryService repositoryService;
 
               RepositoryService current() {
+                // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
                 return repositoryService;
               }
 
@@ -941,6 +942,50 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
                     .addClasspathResource("bpmn/order.bpmn")
                     .deploy();
               }
+            }
+            """));
+  }
+
+  @Test
+  void addsTodoForDirectRepositoryServiceReferences() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+
+              void assign(Holder holder) {
+                holder.service = repositoryService;
+              }
+
+            }
+
+            class Holder {
+              RepositoryService service;
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+
+              void assign(Holder holder) {
+                // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+                holder.service = repositoryService;
+              }
+
+            }
+
+            class Holder {
+              RepositoryService service;
             }
             """));
   }
