@@ -341,10 +341,15 @@ undifferentiated list.
 
 For `needs fix` categories, sequence the follow-up work by runtime impact:
 
+Before applying this order, assign an effective severity to every `needs fix` category. Use the
+converter severity for converter categories. For source-derived `c7-*` and
+`generated-form-property-source` categories, use `TASK` as the effective severity. Effective
+severity only orders follow-up and does not change the finding severity.
+
 | Order | Runtime impact | Secondary order |
 |---|---|---|
-| 1 | **Blocking** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
-| 2 | **Advisory** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 1 | **Blocking** | Effective severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Effective severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
 
 Present the runtime impact with every category. Resolve all **Blocking** categories before
 **Advisory** categories. Do not use severity as a substitute for runtime impact.

@@ -212,13 +212,14 @@ Use the following rules:
 
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
-| `element-not-supported` | **Blocking** | The target cannot deploy or execute the affected element. |
-| `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version | Compare the report's required version with the chosen target. A report generated for another target must be revalidated before this classification is used. |
+| `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
+| `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version; **Advisory** when the chosen target meets or exceeds it | Compare the report's required version with the chosen target. Classify a finding as Advisory when the target meets or exceeds the required version because an imported report can be stale. Revalidate a report generated for another target before using this classification. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A blank `zeebe:taskDefinition/@type` on a service, send, business rule, or script task | **Blocking** | The converted executable task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. |
 | `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
-| `timer-expression-not-supported`, `inclusive-gateway-join`, `only-feel-supported` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
+| `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
+| `only-feel-supported` | **Blocking** when the original DMN `expressionLanguage` is not `feel`; **Advisory** when it is `feel` (case-insensitive) | Read the source value before conversion. The converter removes this attribute from non-definition elements, so an explicit FEEL value is valid while another language cannot execute. |
 | Every other known category, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
