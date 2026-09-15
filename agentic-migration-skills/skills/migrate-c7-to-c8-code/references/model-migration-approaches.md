@@ -188,20 +188,23 @@ M2 does not produce a JSON report. Run this scan for M1, M2, M3, and E1 when a f
 exists.
 
 If M1 uses `--check`, the CLI produces no converted copy. Defer this scan and the
-`blank-executable-task-job-type` category until a fresh converted copy is available. Record the
-deferred scan in `MIGRATION_REPORT.md`.
+`blank-executable-task-job-type` and `blank-dmn-decision-id` categories until a fresh converted
+copy is available. Record the deferred scan in `MIGRATION_REPORT.md`.
 
 Match each fresh converted copy to the source model path captured in step 3. Use the source/output
 model pair and BPMN element ID as the deduplication key. Do not compare source and converted
 filenames as if they were the same file.
 
 Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
-`bpmn:scriptTask`:
+`bpmn:scriptTask` with this decision table:
 
-- Exclude a `businessRuleTask` when it has a `zeebe:calledDecision`.
-- Exclude a `scriptTask` when it has a `zeebe:script` for an internal FEEL script.
-- For every other listed task, inspect its extension elements for a `zeebe:taskDefinition` with a
-  non-blank `@type`.
+| Converted task condition | Action |
+|---|---|
+| `businessRuleTask` has `zeebe:calledDecision/@decisionId` with a non-blank value | Exclude the task from the job-type scan. |
+| `businessRuleTask` has `zeebe:calledDecision` with a missing or blank `@decisionId` | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
+| `businessRuleTask` has no `zeebe:calledDecision` | Inspect the task as a job-backed task. |
+| `scriptTask` has `zeebe:script` for an internal FEEL script | Exclude the task from the job-type scan. |
+| Any other listed task | Inspect its extension elements for a `zeebe:taskDefinition` with a non-blank `@type`. |
 
 When a listed task has no task definition or has a blank task-definition type, add a source-derived
 finding in the `blank-executable-task-job-type` category only when no converter finding for the
@@ -210,10 +213,15 @@ source/output model pair, converted file, element id, element type, and missing 
 as evidence. Add this category to the grouped summary and the verdict table even when the JSON
 report contains no matching `messageId`.
 
+For a `blank-dmn-decision-id` finding, record the source/output model pair, converted file,
+element id, element type, and missing or blank `decisionId` as evidence. Add this category to the
+grouped summary and the verdict table even when the JSON report contains no matching `messageId`.
+
 When a converter finding already identifies the missing job type for the paired source model and
 element ID, use that converter finding and do not add a duplicate synthetic finding.
 
-Source-derived categories have no converter severity. Record `n/a` as their converter severity and
+Source-derived categories, including `blank-executable-task-job-type` and
+`blank-dmn-decision-id`, have no converter severity. Record `n/a` as their converter severity and
 use `TASK` as their effective severity for sorting. If the imported report target differs from the
 chosen target, defer runtime impact for these findings until target-aware revalidation.
 
@@ -262,17 +270,20 @@ Use the following rules:
 |---|---|---|
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
 | `element-available-in-future-version` after target match or target-aware revalidation when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target only after the report target matches or revalidation completes. |
-| `element-available-in-future-version` after target match or target-aware revalidation when the chosen target meets or exceeds the required version | **Advisory** | The target supports the element. The imported finding can still be stale. |
+| `element-available-in-future-version` after target match or target-aware revalidation when the chosen target meets or exceeds the required version | **Advisory** | The target supports the element. A fresh report for that target would not emit this finding. |
 | A report target that differs from the chosen target | Do not assign runtime impact until revalidation | This rule takes precedence over every category-specific rule. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
+| `blank-dmn-decision-id` on a `businessRuleTask` with a missing or blank `zeebe:calledDecision/@decisionId` | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
+| `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check covers every source implementation or expression with a matching C8 job type | **Advisory** | The cross-check confirms coverage. Record the matched worker mapping and assign no action. |
+| `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check finds an uncovered implementation or expression, or a mismatched job type | **Blocking** | The task has no verified worker mapping. The uncovered or mismatched mapping can prevent execution or route the task to the wrong worker. |
 | `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, completion conditions, DMN decision IDs (`camunda:decisionRef`), executable DMN expressions, or input/output mappings | **Blocking** | The affected expression controls routing, process invocation, timing, loop execution, decision resolution, decision evaluation, or task execution and cannot execute in the converted model. |
 | `expression-execution-not-available`, `expression-method-not-possible` on due dates, follow-up dates, candidate users or groups, priorities, or other non-blocking attributes | **Advisory** | The affected attribute needs migration work or a decision, but it does not by itself prove that the model cannot deploy or execute. |
 | `condition-expression-feel` when inspection finds a custom FEEL function that Camunda 8 does not support | **Blocking** | The condition cannot evaluate, so it cannot route execution. |
 | `condition-expression-feel` when inspection finds only supported FEEL constructs | **Advisory** | The converted condition needs review, but supported FEEL can evaluate it. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the chosen target is 8.9 or later | **Blocking** | The converted `zeebe:conditionalFilter` cannot trigger on delete events because C8 supports only `create` and `update`. |
-| `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the matching or revalidated target is below 8.9 | **Blocking** | The conditional event cannot deploy at this target. If the corresponding `element-available-in-future-version` finding is present, merge both findings because they describe the same event. Retain one Blocking row. |
+| `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the matching or revalidated target is below 8.9 | **Blocking** | The conditional event cannot deploy at this target. If the corresponding `element-available-in-future-version` finding is present, link both Blocking rows to the same event. Preserve each category's count, evidence, and link. |
 | `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
 | `loop-cardinality` when no valid C8 `inputCollection` replaces the cardinality | **Blocking** | The converter emits no C8 loop-count attribute. Inspect `zeebe:loopCharacteristics@inputCollection` and verify that its expression represents the same iteration set. |
 | `loop-cardinality` when a valid C8 `inputCollection` replaces the cardinality | **Advisory** | The converted loop has an iteration collection. Verify that its expression represents the same iteration set. |
@@ -282,6 +293,12 @@ Use the following rules:
 | `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
 | `error-code-no-expression`, `escalation-code-no-expression` on an unused definition | **Advisory** | The unused definition does not block deployed execution. Record the finding for cleanup or review. |
 | Every other known category not covered above, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
+
+Apply this verdict override before the severity fallback:
+
+| Condition | Verdict | Required action |
+|---|---|---|
+| `element-available-in-future-version` after target-aware revalidation confirms that the chosen target meets or exceeds the required version | **no action** | Do not offer migration work for the stale imported finding. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
 assigning its impact. Use this decision table:
@@ -356,7 +373,8 @@ Verdicts:
 
 | Category (messageId or source category) | Runtime impact | Count | Cross-referenced code artifact | Link | Verdict |
 |---|---|---|---|---|---|
-| `expression-method-not-possible` | Blocking | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
+| `expression-method-not-possible` in execution-critical contexts | Blocking | `<critical-context count>` | none yet — remediation decision pending | `<finding link>` | needs review |
+| `expression-method-not-possible` in non-blocking attributes | Advisory | `<non-blocking count>` | none yet — remediation decision pending | `<finding link>` | needs review |
 | `delegate-expression-as-job-type` | Advisory | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
 | `form-data` | Advisory | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
 | `form-key-embedded` | Advisory | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
@@ -371,6 +389,9 @@ Rules:
   verdict.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
 - Include `blank-executable-task-job-type` even when the JSON report has no matching `messageId`.
+  Give it `Blocking` runtime impact, `TASK` effective severity, `needs fix` verdict, and no
+  dedicated cross-check.
+- Include `blank-dmn-decision-id` even when the JSON report has no matching `messageId`.
   Give it `Blocking` runtime impact, `TASK` effective severity, `needs fix` verdict, and no
   dedicated cross-check.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
