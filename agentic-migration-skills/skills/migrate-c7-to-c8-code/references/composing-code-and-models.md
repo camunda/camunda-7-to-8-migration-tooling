@@ -37,8 +37,15 @@ source-derived `execution-listener` category, or an unsupported task-listener pa
 source-derived `task-listener` category, with Blocking runtime impact instead of marking it
 supported. Record each supported row with its owner, normalized event, ordinal, source
 implementation, emitted type, and `n/a` converter severity. Add every row to the grouped summary
-and verdict table. In a models-only run, record `n/a` for the code artifact and assign the
-models-only `needs review` result.
+and verdict table. In a models-only run, record `n/a` for the code artifact. Assign `needs review`
+only to paired, supported listener rows whose worker coverage is unverified. Keep missing or
+unsupported listener rows as `needs fix` under their Blocking lifecycle.
+
+After pairing, record any emitted execution listener without a source pair as a synthetic
+`execution-listener` validation finding. Record any emitted task listener without a source pair as
+a synthetic `task-listener` validation finding. Include the owner, normalized event, emitted type,
+and missing source implementation in each finding. Add these findings to the grouped summary and
+verdict table.
 
 For every emitted `zeebe:taskDefinition/@type`, pair the converted service, send, non-DMN business
 rule, or non-internal script task with its source element by model ID. Exclude DMN business-rule

@@ -325,7 +325,11 @@ Use the following rules:
 | `camunda-script` when source inspection shows no executable use | **Advisory** | The script does not prove a deployment or execution failure. Record the source context for cleanup or review. |
 | `field-content` when source inspection finds an executable delegate or listener that depends on the dropped field and no equivalent input mapping or handler redesign covers it | **Blocking** | The converted executable behavior can lack required field input. Record the affected field and the missing replacement. |
 | `field-content` when source inspection finds no executable dependency or confirms an equivalent input mapping or handler redesign | **Advisory** | The dropped field does not prove a deployment or execution failure. Record the evidence for cleanup or review. |
-| Every other known category not covered above, excluding form-reference categories handled by 5f and 5g | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
+| `potential-starter` when source and converted model evidence shows that the process relies on the potential starter | **Blocking** | Zeebe does not manage the potential starter. The process cannot start through that modeled path. |
+| `potential-starter` when source and converted model evidence confirms that the process does not rely on the potential starter | **Advisory** | The finding does not affect deployed execution. Record the source and converted model evidence. |
+| Every other known category not covered above, excluding form-reference categories handled by 5f and 5g, when evidence shows a deployment or execution failure | **Blocking** | Record the affected model evidence and the concrete remediation. |
+| Every other known category not covered above, excluding form-reference categories handled by 5f and 5g, when evidence confirms no deployment or execution failure | **Advisory** | The finding can require migration work or a decision, but the evidence does not prove a runtime failure. |
+| Every other known category not covered above, excluding form-reference categories handled by 5f and 5g, when evidence is inconclusive or missing | Do not assign runtime impact until the evidence is complete. | Record the missing evidence and assign **needs review**. Do not place the category in the runtime-impact ordering. |
 
 Apply this verdict override before the severity fallback:
 
@@ -341,7 +345,8 @@ assigning its impact. Use this decision table:
 | Evidence for the new or unknown category | Runtime impact | Required record |
 |---|---|---|
 | The evidence shows a deployment or execution failure. | **Blocking** | Record the affected model evidence and add the category to the inventory. |
-| The evidence does not show a deployment or execution failure. | **Advisory** | Record the affected model evidence and add the category to the inventory. |
+| The evidence confirms that no deployment or execution failure exists. | **Advisory** | Record the affected model evidence and add the category to the inventory. |
+| The evidence is inconclusive or missing. | Do not assign runtime impact until the evidence is complete. | Record the missing evidence and assign **needs review**. Do not place the category in the runtime-impact ordering. |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
 **Advisory**, such as `form-data` without `camunda:formData@businessKey`. A WARNING can be
@@ -412,22 +417,25 @@ Verdicts:
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Runtime impact | Count | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|---|
-| `expression-method-not-possible` in execution-critical contexts | Blocking | `<critical-context count>` | none yet — remediation decision pending | `<finding link>` | needs review |
-| `expression-method-not-possible` in non-blocking attributes | Advisory | `<non-blocking count>` | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` with covered mappings | Advisory | `<covered count>` | `DelegateDispatcher` @JobWorker or 1:1 worker mapping | `<finding link>` | no action |
-| `delegate-expression-as-job-type` with uncovered or mismatched mappings | Blocking | `<uncovered count>` | `DelegateDispatcher` @JobWorker or 1:1 worker mapping | `<finding link>` | needs fix |
-| `form-data` without `camunda:formData@businessKey` | Advisory | `<non-business-key count>` | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-data` with `camunda:formData@businessKey` | Blocking | `<business-key count>` | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | Advisory | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | Advisory | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | Advisory | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Converter severity / effective severity | Runtime impact | Count | Cross-referenced code artifact | Link | Verdict |
+|---|---|---|---|---|---|---|
+| `expression-method-not-possible` in execution-critical contexts | REVIEW / REVIEW | Blocking | `<critical-context count>` | none yet — remediation decision pending | `<finding link>` | needs review |
+| `expression-method-not-possible` in non-blocking attributes | REVIEW / REVIEW | Advisory | `<non-blocking count>` | none yet — remediation decision pending | `<finding link>` | needs review |
+| `delegate-expression-as-job-type` with covered mappings | `<converter> / <effective>` | Advisory | `<covered count>` | `DelegateDispatcher` @JobWorker or 1:1 worker mapping | `<finding link>` | no action |
+| `delegate-expression-as-job-type` with uncovered or mismatched mappings | `<converter> / <effective>` | Blocking | `<uncovered count>` | `DelegateDispatcher` @JobWorker or 1:1 worker mapping | `<finding link>` | needs fix |
+| `form-data` without `camunda:formData@businessKey` | `<converter> / <effective>` | Advisory | `<non-business-key count>` | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
+| `form-data` with `camunda:formData@businessKey` | `<converter> / <effective>` | Blocking | `<business-key count>` | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
+| `form-key-embedded` | `<converter> / <effective>` | Advisory | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
+| `form-key-external` | `<converter> / <effective>` | Advisory | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
+| `c7-generic-task-form` | n/a / TASK | Advisory | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
 
 Rules:
 
 - Use one row per category, sorted as in 5b. If a category has mixed runtime impacts, use one row
   per category-impact partition.
+- Add the converter severity and effective severity to every row. Record `n/a / TASK` for a
+  source-derived row without converter severity. Use the converter severity as the effective
+  severity for converter-derived rows unless a dedicated rule assigns another value.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Do not derive a fallback verdict from severity alone. Apply the runtime-impact override in 5d.1 first. Map INFO to no action only for Advisory rows. Map INFO with Blocking impact to needs fix when concrete work is defined, and to needs review when work is undefined or a decision is pending. Map REVIEW to needs review. Map WARNING/TASK to needs fix. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.

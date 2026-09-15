@@ -323,14 +323,19 @@ target version. See the linting section in `references/model-migration-approache
     execution-listener pair under the source-derived `execution-listener` category, or an
     unsupported task-listener pair under the source-derived `task-listener` category, with
     Blocking runtime impact instead of marking it supported.
+    After pairing, record any emitted execution listener without a source pair as a synthetic
+    `execution-listener` validation finding. Record any emitted task listener without a source pair
+    as a synthetic `task-listener` validation finding. Include the owner, normalized event, emitted
+    type, and missing source implementation in each finding.
     Record the supported row with `n/a` converter severity before the worker cross-check. Include
     these pairing rows in the grouped summary and verdict table, including for models-only M2 runs.
     If the emitted type differs, require a confirmed decision-log entry in
     `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
     and rationale. Treat a mismatch without that entry as a validation failure. When code migration
     is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
-    every normalized binding. For a models-only M2 run, record `n/a` for the code artifact and
-    assign the models-only `needs review` result in the verdict table.
+    every normalized binding. For a models-only M2 run, record `n/a` for the code artifact. Assign
+    `needs review` only to paired, supported listener rows whose worker coverage is unverified.
+    Keep missing or unsupported listener rows as `needs fix` under their Blocking lifecycle.
 
 #### Summary
 
