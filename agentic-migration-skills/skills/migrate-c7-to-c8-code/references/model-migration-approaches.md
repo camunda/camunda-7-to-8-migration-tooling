@@ -264,20 +264,21 @@ Verdicts:
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
-| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict | Verification |
+|---|---|---|---|---|---|
+| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review | pending |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix | pending |
+| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix | pending |
+| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review | pending |
+| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix | pending |
+| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review | pending |
 
 Rules:
 
 - One row per category, sorted as in 5b.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → provisional needs review, REVIEW → needs review, WARNING/TASK → needs fix). Change provisional INFO categories to no action only after a successful verification pass. Do not request a human decision for this provisional INFO verdict. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
-- Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
+- Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point. For an M2 finding without a source link, write `n/a (M2 direct rewrite)` and record the source file and element in the affected-path fields.
+- Set `Verification` to `pending` before the shared gate, `passed` after every applicable check passes, `failed` after a check fails, or `unavailable` when a required deterministic tool is unavailable. Record a permitted `not applicable` check in the evidence. A verdict of **no action** requires `passed`.
 - Classify every WARNING/TASK/REVIEW/INFO category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
@@ -369,9 +370,13 @@ Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
 Set the Modeler namespace `executionPlatformVersion` attribute to the selected target version in
 canonical patch-zero form, such as `8.10.0` for target `8.10`, on every M2 converted copy before
-the verification gate. If M2 cannot set target metadata, run the CLI check as applicable and do not
-use the standard converted-copy exception based only on Zeebe structure. Record M2 findings in the
-summary for this run. Do not consume an unrelated JSON report.
+the verification gate. If M2 cannot set target metadata, record `metadata unavailable`, keep the
+affected category at **needs review**, and do not treat converter output as passing evidence.
+Record M2 findings in a structured summary for this run. Use one row per category with the same
+`Category`, `Severity`, `Count`, `Affected paths`, `Element IDs`, `Cross-referenced code artifact`,
+`Link`, `Verdict`, and `Verification` fields as the per-category inventory. Use the source link when
+available. Use `n/a (M2 direct rewrite)` when no source link exists. Map the category and count
+directly from the direct-rewrite findings. Do not consume an unrelated JSON report.
 
 ### Job type naming
 
@@ -403,95 +408,38 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human
-review for non-INFO findings. Keep INFO findings provisional until their verification pass
-succeeds, and do not request a human decision for that provisional verdict. Lint every rewritten
-BPMN file per the linting section below. After the converted copy exists, run `form-migration.md`
-and `form-reference-migration.md` against the original/converted pair.
+Emit the structured findings summary with CLI severities (WARNING/TASK/REVIEW/INFO). Ask for human
+review for non-INFO findings, except when the shared verification pass is the only pending action.
+Keep INFO findings provisional until their verification pass succeeds, and do not request a human
+decision for that provisional verdict. Lint every rewritten BPMN file per the linting section below.
+After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against
+the original/converted pair.
 
 ## Verification before resolving a finding category
 
-Use this shared gate for M1, M2, M3, and E1. Run one verification pass for every category,
-including INFO and no-edit categories, before changing its verdict to **no action**. Include every
-finding category in the findings inventory and verification table. Use provisional **needs review**
-for INFO categories until their verification pass succeeds. Do not request a human decision for
-this provisional INFO verdict.
-Run it after each remediation batch, or on every converted copy participating in the category when
-no manual edit was needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
-Keep a provisional INFO category out of the human follow-up flow until its verification pass
-completes. Before each remediation batch, capture an immutable baseline for every participating
-converted copy. Immediately before verifying a no-edit category, capture the same baseline. Include
-namespace counts, wiring references, and FEEL state in the baseline. Use that baseline for `Before`
-evidence. Do not reconstruct it from the original Camunda 7 model. Do not run this gate for
-analyze-only runs that create no converted copies. Run this gate when a converted copy participates
-in verification. Do not resolve a category verdict in an analyze-only run that creates no converted
-copies. Keep category verdicts provisional in that mode.
+Use the authoritative shared verification gate in `SKILL.md` Step 5 for M1, M2, M3, and E1.
+Do not restate that gate here. Apply its verification states, whole-file cleanup checks, exact
+target-metadata rule, all-resulting-FEEL rule, CLI failure rule, report schema, and retry rule.
+Keep every category in the findings inventory and verification table. Keep INFO categories
+provisional and out of human follow-up until their verification state is `passed`.
 
-1. Re-parse every participating converted BPMN or DMN file with a namespace-aware XML parser,
-   including files with no manual edit. For M1, use paths captured from this run's `Created ...`
-   lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Do not discover
-   participating files with a filesystem glob.
-2. For the category's touched elements, use namespace-aware queries by namespace URI, not literal
-   prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes,
-   and QName-valued attribute values resolved to those namespace URIs. Record before-and-after
-   counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute
-   values for the category's touched elements before changing its verdict to **no action**. After all
-   categories reach terminal verdicts and Step 5e removes converter annotations, require and
-   record zero remaining conversion nodes or attributes, zero unused Camunda 7 or conversion
-   namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`.
-3. When code is in scope and a remediation or finding references task wiring, listeners, headers,
-   dispatchers, or DMN/precompute wiring, confirm matching declarations and code coverage. When code
-   is out of scope, confirm matching XML declarations and record code coverage as `not applicable`.
-   Record the row as `not applicable` when neither the remediation nor the finding references such
-   wiring.
-4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
-   expression that cannot be checked and keep the category at **needs review** unless another
-   deterministic FEEL syntax check covers it. Keep the category at **needs fix** when parsing
-   fails.
-5. Where the CLI supports the participating converted file, run
-   `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>"
-   --check --csv` with the validated Java executable and converter JAR. On Windows PowerShell,
-   prefix the command with the call operator: `& "<java-cmd>" ...`. Detect
-   `executionPlatformVersion` with a namespace-aware query for the Modeler namespace URI
-   `http://camunda.org/schema/modeler/1.0` and local name, not the serialized `modeler:` prefix.
-   For a standard converted copy whose value starts with `8`, record the CLI check as
-   `not applicable` because the BPMN and DMN visitors reject an already-converted Camunda 8
-   diagram. For M2, set target metadata before applying this exception. If M2 cannot set target
-   metadata, run the CLI check as applicable. Record that output and rely on the XML, namespace,
-   and code checks. Require exit code `0` for every applicable file. Treat any other non-zero exit
-   code or CSV-generation failure as a failed verification and keep the category at **needs fix**
-   or **needs review**. Record the command, exit code, and the CLI's `Created ...` CSV path. Before
-   continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports
-   directory. Record the final evidence path after relocation, or `removed` after cleanup deletes
-   the CSV. Record `not created` when the command produces no CSV. Do not use CSV rows as findings
-   input or as the pass/fail criterion. Use JSON findings input for M1, M3, and E1. For M2, use the
-   direct-rewrite findings summary recorded for the run and do not consume an unrelated JSON report.
+Apply these model-specific additions:
 
-Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
-artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
-category and `Category`, `Participating files`, `Before`, `Checks and evidence`, `After`, and `Verdict`
-columns. Do not replace the findings inventory with the verification table.
+- For M2, use the recorded original-to-converted pair paths and the structured direct-rewrite
+  findings summary. Do not discover participating files with a filesystem glob.
+- For M3, use the exact original-to-converted pair paths and record `unavailable` when the local
+  CLI, Java executable, or converter JAR is unavailable. Keep the category at **needs review**.
+- For E1, preserve the definition-to-source and source-to-converted path mapping captured during
+  acquisition.
+- Capture the immutable baseline before each remediation batch and before each no-edit check.
+  Record namespace counts, wiring references, and FEEL state in `MIGRATION_REPORT.md`.
+- Do not run the gate for analyze-only runs. Present the provisional findings and stop before
+  remediation follow-up.
 
-The local CLI `--check` path attempts to parse each selected BPMN or DMN file before passing
-parseable files to the registered visitor and conversion pipeline in memory. `ConvertLocalCommand`
-logs and filters parse failures without setting `returnCode`, so `checkModels` can receive no model
-and still write an empty CSV. The independent XML parse in step 1 catches malformed input. Detect
-the Modeler namespace `executionPlatformVersion` attribute by namespace URI and local name, not by
-the serialized prefix. On a standard converted `zeebe` copy whose value starts with `8`, the BPMN
-and DMN visitors reject the file with `This diagram is already a Camunda 8 diagram`. Record that
-expected CLI limitation as `not applicable` and rely on the XML, namespace, and code checks. For M2,
-set target metadata in canonical patch-zero form, such as `8.10.0` for target `8.10`, before
-applying this exception. If M2 cannot set target metadata, run the CLI check as applicable.
-The CLI does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener,
-header, or FEEL semantics. Treat the CLI result as supplementary evidence, not as a replacement for
-the namespace-aware and code cross-checks above.
-
-If any verification check fails, record the failure with its before-and-after values. Keep the
-category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
-design decision or an unavailable deterministic check remains. Do not mark it **no action**. Do not
-run an automatic fix loop. Update the nonterminal verdict in both the findings inventory and
-verification table. Escalate after one failed pass when another remediation attempt or a design
-decision is required.
+Keep the findings inventory columns from step 5d, including `Verification`. Add a separate
+verification table with one row per category and `Category`, `Participating files`, `Before`,
+`Checks and evidence`, `After`, `Verdict`, and `Verification` columns. Do not replace the findings
+inventory with the verification table.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 

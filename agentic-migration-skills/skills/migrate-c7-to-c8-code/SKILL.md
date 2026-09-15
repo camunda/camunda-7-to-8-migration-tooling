@@ -282,7 +282,7 @@ target version. See the linting section in `references/model-migration-approache
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
 4. Every WARNING, TASK, REVIEW, and INFO finding is fixed, or classified in the per-category verdict table
-   with its category, count, cross-referenced code artifact, and verdict. See
+   with its category, count, cross-referenced code artifact, link, verdict, and verification state. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
    A category marked **no action** is provisional until its Step 5 verification row records a
    passing result, including when no manual edit was needed.
@@ -318,7 +318,8 @@ target version. See the linting section in `references/model-migration-approache
     validation failure.
 17. When M2 creates a converted copy, set the Modeler namespace `executionPlatformVersion`
     attribute to the selected target version in canonical patch-zero form, such as `8.10.0` for
-    target `8.10`. If M2 cannot set target metadata, treat the converter check as applicable.
+    target `8.10`. If M2 cannot set target metadata, record `metadata unavailable`, keep the
+    affected category at **needs review**, and do not treat converter output as passing evidence.
 
 #### Summary
 
@@ -345,43 +346,50 @@ counts, wiring references, and FEEL state in the baseline. Use that baseline for
 Do not reconstruct it from the original Camunda 7 model. Run this gate when a converted copy
 participates in verification. Do not resolve a category verdict in an analyze-only run that creates
 no converted copies. Keep category verdicts provisional in that mode.
+Record a verification state for every category. Use `pending` before the gate, `passed` after every
+applicable check passes, `failed` after a check fails, and `unavailable` when a required
+deterministic tool is unavailable. Record `not applicable` only for the expected already-converted
+exception in the check evidence. Set the category to `passed` when all required checks pass,
+including a permitted `not applicable` check. A category with any state other than `passed` cannot
+receive the **no action** verdict.
 
 | Check | Required evidence |
 |---|---|
 | XML structure | Re-parse every converted file participating in the category with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
-| Namespace and metadata cleanup | For the category's touched elements, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. After all categories reach terminal verdicts and Step 5e removes converter annotations, require and record zero remaining conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
+| Namespace and metadata cleanup | For the category's touched elements, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. After all categories reach terminal verdicts and Step 5e removes converter annotations, inspect the entire converted copy, not only touched elements. Require and record zero remaining Camunda 7 elements, attributes, or QName-valued attribute values, zero conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
 | Referenced conversion wiring | When code is in scope and a remediation or finding references task wiring, listeners, headers, dispatchers, or DMN/precompute wiring, confirm matching declarations and code coverage. When code is out of scope, confirm matching XML declarations and record code coverage as `not applicable`. Record the row as `not applicable` when neither the remediation nor the finding references such wiring. |
-| FEEL syntax | Parse each changed FEEL expression with the target FEEL parser when one is available. Record the parser, expression location, and result. If no parser is available, record that limitation and keep the category at **needs review** unless another deterministic FEEL syntax check covers it. Keep the category at **needs fix** when parsing fails. |
-| Converter regression check | Where the local CLI supports the participating converted file, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Detect `executionPlatformVersion` with a namespace-aware query for the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local name, not the serialized `modeler:` prefix. For a standard converted copy whose value starts with `8`, record the CLI check as `not applicable` because the BPMN and DMN visitors reject an already-converted Camunda 8 diagram. For M2, set target metadata in canonical patch-zero form, such as `8.10.0` for target `8.10`, before applying this exception. If M2 cannot set target metadata, run the CLI check as applicable. Record its output. Record `not applicable` only for the expected already-converted exception. Rely on the XML, namespace, and code checks. Require exit code `0` for every applicable file. Treat any other non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. Capture the command, exit code, and CLI's `Created ...` CSV path. Before continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports directory. Record the final evidence path after relocation, or `removed` after cleanup deletes the CSV. Record `not created` when the command produces no CSV. Do not use CSV rows as findings input or as the pass/fail criterion. Use JSON for findings input in M1, M3, and E1. For M2, use the findings summary recorded during the direct rewrite and do not consume an unrelated JSON report. |
+| FEEL syntax | Parse every resulting FEEL expression covered by the category, including changed, retained, and converter-generated expressions, with the target FEEL parser when one is available. Record the parser, expression location, and result, or record `none present`. If no parser is available, record that limitation, set the verification state to `unavailable`, and keep the category at **needs review** unless another deterministic FEEL syntax check covers every expression. Keep the category at **needs fix** when parsing fails. |
+| Converter regression check | Where the local CLI, Java executable, and converter JAR support the participating converted file, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated tools. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Detect `executionPlatformVersion` with a namespace-aware query for the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local name, not the serialized `modeler:` prefix. Compare the value exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Record `not applicable` only when a standard converted copy has that exact value and the visitors reject the already-converted Camunda 8 diagram. Record missing or mismatched metadata as `metadata unavailable` or `metadata mismatch`, keep the category at **needs review** or **needs fix**, and do not treat CLI output as applicable passing evidence. For M2 or M3, record `unavailable` when the local CLI, Java executable, or converter JAR is unavailable and keep the category at **needs review**. Treat any reported parse failure as a failed verification even when the CLI exits `0` or writes an empty CSV. Treat any other non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. Capture the command, exit code, parse failures, and CLI's `Created ...` CSV path. Before continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports directory. Record the final evidence path after relocation, `removed` after cleanup deletes the CSV, or `not created` when the command produces no CSV. Do not use CSV rows as findings input or as the pass/fail criterion. Use JSON for findings input in M1, M3, and E1. For M2, use the structured direct-rewrite findings summary and do not consume an unrelated JSON report. |
 
 Keep the per-category findings inventory from `references/model-migration-approaches.md` step 5d
-with its `Category`, `Count`, `Cross-referenced code artifact`, `Link`, and `Verdict` columns.
+with its `Category`, `Count`, `Cross-referenced code artifact`, `Link`, `Verdict`, and
+`Verification` columns. Use `pending`, `passed`, `failed`, or `unavailable` in the `Verification`
+column. Record permitted `not applicable` checks in the evidence.
 Add a separate verification table with one row per category and these columns: `Category`,
-`Participating files`, `Before`, `Checks and evidence`, `After`, and `Verdict`. Do not replace the
-findings inventory with the verification table.
+`Participating files`, `Before`, `Checks and evidence`, `After`, `Verdict`, and `Verification`. Do
+not replace the findings inventory with the verification table.
 
-The converter check is supplementary. It can parse the edited XML and run registered visitor and
-conversion checks on supported files. Detect the Modeler namespace `executionPlatformVersion`
-attribute by namespace URI and local name, not by the serialized prefix. It is not applicable to a
-standard converted copy whose value starts with `8`, because the BPMN and DMN visitors reject an
-already-converted Camunda 8 diagram. For M2, set target metadata in canonical patch-zero form,
-such as `8.10.0` for target `8.10`, before applying this exception.
-If M2 cannot set target metadata, run the CLI check as applicable and record its output. Record the
-expected CLI limitation as `not applicable` only for the standard already-converted exception.
-It does not reconstruct the original Camunda 7 mapping from an already-converted `zeebe` diagram.
-It does not prove that a job worker, listener, header, or FEEL expression has the intended runtime
-semantics. The namespace-aware checks and code cross-checks above provide that coverage.
+The CLI can filter parse failures before its visitor pipeline and can write an empty CSV. Therefore,
+the gate treats every reported parse failure as failed evidence. The CLI does not reconstruct the
+original Camunda 7 mapping from an already-converted `zeebe` diagram. It does not prove that a job
+worker, listener, header, or FEEL expression has the intended runtime semantics. The namespace-aware
+checks and code cross-checks above provide that coverage.
 
 If any check fails, record the failure with its before-and-after values. Keep the category at
 **needs fix** when concrete remediation remains. Keep it at **needs review** when a design decision
 or an unavailable deterministic check remains. Do not mark it **no action**. Escalate after the
-single verification pass when the failure needs a new design or a second remediation attempt.
-Update the nonterminal verdict in both the findings inventory and verification table.
+single verification pass when the failure needs a new design or a second remediation attempt. Set
+the verification state to `failed` or `unavailable` and update the nonterminal verdict in both the
+findings inventory and verification table.
 
+If the run is analyze-only, present the findings, inventories, and provisional verdicts, update
+`MIGRATION_REPORT.md`, and stop before the AI Follow-up offer. Do not offer remediation for a run
+that created no converted copies.
 Exclude an INFO category with provisional **needs review** and a category whose only pending action
-is the shared verification pass from this offer until its verification pass completes. If any other
-migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then
-offer to resolve it:
+is the shared verification pass from this offer until its verification pass completes. Exclude a
+category with a failed or unavailable verification from this offer. Require a new explicit user
+decision before another remediation attempt for that category. If any other migration TODO, finding,
+compilation issue, deletion candidate, or unresolved item remains, then offer to resolve it:
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
