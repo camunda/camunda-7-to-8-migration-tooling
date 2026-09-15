@@ -178,6 +178,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             Set<UUID> repositoryServiceFieldDeclarationIds = new HashSet<>();
             Set<UUID> fieldDeclarationIds = new HashSet<>();
             String existingClientIdentifier = null;
+            boolean existingClientIsStatic = false;
+            boolean hasStaticRepositoryServiceField = false;
             for (Statement statement : classDeclaration.getBody().getStatements()) {
               if (!(statement instanceof VariableDeclarations declaration)) {
                 continue;
@@ -185,6 +187,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               fieldDeclarationIds.add(declaration.getId());
               if (isDirectRepositoryServiceType(declaration)) {
                 repositoryServiceFieldDeclarationIds.add(declaration.getId());
+                hasStaticRepositoryServiceField |= isStatic(declaration);
                 declaration.getVariables().stream()
                     .map(J.VariableDeclarations.NamedVariable::getSimpleName)
                     .forEach(repositoryServiceFields::add);
@@ -192,6 +195,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   && TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT)) {
                 existingClientIdentifier =
                     declaration.getVariables().get(0).getSimpleName();
+                existingClientIsStatic = isStatic(declaration);
               }
             }
 
@@ -219,6 +223,9 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                         repositoryServiceFieldDeclarationIds,
                         nonFieldRepositoryServiceVariables,
                         ctx)
+                    && (!hasStaticRepositoryServiceField
+                        || existingClientIdentifier == null
+                        || existingClientIsStatic)
                     && !containsProcessEngineRepositoryServiceGetter(classDeclaration, ctx)
                     && !hasNestedClass(classDeclaration, ctx);
             Map<String, String> repositoryServiceClients = new HashMap<>();
@@ -329,6 +336,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   return invocation;
                 } else if (REPOSITORY_SERVICE_QUERY.matches(invocation)
                     || repositoryServiceFields.contains(receiver)
+                    || isRepositoryServiceFieldReference(
+                        invocation.getSelect(), repositoryServiceFields)
                     || isProcessEngineRepositoryServiceGetter(invocation)) {
                   unsupportedUsage[0] = true;
                 }
@@ -673,8 +682,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   }
                   tenantId = method.getArguments().get(0);
                 }
-                case "name", "source" -> {
-                  // Deployment names and sources have no direct equivalent in the C8 command.
+                case "name" -> {
+                  // Deployment names have no direct equivalent in the C8 command.
                 }
                 default -> {
                   return addCommentIfMissing(deployInvocation, DEPLOYMENT_TODO);
@@ -735,7 +744,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   }
                   hasTenantId = true;
                 }
-                case "name", "source" -> {}
+                case "name" -> {}
                 default -> {
                   return false;
                 }
@@ -803,7 +812,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
           private boolean isProcessEngineRepositoryServiceGetter(
               J.MethodInvocation invocation) {
             return PROCESS_ENGINE_GET_REPOSITORY_SERVICE.matches(invocation)
-                || invocation.getSimpleName().equals("getRepositoryService");
+                || (invocation.getSimpleName().equals("getRepositoryService")
+                    && invocation.getSelect() != null
+                    && TypeUtils.isOfClassType(
+                        invocation.getSelect().getType(), PROCESS_ENGINE));
           }
 
           private boolean containsDirectRepositoryServiceFieldReference(
@@ -995,21 +1007,24 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
           private boolean isRepositoryServiceFieldReference(
               J.Identifier identifier, Set<String> repositoryServiceFields) {
-            if (!repositoryServiceFields.contains(identifier.getSimpleName())) {
-              return false;
+            if (repositoryServiceFields.contains(identifier.getSimpleName())) {
+              JavaType.Variable fieldType = identifier.getFieldType();
+              return fieldType == null
+                  || TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE);
             }
             JavaType.Variable fieldType = identifier.getFieldType();
-            return fieldType == null
-                || TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE);
+            return fieldType != null
+                && TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE);
           }
 
           private boolean isNamedRepositoryServiceFieldReference(
               Expression expression, Set<String> repositoryServiceFields) {
-            return (expression instanceof J.Identifier identifier
-                    && repositoryServiceFields.contains(identifier.getSimpleName()))
-                || (expression instanceof J.FieldAccess fieldAccess
-                    && repositoryServiceFields.contains(
-                        fieldAccess.getName().getSimpleName()));
+            return isRepositoryServiceFieldReference(expression, repositoryServiceFields);
+          }
+
+          private boolean isStatic(J.VariableDeclarations declaration) {
+            return declaration.getModifiers().stream()
+                .anyMatch(modifier -> modifier.getType() == J.Modifier.Type.Static);
           }
 
           private J.Return addCommentIfMissing(J.Return statement, String text) {

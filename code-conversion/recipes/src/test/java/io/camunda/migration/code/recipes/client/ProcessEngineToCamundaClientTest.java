@@ -245,4 +245,53 @@ public class VariousProcessEngineFunctionsTestClass {
     }
     """));
   }
+
+  @Test
+  void migratesAutowiredRepositoryServiceDeploymentInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class Deployer {
+
+                @Autowired
+                private RepositoryService repositoryService;
+
+                public void deploy() {
+                    repositoryService.createDeployment()
+                            .addClasspathResource("bpmn/order.bpmn")
+                            .deploy();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class Deployer {
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void deploy() {
+                    camundaClient
+                            .newDeployResourceCommand()
+                            .addResourceFromClasspath("bpmn/order.bpmn")
+                            .send()
+                            .join();
+                }
+            }
+            """));
+  }
 }
