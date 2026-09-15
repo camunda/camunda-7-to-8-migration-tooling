@@ -347,7 +347,8 @@ manual edit was needed. Record before-and-after evidence in `MIGRATION_REPORT.md
 automatic fix loop.
 Before each remediation batch, capture an immutable baseline for every participating converted copy,
 `.form` resource, and referenced code artifact. Immediately before verifying a no-edit category,
-capture the same baseline. For XML, include namespace counts, wiring references, and FEEL state.
+capture the same baseline. For XML, include the content hash, namespace counts, wiring references,
+and FEEL state.
 For forms, include the JSON content hash, schema result, render result, linkage, and deployment
 state. Record `absent` when a remediation will create a new form. Mark the schema, render, linkage,
 and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
@@ -361,9 +362,10 @@ applicable check passes, `failed` after a check fails, and `unavailable` when a 
 deterministic tool is unavailable. The supplementary converter check is not required for the
 aggregate category state in M2 or M3. An unavailable target FEEL parser is also supplementary.
 Record either limitation only in its check evidence. Set the category to `passed` when all other
-required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy, record `not applicable` in converter applicability
-evidence only for the expected already-converted exception. For a form-only category with no
-BPMN or DMN copy, record converter checks as `not applicable`. Allow other check rows to record
+required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy,
+record `not applicable` in converter applicability evidence only for the expected already-converted
+exception. For a form-only category with no BPMN or DMN copy, record converter checks as
+`not applicable`. Allow other check rows to record
 `not applicable` for their explicitly
 defined cases, such as out-of-scope code coverage or no referenced wiring. This converter-specific
 restriction does not apply to those other check rows. A category with any state other than
@@ -382,10 +384,10 @@ checks when a category contains only generated forms.
 | Final cleanup failure | If any final count is non-zero, invalidate every passed row for that file, update every invalidated row in both tables to **needs fix** or **needs review**, record a run-level validation failure when no category maps to the leftover, and keep the migration incomplete until final revalidation passes. |
 | Referenced conversion wiring | When code is in scope and a remediation or finding references task wiring, listeners, headers, dispatchers, or DMN/precompute wiring, confirm matching declarations and code coverage. When code is out of scope, confirm matching XML declarations and record code coverage as `not applicable`. Record the row as `not applicable` when neither the remediation nor the finding references such wiring. |
 | Finding-specific postcondition | Define a deterministic postcondition from the category's cross-check and record the expected finding-specific evidence. A valid XML, namespace, or converter check does not replace this condition. If no deterministic postcondition exists, set the verification state to `failed`, keep the category at **needs review** or **needs fix**, and route it through the explicit escalation below. Do not set its verification state to `passed`. |
-| FEEL syntax | Parse every resulting FEEL expression covered by the category, including changed, retained, and converter-generated expressions, with the target FEEL parser when one is available. Record the parser, expression location, and result, or record `none present`. If no parser is available, record `unavailable` in the FEEL evidence and continue the other required checks. Treat this limitation as non-blocking for the aggregate category state. Keep the category at **needs fix** when parsing fails. |
+| FEEL syntax | Parse every resulting FEEL expression in every participating converted copy with the target FEEL parser when one is available. Record the parser, expression location, and result, or record `none present`. If no parser is available, record `unavailable` in the FEEL evidence and continue the other required checks. Treat this limitation as non-blocking for the aggregate category state. Keep the category at **needs fix** when parsing fails. |
 | Converter regression command | Where the local CLI, Java executable, and converter JAR support a participating BPMN or DMN converted copy, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` once per unique converted copy for each unchanged file state. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Reuse the captured command result only while the file and target metadata are unchanged. Rerun the command after any remediation edit and during final validation. |
 | Converter regression comparison | Filter the captured command result for each category. Capture relevant CSV rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record `none` when no relevant rows exist. Record the comparison as supplementary evidence. If the comparison finds a new or remaining relevant row, set the verification state to `failed` and keep the category at **needs fix** or **needs review**. The unavailable-CLI exception does not apply to a failed comparison. Do not use CSV rows as findings input or as the sole pass/fail criterion. |
-| Converter applicability | For a participating BPMN or DMN converted copy, detect both `executionPlatform` and `executionPlatformVersion` with namespace-aware queries for the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local names, not serialized prefixes. Compare `executionPlatform` exactly with `Camunda Cloud` and the version exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Apply this check before the converter failure rule for M1, M2, M3, and E1. Record `not applicable` for a form-only category with no participating BPMN or DMN copy. |
+| Converter applicability | For a participating BPMN or DMN converted copy, query `executionPlatform` and `executionPlatformVersion` on the document's BPMN or DMN `definitions` element. Resolve both attributes by the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local names. Compare `executionPlatform` exactly with `Camunda Cloud` and the version exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Apply this check before the converter failure rule for M1, M2, M3, and E1. Set converter applicability to `not applicable` when a category has no participating BPMN or DMN copy. |
 | Already-converted exception | Record `not applicable` only when a participating BPMN or DMN converted copy has both exact metadata values and the CLI reports `This diagram is already a Camunda 8 diagram`. Do not treat that expected rejection exit code as a failure. Treat any other non-zero result, parse failure, or empty result without that message as failed evidence. |
 | Converter metadata failure | Record missing or mismatched metadata as a run-level validation failure. When a category maps to the file, keep that category at **needs review** or **needs fix**. Do not treat CLI output as applicable passing evidence. |
 | Converter unavailable | For M2 or M3, record `unavailable` in the converter check evidence when the local CLI, Java executable, or converter JAR is unavailable. Treat this supplementary check as non-blocking for the aggregate category state. Set the category to `passed` only after every other required check and the finding-specific postcondition pass. |
@@ -450,11 +452,12 @@ Use AskUserQuestion with these options:
 For model findings, work from the Step 4 verdict table. Never present model findings as one
 undifferentiated list.
 
-| Verdict | Action |
-|---|---|
-| **needs fix** | Resolve one category at a time, using that category's cross-check guidance. |
-| **needs review** | Collect the pending user decision through AskUserQuestion before any fix, except when verification is the only pending action. |
-| **no action** | Do not offer the category. |
+| Verdict | Verification | Action |
+|---|---|---|
+| **needs fix** | Any | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs review** | `pending` for provisional INFO or verification-only work | Run the verification gate. Do not ask for a user decision. |
+| **needs review** | Any other state | Collect the pending user decision through AskUserQuestion before any fix. |
+| **no action** | `passed` | Do not offer the category. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
 - Propose an ambiguous fix through AskUserQuestion. Skip whatever the user declines.

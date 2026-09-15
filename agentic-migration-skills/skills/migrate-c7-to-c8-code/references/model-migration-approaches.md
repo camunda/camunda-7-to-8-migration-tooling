@@ -207,11 +207,15 @@ Treat every other category as a fallback category.
 
 For a fallback category, assign the default verdict from the finding severity:
 
-| Severity | Default verdict |
-|---|---|
-| INFO | provisional needs review |
-| REVIEW | needs review |
-| WARNING or TASK | needs fix |
+| Severity | Default verdict | Initial verification | User decision |
+|---|---|---|---|
+| INFO | **needs review** (provisional) | `pending` | Do not ask before the gate |
+| REVIEW | **needs review** | `pending` | Ask when a design decision is required |
+| WARNING or TASK | **needs fix** | `pending` | Follow the category cross-check |
+
+The provisional INFO state is not a fourth verdict. Record `needs review` in `Verdict` and
+`pending` in `Verification`. The INFO severity identifies the provisional state. Change the
+verdict to **no action** only after the verification state becomes `passed`.
 
 Set the cross-referenced code artifact to **no dedicated cross-check** for a fallback category.
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
