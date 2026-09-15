@@ -60,7 +60,7 @@ public class ProcessInstanceCleanup {
     for (ProcessInstance processInstance : items) {
       try {
         if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
-          camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
+          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
           camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         }

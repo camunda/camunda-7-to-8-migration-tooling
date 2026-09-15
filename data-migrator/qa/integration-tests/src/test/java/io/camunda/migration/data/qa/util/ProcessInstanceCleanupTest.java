@@ -107,7 +107,7 @@ class ProcessInstanceCleanupTest {
   }
 
   @Test
-  void shouldCancelActiveInstancesAndDeleteTerminalInstances() {
+  void shouldDeleteActiveAndTerminalInstances() {
     CamundaClient camundaClient = mock(CamundaClient.class, RETURNS_DEEP_STUBS);
     ProcessInstance active = processInstance(ProcessInstanceState.ACTIVE, 1L);
     ProcessInstance completed = processInstance(ProcessInstanceState.COMPLETED, 2L);
@@ -116,7 +116,7 @@ class ProcessInstanceCleanupTest {
 
     cleanup.deleteProcessInstances(List.of(active, completed));
 
-    verify(camundaClient).newCancelInstanceCommand(1L);
+    verify(camundaClient).newDeleteResourceCommand(1L);
     verify(camundaClient).newDeleteProcessInstanceCommand(2L);
     verify(camundaClient, never()).newDeleteProcessInstanceCommand(1L);
   }
