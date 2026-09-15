@@ -280,7 +280,7 @@ target version. See the linting section in `references/model-migration-approache
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, count, cross-referenced code artifact, and verdict. See
+   with its category, runtime impact, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
@@ -305,13 +305,24 @@ target version. See the linting section in `references/model-migration-approache
 15. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
    `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
    definitions-level XPath `expressionLanguage` attribute.
-16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
-    from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
-    `camunda:topic` attribute using the binding rules in
-    `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
-    decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
-    implementation, emitted type, and rationale. Treat a mismatch without that entry as a
-    validation failure.
+16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`,
+    `zeebe:executionListener/@type`, and `zeebe:taskListener/@type`. Derive the expected type from
+    the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, `camunda:topic`, or
+    listener implementation using the binding rules in `references/model-migration-approaches.md`.
+    Read the `camunda:connectorId` child element's text, not an attribute, when deriving a connector
+    binding. Pair every source execution or task listener with an emitted listener by owner,
+    normalized event, and declaration ordinal before comparing types. If a source listener has no
+    emitted pair, record a synthetic `execution-listener` or `task-listener` finding with the source
+    implementation and no emitted job type. For every emitted pair, add a source-derived
+    `execution-listener-supported` or `task-listener-supported` row with `n/a` converter severity
+    before the worker cross-check. Include these pairing rows in the grouped summary and verdict
+    table, including for models-only M2 runs. If the emitted type differs, require a confirmed
+    decision-log entry in
+    `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
+    and rationale. Treat a mismatch without that entry as a validation failure. When code migration
+    is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
+    every normalized binding. For a models-only M2 run, record `n/a` for the code artifact and
+    assign the models-only `needs review` result in the verdict table.
 
 #### Summary
 
@@ -338,6 +349,24 @@ Use AskUserQuestion with these options:
 
 For model findings, work from the Step 4 verdict table. Never present model findings as one
 undifferentiated list.
+
+For `needs fix` categories, sequence the follow-up work by runtime impact:
+
+Before applying this order, assign an effective severity to every `needs fix` category. Use the
+converter severity for converter categories. For every source-derived category without converter
+severity, use `TASK` as the effective severity. This includes `c7-*`,
+`generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`,
+and synthetic M2 `execution-listener` and `task-listener` rows. Use the converter severity for
+converter-emitted `execution-listener` and `task-listener` findings. Effective severity only orders
+follow-up and does not change the finding severity.
+
+| Order | Runtime impact | Secondary order |
+|---|---|---|
+| 1 | **Blocking** | Effective severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Effective severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+
+Present the runtime impact with every category. Resolve all **Blocking** categories before
+**Advisory** categories. Do not use severity as a substitute for runtime impact.
 
 | Verdict | Action |
 |---|---|
