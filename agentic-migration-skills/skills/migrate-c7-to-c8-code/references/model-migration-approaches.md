@@ -248,10 +248,13 @@ Define an inventory row's identity within its owner-level group with these defin
 | `formHandlerClass` condition | `sourceClassification` and `handlerClass` |
 | Form-free owner | `sourceClassification` |
 
-Normalize paths, report-safe references, and structured field values before comparison. Treat rows
-with identical owner-group and identity fields as exact duplicates and retain one row. Treat rows
-that differ in any identity field as distinct definitions or conditions and retain every row. Do
-not use `ownerName`, `status`, or aggregate fields as row identity.
+Normalize paths, report-safe references, and structured field values before comparison. For
+referenced-form rows, compare raw source references only for local equality before redaction. If
+raw references differ but their report-safe values are equal, retain both rows. Never serialize
+raw references or raw-reference digests. Treat rows with identical owner-group and identity fields
+as exact duplicates and retain one row. Treat rows that differ in any identity field as distinct
+definitions or conditions and retain every row. Do not use `ownerName`, `status`, or aggregate
+fields as row identity.
 
 Match an owner-level inventory group to an eligible authoritative finding with this composite key:
 normalized `sourceBpmn` to normalized `filename`, `ownerId` to `elementId`, and `ownerType` to
@@ -264,7 +267,7 @@ Use this table to decide whether the composite key can associate a group with a 
 |---|---|
 | `sourceDerived: true` with a matching `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category | Yes |
 | `sourceDerived: true` with `m2-manual-review` for a form-related source condition, including `formHandlerClass` or a non-process-level none start-event reference | Yes |
-| An M1 or M3 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
+| An M1, M3, or E1 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
 | A `sourceDerived: false` `form-data` finding whose owner-level inventory group contains only generated-form metadata | Yes |
 | An M1 or M3 `attribute-not-supported` finding whose composite match identifies a start-event `formKey` | Yes |
 | A `form-data` finding whose owner-level inventory group contains a referenced form | No |
@@ -321,13 +324,13 @@ After matching, apply these synthetic-entry rules:
 | Unmatched source condition | Required entry |
 |---|---|
 | An owner-level inventory group has no matched authoritative finding for any of its source conditions. | Add one `sourceDerived: true` entry with the complete owner-level group. Use its authoritative `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category. Use `m2-manual-review` for a `form-handler-class` or non-process-level none-start-event condition. |
-| A `form-handler-class` condition has no matched authoritative `m2-manual-review` finding, but another condition in the same owner-level group matched a different category. | Add a separate `sourceDerived: true` `m2-manual-review` entry for the handler-class condition. Do not treat the other category's match as representation of the handler class. |
+| A `form-handler-class` or non-process-level none-start-event condition has no matched authoritative `m2-manual-review` finding, but another source condition in the same owner-level group is assigned a different destination category. | Add a separate `sourceDerived: true` `m2-manual-review` entry for the unmatched condition. Do not treat the other category's match as representation of the condition. |
 
 Apply the source-derived serialization rules above, including report-safe references for referenced
 forms and omission for generated forms. Keep matched authoritative report findings in their
 existing report categories. Do not create a second source-derived entry for a source inventory
 entry represented by a matched authoritative report finding, except for the separate
-`form-handler-class` entry required above.
+`m2-manual-review` entries required above.
 After all classification and source-inventory reconciliation, recompute each category's total
 count, severity counts, distinct element types, representative example, link, and sort order.
 Use the final finding objects for these aggregates. Count synthetic `n/a` severities under the `n/a`
@@ -600,7 +603,11 @@ inventory row. Each object includes `sourceBpmn`, `processId`, `ownerId`, `owner
 `decision` for referenced-form inventory rows. Include `c7FormKind`, `fields`, and `c8FormId` for
 generated-form inventory rows. For a `formHandlerClass` finding, set `sourceClassification` to
 `form-handler-class`, preserve the class name in `handlerClass`, and omit referenced-form and
-generated-form fields. Use this same array shape in the M2 report and the category artifact.
+generated-form fields. Set its initial `status` to `pending`. Set `status` to `accepted` after the
+manual replacement decision is recorded and validated. Set it to `declined` when the user retains
+the C7 handler or rejects a replacement. Set it to `deferred` when the user postpones the decision,
+or `blocked` when missing source evidence prevents a decision. Do not use `kept`, `relinked`, or
+`draft` for this row. Use this same array shape in the M2 report and the category artifact.
 Resolve `link`
 from the guidance URL for the finding's `messageId` in the current Diagram Converter message
 catalog. Set `link` to `n/a` when no catalog mapping exists, and record the missing mapping in
