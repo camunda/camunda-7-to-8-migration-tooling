@@ -46,11 +46,13 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
   @BeforeEach
   void setupTenants() {
     // create tenants
-    client.newCreateTenantCommand().tenantId(TENANT_ID_1).name(TENANT_ID_1).send().join();
-    client.newCreateTenantCommand().tenantId(TENANT_ID_2).name(TENANT_ID_2).send().join();
+    client.newCreateTenantCommand().tenantId(TENANT_ID_1).name(TENANT_ID_1).execute();
+    client.newCreateTenantCommand().tenantId(TENANT_ID_2).name(TENANT_ID_2).execute();
+    awaitTenantVisible(TENANT_ID_1);
+    awaitTenantVisible(TENANT_ID_2);
     // assign the default user to the tenants
-    client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_1).send().join();
-    client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).send().join();
+    client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_1).execute();
+    client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).execute();
   }
 
   @Test
@@ -62,7 +64,7 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         Variables.putValue("myVar", 1234)).getId();
 
     // when
-    runtimeMigrator.start();
+    awaitRuntimeMigratorStart();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
@@ -80,7 +82,7 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         Variables.putValue("myVar", 1234)).getId();
 
     // when
-    runtimeMigrator.start();
+    awaitRuntimeMigratorStart();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
@@ -123,7 +125,7 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         Variables.putValue("myVar", 10)).getId();
 
     // when
-    runtimeMigrator.start();
+    awaitRuntimeMigratorStart();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
@@ -145,7 +147,7 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
     // when
-    runtimeMigrator.start();
+    awaitRuntimeMigratorStart();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
@@ -163,7 +165,7 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
     // when
-    runtimeMigrator.start();
+    awaitRuntimeMigratorStart();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
