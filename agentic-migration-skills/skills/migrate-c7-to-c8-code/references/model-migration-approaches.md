@@ -389,9 +389,8 @@ Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
 Set the Modeler namespace `executionPlatformVersion` attribute to the selected target version in
 canonical patch-zero form, such as `8.10.0` for target `8.10`, on every M2 converted copy before
-the verification gate. Set the Modeler namespace `executionPlatform` attribute to `Camunda Cloud`.
-If M2 cannot set either target metadata field, apply Step 4 item 17 in `SKILL.md`. Do not treat
-converter output as passing evidence until both target metadata fields pass the exact check.
+the verification gate. Apply Step 4 item 17 in `SKILL.md` to set and validate both target metadata
+fields. Do not treat converter output as passing evidence until that rule passes.
 Record M2 findings in a structured summary for this run. Preserve a row-level record for every
 finding with `Filename`, `Element ID`, `Element type`, `Category`, `Severity`, `Message`, and any
 `Expression`. Group those records into a separate M2-only category summary table with `Category`, `Severity`,

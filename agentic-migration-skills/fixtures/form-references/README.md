@@ -109,7 +109,8 @@ The evaluation is complete when the agent has:
   external reference;
 * captured the immutable baseline for every participating BPMN or `.form`
   resource and recorded its verification-table row as `passed` before closing
-  any category or completing the evaluation;
+  any category as **no action**; unresolved kept references remain recorded as
+  follow-up work;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * left the original Camunda 7 BPMN and HTML untouched; and

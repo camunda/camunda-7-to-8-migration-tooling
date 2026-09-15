@@ -88,8 +88,8 @@ The evaluation is complete when the agent has:
 * linked only the accepted form with a matching `formId` and
   `bindingType="deployment"`;
 * validated the form JSON and parsed the converted BPMN;
-* captured the immutable form baseline and recorded before-and-after form
-  schema, render, linkage, and deployment evidence;
+* captured the immutable converted-BPMN and form baselines and recorded
+  before-and-after form schema, render, linkage, and deployment evidence;
 * added a verification-table row for the category and recorded `passed` before
   treating the category as **no action** or the evaluation as complete;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
