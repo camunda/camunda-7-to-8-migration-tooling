@@ -59,11 +59,10 @@ public class ProcessInstanceCleanup {
   protected void deleteProcessInstances(List<ProcessInstance> items) {
     for (ProcessInstance processInstance : items) {
       try {
-        if (processInstance.getState() == ProcessInstanceState.ACTIVE
-            || processInstance.getState() == ProcessInstanceState.SUSPENDED) {
+        if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
           camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
-          camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
+          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
         }
       } catch (ClientStatusException | ProblemException e) {
         if (e.getMessage() == null || !e.getMessage().contains("NOT_FOUND")) {
