@@ -103,7 +103,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
                           .join();
                   repositoryService
                           .newDeployResourceCommand()
-                          .addResourceStringUtf8("text.bpmn", text)
+                          .addResourceStringUtf8(text, "text.bpmn")
                           .send()
                           .join();
               }
@@ -1442,6 +1442,86 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
               private static RepositoryService repositoryService;
 
               static void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersStaticRepositoryServiceWithoutExistingClient() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private static RepositoryService repositoryService;
+
+              static void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private static RepositoryService repositoryService;
+
+              static void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersQualifiedRepositoryServiceInjection() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+            import org.springframework.beans.factory.annotation.Qualifier;
+
+            class Deployer {
+              @Qualifier("repositoryService")
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+            import org.springframework.beans.factory.annotation.Qualifier;
+
+            class Deployer {
+              @Qualifier("repositoryService")
+              private RepositoryService repositoryService;
+
+              void deploy() {
                 // TODO: RepositoryService deployment method was not migrated automatically
                 repositoryService.createDeployment()
                     .addClasspathResource("bpmn/order.bpmn")

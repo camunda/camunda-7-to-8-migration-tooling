@@ -224,8 +224,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                         nonFieldRepositoryServiceVariables,
                         ctx)
                     && (!hasStaticRepositoryServiceField
-                        || existingClientIdentifier == null
-                        || existingClientIsStatic)
+                        || (existingClientIdentifier != null && existingClientIsStatic))
+                    && !hasNamedRepositoryServiceField(classDeclaration)
                     && !containsProcessEngineRepositoryServiceGetter(classDeclaration, ctx)
                     && !hasNestedClass(classDeclaration, ctx);
             Map<String, String> repositoryServiceClients = new HashMap<>();
@@ -281,6 +281,25 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 .filter(J.VariableDeclarations.class::isInstance)
                 .map(J.VariableDeclarations.class::cast)
                 .anyMatch(this::isExternallyAccessibleRepositoryServiceField);
+          }
+
+          private boolean hasNamedRepositoryServiceField(J.ClassDeclaration classDeclaration) {
+            return classDeclaration.getBody().getStatements().stream()
+                .filter(J.VariableDeclarations.class::isInstance)
+                .map(J.VariableDeclarations.class::cast)
+                .filter(this::isDirectRepositoryServiceType)
+                .anyMatch(this::hasNamedInjection);
+          }
+
+          private boolean hasNamedInjection(J.VariableDeclarations declaration) {
+            return declaration.getLeadingAnnotations().stream()
+                .map(annotation -> annotation.getAnnotationType().toString())
+                .anyMatch(
+                    annotationType ->
+                        annotationType.equals("Qualifier")
+                            || annotationType.endsWith(".Qualifier")
+                            || annotationType.equals("Resource")
+                            || annotationType.endsWith(".Resource"));
           }
 
           private boolean isExternallyAccessibleRepositoryServiceField(
@@ -669,8 +688,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   }
                   templateCode.append(
                       "\n    .addResourceStringUtf8(#{any(java.lang.String)}, #{any(java.lang.String)})");
-                  arguments.add(method.getArguments().get(0));
                   arguments.add(method.getArguments().get(1));
+                  arguments.add(method.getArguments().get(0));
                   hasResource = true;
                 }
                 case "tenantId" -> {
