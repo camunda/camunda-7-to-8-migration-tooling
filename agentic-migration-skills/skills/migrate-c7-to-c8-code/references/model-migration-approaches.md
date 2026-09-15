@@ -126,7 +126,7 @@ REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them
 
 Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
 
-Group by category first. The category, not the individual row, is the unit of work.
+Group by category first. The category, not the individual finding, is the unit of work.
 
 #### Imported reports: verify the target platform version
 
@@ -146,11 +146,11 @@ If the report's version does not match the chosen target, or cannot be determine
 
 #### 5a. Parse the JSON report
 
-Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
-path captured after step 3a relocation. For an imported M3 report, use the downloaded JSON path
-after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when a
-stale report exists. Never parse a pre-existing local findings report found on disk. Never rely on
-stdout severity counts instead.
+Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the path captured after step 3a relocation. For an M2 run, use the
+fresh JSON report path written by the M2 approach. For an imported M3 report, use the downloaded
+JSON path after the version and pairing checks in step 5. The local path may include a ` (n)` suffix
+when a stale report exists. Never parse a pre-existing local findings report found on disk. Never
+rely on stdout severity counts instead.
 
 Format: a JSON array with one object per finding, fields:
 
@@ -175,7 +175,7 @@ Group findings by `messageId` (the category). For each category compute:
 - Distinct `elementType` values affected (e.g. serviceTask, sequenceFlow, multiInstanceLoopCharacteristics).
 - One representative example: a `message` with its `filename` and `elementId`.
 - The `link` to conversion guidance for that category.
-- The complete element list. Preserve every finding row in the category. Do not deduplicate rows
+- The complete element list. Preserve every finding in the category. Do not deduplicate findings
   that have the same filename or element ID.
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
@@ -204,17 +204,28 @@ report and writes this artifact. Use this shape:
 }
 ```
 
-Set `sourceReport` to the final report path established by step 3a, including any ` (n)` suffix
-chosen during relocation. Include one `findings` array for every category, including categories
-that later receive `no action`. Copy each source row without dropping fields. At minimum, every
-entry must include the four fields shown above.
+Set `sourceReport` to the authoritative JSON report path captured in step 5a. For M1 and E1, use
+the final path after step 3a relocation, including any ` (n)` suffix chosen during relocation. For
+M2, use the fresh JSON report path written by the M2 approach. For M3, use the downloaded JSON path
+after the imported-report checks. Include one `findings` array for every category, including
+categories that later receive `no action`. Copy each converter finding without dropping fields. At
+minimum, every converter finding must include the four fields shown above.
 
-For source-derived categories with no converter finding, serialize one object per source owner in
-the `findings` array. Set `sourceDerived` to `true`, map the source path to `filename`, the owner
-id to `elementId`, and the owner type to `elementType`. Write the source classification in
+For source-derived categories with no converter finding, serialize one object per source inventory
+entry in the `findings` array. Set `sourceDerived` to `true`, map the source path to `filename`, the
+owner id to `elementId`, and the owner type to `elementType`. Write the source classification in
 `message`. Preserve the remaining source inventory fields, such as process id, owner name,
 reference, decision, and status. This representation gives every synthetic category a complete
 element list.
+
+For a legacy generic `form-key` finding, match each converter finding to the unique source
+inventory entry by source path or filename and owner id. Use process id and owner type to
+disambiguate when those fields exist. Place a copy of the matched finding in the `c7-*` category
+selected by the authoritative source classification. Preserve every converter field, add
+`sourceDerived: true`, and add the matched source inventory fields, including
+`sourceClassification`. Do not leave the finding only in `categories.form-key` or drop it. If the
+match is not unique, record the mismatch in MIGRATION_REPORT.md and keep the affected category
+`needs review`.
 
 #### 5c. Present the grouped summary
 
@@ -297,7 +308,7 @@ Verdicts:
 | Verdict | Meaning | Required action |
 |---|---|---|
 | **no action** | The converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage. | Nothing to do. |
-| **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
+| **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per finding), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Element list | Verdict |
@@ -435,7 +446,7 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Write `.camunda-migration/reports/analysis-results.json` as a JSON array with one object per finding and the fields `filename`, `elementName`, `elementId`, `elementType`, `severity`, `messageId`, `message`, and `link`. Use a fresh path and add a positive ` (n)` suffix when the unsuffixed path already exists. Treat this JSON report as the authoritative input for step 5a. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
