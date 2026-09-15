@@ -182,8 +182,8 @@ Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count
 
 Write the complete category lists to `.camunda-migration/findings-by-category.json`. This is a
 working artifact for the migration session, not user-facing documentation. Use the JSON report
-captured in 5a as the source. If the fallback grouping script is used, the script writes this
-artifact from the captured CSV. Use this shape:
+captured in 5a as the source. If the fallback grouping script is used, it reads the captured JSON
+report and writes this artifact. Use this shape:
 
 ```json
 {
@@ -204,9 +204,17 @@ artifact from the captured CSV. Use this shape:
 }
 ```
 
-Use the report path captured from the `Created ...` output for `sourceReport`. Include one
-`findings` array for every category, including categories that later receive `no action`. Copy each
-source row without dropping fields. At minimum, every entry must include the four fields shown above.
+Set `sourceReport` to the final report path established by step 3a, including any ` (n)` suffix
+chosen during relocation. Include one `findings` array for every category, including categories
+that later receive `no action`. Copy each source row without dropping fields. At minimum, every
+entry must include the four fields shown above.
+
+For source-derived categories with no converter finding, serialize one object per source owner in
+the `findings` array. Set `sourceDerived` to `true`, map the source path to `filename`, the owner
+id to `elementId`, and the owner type to `elementType`. Write the source classification in
+`message`. Preserve the remaining source inventory fields, such as process id, owner name,
+reference, decision, and status. This representation gives every synthetic category a complete
+element list.
 
 #### 5c. Present the grouped summary
 
@@ -294,12 +302,12 @@ Verdicts:
 
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Element list | Verdict |
 |---|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | `findings-by-category.json#/categories/expression-method-not-possible/findings` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | `findings-by-category.json#/categories/delegate-expression-as-job-type/findings` | needs fix |
-| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | `findings-by-category.json#/categories/form-data/findings` | needs fix |
-| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | `findings-by-category.json#/categories/form-key-embedded/findings` | needs review |
-| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | `findings-by-category.json#/categories/form-key-external/findings` | needs fix |
-| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | `findings-by-category.json#/categories/c7-generic-task-form/findings` | needs review |
+| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | `.camunda-migration/findings-by-category.json#/categories/expression-method-not-possible/findings` | needs review |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | `.camunda-migration/findings-by-category.json#/categories/delegate-expression-as-job-type/findings` | needs fix |
+| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | `.camunda-migration/findings-by-category.json#/categories/form-data/findings` | needs fix |
+| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | `.camunda-migration/findings-by-category.json#/categories/form-key-embedded/findings` | needs review |
+| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | `.camunda-migration/findings-by-category.json#/categories/form-key-external/findings` | needs fix |
+| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | `.camunda-migration/findings-by-category.json#/categories/c7-generic-task-form/findings` | needs review |
 
 Rules:
 

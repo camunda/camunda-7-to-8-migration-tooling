@@ -280,7 +280,7 @@ target version. See the linting section in `references/model-migration-approache
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, count, cross-referenced code artifact, element-list path, and verdict. See
+   with its category, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. Every category with verdict `needs fix` or
    `needs review` has a complete element list in
    `.camunda-migration/findings-by-category.json`. A flat "fixed or recorded" note is not enough.
