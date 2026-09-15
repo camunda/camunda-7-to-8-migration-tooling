@@ -403,7 +403,11 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human
+review for non-INFO findings. Keep INFO findings provisional until their verification pass
+succeeds, and do not request a human decision for that provisional verdict. Lint every rewritten
+BPMN file per the linting section below. After the converted copy exists, run `form-migration.md`
+and `form-reference-migration.md` against the original/converted pair.
 
 ## Verification before resolving a finding category
 
@@ -419,8 +423,9 @@ completes. Before each remediation batch, capture an immutable baseline for ever
 converted copy. Immediately before verifying a no-edit category, capture the same baseline. Include
 namespace counts, wiring references, and FEEL state in the baseline. Use that baseline for `Before`
 evidence. Do not reconstruct it from the original Camunda 7 model. Do not run this gate for
-analyze-only runs that create no converted copies. Apply it when a converted copy participates in
-the verification or when the run resolves a category verdict.
+analyze-only runs that create no converted copies. Run this gate when a converted copy participates
+in verification. Do not resolve a category verdict in an analyze-only run that creates no converted
+copies. Keep category verdicts provisional in that mode.
 
 1. Re-parse every participating converted BPMN or DMN file with a namespace-aware XML parser,
    including files with no manual edit. For M1, use paths captured from this run's `Created ...`
@@ -434,9 +439,11 @@ the verification or when the run resolves a category verdict.
    categories reach terminal verdicts and Step 5e removes converter annotations, require and
    record zero remaining conversion nodes or attributes, zero unused Camunda 7 or conversion
    namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`.
-3. When a remediation or finding references task wiring, listeners, headers, dispatchers, or
-   DMN/precompute wiring, confirm the matching declarations and code coverage. Record
-   `not applicable` when neither the remediation nor the finding references such wiring.
+3. When code is in scope and a remediation or finding references task wiring, listeners, headers,
+   dispatchers, or DMN/precompute wiring, confirm matching declarations and code coverage. When code
+   is out of scope, confirm matching XML declarations and record code coverage as `not applicable`.
+   Record the row as `not applicable` when neither the remediation nor the finding references such
+   wiring.
 4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
    expression that cannot be checked and keep the category at **needs review** unless another
    deterministic FEEL syntax check covers it. Keep the category at **needs fix** when parsing
@@ -465,14 +472,16 @@ artifact`, `Link`, and `Verdict` columns. Add a separate verification table with
 category and `Category`, `Participating files`, `Before`, `Checks and evidence`, `After`, and `Verdict`
 columns. Do not replace the findings inventory with the verification table.
 
-The local CLI `--check` path parses each selected BPMN or DMN file and runs the registered visitor
-and conversion pipeline without exporting a converted copy. Detect the Modeler namespace
-`executionPlatformVersion` attribute by namespace URI and local name, not by the serialized prefix.
-On a standard converted `zeebe` copy whose value starts with `8`, the BPMN and DMN visitors reject
-the file with `This diagram is already a Camunda 8 diagram`. Record that expected CLI limitation as
-`not applicable` and rely on the XML, namespace, and code checks. For M2, set target metadata in
-canonical patch-zero form, such as `8.10.0` for target `8.10`, before applying this exception.
-If M2 cannot set target metadata, run the CLI check as applicable.
+The local CLI `--check` path attempts to parse each selected BPMN or DMN file before passing
+parseable files to the registered visitor and conversion pipeline in memory. `ConvertLocalCommand`
+logs and filters parse failures without setting `returnCode`, so `checkModels` can receive no model
+and still write an empty CSV. The independent XML parse in step 1 catches malformed input. Detect
+the Modeler namespace `executionPlatformVersion` attribute by namespace URI and local name, not by
+the serialized prefix. On a standard converted `zeebe` copy whose value starts with `8`, the BPMN
+and DMN visitors reject the file with `This diagram is already a Camunda 8 diagram`. Record that
+expected CLI limitation as `not applicable` and rely on the XML, namespace, and code checks. For M2,
+set target metadata in canonical patch-zero form, such as `8.10.0` for target `8.10`, before
+applying this exception. If M2 cannot set target metadata, run the CLI check as applicable.
 The CLI does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener,
 header, or FEEL semantics. Treat the CLI result as supplementary evidence, not as a replacement for
 the namespace-aware and code cross-checks above.
