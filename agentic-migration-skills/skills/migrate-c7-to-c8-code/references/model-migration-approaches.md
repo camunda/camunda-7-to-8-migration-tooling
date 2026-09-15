@@ -175,8 +175,38 @@ Group findings by `messageId` (the category). For each category compute:
 - Distinct `elementType` values affected (e.g. serviceTask, sequenceFlow, multiInstanceLoopCharacteristics).
 - One representative example: a `message` with its `filename` and `elementId`.
 - The `link` to conversion guidance for that category.
+- The complete element list. Preserve every finding row in the category. Do not deduplicate rows
+  that have the same filename or element ID.
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
+
+Write the complete category lists to `.camunda-migration/findings-by-category.json`. This is a
+working artifact for the migration session, not user-facing documentation. Use the JSON report
+captured in 5a as the source. If the fallback grouping script is used, the script writes this
+artifact from the captured CSV. Use this shape:
+
+```json
+{
+  "schemaVersion": 1,
+  "sourceReport": ".camunda-migration/reports/analysis-results.json",
+  "categories": {
+    "expression-method-not-possible": {
+      "findings": [
+        {
+          "filename": "order-process.bpmn",
+          "elementId": "Gateway_1",
+          "elementType": "exclusiveGateway",
+          "message": "Method invocation is not possible in FEEL: ..."
+        }
+      ]
+    }
+  }
+}
+```
+
+Use the report path captured from the `Created ...` output for `sourceReport`. Include one
+`findings` array for every category, including categories that later receive `no action`. Copy each
+source row without dropping fields. At minimum, every entry must include the four fields shown above.
 
 #### 5c. Present the grouped summary
 
@@ -262,18 +292,22 @@ Verdicts:
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
-| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Element list | Verdict |
+|---|---|---|---|---|---|
+| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | `findings-by-category.json#/categories/expression-method-not-possible/findings` | needs review |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | `findings-by-category.json#/categories/delegate-expression-as-job-type/findings` | needs fix |
+| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | `findings-by-category.json#/categories/form-data/findings` | needs fix |
+| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | `findings-by-category.json#/categories/form-key-embedded/findings` | needs review |
+| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | `findings-by-category.json#/categories/form-key-external/findings` | needs fix |
+| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | `findings-by-category.json#/categories/c7-generic-task-form/findings` | needs review |
 
 Rules:
 
 - One row per category, sorted as in 5b.
+- Add the `Element list` path for every category with verdict `needs fix` or `needs review`.
+  Point it to the matching array in `.camunda-migration/findings-by-category.json`. Keep the
+  complete list available for the AI follow-up. The grouped summary remains one example per
+  category.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
