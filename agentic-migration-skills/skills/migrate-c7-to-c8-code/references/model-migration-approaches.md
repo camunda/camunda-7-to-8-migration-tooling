@@ -184,12 +184,13 @@ Before writing this artifact, select a non-packaged artifact directory. Use `.ca
 when the build does not package that directory. If the build packages `.camunda-migration/`, ask
 the user to choose another explicitly non-packaged directory. Create the selected artifact
 directory before writing the artifact. Set `artifactPath` to
-`<selected-directory>/findings-by-category.json`. Add a positive ` (n)` suffix when that path
-already exists. Record `artifactPath` in `MIGRATION_REPORT.md`. Use `artifactPath` for every
-`Element list` link and for the exit criterion. This artifact is a working file for the migration
-session, not user-facing documentation. Use the JSON report captured in 5a as the source. If the
-fallback grouping script is used, it reads the captured JSON report and writes this artifact. Use
-this shape:
+`<selected-directory>/findings-by-category.json`. If that path exists, test positive integer
+suffixes in ascending order and use the first unused path, such as
+`<selected-directory>/findings-by-category (1).json`. Never overwrite an existing artifact. Record
+`artifactPath` in `MIGRATION_REPORT.md`. Use `artifactPath` for every `Element list` link and for
+the exit criterion. This artifact is a working file for the migration session, not user-facing
+documentation. Use the JSON report captured in 5a as the source. If the fallback grouping script is
+used, it reads the captured JSON report and writes this artifact. Use this shape:
 
 ```json
 {
@@ -466,13 +467,15 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 
 Emit a findings summary that mirrors CLI severities (WARNING/TASK/REVIEW/INFO). Ask the user to
 review the findings. Use the non-packaged reports directory selected by the pre-flight rules.
-Choose a fresh `analysis-results.json` path in that directory. Add a positive ` (n)` suffix when
-the unsuffixed path already exists. Write the file as a JSON array with one object per finding and
-the fields `filename`, `elementName`, `elementId`, `elementType`, `severity`, `messageId`,
-`message`, and `link`. Record its path as the M2 `sourceReport`. Treat this JSON report as the
-authoritative input for step 5a. Lint every rewritten BPMN file per the linting section below.
-After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against
-the original/converted pair.
+Create that directory before writing the report. Choose
+`<selected-directory>/analysis-results.json` when it is unused. Otherwise test positive integer
+suffixes in ascending order and use the first unused path, such as
+`<selected-directory>/analysis-results (1).json`. Never overwrite an existing report. Write the
+file as a JSON array with one object per finding and the fields `filename`, `elementName`,
+`elementId`, `elementType`, `severity`, `messageId`, `message`, and `link`. Record its path as the
+M2 `sourceReport`. Treat this JSON report as the authoritative input for step 5a. Lint every
+rewritten BPMN file per the linting section below. After the converted copy exists, run
+`form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
