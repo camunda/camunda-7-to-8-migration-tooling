@@ -281,7 +281,15 @@ Verdicts:
 Rules:
 
 - One row per category, sorted as in 5b.
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → provisional needs review, REVIEW → needs review, WARNING/TASK → needs fix). Change provisional INFO categories to no action only after a successful verification pass. Do not request a human decision for this provisional INFO verdict. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
+- Name the matched `@JobWorker`, DMN definition, or other code element in the cross-referenced code artifact column.
+- Write `none yet` when no remediation exists.
+- Use `n/a` for models-only scope when no code artifact exists.
+- Write `no dedicated cross-check` for a fallback category.
+- Derive the initial verdict from severity: INFO becomes provisional **needs review**, REVIEW becomes **needs review**, and WARNING/TASK becomes **needs fix**.
+- Change a provisional INFO category to **no action** only after a successful verification pass.
+- Do not request a human decision for a provisional INFO verdict.
+- Apply the procedure-defined lifecycle to source-derived synthetic categories and `c7-*` categories that split a legacy generic `form-key` finding.
+- Do not derive a synthetic category's verdict from converter severity when it has no independent severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point. For an M2 finding without a source link, write `n/a (M2 direct rewrite)` and record the source file and element in the affected-path fields.
 - Set `Verification` to `pending` before the shared gate, `passed` after every applicable check passes, `failed` after a check fails, or `unavailable` when a required deterministic tool is unavailable. Record a permitted `not applicable` check in the evidence. A verdict of **no action** requires `passed`.
 - Classify every WARNING/TASK/REVIEW/INFO category. Never leave one without a verdict.
@@ -457,10 +465,8 @@ Apply these model-specific additions:
 - Do not run the gate for analyze-only runs. Present the provisional findings and stop before
   remediation follow-up.
 
-Keep the findings inventory columns from step 5d, including `Verification`. Add a separate
-verification table with one row per category and `Category`, `Participating files`, `Before`,
-`Postcondition`, `Checks and evidence`, `After`, `Verdict`, and `Verification` columns. Do not
-replace the findings inventory with the verification table.
+Use the shared findings inventory and verification-table schemas from `SKILL.md` Step 5. Keep the
+M2-specific summary and source-to-converted path rules above. Do not restate the shared schemas.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
