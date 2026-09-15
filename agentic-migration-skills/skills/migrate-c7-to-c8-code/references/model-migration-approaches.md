@@ -194,8 +194,8 @@ suffixes in ascending order and use the first unused path, such as
 `artifactPath` in `MIGRATION_REPORT.md`. Use the raw path for filesystem access and the exit
 criterion. URL-encode the path in every Markdown `Element list` link, including spaces in a
 suffixed filename. This artifact is a working file for the migration session, not user-facing
-documentation. Use the JSON report captured in 5a as the source. If the fallback grouping script is
-used, it reads the captured JSON report and writes this artifact. Use this shape:
+documentation. Use the JSON report captured in 5a as the source. Where the fallback grouping script
+is used, it reads the captured JSON report and writes this artifact. Use this shape:
 
 ```json
 {
@@ -274,7 +274,7 @@ Use this table to decide whether the composite key can associate a group with a 
 | `sourceDerived: true` with `m2-manual-review` for a form-related source condition, including `formHandlerClass` or a non-process-level none start-event reference | Yes |
 | An M1, M3, or E1 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
 | A `sourceDerived: false` or absent `form-data` finding whose owner-level inventory group contains only generated-form metadata | Yes |
-| An M1 or M3 `attribute-not-supported` finding whose composite match identifies a start-event `formKey` | Yes |
+| An M1, M3, or E1 `attribute-not-supported` finding whose composite match identifies a start-event `formKey` | Yes |
 | A `form-data` finding whose owner-level inventory group contains a referenced form | No |
 | `sourceDerived: false`, including `expression-method-not-possible` | No |
 | `sourceDerived: true` without a matching form or source condition | No |
@@ -378,6 +378,7 @@ For a fallback category, apply the first matching row:
 
 | Category condition | Severity | Default verdict |
 |---|---|---|
+| `m2-manual-review` | Any | needs review |
 | `form-reference-conflict` | Any | needs review |
 | `form-key-unmatched` | Any | needs review |
 | Any other fallback category | INFO | no action |
