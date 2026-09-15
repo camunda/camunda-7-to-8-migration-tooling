@@ -191,8 +191,9 @@ directory before writing the artifact. Set `artifactPath` to
 `<selected-directory>/findings-by-category.json`. If that path exists, then test positive integer
 suffixes in ascending order and use the first unused path, such as
 `<selected-directory>/findings-by-category (1).json`. Never overwrite an existing artifact. Record
-`artifactPath` in `MIGRATION_REPORT.md`. Use `artifactPath` for every `Element list` link and for
-the exit criterion. This artifact is a working file for the migration session, not user-facing
+`artifactPath` in `MIGRATION_REPORT.md`. Use the raw path for filesystem access and the exit
+criterion. URL-encode the path in every Markdown `Element list` link, including spaces in a
+suffixed filename. This artifact is a working file for the migration session, not user-facing
 documentation. Use the JSON report captured in 5a as the source. If the fallback grouping script is
 used, it reads the captured JSON report and writes this artifact. Use this shape:
 
@@ -228,10 +229,13 @@ Before copying any report finding into the artifact, apply the `Reference (repor
 applies to converter findings and M2 findings. Never copy an unsanitized form key or credential
 into the artifact.
 
-For source-derived categories, normalize `sourceBpmn` and report `filename` to project-relative
-paths with forward slashes before grouping or matching. Resolve an absolute report `filename`
-relative to the project root established for the current approach. Use the M1 or E1 input root,
-the M2 project root, or the paired M3 source root. Remove a leading `./` after normalization.
+For every finding eligible for source-inventory matching, normalize each available `sourceBpmn` and
+report `filename` to project-relative paths with forward slashes before grouping or matching. This
+includes source-derived findings, M1, M3, and E1 `form-key-*` findings, legacy generic `form-key`
+findings, and matched start-event `attribute-not-supported` findings. Resolve an absolute report
+`filename` relative to the project root established for the current approach. Use the M1 or E1
+input root, the M2 project root, or the paired M3 source root. Remove a leading `./` after
+normalization.
 If either path cannot be normalized under that root, preserve the finding and record an inventory
 mismatch in `MIGRATION_REPORT.md`. Group inventory rows by normalized `sourceBpmn`, `processId`,
 `ownerId`, and `ownerType`. Treat all rows in one group as one owner-level inventory group. A group
@@ -248,13 +252,14 @@ Define an inventory row's identity within its owner-level group with these defin
 | `formHandlerClass` condition | `sourceClassification` and `handlerClass` |
 | Form-free owner | `sourceClassification` |
 
-Normalize paths, report-safe references, and structured field values before comparison. For
-referenced-form rows, compare raw source references only for local equality before redaction. If
-raw references differ but their report-safe values are equal, retain both rows. Never serialize
-raw references or raw-reference digests. Treat rows with identical owner-group and identity fields
-as exact duplicates and retain one row. Treat rows that differ in any identity field as distinct
-definitions or conditions and retain every row. Do not use `ownerName`, `status`, or aggregate
-fields as row identity.
+Normalize paths, report-safe references, and structured field values before comparison. Use
+raw-reference equality as an internal-only deduplication discriminator for referenced-form rows.
+Do not serialize this discriminator. Treat rows as exact duplicates only when their owner-group
+fields, serialized identity fields, and raw references are equal. If raw references differ but
+their report-safe values are equal, retain both rows. Never serialize raw references or
+raw-reference digests. Treat rows that differ in any identity field as distinct definitions or
+conditions and retain every row. Do not use `ownerName`, `status`, or aggregate fields as row
+identity.
 
 Match an owner-level inventory group to an eligible authoritative finding with this composite key:
 normalized `sourceBpmn` to normalized `filename`, `ownerId` to `elementId`, and `ownerType` to
@@ -268,14 +273,17 @@ Use this table to decide whether the composite key can associate a group with a 
 | `sourceDerived: true` with a matching `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category | Yes |
 | `sourceDerived: true` with `m2-manual-review` for a form-related source condition, including `formHandlerClass` or a non-process-level none start-event reference | Yes |
 | An M1, M3, or E1 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
-| A `sourceDerived: false` `form-data` finding whose owner-level inventory group contains only generated-form metadata | Yes |
+| A `sourceDerived: false` or absent `form-data` finding whose owner-level inventory group contains only generated-form metadata | Yes |
 | An M1 or M3 `attribute-not-supported` finding whose composite match identifies a start-event `formKey` | Yes |
 | A `form-data` finding whose owner-level inventory group contains a referenced form | No |
 | `sourceDerived: false`, including `expression-method-not-possible` | No |
 | `sourceDerived: true` without a matching form or source condition | No |
 
 For M1, M3, and E1 converter findings, treat an absent `sourceDerived` field as `false` before
-applying this table.
+applying this table. Treat an absent field and explicit `sourceDerived: false` identically.
+For a matched start-event `attribute-not-supported` finding, reclassify a unique match to the
+source classification's `c7-*` category before step 5d. Reclassify a conflicting match to
+`form-reference-conflict`.
 
 Match each group against every eligible authoritative report finding, including source-derived
 findings. Do not associate a group with an unrelated finding, even when the composite key matches.
@@ -617,9 +625,10 @@ catalog. Set `link` to `n/a` when no catalog mapping exists, and record the miss
 `MIGRATION_REPORT.md`. Apply this contract to every finding in the M2 JSON report, not only
 converter findings. Render form-key-bearing values with the `Reference (report-safe)` rules in
 `form-reference-migration.md`. Redact credential-like URL query values and URL userinfo passwords
-before writing `analysis-results.json`. Never write unsanitized form keys or credentials to the M2
-report. Record its path as the M2 `sourceReport`. Treat this JSON report as the authoritative input
-for step 5a. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run
+before writing the selected M2 JSON report. Record its exact path, including any suffix, as the M2
+`sourceReport`. Never write unsanitized form keys or credentials to that report. Treat this JSON
+report as the authoritative input for step 5a. Lint every rewritten BPMN file per the linting
+section below. After the converted copy exists, run
 `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
 ## Approach M3 - Online Diagram Converter (hosted)
