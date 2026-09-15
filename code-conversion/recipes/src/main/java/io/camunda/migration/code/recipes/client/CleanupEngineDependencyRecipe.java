@@ -32,7 +32,10 @@ public class CleanupEngineDependencyRecipe extends Recipe {
   String RUNTIME_SERVICE = "org.camunda.bpm.engine.RuntimeService";
   String TASK_SERVICE = "org.camunda.bpm.engine.TaskService";
   String REPOSITORY_SERVICE = "org.camunda.bpm.engine.RepositoryService";
-  String REPOSITORY_SERVICE_TODO = "TODO: RepositoryService";
+  Set<String> REPOSITORY_SERVICE_TODOS =
+      Set.of(
+          "TODO: RepositoryService deployment method was not migrated automatically",
+          "TODO: RepositoryService query was not migrated automatically");
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -61,7 +64,7 @@ public class CleanupEngineDependencyRecipe extends Recipe {
           @Override
           public J.ClassDeclaration visitClassDeclaration(
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
-            if (containsDeferredRepositoryServiceMigration(classDeclaration)) {
+            if (containsDeferredRepositoryServiceMigration(classDeclaration, ctx)) {
               return classDeclaration;
             }
 
@@ -81,8 +84,7 @@ public class CleanupEngineDependencyRecipe extends Recipe {
                   && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
                       || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
                       || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
-                      || (TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE)
-                          && !hasRepositoryServiceTypeOutsideFields))) {
+                      || isDirectRepositoryServiceType(varDecls))) {
                 // This is the statement we want to remove, so skip adding it
                 continue;
               }
@@ -101,8 +103,23 @@ public class CleanupEngineDependencyRecipe extends Recipe {
           }
 
           private boolean containsDeferredRepositoryServiceMigration(
-              J.ClassDeclaration classDeclaration) {
-            return classDeclaration.print().contains(REPOSITORY_SERVICE_TODO);
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            boolean[] found = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J preVisit(J tree, ExecutionContext nestedCtx) {
+                if (tree.getComments().stream()
+                    .anyMatch(
+                        comment ->
+                            comment instanceof TextComment textComment
+                                && REPOSITORY_SERVICE_TODOS.stream()
+                                    .anyMatch(textComment.getText()::contains))) {
+                  found[0] = true;
+                }
+                return super.preVisit(tree, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+            return found[0];
           }
 
           private boolean hasRepositoryServiceTypeOutsideFields(
@@ -114,8 +131,12 @@ public class CleanupEngineDependencyRecipe extends Recipe {
               @Override
               public J.VariableDeclarations visitVariableDeclarations(
                   J.VariableDeclarations declarations, ExecutionContext nestedCtx) {
-                if (TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE)
-                    && !fieldDeclarationIds.contains(declarations.getId())) {
+                if (fieldDeclarationIds.contains(declarations.getId())
+                    && isDirectRepositoryServiceType(declarations)) {
+                  return declarations;
+                }
+                if (containsRepositoryServiceType(
+                    declarations.getTypeExpression(), nestedCtx)) {
                   found[0] = true;
                 }
                 return super.visitVariableDeclarations(declarations, nestedCtx);
@@ -124,14 +145,46 @@ public class CleanupEngineDependencyRecipe extends Recipe {
               @Override
               public J.MethodDeclaration visitMethodDeclaration(
                   J.MethodDeclaration method, ExecutionContext nestedCtx) {
-                if (method.getReturnTypeExpression() != null
-                    && method.getReturnTypeExpression().toString().equals("RepositoryService")) {
+                if (containsRepositoryServiceType(
+                    method.getReturnTypeExpression(), nestedCtx)) {
                   found[0] = true;
                 }
                 return super.visitMethodDeclaration(method, nestedCtx);
               }
             }.visit(classDeclaration, ctx);
             return found[0];
+          }
+
+          private boolean containsRepositoryServiceType(
+              TypeTree typeExpression, ExecutionContext ctx) {
+            if (typeExpression == null) {
+              return false;
+            }
+            boolean[] found = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.Identifier visitIdentifier(
+                  J.Identifier identifier, ExecutionContext nestedCtx) {
+                if (identifier.getSimpleName().equals("RepositoryService")
+                    || TypeUtils.isOfClassType(identifier.getType(), REPOSITORY_SERVICE)) {
+                  found[0] = true;
+                }
+                return super.visitIdentifier(identifier, nestedCtx);
+              }
+            }.visit(typeExpression, ctx);
+            return found[0];
+          }
+
+          private boolean isDirectRepositoryServiceType(
+              J.VariableDeclarations declarations) {
+            TypeTree typeExpression = declarations.getTypeExpression();
+            boolean hasRepositoryServiceName =
+                (typeExpression instanceof J.Identifier identifier
+                        && identifier.getSimpleName().equals("RepositoryService"))
+                    || (typeExpression instanceof J.FieldAccess fieldAccess
+                        && fieldAccess.getName().getSimpleName().equals("RepositoryService"));
+            return hasRepositoryServiceName
+                && TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE);
           }
         });
   }

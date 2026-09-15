@@ -102,4 +102,64 @@ class RemoveEngineDependencyTest implements RewriteTest {
                         """));
     }
 
+    @Test
+    void doesNotTreatUnrelatedTodoTextAsDeferredMigration() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.ProcessEngine;
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private ProcessEngine engine;
+                          private RepositoryService repositoryService;
+
+                          // TODO: RepositoryService is documented in this unrelated note.
+                          String note = "TODO: RepositoryService";
+                        }
+                        """,
+                        """
+                        package org.camunda.community.migration.example;
+
+                        class Deployer {
+
+                          // TODO: RepositoryService is documented in this unrelated note.
+                          String note = "TODO: RepositoryService";
+                        }
+                        """));
+    }
+
+    @Test
+    void preservesImportForNestedRepositoryServiceTypes() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import java.util.List;
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private RepositoryService repositoryService;
+                          private List<RepositoryService> services;
+                          private RepositoryService[] serviceArray;
+                        }
+                        """,
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import java.util.List;
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private List<RepositoryService> services;
+                          private RepositoryService[] serviceArray;
+                        }
+                        """));
+    }
+
 }

@@ -855,4 +855,257 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
             }
             """));
   }
+
+  @Test
+  void defersInitializedRepositoryServiceField() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private ProcessEngine engine;
+              private RepositoryService repositoryService = engine.getRepositoryService();
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private ProcessEngine engine;
+              private RepositoryService repositoryService = engine.getRepositoryService();
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersFieldConversionWhenFieldIsReturned() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              RepositoryService current() {
+                return repositoryService;
+              }
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              RepositoryService current() {
+                return repositoryService;
+              }
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersExistingClientBindingWhenRepositoryServiceHasUnsupportedUse() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient client;
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+
+              long count() {
+                return repositoryService.createProcessDefinitionQuery().count();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient client;
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+
+              long count() {
+                // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+                return repositoryService.createProcessDefinitionQuery().count();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void preservesImportForNestedRepositoryServiceTypes() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import java.util.List;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              List<RepositoryService> services() {
+                return null;
+              }
+
+              RepositoryService[] serviceArray() {
+                return null;
+              }
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import java.util.List;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient repositoryService;
+
+              List<RepositoryService> services() {
+                return null;
+              }
+
+              RepositoryService[] serviceArray() {
+                return null;
+              }
+
+              void deploy() {
+                  repositoryService
+                          .newDeployResourceCommand()
+                          .addResourceFromClasspath("bpmn/order.bpmn")
+                          .send()
+                          .join();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersEnclosingRepositoryServiceFieldForNestedClassUse() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+
+              class NestedDeployer {
+                void deployNested() {
+                  repositoryService.createDeployment()
+                      .addClasspathResource("bpmn/nested.bpmn")
+                      .deploy();
+                }
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+
+              class NestedDeployer {
+                void deployNested() {
+                  // TODO: RepositoryService deployment method was not migrated automatically
+                  repositoryService.createDeployment()
+                      .addClasspathResource("bpmn/nested.bpmn")
+                      .deploy();
+                }
+              }
+            }
+            """));
+  }
 }
