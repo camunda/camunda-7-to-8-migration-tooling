@@ -187,7 +187,7 @@ Before writing this artifact, select a non-packaged artifact directory. Use `.ca
 when the build does not package that directory. If the build packages `.camunda-migration/`, ask
 the user to choose another explicitly non-packaged directory. Create the selected artifact
 directory before writing the artifact. Set `artifactPath` to
-`<selected-directory>/findings-by-category.json`. If that path exists, test positive integer
+`<selected-directory>/findings-by-category.json`. If that path exists, then test positive integer
 suffixes in ascending order and use the first unused path, such as
 `<selected-directory>/findings-by-category (1).json`. Never overwrite an existing artifact. Record
 `artifactPath` in `MIGRATION_REPORT.md`. Use `artifactPath` for every `Element list` link and for
@@ -229,17 +229,23 @@ into the artifact.
 
 For source-derived categories, use the source inventory as the complete element list. Match each
 source inventory entry against every authoritative report finding, including source-derived
-findings. For each source inventory entry without a matched authoritative report finding,
-serialize one object in the `findings` array. Set `sourceDerived` to `true`, map the source path to
-`filename`, the owner id to `elementId`, and the owner type to `elementType`. Write the source
-classification in `message`. Preserve the remaining fields present in the source inventory, such
-as process id, owner name, decision, and status. For referenced-form inventories, set `reference`
-to the `Reference (report-safe)` value from `form-reference-migration.md`. For generated-form
-inventories, omit `reference` because `form-migration.md` defines no report-safe reference.
-Preserve the form kind, fields, form id, and status for `generated-form-property-source`. Merge a
-matched authoritative report finding with its source inventory entry instead of adding a second
-object. Keep the matched finding in its authoritative `messageId` category, including
-`form-reference-conflict`, `generated-form-property-source`, and any `c7-*` category.
+findings. Apply the first matching row:
+
+| Match | Destination category | Artifact action |
+|---|---|---|
+| An authoritative report finding matches a source inventory entry. | The finding's authoritative `messageId` | Merge the source inventory fields into the finding. Do not add a second object. |
+| A source inventory entry has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, or `generated-form-property-source` | Add one `sourceDerived: true` object to the `findings` array. |
+| A source-derived authoritative report finding has no matched source inventory entry. | Its existing `messageId` | Preserve the finding in its existing category and record the inventory mismatch in `MIGRATION_REPORT.md`. |
+
+For a synthetic source-derived entry, map the source path to `filename`, the owner id to
+`elementId`, and the owner type to `elementType`. Write the source classification in `message`.
+Preserve the remaining fields present in the source inventory, such as process id, owner name,
+decision, and status. For referenced-form inventories, set `reference` to the `Reference
+(report-safe)` value from `form-reference-migration.md`. For generated-form inventories, omit
+`reference` because `form-migration.md` defines no report-safe reference. Preserve the form kind,
+fields, form id, and status for `generated-form-property-source`. Keep a matched authoritative
+report finding in its authoritative `messageId` category, including `form-reference-conflict`,
+`generated-form-property-source`, and any `c7-*` category.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
 synthetic category a complete element list.
@@ -248,10 +254,10 @@ For each legacy generic `form-key` finding, apply the first matching row:
 
 | Match cardinality | Matching condition | Destination category | Classification action |
 |---|---|---|---|
-| Conflicting classification | Exactly one source inventory entry matches the source path or filename and owner id, and its source classification reports more than one form definition, such as `formKey` with `formRef` or a form reference with `formData`. | `form-reference-conflict` | Keep the finding in this category and associate it with the matched source entry. Do not choose a form-definition precedence. |
+| Conflicting classification | Exactly one source inventory entry matches the source path or filename and owner id, and its source classification reports more than one form definition, such as `formKey` with `formRef` or a form reference with `formData`. | `form-reference-conflict` | Move the finding from `categories.form-key` to this category and associate it with the matched source entry. Do not choose a form-definition precedence. |
 | Unique | Exactly one source inventory entry matches the source path or filename and owner id, and the entry has one authoritative `c7-*` classification. Use process id and owner type to disambiguate when those fields exist. | The `c7-*` category selected by the authoritative source classification | Move the finding from `categories.form-key` and associate it with the matched source entry. |
-| Zero | No source inventory entry matches the source path or filename and owner id. | `form-key-unmatched` | Keep the finding in the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
-| Non-unique | More than one source inventory entry matches after all available disambiguators. | `form-key-unmatched` | Keep the finding in the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
+| Zero | No source inventory entry matches the source path or filename and owner id. | `form-key-unmatched` | Move the finding from `categories.form-key` to the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
+| Non-unique | More than one source inventory entry matches after all available disambiguators. | `form-key-unmatched` | Move the finding from `categories.form-key` to the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
 
 After classification, add `sourceDerived: true` and the matched source inventory fields, including
 `sourceClassification`, to a uniquely matched or conflicting finding. Place a conflicting finding
@@ -259,7 +265,8 @@ in `form-reference-conflict` and assign `needs review` to that category. Preserv
 sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that fallback
 category.
 For each source inventory entry without a matched authoritative report finding, add a
-`sourceDerived: true` entry to its authoritative `c7-*` or `form-reference-conflict` category.
+`sourceDerived: true` entry to its authoritative `c7-*`, `form-reference-conflict`, or
+`generated-form-property-source` category.
 Apply the source-derived serialization rules above, including report-safe references for referenced
 forms and omission for generated forms. Keep matched authoritative report findings in their
 existing report categories. Do not create a second source-derived entry for a source inventory
@@ -498,15 +505,18 @@ M2 does not run Diagram Converter. Apply the first matching row when creating an
 | The source contains more than one form definition, such as `camunda:formKey` with `camunda:formRef` or a form reference with `camunda:formData`. | `form-reference-conflict` | REVIEW | `true` | `n/a` |
 | The source contains `camunda:formData` without another form definition. | `form-data` | TASK | `false` | Current catalog guidance URL |
 | The source contains form-property-only metadata. | `generated-form-property-source` | TASK | `true` | `n/a` |
+| The source contains `camunda:formHandlerClass`. | `m2-manual-review` | REVIEW | `true` | `n/a` |
+| The source contains a form reference on a non-process-level none start event. | `m2-manual-review` | REVIEW | `true` | `n/a` |
 | The source contains a referenced form without a form-definition conflict. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
 | The source contains a form-free owner. | `c7-generic-task-form` | REVIEW | `true` | `n/a` |
 | The rewrite exposes a condition with a current catalog message not listed above. | The exact catalog message ID | The catalog severity | `false` | The catalog guidance URL or `n/a` |
 | The rewrite needs manual review and has no catalog message. | `m2-manual-review` | REVIEW | `false` | `n/a` |
 
-Emit one finding for each source element that needs review, a fix, or inventory follow-up. Do not
-emit a finding for a deterministic rewrite with no follow-up. Set `elementName`, `elementId`, and
-`elementType` from the source element. For source-derived findings, preserve the source inventory
-fields described in step 5b. Record every missing catalog mapping in `MIGRATION_REPORT.md`.
+Emit one finding for each applicable condition on a source element that needs review, a fix, or
+inventory follow-up. Do not emit a finding for a deterministic rewrite with no follow-up. Set
+`elementName`, `elementId`, and `elementType` from the source element. For source-derived
+findings, preserve the source inventory fields described in step 5b. Record every missing catalog
+mapping in `MIGRATION_REPORT.md`.
 
 Emit a findings summary that mirrors CLI severities (WARNING/TASK/REVIEW/INFO). Ask the user to
 review the findings. Use the non-packaged reports directory selected by the pre-flight rules.
