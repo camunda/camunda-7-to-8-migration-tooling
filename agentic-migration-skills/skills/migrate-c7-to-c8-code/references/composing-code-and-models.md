@@ -14,26 +14,33 @@ Follow the user's preference.
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 
-When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
-each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
-derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `original` and `jobType` for each
-original-implementation-to-emitted-type pair. Apply the same 1:1 or many-to-one check. Do not wait
-for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
+When M2 is in scope without a Diagram Converter report, scan every
+`zeebe:taskDefinition/@type`, `zeebe:executionListener/@type`, and `zeebe:taskListener/@type` in
+each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute,
+listener implementation, or topic. Derive the expected type from the M2 binding rules in
+`model-migration-approaches.md`. Create one normalized input row with the columns `original` and
+`jobType` for each original-binding-to-emitted-type pair. Apply the same 1:1 or many-to-one check.
+Do not wait for converter findings, because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type` findings and the M2 scan.
-For a converter finding, parse the original expression and job type from its `message`. For an M2
-row, use the `original` and `jobType` columns created above. Each normalized row has the shape:
+Build the normalized input rows from the `delegate-expression-as-job-type`,
+`delegate-implementation`, `execution-listener-supported`, `task-listener-supported`,
+`script-job-type`, and `topic` findings and the M2 scan. For a converter finding, parse the original
+binding and emitted type from its `message` and converted model. For an M2 row, use the `original`
+and `jobType` columns created above. Each normalized row has the shape:
 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
+For listener rows, use the original listener implementation and the emitted
+`zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic rows, use the
+original script binding or topic and the emitted `zeebe:taskDefinition/@type`.
+
 Group the normalized rows by `jobType`:
 
 - **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
+- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project. Apply the same dispatcher check to listener, script, and topic rows.
 
 Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
 
@@ -53,7 +60,9 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 - It reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
-Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers every distinct original expression in the findings rows for that job type. List uncovered expressions for the user.
+Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
+every distinct original binding in the normalized rows for that job type. For listener rows, include
+the listener event and implementation in the routing check. List uncovered bindings for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
@@ -107,7 +116,7 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
+- 1:1 job-type match confirmed, dispatcher covering every original binding, or every invoked method covered by a remediation: **no action** (the category is fully covered).
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
