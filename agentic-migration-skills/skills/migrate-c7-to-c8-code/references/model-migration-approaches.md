@@ -274,6 +274,9 @@ Use this table to decide whether the composite key can associate a group with a 
 | `sourceDerived: false`, including `expression-method-not-possible` | No |
 | `sourceDerived: true` without a matching form or source condition | No |
 
+For M1, M3, and E1 converter findings, treat an absent `sourceDerived` field as `false` before
+applying this table.
+
 Match each group against every eligible authoritative report finding, including source-derived
 findings. Do not associate a group with an unrelated finding, even when the composite key matches.
 Keep one artifact object for every authoritative report finding. Never combine two authoritative findings because they share an owner.
