@@ -367,6 +367,11 @@ Use the shared verification gate before changing any M2 category verdict to **no
 
 Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
+Set the Modeler namespace `executionPlatformVersion` attribute to the selected target version on
+every M2 converted copy before the verification gate. If M2 cannot set target metadata, run the
+CLI check as applicable and do not use the standard converted-copy exception based only on Zeebe
+structure. Record M2 findings in the summary for this run. Do not consume an unrelated JSON
+report.
 
 ### Job type naming
 
@@ -409,22 +414,28 @@ for INFO categories until their verification pass succeeds. Do not request a hum
 this provisional INFO verdict.
 Run it after each remediation batch, or on every converted copy participating in the category when
 no manual edit was needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
+Keep a provisional INFO category out of the human follow-up flow until its verification pass
+completes. Before each remediation batch, capture an immutable baseline for every participating
+converted copy. Include namespace counts, wiring references, and FEEL state in the baseline. Use
+that baseline for `Before` evidence. Do not reconstruct it from the original Camunda 7 model. Do
+not run this gate for analyze-only runs that create no converted copies. Apply it when a converted
+copy participates in the verification or when the run resolves a category verdict.
 
 1. Re-parse every participating converted BPMN or DMN file with a namespace-aware XML parser,
    including files with no manual edit. For M1, use paths captured from this run's `Created ...`
    lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Do not discover
    participating files with a filesystem glob.
 2. For the category's touched elements, use namespace-aware queries by namespace URI, not literal
-   prefixes. Count remaining Camunda 7 elements or attributes and conversion nodes or attributes.
-   Record before-and-after counts. Require zero remaining Camunda 7 elements or attributes for
-   the category's touched elements before changing its verdict to **no action**. After all
+   prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes,
+   and QName-valued attribute values resolved to those namespace URIs. Record before-and-after
+   counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute
+   values for the category's touched elements before changing its verdict to **no action**. After all
    categories reach terminal verdicts and Step 5e removes converter annotations, require and
    record zero remaining conversion nodes or attributes, zero unused Camunda 7 or conversion
    namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`.
-3. When a remediation introduces or changes task wiring, listeners, headers, dispatchers, or
-   DMN/precompute wiring, confirm the matching declarations and code coverage. Check listener and
-   task-header declarations only when the remediation or finding references them. Record
-   `not applicable` when no such wiring is introduced.
+3. When a remediation or finding references task wiring, listeners, headers, dispatchers, or
+   DMN/precompute wiring, confirm the matching declarations and code coverage. Record
+   `not applicable` when neither the remediation nor the finding references such wiring.
 4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
    expression that cannot be checked and keep the category at **needs review** unless another
    deterministic FEEL syntax check covers it. Keep the category at **needs fix** when parsing
@@ -432,16 +443,20 @@ no manual edit was needed. Record the exact before-and-after evidence in `MIGRAT
 5. Where the CLI supports the participating converted file, run
    `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>"
    --check --csv` with the validated Java executable and converter JAR. On Windows PowerShell,
-   prefix the command with the call operator: `& "<java-cmd>" ...`. For a standard converted copy
-   whose `modeler:executionPlatformVersion` starts with `8`, record the CLI check as
+   prefix the command with the call operator: `& "<java-cmd>" ...`. Detect
+   `executionPlatformVersion` with a namespace-aware query for the Modeler namespace URI
+   `http://camunda.org/schema/modeler/1.0` and local name, not the serialized `modeler:` prefix.
+   For a standard converted copy whose value starts with `8`, record the CLI check as
    `not applicable` because the BPMN and DMN visitors reject an already-converted Camunda 8
-   diagram. Record that output and rely on the XML, namespace, and code checks. Require exit code
-   `0` for every applicable file. Treat any other non-zero exit code or CSV-generation failure as
-   a failed verification and keep the category at **needs fix** or **needs review**. Record the
-   command, exit code, and the CLI's `Created ...` CSV path. Record the final evidence path after
-   relocation, or `removed` after cleanup deletes the CSV. Record `not created` when the command
-   produces no CSV. Do not use CSV rows as findings input or as the pass/fail criterion. Use JSON
-   for findings input.
+   diagram. For M2, set target metadata before applying this exception. If M2 cannot set target
+   metadata, run the CLI check as applicable. Record that output and rely on the XML, namespace,
+   and code checks. Require exit code `0` for every applicable file. Treat any other non-zero exit
+   code or CSV-generation failure as a failed verification and keep the category at **needs fix**
+   or **needs review**. Record the command, exit code, and the CLI's `Created ...` CSV path. Record
+   the final evidence path after relocation, or `removed` after cleanup deletes the CSV. Record
+   `not created` when the command produces no CSV. Do not use CSV rows as findings input or as the
+   pass/fail criterion. Use JSON findings input for M1, M3, and E1. For M2, use the direct-rewrite
+   findings summary recorded for the run and do not consume an unrelated JSON report.
 
 Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
 artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
@@ -449,12 +464,15 @@ category and `Category`, `Participating files`, `Before`, `Checks and evidence`,
 columns. Do not replace the findings inventory with the verification table.
 
 The local CLI `--check` path parses each selected BPMN or DMN file and runs the registered visitor
-and conversion pipeline without exporting a converted copy. On a standard converted `zeebe` copy,
-the BPMN and DMN visitors reject the file with `This diagram is already a Camunda 8 diagram` when
-`modeler:executionPlatformVersion` starts with `8`. Record that expected CLI limitation as
-`not applicable` and rely on the XML, namespace, and code checks. The CLI does not reconstruct the
-original Camunda 7 mapping or prove runtime job-worker, listener, header, or FEEL semantics. The
-namespace-aware checks and code cross-checks therefore remain required.
+and conversion pipeline without exporting a converted copy. Detect the Modeler namespace
+`executionPlatformVersion` attribute by namespace URI and local name, not by the serialized prefix.
+On a standard converted `zeebe` copy whose value starts with `8`, the BPMN and DMN visitors reject
+the file with `This diagram is already a Camunda 8 diagram`. Record that expected CLI limitation as
+`not applicable` and rely on the XML, namespace, and code checks. For M2, set target metadata
+before applying this exception. If M2 cannot set target metadata, run the CLI check as applicable.
+The CLI does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener,
+header, or FEEL semantics. Treat the CLI result as supplementary evidence, not as a replacement for
+the namespace-aware and code cross-checks above.
 
 If any verification check fails, record the failure with its before-and-after values. Keep the
 category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
