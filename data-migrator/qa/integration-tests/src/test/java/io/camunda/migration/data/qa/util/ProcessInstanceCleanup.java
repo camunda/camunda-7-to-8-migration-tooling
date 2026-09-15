@@ -11,7 +11,6 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.command.ProblemException;
-import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -59,11 +58,7 @@ public class ProcessInstanceCleanup {
   protected void deleteProcessInstances(List<ProcessInstance> items) {
     for (ProcessInstance processInstance : items) {
       try {
-        if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
-          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
-        } else {
-          camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
-        }
+        camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
       } catch (ClientStatusException | ProblemException e) {
         if (e.getMessage() == null || !e.getMessage().contains("NOT_FOUND")) {
           throw e;
