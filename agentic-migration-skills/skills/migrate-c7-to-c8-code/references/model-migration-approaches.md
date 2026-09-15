@@ -251,6 +251,8 @@ Use this table to decide whether the composite key can associate a group with a 
 | `sourceDerived: true` with a matching `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category | Yes |
 | `sourceDerived: true` with `m2-manual-review` for a form-related source condition, including `formHandlerClass` or a non-process-level none start-event reference | Yes |
 | An M1 or M3 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
+| A `form-data` finding whose owner-level inventory group contains only generated-form metadata | Yes |
+| A `form-data` finding whose owner-level inventory group contains a referenced form | No |
 | `sourceDerived: false`, including `expression-method-not-possible` | No |
 | `sourceDerived: true` without a matching form or source condition | No |
 
@@ -261,8 +263,9 @@ Apply the table after grouping and matching:
 
 | Match | Destination category | Artifact action |
 |---|---|---|
-| An eligible authoritative report finding matches an owner-level inventory group. | The finding's authoritative `messageId` | Keep one artifact object for the authoritative finding. Set `sourceDerived` to `true` and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. Do not add a second synthetic object. |
-| An owner-level inventory group has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, or `generated-form-property-source` | Add one `sourceDerived: true` object to the `findings` array. |
+| An eligible authoritative report finding matches an owner-level inventory group with more than one form definition. | `form-reference-conflict` | Keep one artifact object. Set its `messageId` to `form-reference-conflict`, preserve its other authoritative fields, set `sourceDerived` to `true`, and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. Do not add a second synthetic object. |
+| An eligible authoritative report finding matches an owner-level inventory group with one form definition. | The finding's authoritative `messageId` | Keep one artifact object for the authoritative finding. Set `sourceDerived` to `true` and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. Do not add a second synthetic object. |
+| An owner-level inventory group has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, `generated-form-property-source`, or `m2-manual-review` for a form-handler-class or non-process-level none-start-event condition | Add one `sourceDerived: true` object to the `findings` array. |
 | A source-derived authoritative report finding has no matched owner-level inventory group. | Its existing `messageId` | Preserve the finding in its existing category and record the inventory mismatch in `MIGRATION_REPORT.md`. |
 
 For a synthetic source-derived entry, set `sourceDerived` to `true`, map the source path to
@@ -275,12 +278,13 @@ inventory rows, set `reference` to the `Reference (report-safe)` value from
 `form-migration.md` defines no report-safe reference. Preserve the form kind, fields, form id, and
 status for `generated-form-property-source`. For `form-handler-class` inventory rows, preserve
 the class name in `handlerClass` and omit referenced-form and generated-form fields. Keep a matched
-authoritative report finding in its authoritative `messageId` category, including
-`form-reference-conflict`,
-`generated-form-property-source`, and any `c7-*` category.
+authoritative report finding in its authoritative `messageId` category, except when the
+multi-definition rule above reclassifies it as `form-reference-conflict`. This includes
+`generated-form-property-source` and any `c7-*` category.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
-synthetic category a complete element list.
+synthetic category a complete element list. Set `severity` to `n/a` because source inventory has no
+converter severity for a synthetic entry.
 
 For each legacy generic `form-key` finding, apply the first matching row after owner-level grouping:
 
@@ -297,17 +301,20 @@ in `form-reference-conflict` and assign `needs review` to that category. Preserv
 sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that fallback
 category.
 For each source inventory entry without a matched authoritative report finding, add a
-`sourceDerived: true` entry to its authoritative `c7-*`, `form-reference-conflict`, or
-`generated-form-property-source` category.
+`sourceDerived: true` entry to its authoritative `c7-*`, `form-reference-conflict`,
+`generated-form-property-source`, or `m2-manual-review` category. Use `m2-manual-review` for
+`form-handler-class` and non-process-level none-start-event source conditions.
 Apply the source-derived serialization rules above, including report-safe references for referenced
 forms and omission for generated forms. Keep matched authoritative report findings in their
 existing report categories. Do not create a second source-derived entry for a source inventory
 entry represented by a matched authoritative report finding.
 After all classification and source-inventory reconciliation, recompute each category's total
 count, severity counts, distinct element types, representative example, link, and sort order.
-Use the final finding objects for these aggregates. Sort categories by highest severity
-(TASK > WARNING > REVIEW > INFO), then count descending, then category name ascending. Use these
-recomputed aggregates in 5c and 5d.
+Use the final finding objects for these aggregates. Count synthetic `n/a` severities under the `n/a`
+key. For the grouped summary Severity cell, use the highest defined severity
+(TASK > WARNING > REVIEW > INFO) or `n/a` when the category contains only synthetic entries. Sort
+categories by highest defined severity, then place `n/a`-only categories after INFO, then count
+descending, then category name ascending. Use these recomputed aggregates in 5c and 5d.
 
 #### 5c. Present the grouped summary
 
