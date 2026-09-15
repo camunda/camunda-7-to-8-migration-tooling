@@ -183,9 +183,9 @@ Group findings by `messageId` (the category). For each converter category comput
 After grouping the available findings, run this scan only when the current approach produced a fresh
 converted copy. Scan every fresh converted BPMN model with a namespace-aware XML parser. This scan
 is an explicit exception to the rule that trusts unflagged converter output. For M1, M3, and E1,
-run this scan after grouping the JSON findings. For M2, run it after the findings summary because
-M2 does not produce a JSON report. Run this scan for M1, M2, M3, and E1 when a fresh converted copy
-exists.
+run this scan after grouping the JSON findings. For M2, run it before the findings summary because
+the scan adds source-derived findings to that summary. M2 does not produce a JSON report. Run this
+scan for M1, M2, M3, and E1 when a fresh converted copy exists.
 
 If M1 uses `--check`, the CLI produces no converted copy. Defer this scan and the
 `blank-executable-task-job-type` and `blank-dmn-decision-id` categories until a fresh converted
