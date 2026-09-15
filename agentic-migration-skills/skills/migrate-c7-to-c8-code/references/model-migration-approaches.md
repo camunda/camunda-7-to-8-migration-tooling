@@ -191,6 +191,10 @@ If M1 uses `--check`, the CLI produces no converted copy. Defer this scan and th
 `blank-executable-task-job-type` category until a fresh converted copy is available. Record the
 deferred scan in `MIGRATION_REPORT.md`.
 
+Match each fresh converted copy to the source model path captured in step 3. Use the source/output
+model pair and BPMN element ID as the deduplication key. Do not compare source and converted
+filenames as if they were the same file.
+
 Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 `bpmn:scriptTask`:
 
@@ -201,12 +205,13 @@ Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 
 When a listed task has no task definition or has a blank task-definition type, add a source-derived
 finding in the `blank-executable-task-job-type` category only when no converter finding for the
-same file and element already identifies a missing job type. Record the converted file, element id,
-element type, and missing or blank attribute as evidence. Add this category to the grouped summary
-and the verdict table even when the JSON report contains no matching `messageId`.
+paired source model and same BPMN element ID already identifies a missing job type. Record the
+source/output model pair, converted file, element id, element type, and missing or blank attribute
+as evidence. Add this category to the grouped summary and the verdict table even when the JSON
+report contains no matching `messageId`.
 
-When a converter finding already identifies the missing job type for the same file and element, use
-that converter finding and do not add a duplicate synthetic finding.
+When a converter finding already identifies the missing job type for the paired source model and
+element ID, use that converter finding and do not add a duplicate synthetic finding.
 
 Source-derived categories have no converter severity. Record `n/a` as their converter severity and
 use `TASK` as their effective severity for sorting. If the imported report target differs from the
@@ -261,8 +266,8 @@ Use the following rules:
 | A report target that differs from the chosen target | Do not assign runtime impact until revalidation | This rule takes precedence over every category-specific rule. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
-| `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, completion conditions, DMN decision IDs (`camunda:decisionRef`), or executable DMN expressions | **Blocking** | The affected expression controls routing, process invocation, timing, loop execution, decision resolution, or decision evaluation and cannot execute in the converted model. |
-| `expression-execution-not-available`, `expression-method-not-possible` on due dates, follow-up dates, candidate users or groups, priorities, input or output mappings, or other non-blocking attributes | **Advisory** | The affected attribute needs migration work or a decision, but it does not by itself prove that the model cannot deploy or execute. |
+| `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, completion conditions, DMN decision IDs (`camunda:decisionRef`), executable DMN expressions, or input/output mappings | **Blocking** | The affected expression controls routing, process invocation, timing, loop execution, decision resolution, decision evaluation, or task execution and cannot execute in the converted model. |
+| `expression-execution-not-available`, `expression-method-not-possible` on due dates, follow-up dates, candidate users or groups, priorities, or other non-blocking attributes | **Advisory** | The affected attribute needs migration work or a decision, but it does not by itself prove that the model cannot deploy or execute. |
 | `condition-expression-feel` when inspection finds a custom FEEL function that Camunda 8 does not support | **Blocking** | The condition cannot evaluate, so it cannot route execution. |
 | `condition-expression-feel` when inspection finds only supported FEEL constructs | **Advisory** | The converted condition needs review, but supported FEEL can evaluate it. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
@@ -273,6 +278,7 @@ Use the following rules:
 | `loop-cardinality` when a valid C8 `inputCollection` replaces the cardinality | **Advisory** | The converted loop has an iteration collection. Verify that its expression represents the same iteration set. |
 | `only-feel-supported` when the original DMN `expressionLanguage` is neither the case-insensitive literal `feel` nor a recognized canonical OMG FEEL URI | **Blocking** | Read the source value before conversion. The converter removes this attribute from non-definition elements, so another language cannot execute. |
 | `only-feel-supported` when the original DMN `expressionLanguage` is the case-insensitive literal `feel` or a recognized canonical OMG FEEL URI | **Advisory** | The converter removes the explicit language attribute, but FEEL remains the supported language. |
+| `generated-form-property-source` | **Advisory** | The source-only form-property finding needs form migration work, but it does not by itself prove a deployment or execution failure. |
 | `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
 | `error-code-no-expression`, `escalation-code-no-expression` on an unused definition | **Advisory** | The unused definition does not block deployed execution. Record the finding for cleanup or review. |
 | Every other known category not covered above, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
