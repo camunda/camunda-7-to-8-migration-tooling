@@ -180,10 +180,16 @@ Group findings by `messageId` (the category). For each converter category comput
 
 #### 5b.1. Add source-derived findings
 
-After grouping the available findings, scan every fresh converted BPMN model with a namespace-aware
-XML parser. This scan is an explicit exception to the rule that trusts unflagged converter output.
-For M1, M3, and E1, run this scan after grouping the JSON findings. For M2, run it after the
-findings summary because M2 does not produce a JSON report. Run this scan for M1, M2, M3, and E1.
+After grouping the available findings, run this scan only when the current approach produced a fresh
+converted copy. Scan every fresh converted BPMN model with a namespace-aware XML parser. This scan
+is an explicit exception to the rule that trusts unflagged converter output. For M1, M3, and E1,
+run this scan after grouping the JSON findings. For M2, run it after the findings summary because
+M2 does not produce a JSON report. Run this scan for M1, M2, M3, and E1 when a fresh converted copy
+exists.
+
+If M1 uses `--check`, the CLI produces no converted copy. Defer this scan and the
+`blank-executable-task-job-type` category until a fresh converted copy is available. Record the
+deferred scan in `MIGRATION_REPORT.md`.
 
 Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 `bpmn:scriptTask`:
@@ -255,8 +261,10 @@ Use the following rules:
 | A report target that differs from the chosen target | Do not assign runtime impact until revalidation | This rule takes precedence over every category-specific rule. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
-| `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, or completion conditions | **Blocking** | The affected expression controls routing, process invocation, timing, or loop execution and cannot execute in the converted model. |
+| `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, completion conditions, DMN decision IDs (`camunda:decisionRef`), or executable DMN expressions | **Blocking** | The affected expression controls routing, process invocation, timing, loop execution, decision resolution, or decision evaluation and cannot execute in the converted model. |
 | `expression-execution-not-available`, `expression-method-not-possible` on due dates, follow-up dates, candidate users or groups, priorities, input or output mappings, or other non-blocking attributes | **Advisory** | The affected attribute needs migration work or a decision, but it does not by itself prove that the model cannot deploy or execute. |
+| `condition-expression-feel` when inspection finds a custom FEEL function that Camunda 8 does not support | **Blocking** | The condition cannot evaluate, so it cannot route execution. |
+| `condition-expression-feel` when inspection finds only supported FEEL constructs | **Advisory** | The converted condition needs review, but supported FEEL can evaluate it. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the chosen target is 8.9 or later | **Blocking** | The converted `zeebe:conditionalFilter` cannot trigger on delete events because C8 supports only `create` and `update`. |
 | `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the matching or revalidated target is below 8.9 | **Blocking** | The conditional event cannot deploy at this target. If the corresponding `element-available-in-future-version` finding is present, merge both findings because they describe the same event. Retain one Blocking row. |
