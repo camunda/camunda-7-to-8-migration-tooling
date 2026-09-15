@@ -150,4 +150,99 @@ public class VariousProcessEngineFunctionsTestClass {
     }
     """));
   }
+
+  @Test
+  void preservesExternallyAccessibleUnusedRepositoryServiceFieldInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+    """
+    package org.camunda.community.migration.example;
+
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+
+    public class Deployer {
+
+        private ProcessEngine engine;
+        public RepositoryService repositoryService;
+    }
+    """,
+    """
+    package org.camunda.community.migration.example;
+
+    import io.camunda.client.CamundaClient;
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class Deployer {
+
+        @Autowired
+        private CamundaClient camundaClient;
+
+        private ProcessEngine engine;
+        // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+        public RepositoryService repositoryService;
+    }
+    """));
+  }
+
+  @Test
+  void preservesEngineDerivedRepositoryServiceUseInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+    """
+    package org.camunda.community.migration.example;
+
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+
+    public class Deployer {
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public RepositoryService current() {
+            return engine.getRepositoryService();
+        }
+
+        public void deploy() {
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+    }
+    """,
+    """
+    package org.camunda.community.migration.example;
+
+    import io.camunda.client.CamundaClient;
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class Deployer {
+
+        @Autowired
+        private CamundaClient camundaClient;
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public RepositoryService current() {
+            // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+            return engine.getRepositoryService();
+        }
+
+        public void deploy() {
+            // TODO: RepositoryService deployment method was not migrated automatically
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+    }
+    """));
+  }
 }

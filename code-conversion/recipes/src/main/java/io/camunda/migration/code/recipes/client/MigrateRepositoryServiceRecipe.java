@@ -33,6 +33,7 @@ import org.openrewrite.java.tree.J.VariableDeclarations;
 /** Migrates Camunda 7 RepositoryService deployments and flags unsupported queries. */
 public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
+  private static final String PROCESS_ENGINE = "org.camunda.bpm.engine.ProcessEngine";
   private static final String REPOSITORY_SERVICE = "org.camunda.bpm.engine.RepositoryService";
   private static final String CAMUNDA_CLIENT = "io.camunda.client.CamundaClient";
   private static final String DEPLOYMENT_TODO =
@@ -46,6 +47,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
   private static final MethodMatcher CREATE_DEPLOYMENT =
       new MethodMatcher(REPOSITORY_SERVICE + " createDeployment()");
+  private static final MethodMatcher PROCESS_ENGINE_GET_REPOSITORY_SERVICE =
+      new MethodMatcher(PROCESS_ENGINE + " getRepositoryService()");
   private static final MethodMatcher REPOSITORY_SERVICE_QUERY =
       new MethodMatcher(REPOSITORY_SERVICE + " create*Query(..)");
   private static final MethodMatcher REPOSITORY_SERVICE_METHOD =
@@ -119,6 +122,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
             ClassContext previousContext = classContext;
             classContext = createClassContext(classDeclaration, ctx);
+            boolean hasDirectRepositoryServiceFieldReference =
+                containsDirectRepositoryServiceFieldReference(classDeclaration, ctx);
 
             try {
               List<Statement> statements = new ArrayList<>();
@@ -130,7 +135,11 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 }
 
                 if (!classContext.canConvertRepositoryServiceFields) {
-                  statements.add(statement);
+                  statements.add(
+                      isExternallyAccessibleRepositoryServiceField(declaration)
+                          && !hasDirectRepositoryServiceFieldReference
+                          ? addCommentIfMissing(declaration, USAGE_TODO)
+                          : statement);
                 } else if (!classContext.hasCamundaClient) {
                   statements.add(replaceType(declaration));
                 }
@@ -210,6 +219,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                         repositoryServiceFieldDeclarationIds,
                         nonFieldRepositoryServiceVariables,
                         ctx)
+                    && !containsProcessEngineRepositoryServiceGetter(classDeclaration, ctx)
                     && !hasNestedClass(classDeclaration, ctx);
             Map<String, String> repositoryServiceClients = new HashMap<>();
             if (canConvertRepositoryServiceFields) {
@@ -263,12 +273,15 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             return classDeclaration.getBody().getStatements().stream()
                 .filter(J.VariableDeclarations.class::isInstance)
                 .map(J.VariableDeclarations.class::cast)
-                .filter(this::isDirectRepositoryServiceType)
-                .anyMatch(
-                    declaration ->
-                        declaration.getModifiers().stream()
-                            .noneMatch(
-                                modifier -> modifier.getType() == J.Modifier.Type.Private));
+                .anyMatch(this::isExternallyAccessibleRepositoryServiceField);
+          }
+
+          private boolean isExternallyAccessibleRepositoryServiceField(
+              J.VariableDeclarations declaration) {
+            return isDirectRepositoryServiceType(declaration)
+                && declaration.getModifiers().stream()
+                    .noneMatch(
+                        modifier -> modifier.getType() == J.Modifier.Type.Private);
           }
 
           private boolean hasNestedClass(
@@ -315,7 +328,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   }
                   return invocation;
                 } else if (REPOSITORY_SERVICE_QUERY.matches(invocation)
-                    || repositoryServiceFields.contains(receiver)) {
+                    || repositoryServiceFields.contains(receiver)
+                    || isProcessEngineRepositoryServiceGetter(invocation)) {
                   unsupportedUsage[0] = true;
                 }
                 if (invocation.getArguments().stream()
@@ -392,6 +406,22 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 return super.visitMethodInvocation(invocation, nestedCtx);
               }
             }.visit(classDeclaration, ctx);
+            return found[0];
+          }
+
+          private boolean containsProcessEngineRepositoryServiceGetter(
+              J tree, ExecutionContext ctx) {
+            boolean[] found = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.MethodInvocation visitMethodInvocation(
+                  J.MethodInvocation invocation, ExecutionContext nestedCtx) {
+                if (isProcessEngineRepositoryServiceGetter(invocation)) {
+                  found[0] = true;
+                }
+                return super.visitMethodInvocation(invocation, nestedCtx);
+              }
+            }.visit(tree, ctx);
             return found[0];
           }
 
@@ -509,16 +539,21 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                     i < originalStatements.size()
                         && containsDirectRepositoryServiceFieldReference(
                             originalStatements.get(i), ctx);
-                if (containsRepositoryQuery(annotated, ctx)) {
+                boolean hasRepositoryQuery = containsRepositoryQuery(annotated, ctx);
+                boolean hasRepositoryDeployment = containsRepositoryDeployment(annotated, ctx);
+                if (hasRepositoryQuery) {
                   annotated = addCommentIfMissing(annotated, QUERY_TODO);
                 }
-                if (containsRepositoryDeployment(annotated, ctx)
+                if (hasRepositoryDeployment
                     || (classContext != null
                         && classContext.hasSplitDeploymentBuilder
                         && containsDeploymentBuilderDeploy(annotated, ctx))) {
                   annotated = addCommentIfMissing(annotated, DEPLOYMENT_TODO);
                 }
-                if (containsUnsupportedRepositoryServiceUsage(annotated, ctx)
+                if ((!hasRepositoryQuery
+                        && !hasRepositoryDeployment
+                        && containsProcessEngineRepositoryServiceGetter(annotated, ctx))
+                    || containsUnsupportedRepositoryServiceUsage(annotated, ctx)
                     || hasDirectRepositoryServiceReference) {
                   annotated = addCommentIfMissing(annotated, USAGE_TODO);
                 }
@@ -534,13 +569,18 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             boolean hasDirectRepositoryServiceReference =
                 containsDirectRepositoryServiceFieldReference(declarations, ctx);
             J.VariableDeclarations visited = super.visitVariableDeclarations(declarations, ctx);
-            if (containsRepositoryQuery(visited, ctx)) {
+            boolean hasRepositoryQuery = containsRepositoryQuery(visited, ctx);
+            boolean hasRepositoryDeployment = containsRepositoryDeployment(visited, ctx);
+            if (hasRepositoryQuery) {
               return addCommentIfMissing(visited, QUERY_TODO);
             }
-            if (containsRepositoryDeployment(visited, ctx)) {
+            if (hasRepositoryDeployment) {
               visited = addCommentIfMissing(visited, DEPLOYMENT_TODO);
             }
-            if (containsUnsupportedRepositoryServiceUsage(visited, ctx)
+            if ((!hasRepositoryQuery
+                    && !hasRepositoryDeployment
+                    && containsProcessEngineRepositoryServiceGetter(visited, ctx))
+                || containsUnsupportedRepositoryServiceUsage(visited, ctx)
                 || hasDirectRepositoryServiceReference) {
               visited = addCommentIfMissing(visited, USAGE_TODO);
             }
@@ -555,6 +595,9 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             if (visited.getExpression() instanceof J.MethodInvocation invocation
                 && containsRepositoryQuery(invocation)) {
               return addCommentIfMissing(visited, QUERY_TODO);
+            }
+            if (containsProcessEngineRepositoryServiceGetter(visited, ctx)) {
+              return addCommentIfMissing(visited, USAGE_TODO);
             }
             if (containsUnsupportedRepositoryServiceUsage(visited, ctx)
                 || hasDirectRepositoryServiceReference) {
@@ -727,9 +770,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               @Override
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation invocation, ExecutionContext nestedCtx) {
-                if (REPOSITORY_SERVICE_METHOD.matches(invocation)
-                    && !CREATE_DEPLOYMENT.matches(invocation)
-                    && !REPOSITORY_SERVICE_QUERY.matches(invocation)) {
+                if (isUnsupportedRepositoryServiceInvocation(invocation)) {
                   found[0] = true;
                 }
                 if (classContext != null
@@ -746,6 +787,25 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             return found[0];
           }
 
+          private boolean isUnsupportedRepositoryServiceInvocation(
+              J.MethodInvocation invocation) {
+            if (CREATE_DEPLOYMENT.matches(invocation)
+                || REPOSITORY_SERVICE_QUERY.matches(invocation)) {
+              return false;
+            }
+            return REPOSITORY_SERVICE_METHOD.matches(invocation)
+                || (classContext != null
+                    && !classContext.canConvertRepositoryServiceFields
+                    && isNamedRepositoryServiceFieldReference(
+                        invocation.getSelect(), classContext.repositoryServiceFields));
+          }
+
+          private boolean isProcessEngineRepositoryServiceGetter(
+              J.MethodInvocation invocation) {
+            return PROCESS_ENGINE_GET_REPOSITORY_SERVICE.matches(invocation)
+                || invocation.getSimpleName().equals("getRepositoryService");
+          }
+
           private boolean containsDirectRepositoryServiceFieldReference(
               J tree, ExecutionContext ctx) {
             boolean[] found = {false};
@@ -756,8 +816,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 if (classContext != null
                     && isNamedRepositoryServiceFieldReference(
                         invocation.getSelect(), classContext.repositoryServiceFields)) {
-                  if (REPOSITORY_SERVICE_METHOD.matches(invocation)
-                      && !CREATE_DEPLOYMENT.matches(invocation)
+                  if (!CREATE_DEPLOYMENT.matches(invocation)
                       && !REPOSITORY_SERVICE_QUERY.matches(invocation)) {
                     found[0] = true;
                   }

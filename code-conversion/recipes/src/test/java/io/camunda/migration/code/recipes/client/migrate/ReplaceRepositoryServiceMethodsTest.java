@@ -794,6 +794,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
             import org.camunda.bpm.engine.RepositoryService;
 
             class Holder {
+              // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
               RepositoryService repositoryService;
             }
 
@@ -887,6 +888,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
 
             class Deployer {
               private ProcessEngine engine;
+              // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
               private RepositoryService repositoryService = engine.getRepositoryService();
 
               void deploy() {
@@ -985,6 +987,7 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
             }
 
             class Holder {
+              // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
               RepositoryService service;
             }
             """));
@@ -1227,7 +1230,59 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
             import org.camunda.bpm.engine.RepositoryService;
 
             class Deployer {
+              // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
               RepositoryService repositoryService;
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersEngineDerivedRepositoryServiceUse() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private ProcessEngine engine;
+              private RepositoryService repositoryService;
+
+              RepositoryService current() {
+                return engine.getRepositoryService();
+              }
+
+              void deploy() {
+                repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private ProcessEngine engine;
+              private RepositoryService repositoryService;
+
+              RepositoryService current() {
+                // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+                return engine.getRepositoryService();
+              }
 
               void deploy() {
                 // TODO: RepositoryService deployment method was not migrated automatically
@@ -1268,6 +1323,40 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
               void delete(String deploymentId) {
                 // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
                 repositoryService.deleteDeployment(deploymentId);
+              }
+            }
+            """));
+  }
+
+  @Test
+  void addsGuidanceForUnsupportedDirectRepositoryServiceMethods() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+
+              String description() {
+                return repositoryService.toString();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+
+              String description() {
+                // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+                return repositoryService.toString();
               }
             }
             """));

@@ -120,4 +120,28 @@ class AddCamundaClientDependencyTest implements RewriteTest {
                         """));
     }
 
+    @Test
+    void preservesExternallyAccessibleCamundaClientField() {
+        rewriteRun(
+                spec -> spec.recipe(new PrepareCamundaClientDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        public class PublicDefinitions {
+                            public RepositoryService camundaClient;
+                        }
+
+                        class ProtectedDefinitions {
+                            protected RepositoryService camundaClient;
+                        }
+
+                        class PackageDefinitions {
+                            RepositoryService camundaClient;
+                        }
+                        """));
+    }
+
 }

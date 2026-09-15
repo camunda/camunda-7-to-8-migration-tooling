@@ -87,16 +87,26 @@ public class PrepareCamundaClientDependencyRecipe extends Recipe {
             }
 
             J.ClassDeclaration preparedClass = classDeclaration;
-            J.VariableDeclarations.NamedVariable conflictingField =
+            J.VariableDeclarations conflictingDeclaration =
                 classDeclaration.getBody().getStatements().stream()
                     .filter(stmt -> stmt instanceof J.VariableDeclarations)
                     .map(stmt -> (J.VariableDeclarations) stmt)
                     .filter(varDecl -> !TypeUtils.isOfClassType(varDecl.getType(), CAMUNDA_CLIENT))
-                    .flatMap(varDecl -> varDecl.getVariables().stream())
-                    .filter(v -> v.getSimpleName().equals(CAMUNDA_CLIENT_FIELD))
+                    .filter(
+                        varDecl ->
+                            varDecl.getVariables().stream()
+                                .anyMatch(v -> v.getSimpleName().equals(CAMUNDA_CLIENT_FIELD)))
                     .findFirst()
                     .orElse(null);
-            if (conflictingField != null) {
+            if (conflictingDeclaration != null) {
+              if (isExternallyAccessible(conflictingDeclaration)) {
+                return classDeclaration;
+              }
+              J.VariableDeclarations.NamedVariable conflictingField =
+                  conflictingDeclaration.getVariables().stream()
+                      .filter(v -> v.getSimpleName().equals(CAMUNDA_CLIENT_FIELD))
+                      .findFirst()
+                      .orElseThrow();
               String replacementName = findAvailableFieldName(classDeclaration, ctx);
               preparedClass =
                   (J.ClassDeclaration)
@@ -111,6 +121,11 @@ public class PrepareCamundaClientDependencyRecipe extends Recipe {
             return template.apply(
                 updateCursor(preparedClass),
                 preparedClass.getBody().getCoordinates().firstStatement());
+          }
+
+          private boolean isExternallyAccessible(J.VariableDeclarations declaration) {
+            return declaration.getModifiers().stream()
+                .noneMatch(modifier -> modifier.getType() == J.Modifier.Type.Private);
           }
 
           private String findAvailableFieldName(
