@@ -313,6 +313,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
+            if ("setJobRetriesAsync".equals(serviceCall.methodName())) {
+              return "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); translate the Camunda 7 IDs and query into a JobFilter while preserving their union semantics.";
+            }
             if (isJobRetryMethod(serviceCall.methodName())) {
               if ("setJobRetries".equals(serviceCall.methodName())
                   && serviceCall.singleJobRetry()) {
