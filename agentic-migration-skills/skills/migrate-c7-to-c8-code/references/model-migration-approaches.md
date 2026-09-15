@@ -233,16 +233,19 @@ Redact credential-like URL query values and URL userinfo passwords before writin
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
 synthetic category a complete element list.
 
-For a legacy generic `form-key` finding, match each converter finding to the unique source
-inventory entry by source path or filename and owner id. Use process id and owner type to
-disambiguate when those fields exist. Move the matched finding from `categories.form-key` into the
-`c7-*` category selected by the authoritative source classification. Preserve every converter field
-after sanitizing any form-key-bearing value, including `message`, with its report-safe rendering.
-Add `sourceDerived: true`, and add the matched source inventory fields, including
-`sourceClassification`. Do not leave the finding in `categories.form-key` after a unique match. If
-the match is zero or non-unique, move the original finding to `categories.form-key-unmatched`.
-Preserve every converter field in the fallback category after the same sanitization. Record the
-mismatch in MIGRATION_REPORT.md. Assign `needs review` to the fallback category.
+For each legacy generic `form-key` finding, apply the first matching row:
+
+| Match cardinality | Matching condition | Destination category | Classification action |
+|---|---|---|---|
+| Unique | Exactly one source inventory entry matches the source path or filename and owner id. Use process id and owner type to disambiguate when those fields exist. | The `c7-*` category selected by the authoritative source classification | Move the finding from `categories.form-key` and associate it with the matched source entry. |
+| Zero | No source inventory entry matches the source path or filename and owner id. | `form-key-unmatched` | Keep the finding in the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
+| Non-unique | More than one source inventory entry matches after all available disambiguators. | `form-key-unmatched` | Keep the finding in the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
+
+After classification, preserve every converter field after sanitizing every form-key-bearing value,
+including `message`, with its report-safe rendering. Add `sourceDerived: true` and the matched
+source inventory fields, including `sourceClassification`, to a uniquely matched finding. Preserve
+the same sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that
+fallback category.
 For each source inventory entry without a matched converter finding, add a `sourceDerived: true`
 entry to its authoritative `c7-*` category. Apply the source-derived serialization rules above,
 including report-safe references for referenced forms and omission for generated forms. Keep matched
@@ -273,13 +276,14 @@ The current dedicated cross-check categories are:
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
 
-For a fallback category, assign the default verdict from the finding severity:
+For a fallback category, apply the first matching row:
 
-| Severity | Default verdict |
-|---|---|
-| INFO | no action |
-| REVIEW | needs review |
-| WARNING or TASK | needs fix |
+| Category condition | Severity | Default verdict |
+|---|---|---|
+| `form-key-unmatched` | Any | needs review |
+| Any other fallback category | INFO | no action |
+| Any other fallback category | REVIEW | needs review |
+| Any other fallback category | WARNING or TASK | needs fix |
 
 Set the cross-referenced code artifact to **no dedicated cross-check** for a fallback category.
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
@@ -350,7 +354,6 @@ Rules:
   complete list available for the AI follow-up. The grouped summary remains one example per
   category.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
-- Assign `needs review` to `form-key-unmatched` regardless of the retained finding severity.
 - Copy each finding's `link` into the `Link` column. Use `n/a` when the finding has no link. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
@@ -468,6 +471,25 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
+
+### M2 finding taxonomy
+
+M2 does not run Diagram Converter. Apply the first matching row when creating an M2 finding:
+
+| M2 condition | `messageId` | Severity | `sourceDerived` | `link` |
+|---|---|---|---|---|
+| A JUEL method invocation cannot become FEEL. | `expression-method-not-possible` | REVIEW | `false` | Current catalog guidance URL |
+| The source contains `camunda:formData`. | `form-data` | TASK | `false` | Current catalog guidance URL |
+| The source contains form-property-only metadata. | `generated-form-property-source` | TASK | `true` | `n/a` |
+| The source contains a referenced form. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
+| The source contains a form-free owner. | `c7-generic-task-form` | REVIEW | `true` | `n/a` |
+| The rewrite exposes a condition with a current catalog message not listed above. | The exact catalog message ID | The catalog severity | `false` | The catalog guidance URL or `n/a` |
+| The rewrite needs manual review and has no catalog message. | `m2-manual-review` | REVIEW | `false` | `n/a` |
+
+Emit one finding for each source element that needs review, a fix, or inventory follow-up. Do not
+emit a finding for a deterministic rewrite with no follow-up. Set `elementName`, `elementId`, and
+`elementType` from the source element. For source-derived findings, preserve the source inventory
+fields described in step 5b. Record every missing catalog mapping in `MIGRATION_REPORT.md`.
 
 Emit a findings summary that mirrors CLI severities (WARNING/TASK/REVIEW/INFO). Ask the user to
 review the findings. Use the non-packaged reports directory selected by the pre-flight rules.
