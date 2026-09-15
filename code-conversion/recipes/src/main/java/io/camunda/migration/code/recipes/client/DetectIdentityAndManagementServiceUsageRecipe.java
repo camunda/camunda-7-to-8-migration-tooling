@@ -30,8 +30,6 @@ import org.openrewrite.java.tree.TextComment;
 public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
   private static final String IDENTITY_SERVICE_FQN = "org.camunda.bpm.engine.IdentityService";
-  private static final String AUTHORIZATION_SERVICE_FQN =
-      "org.camunda.bpm.engine.AuthorizationService";
   private static final String MANAGEMENT_SERVICE_FQN =
       "org.camunda.bpm.engine.ManagementService";
   private static final String ORCHESTRATION_API_URL =
@@ -50,8 +48,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       "IdentityService method has no direct Java client equivalent";
   static final String IDENTITY_MANUAL_MARKER =
       "IdentityService method requires manual migration";
-  static final String AUTHORIZATION_MARKER =
-      "AuthorizationService requires method-specific migration guidance";
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
 
@@ -96,12 +92,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           Map.entry(
               "deleteTenantGroupMembership",
               "Use CamundaClient.newUnassignGroupFromTenantCommand().groupId(groupId).tenantId(tenantId)."));
-  private static final Map<String, String> AUTHORIZATION_METHOD_HINTS =
-      Map.of(
-          "createAuthorizationQuery", "Use CamundaClient.newAuthorizationSearchRequest().",
-          "saveAuthorization",
-              "Use CamundaClient.newCreateAuthorizationCommand() or newUpdateAuthorizationCommand(authorizationKey).",
-          "deleteAuthorization", "Use CamundaClient.newDeleteAuthorizationCommand(authorizationKey).");
   private static final Set<String> IDENTITY_AUTHENTICATION_METHODS =
       Set.of(
           "checkPassword",
@@ -124,13 +114,13 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
   @Override
   public @NonNull String getDisplayName() {
-    return "Detect IdentityService, AuthorizationService, and ManagementService usage";
+    return "Detect IdentityService and ManagementService usage";
   }
 
   @Override
   public @NonNull String getDescription() {
-    return "Adds migration TODO comments for Camunda 7 IdentityService, AuthorizationService, and "
-        + "ManagementService usage, including guidance for migrating ManagementService.setJobRetries.";
+    return "Adds migration TODO comments for Camunda 7 IdentityService and ManagementService "
+        + "usage, including guidance for migrating ManagementService.setJobRetries.";
   }
 
   @Override
@@ -138,7 +128,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
     return Preconditions.check(
         Preconditions.or(
             new UsesType<>(IDENTITY_SERVICE_FQN, true),
-            new UsesType<>(AUTHORIZATION_SERVICE_FQN, true),
             new UsesType<>(MANAGEMENT_SERVICE_FQN, true)),
         new JavaIsoVisitor<>() {
 
@@ -214,9 +203,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             if (new MethodMatcher(IDENTITY_SERVICE_FQN + " *(..)").matches(invocation)) {
               return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName(), false);
             }
-            if (new MethodMatcher(AUTHORIZATION_SERVICE_FQN + " *(..)").matches(invocation)) {
-              return new ServiceCall(AUTHORIZATION_SERVICE_FQN, invocation.getSimpleName(), false);
-            }
             if (new MethodMatcher(MANAGEMENT_SERVICE_FQN + " *(..)").matches(invocation)) {
               return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), false);
             }
@@ -226,7 +212,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           private boolean isSupportedService(JavaType.FullyQualified type) {
             return type != null
                 && (IDENTITY_SERVICE_FQN.equals(type.getFullyQualifiedName())
-                    || AUTHORIZATION_SERVICE_FQN.equals(type.getFullyQualifiedName())
                     || MANAGEMENT_SERVICE_FQN.equals(type.getFullyQualifiedName()));
           }
 
@@ -263,7 +248,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                                 || textComment.getText().contains(IDENTITY_CLIENT_MARKER)
                                 || textComment.getText().contains(IDENTITY_NO_DIRECT_MARKER)
                                 || textComment.getText().contains(IDENTITY_MANUAL_MARKER)
-                                || textComment.getText().contains(AUTHORIZATION_MARKER)
                                 || textComment.getText().contains(MANAGEMENT_MARKER)));
           }
 
@@ -291,18 +275,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                       declaration, " See: " + IDENTITY_PROVIDER_URL),
                   RecipeUtils.createSimpleComment(
                       declaration, " See: " + IDENTITY_MIGRATOR_URL));
-            }
-            if (AUTHORIZATION_SERVICE_FQN.equals(serviceFqn)) {
-              return List.of(
-                  RecipeUtils.createSimpleComment(
-                      declaration, " TODO: " + AUTHORIZATION_MARKER + " in Camunda 8."),
-                  RecipeUtils.createSimpleComment(
-                      declaration,
-                      " Use method-specific Camunda Java Client or Orchestration Cluster REST API guidance."),
-                  RecipeUtils.createSimpleComment(
-                      declaration, " See: " + CAMUNDA_JAVA_CLIENT_URL),
-                  RecipeUtils.createSimpleComment(
-                      declaration, " See: " + ORCHESTRATION_API_URL));
             }
             return List.of(
                 RecipeUtils.createSimpleComment(
@@ -341,11 +313,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
-            if (serviceCall.serviceFqn().equals(AUTHORIZATION_SERVICE_FQN)) {
-              return AUTHORIZATION_METHOD_HINTS.getOrDefault(
-                  serviceCall.methodName(),
-                  "Use CamundaClient or the Orchestration Cluster REST API.");
-            }
             if (isJobRetryMethod(serviceCall.methodName())) {
               if ("setJobRetries".equals(serviceCall.methodName())
                   && serviceCall.singleJobRetry()) {
@@ -359,9 +326,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           private String methodMarker(ServiceCall serviceCall) {
-            if (AUTHORIZATION_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
-              return AUTHORIZATION_MARKER;
-            }
             if (!IDENTITY_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
               return MANAGEMENT_MARKER;
             }
@@ -384,11 +348,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           private String methodDocsUrl(ServiceCall serviceCall) {
-            if (AUTHORIZATION_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
-              return AUTHORIZATION_METHOD_HINTS.containsKey(serviceCall.methodName())
-                  ? CAMUNDA_JAVA_CLIENT_URL
-                  : ORCHESTRATION_API_URL;
-            }
             if (!IDENTITY_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
               return ORCHESTRATION_API_URL;
             }

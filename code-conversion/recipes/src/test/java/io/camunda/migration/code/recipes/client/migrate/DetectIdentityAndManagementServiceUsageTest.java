@@ -230,48 +230,6 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
   }
 
   @Test
-  void addsAuthorizationServiceHints() {
-    rewriteRun(
-        // language=java
-        java(
-            """
-            package org.example;
-
-            import org.camunda.bpm.engine.AuthorizationService;
-
-            public class AuthorizationUser {
-
-                private AuthorizationService authorizationService;
-
-                public void manage() {
-                    authorizationService.createAuthorizationQuery().list();
-                }
-            }
-            """,
-            """
-            package org.example;
-
-            import org.camunda.bpm.engine.AuthorizationService;
-
-            public class AuthorizationUser {
-
-                // TODO: AuthorizationService requires method-specific migration guidance in Camunda 8.
-                // Use method-specific Camunda Java Client or Orchestration Cluster REST API guidance.
-                // See: https://docs.camunda.io/docs/apis-tools/java-client/
-                // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
-                private AuthorizationService authorizationService;
-
-                public void manage() {
-                    // TODO: AuthorizationService requires method-specific migration guidance in Camunda 8 (createAuthorizationQuery()).
-                    // Use CamundaClient.newAuthorizationSearchRequest().
-                    // See: https://docs.camunda.io/docs/apis-tools/java-client/
-                    authorizationService.createAuthorizationQuery().list();
-                }
-            }
-            """));
-  }
-
-  @Test
   void doesNotModifyUnrelatedCode() {
     rewriteRun(
         // language=java
