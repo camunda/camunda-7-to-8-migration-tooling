@@ -227,34 +227,51 @@ Before copying any report finding into the artifact, apply the `Reference (repor
 applies to converter findings and M2 findings. Never copy an unsanitized form key or credential
 into the artifact.
 
-For source-derived categories, first normalize project-relative source paths to forward slashes and
-group inventory rows by `sourceBpmn`, `processId`, `ownerId`, and `ownerType`. Treat all rows in one
-group as one owner-level inventory group. A group can contain multiple form definitions. When it
-contains more than one definition, such as `formKey` plus `formRef` or a form reference plus
-`formData`, merge all definitions into one `form-reference-conflict` finding. Do not treat those
-definitions as separate matching candidates.
+For source-derived categories, normalize `sourceBpmn` and report `filename` to project-relative
+paths with forward slashes before grouping or matching. Resolve an absolute report `filename`
+relative to the project root used for the M1 or E1 input. Remove a leading `./` after normalization.
+If either path cannot be normalized under that root, preserve the finding and record an inventory
+mismatch in `MIGRATION_REPORT.md`. Group inventory rows by normalized `sourceBpmn`, `processId`,
+`ownerId`, and `ownerType`. Treat all rows in one group as one owner-level inventory group. A group
+can contain multiple form definitions. When it contains more than one definition, such as `formKey`
+plus `formRef` or a form reference plus `formData`, merge all definitions into one
+`form-reference-conflict` finding. Do not treat those definitions as separate matching candidates.
 
-Match an owner-level inventory group to an authoritative finding with this composite key:
-normalized `sourceBpmn` to `filename`, `ownerId` to `elementId`, and `ownerType` to `elementType`.
-When both records contain `processId`, require equal values. Do not match by owner name, message,
-or category alone. Match each group against every authoritative report finding, including
-source-derived findings. Apply the table after grouping and matching:
+Match an owner-level inventory group to an eligible authoritative finding with this composite key:
+normalized `sourceBpmn` to normalized `filename`, `ownerId` to `elementId`, and `ownerType` to
+`elementType`. When both records contain `processId`, require equal values. Do not match by owner
+name, message, or category alone.
+
+Use this table to decide whether the composite key can associate a group with a finding:
+
+| Authoritative finding | Eligible for source inventory association |
+|---|---|
+| `sourceDerived: true` with a matching `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category | Yes |
+| `sourceDerived: true` with `m2-manual-review` for a form-related source condition | Yes |
+| `sourceDerived: false`, including `expression-method-not-possible` | No |
+| `sourceDerived: true` without a matching form or source condition | No |
+
+Match each group against every eligible authoritative report finding, including source-derived
+findings. Do not associate a group with an unrelated finding, even when the composite key matches.
+Apply the table after grouping and matching:
 
 | Match | Destination category | Artifact action |
 |---|---|---|
-| An authoritative report finding matches an owner-level inventory group. | The finding's authoritative `messageId` | Set `sourceDerived` to `true` and merge the complete group into `sourceInventory`. Do not add a second object. |
+| An eligible authoritative report finding matches an owner-level inventory group. | The finding's authoritative `messageId` | Set `sourceDerived` to `true` and merge the complete group into the `sourceInventory` array. Do not add a second object. |
 | An owner-level inventory group has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, or `generated-form-property-source` | Add one `sourceDerived: true` object to the `findings` array. |
 | A source-derived authoritative report finding has no matched owner-level inventory group. | Its existing `messageId` | Preserve the finding in its existing category and record the inventory mismatch in `MIGRATION_REPORT.md`. |
 
 For a synthetic source-derived entry, set `sourceDerived` to `true`, map the source path to
 `filename`, the owner id to `elementId`, and the owner type to `elementType`. Write the source
-classification in `message`. Copy the complete owner-level group into `sourceInventory`, including
-process id, owner name, decision, and status. For referenced-form inventories, set `reference` to
-the `Reference (report-safe)` value from `form-reference-migration.md`. For generated-form
-inventories, omit `reference` because `form-migration.md` defines no report-safe reference.
-Preserve the form kind, fields, form id, and status for `generated-form-property-source`. Keep a
-matched authoritative report finding in its authoritative `messageId` category, including
-`form-reference-conflict`, `generated-form-property-source`, and any `c7-*` category.
+classification in `message`. Copy the complete owner-level group into `sourceInventory` as an array
+with one object for each inventory row. Repeat the group keys `sourceBpmn`, `processId`, `ownerId`,
+`ownerName`, `ownerType`, `sourceClassification`, and `status` in each object. For referenced-form
+inventory rows, set `reference` to the `Reference (report-safe)` value from
+`form-reference-migration.md`. For generated-form inventory rows, omit `reference` because
+`form-migration.md` defines no report-safe reference. Preserve the form kind, fields, form id, and
+status for `generated-form-property-source`. Keep a matched authoritative report finding in its
+authoritative `messageId` category, including `form-reference-conflict`,
+`generated-form-property-source`, and any `c7-*` category.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
 synthetic category a complete element list.
@@ -268,7 +285,7 @@ For each legacy generic `form-key` finding, apply the first matching row after o
 | Zero | No owner-level inventory group matches the composite key. | `form-key-unmatched` | Move the finding from `categories.form-key` to the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
 | Non-unique | More than one owner-level inventory group matches after all composite-key fields are compared. | `form-key-unmatched` | Move the finding from `categories.form-key` to the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
 
-After classification, add `sourceDerived: true` and the complete matched `sourceInventory`, including
+After classification, add `sourceDerived: true` and the complete matched `sourceInventory` array, including
 `sourceClassification`, to a uniquely matched or conflicting finding. Place a conflicting finding
 in `form-reference-conflict` and assign `needs review` to that category. Preserve the same
 sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that fallback
@@ -538,10 +555,12 @@ suffixes in ascending order and use the first unused path, such as
 file as a JSON array with one object per finding and the fields `filename`, `elementName`,
 `elementId`, `elementType`, `severity`, `messageId`, `message`, `link`, and `sourceDerived`. Set
 `sourceDerived` to `true` for a source-derived taxonomy row and `false` for every other finding.
-For every `sourceDerived: true` finding, include a `sourceInventory` object with `sourceBpmn`,
-`processId`, `ownerId`, `ownerName`, `ownerType`, `sourceClassification`, and `status`. Include
-`reference`, `contentAvailable`, `complexity`, and `decision` for referenced-form inventory rows.
-Include `c7FormKind`, `fields`, and `c8FormId` for generated-form inventory rows. Resolve `link`
+For every `sourceDerived: true` finding, include a `sourceInventory` array with one object per
+inventory row. Each object includes `sourceBpmn`, `processId`, `ownerId`, `ownerName`, `ownerType`,
+`sourceClassification`, and `status`. Include `reference`, `contentAvailable`, `complexity`, and
+`decision` for referenced-form inventory rows. Include `c7FormKind`, `fields`, and `c8FormId` for
+generated-form inventory rows. Use this same array shape in the M2 report and the category artifact.
+Resolve `link`
 from the guidance URL for the finding's `messageId` in the current Diagram Converter message
 catalog. Set `link` to `n/a` when no catalog mapping exists, and record the missing mapping in
 `MIGRATION_REPORT.md`. Apply this contract to every finding in the M2 JSON report, not only
