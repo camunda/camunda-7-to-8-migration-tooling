@@ -198,11 +198,11 @@ filenames as if they were the same file.
 Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 `bpmn:scriptTask` with this decision table:
 
-| Converted task condition | Action |
+| Source and converted task condition | Action |
 |---|---|
-| `businessRuleTask` has `zeebe:calledDecision/@decisionId` with a non-blank value | Exclude the task from the job-type scan. |
-| `businessRuleTask` has `zeebe:calledDecision` with a missing or blank `@decisionId` | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
-| `businessRuleTask` has no `zeebe:calledDecision` | Inspect the task as a job-backed task. |
+| `businessRuleTask` has a non-blank source `camunda:decisionRef` and a non-blank converted `zeebe:calledDecision/@decisionId` | Exclude the task from the job-type scan. |
+| `businessRuleTask` has a blank or whitespace-only source `camunda:decisionRef`, or its converted `zeebe:calledDecision/@decisionId` is missing or blank | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
+| `businessRuleTask` has no source `camunda:decisionRef` and no converted `zeebe:calledDecision` | Inspect the task as a job-backed task. |
 | `scriptTask` has `zeebe:script` for an internal FEEL script | Exclude the task from the job-type scan. |
 | Any other listed task | Inspect its extension elements for a `zeebe:taskDefinition` with a non-blank `@type`. |
 
@@ -214,8 +214,9 @@ as evidence. Add this category to the grouped summary and the verdict table even
 report contains no matching `messageId`.
 
 For a `blank-dmn-decision-id` finding, record the source/output model pair, converted file,
-element id, element type, and missing or blank `decisionId` as evidence. Add this category to the
-grouped summary and the verdict table even when the JSON report contains no matching `messageId`.
+element id, element type, source `camunda:decisionRef` value, and converted `decisionId` value as
+evidence. Add this category to the grouped summary and the verdict table even when the JSON report
+contains no matching `messageId`.
 
 When a converter finding already identifies the missing job type for the paired source model and
 element ID, use that converter finding and do not add a duplicate synthetic finding.
@@ -274,7 +275,7 @@ Use the following rules:
 | `element-available-in-future-version` after target match or target-aware revalidation when the chosen target meets or exceeds the required version | **Advisory** | The target supports the element. A fresh report for that target would not emit this finding. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
-| `blank-dmn-decision-id` on a `businessRuleTask` with a missing or blank `zeebe:calledDecision/@decisionId` | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
+| `blank-dmn-decision-id` on a `businessRuleTask` with a blank or whitespace-only source `camunda:decisionRef` or a missing or blank converted `zeebe:calledDecision/@decisionId` | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
 | `delegate-expression-as-job-type`, `delegate-implementation` in a models-only run without a code cross-check | **Blocking** | No worker mapping is verified. Record `n/a` for the code artifact and assign `needs review` until code coverage is verified. |
 | `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check covers every source implementation or expression with a matching C8 job type | **Advisory** | The cross-check confirms coverage. Record the matched worker mapping and assign no action. |
 | `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check finds an uncovered implementation or expression, or a mismatched job type | **Blocking** | The task has no verified worker mapping. The uncovered or mismatched mapping can prevent execution or route the task to the wrong worker. |
