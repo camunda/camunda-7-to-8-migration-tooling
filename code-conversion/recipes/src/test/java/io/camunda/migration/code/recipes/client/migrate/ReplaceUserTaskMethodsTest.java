@@ -115,4 +115,34 @@ public class HandleUserTasksTestClass {
 }
 """));
   }
+
+  @Test
+  void doesNotChangeTypesForUnsupportedUserTaskFilters() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateUserTaskMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.task.Task;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class UnsupportedUserTaskFilterTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                public List<Task> findAssigned(String assignee) {
+                    return engine.getTaskService()
+                            .createTaskQuery()
+                            .taskAssignee(assignee)
+                            .list();
+                }
+            }
+            """));
+  }
 }

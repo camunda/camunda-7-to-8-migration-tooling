@@ -17,6 +17,7 @@ Patterns:
     - [Business Key &#8594; Business ID / Tags](#business-key-8594-business-id-tags)
     - [Cancel Process Instance](#cancel-process-instance)
     - [Correlate Messages](#correlate-messages)
+    - [Count Query Results](#count-query-results)
     - [Evaluate Decisions (DMN)](#evaluate-decisions-dmn)
     - [File Variables &#8594; Document API](#file-variables-8594-document-api)
     - [Handle Variables](#handle-variables)
@@ -549,6 +550,46 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
 -   the messageId can be used to differentiate between different buffered message
 -   messages are correlated once to a process based on BPMN process id (processDefinitionId), but can be correlated to different processes
 -   for more information, see [the docs](https://docs.camunda.io/docs/next/components/concepts/messages)
+
+---
+
+#### Count Query Results
+
+Camunda 7 query results can be counted with `list().size()`, `list().stream().count()`, or `count()`.
+The first two forms count the complete in-memory list returned by the engine.
+
+###### Camunda 7
+
+```java
+long runningInstances = engine.getRuntimeService()
+        .createProcessInstanceQuery()
+        .processDefinitionKey("order-process")
+        .list()
+        .stream()
+        .count();
+```
+
+###### Camunda 8
+
+```java
+import io.camunda.client.api.search.enums.ProcessInstanceState;
+
+long runningInstances = camundaClient.newProcessInstanceSearchRequest()
+        .filter(filter -> filter
+                .processDefinitionId("order-process")
+                .state(ProcessInstanceState.ACTIVE))
+        .send()
+        .join()
+        .page()
+        .totalItems();
+```
+
+Use `page().totalItems()` when the result drives a count, guard, or business decision.
+Use `page().totalItems().intValue()` when the original `list().size()` result type is `int` or
+`Integer`.
+Do not use `items().size()` or `items().stream().count()` for a complete result count.
+The `items()` list contains only the current page and can be limited by the configured page size.
+Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
 
 ---
 

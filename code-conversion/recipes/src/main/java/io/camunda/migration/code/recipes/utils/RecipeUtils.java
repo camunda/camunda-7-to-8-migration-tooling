@@ -62,6 +62,10 @@ public class RecipeUtils {
     return new TextComment(false, text, "\n" + statement.getPrefix().getIndent(), Markers.EMPTY);
   }
 
+  public static Comment createSimpleBlockComment(String text) {
+    return new TextComment(true, " " + text + " ", " ", Markers.EMPTY);
+  }
+
   public static JavaTemplate createSimpleJavaTemplate(String code) {
     return JavaTemplate.builder(code)
         .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
