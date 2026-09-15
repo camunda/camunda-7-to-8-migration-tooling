@@ -142,7 +142,9 @@ Determine the report's target version:
 If the report's version does not match the chosen target, or cannot be determined, warn the user and offer through AskUserQuestion before grouping (5b) or any cross-checks:
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
-- **Keep the imported report** — proceed as-is and record in MIGRATION_REPORT.md that the findings target a different or unknown version.
+- **Keep the imported report** — use it only for non-runtime grouping, record the mismatch in
+  MIGRATION_REPORT.md, and perform target-aware revalidation before assigning runtime impact or
+  completing the verdict table.
 
 #### 5a. Parse the JSON report
 
@@ -213,14 +215,16 @@ Use the following rules:
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
-| `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version; **Advisory** when the chosen target meets or exceeds it | Compare the report's required version with the chosen target. Classify a finding as Advisory when the target meets or exceeds the required version because an imported report can be stale. Revalidate a report generated for another target before using this classification. |
+| `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version; **Advisory** when the chosen target meets or exceeds it | Compare the report's required version with the chosen target. Classify a finding as Advisory when the target meets or exceeds the required version because an imported report can be stale. |
+| A report target that differs from the chosen target | Do not assign runtime impact until revalidation | Require a fresh findings report or target-aware revalidation before deriving impact. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
-| A blank `zeebe:taskDefinition/@type` on a service, send, business rule, or script task | **Blocking** | The converted executable task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. |
+| A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a service, send, non-DMN business-rule, or non-internal-script task | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
 | `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
-| `only-feel-supported` | **Blocking** when the original DMN `expressionLanguage` is not `feel`; **Advisory** when it is `feel` (case-insensitive) | Read the source value before conversion. The converter removes this attribute from non-definition elements, so an explicit FEEL value is valid while another language cannot execute. |
-| Every other known category, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
+| `loop-cardinality` | **Blocking** when no valid C8 `inputCollection` replaces the cardinality; **Advisory** when a valid replacement exists | The converter emits no C8 loop-count attribute. Inspect `zeebe:loopCharacteristics@inputCollection` and verify that its expression represents the same iteration set. |
+| `only-feel-supported` | **Blocking** when the original DMN `expressionLanguage` is neither the case-insensitive literal `feel` nor a recognized canonical OMG FEEL URI; **Advisory** when it is either recognized form | Read the source value before conversion. The converter removes this attribute from non-definition elements, so explicit FEEL values such as `https://www.omg.org/spec/DMN/20191111/FEEL/` are valid while another language cannot execute. |
+| Every other known category not covered above, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
 assigning its impact. Use **Blocking** only when the evidence shows a deployment or execution
