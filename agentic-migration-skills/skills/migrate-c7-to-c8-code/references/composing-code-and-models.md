@@ -28,13 +28,14 @@ Build the normalized input rows from the `delegate-expression-as-job-type`,
 `delegate-implementation`, `expression-method-as-job-type`, `execution-listener-supported`,
 `task-listener-supported`, `script-job-type`, `topic`, and `connector-id` findings and the M2 scan.
 For a converter finding, parse the original binding and emitted type from its `message` and
-converted model. For an M2 row, use the `original` and `jobType` columns created above. Each
+converted model. For an M2 row, use the `original` and `jobType` columns created above. Treat the
+normalized binding identity as the source binding plus the listener event for listener rows. Each
 normalized row has the shape:
 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-For listener rows, use the original listener implementation and the emitted
+For listener rows, set `original` to '<event>:<implementation>' and use the emitted
 `zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic rows, use the original script binding or topic and the emitted
 `zeebe:taskDefinition/@type`. For connector rows, use the source connector ID and verify the
 emitted type against a deployed connector registration or explicit connector handler.

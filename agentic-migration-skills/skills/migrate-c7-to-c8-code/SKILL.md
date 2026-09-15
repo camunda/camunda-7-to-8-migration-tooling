@@ -312,8 +312,10 @@ target version. See the linting section in `references/model-migration-approache
     `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
-    validation failure. Apply the worker coverage check in
-    `references/composing-code-and-models.md` to every normalized binding.
+    validation failure. When code migration is in scope, apply the worker coverage check in
+    `references/composing-code-and-models.md` to every normalized binding. For a models-only M2
+    run, record `n/a` for the code artifact and assign the models-only `needs review` result in
+    the verdict table.
 
 #### Summary
 
