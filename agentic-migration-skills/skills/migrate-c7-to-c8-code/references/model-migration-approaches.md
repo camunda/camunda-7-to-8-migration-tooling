@@ -322,9 +322,9 @@ Do not promote a category to **Blocking** because its severity is TASK or WARNIN
 
 For a fallback category, assign the default verdict from the finding severity:
 
-| Severity | Default verdict |
+| Severity and runtime impact | Default verdict |
 |---|---|
-| INFO | no action |
+| INFO with **Advisory** runtime impact | no action |
 | REVIEW | needs review |
 | WARNING or TASK | needs fix |
 
