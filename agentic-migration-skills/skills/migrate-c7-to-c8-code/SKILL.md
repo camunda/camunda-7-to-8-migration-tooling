@@ -307,15 +307,15 @@ target version. See the linting section in `references/model-migration-approache
    definitions-level XPath `expressionLanguage` attribute.
 16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`,
     `zeebe:executionListener/@type`, and `zeebe:taskListener/@type`. Derive the expected type from
-    the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`,
-    `camunda:topic`, `camunda:connectorId`, or listener implementation using the binding rules in
-    `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
-    decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
-    implementation, emitted type, and rationale. Treat a mismatch without that entry as a
-    validation failure. When code migration is in scope, apply the worker coverage check in
-    `references/composing-code-and-models.md` to every normalized binding. For a models-only M2
-    run, record `n/a` for the code artifact and assign the models-only `needs review` result in
-    the verdict table.
+    the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, `camunda:topic`, or
+    listener implementation using the binding rules in `references/model-migration-approaches.md`.
+    Read the `camunda:connectorId` child element's text, not an attribute, when deriving a connector
+    binding. If the emitted type differs, require a confirmed decision-log entry in
+    `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
+    and rationale. Treat a mismatch without that entry as a validation failure. When code migration
+    is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
+    every normalized binding. For a models-only M2 run, record `n/a` for the code artifact and
+    assign the models-only `needs review` result in the verdict table.
 
 #### Summary
 

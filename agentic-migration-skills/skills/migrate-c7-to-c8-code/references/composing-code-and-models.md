@@ -14,12 +14,19 @@ Follow the user's preference.
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 
-When M2 is in scope without a Diagram Converter report, scan every
+When M2 is in scope without a Diagram Converter report, enumerate every source
+`camunda:executionListener` and `camunda:taskListener` declaration and every emitted
 `zeebe:taskDefinition/@type`, `zeebe:executionListener/@type`, and `zeebe:taskListener/@type` in
-each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute,
-listener implementation, topic, or connector ID. Derive the expected type from the M2 binding rules in
-`model-migration-approaches.md`. Create one normalized input row with the columns `original` and
-`jobType` for each original-binding-to-emitted-type pair. Apply the same 1:1 or many-to-one check.
+each converted BPMN file. Key each source listener by its owner element, event, and implementation.
+Match each source listener with its corresponding emitted listener by owner, event, and normalized
+emitted type. If a source
+listener has no emitted pair, record a synthetic `execution-listener` or `task-listener` finding
+with the source implementation and no emitted job type. Apply the Blocking rule for that category
+in `model-migration-approaches.md`. Read the corresponding original Camunda 7 implementation
+attribute, listener implementation, topic, or connector ID. Derive the expected type from the M2
+binding rules in `model-migration-approaches.md`. Create one normalized input row with the columns
+`original` and `jobType` for each original-binding-to-emitted-type pair. Apply the same 1:1 or
+many-to-one check.
 Do not wait for converter findings, because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
@@ -27,10 +34,13 @@ Do not wait for converter findings, because M2-only runs do not produce them.
 Build the normalized input rows from the `delegate-expression-as-job-type`,
 `delegate-implementation`, `expression-method-as-job-type`, `execution-listener-supported`,
 `task-listener-supported`, `script-job-type`, `topic`, and `connector-id` findings and the M2 scan.
-For a converter finding, parse the original binding and emitted type from its `message` and
-converted model. For an M2 row, use the `original` and `jobType` columns created above. Treat the
-normalized binding identity as the source binding plus the listener event for listener rows. Each
-normalized row has the shape:
+For a converter finding, parse the original binding from the `message` when the message contains
+it. For `script-job-type`, `topic`, and `connector-id` findings without a binding in the message,
+read the paired source model and use the converted model for the emitted type. If neither source
+model nor message provides the binding, record the row as unresolved and do not mark the mapping
+as a covered 1:1 mapping. For an M2 row, use the `original` and `jobType` columns created above.
+Treat the normalized binding identity as the source binding plus the listener event for listener
+rows. Each normalized row has the shape:
 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
@@ -126,13 +136,16 @@ Each cross-check result maps to a verdict in the per-category verdict table (see
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
-Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
+Apply the runtime-impact override from `model-migration-approaches.md` step 5d.1 before the fallback
+when a category has no dedicated cross-check in step 5d and no named form procedure:
 
-| Finding severity | Fallback verdict | Cross-reference |
-|---|---|---|
-| INFO | no action | no dedicated cross-check |
-| REVIEW | needs review | no dedicated cross-check |
-| WARNING or TASK | needs fix | no dedicated cross-check |
+| Finding severity | Runtime impact or condition | Fallback verdict | Cross-reference |
+|---|---|---|---|
+| INFO | Blocking with concrete work defined | needs fix | no dedicated cross-check |
+| INFO | Blocking with pending decision or neither concrete work nor pending decision defined | needs review | no dedicated cross-check |
+| INFO | Advisory | no action | no dedicated cross-check |
+| REVIEW | Any assigned runtime impact | needs review | no dedicated cross-check |
+| WARNING or TASK | Any assigned runtime impact | needs fix | no dedicated cross-check |
 
 Copy the finding's `link` into the verdict table's `Link` column. Surface that link as the
 remediation starting point. Do not infer a category-specific cross-check from an unknown

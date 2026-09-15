@@ -326,12 +326,13 @@ Do not promote a category to **Blocking** because its severity is TASK or WARNIN
 **Advisory**, such as `form-data` without `camunda:formData@businessKey`. A WARNING can be
 **Blocking**, such as `element-not-supported`.
 
-For a fallback category, assign the default verdict from the finding severity:
+For a fallback category, assign the verdict with runtime impact before severity:
 
 | Severity and runtime impact | Default verdict |
 |---|---|
 | INFO with **Blocking** runtime impact and concrete work defined | needs fix |
 | INFO with **Blocking** runtime impact and a pending decision | needs review |
+| INFO with **Blocking** runtime impact and neither concrete work nor a pending decision defined | needs review |
 | INFO with **Advisory** runtime impact | no action |
 | REVIEW | needs review |
 | WARNING or TASK | needs fix |
@@ -380,7 +381,7 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category-impact row exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, they typically take verdict no action. Never leave findings as severity counts or a generic "findings need follow-up" note.
+After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category-impact row exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, apply the runtime-impact override before the severity fallback. Never assign no action to an INFO row with Blocking runtime impact. Never leave findings as severity counts or a generic "findings need follow-up" note.
 
 Verdicts:
 
@@ -408,7 +409,7 @@ Rules:
   per category-impact partition.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Do not derive a fallback verdict from severity alone. Apply the runtime-impact override in 5d.1 first. Map INFO to no action only for Advisory rows. Map INFO with Blocking impact to needs fix when concrete work is defined, and to needs review when work is undefined or a decision is pending. Map REVIEW to needs review. Map WARNING/TASK to needs fix. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
 - Include `blank-executable-task-job-type` even when the JSON report has no matching `messageId`.
   Give it `Blocking` runtime impact, `TASK` effective severity, `needs fix` verdict, and no
   dedicated cross-check.
