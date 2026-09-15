@@ -27,9 +27,9 @@ normalized input row with the columns `filename`, `elementId`, `headerKey`, `ori
 external-task topic, set `headerKey` to `topic` and `original` to the topic value. Apply the same
 1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings, because
 M2-only runs do not produce them. If a delegate row has no header matching the original C7
-attribute and value, keep the category **needs fix** and do not offer a dispatcher scaffold until
-M2 adds or retains that header. Topic rows are exempt because the topic itself supplies the
-original value and job type.
+attribute and value, or a topic row has no matching retained `topic` header, then mark the row
+incomplete. Keep the category **needs fix** and do not offer a dispatcher scaffold until M2 adds or
+retains that header.
 
 ### 1. Detect many-to-one job-type collapse
 
@@ -55,7 +55,7 @@ Identify incomplete rows before grouping:
 
 | Row state | Condition | Action |
 |---|---|---|
-| **Incomplete** | A row has a missing or blank `jobType`. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user explicitly chooses one in the model-edit follow-up. |
+| **Incomplete** | A row has a missing or blank `jobType`, or lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the model-edit follow-up. The model must also retain the header pair. |
 
 Group the remaining normalized rows by `jobType`, then classify each job-type group by its
 distinct `(headerKey, original)` pairs:
@@ -71,9 +71,13 @@ For a `delegate-implementation` category, apply the same pair-count rule. A shar
 
 ### 2a. 1:1 mapping - simple job-type match
 
-Job types in the converted model should match the `@JobWorker(type = ...)` values produced by the
-code migration. Use the Diagram Converter output for M1 and the binding rules in
-`model-migration-approaches.md` for M2. Flag mismatches for the user.
+Before either mapping check, enumerate every existing `@JobWorker` registration and resolve its
+effective type. When an annotation omits `type`, use the annotated method name. Use this effective
+type for the 1:1 comparison and for duplicate-subscriber detection.
+
+Job types in the converted model should match each worker's effective type. Use the Diagram Converter
+output for M1 and the binding rules in `model-migration-approaches.md` for M2. Flag mismatches for
+the user.
 
 ### 2b. Many-to-one mapping - dispatcher/adapter worker needed
 
@@ -82,7 +86,7 @@ Do NOT generate one `@JobWorker` per BPMN element for a collapsed job type. They
 Instead, flag for the user that the shared job type needs a single dispatcher/adapter job worker:
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
-- It reads the retained original expression from the job's task headers. The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, `class`, or `topic`). Its value is the original expression or topic string (e.g. `${myBean.myMethod(execution)}`). For M2, verify or add delegate headers during model migration before scaffolding. Topic rows use the external-task topic as the original value and do not require a retained header.
+- It reads the retained original expression from the job's task headers. The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, `class`, or `topic`). Its value is the original expression or topic string (e.g. `${myBean.myMethod(execution)}`). For M2, verify or add the matching delegate or topic header during model migration before scaffolding.
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
@@ -93,11 +97,13 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 When a many-to-one category has a **needs fix** verdict, process each shared job type independently.
 
-Before asking for a decision, enumerate every existing `@JobWorker` registration and resolve its
-effective type. When an `@JobWorker` omits `type`, use the annotated method name as its effective
-type. Include equivalent worker registrations whose effective type resolves to the shared type. If
-any registration already subscribes to that type, then stop scaffold generation. Do not create a second
-subscriber.
+Before asking for a decision, use the effective-type inventory to identify registrations whose
+effective type resolves to the shared type. If any registration already subscribes to that type,
+then stop scaffold generation. Do not create a second subscriber.
+
+Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
+Offer generation only for a group with a **needs fix** verdict and no effective worker. Do not offer
+generation for a group with a **no action** or **needs review** verdict.
 
 Use this decision table for each shared job type:
 
@@ -134,13 +140,15 @@ TODO route fail explicitly until its implementation exists. Add an explicit miss
 path that also fails instead of silently accepting or auto-completing an unroutable job.
 
 After generation, present the complete source or diff to the user for explicit review. Do not commit
-or deploy the scaffold until the user accepts it. If the user rejects the scaffold, remove or
-quarantine the generated file before continuing. Do not leave the file beside the migrated sources
-or let a later scan treat it as an existing subscriber. Then rerun the same cross-check used for
-hand-written dispatchers. Run the applicable formatter, compile, and test checks after writing the
-source. Record each validation result in MIGRATION_REPORT.md. The scaffold is not a completed
-remediation. Keep the category **needs fix** while any generated TODO route remains, the
-cross-check finds an uncovered pair, or any applicable formatter, compile, or test check fails.
+the scaffold until the user accepts it. Do not deploy the scaffold until every TODO route is removed
+and every applicable post-generation check passes. If the user rejects the scaffold, then remove the
+generated file or quarantine it outside every scanned source tree before continuing. Do not leave the
+file beside the migrated sources or let a later scan treat it as an existing subscriber. Then rerun
+the same cross-check used for hand-written dispatchers. Run the applicable formatter, compile, and
+test checks after writing the source. Record each validation result in MIGRATION_REPORT.md. The
+scaffold is not a completed remediation. Keep the category **needs fix** while any generated TODO
+route remains, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
+check fails.
 Mark the category **no action** only after the cross-check confirms coverage, the generated source
 has zero TODO routes, and all applicable post-generation checks pass. Record the generated file and
 uncovered implementation work in MIGRATION_REPORT.md.
@@ -198,8 +206,8 @@ The table's cross-reference column names the matched code artifact:
 
 | Evidence across every normalized row and shared job type | Verdict |
 |---|---|
-| Every normalized row has a non-empty `jobType`, and every job-type group has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with zero generated TODO routes and passing all applicable validation checks. | **no action** |
-| Any normalized row has a missing or blank `jobType`, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or generated TODO route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
+| Every normalized row has a non-empty `jobType` and a matching retained `(headerKey, original)` pair, and every job-type group has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with zero generated TODO routes and passing all applicable validation checks. | **no action** |
+| Any normalized row has a missing or blank `jobType` or lacks a matching retained `(headerKey, original)` pair, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or generated TODO route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
