@@ -318,8 +318,11 @@ target version. See the linting section in `references/model-migration-approache
     validation failure.
 17. When M2 creates a converted copy, set the Modeler namespace `executionPlatformVersion`
     attribute to the selected target version in canonical patch-zero form, such as `8.10.0` for
-    target `8.10`. If M2 cannot set target metadata, record `metadata unavailable`, keep the
-    affected category at **needs review**, and do not treat converter output as passing evidence.
+    target `8.10`. If target metadata is missing or mismatched, record `metadata unavailable` or
+    `metadata mismatch` as a run-level validation failure in `MIGRATION_REPORT.md`. Keep the
+    migration incomplete until the metadata is corrected, even when no finding category maps to
+    the converted copy. Do not treat converter output as passing evidence or resolve a category
+    based on it.
 
 #### Summary
 
@@ -348,12 +351,11 @@ participates in verification. Do not resolve a category verdict in an analyze-on
 no converted copies. Keep category verdicts provisional in that mode.
 Record a verification state for every category. Use `pending` before the gate, `passed` after every
 applicable check passes, `failed` after a check fails, and `unavailable` when a required
-deterministic tool is unavailable. Record `not applicable` only for the expected already-converted
-exception in the check evidence. Set the category to `passed` when all required checks pass,
-including a permitted `not applicable` check. When the supplementary CLI is unavailable for M2 or
-M3, record `unavailable` in that check's evidence and set the category to `passed` only after every
-other required check and the finding-specific postcondition pass. A category with any state other
-than `passed` cannot receive the **no action** verdict.
+deterministic tool is unavailable. The supplementary converter check is not required for the
+aggregate category state in M2 or M3. Record its unavailability only in that check's evidence.
+Set the category to `passed` when all other required checks and the finding-specific postcondition
+pass. Record `not applicable` only for the expected already-converted exception in the check
+evidence. A category with any state other than `passed` cannot receive the **no action** verdict.
 
 | Check | Required evidence |
 |---|---|
@@ -364,7 +366,7 @@ than `passed` cannot receive the **no action** verdict.
 | FEEL syntax | Parse every resulting FEEL expression covered by the category, including changed, retained, and converter-generated expressions, with the target FEEL parser when one is available. Record the parser, expression location, and result, or record `none present`. If no parser is available, record that limitation, set the verification state to `unavailable`, and keep the category at **needs review** unless another deterministic FEEL syntax check covers every expression. Keep the category at **needs fix** when parsing fails. |
 | Converter regression command | Where the local CLI, Java executable, and converter JAR support the participating converted file, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated tools. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. |
 | Converter applicability | Detect `executionPlatformVersion` with a namespace-aware query for the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local name, not the serialized `modeler:` prefix. Compare the value exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Record `not applicable` only when a standard converted copy has that exact value and the visitors reject the already-converted Camunda 8 diagram. Record missing or mismatched metadata as `metadata unavailable` or `metadata mismatch`, keep the category at **needs review** or **needs fix**, and do not treat CLI output as applicable passing evidence. |
-| Converter unavailable | For M2 or M3, record `unavailable` in the converter check evidence when the local CLI, Java executable, or converter JAR is unavailable. Because this check is supplementary, set the category to `passed` only after every other required check and the finding-specific postcondition pass. |
+| Converter unavailable | For M2 or M3, record `unavailable` in the converter check evidence when the local CLI, Java executable, or converter JAR is unavailable. Treat this supplementary check as non-blocking for the aggregate category state. Set the category to `passed` only after every other required check and the finding-specific postcondition pass. |
 | Converter failure | Treat any reported parse failure as a failed verification even when the CLI exits `0` or writes an empty CSV. Treat any other non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. |
 | Converter evidence | Capture the command, exit code, parse failures, and CLI's `Created ...` CSV path. Before continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports directory. Record the final evidence path after relocation, `removed` after cleanup deletes the CSV, or `not created` when the command produces no CSV. |
 | Findings source | Do not use CSV rows as findings input or as the pass/fail criterion. Use JSON for findings input in M1, M3, and E1. For M2, use the structured direct-rewrite findings summary and do not consume an unrelated JSON report. |

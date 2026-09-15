@@ -374,8 +374,8 @@ Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
 Set the Modeler namespace `executionPlatformVersion` attribute to the selected target version in
 canonical patch-zero form, such as `8.10.0` for target `8.10`, on every M2 converted copy before
-the verification gate. If M2 cannot set target metadata, record `metadata unavailable`, keep the
-affected category at **needs review**, and do not treat converter output as passing evidence.
+the verification gate. If M2 cannot set target metadata, apply Step 4 item 17 in `SKILL.md`.
+Do not treat converter output as passing evidence until target metadata passes the exact check.
 Record M2 findings in a structured summary for this run. Preserve a row-level record for every
 finding with `Filename`, `Element ID`, `Element type`, `Category`, `Severity`, `Message`, and any
 `Expression`. Group those records into category rows with the same `Category`, `Severity`, `Count`,
@@ -433,9 +433,14 @@ Apply these model-specific additions:
 
 - For M2, use the recorded original-to-converted pair paths and the structured direct-rewrite
   findings summary. Do not discover participating files with a filesystem glob.
-- For M3, use the exact original-to-converted pair paths. Record `unavailable` in the supplementary
-  converter check when the local CLI, Java executable, or converter JAR is unavailable. The category
-  may pass after every other required check and the finding-specific postcondition pass.
+- For M2, record `unavailable` only in the supplementary converter check when the local CLI, Java
+  executable, or converter JAR is unavailable. Continue the other required checks. Set the
+  aggregate category verification to `passed` after those checks and the finding-specific
+  postcondition pass.
+- For M3, use the exact original-to-converted pair paths. Record `unavailable` only in the
+  supplementary converter check when the local CLI, Java executable, or converter JAR is
+  unavailable. Continue the other required checks. Set the aggregate category verification to
+  `passed` after those checks and the finding-specific postcondition pass.
 - For E1, preserve the definition-to-source and source-to-converted path mapping captured during
   acquisition.
 - Capture the immutable baseline before each remediation batch and before each no-edit check.
