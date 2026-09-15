@@ -180,10 +180,13 @@ Group findings by `messageId` (the category). For each category compute:
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
-Write the complete category lists to `.camunda-migration/findings-by-category.json`. This is a
-working artifact for the migration session, not user-facing documentation. Use the JSON report
-captured in 5a as the source. If the fallback grouping script is used, it reads the captured JSON
-report and writes this artifact. Use this shape:
+Before writing this artifact, verify that the build does not package `.camunda-migration/`. If the
+build packages that directory, stop and ask the user to choose an explicitly non-packaged directory.
+Write the artifact only after this check succeeds. Write the complete category lists to
+`.camunda-migration/findings-by-category.json`. This is a working artifact for the migration
+session, not user-facing documentation. Use the JSON report captured in 5a as the source. If the
+fallback grouping script is used, it reads the captured JSON report and writes this artifact. Use
+this shape:
 
 ```json
 {
@@ -215,17 +218,20 @@ For source-derived categories with no converter finding, serialize one object pe
 entry in the `findings` array. Set `sourceDerived` to `true`, map the source path to `filename`, the
 owner id to `elementId`, and the owner type to `elementType`. Write the source classification in
 `message`. Preserve the remaining source inventory fields, such as process id, owner name,
-reference, decision, and status. This representation gives every synthetic category a complete
-element list.
+`reference`, decision, and status. Set `reference` to the `Reference (report-safe)` value from
+`form-reference-migration.md`. Redact credential-like URL query values and URL userinfo passwords
+before writing the artifact. Never copy raw form keys or credentials into the artifact. This
+representation gives every synthetic category a complete element list.
 
 For a legacy generic `form-key` finding, match each converter finding to the unique source
 inventory entry by source path or filename and owner id. Use process id and owner type to
-disambiguate when those fields exist. Place a copy of the matched finding in the `c7-*` category
-selected by the authoritative source classification. Preserve every converter field, add
-`sourceDerived: true`, and add the matched source inventory fields, including
-`sourceClassification`. Do not leave the finding only in `categories.form-key` or drop it. If the
-match is not unique, record the mismatch in MIGRATION_REPORT.md and keep the affected category
-`needs review`.
+disambiguate when those fields exist. Move the matched finding from `categories.form-key` into the
+`c7-*` category selected by the authoritative source classification. Preserve every converter field,
+add `sourceDerived: true`, and add the matched source inventory fields, including
+`sourceClassification`. Do not leave the finding in `categories.form-key` after a unique match. If
+the match is zero or non-unique, move the original finding to `categories.form-key-unmatched`.
+Preserve every converter field in the fallback category. Record the mismatch in
+MIGRATION_REPORT.md. Assign `needs review` to the fallback category.
 
 #### 5c. Present the grouped summary
 
@@ -446,7 +452,15 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Write `.camunda-migration/reports/analysis-results.json` as a JSON array with one object per finding and the fields `filename`, `elementName`, `elementId`, `elementType`, `severity`, `messageId`, `message`, and `link`. Use a fresh path and add a positive ` (n)` suffix when the unsuffixed path already exists. Treat this JSON report as the authoritative input for step 5a. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+Emit a findings summary that mirrors CLI severities (WARNING/TASK/REVIEW/INFO). Ask the user to
+review the findings. Use the non-packaged reports directory selected by the pre-flight rules.
+Choose a fresh `analysis-results.json` path in that directory. Add a positive ` (n)` suffix when
+the unsuffixed path already exists. Write the file as a JSON array with one object per finding and
+the fields `filename`, `elementName`, `elementId`, `elementType`, `severity`, `messageId`,
+`message`, and `link`. Record its path as the M2 `sourceReport`. Treat this JSON report as the
+authoritative input for step 5a. Lint every rewritten BPMN file per the linting section below.
+After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against
+the original/converted pair.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
