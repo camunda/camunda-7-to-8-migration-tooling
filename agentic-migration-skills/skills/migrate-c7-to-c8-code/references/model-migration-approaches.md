@@ -275,6 +275,7 @@ Use the following rules:
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
 | `blank-dmn-decision-id` on a `businessRuleTask` with a missing or blank `zeebe:calledDecision/@decisionId` | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
+| `delegate-expression-as-job-type`, `delegate-implementation` in a models-only run without a code cross-check | **Blocking** | No worker mapping is verified. Record `n/a` for the code artifact and assign `needs review` until code coverage is verified. |
 | `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check covers every source implementation or expression with a matching C8 job type | **Advisory** | The cross-check confirms coverage. Record the matched worker mapping and assign no action. |
 | `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check finds an uncovered implementation or expression, or a mismatched job type | **Blocking** | The task has no verified worker mapping. The uncovered or mismatched mapping can prevent execution or route the task to the wrong worker. |
 | `correlation-key-hint` when the referenced message is used by a message catch event | **Blocking** | The converter emits no `zeebe:subscription` when no correlation key is available. The catch event cannot correlate an incoming message. |
@@ -292,15 +293,20 @@ Use the following rules:
 | `only-feel-supported` when the original DMN `expressionLanguage` is neither the case-insensitive literal `feel` nor a recognized canonical OMG FEEL URI | **Blocking** | Read the source value before conversion. The converter removes this attribute from non-definition elements, so another language cannot execute. |
 | `only-feel-supported` when the original DMN `expressionLanguage` is the case-insensitive literal `feel` or a recognized canonical OMG FEEL URI | **Advisory** | The converter removes the explicit language attribute, but FEEL remains the supported language. |
 | `generated-form-property-source` | **Advisory** | The source-only form-property finding needs form migration work, but it does not by itself prove a deployment or execution failure. |
+| `form-data` when `camunda:formData@businessKey` is present | **Blocking** | No C8 form-js property reproduces the C7 process business-key behavior. Require an explicit Business ID, variable/correlation, or no-migration decision. |
+| `form-data` without `camunda:formData@businessKey` | **Advisory** | The generated form needs migration work, but it does not by itself prove a deployment or execution failure. |
+| `error-event-definition` when source inspection shows an executable task or active error path uses the definition | **Blocking** | The converter removes the unsupported C7 definition. The affected error path cannot preserve its modeled execution behavior. |
+| `error-event-definition` when source inspection shows no active executable use | **Advisory** | The definition does not affect deployed execution. Record the finding for cleanup or review. |
 | `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
 | `error-code-no-expression`, `escalation-code-no-expression` on an unused definition | **Advisory** | The unused definition does not block deployed execution. Record the finding for cleanup or review. |
-| Every other known category not covered above, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
+| Every other known category not covered above, including form references, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 Apply this verdict override before the severity fallback:
 
 | Condition | Verdict | Required action |
 |---|---|---|
 | `element-available-in-future-version` after target-aware revalidation confirms that the chosen target meets or exceeds the required version | **no action** | Do not offer migration work for the stale imported finding. |
+| Any row with **Blocking** runtime impact | **needs review** or **needs fix** | Never assign **no action**. Use **needs review** when evidence or remediation needs a human decision. Use **needs fix** when concrete work is defined. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
 assigning its impact. Use this decision table:
