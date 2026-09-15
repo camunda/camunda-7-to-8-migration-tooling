@@ -208,7 +208,7 @@ For a fallback category, assign the default verdict from the finding severity:
 
 | Severity | Default verdict |
 |---|---|
-| INFO | no action |
+| INFO | provisional needs review |
 | REVIEW | needs review |
 | WARNING or TASK | needs fix |
 
@@ -254,13 +254,13 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, they typically take verdict no action. Never leave findings as severity counts or a generic "findings need follow-up" note.
+After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW/INFO category exactly one verdict, and record the table in MIGRATION_REPORT.md. Include every INFO category, even when no edit is needed. Create a matching verification row for every category. Never leave findings as severity counts or a generic "findings need follow-up" note.
 
 Verdicts:
 
 | Verdict | Meaning | Required action |
 |---|---|---|
-| **no action** | The converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage. | Nothing to do. |
+| **no action** | The converter handled the category deterministically, the finding is purely informational, or a cross-check confirmed full coverage. Use this verdict only after the category passes its verification. | Nothing to do. |
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
@@ -276,9 +276,9 @@ Verdicts:
 Rules:
 
 - One row per category, sorted as in 5b.
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → provisional needs review, REVIEW → needs review, WARNING/TASK → needs fix). Change provisional INFO categories to no action only after a successful verification pass. Do not request a human decision for this provisional INFO verdict. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
-- Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
+- Classify every WARNING/TASK/REVIEW/INFO category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
@@ -403,7 +403,10 @@ Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and
 ## Verification before resolving a finding category
 
 Use this shared gate for M1, M2, M3, and E1. Run one verification pass for every category,
-including INFO and no-edit categories, before changing its verdict to **no action**.
+including INFO and no-edit categories, before changing its verdict to **no action**. Include every
+finding category in the findings inventory and verification table. Use provisional **needs review**
+for INFO categories until their verification pass succeeds. Do not request a human decision for
+this provisional INFO verdict.
 Run it after each remediation batch, or on every converted copy participating in the category when
 no manual edit was needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
 
@@ -413,25 +416,32 @@ no manual edit was needed. Record the exact before-and-after evidence in `MIGRAT
    participating files with a filesystem glob.
 2. For the category's touched elements, use namespace-aware queries by namespace URI, not literal
    prefixes. Count remaining Camunda 7 elements or attributes and conversion nodes or attributes.
-   After all categories reach terminal verdicts, run whole-file cleanup and confirm zero remaining
-   constructs, unused Camunda 7 or conversion namespace declarations, and leftover BPMN
-   definitions-level XPath `expressionLanguage`.
+   Record before-and-after counts. Require zero remaining Camunda 7 elements or attributes for
+   the category's touched elements before changing its verdict to **no action**. After all
+   categories reach terminal verdicts and Step 5e removes converter annotations, require and
+   record zero remaining conversion nodes or attributes, zero unused Camunda 7 or conversion
+   namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`.
 3. When a remediation introduces or changes task wiring, listeners, headers, dispatchers, or
    DMN/precompute wiring, confirm the matching declarations and code coverage. Check listener and
    task-header declarations only when the remediation or finding references them. Record
    `not applicable` when no such wiring is introduced.
 4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
    expression that cannot be checked and keep the category at **needs review** unless another
-   deterministic check covers it. Keep the category at **needs fix** when parsing fails.
-5. Where the CLI supports the edited file, run
-   `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version
-   "<target>" --check --csv` with the validated Java executable and converter JAR. On Windows
-   PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Require exit code
-   `0`. Treat any non-zero exit code or CSV-generation failure as a failed verification and keep
-   the category at **needs fix** or **needs review**. Record the command, exit code, and the CLI's
-   `Created ...` CSV path. Record the final evidence path after relocation, or `removed` after
-   cleanup deletes the CSV. Record `not created` when the command produces no CSV. Do not use CSV
-   rows as findings input or as the pass/fail criterion. Use JSON for findings input.
+   deterministic FEEL syntax check covers it. Keep the category at **needs fix** when parsing
+   fails.
+5. Where the CLI supports the participating converted file, run
+   `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>"
+   --check --csv` with the validated Java executable and converter JAR. On Windows PowerShell,
+   prefix the command with the call operator: `& "<java-cmd>" ...`. For a standard converted copy
+   whose `modeler:executionPlatformVersion` starts with `8`, record the CLI check as
+   `not applicable` because the BPMN and DMN visitors reject an already-converted Camunda 8
+   diagram. Record that output and rely on the XML, namespace, and code checks. Require exit code
+   `0` for every applicable file. Treat any other non-zero exit code or CSV-generation failure as
+   a failed verification and keep the category at **needs fix** or **needs review**. Record the
+   command, exit code, and the CLI's `Created ...` CSV path. Record the final evidence path after
+   relocation, or `removed` after cleanup deletes the CSV. Record `not created` when the command
+   produces no CSV. Do not use CSV rows as findings input or as the pass/fail criterion. Use JSON
+   for findings input.
 
 Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
 artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
@@ -439,10 +449,12 @@ category and `Category`, `Participating files`, `Before`, `Checks and evidence`,
 columns. Do not replace the findings inventory with the verification table.
 
 The local CLI `--check` path parses each selected BPMN or DMN file and runs the registered visitor
-and conversion pipeline without exporting a converted copy. On an already-converted `zeebe`
-diagram, the pipeline can report checks implemented for the remaining supported constructs, but it
-does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener, header,
-or FEEL semantics. The namespace-aware checks and code cross-checks therefore remain required.
+and conversion pipeline without exporting a converted copy. On a standard converted `zeebe` copy,
+the BPMN and DMN visitors reject the file with `This diagram is already a Camunda 8 diagram` when
+`modeler:executionPlatformVersion` starts with `8`. Record that expected CLI limitation as
+`not applicable` and rely on the XML, namespace, and code checks. The CLI does not reconstruct the
+original Camunda 7 mapping or prove runtime job-worker, listener, header, or FEEL semantics. The
+namespace-aware checks and code cross-checks therefore remain required.
 
 If any verification check fails, record the failure with its before-and-after values. Keep the
 category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
