@@ -201,7 +201,7 @@ Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 | Source and converted task condition | Action |
 |---|---|
 | `businessRuleTask` has a non-blank source `camunda:decisionRef` and a non-blank converted `zeebe:calledDecision/@decisionId` | Exclude the task from the job-type scan. |
-| `businessRuleTask` has a blank or whitespace-only source `camunda:decisionRef`, or its converted `zeebe:calledDecision/@decisionId` is missing or blank | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
+| `businessRuleTask` has a present but blank or whitespace-only source `camunda:decisionRef`, or a non-blank source `camunda:decisionRef` with a missing or blank converted `zeebe:calledDecision/@decisionId` | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
 | `businessRuleTask` has no source `camunda:decisionRef` and no converted `zeebe:calledDecision` | Inspect the task as a job-backed task. |
 | `scriptTask` has `zeebe:script` for an internal FEEL script | Exclude the task from the job-type scan. |
 | Any other listed task | Inspect its extension elements for a `zeebe:taskDefinition` with a non-blank `@type`. |
@@ -243,7 +243,7 @@ The current dedicated cross-check categories are:
 
 | Category | Dedicated cross-check |
 |---|---|
-| `delegate-expression-as-job-type`, `delegate-implementation`, `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic` | Check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md` |
+| `delegate-expression-as-job-type`, `delegate-implementation`, `expression-method-as-job-type`, `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic`, `connector-id` | Check the 1:1 and many-to-one job-type mappings, worker coverage, and connector registrations in `composing-code-and-models.md` |
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
@@ -277,12 +277,12 @@ Use the following rules:
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
 | `blank-dmn-decision-id` on a `businessRuleTask` with a blank or whitespace-only source `camunda:decisionRef` or a missing or blank converted `zeebe:calledDecision/@decisionId` | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
 | `delegate-expression-as-job-type`, `delegate-implementation` in a models-only run without a code cross-check | **Blocking** | No worker mapping is verified. Record `n/a` for the code artifact and assign `needs review` until code coverage is verified. |
-| `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check confirms a 1:1 mapping for every source implementation or expression | **Advisory** | The cross-check confirms coverage. Record the matched worker mapping and assign no action. |
+| `delegate-expression-as-job-type` when the code cross-check confirms a 1:1 mapping for every source implementation or expression | **Advisory** | The cross-check confirms coverage. Record the matched worker mapping and assign no action. |
 | `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check confirms a many-to-one mapping with one dispatcher or adapter worker whose routing covers every distinct source implementation or expression | **Advisory** | The dispatcher or adapter covers the shared job type without competing workers. Record its routing coverage and assign no action. |
 | `delegate-expression-as-job-type`, `delegate-implementation` when the code cross-check finds an uncovered implementation or expression, a mismatched job type, or a missing dispatcher or adapter for a many-to-one mapping | **Blocking** | The task has no verified worker mapping. The uncovered or mismatched mapping can prevent execution or route the task to the wrong worker. |
-| `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic` in a models-only run without a code cross-check | **Blocking** | No worker mapping is verified for the converted task or listener. Record `n/a` for the code artifact and assign `needs review` until code coverage is verified. |
-| `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic` when the code cross-check confirms every source binding with a matching worker through a 1:1 mapping or a complete many-to-one dispatcher or adapter | **Advisory** | The cross-check confirms that every converted task or listener can reach its worker. Record the matched worker mapping and assign no action. |
-| `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic` when the code cross-check finds an uncovered source binding, a mismatched job type, or a missing dispatcher or adapter for a many-to-one mapping | **Blocking** | The converted task or listener has no verified worker mapping. The uncovered or mismatched mapping can prevent execution or route work to the wrong worker. |
+| `expression-method-as-job-type`, `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic`, `connector-id` in a models-only run or without a code or integration cross-check | **Blocking** | No matching worker, handler, or connector is verified for the converted task. Record `n/a` for the code artifact and assign `needs review` until coverage is verified. |
+| `expression-method-as-job-type`, `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic`, `connector-id` when the code or integration cross-check confirms every source binding with a matching worker, handler, or connector through a 1:1 mapping or a complete many-to-one dispatcher or adapter | **Advisory** | The cross-check confirms that every converted task or listener can reach its worker, handler, or connector. Record the matched integration and assign no action. |
+| `expression-method-as-job-type`, `execution-listener-supported`, `task-listener-supported`, `script-job-type`, `topic`, `connector-id` when the cross-check finds an uncovered source binding, a mismatched job type, or a missing worker, handler, connector, dispatcher, or adapter | **Blocking** | The converted task or listener has no verified integration. The uncovered or mismatched mapping can prevent execution or route work to the wrong handler. |
 | `correlation-key-hint` when the referenced message is used by a message catch event | **Blocking** | The converter emits no `zeebe:subscription` when no correlation key is available. The catch event cannot correlate an incoming message. |
 | `correlation-key-hint` when the referenced message is not used by a message catch event | **Advisory** | No converted catch event requires an incoming correlation key. Record the finding for review. |
 | `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, completion conditions, DMN decision IDs (`camunda:decisionRef`), executable DMN expressions, or input/output mappings | **Blocking** | The affected expression controls routing, process invocation, timing, loop execution, decision resolution, decision evaluation, or task execution and cannot execute in the converted model. |
@@ -322,12 +322,15 @@ assigning its impact. Use this decision table:
 | The evidence does not show a deployment or execution failure. | **Advisory** | Record the affected model evidence and add the category to the inventory. |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
-**Advisory**, such as `form-data`. A WARNING can be **Blocking**, such as `element-not-supported`.
+**Advisory**, such as `form-data` without `camunda:formData@businessKey`. A WARNING can be
+**Blocking**, such as `element-not-supported`.
 
 For a fallback category, assign the default verdict from the finding severity:
 
 | Severity and runtime impact | Default verdict |
 |---|---|
+| INFO with **Blocking** runtime impact and concrete work defined | needs fix |
+| INFO with **Blocking** runtime impact and a pending decision | needs review |
 | INFO with **Advisory** runtime impact | no action |
 | REVIEW | needs review |
 | WARNING or TASK | needs fix |
@@ -509,6 +512,7 @@ the original Camunda 7 implementation attribute.
 | `camunda:delegateExpression` or `camunda:expression` with a method invocation (expression method) | Unwrap the expression. Replace each `.` with an uppercase first character of the following segment. Remove the `(...)` argument list after the camel-case transformation. | `${sampleBean.someMethod(x)}` becomes `sampleBeanSomeMethod`. |
 | `camunda:class` | Take the class name after the final dot. Decapitalize its first character. | `com.example.SampleDelegate` becomes `sampleDelegate`. |
 | `camunda:topic` on an external task | Copy the topic value without changing it. | `invoice-processing` remains `invoice-processing`. |
+| `camunda:connectorId` | Copy the connector ID unchanged as the job type. Verify that a matching connector registration or explicit connector handler exists. | `http-json` remains `http-json`. |
 
 For JUEL method-invocation findings, apply the shared [worker adapter rule](#juel-method-invocation-worker-adapters).
 

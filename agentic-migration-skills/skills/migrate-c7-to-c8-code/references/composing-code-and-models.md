@@ -17,7 +17,7 @@ Cross-reference the grouped Diagram Converter findings (see `model-migration-app
 When M2 is in scope without a Diagram Converter report, scan every
 `zeebe:taskDefinition/@type`, `zeebe:executionListener/@type`, and `zeebe:taskListener/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute,
-listener implementation, or topic. Derive the expected type from the M2 binding rules in
+listener implementation, topic, or connector ID. Derive the expected type from the M2 binding rules in
 `model-migration-approaches.md`. Create one normalized input row with the columns `original` and
 `jobType` for each original-binding-to-emitted-type pair. Apply the same 1:1 or many-to-one check.
 Do not wait for converter findings, because M2-only runs do not produce them.
@@ -25,29 +25,32 @@ Do not wait for converter findings, because M2-only runs do not produce them.
 ### 1. Detect many-to-one job-type collapse
 
 Build the normalized input rows from the `delegate-expression-as-job-type`,
-`delegate-implementation`, `execution-listener-supported`, `task-listener-supported`,
-`script-job-type`, and `topic` findings and the M2 scan. For a converter finding, parse the original
-binding and emitted type from its `message` and converted model. For an M2 row, use the `original`
-and `jobType` columns created above. Each normalized row has the shape:
+`delegate-implementation`, `expression-method-as-job-type`, `execution-listener-supported`,
+`task-listener-supported`, `script-job-type`, `topic`, and `connector-id` findings and the M2 scan.
+For a converter finding, parse the original binding and emitted type from its `message` and
+converted model. For an M2 row, use the `original` and `jobType` columns created above. Each
+normalized row has the shape:
 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
 For listener rows, use the original listener implementation and the emitted
-`zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic rows, use the
-original script binding or topic and the emitted `zeebe:taskDefinition/@type`.
+`zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic rows, use the original script binding or topic and the emitted
+`zeebe:taskDefinition/@type`. For connector rows, use the source connector ID and verify the
+emitted type against a deployed connector registration or explicit connector handler.
 
 Group the normalized rows by `jobType`:
 
-- **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project. Apply the same dispatcher check to listener, script, and topic rows.
+- **1:1**: every job type maps to exactly one original binding. Apply the simple check in 2a.
+- **Many-to-one**: one job type maps to multiple distinct original bindings, so the converter collapsed several bindings onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project. Apply the same dispatcher check to listener, script, and topic rows.
 
 Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
 
 ### 2a. 1:1 mapping - simple job-type match
 
 Job types in the converted model should match the `@JobWorker(type = ...)` values produced by the
-code migration. Use the Diagram Converter output for M1 and the binding rules in
+code migration. For connector rows, match the type to a deployed connector registration or
+explicit connector handler. Use the Diagram Converter output for M1 and the binding rules in
 `model-migration-approaches.md` for M2. Flag mismatches for the user.
 
 ### 2b. Many-to-one mapping - dispatcher/adapter worker needed

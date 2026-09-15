@@ -308,7 +308,7 @@ target version. See the linting section in `references/model-migration-approache
 16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`,
     `zeebe:executionListener/@type`, and `zeebe:taskListener/@type`. Derive the expected type from
     the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`,
-    `camunda:topic`, or listener implementation using the binding rules in
+    `camunda:topic`, `camunda:connectorId`, or listener implementation using the binding rules in
     `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
