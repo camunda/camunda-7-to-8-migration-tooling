@@ -52,10 +52,14 @@ the same pair in the converted element. Each normalized row has the shape:
 Group the normalized rows by `jobType`, then distinguish values by the pair
 `(headerKey, original)`:
 
-- **1:1**: every job type maps to exactly one distinct `(headerKey, original)` pair. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct pairs, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
+| Mapping | Condition | Action |
+|---|---|---|
+| **1:1** | Every job type maps to one distinct `(headerKey, original)` pair. | Apply the simple check in 2a. |
+| **Many-to-one** | A job type maps to multiple distinct `(headerKey, original)` pairs. | Apply the dispatcher check in 2b. The converter collapsed several delegates onto a shared job type. |
 
-Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
+This shape is common at scale. One generic job type can cover thousands of expression-based service tasks in a real project.
+
+For a `delegate-implementation` category, apply the same pair-count rule. A shared default job type does not by itself make a category many-to-one.
 
 ### 2a. 1:1 mapping - simple job-type match
 
@@ -80,20 +84,21 @@ pairs for the user.
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
 When a many-to-one category has a **needs fix** verdict, process each shared job type independently.
-Offer a scaffold through AskUserQuestion only when no worker already subscribes to the shared type:
 
-- **Generate a dispatcher scaffold (recommended)** — in the AskUserQuestion prompt, show the
-  shared job type, every retained header key, and the distinct original expressions grouped by
-  retained key before asking for acceptance and generating the file.
-- **I will implement the dispatcher manually** — do not create a source file, and keep the category
-  as **needs fix**.
+Before asking for a decision, enumerate every existing `@JobWorker` registration and resolve its
+effective type. When an `@JobWorker` omits `type`, use the annotated method name as its effective
+type. Include equivalent worker registrations whose effective type resolves to the shared type. If
+any registration already subscribes to that type, stop scaffold generation. Do not create a second
+subscriber.
 
-Before generation, enumerate every existing `@JobWorker` registration and resolve its effective
-type. When an `@JobWorker` omits `type`, use the annotated method name as its effective type.
-Include equivalent worker registrations whose effective type resolves to the shared type. If any
-registration already subscribes to that type, stop scaffold generation. Ask the user to extend an
-existing dispatcher, or to merge or remove a non-dispatcher registration before creating one. Do
-not create a second subscriber.
+Use this decision table for each shared job type:
+
+| Verdict | Effective worker for the shared type | Action |
+|---|---|---|
+| **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
+| **needs review** | Any | Collect the pending user decision before offering a scaffold. |
+| **needs fix** | None | Ask whether to **Generate a dispatcher scaffold (recommended)** or **I will implement the dispatcher manually**. In the generation prompt, show the shared job type, every retained header key, and the distinct original expressions grouped by retained key. |
+| **needs fix** | One or more | Do not offer generation. Ask the user to extend an existing dispatcher, or to merge or remove a non-dispatcher registration before creating one. |
 
 Generate the scaffold only after the user chooses the first option. Create a new source file beside
 the migrated worker sources, using the project's conventional package, license header, naming, and
@@ -116,8 +121,10 @@ After generation, present the complete source or diff to the user for explicit r
 or deploy the scaffold until the user accepts it. Then rerun the same cross-check used for
 hand-written dispatchers. Run the applicable formatter, compile, and test checks after writing the
 source. Record each validation result in MIGRATION_REPORT.md. The scaffold is not a completed
-remediation: keep the category **needs fix** while any generated `TODO` remains, and record the
-generated file and uncovered implementation work in MIGRATION_REPORT.md.
+remediation. Keep the category **needs fix** while any generated TODO route remains or the
+cross-check finds an uncovered pair. Mark the category **no action** only after the cross-check
+confirms coverage and the generated source has zero TODO routes. Record the generated file and
+uncovered implementation work in MIGRATION_REPORT.md.
 
 ### 3. FEEL method-invocation category
 
@@ -169,8 +176,8 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
-- Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
+- 1:1 job-type match confirmed, a dispatcher covering every distinct `(headerKey, original)` pair, and no generated TODO routes: **no action** (the category is fully covered).
+- Mismatched job types, uncovered `(headerKey, original)` pairs, generated TODO routes, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
