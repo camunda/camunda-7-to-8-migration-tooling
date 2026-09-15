@@ -180,8 +180,10 @@ Group findings by `messageId` (the category). For each converter category comput
 
 #### 5b.1. Add source-derived findings
 
-After grouping JSON findings, scan every fresh converted BPMN model with a namespace-aware XML
-parser. Run this scan for M1, M2, M3, and E1. Do not restrict it to M2 or to converter findings.
+After grouping the available findings, scan every fresh converted BPMN model with a namespace-aware
+XML parser. This scan is an explicit exception to the rule that trusts unflagged converter output.
+For M1, M3, and E1, run this scan after grouping the JSON findings. For M2, run it after the
+findings summary because M2 does not produce a JSON report. Run this scan for M1, M2, M3, and E1.
 
 Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 `bpmn:scriptTask`:
@@ -192,9 +194,13 @@ Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
   non-blank `@type`.
 
 When a listed task has no task definition or has a blank task-definition type, add a source-derived
-finding in the `blank-executable-task-job-type` category. Record the converted file, element id,
+finding in the `blank-executable-task-job-type` category only when no converter finding for the
+same file and element already identifies a missing job type. Record the converted file, element id,
 element type, and missing or blank attribute as evidence. Add this category to the grouped summary
 and the verdict table even when the JSON report contains no matching `messageId`.
+
+When a converter finding already identifies the missing job type for the same file and element, use
+that converter finding and do not add a duplicate synthetic finding.
 
 Source-derived categories have no converter severity. Record `n/a` as their converter severity and
 use `TASK` as their effective severity for sorting. If the imported report target differs from the
@@ -244,21 +250,32 @@ Use the following rules:
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
-| `element-available-in-future-version` after target match or target-aware revalidation | **Blocking** when the chosen target is lower than the required version; **Advisory** when the chosen target meets or exceeds it | Compare the report's required version with the chosen target only after the report target matches or revalidation completes. |
+| `element-available-in-future-version` after target match or target-aware revalidation when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target only after the report target matches or revalidation completes. |
+| `element-available-in-future-version` after target match or target-aware revalidation when the chosen target meets or exceeds the required version | **Advisory** | The target supports the element. The imported finding can still be stale. |
 | A report target that differs from the chosen target | Do not assign runtime impact until revalidation | This rule takes precedence over every category-specific rule. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
-| `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
+| `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, or completion conditions | **Blocking** | The affected expression controls routing, process invocation, timing, or loop execution and cannot execute in the converted model. |
+| `expression-execution-not-available`, `expression-method-not-possible` on due dates, follow-up dates, candidate users or groups, priorities, input or output mappings, or other non-blocking attributes | **Advisory** | The affected attribute needs migration work or a decision, but it does not by itself prove that the model cannot deploy or execute. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
-| `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the chosen target is 8.9 or later | **Blocking** | The converted `zeebe:conditionalFilter` cannot trigger on delete events because C8 supports only `create` and `update`. When the target is below 8.9, defer to target-aware revalidation and apply the conditional-event `element-available-in-future-version` rule if applicable. |
+| `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the chosen target is 8.9 or later | **Blocking** | The converted `zeebe:conditionalFilter` cannot trigger on delete events because C8 supports only `create` and `update`. |
+| `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the matching or revalidated target is below 8.9 | **Blocking** | The conditional event cannot deploy at this target. If the corresponding `element-available-in-future-version` finding is present, merge both findings because they describe the same event. Retain one Blocking row. |
 | `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
-| `loop-cardinality` | **Blocking** when no valid C8 `inputCollection` replaces the cardinality; **Advisory** when a valid replacement exists | The converter emits no C8 loop-count attribute. Inspect `zeebe:loopCharacteristics@inputCollection` and verify that its expression represents the same iteration set. |
-| `only-feel-supported` | **Blocking** when the original DMN `expressionLanguage` is neither the case-insensitive literal `feel` nor a recognized canonical OMG FEEL URI; **Advisory** when it is either recognized form | Read the source value before conversion. The converter removes this attribute from non-definition elements, so explicit FEEL values such as `https://www.omg.org/spec/DMN/20191111/FEEL/` are valid while another language cannot execute. |
+| `loop-cardinality` when no valid C8 `inputCollection` replaces the cardinality | **Blocking** | The converter emits no C8 loop-count attribute. Inspect `zeebe:loopCharacteristics@inputCollection` and verify that its expression represents the same iteration set. |
+| `loop-cardinality` when a valid C8 `inputCollection` replaces the cardinality | **Advisory** | The converted loop has an iteration collection. Verify that its expression represents the same iteration set. |
+| `only-feel-supported` when the original DMN `expressionLanguage` is neither the case-insensitive literal `feel` nor a recognized canonical OMG FEEL URI | **Blocking** | Read the source value before conversion. The converter removes this attribute from non-definition elements, so another language cannot execute. |
+| `only-feel-supported` when the original DMN `expressionLanguage` is the case-insensitive literal `feel` or a recognized canonical OMG FEEL URI | **Advisory** | The converter removes the explicit language attribute, but FEEL remains the supported language. |
+| `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
+| `error-code-no-expression`, `escalation-code-no-expression` on an unused definition | **Advisory** | The unused definition does not block deployed execution. Record the finding for cleanup or review. |
 | Every other known category not covered above, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
-assigning its impact. Use **Blocking** only when the evidence shows a deployment or execution
-failure. Otherwise use **Advisory**, record the evidence, and add the category to the inventory.
+assigning its impact. Use this decision table:
+
+| Evidence for the new or unknown category | Runtime impact | Required record |
+|---|---|---|
+| The evidence shows a deployment or execution failure. | **Blocking** | Record the affected model evidence and add the category to the inventory. |
+| The evidence does not show a deployment or execution failure. | **Advisory** | Record the affected model evidence and add the category to the inventory. |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
 **Advisory**, such as `form-data`. A WARNING can be **Blocking**, such as `element-not-supported`.
