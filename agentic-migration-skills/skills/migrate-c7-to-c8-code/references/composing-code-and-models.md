@@ -184,8 +184,9 @@ path that also fails instead of silently accepting or auto-completing an unrouta
 
 After generation, present the complete source or diff to the user for explicit review. Keep the draft
 in quarantine while the user reviews it. Do not treat review approval as approval to enable the
-draft. Replace every TODO route with its actual legacy invocation while the draft remains quarantined.
-After every known route is implemented, ask the user to accept the completed source. On acceptance,
+draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
+invent or replace the legacy invocation. After every known route is implemented, ask the user to
+accept the completed source. On acceptance,
 remove draft-only markers, move the source into the intended worker source tree, and run the
 applicable formatter, compile, and test checks before deployment. If the user rejects the scaffold,
 remove the draft or keep it outside every scanned source tree. Do not leave the file beside the
