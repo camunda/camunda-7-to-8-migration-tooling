@@ -8,11 +8,9 @@
 package io.camunda.migration.code.recipes.client;
 
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
-import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.ExecutionContext;
@@ -20,7 +18,6 @@ import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Comment;
@@ -38,6 +35,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       "https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/";
   private static final String IDENTITY_MIGRATOR_URL =
       "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/identity/";
+  private static final String IDENTITY_PROVIDER_URL =
+      "https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/";
   static final String IDENTITY_MARKER = "IdentityService has no direct Java client equivalent";
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
@@ -45,22 +44,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   private static final MethodMatcher SET_JOB_RETRIES_MATCHER =
       new MethodMatcher(
           MANAGEMENT_SERVICE_FQN + " setJobRetries(java.lang.String, int)");
-  private static final JavaTemplate SET_JOB_RETRIES_TEMPLATE =
-      RecipeUtils.createSimpleJavaTemplate(
-          "#{camundaClient:any(io.camunda.client.CamundaClient)}"
-              + ".newUpdateJobCommand(Long.parseLong(#{jobId:any(java.lang.String)}))"
-              + ".retries(#{retries:any(int)}).send().join()");
-  private static final List<String> IDENTITY_METHODS =
-      List.of(
-          "createUserQuery",
-          "saveUser",
-          "createGroupQuery",
-          "saveGroup",
-          "createMembership",
-          "deleteMembership",
-          "setAuthenticatedUserId",
-          "clearAuthentication",
-          "createAuthorizationQuery");
   private static final Map<String, String> MANAGEMENT_METHOD_HINTS =
       Map.of(
           "createJobQuery", "Use POST /v2/jobs/search or CamundaClient job search requests.",
@@ -69,7 +52,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           "createIncidentQuery", "Use POST /v2/incidents/search.",
           "getRegisteredDeployments", "Use the Orchestration Cluster REST API to search deployments.",
           "suspendJobByProcessInstanceId",
-              "Use the Orchestration Cluster REST API to suspend the related process instance.");
+              "Job suspension is unsupported in Camunda 8. If pausing the entire process instance is acceptable, use the process-instance suspension API.",
+          "setJobRetries",
+              "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).retries(n).send().join().");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -79,7 +64,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   @Override
   public @NonNull String getDescription() {
     return "Adds migration TODO comments for Camunda 7 IdentityService and ManagementService "
-        + "usage and migrates ManagementService.setJobRetries to the Camunda 8 client.";
+        + "usage, including guidance for migrating ManagementService.setJobRetries.";
   }
 
   @Override
@@ -108,26 +93,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           @Override
-          public J.MethodInvocation visitMethodInvocation(
-              J.MethodInvocation invocation, ExecutionContext ctx) {
-            J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
-            if (!SET_JOB_RETRIES_MATCHER.matches(visited)) {
-              return visited;
-            }
-            return (J.MethodInvocation)
-                SET_JOB_RETRIES_TEMPLATE.apply(
-                    getCursor(),
-                    visited.getCoordinates().replace(),
-                    ReplacementUtils.createArgs(
-                        visited,
-                        RecipeUtils.createSimpleIdentifier(
-                            "camundaClient", "io.camunda.client.CamundaClient"),
-                        List.of(
-                            new ReplacementUtils.SimpleReplacementSpec.NamedArg("jobId", 0),
-                            new ReplacementUtils.SimpleReplacementSpec.NamedArg("retries", 1))));
-          }
-
-          @Override
           public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
             J.Block visited = super.visitBlock(block, ctx);
             List<Statement> newStatements = new ArrayList<>();
@@ -146,35 +111,33 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             if (alreadyAnnotated(statement.getComments())) {
               return statement;
             }
-            ServiceCall serviceCall = findServiceCall(statement);
-            if (serviceCall == null || serviceCall.isJobRetries()) {
+            List<ServiceCall> serviceCalls = findServiceCalls(statement);
+            if (serviceCalls.isEmpty()) {
               return statement;
             }
-            return addCommentToStatement(statement, serviceCall);
+            return addCommentsToStatement(statement, serviceCalls);
           }
 
-          private ServiceCall findServiceCall(Statement statement) {
-            AtomicReference<ServiceCall> found = new AtomicReference<>();
-            new JavaIsoVisitor<AtomicReference<ServiceCall>>() {
+          private List<ServiceCall> findServiceCalls(Statement statement) {
+            List<ServiceCall> found = new ArrayList<>();
+            new JavaIsoVisitor<List<ServiceCall>>() {
               @Override
               public J.MethodInvocation visitMethodInvocation(
-                  J.MethodInvocation invocation, AtomicReference<ServiceCall> current) {
-                if (current.get() == null) {
-                  ServiceCall serviceCall = serviceCall(invocation);
-                  if (serviceCall != null) {
-                    current.set(serviceCall);
-                    return invocation;
-                  }
+                  J.MethodInvocation invocation, List<ServiceCall> current) {
+                ServiceCall serviceCall = serviceCall(invocation);
+                if (serviceCall != null) {
+                  current.add(serviceCall);
                 }
-                return super.visitMethodInvocation(invocation, current);
+                return (J.MethodInvocation) super.visitMethodInvocation(invocation, current);
               }
 
               @Override
-              public J.Block visitBlock(J.Block nestedBlock, AtomicReference<ServiceCall> current) {
+              public J.Block visitBlock(J.Block nestedBlock, List<ServiceCall> current) {
                 return nestedBlock;
               }
+
             }.visit(statement, found);
-            return found.get();
+            return found;
           }
 
           private ServiceCall serviceCall(J.MethodInvocation invocation) {
@@ -211,17 +174,17 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             return false;
           }
 
-          private Statement addCommentToStatement(Statement statement, ServiceCall serviceCall) {
-            String marker =
-                serviceCall.serviceFqn().equals(IDENTITY_SERVICE_FQN)
-                    ? IDENTITY_MARKER
-                    : MANAGEMENT_MARKER;
-            return (Statement)
-                statement.withComments(
-                    Stream.concat(
-                            statement.getComments().stream(),
-                            methodComments(statement, serviceCall, marker).stream())
-                        .toList());
+          private Statement addCommentsToStatement(
+              Statement statement, List<ServiceCall> serviceCalls) {
+            List<Comment> comments = new ArrayList<>(statement.getComments());
+            for (ServiceCall serviceCall : serviceCalls) {
+              String marker =
+                  serviceCall.serviceFqn().equals(IDENTITY_SERVICE_FQN)
+                      ? IDENTITY_MARKER
+                      : MANAGEMENT_MARKER;
+              comments.addAll(methodComments(statement, serviceCall, marker));
+            }
+            return (Statement) statement.withComments(comments);
           }
 
           private boolean alreadyAnnotated(List<Comment> comments) {
@@ -245,6 +208,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   RecipeUtils.createSimpleComment(
                       declaration,
                       " For runtime identity management, use the Camunda Admin REST API or your identity provider's API."),
+                  RecipeUtils.createSimpleComment(declaration, " See: " + ADMIN_API_URL),
                   RecipeUtils.createSimpleComment(
                       declaration, " See: " + IDENTITY_MIGRATOR_URL));
             }
@@ -271,25 +235,30 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                 RecipeUtils.createSimpleComment(
                     statement,
                     " See: "
-                        + (serviceCall.serviceFqn().equals(IDENTITY_SERVICE_FQN)
-                            ? IDENTITY_MIGRATOR_URL
-                            : ADMIN_API_URL)));
+                        + methodDocsUrl(serviceCall)));
           }
 
           private String methodHint(ServiceCall serviceCall) {
             if (serviceCall.serviceFqn().equals(IDENTITY_SERVICE_FQN)) {
               if ("setAuthenticatedUserId".equals(serviceCall.methodName())
                   || "clearAuthentication".equals(serviceCall.methodName())) {
-                return "Authentication is handled at the transport layer with JWT/OAuth.";
-              }
-              if (IDENTITY_METHODS.contains(serviceCall.methodName())) {
-                return "Use the Camunda Admin REST API or your identity provider's API.";
+                return "Authentication is handled at the transport layer with JWT/OAuth; configure the identity provider instead.";
               }
               return "Use the Camunda Admin REST API or your identity provider's API.";
             }
             return MANAGEMENT_METHOD_HINTS.getOrDefault(
                 serviceCall.methodName(),
                 "Use CamundaClient or the Orchestration Cluster REST API.");
+          }
+
+          private String methodDocsUrl(ServiceCall serviceCall) {
+            if (!IDENTITY_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
+              return ADMIN_API_URL;
+            }
+            return "setAuthenticatedUserId".equals(serviceCall.methodName())
+                    || "clearAuthentication".equals(serviceCall.methodName())
+                ? IDENTITY_PROVIDER_URL
+                : ADMIN_API_URL;
           }
 
           private record ServiceCall(String serviceFqn, String methodName) {
