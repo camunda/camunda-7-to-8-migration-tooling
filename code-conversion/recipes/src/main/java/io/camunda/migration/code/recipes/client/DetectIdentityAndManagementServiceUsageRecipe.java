@@ -33,28 +33,43 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       "org.camunda.bpm.engine.ManagementService";
   private static final String ADMIN_API_URL =
       "https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/";
+  private static final String CAMUNDA_JAVA_CLIENT_URL =
+      "https://docs.camunda.io/docs/apis-tools/java-client/";
   private static final String IDENTITY_MIGRATOR_URL =
       "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/identity/";
   private static final String IDENTITY_PROVIDER_URL =
       "https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/";
-  static final String IDENTITY_MARKER = "IdentityService has no direct Java client equivalent";
+  static final String IDENTITY_MARKER =
+      "IdentityService requires method-specific migration guidance";
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
 
   private static final MethodMatcher SET_JOB_RETRIES_MATCHER =
       new MethodMatcher(
           MANAGEMENT_SERVICE_FQN + " setJobRetries(java.lang.String, int)");
+  private static final Map<String, String> IDENTITY_METHOD_HINTS =
+      Map.of(
+          "createUserQuery", "Use CamundaClient.newUsersSearchRequest().",
+          "saveUser",
+              "Use CamundaClient.newCreateUserCommand() or newUpdateUserCommand(userId).",
+          "createGroupQuery", "Use CamundaClient.newGroupsSearchRequest().",
+          "saveGroup",
+              "Use CamundaClient.newCreateGroupCommand() or newUpdateGroupCommand(groupId).",
+          "createMembership", "Use CamundaClient.newAssignUserToGroupCommand().",
+          "deleteMembership", "Use CamundaClient.newUnassignUserFromGroupCommand().",
+          "createAuthorizationQuery", "Use CamundaClient.newAuthorizationSearchRequest().");
   private static final Map<String, String> MANAGEMENT_METHOD_HINTS =
       Map.of(
           "createJobQuery", "Use POST /v2/jobs/search or CamundaClient job search requests.",
           "executeJob",
               "In tests, use processTestContext.increaseTime(Duration); otherwise use the job API.",
           "createIncidentQuery", "Use POST /v2/incidents/search.",
-          "getRegisteredDeployments", "Use the Orchestration Cluster REST API to search deployments.",
+          "getRegisteredDeployments",
+              "Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.",
           "suspendJobByProcessInstanceId",
               "Job suspension is unsupported in Camunda 8. If pausing the entire process instance is acceptable, use the process-instance suspension API.",
           "setJobRetries",
-              "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).retries(n).send().join().");
+              "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -204,10 +219,11 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                       declaration, " TODO: " + IDENTITY_MARKER + " in Camunda 8."),
                   RecipeUtils.createSimpleComment(
                       declaration,
-                      " For bulk migration of users/groups/authorizations, use the Identity Data Migrator."),
+                      " Use method-specific Camunda Java Client, Orchestration Cluster REST API, or identity provider guidance."),
                   RecipeUtils.createSimpleComment(
                       declaration,
-                      " For runtime identity management, use the Camunda Admin REST API or your identity provider's API."),
+                      " For bulk migration of users/groups/authorizations, use the Identity Data Migrator."),
+                  RecipeUtils.createSimpleComment(declaration, " See: " + CAMUNDA_JAVA_CLIENT_URL),
                   RecipeUtils.createSimpleComment(declaration, " See: " + ADMIN_API_URL),
                   RecipeUtils.createSimpleComment(
                       declaration, " See: " + IDENTITY_MIGRATOR_URL));
@@ -244,7 +260,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   || "clearAuthentication".equals(serviceCall.methodName())) {
                 return "Authentication is handled at the transport layer with JWT/OAuth; configure the identity provider instead.";
               }
-              return "Use the Camunda Admin REST API or your identity provider's API.";
+              return IDENTITY_METHOD_HINTS.getOrDefault(
+                  serviceCall.methodName(),
+                  "Use the Orchestration Cluster REST API or your identity provider's API.");
             }
             return MANAGEMENT_METHOD_HINTS.getOrDefault(
                 serviceCall.methodName(),
@@ -258,15 +276,12 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             return "setAuthenticatedUserId".equals(serviceCall.methodName())
                     || "clearAuthentication".equals(serviceCall.methodName())
                 ? IDENTITY_PROVIDER_URL
-                : ADMIN_API_URL;
+                : IDENTITY_METHOD_HINTS.containsKey(serviceCall.methodName())
+                    ? CAMUNDA_JAVA_CLIENT_URL
+                    : ADMIN_API_URL;
           }
 
-          private record ServiceCall(String serviceFqn, String methodName) {
-            private boolean isJobRetries() {
-              return MANAGEMENT_SERVICE_FQN.equals(serviceFqn)
-                  && "setJobRetries".equals(methodName);
-            }
-          }
+          private record ServiceCall(String serviceFqn, String methodName) {}
         });
   }
 }
