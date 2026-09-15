@@ -316,10 +316,11 @@ target version. See the linting section in `references/model-migration-approache
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
-17. When M2 creates a converted copy, set the Modeler namespace `executionPlatformVersion`
-    attribute to the selected target version in canonical patch-zero form, such as `8.10.0` for
-    target `8.10`. Set the Modeler namespace `executionPlatform` attribute to `Camunda Cloud`.
-    If either target metadata field is missing or mismatched, record `metadata unavailable` or
+17. When any migration approach creates or imports a converted copy, verify the Modeler namespace
+    `executionPlatformVersion` attribute against the selected target in canonical patch-zero form,
+    such as `8.10.0` for target `8.10`. Verify the Modeler namespace `executionPlatform` attribute
+    as `Camunda Cloud`. When M2 creates the copy, set both fields before verification. If either
+    target metadata field is missing or mismatched, record `metadata unavailable` or
     `metadata mismatch` as a run-level validation failure in `MIGRATION_REPORT.md`. Keep the
     migration incomplete until both fields are corrected, even when no finding category maps to
     the converted copy. Do not treat converter output as passing evidence or resolve a category
