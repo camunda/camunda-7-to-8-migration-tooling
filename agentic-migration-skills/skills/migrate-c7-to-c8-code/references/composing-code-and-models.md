@@ -69,6 +69,34 @@ Handle these rows as ONE named category, not one by one:
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
 
+### Verification gate before resolving a category
+
+Run one verification pass for every category before changing its verdict to **no action** or
+resolved. Run it after each remediation batch, or on the converted copy when no manual edit was
+needed. Use the `converted-c8-*` files, never the original models.
+
+| Verification | Scope | Evidence |
+|---|---|---|
+| XML parse | Every edited BPMN and DMN file | Namespace-aware parser command, exit code, and file list |
+| Conversion cleanup | Every edited model | Counts for remaining `camunda:` nodes and attributes, `conversion:*` metadata, and unused Camunda 7 namespace declarations |
+| Runtime wiring | Each remediated category | Element IDs plus matching `zeebe:taskDefinition`, listener, and task-header declarations |
+| FEEL syntax | Each changed FEEL expression | Target FEEL parser and result, or a recorded not-checkable limitation |
+| Converter regression | Each edited file supported by the CLI | `local <file> --platform-version <target> --check --csv` command, exit code, and CSV findings compared with the before evidence |
+
+Use one `MIGRATION_REPORT.md` row per category with `Category`, `Edited files`, `Before`, `Checks
+and evidence`, `After`, and `Verdict` columns.
+
+The CLI check parses the file and runs the registered visitor and conversion pipeline in memory.
+It can catch malformed XML and findings supported by those visitors. On an already-converted
+`zeebe` diagram, Camunda 7 visitors do not reconstruct the original delegate mapping or prove
+runtime job-worker, listener, header, or FEEL semantics. Treat the CLI result as supplementary
+evidence, not as a replacement for the namespace-aware and code cross-checks.
+
+Record the category, edited paths, checks, command results, and before-and-after evidence in
+`MIGRATION_REPORT.md`. If a check fails, reopen the category with the failure evidence. Do not
+start an automatic fix loop. Escalate after one failed verification pass when another remediation
+attempt or a design decision is required.
+
 ### 4. Generated-form code and behavior
 
 For every `form-data` or `generated-form-property-source` item, cross-check the code inventory before accepting the generated form:

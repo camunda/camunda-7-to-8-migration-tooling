@@ -116,6 +116,8 @@ These rules apply to every later step.
 - An INFO finding is informational until a later cross-check identifies work.
 - Converter annotations are temporary review metadata. Once the verdict table is complete, strip
   `conversion:*` elements and attributes from the converted copies with namespace-aware XML tooling.
+- A category verdict is provisional until the edited `converted-c8-*` files pass the verification
+  gate in Step 5.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root.
 - Keep `MIGRATION_REPORT.md` current.
 - Use `MIGRATION_REPORT.md` as the single source of truth for inventories, decisions, open items,
@@ -282,6 +284,8 @@ target version. See the linting section in `references/model-migration-approache
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
    with its category, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
+   A category marked **no action** after a fix is provisional until the Step 5 verification gate
+   passes.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
 6. Every accepted form is a standard Camunda 8 `.form`.
@@ -321,6 +325,33 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
+#### Verification before resolving a category
+
+Run one verification pass for every category before changing its verdict to **no action** or
+resolved. Run it after a category fix and on the converted copy when no manual edit was needed.
+Record before-and-after evidence in `MIGRATION_REPORT.md`. Do not start an automatic fix loop.
+
+| Check | Required evidence |
+|---|---|
+| XML structure | Re-parse every edited `converted-c8-*.bpmn` or `converted-c8-*.dmn` with a namespace-aware XML parser. Record the command, exit code, and edited paths. |
+| Namespace and metadata cleanup | Confirm that no `camunda:` element or attribute, `conversion:*` node or attribute, unused Camunda 7 namespace declaration, or definitions-level Camunda 7 `expressionLanguage` remains. Record the count before and after. |
+| Referenced conversion wiring | Confirm that every fixed task has its expected `zeebe:taskDefinition/@type`, listener declaration, and task header. Confirm that every referenced job type, listener, and header value has a matching declaration in the edited file. Record the element IDs and declarations checked. |
+| FEEL syntax | Parse each changed FEEL expression with the target FEEL parser when one is available. Record the parser, expression location, and result. If syntax is not checkable, record that limitation and keep the category open for review when no other deterministic check covers it. |
+| Converter regression check | Where the local CLI supports the edited model, run `local <edited-file> --platform-version <target> --check --csv`. Compare the CSV with the before evidence. A relevant finding that remains or appears fails verification. Record the exact command, exit code, and CSV findings. The CSV is verification evidence, not the JSON findings input. |
+
+Use one `MIGRATION_REPORT.md` row per category with these columns: `Category`, `Edited files`,
+`Before`, `Checks and evidence`, `After`, and `Verdict`.
+
+The converter check is supplementary. It can parse the edited XML and run registered visitor and
+conversion checks. It does not reconstruct the original Camunda 7 mapping from an already-converted
+`zeebe` diagram. It does not prove that a job worker, listener, header, or FEEL expression has the
+intended runtime semantics. The namespace-aware checks and code cross-checks above provide that
+coverage.
+
+If any check fails, re-open the category with the failing evidence and its before-and-after values.
+Do not mark the category **no action** or resolved. Escalate after the single verification pass
+when the failure needs a new design or a second remediation attempt.
+
 If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
 to resolve it:
 
@@ -354,6 +385,9 @@ undifferentiated list.
   that share an integration.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
+- After each model-finding batch, run the verification pass before changing its verdict to
+  **no action** or resolved. Record the before-and-after evidence and any reopened category in
+  `MIGRATION_REPORT.md`.
 
 #### Action 2: delete now-redundant code
 

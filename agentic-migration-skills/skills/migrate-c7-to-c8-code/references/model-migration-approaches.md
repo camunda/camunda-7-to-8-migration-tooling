@@ -395,6 +395,39 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
+### Verification before resolving a finding category
+
+Run one verification pass for every category before changing its verdict to **no action** or
+resolved. Run it after each remediation batch, or on the converted copy when no manual edit was
+needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
+
+1. Re-parse every edited `converted-c8-*` BPMN or DMN file with a namespace-aware XML parser.
+2. Confirm that no `camunda:` element or attribute, `conversion:*` node or attribute, unused
+   Camunda 7 namespace declaration, or definitions-level Camunda 7 `expressionLanguage` remains.
+3. Confirm that each remediation has the expected `zeebe:taskDefinition`, listener, and task-header
+   declarations. Match every referenced job type, listener, and header value to a declaration in
+   the edited file.
+4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
+   expression that cannot be checked and keep the category open for review when no other
+   deterministic check covers it.
+5. Where the CLI supports the edited file, run
+   `local <edited-file> --platform-version <target> --check --csv`. Record the command, exit code,
+   and CSV findings. Compare the CSV with the before evidence. A relevant finding that remains or
+   appears fails verification. Use CSV as verification evidence only. Use JSON for findings input.
+
+Use one `MIGRATION_REPORT.md` row per category with `Category`, `Edited files`, `Before`, `Checks
+and evidence`, `After`, and `Verdict` columns.
+
+The local CLI `--check` path parses each selected BPMN or DMN file and runs the registered visitor
+and conversion pipeline without exporting a converted copy. On an already-converted `zeebe`
+diagram, the pipeline can report checks implemented for the remaining supported constructs, but it
+does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener, header,
+or FEEL semantics. The namespace-aware checks and code cross-checks therefore remain required.
+
+If any verification check fails, re-open the category and record the failure with its before-and-
+after values. Do not run an automatic fix loop. Escalate after one failed pass when another
+remediation attempt or a design decision is required.
+
 ## Approach M3 - Online Diagram Converter (hosted)
 
 Point the user to the hosted converter:
