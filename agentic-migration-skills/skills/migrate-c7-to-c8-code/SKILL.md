@@ -307,8 +307,8 @@ target version. See the linting section in `references/model-migration-approache
    deliberately to the Camunda 8 default. The copied Camunda 7 `externalReference` or `formKey` is
    gone from that element.
 15. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
-   `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
-   definitions-level XPath `expressionLanguage` attribute.
+   `conversion:*` attribute, no unused Camunda 7 or conversion namespace declaration, and no
+   leftover BPMN definitions-level XPath `expressionLanguage` attribute.
 16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
     from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
     `camunda:topic` attribute using the binding rules in
@@ -327,20 +327,24 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 #### Verification before resolving a category
 
-Run one verification pass for every category before changing its verdict to **no action** or
-resolved. Run it after a category fix and on the converted copy when no manual edit was needed.
-Record before-and-after evidence in `MIGRATION_REPORT.md`. Do not start an automatic fix loop.
+Run one verification pass for every category before changing its verdict to **no action**.
+Run it after a category fix and on every converted copy participating in the category when no
+manual edit was needed. Record before-and-after evidence in `MIGRATION_REPORT.md`. Do not start an
+automatic fix loop.
 
 | Check | Required evidence |
 |---|---|
-| XML structure | Re-parse every edited `converted-c8-*.bpmn` or `converted-c8-*.dmn` with a namespace-aware XML parser. Record the command, exit code, and edited paths. |
-| Namespace and metadata cleanup | Confirm that no `camunda:` element or attribute, `conversion:*` node or attribute, unused Camunda 7 namespace declaration, or definitions-level Camunda 7 `expressionLanguage` remains. Record the count before and after. |
-| Referenced conversion wiring | Confirm that every fixed task has its expected `zeebe:taskDefinition/@type`, listener declaration, and task header. Confirm that every referenced job type, listener, and header value has a matching declaration in the edited file. Record the element IDs and declarations checked. |
-| FEEL syntax | Parse each changed FEEL expression with the target FEEL parser when one is available. Record the parser, expression location, and result. If syntax is not checkable, record that limitation and keep the category open for review when no other deterministic check covers it. |
-| Converter regression check | Where the local CLI supports the edited model, run `local <edited-file> --platform-version <target> --check --csv`. Compare the CSV with the before evidence. A relevant finding that remains or appears fails verification. Record the exact command, exit code, and CSV findings. The CSV is verification evidence, not the JSON findings input. |
+| XML structure | Re-parse every converted `converted-c8-*.bpmn`, `converted-c8-*.bpmn20.xml`, `converted-c8-*.dmn`, or `converted-c8-*.dmn11.xml` participating in the category with a namespace-aware XML parser, including files with no manual edit. Record the command, exit code, and paths. |
+| Namespace and metadata cleanup | For the category's touched elements, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes and conversion nodes or attributes. At final validation, confirm zero remaining constructs, unused Camunda 7 or conversion namespace declarations, and leftover BPMN definitions-level XPath `expressionLanguage`. Record counts before and after. |
+| Referenced conversion wiring | Confirm the expected `zeebe:taskDefinition/@type` for every remediation. Check listener declarations and task headers only when the remediation or finding references them. Match every referenced job type, listener, and header value to a declaration in the edited file. Record the element IDs and declarations checked. |
+| FEEL syntax | Parse each changed FEEL expression with the target FEEL parser when one is available. Record the parser, expression location, and result. If no parser is available, record that limitation and keep the category at **needs review** unless another deterministic check covers it. Keep the category at **needs fix** when parsing fails. |
+| Converter regression check | Where the local CLI supports the edited model, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR. Capture the CLI's `Created ...` CSV path, compare that file with the before evidence, and record the path, command, exit code, and findings. Move the CSV to a non-packaged evidence directory or remove it after recording it. A relevant finding that remains or appears fails verification. Use CSV as verification evidence only. Use JSON for findings input. |
 
-Use one `MIGRATION_REPORT.md` row per category with these columns: `Category`, `Edited files`,
-`Before`, `Checks and evidence`, `After`, and `Verdict`.
+Keep the per-category findings inventory from `references/model-migration-approaches.md` step 5d
+with its `Category`, `Count`, `Cross-referenced code artifact`, `Link`, and `Verdict` columns.
+Add a separate verification table with one row per category and these columns: `Category`,
+`Edited files`, `Before`, `Checks and evidence`, `After`, and `Verdict`. Do not replace the
+findings inventory with the verification table.
 
 The converter check is supplementary. It can parse the edited XML and run registered visitor and
 conversion checks. It does not reconstruct the original Camunda 7 mapping from an already-converted
@@ -348,9 +352,10 @@ conversion checks. It does not reconstruct the original Camunda 7 mapping from a
 intended runtime semantics. The namespace-aware checks and code cross-checks above provide that
 coverage.
 
-If any check fails, re-open the category with the failing evidence and its before-and-after values.
-Do not mark the category **no action** or resolved. Escalate after the single verification pass
-when the failure needs a new design or a second remediation attempt.
+If any check fails, record the failure with its before-and-after values. Keep the category at
+**needs fix** when concrete remediation remains. Keep it at **needs review** when a design decision
+or an unavailable deterministic check remains. Do not mark it **no action**. Escalate after the
+single verification pass when the failure needs a new design or a second remediation attempt.
 
 If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
 to resolve it:
@@ -386,8 +391,8 @@ undifferentiated list.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 - After each model-finding batch, run the verification pass before changing its verdict to
-  **no action** or resolved. Record the before-and-after evidence and any reopened category in
-  `MIGRATION_REPORT.md`.
+  **no action**. Record the before-and-after evidence and keep a failed category at **needs fix**
+  or **needs review** in `MIGRATION_REPORT.md`.
 
 #### Action 2: delete now-redundant code
 

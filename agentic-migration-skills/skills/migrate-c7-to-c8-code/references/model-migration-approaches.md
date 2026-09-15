@@ -294,7 +294,9 @@ Use a namespace-aware XML parser or XML tooling, never regular expressions. For 
 - Remove `xmlns:camunda` (or another declaration for the C7 BPMN (`http://camunda.org/schema/1.0/bpmn`) or DMN (`http://camunda.org/schema/1.0/dmn`) namespace) only when no remaining element, attribute, or QName-valued attribute uses that namespace. Preserve and report any genuine remaining C7 QName instead of making it undeclared.
 - Remove a BPMN definitions-level `expressionLanguage` attribute when it is the leftover C7 XPath declaration. Do not remove a valid DMN expression language or an expression attribute before resolving its finding.
 
-Reparse every cleaned file. Fail the cleanup if it is not well-formed, or if any `conversion:*` node or attribute or unused C7 namespace declaration remains. Run this step before model validation and before linking or deploying generated forms.
+Reparse every cleaned file. Fail the cleanup if it is not well-formed, or if any `conversion:*` node
+or attribute or unused C7 or conversion namespace declaration remains. Run this step before model
+validation and before linking or deploying generated forms.
 
 #### 5f. Generate and review Camunda 8 forms
 
@@ -397,26 +399,36 @@ Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and
 
 ### Verification before resolving a finding category
 
-Run one verification pass for every category before changing its verdict to **no action** or
-resolved. Run it after each remediation batch, or on the converted copy when no manual edit was
-needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
+Run one verification pass for every category before changing its verdict to **no action**.
+Run it after each remediation batch, or on every converted copy participating in the category when
+no manual edit was needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
 
-1. Re-parse every edited `converted-c8-*` BPMN or DMN file with a namespace-aware XML parser.
-2. Confirm that no `camunda:` element or attribute, `conversion:*` node or attribute, unused
-   Camunda 7 namespace declaration, or definitions-level Camunda 7 `expressionLanguage` remains.
-3. Confirm that each remediation has the expected `zeebe:taskDefinition`, listener, and task-header
-   declarations. Match every referenced job type, listener, and header value to a declaration in
-   the edited file.
+1. Re-parse every converted `converted-c8-*.bpmn`, `converted-c8-*.bpmn20.xml`,
+   `converted-c8-*.dmn`, or `converted-c8-*.dmn11.xml` file participating in the category with a
+   namespace-aware XML parser, including files with no manual edit.
+2. For the category's touched elements, use namespace-aware queries by namespace URI, not literal
+   prefixes. Count remaining Camunda 7 elements or attributes and conversion nodes or attributes.
+   After all categories reach terminal verdicts, run whole-file cleanup and confirm zero remaining
+   constructs, unused Camunda 7 or conversion namespace declarations, and leftover BPMN
+   definitions-level XPath `expressionLanguage`.
+3. Confirm the expected `zeebe:taskDefinition` for each remediation. Check listener and task-header
+   declarations only when the remediation or finding references them. Match every referenced job
+   type, listener, and header value to a declaration in the edited file.
 4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
-   expression that cannot be checked and keep the category open for review when no other
-   deterministic check covers it.
+   expression that cannot be checked and keep the category at **needs review** unless another
+   deterministic check covers it. Keep the category at **needs fix** when parsing fails.
 5. Where the CLI supports the edited file, run
-   `local <edited-file> --platform-version <target> --check --csv`. Record the command, exit code,
-   and CSV findings. Compare the CSV with the before evidence. A relevant finding that remains or
-   appears fails verification. Use CSV as verification evidence only. Use JSON for findings input.
+   `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version
+   "<target>" --check --csv` with the validated Java executable and converter JAR. Capture the
+   CLI's `Created ...` CSV path, compare that file with the before evidence, and record the path,
+   command, exit code, and findings. Move the CSV to a non-packaged evidence directory or remove it
+   after recording it. A relevant finding that remains or appears fails verification. Use CSV as
+   verification evidence only. Use JSON for findings input.
 
-Use one `MIGRATION_REPORT.md` row per category with `Category`, `Edited files`, `Before`, `Checks
-and evidence`, `After`, and `Verdict` columns.
+Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
+artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
+category and `Category`, `Edited files`, `Before`, `Checks and evidence`, `After`, and `Verdict`
+columns. Do not replace the findings inventory with the verification table.
 
 The local CLI `--check` path parses each selected BPMN or DMN file and runs the registered visitor
 and conversion pipeline without exporting a converted copy. On an already-converted `zeebe`
@@ -424,9 +436,11 @@ diagram, the pipeline can report checks implemented for the remaining supported 
 does not reconstruct the original Camunda 7 mapping or prove runtime job-worker, listener, header,
 or FEEL semantics. The namespace-aware checks and code cross-checks therefore remain required.
 
-If any verification check fails, re-open the category and record the failure with its before-and-
-after values. Do not run an automatic fix loop. Escalate after one failed pass when another
-remediation attempt or a design decision is required.
+If any verification check fails, record the failure with its before-and-after values. Keep the
+category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
+design decision or an unavailable deterministic check remains. Do not mark it **no action**. Do not
+run an automatic fix loop. Escalate after one failed pass when another remediation attempt or a
+design decision is required.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 

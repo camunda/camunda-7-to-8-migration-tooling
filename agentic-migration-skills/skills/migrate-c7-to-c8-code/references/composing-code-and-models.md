@@ -71,20 +71,23 @@ Record the category, its total count, the decision taken, and any uncovered invo
 
 ### Verification gate before resolving a category
 
-Run one verification pass for every category before changing its verdict to **no action** or
-resolved. Run it after each remediation batch, or on the converted copy when no manual edit was
-needed. Use the `converted-c8-*` files, never the original models.
+Run one verification pass for every category before changing its verdict to **no action**.
+Run it after each remediation batch, or on every converted copy participating in the category when
+no manual edit was needed. Use the `converted-c8-*` files, never the original models.
 
 | Verification | Scope | Evidence |
 |---|---|---|
-| XML parse | Every edited BPMN and DMN file | Namespace-aware parser command, exit code, and file list |
-| Conversion cleanup | Every edited model | Counts for remaining `camunda:` nodes and attributes, `conversion:*` metadata, and unused Camunda 7 namespace declarations |
-| Runtime wiring | Each remediated category | Element IDs plus matching `zeebe:taskDefinition`, listener, and task-header declarations |
-| FEEL syntax | Each changed FEEL expression | Target FEEL parser and result, or a recorded not-checkable limitation |
-| Converter regression | Each edited file supported by the CLI | `local <file> --platform-version <target> --check --csv` command, exit code, and CSV findings compared with the before evidence |
+| XML parse | Every converted BPMN or DMN file participating in the category, including no-edit files | Namespace-aware parser command, exit code, and file list |
+| Conversion cleanup | Every converted file participating in the category, scoped to the category's touched elements | Namespace-aware counts by URI for remaining Camunda 7 elements or attributes and conversion nodes or attributes. At final validation, also count unused Camunda 7 or conversion namespace declarations and the leftover BPMN definitions-level XPath `expressionLanguage`. |
+| Runtime wiring | Each remediated category | Element IDs, matching XML declarations, and code-side match and coverage evidence for referenced job types, listeners, headers, dispatchers, and DMN or precompute remediations |
+| FEEL syntax | Each changed FEEL expression | Target FEEL parser and result. If no parser is available, record the limitation and keep the category at **needs review** unless another deterministic check covers it. Keep the category at **needs fix** when parsing fails. |
+| Converter regression | Each converted file supported by the CLI | `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR, the captured `Created ...` CSV path, exit code, and findings compared with the before evidence. Move the CSV to a non-packaged evidence directory or remove it after recording it. |
 
-Use one `MIGRATION_REPORT.md` row per category with `Category`, `Edited files`, `Before`, `Checks
-and evidence`, `After`, and `Verdict` columns.
+Keep the per-category findings inventory defined in
+`references/model-migration-approaches.md` step 5d with its `Category`, `Count`,
+`Cross-referenced code artifact`, `Link`, and `Verdict` columns. Add a separate verification table
+with one row per category and `Category`, `Edited files`, `Before`, `Checks and evidence`, `After`,
+and `Verdict` columns. Do not replace the findings inventory with the verification table.
 
 The CLI check parses the file and runs the registered visitor and conversion pipeline in memory.
 It can catch malformed XML and findings supported by those visitors. On an already-converted
@@ -93,7 +96,9 @@ runtime job-worker, listener, header, or FEEL semantics. Treat the CLI result as
 evidence, not as a replacement for the namespace-aware and code cross-checks.
 
 Record the category, edited paths, checks, command results, and before-and-after evidence in
-`MIGRATION_REPORT.md`. If a check fails, reopen the category with the failure evidence. Do not
+`MIGRATION_REPORT.md`. If a check fails, record the failure with its before-and-after values. Keep
+the category at **needs fix** when concrete remediation remains. Keep it at **needs review** when a
+design decision or an unavailable deterministic check remains. Do not mark it **no action**. Do not
 start an automatic fix loop. Escalate after one failed verification pass when another remediation
 attempt or a design decision is required.
 
