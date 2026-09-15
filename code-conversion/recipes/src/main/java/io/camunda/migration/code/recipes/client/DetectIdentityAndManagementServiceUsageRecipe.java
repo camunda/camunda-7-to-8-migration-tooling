@@ -65,7 +65,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               "saveUser",
               "Use CamundaClient.newCreateUserCommand() for new users or newUpdateUserCommand(userId) for existing users."),
           Map.entry("createUserQuery", "Use CamundaClient.newUsersSearchRequest()."),
-          Map.entry("createNativeUserQuery", "Use CamundaClient.newUsersSearchRequest()."),
           Map.entry("deleteUser", "Use CamundaClient.newDeleteUserCommand(userId)."),
           Map.entry("newGroup", "Use CamundaClient.newCreateGroupCommand()."),
           Map.entry("createGroupQuery", "Use CamundaClient.newGroupsSearchRequest()."),
@@ -116,7 +115,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       Map.of(
           "createJobQuery", "Use POST /v2/jobs/search or CamundaClient job search requests.",
           "executeJob",
-              "In tests, use processTestContext.increaseTime(Duration); otherwise use the job API.",
+              "Camunda 8 has no operation to execute an arbitrary job by ID. In timer tests, use processTestContext.increaseTime(Duration); production work must run in a job worker that activates jobs by type.",
           "createIncidentQuery", "Use POST /v2/incidents/search.",
           "getRegisteredDeployments",
               "Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.",
@@ -347,8 +346,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   serviceCall.methodName(),
                   "Use CamundaClient or the Orchestration Cluster REST API.");
             }
-            if ("setJobRetries".equals(serviceCall.methodName())) {
-              if (serviceCall.singleJobRetry()) {
+            if (isJobRetryMethod(serviceCall.methodName())) {
+              if ("setJobRetries".equals(serviceCall.methodName())
+                  && serviceCall.singleJobRetry()) {
                 return "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               }
               return "Preserve the bulk or query semantics, resolve each affected Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join() for each job.";
@@ -377,6 +377,10 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           private boolean isIdentityAuthenticationMethod(ServiceCall serviceCall) {
             return IDENTITY_SERVICE_FQN.equals(serviceCall.serviceFqn())
                 && IDENTITY_AUTHENTICATION_METHODS.contains(serviceCall.methodName());
+          }
+
+          private boolean isJobRetryMethod(String methodName) {
+            return "setJobRetries".equals(methodName) || "setJobRetriesAsync".equals(methodName);
           }
 
           private String methodDocsUrl(ServiceCall serviceCall) {
