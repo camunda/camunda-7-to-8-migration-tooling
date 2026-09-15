@@ -75,7 +75,7 @@ public class PrepareCamundaClientDependencyRecipe extends Recipe {
                     .anyMatch(
                         varDecl ->
                             varDecl.getVariables().stream()
-                                .anyMatch(v -> v.getSimpleName().equals(CAMUNDA_CLIENT)));
+                                .anyMatch(v -> v.getSimpleName().equals("camundaClient")));
 
             if (hasField) {
               return classDeclaration; // Already present

@@ -162,4 +162,89 @@ class RemoveEngineDependencyTest implements RewriteTest {
                         """));
     }
 
+    @Test
+    void preservesRepositoryServiceDependenciesAcrossCompilationUnit() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.ProcessEngine;
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private Holder holder;
+
+                          void deploy() {
+                            // TODO: RepositoryService query was not migrated automatically
+                            holder.repositoryService.createProcessDefinitionQuery();
+                          }
+                        }
+
+                        class Holder {
+                          private ProcessEngine engine;
+                          RepositoryService repositoryService;
+                        }
+                        """,
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private Holder holder;
+
+                          void deploy() {
+                            // TODO: RepositoryService query was not migrated automatically
+                            holder.repositoryService.createProcessDefinitionQuery();
+                          }
+                        }
+
+                        class Holder {
+                          RepositoryService repositoryService;
+                        }
+                        """));
+    }
+
+    @Test
+    void preservesImportForRepositoryServiceExpressionTypes() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+                          private RepositoryService repositoryService;
+
+                          Class<?> type() {
+                            return RepositoryService.class;
+                          }
+
+                          Object cast(Object value) {
+                            return (RepositoryService) value;
+                          }
+                        }
+                        """,
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Deployer {
+
+                          Class<?> type() {
+                            return RepositoryService.class;
+                          }
+
+                          Object cast(Object value) {
+                            return (RepositoryService) value;
+                          }
+                        }
+                        """));
+    }
+
 }

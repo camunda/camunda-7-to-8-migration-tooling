@@ -8,7 +8,6 @@
 package io.camunda.migration.code.recipes.client;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.*;
@@ -35,7 +34,8 @@ public class CleanupEngineDependencyRecipe extends Recipe {
   Set<String> REPOSITORY_SERVICE_TODOS =
       Set.of(
           "TODO: RepositoryService deployment method was not migrated automatically",
-          "TODO: RepositoryService query was not migrated automatically");
+          "TODO: RepositoryService query was not migrated automatically",
+          "TODO: RepositoryService usage was not migrated automatically");
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -51,6 +51,27 @@ public class CleanupEngineDependencyRecipe extends Recipe {
     return Preconditions.check(
         check,
         new JavaIsoVisitor<>() {
+          private boolean preserveRepositoryServiceFields;
+
+          @Override
+          public J.CompilationUnit visitCompilationUnit(
+              J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+            boolean previousPreserveRepositoryServiceFields =
+                preserveRepositoryServiceFields;
+            preserveRepositoryServiceFields =
+                containsDeferredRepositoryServiceMigration(compilationUnit, ctx);
+            J.CompilationUnit visited = super.visitCompilationUnit(compilationUnit, ctx);
+            preserveRepositoryServiceFields = previousPreserveRepositoryServiceFields;
+            if (!containsRepositoryServiceReference(visited, ctx)) {
+              return visited.withImports(
+                  visited.getImports().stream()
+                      .filter(
+                          import_ ->
+                              !import_.getQualid().toString().equals(REPOSITORY_SERVICE))
+                      .toList());
+            }
+            return visited;
+          }
 
           /**
            * Removing an LST element cannot be done by visiting it directly. Visiting
@@ -64,28 +85,26 @@ public class CleanupEngineDependencyRecipe extends Recipe {
           @Override
           public J.ClassDeclaration visitClassDeclaration(
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
-            if (containsDeferredRepositoryServiceMigration(classDeclaration, ctx)) {
+            boolean preserveAllEngineDependencies =
+                containsDeferredRepositoryServiceMigration(classDeclaration, ctx);
+            if (preserveAllEngineDependencies) {
               return classDeclaration;
             }
 
-            Set<UUID> fieldDeclarationIds =
-                classDeclaration.getBody().getStatements().stream()
-                    .filter(J.VariableDeclarations.class::isInstance)
-                    .map(J.VariableDeclarations.class::cast)
-                    .map(J.VariableDeclarations::getId)
-                    .collect(Collectors.toSet());
-            boolean hasRepositoryServiceTypeOutsideFields =
-                hasRepositoryServiceTypeOutsideFields(
-                    classDeclaration, fieldDeclarationIds, ctx);
-
             List<Statement> newStatements = new ArrayList<>();
             for (Statement statement : classDeclaration.getBody().getStatements()) {
-              if (statement instanceof J.VariableDeclarations varDecls
-                  && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
-                      || isDirectRepositoryServiceType(varDecls))) {
+              if (!(statement instanceof J.VariableDeclarations varDecls)) {
+                newStatements.add(statement);
+                continue;
+              }
+              if (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
+                  || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
+                  || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)) {
                 // This is the statement we want to remove, so skip adding it
+                continue;
+              }
+              if (isDirectRepositoryServiceType(varDecls)
+                  && !preserveRepositoryServiceFields) {
                 continue;
               }
               newStatements.add(statement);
@@ -94,16 +113,12 @@ public class CleanupEngineDependencyRecipe extends Recipe {
             maybeRemoveImport(PROCESS_ENGINE);
             maybeRemoveImport(RUNTIME_SERVICE);
             maybeRemoveImport(TASK_SERVICE);
-            if (!hasRepositoryServiceTypeOutsideFields) {
-              maybeRemoveImport(REPOSITORY_SERVICE);
-            }
 
             return classDeclaration.withBody(
                 classDeclaration.getBody().withStatements(newStatements));
           }
 
-          private boolean containsDeferredRepositoryServiceMigration(
-              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+          private boolean containsDeferredRepositoryServiceMigration(J tree, ExecutionContext ctx) {
             boolean[] found = {false};
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
@@ -118,60 +133,27 @@ public class CleanupEngineDependencyRecipe extends Recipe {
                 }
                 return super.preVisit(tree, nestedCtx);
               }
-            }.visit(classDeclaration, ctx);
+            }.visit(tree, ctx);
             return found[0];
           }
 
-          private boolean hasRepositoryServiceTypeOutsideFields(
-              J.ClassDeclaration classDeclaration,
-              Set<UUID> fieldDeclarationIds,
-              ExecutionContext ctx) {
+          private boolean containsRepositoryServiceReference(J tree, ExecutionContext ctx) {
             boolean[] found = {false};
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
-              public J.VariableDeclarations visitVariableDeclarations(
-                  J.VariableDeclarations declarations, ExecutionContext nestedCtx) {
-                if (fieldDeclarationIds.contains(declarations.getId())
-                    && isDirectRepositoryServiceType(declarations)) {
-                  return declarations;
-                }
-                if (containsRepositoryServiceType(
-                    declarations.getTypeExpression(), nestedCtx)) {
-                  found[0] = true;
-                }
-                return super.visitVariableDeclarations(declarations, nestedCtx);
+              public J.Import visitImport(J.Import import_, ExecutionContext nestedCtx) {
+                return import_;
               }
 
-              @Override
-              public J.MethodDeclaration visitMethodDeclaration(
-                  J.MethodDeclaration method, ExecutionContext nestedCtx) {
-                if (containsRepositoryServiceType(
-                    method.getReturnTypeExpression(), nestedCtx)) {
-                  found[0] = true;
-                }
-                return super.visitMethodDeclaration(method, nestedCtx);
-              }
-            }.visit(classDeclaration, ctx);
-            return found[0];
-          }
-
-          private boolean containsRepositoryServiceType(
-              TypeTree typeExpression, ExecutionContext ctx) {
-            if (typeExpression == null) {
-              return false;
-            }
-            boolean[] found = {false};
-            new JavaIsoVisitor<ExecutionContext>() {
               @Override
               public J.Identifier visitIdentifier(
                   J.Identifier identifier, ExecutionContext nestedCtx) {
-                if (identifier.getSimpleName().equals("RepositoryService")
-                    || TypeUtils.isOfClassType(identifier.getType(), REPOSITORY_SERVICE)) {
+                if (identifier.getSimpleName().equals("RepositoryService")) {
                   found[0] = true;
                 }
                 return super.visitIdentifier(identifier, nestedCtx);
               }
-            }.visit(typeExpression, ctx);
+            }.visit(tree, ctx);
             return found[0];
           }
 

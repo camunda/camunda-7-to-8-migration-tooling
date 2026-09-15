@@ -83,4 +83,24 @@ class AddCamundaClientDependencyTest implements RewriteTest {
         );
     }
 
+    @Test
+    void doesNotAddDuplicateCamundaClientField() {
+        rewriteRun(
+                spec -> spec.recipe(new PrepareCamundaClientDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Definitions {
+                            private RepositoryService camundaClient;
+
+                            long count() {
+                                return camundaClient.createProcessDefinitionQuery().count();
+                            }
+                        }
+                        """));
+    }
+
 }
