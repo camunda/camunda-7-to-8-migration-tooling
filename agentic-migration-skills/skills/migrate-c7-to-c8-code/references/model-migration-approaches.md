@@ -122,6 +122,8 @@ Severity counts are only a headline. Never start per-finding work from them. Par
 
 ### 5. Follow Up on Findings
 
+Use the shared verification gate below before changing any category verdict to **no action**.
+
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
 
 Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
@@ -163,9 +165,9 @@ Parse it with real JSON tooling (e.g. `jq` or a built-in JSON parser), never ad-
 If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated), re-run
 the converter with `--check --json --xlsx --platform-version <target-version>` on the same input.
 Capture the fallback run's `Created ...` paths and apply step 3a before parsing. The markdown and
-XLSX reports are for humans. CSV is never
-consumed — this skill has no CSV parsing path, and the JSON report is the only machine-readable
-findings source.
+XLSX reports are for humans. CSV is never consumed as findings input. The JSON report is the only
+machine-readable findings source, and CSV output from a verification pass is supplementary evidence
+only.
 
 #### 5b. Group findings by category
 
@@ -361,6 +363,7 @@ conversion flow after it acquires the source models.
 ## Approach M2 - Agentic AI (direct XML rewrite)
 
 Use when Java 21 is unavailable, the user wants to review every change, or the CLI cannot handle a case.
+Use the shared verification gate before changing any M2 category verdict to **no action**.
 
 Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
@@ -397,37 +400,39 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
-### Verification before resolving a finding category
+## Verification before resolving a finding category
 
-Run one verification pass for every category before changing its verdict to **no action**.
+Use this shared gate for M1, M2, M3, and E1. Run one verification pass for every category,
+including INFO and no-edit categories, before changing its verdict to **no action**.
 Run it after each remediation batch, or on every converted copy participating in the category when
 no manual edit was needed. Record the exact before-and-after evidence in `MIGRATION_REPORT.md`.
 
-1. Re-parse every converted `converted-c8-*.bpmn`, `converted-c8-*.bpmn20.xml`,
-   `converted-c8-*.dmn`, or `converted-c8-*.dmn11.xml` file participating in the category with a
-   namespace-aware XML parser, including files with no manual edit.
+1. Re-parse every participating converted BPMN or DMN file with a namespace-aware XML parser,
+   including files with no manual edit. For M1, use paths captured from this run's `Created ...`
+   lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Do not discover
+   participating files with a filesystem glob.
 2. For the category's touched elements, use namespace-aware queries by namespace URI, not literal
    prefixes. Count remaining Camunda 7 elements or attributes and conversion nodes or attributes.
    After all categories reach terminal verdicts, run whole-file cleanup and confirm zero remaining
    constructs, unused Camunda 7 or conversion namespace declarations, and leftover BPMN
    definitions-level XPath `expressionLanguage`.
-3. Confirm the expected `zeebe:taskDefinition` for each remediation. Check listener and task-header
-   declarations only when the remediation or finding references them. Match every referenced job
-   type, listener, and header value to a declaration in the edited file.
+3. When a remediation introduces or changes task wiring, listeners, headers, dispatchers, or
+   DMN/precompute wiring, confirm the matching declarations and code coverage. Check listener and
+   task-header declarations only when the remediation or finding references them. Record
+   `not applicable` when no such wiring is introduced.
 4. Parse changed FEEL expressions with the target FEEL parser when available. Record any
    expression that cannot be checked and keep the category at **needs review** unless another
    deterministic check covers it. Keep the category at **needs fix** when parsing fails.
 5. Where the CLI supports the edited file, run
    `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version
    "<target>" --check --csv` with the validated Java executable and converter JAR. Capture the
-   CLI's `Created ...` CSV path, compare that file with the before evidence, and record the path,
-   command, exit code, and findings. Move the CSV to a non-packaged evidence directory or remove it
-   after recording it. A relevant finding that remains or appears fails verification. Use CSV as
-   verification evidence only. Use JSON for findings input.
+   CLI's `Created ...` CSV path, command, and exit code as supplementary evidence. Do not use CSV
+   rows as findings input or as the pass/fail criterion. Move the CSV to a non-packaged evidence
+   directory or remove it after recording it. Use JSON for findings input.
 
 Keep the findings inventory table above with its `Category`, `Count`, `Cross-referenced code
 artifact`, `Link`, and `Verdict` columns. Add a separate verification table with one row per
-category and `Category`, `Edited files`, `Before`, `Checks and evidence`, `After`, and `Verdict`
+category and `Category`, `Participating files`, `Before`, `Checks and evidence`, `After`, and `Verdict`
 columns. Do not replace the findings inventory with the verification table.
 
 The local CLI `--check` path parses each selected BPMN or DMN file and runs the registered visitor
@@ -448,7 +453,11 @@ Point the user to the hosted converter:
 
 > Upload your BPMN/DMN files at https://diagram-converter.camunda.io/, set the target version there, and download the converted results.
 
-This path does not automate the hosted service. Once the user brings the converted files back, offer the same findings follow-up as M1 step 5. For machine-readable findings, use the hosted converter's 'Download JSON' button. It produces the same `analysis-results.json` the CLI writes. Its CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
+This path does not automate the hosted service. Once the user brings the converted files back, offer
+the same findings follow-up as M1 step 5, including the shared verification gate before changing any
+category verdict to **no action**. For machine-readable findings, use the hosted converter's
+'Download JSON' button. It produces the same `analysis-results.json` the CLI writes. Its
+CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
 
 Generated-form follow-up also requires the exact original BPMN and an unambiguous pairing to each downloaded converted BPMN. Ask for either missing artifact rather than reconstructing C7 form metadata from the report.
 

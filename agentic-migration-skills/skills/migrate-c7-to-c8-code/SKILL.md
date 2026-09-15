@@ -284,8 +284,8 @@ target version. See the linting section in `references/model-migration-approache
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
    with its category, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
-   A category marked **no action** after a fix is provisional until the Step 5 verification gate
-   passes.
+   A category marked **no action** is provisional until its Step 5 verification row records a
+   passing result, including when no manual edit was needed.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
 6. Every accepted form is a standard Camunda 8 `.form`.
@@ -327,23 +327,24 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 #### Verification before resolving a category
 
-Run one verification pass for every category before changing its verdict to **no action**.
+Run one verification pass for every category, including INFO and no-edit categories, before changing
+its verdict to **no action**.
 Run it after a category fix and on every converted copy participating in the category when no
 manual edit was needed. Record before-and-after evidence in `MIGRATION_REPORT.md`. Do not start an
 automatic fix loop.
 
 | Check | Required evidence |
 |---|---|
-| XML structure | Re-parse every converted `converted-c8-*.bpmn`, `converted-c8-*.bpmn20.xml`, `converted-c8-*.dmn`, or `converted-c8-*.dmn11.xml` participating in the category with a namespace-aware XML parser, including files with no manual edit. Record the command, exit code, and paths. |
+| XML structure | Re-parse every converted file participating in the category with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
 | Namespace and metadata cleanup | For the category's touched elements, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes and conversion nodes or attributes. At final validation, confirm zero remaining constructs, unused Camunda 7 or conversion namespace declarations, and leftover BPMN definitions-level XPath `expressionLanguage`. Record counts before and after. |
-| Referenced conversion wiring | Confirm the expected `zeebe:taskDefinition/@type` for every remediation. Check listener declarations and task headers only when the remediation or finding references them. Match every referenced job type, listener, and header value to a declaration in the edited file. Record the element IDs and declarations checked. |
+| Referenced conversion wiring | When a remediation introduces or changes task wiring, listeners, headers, dispatchers, or DMN/precompute wiring, confirm the matching declarations and code coverage. Check listener declarations and task headers only when the remediation or finding references them. Record `not applicable` when no such wiring is introduced. |
 | FEEL syntax | Parse each changed FEEL expression with the target FEEL parser when one is available. Record the parser, expression location, and result. If no parser is available, record that limitation and keep the category at **needs review** unless another deterministic check covers it. Keep the category at **needs fix** when parsing fails. |
-| Converter regression check | Where the local CLI supports the edited model, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR. Capture the CLI's `Created ...` CSV path, compare that file with the before evidence, and record the path, command, exit code, and findings. Move the CSV to a non-packaged evidence directory or remove it after recording it. A relevant finding that remains or appears fails verification. Use CSV as verification evidence only. Use JSON for findings input. |
+| Converter regression check | Where the local CLI supports the edited model, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<edited-file>" --platform-version "<target>" --check --csv` with the validated Java executable and converter JAR. Capture the CLI's `Created ...` CSV path, command, and exit code as supplementary evidence. Do not use CSV rows as findings input or as the pass/fail criterion. Move the CSV to a non-packaged evidence directory or remove it after recording it. Use JSON for findings input. |
 
 Keep the per-category findings inventory from `references/model-migration-approaches.md` step 5d
 with its `Category`, `Count`, `Cross-referenced code artifact`, `Link`, and `Verdict` columns.
 Add a separate verification table with one row per category and these columns: `Category`,
-`Edited files`, `Before`, `Checks and evidence`, `After`, and `Verdict`. Do not replace the
+`Participating files`, `Before`, `Checks and evidence`, `After`, and `Verdict`. Do not replace the
 findings inventory with the verification table.
 
 The converter check is supplementary. It can parse the edited XML and run registered visitor and
@@ -407,8 +408,9 @@ the declined candidates in `MIGRATION_REPORT.md`.
 
 ## Exit Criteria
 
-The migration run may exit when every pass condition in Step 4 holds and `MIGRATION_REPORT.md` holds
-the complete inventories, the decisions, the open items, and the validation results.
+The migration run may exit only when every pass condition in Step 4 holds, every category marked
+**no action** has a passing verification row in the Step 5 verification table, and
+`MIGRATION_REPORT.md` holds the complete inventories, decisions, open items, and validation results.
 The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
 issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
 An open item is a team decision, so an `open` status does not block completion, but the summary
