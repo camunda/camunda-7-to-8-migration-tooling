@@ -31,6 +31,11 @@ public class CleanupEngineDependencyRecipe extends Recipe {
   String RUNTIME_SERVICE = "org.camunda.bpm.engine.RuntimeService";
   String TASK_SERVICE = "org.camunda.bpm.engine.TaskService";
   String REPOSITORY_SERVICE = "org.camunda.bpm.engine.RepositoryService";
+  Set<String> REPOSITORY_SERVICE_TODOS =
+      Set.of(
+          "TODO: RepositoryService deployment method was not migrated automatically",
+          "TODO: RepositoryService query was not migrated automatically",
+          "TODO: RepositoryService usage was not migrated automatically");
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -46,6 +51,27 @@ public class CleanupEngineDependencyRecipe extends Recipe {
     return Preconditions.check(
         check,
         new JavaIsoVisitor<>() {
+          private Set<String> deferredEngineDependencyFieldNames = Set.of();
+
+          @Override
+          public J.CompilationUnit visitCompilationUnit(
+              J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+            Set<String> previousDeferredEngineDependencyFieldNames =
+                deferredEngineDependencyFieldNames;
+            deferredEngineDependencyFieldNames =
+                findDeferredEngineDependencyFieldNames(compilationUnit, ctx);
+            J.CompilationUnit visited = super.visitCompilationUnit(compilationUnit, ctx);
+            deferredEngineDependencyFieldNames = previousDeferredEngineDependencyFieldNames;
+            if (!containsRepositoryServiceReference(visited, ctx)) {
+              return visited.withImports(
+                  visited.getImports().stream()
+                      .filter(
+                          import_ ->
+                              !import_.getQualid().toString().equals(REPOSITORY_SERVICE))
+                      .toList());
+            }
+            return visited;
+          }
 
           /**
            * Removing an LST element cannot be done by visiting it directly. Visiting
@@ -59,14 +85,16 @@ public class CleanupEngineDependencyRecipe extends Recipe {
           @Override
           public J.ClassDeclaration visitClassDeclaration(
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
-
             List<Statement> newStatements = new ArrayList<>();
             for (Statement statement : classDeclaration.getBody().getStatements()) {
-              if (statement instanceof J.VariableDeclarations varDecls
-                  && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE))) {
+              if (!(statement instanceof J.VariableDeclarations varDecls)) {
+                newStatements.add(statement);
+                continue;
+              }
+              if (isEngineDependencyType(varDecls)
+                  && varDecls.getVariables().stream()
+                      .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                      .noneMatch(deferredEngineDependencyFieldNames::contains)) {
                 // This is the statement we want to remove, so skip adding it
                 continue;
               }
@@ -76,11 +104,96 @@ public class CleanupEngineDependencyRecipe extends Recipe {
             maybeRemoveImport(PROCESS_ENGINE);
             maybeRemoveImport(RUNTIME_SERVICE);
             maybeRemoveImport(TASK_SERVICE);
-            maybeRemoveImport(REPOSITORY_SERVICE);
 
             return classDeclaration.withBody(
                 classDeclaration.getBody().withStatements(newStatements));
           }
+
+          private Set<String> findDeferredEngineDependencyFieldNames(
+              J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+            Set<String> engineDependencyFieldNames = new HashSet<>();
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.ClassDeclaration visitClassDeclaration(
+                  J.ClassDeclaration classDeclaration, ExecutionContext nestedCtx) {
+                classDeclaration.getBody().getStatements().stream()
+                    .filter(J.VariableDeclarations.class::isInstance)
+                    .map(J.VariableDeclarations.class::cast)
+                    .filter(CleanupEngineDependencyRecipe.this::isEngineDependencyType)
+                    .flatMap(
+                        declaration ->
+                            declaration.getVariables().stream()
+                                .map(J.VariableDeclarations.NamedVariable::getSimpleName))
+                    .forEach(engineDependencyFieldNames::add);
+                return super.visitClassDeclaration(classDeclaration, nestedCtx);
+              }
+            }.visit(compilationUnit, ctx);
+
+            Set<String> deferredFieldNames = new HashSet<>();
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J preVisit(J tree, ExecutionContext nestedCtx) {
+                if (tree.getComments().stream()
+                    .anyMatch(
+                        comment ->
+                            comment instanceof TextComment textComment
+                                && REPOSITORY_SERVICE_TODOS.stream()
+                                    .anyMatch(textComment.getText()::contains))) {
+                  new JavaIsoVisitor<ExecutionContext>() {
+                    @Override
+                    public J.Identifier visitIdentifier(
+                        J.Identifier identifier, ExecutionContext identifierCtx) {
+                      if (engineDependencyFieldNames.contains(identifier.getSimpleName())) {
+                        deferredFieldNames.add(identifier.getSimpleName());
+                      }
+                      return super.visitIdentifier(identifier, identifierCtx);
+                    }
+                  }.visit(tree, nestedCtx);
+                }
+                return super.preVisit(tree, nestedCtx);
+              }
+            }.visit(compilationUnit, ctx);
+            return deferredFieldNames;
+          }
+
+          private boolean containsRepositoryServiceReference(J tree, ExecutionContext ctx) {
+            boolean[] found = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.Import visitImport(J.Import import_, ExecutionContext nestedCtx) {
+                return import_;
+              }
+
+              @Override
+              public J.Identifier visitIdentifier(
+                  J.Identifier identifier, ExecutionContext nestedCtx) {
+                if (identifier.getSimpleName().equals("RepositoryService")) {
+                  found[0] = true;
+                }
+                return super.visitIdentifier(identifier, nestedCtx);
+              }
+            }.visit(tree, ctx);
+            return found[0];
+          }
+
         });
+  }
+
+  private boolean isDirectRepositoryServiceType(J.VariableDeclarations declarations) {
+    TypeTree typeExpression = declarations.getTypeExpression();
+    boolean hasRepositoryServiceName =
+        (typeExpression instanceof J.Identifier identifier
+                && identifier.getSimpleName().equals("RepositoryService"))
+            || (typeExpression instanceof J.FieldAccess fieldAccess
+                && fieldAccess.getName().getSimpleName().equals("RepositoryService"));
+    return hasRepositoryServiceName
+        && TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE);
+  }
+
+  private boolean isEngineDependencyType(J.VariableDeclarations declarations) {
+    return TypeUtils.isOfClassType(declarations.getType(), PROCESS_ENGINE)
+        || TypeUtils.isOfClassType(declarations.getType(), RUNTIME_SERVICE)
+        || TypeUtils.isOfClassType(declarations.getType(), TASK_SERVICE)
+        || isDirectRepositoryServiceType(declarations);
   }
 }

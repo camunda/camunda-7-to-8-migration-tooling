@@ -83,4 +83,65 @@ class AddCamundaClientDependencyTest implements RewriteTest {
         );
     }
 
+    @Test
+    void renamesIncompatibleCamundaClientField() {
+        rewriteRun(
+                spec -> spec.recipe(new PrepareCamundaClientDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        class Definitions {
+                            private RepositoryService camundaClient;
+
+                            long count() {
+                                return camundaClient.createProcessDefinitionQuery().count();
+                            }
+                        }
+                        """,
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import io.camunda.client.CamundaClient;
+                        import org.camunda.bpm.engine.RepositoryService;
+                        import org.springframework.beans.factory.annotation.Autowired;
+
+                        class Definitions {
+                            @Autowired
+                            private CamundaClient camundaClient;
+                            private RepositoryService camundaClientValue;
+
+                            long count() {
+                                return camundaClientValue.createProcessDefinitionQuery().count();
+                            }
+                        }
+                        """));
+    }
+
+    @Test
+    void preservesExternallyAccessibleCamundaClientField() {
+        rewriteRun(
+                spec -> spec.recipe(new PrepareCamundaClientDependencyRecipe()),
+                java(
+                        """
+                        package org.camunda.community.migration.example;
+
+                        import org.camunda.bpm.engine.RepositoryService;
+
+                        public class PublicDefinitions {
+                            public RepositoryService camundaClient;
+                        }
+
+                        class ProtectedDefinitions {
+                            protected RepositoryService camundaClient;
+                        }
+
+                        class PackageDefinitions {
+                            RepositoryService camundaClient;
+                        }
+                        """));
+    }
+
 }

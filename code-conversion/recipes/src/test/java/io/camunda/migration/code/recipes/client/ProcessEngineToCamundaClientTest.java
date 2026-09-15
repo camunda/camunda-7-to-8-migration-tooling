@@ -92,4 +92,200 @@ public class VariousProcessEngineFunctionsTestClass {
 }
 """));
   }
+
+  @Test
+  void preservesDeferredRepositoryServiceDependenciesInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+    """
+    package org.camunda.community.migration.example;
+
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+
+    public class Deployer {
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public void deploy() {
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+
+        public long count() {
+            return repositoryService.createProcessDefinitionQuery().count();
+        }
+    }
+    """,
+    """
+    package org.camunda.community.migration.example;
+
+    import io.camunda.client.CamundaClient;
+    import org.camunda.bpm.engine.RepositoryService;
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class Deployer {
+
+        @Autowired
+        private CamundaClient camundaClient;
+        private RepositoryService repositoryService;
+
+        public void deploy() {
+            // TODO: RepositoryService deployment method was not migrated automatically
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+
+        public long count() {
+            // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+            return repositoryService.createProcessDefinitionQuery().count();
+        }
+    }
+    """));
+  }
+
+  @Test
+  void preservesExternallyAccessibleUnusedRepositoryServiceFieldInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+    """
+    package org.camunda.community.migration.example;
+
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+
+    public class Deployer {
+
+        private ProcessEngine engine;
+        public RepositoryService repositoryService;
+    }
+    """,
+    """
+    package org.camunda.community.migration.example;
+
+    import io.camunda.client.CamundaClient;
+    import org.camunda.bpm.engine.RepositoryService;
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class Deployer {
+
+        @Autowired
+        private CamundaClient camundaClient;
+        // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+        public RepositoryService repositoryService;
+    }
+    """));
+  }
+
+  @Test
+  void preservesEngineDerivedRepositoryServiceUseInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+    """
+    package org.camunda.community.migration.example;
+
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+
+    public class Deployer {
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public RepositoryService current() {
+            return engine.getRepositoryService();
+        }
+
+        public void deploy() {
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+    }
+    """,
+    """
+    package org.camunda.community.migration.example;
+
+    import io.camunda.client.CamundaClient;
+    import org.camunda.bpm.engine.ProcessEngine;
+    import org.camunda.bpm.engine.RepositoryService;
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class Deployer {
+
+        @Autowired
+        private CamundaClient camundaClient;
+
+        private ProcessEngine engine;
+        private RepositoryService repositoryService;
+
+        public RepositoryService current() {
+            // TODO: RepositoryService usage was not migrated automatically. Migrate it manually.
+            return engine.getRepositoryService();
+        }
+
+        public void deploy() {
+            // TODO: RepositoryService deployment method was not migrated automatically
+            repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy();
+        }
+    }
+    """));
+  }
+
+  @Test
+  void migratesAutowiredRepositoryServiceDeploymentInCombinedRecipe() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class Deployer {
+
+                @Autowired
+                private RepositoryService repositoryService;
+
+                public void deploy() {
+                    repositoryService.createDeployment()
+                            .addClasspathResource("bpmn/order.bpmn")
+                            .deploy();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class Deployer {
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void deploy() {
+                    camundaClient
+                            .newDeployResourceCommand()
+                            .addResourceFromClasspath("bpmn/order.bpmn")
+                            .send()
+                            .join();
+                }
+            }
+            """));
+  }
 }
