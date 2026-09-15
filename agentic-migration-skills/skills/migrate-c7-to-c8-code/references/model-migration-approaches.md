@@ -380,11 +380,14 @@ If M2 cannot set either target metadata field, apply Step 4 item 17 in `SKILL.md
 converter output as passing evidence until both target metadata fields pass the exact check.
 Record M2 findings in a structured summary for this run. Preserve a row-level record for every
 finding with `Filename`, `Element ID`, `Element type`, `Category`, `Severity`, `Message`, and any
-`Expression`. Group those records into category rows with the same `Category`, `Severity`, `Count`,
-`Affected paths`, `Element IDs`, `Cross-referenced code artifact`, `Link`, `Verdict`, and
-`Verification` fields as the per-category inventory. Use the source link when available. Use
-`n/a (M2 direct rewrite)` when no source link exists. Make this summary the authoritative input for
-the category's touched elements and participating files. Do not consume an unrelated JSON report.
+`Expression`. Group those records into an M2-only category summary with `Category`, `Severity`,
+`Count`, `Affected paths`, `Element IDs`, `Cross-referenced code artifact`, `Link`, `Verdict`, and
+`Verification`. Keep the shared `MIGRATION_REPORT.md` findings inventory separate, with exactly
+`Category`, `Count`, `Cross-referenced code artifact`, `Link`, `Verdict`, and `Verification`
+columns. Use the source link when available. Use `n/a (M2 direct rewrite)` when no source link
+exists. Make the M2 summary the authoritative input for the category's touched elements and
+participating files. Do not replace the shared inventory with the M2 summary. Do not consume an
+unrelated JSON report.
 
 ### Job type naming
 
@@ -415,6 +418,10 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
+
+Record the exact source-to-converted path pair for every M2 converted copy before emitting the
+findings summary. Include the source path and converted path in the run record. Use these pairs
+for all verification checks. Do not discover participating files with a filesystem glob.
 
 Emit the structured findings summary with CLI severities (WARNING/TASK/REVIEW/INFO). Ask for human
 review for non-INFO findings, except when the shared verification pass is the only pending action.
@@ -466,6 +473,10 @@ the same findings follow-up as M1 step 5, including the shared verification gate
 category verdict to **no action**. For machine-readable findings, use the hosted converter's
 'Download JSON' button. It produces the same `analysis-results.json` the CLI writes. Its
 CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
+
+During M3 acquisition, record the exact source-to-converted path pair for every downloaded BPMN or
+DMN, including models without forms. Use these recorded pairs for every verification check. Do not
+discover participating files with a filesystem glob.
 
 Generated-form follow-up also requires the exact original BPMN and an unambiguous pairing to each downloaded converted BPMN. Ask for either missing artifact rather than reconstructing C7 form metadata from the report.
 
