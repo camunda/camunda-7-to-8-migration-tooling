@@ -178,10 +178,12 @@ Group findings by `messageId` (the category). For each category compute:
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
-Keep this summary grouped by `messageId`. For the three job-type categories, build one shared
-normalized job-type inventory across all categories before assigning verdicts. Do not assign
+Keep this summary grouped by `messageId`. In a Code + models scope, build one shared normalized
+job-type inventory across the three job-type categories before assigning verdicts. Do not assign
 independent 1:1 verdicts to category rows that share a job type. Use the shared job-type verdict and
-propagate it to each affected category as described in `composing-code-and-models.md`.
+propagate it to each affected category as described in `composing-code-and-models.md`. In a Models
+only scope, keep each job-type category on the model-only verdict flow. Do not build a worker
+inventory or apply the dispatcher cross-check. Use `n/a` for its cross-referenced code artifact.
 
 #### 5c. Present the grouped summary
 
@@ -198,7 +200,7 @@ The current dedicated cross-check categories are:
 
 | Category | Dedicated cross-check |
 |---|---|
-| `delegate-expression-as-job-type`, `delegate-implementation`, `topic` | Check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md` |
+| `delegate-expression-as-job-type`, `delegate-implementation`, `topic` | In a Code + models scope, check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md`. In a Models only scope, apply the model-only verdict flow without a worker cross-check. |
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
