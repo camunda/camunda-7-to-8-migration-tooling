@@ -310,7 +310,14 @@ target version. See the linting section in `references/model-migration-approache
     the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, `camunda:topic`, or
     listener implementation using the binding rules in `references/model-migration-approaches.md`.
     Read the `camunda:connectorId` child element's text, not an attribute, when deriving a connector
-    binding. If the emitted type differs, require a confirmed decision-log entry in
+    binding. Pair every source execution or task listener with an emitted listener by owner,
+    normalized event, and declaration ordinal before comparing types. If a source listener has no
+    emitted pair, record a synthetic `execution-listener` or `task-listener` finding with the source
+    implementation and no emitted job type. For every emitted pair, add a source-derived
+    `execution-listener-supported` or `task-listener-supported` row with `n/a` converter severity
+    before the worker cross-check. Include these pairing rows in the grouped summary and verdict
+    table, including for models-only M2 runs. If the emitted type differs, require a confirmed
+    decision-log entry in
     `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
     and rationale. Treat a mismatch without that entry as a validation failure. When code migration
     is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
@@ -349,8 +356,9 @@ Before applying this order, assign an effective severity to every `needs fix` ca
 converter severity for converter categories. For every source-derived category without converter
 severity, use `TASK` as the effective severity. This includes `c7-*`,
 `generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`,
-`execution-listener`, and `task-listener`. Effective severity only orders follow-up and does not
-change the finding severity.
+and synthetic M2 `execution-listener` and `task-listener` rows. Use the converter severity for
+converter-emitted `execution-listener` and `task-listener` findings. Effective severity only orders
+follow-up and does not change the finding severity.
 
 | Order | Runtime impact | Secondary order |
 |---|---|---|

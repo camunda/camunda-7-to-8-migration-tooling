@@ -17,17 +17,27 @@ Cross-reference the grouped Diagram Converter findings (see `model-migration-app
 When M2 is in scope without a Diagram Converter report, enumerate every source
 `camunda:executionListener` and `camunda:taskListener` declaration and every emitted
 `zeebe:taskDefinition/@type`, `zeebe:executionListener/@type`, and `zeebe:taskListener/@type` in
-each converted BPMN file. Key each source listener by its owner element and event. Keep its
-implementation as the source binding. Match each source listener with its corresponding emitted
-listener by owner and event first. If a source listener has no emitted pair, record a synthetic
-`execution-listener` or `task-listener` finding with the source implementation and no emitted job
-type. Apply the Blocking rule for that category in `model-migration-approaches.md`. When an
-emitted pair exists, compare its normalized type with the expected type and report a mismatch
-through the corresponding supported-listener worker cross-check. Read the corresponding original
-Camunda 7 implementation attribute, listener implementation, topic, or connector ID. Derive the
-expected type from the M2 binding rules in `model-migration-approaches.md`. Create one normalized
-input row with the columns `original` and `jobType` for each original-binding-to-emitted-type
-pair. Apply the same 1:1 or many-to-one check.
+each converted BPMN file. Normalize source and emitted listener events before pairing. For task
+listeners, map `create` to `creating`, `assignment` to `assigning`, `complete` to `completing`,
+`delete` to `deleting`, and `update` to `updating`. Keep execution events and already normalized
+events unchanged. Within each owner and normalized event, pair source and emitted declarations by
+their one-based declaration ordinal. Use the owner, normalized event, and ordinal as the listener
+key. Keep the source implementation as the source binding.
+
+If a source listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
+finding with the source implementation and no emitted job type. Apply the Blocking rule for that
+category in `model-migration-approaches.md`. For every emitted pair, add a source-derived
+`execution-listener-supported` or `task-listener-supported` category row before normalization.
+Record its owner, normalized event, ordinal, source implementation, emitted type, and `n/a` converter
+severity. Add the row to the grouped summary and verdict table. In a models-only run, record `n/a`
+for the code artifact and assign the models-only `needs review` result.
+
+When an emitted pair exists, compare its normalized type with the expected type and report a
+mismatch through the corresponding supported-listener worker cross-check. Read the corresponding
+original Camunda 7 implementation attribute, listener implementation, topic, or connector ID.
+Derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
+normalized input row with the columns `original` and `jobType` for each
+original-binding-to-emitted-type pair. Apply the same 1:1 or many-to-one check.
 Do not wait for converter findings, because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
@@ -48,8 +58,9 @@ rows. Each normalized row has the shape:
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-For listener rows, set `original` to '<event>:<implementation>' and use the emitted
-`zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic rows, use the original script binding or topic and the emitted
+For listener rows, set `original` to '<owner>:<normalized-event>#<ordinal>:<implementation>' and use
+the emitted `zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic
+rows, use the original script binding or topic and the emitted
 `zeebe:taskDefinition/@type`. For connector rows, use the source connector ID and verify the
 emitted type against a deployed connector registration or explicit connector handler.
 

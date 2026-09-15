@@ -221,9 +221,19 @@ contains no matching `messageId`.
 When a converter finding already identifies the missing job type for the paired source model and
 element ID, use that converter finding and do not add a duplicate synthetic finding.
 
-Source-derived categories, including `blank-executable-task-job-type` and
-`blank-dmn-decision-id`, have no converter severity. Record `n/a` as their converter severity and
-use `TASK` as their effective severity for sorting. If the imported report target differs from the
+When M2 runs without a Diagram Converter report, also scan every source execution and task listener
+against the emitted listeners. Use the M2 listener pairing rules in `SKILL.md`, including normalized
+events and declaration ordinals, even when code migration is not in scope. Add a source-derived
+`execution-listener-supported` or
+`task-listener-supported` row for every emitted pair. Add a synthetic `execution-listener` or
+`task-listener` row for every source listener without an emitted pair. Include these rows in the
+grouped summary and verdict table. In a models-only run, record `n/a` for the code artifact and
+assign the models-only `needs review` result to a paired listener until code coverage is verified.
+
+Source-derived categories, including `blank-executable-task-job-type`, `blank-dmn-decision-id`, and
+M2 listener rows, have no converter severity. Record `n/a` as their converter severity and use
+`TASK` as their effective severity for sorting. Keep the converter severity for converter-emitted
+`execution-listener` and `task-listener` findings. If the imported report target differs from the
 chosen target, defer runtime impact for these findings until target-aware revalidation.
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
@@ -301,6 +311,8 @@ Use the following rules:
 | `generated-form-property-source` | **Advisory** | The source-only form-property finding needs form migration work, but it does not by itself prove a deployment or execution failure. |
 | `form-data` when `camunda:formData@businessKey` is present | **Blocking** | No C8 form-js property reproduces the C7 process business-key behavior. Require an explicit Business ID, variable/correlation, or no-migration decision. |
 | `form-data` without `camunda:formData@businessKey` | **Advisory** | The generated form needs migration work, but it does not by itself prove a deployment or execution failure. |
+| `variable-name-filter-not-supported` when the source filter variable is not referenced by the conditional event's FEEL expression | **Blocking** | The converter removes `camunda:variableName`, so the conditional event no longer triggers when that variable changes. |
+| `variable-name-filter-not-supported` when the source filter variable is referenced by the conditional event's FEEL expression | **Advisory** | The FEEL condition still observes the source filter variable. Record the finding for semantic review. |
 | `error-event-definition` when source inspection shows an executable task or active error path uses the definition | **Blocking** | The converter removes the unsupported C7 definition. The affected error path cannot preserve its modeled execution behavior. |
 | `error-event-definition` when source inspection shows no active executable use | **Advisory** | The definition does not affect deployed execution. Record the finding for cleanup or review. |
 | `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
@@ -383,7 +395,7 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category-impact row exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, apply the runtime-impact override before the severity fallback. Never assign no action to an INFO row with Blocking runtime impact. Never leave findings as severity counts or a generic "findings need follow-up" note.
+After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category-impact row exactly one verdict, and record the table in MIGRATION_REPORT.md. Include every INFO row with Blocking runtime impact. INFO rows with Advisory runtime impact are optional (MAY). If included, apply the runtime-impact override before the severity fallback. Never assign no action to an INFO row with Blocking runtime impact. Never leave findings as severity counts or a generic "findings need follow-up" note.
 
 Verdicts:
 
