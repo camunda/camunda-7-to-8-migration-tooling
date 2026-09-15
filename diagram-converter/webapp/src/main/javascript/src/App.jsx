@@ -559,9 +559,9 @@ function App() {
 
     setPreviewCheckJson(response.checkResponseJson);
     const modelType = getPreviewType(fileName);
-    const isBpmn = modelType === "bpmn";
     const modelXml =
-      isBpmn && response?.convertedFileBlob
+      (modelType === "bpmn" || modelType === "dmn") &&
+      response?.convertedFileBlob
         ? await response.convertedFileBlob.text()
         : response.originalModelXml;
     setPreviewModelXml(modelXml);
