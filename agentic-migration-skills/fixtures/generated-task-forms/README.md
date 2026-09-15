@@ -92,6 +92,8 @@ The evaluation is complete when the agent has:
   schema, render, linkage, and deployment evidence;
 * added a verification-table row for the category and recorded `passed` before
   treating the category as **no action** or the evaluation as complete;
+* recorded a passing final whole-file cleanup after Step 5e, including zero
+  converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * confirmed one `zeebe:userTask` and one matching form definition on the
   accepted user task; and
 * confirmed the original Camunda 7 BPMN is unchanged and regeneration is

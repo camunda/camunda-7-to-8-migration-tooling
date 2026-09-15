@@ -110,6 +110,8 @@ The evaluation is complete when the agent has:
 * captured the immutable baseline for every participating BPMN or `.form`
   resource and recorded its verification-table row as `passed` before closing
   any category or completing the evaluation;
+* recorded a passing final whole-file cleanup after Step 5e, including zero
+  converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * left the original Camunda 7 BPMN and HTML untouched; and
 * left no form-reference category marked "no action" on the strength of the
   copied reference alone.

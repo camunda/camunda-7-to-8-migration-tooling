@@ -349,8 +349,9 @@ Before each remediation batch, capture an immutable baseline for every participa
 `.form` resource, and referenced code artifact. Immediately before verifying a no-edit category,
 capture the same baseline. For XML, include namespace counts, wiring references, and FEEL state.
 For forms, include the JSON content hash, schema result, render result, linkage, and deployment
-state. Record `absent` when a remediation will create a new form. Record `not applicable` when no
-form resource participates. For code, include content hashes and matched worker, listener,
+state. Record `absent` when a remediation will create a new form. Mark the schema, render, linkage,
+and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
+no form resource participates. For code, include content hashes and matched worker, listener,
 dispatcher, and precompute declarations. Use the baseline for `Before` evidence.
 Do not reconstruct it from the original Camunda 7 model. Run this gate when a converted copy
 participates in verification. Do not resolve a category verdict in an analyze-only run that creates
@@ -360,9 +361,10 @@ applicable check passes, `failed` after a check fails, and `unavailable` when a 
 deterministic tool is unavailable. The supplementary converter check is not required for the
 aggregate category state in M2 or M3. An unavailable target FEEL parser is also supplementary.
 Record either limitation only in its check evidence. Set the category to `passed` when all other
-required checks and the finding-specific postcondition pass. Record `not applicable` in converter
-applicability evidence only for the expected
-already-converted exception. Allow other check rows to record `not applicable` for their explicitly
+required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy, record `not applicable` in converter applicability
+evidence only for the expected already-converted exception. For a form-only category with no
+BPMN or DMN copy, record converter checks as `not applicable`. Allow other check rows to record
+`not applicable` for their explicitly
 defined cases, such as out-of-scope code coverage or no referenced wiring. This converter-specific
 restriction does not apply to those other check rows. A category with any state other than
 `passed` cannot receive the **no action** verdict.
