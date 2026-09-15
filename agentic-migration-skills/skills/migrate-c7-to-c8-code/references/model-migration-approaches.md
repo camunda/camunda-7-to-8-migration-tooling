@@ -181,7 +181,8 @@ Group findings by `messageId` (the category). For each category compute:
 - The complete element list. Preserve every finding in the category. Do not deduplicate findings
   that have the same filename or element ID.
 
-Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
+Do not finalize these aggregates before the source-inventory and legacy `form-key` classification
+rules below run.
 
 Before writing this artifact, select a non-packaged artifact directory. Use `.camunda-migration/`
 when the build does not package that directory. If the build packages `.camunda-migration/`, ask
@@ -229,7 +230,8 @@ into the artifact.
 
 For source-derived categories, normalize `sourceBpmn` and report `filename` to project-relative
 paths with forward slashes before grouping or matching. Resolve an absolute report `filename`
-relative to the project root used for the M1 or E1 input. Remove a leading `./` after normalization.
+relative to the project root established for the current approach. Use the M1 or E1 input root,
+the M2 project root, or the paired M3 source root. Remove a leading `./` after normalization.
 If either path cannot be normalized under that root, preserve the finding and record an inventory
 mismatch in `MIGRATION_REPORT.md`. Group inventory rows by normalized `sourceBpmn`, `processId`,
 `ownerId`, and `ownerType`. Treat all rows in one group as one owner-level inventory group. A group
@@ -247,17 +249,19 @@ Use this table to decide whether the composite key can associate a group with a 
 | Authoritative finding | Eligible for source inventory association |
 |---|---|
 | `sourceDerived: true` with a matching `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category | Yes |
-| `sourceDerived: true` with `m2-manual-review` for a form-related source condition | Yes |
+| `sourceDerived: true` with `m2-manual-review` for a form-related source condition, including `formHandlerClass` or a non-process-level none start-event reference | Yes |
+| An M1 or M3 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
 | `sourceDerived: false`, including `expression-method-not-possible` | No |
 | `sourceDerived: true` without a matching form or source condition | No |
 
 Match each group against every eligible authoritative report finding, including source-derived
 findings. Do not associate a group with an unrelated finding, even when the composite key matches.
+Keep one artifact object for every authoritative report finding. Never combine two authoritative findings because they share an owner.
 Apply the table after grouping and matching:
 
 | Match | Destination category | Artifact action |
 |---|---|---|
-| An eligible authoritative report finding matches an owner-level inventory group. | The finding's authoritative `messageId` | Set `sourceDerived` to `true` and merge the complete group into the `sourceInventory` array. Do not add a second object. |
+| An eligible authoritative report finding matches an owner-level inventory group. | The finding's authoritative `messageId` | Keep one artifact object for the authoritative finding. Set `sourceDerived` to `true` and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. Do not add a second synthetic object. |
 | An owner-level inventory group has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, or `generated-form-property-source` | Add one `sourceDerived: true` object to the `findings` array. |
 | A source-derived authoritative report finding has no matched owner-level inventory group. | Its existing `messageId` | Preserve the finding in its existing category and record the inventory mismatch in `MIGRATION_REPORT.md`. |
 
@@ -269,8 +273,10 @@ with one object for each inventory row. Repeat the group keys `sourceBpmn`, `pro
 inventory rows, set `reference` to the `Reference (report-safe)` value from
 `form-reference-migration.md`. For generated-form inventory rows, omit `reference` because
 `form-migration.md` defines no report-safe reference. Preserve the form kind, fields, form id, and
-status for `generated-form-property-source`. Keep a matched authoritative report finding in its
-authoritative `messageId` category, including `form-reference-conflict`,
+status for `generated-form-property-source`. For `form-handler-class` inventory rows, preserve
+the class name in `handlerClass` and omit referenced-form and generated-form fields. Keep a matched
+authoritative report finding in its authoritative `messageId` category, including
+`form-reference-conflict`,
 `generated-form-property-source`, and any `c7-*` category.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
@@ -297,6 +303,11 @@ Apply the source-derived serialization rules above, including report-safe refere
 forms and omission for generated forms. Keep matched authoritative report findings in their
 existing report categories. Do not create a second source-derived entry for a source inventory
 entry represented by a matched authoritative report finding.
+After all classification and source-inventory reconciliation, recompute each category's total
+count, severity counts, distinct element types, representative example, link, and sort order.
+Use the final finding objects for these aggregates. Sort categories by highest severity
+(TASK > WARNING > REVIEW > INFO), then count descending, then category name ascending. Use these
+recomputed aggregates in 5c and 5d.
 
 #### 5c. Present the grouped summary
 
@@ -542,9 +553,10 @@ after the first applicable row:
 
 Emit one finding for each applicable condition on a source element that needs review, a fix, or
 inventory follow-up. Do not emit a finding for a deterministic rewrite with no follow-up. Set
-`elementName`, `elementId`, and `elementType` from the source element. For source-derived
-findings, preserve the source inventory fields described in step 5b. Record every missing catalog
-mapping in `MIGRATION_REPORT.md`.
+`filename` to the normalized project-relative source model path. For form-related findings, use
+the normalized source BPMN path used by step 5b. Set `elementName`, `elementId`, and `elementType`
+from the source element. For source-derived findings, preserve the source inventory fields
+described in step 5b. Record every missing catalog mapping in `MIGRATION_REPORT.md`.
 
 Emit a findings summary that mirrors CLI severities (WARNING/TASK/REVIEW/INFO). Ask the user to
 review the findings. Use the non-packaged reports directory selected by the pre-flight rules.
@@ -559,7 +571,9 @@ For every `sourceDerived: true` finding, include a `sourceInventory` array with 
 inventory row. Each object includes `sourceBpmn`, `processId`, `ownerId`, `ownerName`, `ownerType`,
 `sourceClassification`, and `status`. Include `reference`, `contentAvailable`, `complexity`, and
 `decision` for referenced-form inventory rows. Include `c7FormKind`, `fields`, and `c8FormId` for
-generated-form inventory rows. Use this same array shape in the M2 report and the category artifact.
+generated-form inventory rows. For a `formHandlerClass` finding, set `sourceClassification` to
+`form-handler-class`, preserve the class name in `handlerClass`, and omit referenced-form and
+generated-form fields. Use this same array shape in the M2 report and the category artifact.
 Resolve `link`
 from the guidance URL for the finding's `messageId` in the current Diagram Converter message
 catalog. Set `link` to `n/a` when no catalog mapping exists, and record the missing mapping in
