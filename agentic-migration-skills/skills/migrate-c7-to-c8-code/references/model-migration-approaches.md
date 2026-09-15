@@ -239,6 +239,11 @@ Add `sourceDerived: true`, and add the matched source inventory fields, includin
 the match is zero or non-unique, move the original finding to `categories.form-key-unmatched`.
 Preserve every converter field in the fallback category after the same sanitization. Record the
 mismatch in MIGRATION_REPORT.md. Assign `needs review` to the fallback category.
+For each source inventory entry without a matched converter finding, add a `sourceDerived: true`
+entry to its authoritative `c7-*` category. Apply the source-derived serialization rules above,
+including report-safe references for referenced forms and omission for generated forms. Keep matched
+converter findings in the same category. Do not create a second source-derived entry for a source
+inventory entry represented by a matched converter finding.
 
 #### 5c. Present the grouped summary
 
