@@ -352,8 +352,10 @@ undifferentiated list.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- For a many-to-one job-type category with a **needs fix** verdict, follow the dispatcher scaffold
-  procedure in `references/composing-code-and-models.md` for each shared job type.
+- For a many-to-one job-type category with a **needs fix** verdict in a Code + models scope, follow
+  the dispatcher scaffold procedure in `references/composing-code-and-models.md` for each shared
+  job type only after verifying that no dispatcher already subscribes to that type. Extend an
+  existing dispatcher instead of generating a second worker.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 
