@@ -69,8 +69,12 @@ scaffold for any group in that category. Resolve the row through model migration
 follow-up. Then rebuild the normalized rows and regroup before applying the mapping and verdict
 checks.
 
-Group the remaining normalized rows by `jobType`, then classify each job-type group by its
-distinct `(headerKey, original)` pairs:
+Build one shared job-type inventory from the remaining normalized rows across all three categories.
+Group the inventory by `jobType`, then classify each job-type group by its distinct
+`(headerKey, original)` pairs. A shared job-type group can contain rows from multiple categories.
+Assign one mapping and dispatcher verdict to each shared job-type group. Project that verdict and its
+evidence into every affected category. Do not let a category-local 1:1 result override a shared
+many-to-one group.
 
 | Mapping | Group condition | Action |
 |---|---|---|
@@ -79,7 +83,8 @@ distinct `(headerKey, original)` pairs:
 
 This shape is common at scale. One generic job type can cover thousands of expression-based service tasks in a real project.
 
-For a `delegate-implementation` category, apply the same pair-count rule. A shared default job type does not by itself make a category many-to-one.
+For rows in a `delegate-implementation` category, apply the same pair-count rule within the shared
+inventory. A shared default job type does not by itself make a category many-to-one.
 
 ### 2a. 1:1 mapping - simple job-type match
 
@@ -102,18 +107,25 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
-every distinct `(headerKey, original)` pair in the normalized rows for that job type. List uncovered
-pairs for the user.
+every distinct `(headerKey, original)` pair in the normalized rows for that job type across all three
+categories. List uncovered pairs for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
-When a many-to-one category has a **needs fix** verdict, process each shared job type independently.
+When a shared job-type group has a **needs fix** verdict, process it independently. Propagate its
+verdict to every affected category before assigning category verdicts.
 
 Before asking for a decision, use the effective-type inventory to identify registrations whose
 effective type resolves to the shared type. If any registration already subscribes to that type,
 then stop scaffold generation. Do not create a second subscriber.
 
-Before generating, scan the chosen quarantine directory for a prior draft whose worker annotation
+Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
+quarantine directory. Allow an explicit user override only when it remains outside runtime source
+sets and every source tree scanned for `@JobWorker`. If `MIGRATION_REPORT.md` records a path, reuse
+it on later invocations unless the user explicitly overrides it. Record the selected path in
+`MIGRATION_REPORT.md` before scanning or generating.
+
+Before generating, scan the selected quarantine directory for a prior draft whose worker annotation
 uses the shared type. If one exists, stop and ask the user whether to reuse, complete, or remove
 that draft. Do not create another draft or collision variant until the prior draft is resolved.
 
@@ -170,11 +182,11 @@ cross-check used for hand-written dispatchers. Record each validation result in 
 The scaffold is not a completed remediation. Keep the category **needs fix** while any known route
 has an unresolved TODO, placeholder, or unconditional throw in a generated or hand-written
 dispatcher, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
-check fails.
+check fails. Do not count the required missing-or-unknown-header failure as a known-route throw.
 Mark the category **no action** only after the cross-check confirms coverage, every known route
-invokes its mapped implementation without an unresolved TODO, placeholder, or unconditional throw,
-and all applicable post-generation checks pass. Record the generated file and uncovered
-implementation work in MIGRATION_REPORT.md.
+invokes its mapped implementation without an unresolved TODO, placeholder, or unconditional throw in
+that route, and all applicable post-generation checks pass. Keep the required missing-or-unknown-
+header guard. Record the generated file and uncovered implementation work in MIGRATION_REPORT.md.
 
 ### 3. FEEL method-invocation category
 
@@ -230,13 +242,14 @@ table to categories with dedicated procedures, including `delegate-implementatio
 `collection-hint`, and form categories. Use those procedures to assign their verdicts. An empty
 normalized-row set never produces **no action**.
 
-Before assigning a verdict, aggregate all normalized rows and all job-type groups in the category.
-The table's cross-reference column names the matched code artifact:
+Before assigning a category verdict, include every shared job-type group that contains a row in the
+category. Use the shared group verdict and evidence. Do not recompute a category-local verdict from
+`messageId` rows alone. The table's cross-reference column names the matched code artifact:
 
 | Evidence across every normalized row and shared job type | Verdict |
 |---|---|
-| Every normalized row has a non-empty `jobType` and either a matching retained `(headerKey, original)` pair or is a 1:1 topic row checked directly by `jobType`, and every job-type group has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with no unresolved TODO, placeholder, or unconditional throw on any known route and passing all applicable validation checks. | **no action** |
-| Any normalized row has a missing or blank `jobType`, any delegate row lacks a matching retained `(headerKey, original)` pair, any many-to-one topic group lacks a retained `topic` header, any many-to-one job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw on a known route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
+| Every normalized row has a non-empty `jobType` and either a matching retained `(headerKey, original)` pair or is a 1:1 topic row checked directly by `jobType`, and every shared job-type group containing a row from the category has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | **no action** |
+| Any normalized row has a missing or blank `jobType`, any delegate row lacks a matching retained `(headerKey, original)` pair, any many-to-one topic group lacks a retained `topic` header, any many-to-one shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
