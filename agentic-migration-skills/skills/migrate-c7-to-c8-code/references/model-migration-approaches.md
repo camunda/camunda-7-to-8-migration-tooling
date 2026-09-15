@@ -218,17 +218,25 @@ Set `sourceReport` to the authoritative JSON report path captured in step 5a. Fo
 the final path after step 3a relocation, including any ` (n)` suffix chosen during relocation. For
 M2, use the fresh JSON report path written by the M2 approach. For M3, use the downloaded JSON path
 after the imported-report checks. Include one `findings` array for every category, including
-categories that later receive `no action`. Copy each converter finding without dropping fields. At
-minimum, every converter finding must include the four fields shown above.
+categories that later receive `no action`. Add one finding object for every non-source-derived
+finding in the authoritative JSON report to the category named by its `messageId`. Preserve every
+report field. At minimum, every finding must include the four fields shown above.
 
-For source-derived categories with no converter finding, serialize one object per source inventory
-entry in the `findings` array. Set `sourceDerived` to `true`, map the source path to `filename`, the
-owner id to `elementId`, and the owner type to `elementType`. Write the source classification in
-`message`. Preserve the remaining fields present in the source inventory, such as process id,
-owner name, decision, and status. For referenced-form inventories, set `reference` to the
-`Reference (report-safe)` value from `form-reference-migration.md`. For generated-form
-inventories, omit `reference` because `form-migration.md` defines no report-safe reference.
-Preserve the form kind, fields, form id, and status for `generated-form-property-source`.
+Before copying any report finding into the artifact, apply the `Reference (report-safe)` rules in
+`form-reference-migration.md` to every form-key-bearing field, including `message`. This rule
+applies to converter findings and M2 findings. Never copy an unsanitized form key or credential
+into the artifact.
+
+For source-derived categories, use the source inventory as the complete element list. For each
+source inventory entry without a matched report finding, serialize one object in the `findings`
+array. Set `sourceDerived` to `true`, map the source path to `filename`, the owner id to
+`elementId`, and the owner type to `elementType`. Write the source classification in `message`.
+Preserve the remaining fields present in the source inventory, such as process id, owner name,
+decision, and status. For referenced-form inventories, set `reference` to the `Reference
+(report-safe)` value from `form-reference-migration.md`. For generated-form inventories, omit
+`reference` because `form-migration.md` defines no report-safe reference. Preserve the form kind,
+fields, form id, and status for `generated-form-property-source`. Merge a matched source-derived
+finding with its source inventory entry instead of adding a second object.
 Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
 Never copy unsanitized form keys or credentials into the artifact. This representation gives every
 synthetic category a complete element list.
@@ -237,20 +245,21 @@ For each legacy generic `form-key` finding, apply the first matching row:
 
 | Match cardinality | Matching condition | Destination category | Classification action |
 |---|---|---|---|
-| Unique | Exactly one source inventory entry matches the source path or filename and owner id. Use process id and owner type to disambiguate when those fields exist. | The `c7-*` category selected by the authoritative source classification | Move the finding from `categories.form-key` and associate it with the matched source entry. |
+| Conflicting classification | Exactly one source inventory entry matches the source path or filename and owner id, and its source classification reports more than one form definition, such as `formKey` with `formRef` or a form reference with `formData`. | `form-reference-conflict` | Keep the finding in this category and associate it with the matched source entry. Do not choose a form-definition precedence. |
+| Unique | Exactly one source inventory entry matches the source path or filename and owner id, and the entry has one authoritative `c7-*` classification. Use process id and owner type to disambiguate when those fields exist. | The `c7-*` category selected by the authoritative source classification | Move the finding from `categories.form-key` and associate it with the matched source entry. |
 | Zero | No source inventory entry matches the source path or filename and owner id. | `form-key-unmatched` | Keep the finding in the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
 | Non-unique | More than one source inventory entry matches after all available disambiguators. | `form-key-unmatched` | Keep the finding in the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
 
-After classification, preserve every converter field after sanitizing every form-key-bearing value,
-including `message`, with its report-safe rendering. Add `sourceDerived: true` and the matched
-source inventory fields, including `sourceClassification`, to a uniquely matched finding. Preserve
-the same sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that
-fallback category.
+After classification, add `sourceDerived: true` and the matched source inventory fields, including
+`sourceClassification`, to a uniquely matched or conflicting finding. Place a conflicting finding
+in `form-reference-conflict` and assign `needs review` to that category. Preserve the same
+sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that fallback
+category.
 For each source inventory entry without a matched converter finding, add a `sourceDerived: true`
-entry to its authoritative `c7-*` category. Apply the source-derived serialization rules above,
-including report-safe references for referenced forms and omission for generated forms. Keep matched
-converter findings in the same category. Do not create a second source-derived entry for a source
-inventory entry represented by a matched converter finding.
+entry to its authoritative `c7-*` or `form-reference-conflict` category. Apply the source-derived
+serialization rules above, including report-safe references for referenced forms and omission for
+generated forms. Keep matched converter findings in the same category. Do not create a second
+source-derived entry for a source inventory entry represented by a matched converter finding.
 
 #### 5c. Present the grouped summary
 
@@ -280,6 +289,7 @@ For a fallback category, apply the first matching row:
 
 | Category condition | Severity | Default verdict |
 |---|---|---|
+| `form-reference-conflict` | Any | needs review |
 | `form-key-unmatched` | Any | needs review |
 | Any other fallback category | INFO | no action |
 | Any other fallback category | REVIEW | needs review |
@@ -342,6 +352,7 @@ Verdicts:
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | `<artifactPath>#/categories/expression-method-not-possible/findings` | needs review |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | `<artifactPath>#/categories/delegate-expression-as-job-type/findings` | needs fix |
 | `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | `<artifactPath>#/categories/form-data/findings` | needs fix |
+| `form-reference-conflict` | 1 | n/a — mixed form definitions need a source decision (see 5g) | n/a | `<artifactPath>#/categories/form-reference-conflict/findings` | needs review |
 | `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | `<artifactPath>#/categories/form-key-embedded/findings` | needs review |
 | `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | `<artifactPath>#/categories/form-key-external/findings` | needs fix |
 | `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | `<artifactPath>#/categories/c7-generic-task-form/findings` | needs review |
@@ -389,6 +400,7 @@ Every C7 form type reaches this step, and each one is handled differently. Gener
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|
+| `form-reference-conflict` | More than one form definition on one owner, such as `formKey` with `formRef` or a form reference with `formData` | Legacy `form-key` or M2 `form-reference-conflict` | Keep the complete source-derived inventory and all copied findings in this review category. Never choose precedence. Set the verdict to `needs review`. |
 | `c7-embedded-html-form` | `embedded:` form key | `form-key-embedded` (older releases: `form-key`) | Inventory, classify simple/complex, then keep-or-rebuild decision |
 | `c7-camunda-form-reference` | `camunda-forms:` form key | `form-key-camunda-form` (older releases: `form-key`) | Convert the `.form` and relink by `formId` + `bindingType` |
 | `c7-camunda-form-reference` | `camunda:formRef` | no finding for literal values. Expression values may emit an expression-transformation finding | Convert the `.form`, read its own schema id, report any mismatch with a literal `formRef` instead of silently rewriting, and record the binding decision |
@@ -479,9 +491,10 @@ M2 does not run Diagram Converter. Apply the first matching row when creating an
 | M2 condition | `messageId` | Severity | `sourceDerived` | `link` |
 |---|---|---|---|---|
 | A JUEL method invocation cannot become FEEL. | `expression-method-not-possible` | REVIEW | `false` | Current catalog guidance URL |
-| The source contains `camunda:formData`. | `form-data` | TASK | `false` | Current catalog guidance URL |
+| The source contains more than one form definition, such as `camunda:formKey` with `camunda:formRef` or a form reference with `camunda:formData`. | `form-reference-conflict` | REVIEW | `true` | `n/a` |
+| The source contains `camunda:formData` without another form definition. | `form-data` | TASK | `false` | Current catalog guidance URL |
 | The source contains form-property-only metadata. | `generated-form-property-source` | TASK | `true` | `n/a` |
-| The source contains a referenced form. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
+| The source contains a referenced form without a form-definition conflict. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
 | The source contains a form-free owner. | `c7-generic-task-form` | REVIEW | `true` | `n/a` |
 | The rewrite exposes a condition with a current catalog message not listed above. | The exact catalog message ID | The catalog severity | `false` | The catalog guidance URL or `n/a` |
 | The rewrite needs manual review and has no catalog message. | `m2-manual-review` | REVIEW | `false` | `n/a` |
