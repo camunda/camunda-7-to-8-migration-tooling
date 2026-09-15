@@ -216,6 +216,10 @@ Set the cross-referenced code artifact to **no dedicated cross-check** for a fal
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
 Apply the same fallback when a report contains a category that is absent from the inventory below.
 Never infer a category-specific cross-check from the category name or message text.
+Define a deterministic finding-specific postcondition for every fallback category. If the category
+has no deterministic postcondition, keep its verdict at **needs review** or **needs fix**. Do not
+set its verification state to `passed` or its verdict to **no action** from generic XML, namespace,
+or converter checks alone.
 
 #### 5d.1. Converter category inventory
 
@@ -372,11 +376,13 @@ Set the Modeler namespace `executionPlatformVersion` attribute to the selected t
 canonical patch-zero form, such as `8.10.0` for target `8.10`, on every M2 converted copy before
 the verification gate. If M2 cannot set target metadata, record `metadata unavailable`, keep the
 affected category at **needs review**, and do not treat converter output as passing evidence.
-Record M2 findings in a structured summary for this run. Use one row per category with the same
-`Category`, `Severity`, `Count`, `Affected paths`, `Element IDs`, `Cross-referenced code artifact`,
-`Link`, `Verdict`, and `Verification` fields as the per-category inventory. Use the source link when
-available. Use `n/a (M2 direct rewrite)` when no source link exists. Map the category and count
-directly from the direct-rewrite findings. Do not consume an unrelated JSON report.
+Record M2 findings in a structured summary for this run. Preserve a row-level record for every
+finding with `Filename`, `Element ID`, `Element type`, `Category`, `Severity`, `Message`, and any
+`Expression`. Group those records into category rows with the same `Category`, `Severity`, `Count`,
+`Affected paths`, `Element IDs`, `Cross-referenced code artifact`, `Link`, `Verdict`, and
+`Verification` fields as the per-category inventory. Use the source link when available. Use
+`n/a (M2 direct rewrite)` when no source link exists. Make this summary the authoritative input for
+the category's touched elements and participating files. Do not consume an unrelated JSON report.
 
 ### Job type naming
 
@@ -438,8 +444,8 @@ Apply these model-specific additions:
 
 Keep the findings inventory columns from step 5d, including `Verification`. Add a separate
 verification table with one row per category and `Category`, `Participating files`, `Before`,
-`Checks and evidence`, `After`, `Verdict`, and `Verification` columns. Do not replace the findings
-inventory with the verification table.
+`Postcondition`, `Checks and evidence`, `After`, `Verdict`, and `Verification` columns. Do not
+replace the findings inventory with the verification table.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
