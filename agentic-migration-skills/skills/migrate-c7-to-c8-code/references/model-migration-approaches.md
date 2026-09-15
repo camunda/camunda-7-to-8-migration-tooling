@@ -380,7 +380,7 @@ If M2 cannot set either target metadata field, apply Step 4 item 17 in `SKILL.md
 converter output as passing evidence until both target metadata fields pass the exact check.
 Record M2 findings in a structured summary for this run. Preserve a row-level record for every
 finding with `Filename`, `Element ID`, `Element type`, `Category`, `Severity`, `Message`, and any
-`Expression`. Group those records into an M2-only category summary with `Category`, `Severity`,
+`Expression`. Group those records into a separate M2-only category summary table with `Category`, `Severity`,
 `Count`, `Affected paths`, `Element IDs`, `Cross-referenced code artifact`, `Link`, `Verdict`, and
 `Verification`. Keep the shared `MIGRATION_REPORT.md` findings inventory separate, with exactly
 `Category`, `Count`, `Cross-referenced code artifact`, `Link`, `Verdict`, and `Verification`
