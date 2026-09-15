@@ -284,8 +284,8 @@ target version. See the linting section in `references/model-migration-approache
 4. Every WARNING, TASK, REVIEW, and INFO finding is fixed, or classified in the per-category verdict table
    with its category, count, cross-referenced code artifact, link, verdict, and verification state. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
-   A category marked **no action** is provisional until its Step 5 verification row records a
-   passing result, including when no manual edit was needed.
+   Mark a category **no action** only after its Step 5 verification row records a passing result,
+   including when no manual edit was needed.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
 6. Every accepted form is a standard Camunda 8 `.form`.
@@ -357,8 +357,9 @@ aggregate category state in M2 or M3. Record its unavailability only in that che
 Set the category to `passed` when all other required checks and the finding-specific postcondition
 pass. Record `not applicable` in converter applicability evidence only for the expected
 already-converted exception. Allow other check rows to record `not applicable` for their explicitly
-defined cases, such as out-of-scope code coverage or no referenced wiring. A category with any
-state other than `passed` cannot receive the **no action** verdict.
+defined cases, such as out-of-scope code coverage or no referenced wiring. This converter-specific
+restriction does not apply to those other check rows. A category with any state other than
+`passed` cannot receive the **no action** verdict.
 
 | Check | Required evidence |
 |---|---|
@@ -367,10 +368,10 @@ state other than `passed` cannot receive the **no action** verdict.
 | Referenced conversion wiring | When code is in scope and a remediation or finding references task wiring, listeners, headers, dispatchers, or DMN/precompute wiring, confirm matching declarations and code coverage. When code is out of scope, confirm matching XML declarations and record code coverage as `not applicable`. Record the row as `not applicable` when neither the remediation nor the finding references such wiring. |
 | Finding-specific postcondition | Define a deterministic postcondition from the category's cross-check and record the expected finding-specific evidence. A valid XML, namespace, or converter check does not replace this condition. If no deterministic postcondition exists, set the verification state to `failed`, keep the category at **needs review** or **needs fix**, and route it through the explicit escalation below. Do not set its verification state to `passed`. |
 | FEEL syntax | Parse every resulting FEEL expression covered by the category, including changed, retained, and converter-generated expressions, with the target FEEL parser when one is available. Record the parser, expression location, and result, or record `none present`. If no parser is available, record that limitation, set the verification state to `unavailable`, and keep the category at **needs review** unless another deterministic FEEL syntax check covers every expression. Keep the category at **needs fix** when parsing fails. |
-| Converter regression evidence | Where the local CLI, Java executable, and converter JAR support the participating converted file, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated tools. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Treat CSV rows as observational evidence only. Do not use CSV rows as findings input or as the pass/fail criterion. |
+| Converter regression evidence | Where the local CLI, Java executable, and converter JAR support the participating converted file, run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv` with the validated tools. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Capture relevant CSV rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record `none` when no relevant rows exist. Record that comparison as supplementary evidence. Record a new or remaining relevant row as a failed supplementary comparison and keep the category nonterminal until its finding-specific postcondition passes. Do not use CSV rows as findings input or as the sole pass/fail criterion. |
 | Converter applicability | Detect both `executionPlatform` and `executionPlatformVersion` with namespace-aware queries for the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local names, not serialized prefixes. Compare `executionPlatform` exactly with `Camunda Cloud` and the version exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Apply this exception before the converter failure rule for M1, M2, M3, and E1. Record `not applicable` only when a standard converted copy has both exact values and the visitors reject the already-converted Camunda 8 diagram. Do not treat the expected rejection exit code as a failure. Record missing or mismatched metadata as `metadata unavailable` or `metadata mismatch`, keep the category at **needs review** or **needs fix**, and do not treat CLI output as applicable passing evidence. |
 | Converter unavailable | For M2 or M3, record `unavailable` in the converter check evidence when the local CLI, Java executable, or converter JAR is unavailable. Treat this supplementary check as non-blocking for the aggregate category state. Set the category to `passed` only after every other required check and the finding-specific postcondition pass. |
-| Converter failure | Treat any reported parse failure as a failed verification even when the CLI exits `0` or writes an empty CSV. Treat any other non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. |
+| Converter failure | After the applicability row classifies an expected already-converted rejection as `not applicable`, do not treat its non-zero exit code as a failure. For all other files, treat any reported parse failure as a failed verification even when the CLI exits `0` or writes an empty CSV. Treat any other non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. |
 | Converter evidence | Capture the command, exit code, parse failures, and CLI's `Created ...` CSV path. Before continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports directory. Record the final evidence path after relocation, `removed` after cleanup deletes the CSV, or `not created` when the command produces no CSV. |
 | Findings source | Do not use CSV rows as findings input or as the pass/fail criterion. Use JSON for findings input in M1, M3, and E1. For M2, use the structured direct-rewrite findings summary and do not consume an unrelated JSON report. |
 
@@ -403,9 +404,10 @@ If the run is analyze-only, present the findings, inventories, and provisional v
 `MIGRATION_REPORT.md`, and stop before the AI Follow-up offer. Do not offer remediation for a run
 that created no converted copies.
 If a category has failed or unavailable verification, use AskUserQuestion before another
-remediation attempt. Present the failure evidence and ask whether to retry with a new plan or leave
-the category unresolved. Do not retry automatically. Do not include the category in the generic
-follow-up offer until the user decides.
+remediation attempt. Present the category, failure evidence, and the recorded postcondition.
+Ask whether to retry with a new remediation plan or leave the category unresolved. Record the
+answer in `MIGRATION_REPORT.md`. Do not retry automatically. Do not include the category in the
+generic follow-up offer until the user decides.
 Exclude an INFO category with provisional **needs review** and a category whose only pending action
 is the shared verification pass from this offer until its verification pass completes. Exclude a
 category with a failed or unavailable verification from this offer. Require a new explicit user

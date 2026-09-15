@@ -264,7 +264,7 @@ Verdicts:
 
 | Verdict | Meaning | Required action |
 |---|---|---|
-| **no action** | The converter handled the category deterministically, the finding is purely informational, or a cross-check confirmed full coverage. Use this verdict only after the category passes its verification. | Nothing to do. |
+| **no action** | The converter handled the category deterministically, the finding is purely informational, or a cross-check confirmed full coverage. Use this verdict only after every required check and the finding-specific postcondition pass. | Nothing to do. |
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
