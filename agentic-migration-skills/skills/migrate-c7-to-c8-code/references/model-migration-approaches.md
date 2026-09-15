@@ -221,6 +221,8 @@ Define a deterministic finding-specific postcondition for every fallback categor
 has no deterministic postcondition, keep its verdict at **needs review** or **needs fix**. Do not
 set its verification state to `passed` or its verdict to **no action** from generic XML, namespace,
 or converter checks alone.
+For `form-already-camunda-8`, verify the existing form's Camunda 8 metadata, JSON schema, render,
+linkage, and deployment state. Use these form checks as the finding-specific postcondition.
 
 #### 5d.1. Converter category inventory
 

@@ -116,8 +116,8 @@ These rules apply to every later step.
 - An INFO finding is informational until a later cross-check identifies work.
 - Converter annotations are temporary review metadata. Once the verdict table is complete, strip
   `conversion:*` elements and attributes from the converted copies with namespace-aware XML tooling.
-- A category verdict is provisional until every participating `converted-c8-*` file passes the
-  verification gate in Step 5.
+- A category verdict is provisional until every participating converted copy recorded for this run
+  passes the verification gate in Step 5.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root.
 - Keep `MIGRATION_REPORT.md` current.
 - Use `MIGRATION_REPORT.md` as the single source of truth for inventories, decisions, open items,
@@ -345,11 +345,13 @@ Those rules make a category eligible for the gate, but they do not replace it.
 Run it after a category fix and on every converted copy participating in the category when no
 manual edit was needed. Record before-and-after evidence in `MIGRATION_REPORT.md`. Do not start an
 automatic fix loop.
-Before each remediation batch, capture an immutable baseline for every participating converted copy
-and `.form` resource. Immediately before verifying a no-edit category, capture the same baseline.
-For XML, include namespace counts, wiring references, and FEEL state. For forms, include the JSON
-content hash, schema result, render result, linkage, and deployment state. Use the baseline for
-`Before` evidence.
+Before each remediation batch, capture an immutable baseline for every participating converted copy,
+`.form` resource, and referenced code artifact. Immediately before verifying a no-edit category,
+capture the same baseline. For XML, include namespace counts, wiring references, and FEEL state.
+For forms, include the JSON content hash, schema result, render result, linkage, and deployment
+state. Record `absent` when a remediation will create a new form. Record `not applicable` when no
+form resource participates. For code, include content hashes and matched worker, listener,
+dispatcher, and precompute declarations. Use the baseline for `Before` evidence.
 Do not reconstruct it from the original Camunda 7 model. Run this gate when a converted copy
 participates in verification. Do not resolve a category verdict in an analyze-only run that creates
 no converted copies. Keep category verdicts provisional in that mode.
@@ -372,7 +374,7 @@ checks when a category contains only generated forms.
 | Check | Required evidence |
 |---|---|
 | XML structure | For every participating BPMN or DMN converted copy, re-parse the file with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
-| Generated form structure | For every participating `.form` resource, parse the JSON and apply the schema, render, linkage, and deployment checks in `form-migration.md`. Compare the results with the immutable form baseline. Record before-and-after evidence, the command, exit code, and resource paths. |
+| Generated form structure | For every participating `.form` resource, parse the JSON and apply the schema, render, linkage, and deployment checks in `form-migration.md`. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
 | Namespace and metadata cleanup | For BPMN or DMN converted copies, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. |
 | Final whole-file cleanup | After all categories reach terminal verdicts and Step 5e removes converter annotations, inspect the entire BPMN or DMN converted copy, not only touched elements. Require and record zero remaining Camunda 7 elements, attributes, and QName-valued attribute values. Require and record zero conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
 | Final cleanup failure | If any final count is non-zero, invalidate every passed row for that file, update every invalidated row in both tables to **needs fix** or **needs review**, record a run-level validation failure when no category maps to the leftover, and keep the migration incomplete until final revalidation passes. |
@@ -409,8 +411,9 @@ or an unavailable deterministic check remains. Do not mark it **no action**. Esc
 single verification pass when the failure needs a new design or a second remediation attempt. Set
 the verification state to `failed` or `unavailable` and update the nonterminal verdict in both the
 findings inventory and verification table.
-After any remediation batch edits a converted copy or `.form` resource, invalidate every earlier
-`passed` verification row for that file and rerun every invalidated category. Before exit, run the
+After any remediation batch edits a converted copy, `.form` resource, or referenced code artifact,
+invalidate every earlier `passed` verification row whose recorded file or code artifact changed and
+rerun every invalidated category. Before exit, run the
 final whole-file cleanup check for every participating file. Rerun the supplementary converter
 command for each changed BPMN or DMN copy during final validation. Do not rerun category-specific
 postconditions in the final whole-file check. Retain **no action** only for rows that passed their
