@@ -45,8 +45,8 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     * an explicit {@code .atMost()} inherit a CI-safe timeout after the Spring/CPT context has
     * started.
    *
-    * <p>These defaults do not override CPT's explicit cluster readiness timeout, but they keep
-    * post-startup assertions from relying on Awaitility's short default timeout.
+   * <p>These defaults do not override CPT's explicit cluster readiness timeout, but they keep
+   * post-startup assertions from relying on Awaitility's short default timeout.
    */
   static {
     Awaitility.setDefaultTimeout(Duration.ofSeconds(120));
