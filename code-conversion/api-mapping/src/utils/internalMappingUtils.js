@@ -32,26 +32,38 @@ function findMappingInfo(selectedMapping, path, operation) {
 	});
 }
 
-function createC8Info(selectedMapping, mappingPath, mappingOperation) {
-	return Object.entries(selectedMapping.c8_specification.paths)
-		.flatMap(([path, operations]) => {
-			return mappingPath == path
-				? Object.entries(operations).flatMap(([operation, details]) => {
-						return mappingOperation == operation
-							? {
-									path: path,
-									operation: operation,
-									url: createC8DocLink(
-										selectedMapping,
-										details?.operationId
-									),
-									details,
-							  }
-							: [];
-				  })
-				: [];
-		})
-		.find((x) => x !== undefined);
+function createC8Info(selectedMapping, mappingTarget) {
+	const mappingTargets = Array.isArray(mappingTarget)
+		? mappingTarget
+		: mappingTarget
+		? [mappingTarget]
+		: [];
+	const c8Infos = mappingTargets.flatMap(
+		({ path: mappingPath, operation: mappingOperation }) =>
+			Object.entries(selectedMapping.c8_specification.paths).flatMap(
+				([path, operations]) => {
+					return mappingPath == path
+						? Object.entries(operations).flatMap(
+								([operation, details]) => {
+									return mappingOperation == operation
+										? {
+												path: path,
+												operation: operation,
+												url: createC8DocLink(
+													selectedMapping,
+													details?.operationId
+												),
+												details,
+										  }
+										: [];
+								}
+						  )
+						: [];
+				}
+			)
+	);
+
+	return c8Infos.length > 1 ? c8Infos : c8Infos[0];
 }
 
 export function createMappedC7Endpoints(
@@ -121,8 +133,7 @@ export function createMappedC7Endpoints(
 									},
 									c8Info: createC8Info(
 										selectedMapping,
-										mappingInfo?.target?.path,
-										mappingInfo?.target?.operation
+										mappingInfo?.target
 									),
 									direct: mappingInfo?.direct,
 									conceptual: mappingInfo?.conceptual,

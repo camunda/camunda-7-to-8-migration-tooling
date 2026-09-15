@@ -7,6 +7,7 @@ const scriptDirectory = path.dirname(scriptFilePath);
 const projectRoot = path.resolve(scriptDirectory, '..');
 const allowlistPath = path.join(projectRoot, 'scripts', 'type-escape-allowlist.txt');
 const sourceDir = path.join(projectRoot, 'src');
+const generatedSourceDirectory = path.join(sourceDir, 'openapi');
 
 const checks = [
   { key: 'explicit-any', regex: /(:\s*any\b|\bas\s+any\b|<\s*any\s*>)/g },
@@ -33,6 +34,9 @@ const visit = (directory) => {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
+      if (absolutePath === generatedSourceDirectory) {
+        continue;
+      }
       visit(absolutePath);
       continue;
     }
