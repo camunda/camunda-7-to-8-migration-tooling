@@ -202,6 +202,32 @@ The current dedicated cross-check categories are:
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
 
+#### 5d.1. Classify runtime impact
+
+Assign one `Runtime impact` value to every verdict-table row before assigning its verdict. Runtime
+impact is independent of severity. Severity describes the urgency of follow-up. Runtime impact
+describes whether the finding blocks deployment or execution on the chosen target.
+
+Use the following rules:
+
+| Category or validation condition | Runtime impact | Derivation |
+|---|---|---|
+| `element-not-supported` | **Blocking** | The target cannot deploy or execute the affected element. |
+| `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version | Compare the report's required version with the chosen target. A report generated for another target must be revalidated before this classification is used. |
+| `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
+| A blank `zeebe:taskDefinition/@type` on a service, send, business rule, or script task | **Blocking** | The converted executable task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. |
+| `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
+| `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
+| `timer-expression-not-supported`, `inclusive-gateway-join`, `only-feel-supported` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
+| Every other known category, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
+
+If a new or unknown `messageId` appears, verify the converted model and the affected element before
+assigning its impact. Use **Blocking** only when the evidence shows a deployment or execution
+failure. Otherwise use **Advisory**, record the evidence, and add the category to the inventory.
+
+Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
+**Advisory**, such as `form-data`. A WARNING can be **Blocking**, such as `element-not-supported`.
+
 For a fallback category, assign the default verdict from the finding severity:
 
 | Severity | Default verdict |
@@ -215,7 +241,7 @@ Add the finding `link` to the `Link` column and surface it as the remediation st
 Apply the same fallback when a report contains a category that is absent from the inventory below.
 Never infer a category-specific cross-check from the category name or message text.
 
-#### 5d.1. Converter category inventory
+#### 5d.2. Converter category inventory
 
 This inventory records the `messageId` values produced by `MessageFactory` in converter version
 `0.3.6-SNAPSHOT`. It is the known-category list, not a list of dedicated cross-checks:
@@ -262,18 +288,20 @@ Verdicts:
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
-| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Runtime impact | Count | Cross-referenced code artifact | Link | Verdict |
+|---|---|---|---|---|---|
+| `expression-method-not-possible` | Blocking | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
+| `delegate-expression-as-job-type` | Advisory | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
+| `form-data` | Advisory | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
+| `form-key-embedded` | Advisory | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
+| `form-key-external` | Advisory | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
+| `c7-generic-task-form` | Advisory | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
 
 Rules:
 
 - One row per category, sorted as in 5b.
+- Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
+  verdict.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.

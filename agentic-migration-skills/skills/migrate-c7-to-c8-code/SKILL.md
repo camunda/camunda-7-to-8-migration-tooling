@@ -280,7 +280,7 @@ target version. See the linting section in `references/model-migration-approache
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, count, cross-referenced code artifact, and verdict. See
+   with its category, runtime impact, count, cross-referenced code artifact, and verdict. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
@@ -338,6 +338,16 @@ Use AskUserQuestion with these options:
 
 For model findings, work from the Step 4 verdict table. Never present model findings as one
 undifferentiated list.
+
+For `needs fix` categories, sequence the follow-up work by runtime impact:
+
+| Order | Runtime impact | Secondary order |
+|---|---|---|
+| 1 | **Blocking** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+
+Present the runtime impact with every category. Resolve all **Blocking** categories before
+**Advisory** categories. Do not use severity as a substitute for runtime impact.
 
 | Verdict | Action |
 |---|---|
