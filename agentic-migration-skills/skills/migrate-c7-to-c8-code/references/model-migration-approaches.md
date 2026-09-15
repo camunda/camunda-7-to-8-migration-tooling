@@ -171,12 +171,34 @@ findings source.
 
 #### 5b. Group findings by category
 
-Group findings by `messageId` (the category). For each category compute:
+Group findings by `messageId` (the category). For each converter category compute:
 
 - Total count, and count per severity.
 - Distinct `elementType` values affected (e.g. serviceTask, sequenceFlow, multiInstanceLoopCharacteristics).
 - One representative example: a `message` with its `filename` and `elementId`.
 - The `link` to conversion guidance for that category.
+
+#### 5b.1. Add source-derived findings
+
+After grouping JSON findings, scan every fresh converted BPMN model with a namespace-aware XML
+parser. Run this scan for M1, M2, M3, and E1. Do not restrict it to M2 or to converter findings.
+
+Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
+`bpmn:scriptTask`:
+
+- Exclude a `businessRuleTask` when it has a `zeebe:calledDecision`.
+- Exclude a `scriptTask` when it has a `zeebe:script` for an internal FEEL script.
+- For every other listed task, inspect its extension elements for a `zeebe:taskDefinition` with a
+  non-blank `@type`.
+
+When a listed task has no task definition or has a blank task-definition type, add a source-derived
+finding in the `blank-executable-task-job-type` category. Record the converted file, element id,
+element type, and missing or blank attribute as evidence. Add this category to the grouped summary
+and the verdict table even when the JSON report contains no matching `messageId`.
+
+Source-derived categories have no converter severity. Record `n/a` as their converter severity and
+use `TASK` as their effective severity for sorting. If the imported report target differs from the
+chosen target, defer runtime impact for these findings until target-aware revalidation.
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
@@ -184,7 +206,7 @@ Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count
 
 Present the grouped table before any per-finding follow-up starts, and record it in MIGRATION_REPORT.md:
 
-| Category (messageId or source category) | Severity | Count | Element types | Example |
+| Category (messageId or source category) | Severity or effective severity | Count | Element types | Example |
 |---|---|---|---|---|
 | `expression-method-not-possible` | REVIEW | 1,308 | sequenceFlow, exclusiveGateway | "Method invocation is not possible in FEEL: ..." in order-process.bpmn, element `Gateway_1` |
 
@@ -210,17 +232,25 @@ Assign one `Runtime impact` value to every verdict-table row before assigning it
 impact is independent of severity. Severity describes the urgency of follow-up. Runtime impact
 describes whether the finding blocks deployment or execution on the chosen target.
 
+Apply the report-target condition before category-specific rules. If the report target differs from
+the chosen target, do not assign runtime impact until target-aware revalidation completes.
+
+If one `messageId` produces more than one runtime impact, split its findings into separate
+verdict-table rows before assigning verdicts. Preserve the count, examples, links, and evidence
+for each partition. Use the category and runtime impact together as the row identity.
+
 Use the following rules:
 
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
-| `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version; **Advisory** when the chosen target meets or exceeds it | Compare the report's required version with the chosen target. Classify a finding as Advisory when the target meets or exceeds the required version because an imported report can be stale. |
-| A report target that differs from the chosen target | Do not assign runtime impact until revalidation | Require a fresh findings report or target-aware revalidation before deriving impact. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
+| `element-available-in-future-version` after target match or target-aware revalidation | **Blocking** when the chosen target is lower than the required version; **Advisory** when the chosen target meets or exceeds it | Compare the report's required version with the chosen target only after the report target matches or revalidation completes. |
+| A report target that differs from the chosen target | Do not assign runtime impact until revalidation | This rule takes precedence over every category-specific rule. A report generated for a higher target can omit findings for elements unsupported at the chosen lower target. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
-| A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a service, send, non-DMN business-rule, or non-internal-script task | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
+| A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
 | `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
+| `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the chosen target is 8.9 or later | **Blocking** | The converted `zeebe:conditionalFilter` cannot trigger on delete events because C8 supports only `create` and `update`. When the target is below 8.9, defer to target-aware revalidation and apply the conditional-event `element-available-in-future-version` rule if applicable. |
 | `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
 | `loop-cardinality` | **Blocking** when no valid C8 `inputCollection` replaces the cardinality; **Advisory** when a valid replacement exists | The converter emits no C8 loop-count attribute. Inspect `zeebe:loopCharacteristics@inputCollection` and verify that its expression represents the same iteration set. |
 | `only-feel-supported` | **Blocking** when the original DMN `expressionLanguage` is neither the case-insensitive literal `feel` nor a recognized canonical OMG FEEL URI; **Advisory** when it is either recognized form | Read the source value before conversion. The converter removes this attribute from non-definition elements, so explicit FEEL values such as `https://www.omg.org/spec/DMN/20191111/FEEL/` are valid while another language cannot execute. |
@@ -283,7 +313,7 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, they typically take verdict no action. Never leave findings as severity counts or a generic "findings need follow-up" note.
+After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category-impact row exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, they typically take verdict no action. Never leave findings as severity counts or a generic "findings need follow-up" note.
 
 Verdicts:
 
@@ -304,10 +334,14 @@ Verdicts:
 
 Rules:
 
-- One row per category, sorted as in 5b.
+- Use one row per category, sorted as in 5b. If a category has mixed runtime impacts, use one row
+  per category-impact partition.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
+- Include `blank-executable-task-job-type` even when the JSON report has no matching `messageId`.
+  Give it `Blocking` runtime impact, `TASK` effective severity, `needs fix` verdict, and no
+  dedicated cross-check.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
