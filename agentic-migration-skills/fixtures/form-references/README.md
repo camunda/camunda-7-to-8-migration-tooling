@@ -107,6 +107,9 @@ The evaluation is complete when the agent has:
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
   external reference;
+* verified that the recorded JSON artifact at `artifactPath` contains a
+  category row and complete element list for every form
+  category, including source-only generic owners; and
 * left the original Camunda 7 BPMN and HTML untouched; and
 * left no form-reference category marked "no action" on the strength of the
   copied reference alone.

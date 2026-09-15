@@ -87,6 +87,8 @@ The evaluation is complete when the agent has:
 * presented the draft and mapping to the user for explicit acceptance;
 * linked only the accepted form with a matching `formId` and
   `bindingType="deployment"`;
+* verified that the recorded JSON artifact at `artifactPath` contains the
+  `form-data` category and its complete element list;
 * validated the form JSON and parsed the converted BPMN;
 * confirmed one `zeebe:userTask` and one matching form definition on the
   accepted user task; and

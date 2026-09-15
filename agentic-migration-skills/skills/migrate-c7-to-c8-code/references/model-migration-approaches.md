@@ -18,6 +18,7 @@ Before any local approach (M1, M2, E1), scan for outputs of previous migration a
 - `converted-c8-*.bpmn` / `converted-c8-*.dmn` (or the `--prefix` equivalent)
 - accepted generated forms beside converted BPMN, and drafts under `.camunda-migration/generated-form-drafts/`
 - `analysis-results.<ext>` and `analysis-results (n).<ext>` findings reports, where `n` is a positive integer and `<ext>` is `.csv`, `.json`, `.md`, or `.xlsx`
+- `findings-by-category.json` and `findings-by-category (n).json` artifacts, where `n` is a positive integer
 
 Never flag the `.camunda-migration/` CLI JAR — an intentional cache, not a leftover.
 
@@ -104,9 +105,11 @@ validation and report the error. Do not claim a complete migration.
 
 Before packaging the project, inspect every resource directory that the build configures for
 packaging, including `src/main/resources` when it exists. No findings report named
-`analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
-`.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
-directory. Otherwise, use another explicitly non-packaged directory.
+`analysis-results.<ext>`, `analysis-results (n).<ext>`, `findings-by-category.json`, or
+`findings-by-category (n).json` may remain there, where `<ext>` is `.csv`, `.json`, `.md`, or
+`.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/`
+only when the build does not package that directory. Otherwise, use another explicitly non-packaged
+directory.
 
 ### 4. Surface Outputs
 
@@ -126,7 +129,7 @@ REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them
 
 Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
 
-Group by category first. The category, not the individual row, is the unit of work.
+Group by category first. The category, not the individual finding, is the unit of work.
 
 #### Imported reports: verify the target platform version
 
@@ -146,11 +149,11 @@ If the report's version does not match the chosen target, or cannot be determine
 
 #### 5a. Parse the JSON report
 
-Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
-path captured after step 3a relocation. For an imported M3 report, use the downloaded JSON path
-after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when a
-stale report exists. Never parse a pre-existing local findings report found on disk. Never rely on
-stdout severity counts instead.
+Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the path captured after step 3a relocation. For an M2 run, use the
+fresh JSON report path written by the M2 approach. For an imported M3 report, use the downloaded
+JSON path after the version and pairing checks in step 5. The local path may include a ` (n)` suffix
+when a stale report exists. Never parse a pre-existing local findings report found on disk. Never
+rely on stdout severity counts instead.
 
 Format: a JSON array with one object per finding, fields:
 
@@ -175,8 +178,177 @@ Group findings by `messageId` (the category). For each category compute:
 - Distinct `elementType` values affected (e.g. serviceTask, sequenceFlow, multiInstanceLoopCharacteristics).
 - One representative example: a `message` with its `filename` and `elementId`.
 - The `link` to conversion guidance for that category.
+- The complete element list. Preserve every finding in the category. Do not deduplicate findings
+  that have the same filename or element ID.
 
-Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
+Do not finalize these aggregates before the source-inventory and legacy `form-key` classification
+rules below run.
+
+Before writing this artifact, select a non-packaged artifact directory. Use `.camunda-migration/`
+when the build does not package that directory. If the build packages `.camunda-migration/`, ask
+the user to choose another explicitly non-packaged directory. Create the selected artifact
+directory before writing the artifact. Set `artifactPath` to
+`<selected-directory>/findings-by-category.json`. If that path exists, then test positive integer
+suffixes in ascending order and use the first unused path, such as
+`<selected-directory>/findings-by-category (1).json`. Never overwrite an existing artifact. Record
+`artifactPath` in `MIGRATION_REPORT.md`. Use the raw path for filesystem access and the exit
+criterion. URL-encode the path in every Markdown `Element list` link, including spaces in a
+suffixed filename. This artifact is a working file for the migration session, not user-facing
+documentation. Use the JSON report captured in 5a as the source. Where the fallback grouping script
+is used, it reads the captured JSON report and writes this artifact. Use this shape:
+
+```json
+{
+  "schemaVersion": 1,
+  "sourceReport": ".camunda-migration/reports/analysis-results.json",
+  "categories": {
+    "expression-method-not-possible": {
+      "findings": [
+        {
+          "filename": "order-process.bpmn",
+          "elementId": "Gateway_1",
+          "elementType": "exclusiveGateway",
+          "message": "Method invocation is not possible in FEEL: ..."
+        }
+      ]
+    }
+  }
+}
+```
+
+Set `sourceReport` to the authoritative JSON report path captured in step 5a. For M1 and E1, use
+the final path after step 3a relocation, including any ` (n)` suffix chosen during relocation. For
+M2, use the fresh JSON report path written by the M2 approach. For M3, use the downloaded JSON path
+after the imported-report checks. Include one `findings` array for every category, including
+categories that later receive `no action`. Add one finding object for every non-source-derived
+finding in the authoritative JSON report to the category named by its `messageId`. Preserve every
+report field. At minimum, every finding must include the four fields shown above.
+
+Before copying any report finding into the artifact, apply the `Reference (report-safe)` rules in
+`form-reference-migration.md` to every form-key-bearing field, including `message`. This rule
+applies to converter findings and M2 findings. Never copy an unsanitized form key or credential
+into the artifact.
+
+For every finding eligible for source-inventory matching, normalize each available `sourceBpmn` and
+report `filename` to project-relative paths with forward slashes before grouping or matching. This
+includes source-derived findings, M1, M3, and E1 `form-key-*` findings, legacy generic `form-key`
+findings, and matched start-event `attribute-not-supported` findings. Resolve an absolute report
+`filename` relative to the project root established for the current approach. Use the M1 or E1
+input root, the M2 project root, or the paired M3 source root. Remove a leading `./` after
+normalization.
+If either path cannot be normalized under that root, preserve the finding and record an inventory
+mismatch in `MIGRATION_REPORT.md`. Group inventory rows by normalized `sourceBpmn`, `processId`,
+`ownerId`, and `ownerType`. Treat all rows in one group as one owner-level inventory group. A group
+can contain multiple form definitions. When it contains more than one definition, such as `formKey`
+plus `formRef` or a form reference plus `formData`, merge all definitions into one
+`form-reference-conflict` finding. Do not treat those definitions as separate matching candidates.
+
+Define an inventory row's identity within its owner-level group with these definition-specific fields:
+
+| Inventory row | Additional identity fields |
+|---|---|
+| Referenced form | `sourceClassification`, report-safe `reference`, `contentAvailable`, `complexity`, and `decision` |
+| Generated form | `sourceClassification`, `c7FormKind`, `fields`, and `c8FormId` |
+| `formHandlerClass` condition | `sourceClassification` and `handlerClass` |
+| Form-free owner | `sourceClassification` |
+
+Normalize paths, report-safe references, and structured field values before comparison. Use
+raw-reference equality as an internal-only deduplication discriminator for referenced-form rows.
+Do not serialize this discriminator. Treat rows as exact duplicates only when their owner-group
+fields, serialized identity fields, and raw references are equal. If raw references differ but
+their report-safe values are equal, retain both rows. Never serialize raw references or
+raw-reference digests. Treat rows that differ in any identity field as distinct definitions or
+conditions and retain every row. Do not use `ownerName`, `status`, or aggregate fields as row
+identity.
+
+Match an owner-level inventory group to an eligible authoritative finding with this composite key:
+normalized `sourceBpmn` to normalized `filename`, `ownerId` to `elementId`, and `ownerType` to
+`elementType`. When both records contain `processId`, require equal values. Do not match by owner
+name, message, or category alone.
+
+Use this table to decide whether the composite key can associate a group with a finding:
+
+| Authoritative finding | Eligible for source inventory association |
+|---|---|
+| `sourceDerived: true` with a matching `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category | Yes |
+| `sourceDerived: true` with `m2-manual-review` for a form-related source condition, including `formHandlerClass` or a non-process-level none start-event reference | Yes |
+| An M1, M3, or E1 finding with a specific `form-key-*` messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`) | Yes |
+| A `sourceDerived: false` or absent `form-data` finding whose owner-level inventory group contains only generated-form metadata | Yes |
+| An M1, M3, or E1 `attribute-not-supported` finding whose composite match identifies a start-event `formKey` | Yes |
+| A `form-data` finding whose owner-level inventory group contains a referenced form | No |
+| `sourceDerived: false`, including `expression-method-not-possible` | No |
+| `sourceDerived: true` without a matching form or source condition | No |
+
+For M1, M3, and E1 converter findings, treat an absent `sourceDerived` field as `false` before
+applying this table. Treat an absent field and explicit `sourceDerived: false` identically.
+For a matched start-event `attribute-not-supported` finding, reclassify a unique match to the
+source classification's `c7-*` category before step 5d. Reclassify a conflicting match to
+`form-reference-conflict`.
+
+Match each group against every eligible authoritative report finding, including source-derived
+findings. Do not associate a group with an unrelated finding, even when the composite key matches.
+Keep one artifact object for every authoritative report finding. Never combine two authoritative findings because they share an owner.
+Apply the table after grouping and matching:
+
+| Match | Destination category | Artifact action |
+|---|---|---|
+| An eligible authoritative report finding matches an owner-level inventory group with more than one form definition. | `form-reference-conflict` | Keep one artifact object. Set its `messageId` to `form-reference-conflict`, preserve its other authoritative fields, set `sourceDerived` to `true`, and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. Do not add a second synthetic object. |
+| An eligible authoritative report finding matches an owner-level inventory group with one form definition. | The finding's authoritative `messageId` | Keep one artifact object for the authoritative finding. For every eligible authoritative report finding other than `form-data`, set `sourceDerived` to `true` and replace its `sourceInventory` with the complete owner-level group, de-duplicated by the inventory row keys. For `form-data`, keep the authoritative `sourceDerived: false` value, attach the complete `sourceInventory` as provenance, and do not add a synthetic object. |
+| An owner-level inventory group has no matched authoritative report finding. | Its source classification category, such as `c7-*`, `form-reference-conflict`, `generated-form-property-source`, or `m2-manual-review` for a form-handler-class or non-process-level none-start-event condition | Add one `sourceDerived: true` object to the `findings` array. |
+| A source-derived authoritative report finding has no matched owner-level inventory group. | Its existing `messageId` | Preserve the finding in its existing category and record the inventory mismatch in `MIGRATION_REPORT.md`. |
+
+For a synthetic source-derived entry, set `sourceDerived` to `true`, map the source path to
+`filename`, the owner id to `elementId`, and the owner type to `elementType`. Write the source
+classification in `message`. Copy the complete owner-level group into `sourceInventory` as an array
+with one object for each inventory row. Repeat the group keys `sourceBpmn`, `processId`, `ownerId`,
+`ownerName`, `ownerType`, `sourceClassification`, and `status` in each object. For referenced-form
+inventory rows, set `reference` to the `Reference (report-safe)` value from
+`form-reference-migration.md`. For generated-form inventory rows, omit `reference` because
+`form-migration.md` defines no report-safe reference. Preserve `c7FormKind`, `fields`, `c8FormId`,
+and `status` for every generated-form inventory row. For `form-handler-class` inventory rows,
+preserve the class name in `handlerClass` and omit referenced-form and generated-form fields. Keep a matched
+authoritative report finding in its authoritative `messageId` category, except when the
+multi-definition rule above reclassifies it as `form-reference-conflict`. This includes
+`generated-form-property-source` and any `c7-*` category.
+Redact credential-like URL query values and URL userinfo passwords before writing the artifact.
+Never copy unsanitized form keys or credentials into the artifact. This representation gives every
+synthetic category a complete element list. Set `severity` to `n/a` because source inventory has no
+converter severity for a synthetic entry.
+
+For each legacy generic `form-key` finding, apply the first matching row after owner-level grouping:
+
+| Match cardinality | Matching condition | Destination category | Classification action |
+|---|---|---|---|
+| Conflicting classification | Exactly one owner-level inventory group matches the composite key and its source classification reports more than one form definition, such as `formKey` with `formRef` or a form reference with `formData`. | `form-reference-conflict` | Move the finding from `categories.form-key` to this category and associate it with the complete group. Do not choose a form-definition precedence. |
+| Unique | Exactly one owner-level inventory group matches the composite key and the group has one authoritative `c7-*` classification. | The `c7-*` category selected by the authoritative source classification | Move the finding from `categories.form-key` and associate it with the matched group. |
+| Zero | No owner-level inventory group matches the composite key. | `form-key-unmatched` | Move the finding from `categories.form-key` to the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
+| Non-unique | More than one owner-level inventory group matches after all composite-key fields are compared. | `form-key-unmatched` | Move the finding from `categories.form-key` to the fallback category and record the mismatch in `MIGRATION_REPORT.md`. |
+
+After classification, add `sourceDerived: true` and the complete matched `sourceInventory` array, including
+`sourceClassification`, to a uniquely matched or conflicting finding. Place a conflicting finding
+in `form-reference-conflict` and assign `needs review` to that category. Preserve the same
+sanitized converter fields in `form-key-unmatched`. Assign `needs review` to that fallback
+category.
+
+After matching, apply these synthetic-entry rules:
+
+| Unmatched source condition | Required entry |
+|---|---|
+| An owner-level inventory group has no matched authoritative finding for any of its source conditions. | Add one `sourceDerived: true` entry with the complete owner-level group. Use its authoritative `c7-*`, `form-reference-conflict`, or `generated-form-property-source` category. Use `m2-manual-review` for a `form-handler-class` or non-process-level none-start-event condition. |
+| A `form-handler-class` or non-process-level none-start-event condition has no matched authoritative `m2-manual-review` finding, but another source condition in the same owner-level group is assigned a different destination category. | Add a separate `sourceDerived: true` `m2-manual-review` entry for the unmatched condition. Do not treat the other category's match as representation of the condition. |
+
+Apply the source-derived serialization rules above, including report-safe references for referenced
+forms and omission for generated forms. Keep matched authoritative report findings in their
+existing report categories. Do not create a second source-derived entry for a source inventory
+entry represented by a matched authoritative report finding, except for the separate
+`m2-manual-review` entries required above.
+After all classification and source-inventory reconciliation, recompute each category's total
+count, severity counts, distinct element types, representative example, link, and sort order.
+Use the final finding objects for these aggregates. Count synthetic `n/a` severities under the `n/a`
+key. For the grouped summary Severity cell, use the highest defined severity
+(TASK > WARNING > REVIEW > INFO) or `n/a` when the category contains only synthetic entries. Sort
+categories by highest defined severity, then place `n/a`-only categories after INFO, then count
+descending, then category name ascending. Use these recomputed aggregates in 5c and 5d.
 
 #### 5c. Present the grouped summary
 
@@ -202,13 +374,16 @@ The current dedicated cross-check categories are:
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
 
-For a fallback category, assign the default verdict from the finding severity:
+For a fallback category, apply the first matching row:
 
-| Severity | Default verdict |
-|---|---|
-| INFO | no action |
-| REVIEW | needs review |
-| WARNING or TASK | needs fix |
+| Category condition | Severity | Default verdict |
+|---|---|---|
+| `m2-manual-review` | Any | needs review |
+| `form-reference-conflict` | Any | needs review |
+| `form-key-unmatched` | Any | needs review |
+| Any other fallback category | INFO | no action |
+| Any other fallback category | REVIEW | needs review |
+| Any other fallback category | WARNING or TASK | needs fix |
 
 Set the cross-referenced code artifact to **no dedicated cross-check** for a fallback category.
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
@@ -259,23 +434,28 @@ Verdicts:
 | Verdict | Meaning | Required action |
 |---|---|---|
 | **no action** | The converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage. | Nothing to do. |
-| **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
+| **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per finding), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
-| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Element list | Verdict |
+|---|---|---|---|---|---|
+| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | `<artifactPath>#/categories/expression-method-not-possible/findings` | needs review |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | `<artifactPath>#/categories/delegate-expression-as-job-type/findings` | needs fix |
+| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | `<artifactPath>#/categories/form-data/findings` | needs fix |
+| `form-reference-conflict` | 1 | n/a — mixed form definitions need a source decision (see 5g) | n/a | `<artifactPath>#/categories/form-reference-conflict/findings` | needs review |
+| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | `<artifactPath>#/categories/form-key-embedded/findings` | needs review |
+| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | `<artifactPath>#/categories/form-key-external/findings` | needs fix |
+| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | `<artifactPath>#/categories/c7-generic-task-form/findings` | needs review |
 
 Rules:
 
 - One row per category, sorted as in 5b.
+- Add the `Element list` path for every category with verdict `needs fix` or `needs review`.
+  Point it to the matching array in `artifactPath`. Keep the
+  complete list available for the AI follow-up. The grouped summary remains one example per
+  category.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
-- Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
+- Copy each finding's `link` into the `Link` column. Use `n/a` when the finding has no link. For a fallback category, present that link as the remediation starting point.
 - Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
@@ -310,6 +490,7 @@ Every C7 form type reaches this step, and each one is handled differently. Gener
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|
+| `form-reference-conflict` | More than one form definition on one owner, such as `formKey` with `formRef` or a form reference with `formData` | Legacy `form-key` or M2 `form-reference-conflict` | Keep the complete source-derived inventory and all copied findings in this review category. Never choose precedence. Set the verdict to `needs review`. |
 | `c7-embedded-html-form` | `embedded:` form key | `form-key-embedded` (older releases: `form-key`) | Inventory, classify simple/complex, then keep-or-rebuild decision |
 | `c7-camunda-form-reference` | `camunda-forms:` form key | `form-key-camunda-form` (older releases: `form-key`) | Convert the `.form` and relink by `formId` + `bindingType` |
 | `c7-camunda-form-reference` | `camunda:formRef` | no finding for literal values. Expression values may emit an expression-transformation finding | Convert the `.form`, read its own schema id, report any mismatch with a literal `formRef` instead of silently rewriting, and record the binding decision |
@@ -393,7 +574,63 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+### M2 finding taxonomy
+
+M2 does not run Diagram Converter. Evaluate each taxonomy condition independently. Emit one finding
+for every applicable condition, including multiple findings for one source element. Do not stop
+after the first applicable row:
+
+| M2 condition | `messageId` | Severity | `sourceDerived` | `link` |
+|---|---|---|---|---|
+| A JUEL method invocation cannot become FEEL. | `expression-method-not-possible` | REVIEW | `false` | Current catalog guidance URL |
+| The source contains more than one form definition, such as `camunda:formKey` with `camunda:formRef` or a form reference with `camunda:formData`. | `form-reference-conflict` | REVIEW | `true` | `n/a` |
+| The source contains `camunda:formData` without another form definition. | `form-data` | TASK | `false` | Current catalog guidance URL |
+| The source contains form-property-only metadata. | `generated-form-property-source` | TASK | `true` | `n/a` |
+| The source contains `camunda:formHandlerClass`. | `m2-manual-review` | REVIEW | `true` | `n/a` |
+| The source contains a form reference on a non-process-level none start event. | `m2-manual-review` | REVIEW | `true` | `n/a` |
+| The source contains a referenced form without a form-definition conflict on a user task or process-level none start event. | The `c7-*` category from `form-reference-migration.md` | REVIEW | `true` | `n/a` |
+| The source contains a form-free owner. | `c7-generic-task-form` | REVIEW | `true` | `n/a` |
+| The rewrite exposes a condition with a current catalog message not listed above. | The exact catalog message ID | The catalog severity | `false` | The catalog guidance URL or `n/a` |
+| The rewrite needs manual review and has no catalog message. | `m2-manual-review` | REVIEW | `false` | `n/a` |
+
+Emit one finding for each applicable condition on a source element that needs review, a fix, or
+inventory follow-up. Do not emit a finding for a deterministic rewrite with no follow-up. Set
+`filename` to the normalized project-relative source model path. For form-related findings, use
+the normalized source BPMN path used by step 5b. Set `elementName`, `elementId`, and `elementType`
+from the source element. For source-derived findings, preserve the source inventory fields
+described in step 5b. Record every missing catalog mapping in `MIGRATION_REPORT.md`.
+
+Emit a findings summary that mirrors CLI severities (WARNING/TASK/REVIEW/INFO). Ask the user to
+review the findings. Use the non-packaged reports directory selected by the pre-flight rules.
+Create that directory before writing the report. Choose
+`<selected-directory>/analysis-results.json` when it is unused. Otherwise test positive integer
+suffixes in ascending order and use the first unused path, such as
+`<selected-directory>/analysis-results (1).json`. Never overwrite an existing report. Write the
+file as a JSON array with one object per finding and the fields `filename`, `elementName`,
+`elementId`, `elementType`, `severity`, `messageId`, `message`, `link`, and `sourceDerived`. Set
+`sourceDerived` to `true` for a source-derived taxonomy row and `false` for every other finding.
+For every `sourceDerived: true` finding, include a `sourceInventory` array with one object per
+inventory row. Each object includes `sourceBpmn`, `processId`, `ownerId`, `ownerName`, `ownerType`,
+`sourceClassification`, and `status`. Include `reference`, `contentAvailable`, `complexity`, and
+`decision` for referenced-form inventory rows. Include `c7FormKind`, `fields`, and `c8FormId` for
+generated-form inventory rows. For a `formHandlerClass` finding, set `sourceClassification` to
+`form-handler-class`, preserve the class name in `handlerClass`, and omit referenced-form and
+generated-form fields. Set its initial `status` to `pending`. Set `status` to `accepted` after the
+manual replacement decision is recorded and validated. Set it to `declined` when the user retains
+the C7 handler or rejects a replacement. Set it to `deferred` when the user postpones the decision,
+or `blocked` when missing source evidence prevents a decision. Do not use `kept`, `relinked`, or
+`draft` for this row. Use this same array shape in the M2 report and the category artifact.
+Resolve `link`
+from the guidance URL for the finding's `messageId` in the current Diagram Converter message
+catalog. Set `link` to `n/a` when no catalog mapping exists, and record the missing mapping in
+`MIGRATION_REPORT.md`. Apply this contract to every finding in the M2 JSON report, not only
+converter findings. Render form-key-bearing values with the `Reference (report-safe)` rules in
+`form-reference-migration.md`. Redact credential-like URL query values and URL userinfo passwords
+before writing the selected M2 JSON report. Record its exact path, including any suffix, as the M2
+`sourceReport`. Never write unsanitized form keys or credentials to that report. Treat this JSON
+report as the authoritative input for step 5a. Lint every rewritten BPMN file per the linting
+section below. After the converted copy exists, run
+`form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 

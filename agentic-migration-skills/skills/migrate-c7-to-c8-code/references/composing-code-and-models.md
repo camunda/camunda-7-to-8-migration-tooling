@@ -113,13 +113,15 @@ Each cross-check result maps to a verdict in the per-category verdict table (see
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
-Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
+Apply the category-specific overrides before the fallback. Apply the fallback when a category has no
+dedicated cross-check in step 5d and no named form procedure:
 
-| Finding severity | Fallback verdict | Cross-reference |
-|---|---|---|
-| INFO | no action | no dedicated cross-check |
-| REVIEW | needs review | no dedicated cross-check |
-| WARNING or TASK | needs fix | no dedicated cross-check |
+| Category condition | Finding severity | Verdict | Cross-reference |
+|---|---|---|---|
+| `m2-manual-review`, `form-reference-conflict`, or `form-key-unmatched` | Any | needs review | no dedicated cross-check |
+| Any other fallback category | INFO | no action | no dedicated cross-check |
+| Any other fallback category | REVIEW | needs review | no dedicated cross-check |
+| Any other fallback category | WARNING or TASK | needs fix | no dedicated cross-check |
 
 Copy the finding's `link` into the verdict table's `Link` column. Surface that link as the
 remediation starting point. Do not infer a category-specific cross-check from an unknown
