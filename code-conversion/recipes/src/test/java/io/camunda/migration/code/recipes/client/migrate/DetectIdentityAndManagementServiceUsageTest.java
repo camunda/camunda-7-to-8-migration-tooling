@@ -76,7 +76,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 private IdentityService identityService;
 
                 public void manage(String userId, String groupId) {
-                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createUserQuery()).
+                    // TODO: IdentityService method has a direct Java client equivalent in Camunda 8 (createUserQuery()).
                     // Use CamundaClient.newUsersSearchRequest().
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.createUserQuery().list();
@@ -84,15 +84,15 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Review the Camunda 8 identity APIs or identity provider for this operation.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     identityService.createNativeUserQuery().sql("select * from ACT_ID_USER").list();
-                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (saveUser()).
+                    // TODO: IdentityService method has a direct Java client equivalent in Camunda 8 (saveUser()).
                     // Use CamundaClient.newCreateUserCommand() for new users or newUpdateUserCommand(userId) for existing users.
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.saveUser(null);
-                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createGroupQuery()).
+                    // TODO: IdentityService method has a direct Java client equivalent in Camunda 8 (createGroupQuery()).
                     // Use CamundaClient.newGroupsSearchRequest().
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.createGroupQuery().list();
-                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createMembership()).
+                    // TODO: IdentityService method has a direct Java client equivalent in Camunda 8 (createMembership()).
                     // Use CamundaClient.newAssignUserToGroupCommand().username(userId).groupId(groupId).
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     identityService.createMembership(userId, groupId);
@@ -180,7 +180,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(retries);
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
-                    // Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); translate the Camunda 7 IDs and query into a JobFilter while preserving their union semantics.
+                    // Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetriesAsync(java.util.List.of(jobId), retries);
                 }
@@ -298,7 +298,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 private void use(Object first, Object second) {}
 
                 public void manage() {
-                    // TODO: IdentityService method has a direct Camunda 8 Java client equivalent in Camunda 8 (createUserQuery()).
+                    // TODO: IdentityService method has a direct Java client equivalent in Camunda 8 (createUserQuery()).
                     // Use CamundaClient.newUsersSearchRequest().
                     // See: https://docs.camunda.io/docs/apis-tools/java-client/
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (getRegisteredDeployments()).

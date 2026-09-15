@@ -43,7 +43,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   static final String IDENTITY_DECLARATION_MARKER =
       "IdentityService usage requires method-specific migration guidance";
   static final String IDENTITY_CLIENT_MARKER =
-      "IdentityService method has a direct Camunda 8 Java client equivalent";
+      "IdentityService method has a direct Java client equivalent";
   static final String IDENTITY_NO_DIRECT_MARKER =
       "IdentityService method has no direct Java client equivalent";
   static final String IDENTITY_MANUAL_MARKER =
@@ -314,7 +314,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
             if ("setJobRetriesAsync".equals(serviceCall.methodName())) {
-              return "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); translate the Camunda 7 IDs and query into a JobFilter while preserving their union semantics.";
+              return "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.";
             }
             if (isJobRetryMethod(serviceCall.methodName())) {
               if ("setJobRetries".equals(serviceCall.methodName())
