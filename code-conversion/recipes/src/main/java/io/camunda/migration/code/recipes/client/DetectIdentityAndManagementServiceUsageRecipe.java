@@ -48,8 +48,12 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       "IdentityService method has no direct Java client equivalent";
   static final String IDENTITY_MANUAL_MARKER =
       "IdentityService method requires manual migration";
+  static final String MANAGEMENT_CLIENT_MARKER =
+      "ManagementService method has a direct Java client equivalent";
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
+  private static final Set<String> MANAGEMENT_CLIENT_METHODS =
+      Set.of("createJobQuery", "createIncidentQuery", "setJobRetries", "setJobRetriesAsync");
 
   private static final MethodMatcher SET_JOB_RETRIES_MATCHER =
       new MethodMatcher(
@@ -188,6 +192,16 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
 
               @Override
+              public J.MemberReference visitMemberReference(
+                  J.MemberReference reference, List<ServiceCall> current) {
+                ServiceCall serviceCall = serviceCall(reference);
+                if (serviceCall != null) {
+                  current.add(serviceCall);
+                }
+                return super.visitMemberReference(reference, current);
+              }
+
+              @Override
               public J.Block visitBlock(J.Block nestedBlock, List<ServiceCall> current) {
                 return nestedBlock;
               }
@@ -207,6 +221,25 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), false);
             }
             return null;
+          }
+
+          private ServiceCall serviceCall(J.MemberReference reference) {
+            JavaType.Method methodType = reference.getMethodType();
+            if (methodType == null || methodType.getDeclaringType() == null) {
+              return null;
+            }
+            String serviceFqn = methodType.getDeclaringType().getFullyQualifiedName();
+            if (!IDENTITY_SERVICE_FQN.equals(serviceFqn)
+                && !MANAGEMENT_SERVICE_FQN.equals(serviceFqn)) {
+              return null;
+            }
+            boolean singleJobRetry =
+                MANAGEMENT_SERVICE_FQN.equals(serviceFqn)
+                    && "setJobRetries".equals(methodType.getName())
+                    && methodType.getParameterTypes().size() == 2
+                    && methodType.getParameterTypes().get(0) == JavaType.Primitive.String
+                    && methodType.getParameterTypes().get(1) == JavaType.Primitive.Int;
+            return new ServiceCall(serviceFqn, methodType.getName(), singleJobRetry);
           }
 
           private boolean isSupportedService(JavaType.FullyQualified type) {
@@ -248,6 +281,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                                 || textComment.getText().contains(IDENTITY_CLIENT_MARKER)
                                 || textComment.getText().contains(IDENTITY_NO_DIRECT_MARKER)
                                 || textComment.getText().contains(IDENTITY_MANUAL_MARKER)
+                                || textComment.getText().contains(MANAGEMENT_CLIENT_MARKER)
                                 || textComment.getText().contains(MANAGEMENT_MARKER)));
           }
 
@@ -329,8 +363,10 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           private String methodMarker(ServiceCall serviceCall) {
-            if (!IDENTITY_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
-              return MANAGEMENT_MARKER;
+            if (MANAGEMENT_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
+              return MANAGEMENT_CLIENT_METHODS.contains(serviceCall.methodName())
+                  ? MANAGEMENT_CLIENT_MARKER
+                  : MANAGEMENT_MARKER;
             }
             if (IDENTITY_METHOD_HINTS.containsKey(serviceCall.methodName())) {
               return IDENTITY_CLIENT_MARKER;

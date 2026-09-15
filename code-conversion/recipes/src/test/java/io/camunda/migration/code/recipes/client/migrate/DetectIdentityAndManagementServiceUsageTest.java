@@ -155,7 +155,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 private ManagementService managementService;
 
                 public void manage(String jobId, int retries) {
-                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (createJobQuery()).
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (createJobQuery()).
                     // Use POST /v2/jobs/search or CamundaClient job search requests.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.createJobQuery().list();
@@ -167,19 +167,19 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.getRegisteredDeployments();
-                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
                     // Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(jobId, retries);
-                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
                     // For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(java.util.List.of(jobId), retries);
-                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetries()).
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
                     // For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(retries);
-                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
                     // Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetriesAsync(java.util.List.of(jobId), retries);
@@ -224,6 +224,42 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.getRegisteredDeployments();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void annotatesServiceMethodReferences() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.IdentityService;
+
+            public class MethodReferenceUse {
+
+                private Runnable logout(IdentityService identityService) {
+                    Runnable action = identityService::clearAuthentication;
+                    return action;
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.IdentityService;
+
+            public class MethodReferenceUse {
+
+                private Runnable logout(IdentityService identityService) {
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (clearAuthentication()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
+                    // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
+                    Runnable action = identityService::clearAuthentication;
+                    return action;
                 }
             }
             """));
