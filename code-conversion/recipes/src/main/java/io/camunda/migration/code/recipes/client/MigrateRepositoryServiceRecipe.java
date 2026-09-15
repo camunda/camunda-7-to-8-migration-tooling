@@ -9,7 +9,12 @@ package io.camunda.migration.code.recipes.client;
 
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.TreeVisitor;
@@ -32,8 +37,9 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
   private static final String DEPLOYMENT_TODO =
       " TODO: RepositoryService deployment method was not migrated automatically";
   private static final String QUERY_TODO =
-      " TODO: RepositoryService queries have no Java client equivalent in C8. "
-          + "Use CamundaClient REST: newProcessDefinitionSearchRequest() or direct REST call.";
+      " TODO: RepositoryService query was not migrated automatically. "
+          + "Migrate it manually with the corresponding Camunda 8 Java client search request "
+          + "or REST endpoint.";
 
   private static final MethodMatcher CREATE_DEPLOYMENT =
       new MethodMatcher(REPOSITORY_SERVICE + " createDeployment()");
@@ -41,6 +47,27 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
       new MethodMatcher(REPOSITORY_SERVICE + " create*Query(..)");
   private static final MethodMatcher DEPLOY =
       new MethodMatcher("org.camunda.bpm.engine.repository.DeploymentBuilder deploy()");
+
+  private static final class ClassContext {
+    private final Map<String, String> repositoryServiceClients;
+    private final Set<String> repositoryServiceFields;
+    private final Set<String> nonFieldRepositoryServiceVariables;
+    private final boolean canConvertRepositoryServiceFields;
+    private final boolean hasCamundaClient;
+
+    private ClassContext(
+        Map<String, String> repositoryServiceClients,
+        Set<String> repositoryServiceFields,
+        Set<String> nonFieldRepositoryServiceVariables,
+        boolean canConvertRepositoryServiceFields,
+        boolean hasCamundaClient) {
+      this.repositoryServiceClients = repositoryServiceClients;
+      this.repositoryServiceFields = repositoryServiceFields;
+      this.nonFieldRepositoryServiceVariables = nonFieldRepositoryServiceVariables;
+      this.canConvertRepositoryServiceFields = canConvertRepositoryServiceFields;
+      this.hasCamundaClient = hasCamundaClient;
+    }
+  }
 
   @Override
   public String getDisplayName() {
@@ -61,65 +88,65 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             new org.openrewrite.java.search.UsesMethod<>(
                 REPOSITORY_SERVICE + " create*Query(..)", true)),
         new JavaIsoVisitor<>() {
-          private String clientIdentifier = "camundaClient";
+          private ClassContext classContext;
+          private boolean repositoryServiceImportRequired;
 
           @Override
-          public J.ClassDeclaration visitClassDeclaration(
-              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
-            String existingClientIdentifier =
-                classDeclaration.getBody().getStatements().stream()
-                    .filter(VariableDeclarations.class::isInstance)
-                    .map(VariableDeclarations.class::cast)
-                    .filter(
-                        declaration -> TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT))
-                    .flatMap(declaration -> declaration.getVariables().stream())
-                    .map(J.VariableDeclarations.NamedVariable::getSimpleName)
-                    .findFirst()
-                    .orElse(null);
-            boolean hasCamundaClient = existingClientIdentifier != null;
-            clientIdentifier =
-                existingClientIdentifier == null ? "camundaClient" : existingClientIdentifier;
-            boolean hasRepositoryQuery =
-                classDeclaration.getBody().toString().matches("(?s).*create\\w+Query\\s*\\(.*");
-
-            List<Statement> statements = new ArrayList<>();
-            for (Statement statement : classDeclaration.getBody().getStatements()) {
-              if (!(statement instanceof VariableDeclarations declaration)
-                  || !TypeUtils.isOfClassType(declaration.getType(), REPOSITORY_SERVICE)) {
-                statements.add(statement);
-                continue;
-              }
-
-              if (hasCamundaClient) {
-                if (hasRepositoryQuery) {
-                  statements.add(replaceType(declaration));
-                }
-                continue;
-              }
-
-              declaration = replaceType(declaration);
-              clientIdentifier = declaration.getVariables().get(0).getSimpleName();
-              statements.add(declaration);
-              hasCamundaClient = true;
+          public J.CompilationUnit visitCompilationUnit(
+              J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+            repositoryServiceImportRequired = false;
+            J.CompilationUnit visited = super.visitCompilationUnit(compilationUnit, ctx);
+            if (!repositoryServiceImportRequired) {
+              return visited.withImports(
+                  visited.getImports().stream()
+                      .filter(
+                          import_ ->
+                              !import_.getQualid().toString().equals(REPOSITORY_SERVICE))
+                      .toList());
             }
-
-            if (hasCamundaClient) {
-              maybeAddImport(CAMUNDA_CLIENT);
-            }
-            J.ClassDeclaration visited =
-                super.visitClassDeclaration(
-                    classDeclaration.withBody(classDeclaration.getBody().withStatements(statements)),
-                    ctx);
-            maybeRemoveImport(REPOSITORY_SERVICE);
             return visited;
           }
 
           @Override
-          public J.Import visitImport(J.Import import_, ExecutionContext ctx) {
-            if (import_.getQualid().toString().equals(REPOSITORY_SERVICE)) {
-              return null;
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            ClassContext previousContext = classContext;
+            classContext = createClassContext(classDeclaration, ctx);
+            if (!classContext.canConvertRepositoryServiceFields
+                && (!classContext.repositoryServiceFields.isEmpty()
+                    || !classContext.nonFieldRepositoryServiceVariables.isEmpty())) {
+              repositoryServiceImportRequired = true;
             }
-            return super.visitImport(import_, ctx);
+
+            try {
+              List<Statement> statements = new ArrayList<>();
+              for (Statement statement : classDeclaration.getBody().getStatements()) {
+                if (!(statement instanceof VariableDeclarations declaration)
+                    || !TypeUtils.isOfClassType(declaration.getType(), REPOSITORY_SERVICE)) {
+                  statements.add(statement);
+                  continue;
+                }
+
+                if (!classContext.canConvertRepositoryServiceFields) {
+                  statements.add(statement);
+                } else if (!classContext.hasCamundaClient) {
+                  statements.add(replaceType(declaration));
+                }
+              }
+
+              if (classContext.hasCamundaClient
+                  || classContext.canConvertRepositoryServiceFields) {
+                maybeAddImport(CAMUNDA_CLIENT);
+              }
+              J.ClassDeclaration visited =
+                  super.visitClassDeclaration(
+                      classDeclaration
+                          .withBody(classDeclaration.getBody().withStatements(statements)),
+                      ctx);
+              return visited;
+            } finally {
+              classContext = previousContext;
+            }
           }
 
           @Override
@@ -134,15 +161,137 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             return visited;
           }
 
+          private ClassContext createClassContext(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            Set<String> repositoryServiceFields = new HashSet<>();
+            Set<UUID> fieldDeclarationIds = new HashSet<>();
+            String existingClientIdentifier = null;
+            for (Statement statement : classDeclaration.getBody().getStatements()) {
+              if (!(statement instanceof VariableDeclarations declaration)) {
+                continue;
+              }
+              if (TypeUtils.isOfClassType(declaration.getType(), REPOSITORY_SERVICE)) {
+                fieldDeclarationIds.add(declaration.getId());
+                declaration.getVariables().stream()
+                    .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                    .forEach(repositoryServiceFields::add);
+              } else if (existingClientIdentifier == null
+                  && TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT)) {
+                existingClientIdentifier =
+                    declaration.getVariables().get(0).getSimpleName();
+              }
+            }
+
+            Set<String> nonFieldRepositoryServiceVariables =
+                collectNonFieldRepositoryServiceVariables(
+                    classDeclaration, fieldDeclarationIds, ctx);
+            boolean canConvertRepositoryServiceFields =
+              !repositoryServiceFields.isEmpty()
+                  && nonFieldRepositoryServiceVariables.isEmpty()
+                  && !hasUnsupportedRepositoryServiceUsage(
+                      classDeclaration,
+                      repositoryServiceFields,
+                      nonFieldRepositoryServiceVariables,
+                      ctx);
+            Map<String, String> repositoryServiceClients = new HashMap<>();
+            if (existingClientIdentifier != null) {
+              String clientIdentifier = existingClientIdentifier;
+              repositoryServiceFields.forEach(
+                    field -> {
+                    if (!nonFieldRepositoryServiceVariables.contains(field)) {
+                      repositoryServiceClients.put(field, clientIdentifier);
+                    }
+                  });
+            } else if (canConvertRepositoryServiceFields) {
+              repositoryServiceFields.forEach(field -> repositoryServiceClients.put(field, field));
+            }
+            return new ClassContext(
+                repositoryServiceClients,
+                repositoryServiceFields,
+                nonFieldRepositoryServiceVariables,
+                canConvertRepositoryServiceFields,
+                existingClientIdentifier != null);
+          }
+
+          private boolean hasUnsupportedRepositoryServiceUsage(
+              J.ClassDeclaration classDeclaration,
+              Set<String> repositoryServiceFields,
+              Set<String> nonFieldRepositoryServiceVariables,
+              ExecutionContext ctx) {
+            Set<UUID> createDeployments = new HashSet<>();
+            Set<UUID> migratedCreateDeployments = new HashSet<>();
+            boolean[] unsupportedUsage = {!nonFieldRepositoryServiceVariables.isEmpty()};
+
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.MethodInvocation visitMethodInvocation(
+                  J.MethodInvocation invocation, ExecutionContext nestedCtx) {
+                String receiver = receiverIdentifier(invocation.getSelect());
+                if (CREATE_DEPLOYMENT.matches(invocation)) {
+                  createDeployments.add(invocation.getId());
+                  if (!repositoryServiceFields.contains(receiver)) {
+                    unsupportedUsage[0] = true;
+                  }
+                } else if (REPOSITORY_SERVICE_QUERY.matches(invocation)
+                    || repositoryServiceFields.contains(receiver)) {
+                  unsupportedUsage[0] = true;
+                }
+
+                if (DEPLOY.matches(invocation)) {
+                  List<J.MethodInvocation> sourceMethods = sourceMethods(invocation);
+                  if (!sourceMethods.isEmpty()
+                      && CREATE_DEPLOYMENT.matches(sourceMethods.get(0))) {
+                    migratedCreateDeployments.add(sourceMethods.get(0).getId());
+                    if (!isSupportedDeploymentChain(invocation)
+                        || !(getCursor().getParentTreeCursor().getValue() instanceof J.Block)) {
+                      unsupportedUsage[0] = true;
+                    }
+                  }
+                }
+                return super.visitMethodInvocation(invocation, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+
+            if (!createDeployments.equals(migratedCreateDeployments)) {
+              unsupportedUsage[0] = true;
+            }
+
+            return unsupportedUsage[0];
+          }
+
+          private Set<String> collectNonFieldRepositoryServiceVariables(
+              J.ClassDeclaration classDeclaration,
+              Set<UUID> fieldDeclarationIds,
+              ExecutionContext ctx) {
+            Set<String> variables = new HashSet<>();
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.VariableDeclarations visitVariableDeclarations(
+                  J.VariableDeclarations declarations, ExecutionContext nestedCtx) {
+                if (TypeUtils.isOfClassType(declarations.getType(), REPOSITORY_SERVICE)
+                    && !fieldDeclarationIds.contains(declarations.getId())) {
+                  declarations.getVariables().stream()
+                      .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                      .forEach(variables::add);
+                }
+                return super.visitVariableDeclarations(declarations, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+            return variables;
+          }
+
           @Override
           public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
             J.Block visited = super.visitBlock(block, ctx);
             List<Statement> statements = new ArrayList<>();
             for (Statement statement : visited.getStatements()) {
-              statements.add(
-                  containsRepositoryQuery(statement.toString())
-                      ? addCommentIfMissing(statement, QUERY_TODO)
-                      : statement);
+              if (containsRepositoryQuery(statement.toString())) {
+                statements.add(addCommentIfMissing(statement, QUERY_TODO));
+              } else if (containsRepositoryDeployment(statement.toString())) {
+                statements.add(addCommentIfMissing(statement, DEPLOYMENT_TODO));
+              } else {
+                statements.add(statement);
+              }
             }
             return visited.withStatements(statements);
           }
@@ -153,6 +302,9 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             J.VariableDeclarations visited = super.visitVariableDeclarations(declarations, ctx);
             if (containsRepositoryQuery(visited.toString())) {
               return addCommentIfMissing(visited, QUERY_TODO);
+            }
+            if (containsRepositoryDeployment(visited.toString())) {
+              return addCommentIfMissing(visited, DEPLOYMENT_TODO);
             }
             return visited;
           }
@@ -169,12 +321,21 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
           private J.MethodInvocation migrateDeployment(
               J.MethodInvocation deployInvocation, ExecutionContext ctx) {
-            List<J.MethodInvocation> chain = invocationChain(deployInvocation);
-            List<J.MethodInvocation> sourceMethods = new ArrayList<>(chain);
-            sourceMethods.remove(0);
-            java.util.Collections.reverse(sourceMethods);
+            if (!(getCursor().getParentTreeCursor().getValue() instanceof J.Block)) {
+              return deployInvocation;
+            }
+
+            List<J.MethodInvocation> sourceMethods = sourceMethods(deployInvocation);
 
             if (sourceMethods.isEmpty() || !CREATE_DEPLOYMENT.matches(sourceMethods.get(0))) {
+              return addCommentIfMissing(deployInvocation, DEPLOYMENT_TODO);
+            }
+            String clientIdentifier =
+                classContext == null
+                    ? null
+                    : classContext.repositoryServiceClients.get(
+                        receiverIdentifier(sourceMethods.get(0).getSelect()));
+            if (clientIdentifier == null) {
               return addCommentIfMissing(deployInvocation, DEPLOYMENT_TODO);
             }
 
@@ -183,7 +344,6 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                     "#{client:any(io.camunda.client.CamundaClient)}"
                         + "\n    .newDeployResourceCommand()");
             List<Expression> arguments = new ArrayList<>();
-            List<String> comments = new ArrayList<>();
             boolean hasResource = false;
             Expression tenantId = null;
 
@@ -256,8 +416,45 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             J.MethodInvocation replacement =
                 (J.MethodInvocation)
                     RecipeUtils.applyTemplate(
-                        template, deployInvocation, getCursor(), templateArguments, comments);
+                        template, deployInvocation, getCursor(), templateArguments, List.of());
             return maybeAutoFormat(deployInvocation, replacement, ctx);
+          }
+
+          private boolean isSupportedDeploymentChain(J.MethodInvocation deployInvocation) {
+            List<J.MethodInvocation> sourceMethods = sourceMethods(deployInvocation);
+            if (sourceMethods.isEmpty() || !CREATE_DEPLOYMENT.matches(sourceMethods.get(0))) {
+              return false;
+            }
+
+            boolean hasResource = false;
+            boolean hasTenantId = false;
+            for (J.MethodInvocation method : sourceMethods.subList(1, sourceMethods.size())) {
+              switch (method.getSimpleName()) {
+                case "addClasspathResource" -> {
+                  if (method.getArguments().size() != 1) {
+                    return false;
+                  }
+                  hasResource = true;
+                }
+                case "addInputStream", "addString" -> {
+                  if (method.getArguments().size() != 2) {
+                    return false;
+                  }
+                  hasResource = true;
+                }
+                case "tenantId" -> {
+                  if (method.getArguments().size() != 1 || hasTenantId) {
+                    return false;
+                  }
+                  hasTenantId = true;
+                }
+                case "name", "source" -> {}
+                default -> {
+                  return false;
+                }
+              }
+            }
+            return hasResource;
           }
 
           private boolean containsRepositoryQuery(J.MethodInvocation invocation) {
@@ -266,6 +463,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
           private boolean containsRepositoryQuery(String source) {
             return source.matches("(?s).*create\\w+Query\\s*\\(.*");
+          }
+
+          private boolean containsRepositoryDeployment(String source) {
+            return source.matches("(?s).*createDeployment\\s*\\(.*");
           }
 
           private J.VariableDeclarations replaceType(J.VariableDeclarations declaration) {
@@ -330,6 +531,23 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               current = method.getSelect();
             }
             return chain;
+          }
+
+          private List<J.MethodInvocation> sourceMethods(J.MethodInvocation deployInvocation) {
+            List<J.MethodInvocation> sourceMethods = invocationChain(deployInvocation);
+            sourceMethods.remove(0);
+            java.util.Collections.reverse(sourceMethods);
+            return sourceMethods;
+          }
+
+          private String receiverIdentifier(Expression select) {
+            if (select instanceof J.Identifier identifier) {
+              return identifier.getSimpleName();
+            }
+            if (select instanceof J.FieldAccess fieldAccess) {
+              return fieldAccess.getName().getSimpleName();
+            }
+            return null;
           }
 
           private J.Return addCommentIfMissing(J.Return statement, String text) {
