@@ -325,7 +325,7 @@ validation and before linking or deploying generated forms.
 
 #### 5f. Generate and review Camunda 8 forms
 
-Run `form-migration.md` for every source Generated Task Form from the pre-conversion inventory. That procedure uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible warnings for unresolved mappings, asks the user about semantic gaps, and edits the fresh converted BPMN only after explicit acceptance.
+Run `form-migration.md` for every source Generated Task Form from the pre-conversion inventory. That procedure uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible warnings for unresolved mappings, asks the user about semantic gaps, and edits the fresh converted BPMN only after explicit acceptance. Rerun the full form verification after the form is created and linked.
 
 Never infer a form from a `form-data` message. Never mark the finding resolved merely because the converter removed it. Never link a form that still lacks the user's required decisions.
 

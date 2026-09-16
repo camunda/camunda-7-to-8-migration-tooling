@@ -79,7 +79,8 @@ Apply these code and model additions:
 - Use authoritative `Created ...` paths or recorded original-to-converted pair paths. Do not discover
   participating files with a filesystem glob.
 - Use the recorded converted copies as verification targets. Never edit the original models.
-  Use the recorded source-to-converted pair or immutable baseline to derive expected source values.
+  Use the recorded source-to-converted pair to derive expected source values. Use the immutable
+  baseline only for `Before` evidence.
 - When code is in scope, record element IDs, matching XML declarations, and code-side match and
   coverage evidence for task wiring, listeners, headers, dispatchers, and DMN or precompute wiring.
   When code is out of scope, record XML evidence and `not applicable` code coverage.

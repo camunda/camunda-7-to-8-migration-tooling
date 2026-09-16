@@ -383,6 +383,11 @@ Before reporting a form complete:
 10. Confirm the original Camunda 7 BPMN is unchanged.
 11. Confirm linked owners in the converted BPMN retain no C7 generated-form metadata.
 
+Record `not applicable` and the reason when the official schema or renderer is unavailable. Treat
+these checks as supplementary. They do not block completion when every other required form, BPMN,
+linkage, and deployment check passes. A JSON parse failure, invalid BPMN, linkage failure, or
+deployment failure remains a verification failure.
+
 Add these report sections:
 
 - Generated form inventory/status table
