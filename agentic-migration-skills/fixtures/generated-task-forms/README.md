@@ -41,7 +41,9 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    `deployment decision=out of scope` and `deployment=not applicable` in
    `MIGRATION_REPORT.md`. Do not deploy automatically. If a target is selected,
    record the explicit request and deployment result only when deployment is
-   explicitly requested. Otherwise keep deployment `pending` and do not deploy.
+   explicitly requested. If the user declines deployment for a selected target,
+   keep deployment `pending` unless an alternate binding or external-deployment
+   plan is selected. Otherwise keep deployment `pending` and do not deploy.
 
 The fixture does not require a Maven or Gradle build. Use the temporary project
 directory as the migration skill project root.

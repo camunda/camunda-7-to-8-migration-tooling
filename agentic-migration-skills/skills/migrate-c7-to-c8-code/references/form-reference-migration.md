@@ -365,18 +365,21 @@ Add these sections to `MIGRATION_REPORT.md`:
 Verdict rules for the model finding table:
 
 - Every category starts at `needs review`. A decision must precede any work. No category is
-  ever `no action` because the converter copied a reference.
-- After a decision, a category stays `needs fix` until the work finishes. For a rebuild, accept,
-  link, and validate the form. Collect and record an explicit deployment decision. Verify deployment
-  when a target is selected, and record deployment as `not applicable` with the out-of-scope
-  decision when no target exists. A selected-target deployment decline keeps the category open unless
-  the user selects a supported alternate binding or records an explicit external-deployment plan. For
-  a keep, the owner confirms the integration. For a Camunda Form reference, convert and relink. Verify
-  deployment when a target is selected and the user explicitly requests it. An explicit out-of-scope
-  decision satisfies the deployment check when no target exists.
-- Move a category to `no action` only when every row reaches a completed terminal state, the shared
-  Step 5 verification row is `passed`, and final cleanup has passed. A `deferred` or `blocked` row
-  is open follow-up and keeps the category open. A `declined` row requires explicit accepted-risk
-  evidence. Exclude `c7-generic-task-form` from this rule because its category must never be
-  presented as `no action`.
+  `no action` because the converter copied a reference.
+
+| Lifecycle case | Required evidence | Verdict, status, and transition |
+|---|---|---|
+| Decision pending | The pending question and scope are recorded. | Keep `Verdict=needs review`. Do not edit or relink. |
+| Rebuild | The form is accepted, linked, validated, and has an explicit deployment decision. | Keep `needs fix` until linkage, deployment, the shared Step 5 row, and final cleanup pass. |
+| Keep reference | The owner confirms the integration. | Keep the category open until the custom-application follow-up is recorded. |
+| Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it for a selected target. | Keep the category open until the form checks and deployment check pass. |
+| No target | Record the out-of-scope decision and `deployment=not applicable`. | This satisfies the deployment check. |
+| Selected target with request | Record the request, target, and deployment result. | Verify deployment before a form category can reach `no action`. |
+| Selected target without request or with decline | Record `deployment=pending`. Use an alternate binding or an explicit external-deployment plan to resolve it. | Keep the category open. Do not transition to `no action`. |
+| Keep-form-free generic owner | Record `Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence. | Treat this as a resolved accepted-risk terminal state. Never present `c7-generic-task-form` as `no action`. |
+| Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
+| `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action**. |
+
+A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
+deployment or verification requirements above.
 - Do not rewrite the raw converter report or remove its historical findings.
