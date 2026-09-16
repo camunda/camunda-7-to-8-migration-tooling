@@ -133,8 +133,9 @@ Trust the converter's output for structural transformations it performed and did
 converter does not replace the shared runtime and code-coverage checks. Apply manual structural
 fixes for reported findings. Apply a fix for a failed verification postcondition only after the
 Step 5 user decision and explicit new remediation plan authorize a retry. Record any
-verification-driven fix in `MIGRATION_REPORT.md`. Never second-guess or re-derive converted
-structures.
+verification-driven fix in `MIGRATION_REPORT.md`. Do not manually second-guess or re-derive converted
+structures outside the shared verification gate. The shared gate must derive expected wiring and
+coverage from the recorded source-to-converted pairs.
 
 Group by category first. The category, not the individual row, is the unit of work.
 
