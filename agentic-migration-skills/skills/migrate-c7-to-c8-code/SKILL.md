@@ -495,7 +495,7 @@ For model runs, keep the per-category findings inventory from
 `Cross-referenced code artifact`, `Link`, `Verdict`, and `Verification` columns. Use `pending`,
 `passed`, `failed`, or `unavailable` in the `Verification` column. Record permitted
 `not applicable` checks in the evidence. Code-only runs instead keep the code findings and
-verification rows required by `references/code-migration-approaches.md`; they do not need a model
+verification rows required by `references/code-migration-approaches.md`. They do not need a model
 findings inventory.
 For model runs, add a separate verification table with one row per category and these columns:
 `Category`, `Participating files`, `Before`, `Postcondition`, `Checks and evidence`, `After`,

@@ -206,15 +206,18 @@ nothing is rebuilt. The two reach the converted model differently:
 - A `camunda-forms:` form key is only copied verbatim into `externalReference`/`formKey`, which
   Camunda 8 does not resolve. It still needs relinking.
 
-For both:
+Before the form conversion step, inspect the parsed form metadata. If the form already has exact
+Camunda 8 metadata, skip conversion and follow **Validate an existing Camunda 8 form** below. For
+a Camunda 7 form reference, continue with this procedure.
 
 1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
    conversion. The converter may update execution-platform metadata, rewrite supported simple JUEL
-   component properties to FEEL, and emit findings; capture the converter findings, before/after
+   component properties to FEEL, and emit findings. Capture the converter findings, before/after
    hashes, and all resulting schema, render, and FEEL evidence. In M1, pass explicit captured
-   BPMN/DMN/C7-form paths or use an isolated input directory that excludes every existing
-   Camunda 8 form; never pass a broad project directory that lets the converter rewrite an existing
-   form before its preservation check. In M2, where no CLI is available, apply a metadata-only JSON
+   BPMN/DMN/C7-form paths one invocation at a time, or use an isolated input directory that
+   excludes every existing Camunda 8 form. Never pass a broad project directory that lets the
+   converter rewrite an existing form before its preservation check. In M2, where no CLI is available,
+   apply a metadata-only JSON
    update to the converted copy: change only the target execution-platform metadata, preserve the
    schema and all other fields, and record before/after content hashes. Before this update, inspect
    the form JSON for C7 JUEL expressions. If any `${...}` or `#{...}` expression is present, do not
@@ -418,7 +421,7 @@ Verdict rules for the model finding table:
 | Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
-| `no action` transition | Every migratable row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, or rebuilt categories. Keep kept embedded, external, or dynamic references nonterminal at `Verdict=needs review`. Keep `c7-generic-task-form` at `Verdict=needs review` with its procedure-defined terminal status; do not call that generic status nonterminal or `no action`. |
+| `no action` transition | Every migratable row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, or rebuilt categories. Keep kept embedded, external, or dynamic references nonterminal at `Verdict=needs review`. Keep `c7-generic-task-form` at `Verdict=needs review` with its procedure-defined terminal status. Do not call that generic status nonterminal or `no action`. |
 
 A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
 deployment or verification requirements above.
