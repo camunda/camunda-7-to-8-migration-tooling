@@ -229,8 +229,11 @@ name from the same candidate stem, then tell the user which file was created. Ne
 original class name with a renamed file.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
-the project's worker registration convention, such as `@Component` for Spring. For the Java client
-worker shape, use `ActivatedJob job` and read headers with `job.getCustomHeaders()`. Read each
+the project's worker registration convention, such as `@Component` for Spring. Offer this annotated
+scaffold only when the target convention discovers `@JobWorker` registrations. For a non-Spring
+Java-client target, omit generation unless the project has an established client-builder scaffold
+and validation path. For the Java client worker shape, use `ActivatedJob job` and read headers with
+`job.getCustomHeaders()`. Read each
 original value from the retained `zeebe:header` using its original C7 key. Prepopulate a routing
 map or switch with one entry for every distinct normalized `(headerKey, original)` pair for the
 shared job type, grouped by retained key. Use Java
@@ -321,8 +324,8 @@ for each shared job-type group in `MIGRATION_REPORT.md`.
 
 | Evidence across every normalized row and shared job type | Cross-referenced code artifact | Verdict |
 |---|---|---|
-| Every normalized row has a non-empty `jobType`, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus exactly one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
-| Any normalized row has a missing or blank `jobType`, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, any invoked method is uncovered, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
+| Every source row in the category has a non-empty `jobType`, no source row is excluded for an unknown job type, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus exactly one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
+| Any source row has a missing or blank `jobType`, any source row is excluded for an unknown job type, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
