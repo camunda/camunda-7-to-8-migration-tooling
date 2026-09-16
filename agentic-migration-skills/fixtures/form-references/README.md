@@ -49,8 +49,11 @@ source model, not a deployable Camunda 8 process.
 6. Keep this Models-only fixture out of live deployment. Record
    `deployment decision=out of scope` and `deployment=not applicable` in
    `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator selects
-   a deployment target and requests deployment, record the target, request, and
-   deployment result instead.
+   a deployment target without an explicit request, record `deployment=pending`
+   and do not deploy. If the evaluator selects a target and explicitly requests
+   deployment, record the target, request, and deployment result. If the user
+   declines deployment for a selected target, record `deployment=pending` unless
+   an alternate binding or external-deployment plan is selected.
 
 The fixture does not require a Maven or Gradle build. Use the temporary
 directory as the migration skill project root.
@@ -112,13 +115,19 @@ The evaluation is complete when the agent has:
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
   external reference, and recorded the fixture's explicit out-of-scope
-  deployment decision (`deployment=not applicable`) or the selected target,
-  request, and result;
+  deployment decision (`deployment=not applicable`), or recorded
+  `deployment=pending` for a selected target without authorization or a
+  selected-target decline, or recorded the selected target, request, and result;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
-  including form-free owners and unresolved kept references. Passed rows are required
-  only before closing a category as **no action**, and non-passed rows retain explicit
-  verdict, verification, and follow-up evidence;
+  including form-free owners and unresolved kept references, with populated
+  `Before`, `Checks and evidence`, `After`, `Verdict`, and `Verification`
+  fields. Completed form-free decisions require `Verification=passed`.
+  Unresolved kept references may retain non-passed verification with explicit
+  verdict and follow-up evidence;
+* when the user chooses **leave the element without a form**, removed the copied
+  `externalReference` or `formKey` and recorded the removal postcondition. Kept
+  references retain their exact value and custom-application evidence;
 * recorded the explicit out-of-scope deployment decision and
   `deployment=not applicable` for this Models-only fixture;
 * recorded the converted definitions' exact Modeler metadata:

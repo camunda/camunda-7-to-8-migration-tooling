@@ -318,6 +318,10 @@ converted BPMN. Preserve the exact accepted bytes, verify the destination, and r
 draft so one authoritative form file remains. Keep a second copy only when the user explicitly requests
 it.
 
+After Step 5e, the linker creates `bpmn:extensionElements` when the converted owner has no
+extension container. It reuses the existing container otherwise. It then applies exactly one
+accepted `zeebe:formDefinition` and the planned binding.
+
 For M2 or any hand-edited/imported output, remove the migrated owner's `camunda:formData`,
 `camunda:formField`, `camunda:validation`, `camunda:constraint`, and direct `camunda:formProperty`
 elements from the converted copy after the source inventory is captured. M1/E1 normally already removed
