@@ -193,6 +193,11 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+Enumerate every `.form` resource under the confirmed in-scope project and deployment-resource roots
+before pairing. Parse each resource, record its authoritative path and Modeler metadata, and pair it
+by form id, retained reference, or owner evidence. A resource with no owner enters the standalone
+inventory. Do not rely only on `.form` paths referenced by BPMN.
+
 Pair every existing `.form` with its owner before Question 7 and verification. Record linkage and
 deployment as `not applicable` with the reason for a standalone form.
 
@@ -394,8 +399,9 @@ logs, and API responses before recording them in `MIGRATION_REPORT.md`. Apply th
 redaction rules to query values and userinfo passwords. Never copy raw credentials or raw target
 URLs into a report or committed artifact. When this run has no deployment mechanism or access, keep
 the selected-target state `pending` and record `deployment mechanism=unavailable`. Require an
-external plan with owner, target, and steps before closing the deployment state, or leave the
-category open.
+For an unauthorized or declined selected target, a recorded external plan with owner, target, and
+steps is the external result and may close that deployment state. For an authorized request, require
+an observed application or external deployment result. Otherwise leave the category open.
 
 ### Step 5: AI Follow-up (offer after validation)
 
@@ -477,7 +483,7 @@ instead. Retain **no action** only after that code path passes.
 | Generated form FEEL checks | Extract FEEL expressions from form-js templates and FEEL-capable form properties before parsing. Parse expressions inside `{{...}}` and `{{#loop}}` headers or bodies with the target FEEL parser when available. Extract leading-`=` serialized FEEL values, strip only that marker before parsing, and retain both raw and de-marked values as evidence. Do not send raw `{{#loop}}` delimiters to a plain FEEL parser. Record an unavailable parser in FEEL evidence and continue other required checks without changing the aggregate category state. A failed FEEL parse is a verification failure. Record `none present` when no FEEL expressions exist. |
 | Generated form post-Step-5e linkage | After Step 5e, verify form linkage. A standalone `.form` with no owner by either linkage records linkage and deployment as `not applicable` with the reason. A form with an owner but no paired converted BPMN is `blocked`. |
 | Generated form remediation rerun | After any form remediation or linkage edit, repeat the JSON, schema, render, and FEEL checks. |
-| Generated form final checks | Run the same full form checks during final verification after final cleanup for every participating form, regardless of deployment scope. Include exact `executionPlatform="Camunda Cloud"` and canonical selected-target `executionPlatformVersion`. If an authorized in-application deployment occurs, run the additional deployment/linkage check after deployment. For `target=none`, record deployment as not applicable and do not require deployment. For any selected target, require an observed result from the application or the external deployment mechanism before passing verification. Keep the category pending when that result is absent, or when a selected-target deployment is declined without an alternate binding or external result. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. |
+| Generated form final checks | Run the same full form checks during final verification after final cleanup for every participating form, regardless of deployment scope. Include exact `executionPlatform="Camunda Cloud"` and canonical selected-target `executionPlatformVersion`. If an authorized in-application deployment occurs, run the additional deployment/linkage check after deployment. For `target=none`, record deployment as not applicable and do not require deployment. For an authorized selected target, require an observed result from the application before passing verification. For an unauthorized or declined selected target with a recorded external plan, require `deployment=external plan recorded` with owner, target, and steps instead of an in-run result. Keep the category pending when the applicable result or external plan is absent. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. |
 | Generated form evidence | Record before-and-after evidence, the command, exit code, and resource paths. |
 | Namespace and metadata cleanup | For BPMN or DMN converted copies, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. When source-owned generated-form nodes are intentionally retained until Step 5e, record them as expected pre-cleanup evidence with `Verification=pending` rather than as a failure. After Step 5e, require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. |
 | Final whole-file cleanup | After category-specific verification runs for every category and Step 5e removes converter annotations, inspect the entire BPMN or DMN converted copy before retaining any **no action** verdict. Require and record zero remaining Camunda 7 elements, attributes, and QName-valued attribute values. Require and record zero conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |

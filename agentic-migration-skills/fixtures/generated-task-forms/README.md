@@ -141,5 +141,7 @@ The evaluation is complete when the agent has:
 * confirmed the original Camunda 7 BPMN is unchanged and regeneration is
   byte-for-byte deterministic.
 
-Expected output is one reviewable Camunda 8 form and a migration report, not an
-automatically accepted form.
+When the form-free owner chooses keep-form-free, the expected output is one
+reviewable Camunda 8 form and a migration report. A rebuild or custom-application
+decision for that owner may add a second form resource and its owner evidence.
+Nothing is automatically accepted.
