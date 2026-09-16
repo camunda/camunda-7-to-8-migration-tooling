@@ -39,7 +39,8 @@ normalized input row with the columns `category`, `filename`, `elementId`, `head
 and `jobType` for each supported delegate attribute or `camunda:topic` source. Set `category` to
 `expression-method-as-job-type` for a method-invoking `camunda:delegateExpression` or
 `camunda:expression`, to `delegate-expression-as-job-type` for another bean reference, to
-`delegate-implementation` for `camunda:class`, and to `topic` for `camunda:topic`. Derive
+synthetic `delegate-implementation` for `camunda:class`, and to `topic` for `camunda:topic`.
+Derive
 `headerKey` and `original` from the original C7 attribute. Verify the same delegate pair in the
 converted element's `zeebe:header`. For a `camunda:topic` source, set `headerKey` to `topic` and
 `original` to the original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
