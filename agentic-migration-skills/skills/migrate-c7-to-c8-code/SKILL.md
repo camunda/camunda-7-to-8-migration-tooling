@@ -444,11 +444,13 @@ verification pass when the failure needs a new design or a second remediation at
 nonterminal verdict in both the findings inventory and verification table.
 After any remediation batch edits a converted copy, `.form` resource, or referenced code artifact,
 invalidate every earlier `passed` verification row whose recorded file or code artifact changed and
-rerun every invalidated category. Before exit, run the
-final whole-file cleanup check for every participating file. Rerun the supplementary converter
-command for each changed BPMN or DMN copy during final validation. Do not rerun category-specific
-postconditions in the final whole-file check. Retain **no action** only for rows that passed their
-category verification and the final whole-file cleanup.
+rerun every invalidated category. Before exit, after Step 5e, all 5f/5g changes, and final cleanup,
+rerun every category's applicable verification checks on the final bytes. Treat this final category
+revalidation as an integrity pass, not a new remediation loop. If a final check differs, set the
+row's `Verification` to `failed`, downgrade its verdict, and record the before-and-after evidence.
+Rerun the supplementary converter command for each changed BPMN or DMN copy during final
+validation. Retain **no action** only for rows that pass final category revalidation and the final
+whole-file cleanup.
 
 If the run is a model analyze-only run, present the findings, inventories, and provisional verdicts,
 update `MIGRATION_REPORT.md`, and stop before the model-finding remediation offer. Do not offer model

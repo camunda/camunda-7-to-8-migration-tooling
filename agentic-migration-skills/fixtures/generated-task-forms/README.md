@@ -37,6 +37,11 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    it. Do not accept a form merely because its JSON parses.
 6. Repeat generation from the same source and recorded decisions. The accepted
    bytes and draft bytes should be identical on the rerun.
+7. Keep this Models-only fixture out of live deployment. Record
+   `deployment decision=out of scope` and `deployment=not applicable` in
+   `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator selects
+   a deployment target and requests deployment, record the target, request, and
+   deployment result instead.
 
 The fixture does not require a Maven or Gradle build. Use the temporary project
 directory as the migration skill project root.
@@ -99,6 +104,8 @@ The evaluation is complete when the agent has:
   complete;
 * recorded the explicit keep-form-free, rebuild, or custom-application decision
   for the form-free start event and its converted-owner evidence;
+* recorded the explicit out-of-scope deployment decision and
+  `deployment=not applicable` for this Models-only fixture;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * confirmed one `zeebe:userTask` and one matching form definition on the
