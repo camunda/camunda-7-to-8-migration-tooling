@@ -355,9 +355,10 @@ undifferentiated list.
 - In a Code + models run that produced code output and a paired converted copy, follow the dispatcher
   scaffold procedure in `references/composing-code-and-models.md` for each complete many-to-one
   shared job-type group across the `delegate-expression-as-job-type`, `delegate-implementation`,
-  and `topic` categories with a **needs fix** verdict. That reference owns the effective-worker
-  scan and omits generation when a subscriber exists. Keep Approach C, M1 `--check`, and read-only
-  or no-copy M2 runs report-only.
+  and `topic` categories with a **needs fix** verdict. Process each shared group once, then
+  propagate its verdict to every affected category before continuing. That reference owns the
+  effective-worker scan and omits generation when a subscriber exists. Keep Approach C, M1
+  `--check`, and read-only or no-copy M2 runs report-only.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 

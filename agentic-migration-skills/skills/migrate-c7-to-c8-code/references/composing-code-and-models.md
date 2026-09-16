@@ -26,11 +26,13 @@ When M2 has a converted copy, is not read-only, and has no Diagram Converter rep
 `zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
 original file recorded by the M2 rewrite. Read the original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `filename`, `elementId`, `headerKey`, `original`, and
-`jobType` for each delegate attribute or external-task topic. Derive `headerKey` and `original`
-from the original C7 attribute. Verify the same delegate pair in the converted element's
-`zeebe:header`. For an external-task topic, set `headerKey` to `topic` and `original` to the
-original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
+normalized input row with the columns `category`, `filename`, `elementId`, `headerKey`, `original`,
+and `jobType` for each delegate attribute or external-task topic. Set `category` to
+`delegate-expression-as-job-type` for `camunda:delegateExpression` or `camunda:expression`, to
+`delegate-implementation` for `camunda:class`, and to `topic` for `camunda:topic`. Derive
+`headerKey` and `original` from the original C7 attribute. Verify the same delegate pair in the
+converted element's `zeebe:header`. For an external-task topic, set `headerKey` to `topic` and
+`original` to the original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
 `delegate-expression-as-job-type` findings, because M2-only runs do not produce them. A missing
 delegate header is incomplete for a many-to-one group. A 1:1 topic row can use its non-empty
 `jobType` for the simple check without a retained `topic` header. If a topic group has another
@@ -62,8 +64,9 @@ header before scaffolding. Do not classify a topic and delegate or class that sh
 
 > `filename`: Converted BPMN file
 > `elementId`: Converted element identifier
+> `category`: Normalized source category
 > `headerKey`: Original C7 attribute name
-> `original`: Delegate class or expression '\<original\>'
+> `original`: Value of the C7 attribute named by `headerKey`
 > `jobType`: '\<jobType\>'
 
 Identify incomplete rows before and after grouping:
@@ -150,6 +153,10 @@ effective type resolves to the shared type. Resolve literal annotation values an
 defaults. If a registration's effective type is unresolved, treat it as a possible subscriber and
 stop scaffold generation until the user resolves it. If any registration already subscribes to that
 type, omit the generation option. Do not create a second subscriber.
+
+When the target is a separate project, confirm its target root before using this flow. Use that
+target root for the worker scan and quarantine. If the target root is not confirmed, keep the
+cross-check report-only.
 
 Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
 quarantine directory. Canonicalize the default directory before using it. Apply the same
