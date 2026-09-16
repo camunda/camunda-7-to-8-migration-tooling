@@ -379,8 +379,8 @@ Run category-specific checks before Step 5e strips converter annotations. Run St
 category has a verdict and verification evidence. Run form procedures in 5f and 5g only for
 unresolved form remediation after the Step 3 execution. Do not repeat an accepted Step 3 form
 procedure. Rerun the form verification row after any form remediation, linkage, or deployment
-change. Run model validation and final whole-file cleanup after Step 5e. Retain **no action** only
-after this sequence passes.
+change. Run model validation and final whole-file cleanup after those form checks and all 5f/5g
+changes. Retain **no action** only after this sequence passes.
 
 | Check | Required evidence |
 |---|---|
