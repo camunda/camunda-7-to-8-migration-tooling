@@ -59,9 +59,9 @@ A findings report's `filename` identifies the source model, not the converted co
 output, using the configured prefix (`converted-c8-` by default) when necessary. Pair each finding
 with its converted BPMN element by that path and `elementId`. For M2, use the exact original-to-
 converted path mapping recorded by the rewrite. For M3, require the original BPMN, the downloaded
-converted BPMN, and the explicit pairing supplied with the downloaded JSON report. If that pairing
-is missing, or M3 is analyze-only, keep the cross-check report-only. Never infer an M2 or M3
-pairing from a filename alone. Read the emitted job type from the task definition.
+converted BPMN, and separate pairing metadata recorded alongside the downloaded JSON report. If
+that pairing is missing, or M3 is analyze-only, keep the cross-check report-only. Never infer an M2
+or M3 pairing from a filename alone. Read the emitted job type from the task definition.
 For a converter finding, use the original C7 attribute and verify its pair in the converted
 element's `zeebe:header`; do not parse only its `message`. For a `delegate-implementation` finding,
 retain the original class or expression from its binding context or paired original source
@@ -187,29 +187,26 @@ directory from active scans, inventory every `@JobWorker` annotation and program
 registration for the shared type. Resolve literal annotation values, method-name defaults, and
 client worker-builder registrations. If a registration's effective type is unresolved, or the
 inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
-generation until the user resolves it. If any registration already subscribes to the shared type, classify it as a dispatcher only when
-its routing covers every distinct `(headerKey, original)` pair for the shared job type. If a
-complete dispatcher exists, omit the generation option. If no complete dispatcher exists, keep
-**needs fix**, preserve ordinary subscribers, and offer a quarantined scaffold through
-AskUserQuestion for a Spring target. Require explicit confirmation before merging, replacing, or
-removing a subscriber. Do not create or enable a second subscriber.
+generation until the user resolves it. If any registration already subscribes to the shared type,
+omit the generation option. Preserve existing source and require explicit confirmation before
+extending, merging, replacing, or removing a subscriber. Do not create or enable a second
+subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
-Spring target, and no complete dispatcher. Keep a 1:1 group on the simple worker-remediation path.
+Spring target, and no effective worker. Keep a 1:1 group on the simple worker-remediation path.
 Do not offer generation for a group with a **no action**, **needs review**, or incomplete verdict.
 
 Use this decision table for each shared job type:
 
 | Verdict | Effective worker for the shared type | Action |
 |---|---|---|
-| **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
+| **no action** | Exactly one validated effective worker | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None and confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
-| **needs fix** | Exactly one complete dispatcher | Do not offer generation. Ask the user to extend the existing dispatcher. |
-| **needs fix** | One or more subscribers and no complete dispatcher, Spring target | Offer a quarantined scaffold through AskUserQuestion. Preserve existing source. Require explicit confirmation before merging, replacing, or removing subscribers, then verify exactly one active dispatcher before acceptance. |
-| **needs fix** | More than one complete dispatcher or a dispatcher with another effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher before resolving the group. |
+| **needs fix** | Exactly one effective worker | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
+| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one subscriber before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
@@ -323,8 +320,9 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 Use this table only for categories with normalized rows from sections 1–2. This cross-check includes
 `delegate-expression-as-job-type`, `expression-method-as-job-type`, `delegate-implementation`, and
 `topic` findings. Do not apply this
-table to categories with dedicated procedures, including `delegate-implementation-no-default-job-type`,
-`collection-hint`, and form categories. Use those procedures to assign their verdicts. An empty
+table to categories with dedicated procedures, including `collection-hint` and form categories. Use
+those procedures to assign their verdicts. Apply the fallback verdict to
+`delegate-implementation-no-default-job-type`. An empty
 normalized-row set never produces **no action**.
 
 Before assigning a category verdict, include every shared job-type group that contains a row in the

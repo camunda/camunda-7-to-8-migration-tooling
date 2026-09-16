@@ -475,7 +475,8 @@ likely decision categories. Do not create `.form` files or edit BPMN. Then stop.
 
 When a full M1 run in the same session already recorded a paired converted copy, a later M1
 `--check` run may provide the machine-readable findings input only when it uses the same original
-input paths and target version. Run it against those original paths, exclude every captured
-converted copy, reject rows that name converted copies, and verify a recorded source-to-converted
-pair for every finding before continuing the Step 5 cross-check. If any pair is missing, keep the
-cross-check report-only. Do not consume a report or converted file that predates the session.
+input paths and target version. Run one check invocation per captured original file, or use a
+temporary input containing only captured originals. Exclude every captured converted copy, reject
+rows that name converted copies, and verify a recorded source-to-converted pair for every finding
+before continuing the Step 5 cross-check. If any pair is missing, keep the cross-check report-only.
+Do not consume a report or converted file that predates the session.
