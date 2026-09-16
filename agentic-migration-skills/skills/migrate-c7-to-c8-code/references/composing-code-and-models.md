@@ -59,8 +59,9 @@ A findings report's `filename` identifies the source model, not the converted co
 output, using the configured prefix (`converted-c8-` by default) when necessary. Pair each finding
 with its converted BPMN element by that path and `elementId`. For M2, use the exact original-to-
 converted path mapping recorded by the rewrite. For M3, require the original BPMN, the downloaded
-converted BPMN, and separate pairing metadata recorded alongside the downloaded JSON report. If
-that pairing is missing, or M3 is analyze-only, keep the cross-check report-only. Never infer an M2
+converted BPMN, and pairing metadata recorded in `MIGRATION_REPORT.md` alongside the downloaded
+JSON path. If that pairing is missing, or M3 is analyze-only, keep the cross-check report-only.
+Never infer an M2
 or M3 pairing from a filename alone. Read the emitted job type from the task definition.
 For a converter finding, use the original C7 attribute and verify its pair in the converted
 element's `zeebe:header`; do not parse only its `message`. For a `delegate-implementation` finding,
