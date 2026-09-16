@@ -213,11 +213,11 @@ a Camunda 7 form reference, continue with this procedure.
 1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
    conversion. The converter may update execution-platform metadata, rewrite supported simple JUEL
    component properties to FEEL, and emit findings. Capture the converter findings, before/after
-   hashes, and all resulting schema, render, and FEEL evidence. In M1, pass explicit captured
-   BPMN/DMN/C7-form paths one invocation at a time, or use an isolated input directory that
-   excludes every existing Camunda 8 form. Never pass a broad project directory that lets the
-   converter rewrite an existing form before its preservation check. In M2, where no CLI is available,
-   apply a metadata-only JSON
+   hashes, and all resulting schema, render, and FEEL evidence. In M1, stage the captured model
+   and selected C7 forms in an isolated input directory and pass that directory as one invocation.
+   For a single-resource run, pass one captured path in one invocation. Exclude every existing
+   Camunda 8 form. Never pass a broad project directory that lets the converter rewrite an existing
+   form before its preservation check. In M2, where no CLI is available, apply a metadata-only JSON
    update to the converted copy: change only the target execution-platform metadata, preserve the
    schema and all other fields, and record before/after content hashes. Before this update, inspect
    the form JSON for C7 JUEL expressions. If any `${...}` or `#{...}` expression is present, do not

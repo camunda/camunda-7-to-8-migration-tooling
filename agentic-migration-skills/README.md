@@ -71,7 +71,9 @@ For Camunda 7 Generated Task Forms (`camunda:formData`/`formField` and legacy `f
 Diagram Converter leaves a manual finding on purpose. The skill reads the original BPMN metadata and
 generates deterministic standard Camunda 8 `.form` files. It presents every semantic gap for your
 review. It applies linkage after Step 5e and reruns form verification before final cleanup. It
-deploys only after final cleanup, an explicit request, authorization, and a selected target. It records no-target
+reruns the full form checklist after final cleanup for every participating form. It runs an
+additional deployment and linkage check after an authorized in-application deployment. It deploys
+only after final cleanup, an explicit request, authorization, and a selected target. It records no-target
 deployment as out of scope and keeps
 unauthorized or declined selected-target deployment pending unless an alternate binding or explicit
 external-deployment plan is recorded.

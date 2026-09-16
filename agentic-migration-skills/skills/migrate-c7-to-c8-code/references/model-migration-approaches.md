@@ -352,7 +352,7 @@ Then run `form-reference-migration.md` for every referenced form (embedded, exte
 
 #### 5g. Named category: Forms
 
-Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, invoke the converter once per captured BPMN/DMN or explicitly selected C7 form path, or use an isolated directory containing those inputs. Exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
+Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, stage each captured model and its selected C7 forms in an isolated directory and pass that directory as one invocation. For a single-resource run, pass one captured path in one invocation. Exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|
