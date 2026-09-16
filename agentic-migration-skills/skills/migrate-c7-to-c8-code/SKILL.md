@@ -353,7 +353,9 @@ For forms, include the JSON content hash, schema result, render result, linkage,
 state. Record `absent` when a remediation will create a new form. Mark the schema, render, linkage,
 and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
 no form resource participates. For code, include content hashes and matched worker, listener,
-dispatcher, and precompute declarations. Use the baseline for `Before` evidence.
+dispatcher, and precompute declarations. Record `absent` when a remediation will create a code
+artifact, and mark its declaration checks `not applicable` in that absent `Before` state. Use the
+baseline for `Before` evidence.
 Do not reconstruct it from the original Camunda 7 model. Run this gate when a converted copy
 participates in verification. Do not resolve a category verdict in an analyze-only run that creates
 no converted copies. Keep category verdicts provisional in that mode.
@@ -431,9 +433,10 @@ command for each changed BPMN or DMN copy during final validation. Do not rerun 
 postconditions in the final whole-file check. Retain **no action** only for rows that passed their
 category verification and the final whole-file cleanup.
 
-If the run is analyze-only, present the findings, inventories, and provisional verdicts, update
-`MIGRATION_REPORT.md`, and stop before the AI Follow-up offer. Do not offer remediation for a run
-that created no converted copies.
+If the run is a model analyze-only run, present the findings, inventories, and provisional verdicts,
+update `MIGRATION_REPORT.md`, and stop before the model-finding remediation offer. Do not offer model
+remediation for a run that created no converted copies. Code-only follow-up remains eligible for
+the generic offer.
 If a category has failed or unavailable verification, use AskUserQuestion before another
 remediation attempt. Present the category, failure evidence, and the recorded postcondition.
 Ask whether to retry with a new remediation plan or leave the category unresolved. Record the
