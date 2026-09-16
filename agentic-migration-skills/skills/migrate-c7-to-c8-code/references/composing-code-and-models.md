@@ -181,11 +181,12 @@ build input. Keep the separate prior-draft scan below enabled for every recorded
 quarantine directory. Record the selected path in `MIGRATION_REPORT.md` before scanning or
 generating.
 
-Before generating, scan every active recorded and selected quarantine directory for a prior draft whose
-effective `@JobWorker` type uses the shared type. Resolve an omitted annotation `type` with the
+Before generating, scan every active recorded and selected quarantine directory for a prior draft
+whose report record is active and whose effective `@JobWorker` type uses the shared type. Ignore
+files linked to inactive or rejected draft records. Resolve an omitted annotation `type` with the
 annotated method name. If a prior draft exists, stop and ask the user whether to reuse, complete,
-or remove that draft. Do not create another draft or collision variant until every prior draft is
-resolved.
+or remove that draft. Do not create another draft or collision variant until every active prior draft
+is resolved.
 
 Before asking for a decision, after confirming the target root and excluding the quarantine
 directory from active scans, inventory every `@JobWorker` annotation and programmatic worker
