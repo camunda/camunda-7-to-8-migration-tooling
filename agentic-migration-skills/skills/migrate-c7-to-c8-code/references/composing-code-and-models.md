@@ -153,17 +153,10 @@ Each cross-check result maps to a verdict in the per-category verdict table (see
 - Pending form or validation decisions: **needs review**.
 - Only accepted and validated forms with covered consumers, complete linkage, and a satisfied deployment
   check become **no action** after the shared verification pass succeeds.
-- Treat an explicitly justified `not applicable` deployment as satisfying the deployment check when
-  no target exists.
-- Keep a selected-target deployment pending while the request is absent.
-- Keep a selected-target deployment decline open unless the user selects a supported alternate binding
-  or records an explicit external-deployment plan.
-- An alternate binding resolves deployment only after its `bindingType` and linkage evidence are recorded.
-- An external plan resolves deployment only after recording `deployment=external plan recorded` with
-  its owner, target, and steps.
-- Apply the same rules to a Camunda Form reference.
-- Conversion and relinking are required.
-- Verify deployment only when the user explicitly requests it with authorization for a selected target.
+- Use the deployment state machine in `SKILL.md` and `form-reference-migration.md` for target,
+  request, authorization, pending, decline, alternate-binding, external-plan, and not-applicable
+  transitions. This file defines only the code/model deployment-wiring set and its final code
+  validation. Apply the same state-machine reference to a Camunda Form reference.
 
 Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
 
@@ -181,8 +174,8 @@ remediation starting point. Do not infer a category-specific cross-check from an
 
 After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Build the deployment set from each model's recorded linked forms before wiring it. When at least one linked form exists and every linked form is `target=none`, record deployment as `not applicable` and skip startup deployment and wiring for that model. For a `bindingType=deployment` form with a selected target, include the BPMN and every linked accepted or existing form by its exact recorded path only when Question 7 authorizes the complete set and the separate deployment-wiring question is **Yes**. Translate each recorded filesystem path to its classpath resource name. If any selected-target linked form is pending, declined, or external-plan-only, defer the whole model deployment rather than deploying the BPMN alone. Do not use a broad `converted-c8-*.form` glob. Never target original diagrams, draft forms, or declined forms.
-- **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Build the deployment set from each model's recorded linked forms before wiring it. When at least one linked form exists and every linked form is `target=none`, record deployment as `not applicable` and skip startup deployment and wiring for that model. For a `bindingType=deployment` form with a selected target, include the BPMN and every linked accepted or existing form by its exact recorded path only when all linked forms share the authorized deployment decision and the separate deployment-wiring question is **Yes**. Translate each recorded filesystem path to its classpath resource name. If any selected-target linked form is pending, declined, or external-plan-only, defer the whole model deployment rather than deploying the BPMN alone. Do not use a broad `converted-c8-*.form` glob. Never target original diagrams, draft forms, or declined forms.
+- **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in `MIGRATION_REPORT.md`. For `target=none`, record deployment as `not applicable`. For a selected target, record the external plan owner, target, and steps or keep deployment pending until that evidence exists.
 
 After either deployment-wiring choice, rerun the applicable final Step 4 code validation because
 the choice or any `@Deployment` edit can change compile, configuration, and test evidence.

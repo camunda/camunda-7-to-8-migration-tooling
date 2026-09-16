@@ -124,6 +124,9 @@ The evaluation is complete when the agent has:
   not present `c7-generic-task-form` as **no action**;
 * recorded the explicit keep-form-free, rebuild, or custom-application decision
   for the form-free start event and its converted-owner evidence;
+* ran the referenced-form procedure for the form-free start event and recorded
+  its terminal status in `MIGRATION_REPORT.md` before treating the fixture as
+  complete;
 * when no deployment target is selected, recorded `target=none`,
   `request=not applicable`, `authorization=not applicable`, the explicit
   out-of-scope decision, and `deployment=not applicable` for this Models-only

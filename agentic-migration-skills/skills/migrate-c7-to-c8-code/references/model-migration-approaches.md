@@ -71,7 +71,9 @@ file. Never pass a broad project directory. Always pass `--platform-version` set
 Before validation, promote or copy the current-run converted outputs to final project-relative
 resource paths, or explicitly make the staging directory the authoritative project resource root.
 Record the staged and final paths and use the final paths for Step 4, Step 5, and deployment.
-Never retain a temporary staging path as deployable evidence.
+When relocating outputs, map every staged report `filename` identity to its final path and retain
+the raw staged identity as provenance. Use the mapped final identity for category filtering and CSV
+comparison. Never retain a temporary staging path as deployable evidence.
 
 ```
 "<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
