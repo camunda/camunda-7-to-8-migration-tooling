@@ -187,7 +187,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation invocation, List<ServiceCall> current) {
                 ServiceCall serviceCall = serviceCall(invocation);
-                if (serviceCall != null) {
+                if (serviceCall != null
+                    && !(CREATE_JOB_QUERY_MATCHER.matches(invocation)
+                        && isWithinTimerQuery())) {
                   current.add(serviceCall);
                 }
                 if (isTimerQueryInvocation(invocation)) {
@@ -213,19 +215,34 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                 return nestedBlock;
               }
 
+              private boolean isWithinTimerQuery() {
+                org.openrewrite.Cursor cursor = getCursor().getParent();
+                while (cursor != null) {
+                  if (cursor.getValue() instanceof J.MethodInvocation parent
+                      && isTimerQueryInvocation(parent)) {
+                    return true;
+                  }
+                  cursor = cursor.getParent();
+                }
+                return false;
+              }
+
             }.visit(statement, found);
-            if (found.stream().anyMatch(ServiceCall::timerQuery)) {
-              found.removeIf(
-                  call ->
-                      "createJobQuery".equals(call.methodName()) && !call.timerQuery());
-            }
             return found;
           }
 
           private boolean isTimerQueryInvocation(J.MethodInvocation invocation) {
-            return "timers".equals(invocation.getSimpleName())
-                && invocation.getSelect() instanceof J.MethodInvocation query
-                && CREATE_JOB_QUERY_MATCHER.matches(query);
+            if (!"timers".equals(invocation.getSimpleName())) {
+              return false;
+            }
+            J select = invocation.getSelect();
+            while (select instanceof J.MethodInvocation query) {
+              if (CREATE_JOB_QUERY_MATCHER.matches(query)) {
+                return true;
+              }
+              select = query.getSelect();
+            }
+            return false;
           }
 
           private ServiceCall serviceCall(J.MethodInvocation invocation) {

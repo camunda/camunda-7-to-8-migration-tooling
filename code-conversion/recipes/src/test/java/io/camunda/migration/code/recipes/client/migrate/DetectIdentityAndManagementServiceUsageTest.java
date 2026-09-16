@@ -130,6 +130,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 public void manage(String jobId, int retries) {
                     managementService.createJobQuery().list();
                     managementService.createJobQuery().timers().singleResult();
+                    managementService.createJobQuery().active().timers().singleResult();
                     managementService.executeJob(jobId);
                     managementService.getRegisteredDeployments();
                     managementService.setJobRetries(jobId, retries);
@@ -164,6 +165,10 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.createJobQuery().timers().singleResult();
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (createJobQuery()).
+                    // Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.createJobQuery().active().timers().singleResult();
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (executeJob()).
                     // Camunda 8 has no operation to execute an arbitrary job by ID. In timer tests, use processTestContext.increaseTime(Duration); production work must run in a job worker that activates jobs by type.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
@@ -311,6 +316,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void manage() {
                     use(identityService.createUserQuery(), managementService.getRegisteredDeployments());
+                    use(managementService.createJobQuery().list(), managementService.createJobQuery().timers().singleResult());
                 }
             }
             """,
@@ -346,6 +352,13 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     use(identityService.createUserQuery(), managementService.getRegisteredDeployments());
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (createJobQuery()).
+                    // Use POST /v2/jobs/search or CamundaClient job search requests.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (createJobQuery()).
+                    // Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    use(managementService.createJobQuery().list(), managementService.createJobQuery().timers().singleResult());
                 }
             }
             """));
