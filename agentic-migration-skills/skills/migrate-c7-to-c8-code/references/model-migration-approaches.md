@@ -42,9 +42,11 @@ For local M1 and E1 CLI runs, never consume a report or converted file that exis
 migration run. Capture each CLI output path from this run's `Created ...` lines and use only those
 paths as authoritative. For M2, capture each rewrite output path and record its exact
 original-to-converted pair before validation. A later same-session M1 `--check` report may provide
-findings when this run already captured and recorded its paired converted copy. Preserve that
-pairing and revalidate the report target version. M3 is the exception: hosted-converter outputs are
-allowed only after the imported-report version and pairing checks in step 5.
+findings only when this run already captured and recorded the same original input paths, target
+version, and paired converted copy. Run that check against the captured original paths, exclude
+captured converted copies, and reject report rows for `converted-c8-*` files. Preserve the pairing
+and revalidate the report target version. M3 is the exception: hosted-converter outputs are allowed
+only after the imported-report version and pairing checks in step 5.
 
 ## Approach M1 - Diagram Converter CLI + AI (recommended)
 
@@ -154,7 +156,8 @@ If the report's version does not match the chosen target, or cannot be determine
 
 Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
 path captured after step 3a relocation. A same-session M1 `--check` report is valid only when the
-paired converted copy was captured earlier in this run. For an imported M3 report, use the
+same original input paths and target version produced the paired converted copy earlier in this
+run, and the report excludes captured converted copies. For an imported M3 report, use the
 downloaded JSON path after the version and pairing checks in step 5. The local path may include a
 ` (n)` suffix when a stale report exists. Never parse a local findings report that predates this
 run. Never rely on stdout severity counts instead.

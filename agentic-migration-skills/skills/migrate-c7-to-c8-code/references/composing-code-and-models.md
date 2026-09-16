@@ -24,9 +24,10 @@ converted copy is available. Record the missing copy and the required rerun in
 `MIGRATION_REPORT.md`.
 
 When a full M1 run in the current migration session produced and recorded a paired converted copy,
-a later `--check` run in the same session may provide the findings input. Record that report path
-from the same session and do not consume a report that predates the session. Gate generation on the
-recorded paired copy, not on the latest report invocation.
+a later `--check` run in the same session may provide the findings input only when it uses the same
+original model inputs and target version. Record that report path from the same session and do not
+consume a report that predates the session. Gate generation on the recorded source-to-converted
+pair, not on the latest report invocation.
 
 When M2 has a converted copy, is not read-only, and has no Diagram Converter report, scan every
 `zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
@@ -232,8 +233,8 @@ original class name with a renamed file.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Offer
 this scaffold only for a Spring worker target that discovers `@JobWorker` annotations. For a
-non-Spring Java client target, keep the group **needs fix** and require a manual client-worker
-builder implementation and validation. Use the project's worker registration convention, such as
+non-Spring Java client target, omit generation and require a manual client-worker builder
+implementation and validation. Use the project's worker registration convention, such as
 `@Component` for Spring. For the Java client worker shape, use `ActivatedJob job` and read headers
 with `job.getCustomHeaders()`. Read each original value from the retained `zeebe:header` using its
 original C7 key. Prepopulate a routing map or switch with one entry for every distinct normalized

@@ -360,7 +360,8 @@ undifferentiated list.
   propagate its verdict to every affected category before continuing. That reference owns the
   effective-worker scan and omits generation when a subscriber exists. Keep Approach C, M1
   `--check` runs without a paired converted copy, and read-only or no-copy M2 runs report-only.
-  A same-session M1 `--check` run may provide findings after a paired converted copy is recorded.
+  A same-session M1 `--check` run may provide findings only when it uses the same original model
+  inputs and target version as the recorded paired copy.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 
