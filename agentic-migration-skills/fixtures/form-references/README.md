@@ -140,8 +140,10 @@ The evaluation is complete when the agent has:
 * when the user chooses **leave the element without a form**, removed the copied
   `externalReference` or `formKey` and recorded the removal postcondition. Kept
   references retain their exact value and custom-application evidence;
-* when no deployment target is selected, recorded the explicit out-of-scope
-  decision and `deployment=not applicable` for this Models-only fixture. When a
+* when no deployment target is selected, recorded `target=none`,
+  `request=not applicable`, `authorization=not applicable`, the explicit
+  out-of-scope decision, and `deployment=not applicable` for this Models-only
+  fixture. When a
   target is selected, recorded the pending or authorized target branch described
   above;
 * recorded the converted definitions' exact Modeler metadata:

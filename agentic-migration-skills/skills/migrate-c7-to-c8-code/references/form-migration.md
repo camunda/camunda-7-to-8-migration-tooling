@@ -362,7 +362,7 @@ Collect the deployment decision with this table:
 | Deployment state | Required report fields | Terminal rule |
 |---|---|---|
 | No target | `deployment decision=out of scope`, `deployment=not applicable` | The deployment check is satisfied. |
-| Target and explicit request | Target, request, authorization, and deployment result | Verify deployment after final cleanup. |
+| Target, explicit request, and authorization | Target, request, authorization, and deployment result | Verify deployment after final cleanup. |
 | Target without request | Target, authorization state, `deployment=pending` | Obtain the request before deployment. Keep the category open until the result is recorded. |
 | Target with request but unavailable authorization | Target, request, authorization state, `deployment=pending` | Select an alternate binding or record an explicit external-deployment plan before closing. |
 | Target with user decline | Target, decline decision, `deployment=pending` | Select an alternate binding or record an explicit external-deployment plan before closing. |

@@ -380,7 +380,7 @@ Verdict rules for the model finding table:
 | Decision pending | The pending question and scope are recorded. | Keep `Verdict=needs review`. Do not edit or relink. |
 | Rebuild | The form is accepted, linked, validated, and has an explicit deployment decision. | Keep `needs fix` until linkage, deployment, the shared Step 5 row, and final cleanup pass. |
 | Keep reference | The owner confirms the integration. | Keep the category open until the custom-application follow-up is recorded. |
-| Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it for a selected target. | Keep the category open until the form checks and deployment check pass. |
+| Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it with authorization for a selected target. | Keep the category open until the form checks and deployment check pass. |
 | No target | Record the out-of-scope decision and `deployment=not applicable`. | This satisfies the deployment check. |
 | Selected target with request | Record the request, target, authorization, and deployment result. | Verify deployment before a form category can reach `no action`. |
 | Selected target without request | Record `deployment=pending`. Obtain the explicit request, then record the authorized target and deployment result. | Keep the category open until the result is recorded. |
