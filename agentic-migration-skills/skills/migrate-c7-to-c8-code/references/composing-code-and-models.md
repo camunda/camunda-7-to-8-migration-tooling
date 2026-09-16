@@ -114,9 +114,10 @@ inventory. A shared default job type does not by itself make a category many-to-
 
 ### 2a. 1:1 mapping - simple job-type match
 
-Before either mapping check, enumerate every existing `@JobWorker` registration and resolve its
-effective type. When an annotation omits `type`, use the annotated method name. Use this effective
-type for the 1:1 comparison and for duplicate-subscriber detection.
+Before either mapping check, use the complete worker inventory to enumerate every existing
+`@JobWorker` annotation and programmatic worker registration, then resolve each effective type.
+When an annotation omits `type`, use the annotated method name. Use this effective type for the 1:1
+comparison and for duplicate-subscriber detection.
 
 Use this table for each 1:1 job-type group. When no registration matches the job type, record any
 enumerated registration with a different effective type as mismatch evidence.
@@ -169,19 +170,20 @@ confirmed-root, source-set, packaged-resource, and worker-scan checks used for o
 when it escapes the confirmed project root or enters an excluded tree, including through a symlink.
 Canonicalize every explicit override against the confirmed project root before recording or writing.
 Allow an explicit user override only when it remains under that root and outside every source set,
-build input, packaged resource directory, and source tree scanned for `@JobWorker`. If
-`MIGRATION_REPORT.md` records a path, reuse it on later invocations unless the user explicitly
-overrides it. Before each reuse, resolve the recorded path again. Verify that it remains under the
-confirmed project root and outside every source set, build input, packaged resource directory, and
-worker-scan tree. Reject a stale or unsafe path and require a new selection. Exclude the selected
+build input, packaged resource directory, and source tree scanned for `@JobWorker`. If `MIGRATION_REPORT.md` records one or more paths, collect all recorded paths before applying an
+override. Resolve every recorded path again and verify that each remains under the confirmed project
+root and outside every source set, build input, packaged resource directory, and worker-scan tree.
+Reject any stale or unsafe path and require a new selection. Exclude every recorded and selected
 quarantine directory from active project-code inventories, active `@JobWorker` scans, and every
-build input. Keep the separate prior-draft scan below enabled for the quarantine directory. Record
-the selected path in `MIGRATION_REPORT.md` before scanning or generating.
+build input. Keep the separate prior-draft scan below enabled for every recorded and selected
+quarantine directory. Record the selected path in `MIGRATION_REPORT.md` before scanning or
+generating.
 
-Before generating, scan the selected quarantine directory for a prior draft whose effective
-`@JobWorker` type uses the shared type. Resolve an omitted annotation `type` with the annotated
-method name. If a prior draft exists, stop and ask the user whether to reuse, complete, or remove
-that draft. Do not create another draft or collision variant until the prior draft is resolved.
+Before generating, scan every recorded and selected quarantine directory for a prior draft whose
+effective `@JobWorker` type uses the shared type. Resolve an omitted annotation `type` with the
+annotated method name. If a prior draft exists, stop and ask the user whether to reuse, complete,
+or remove that draft. Do not create another draft or collision variant until every prior draft is
+resolved.
 
 Before asking for a decision, after confirming the target root and excluding the quarantine
 directory from active scans, inventory every `@JobWorker` annotation and programmatic worker
