@@ -531,11 +531,11 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               case SYNC_BULK_OR_QUERY ->
                   "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
               case ASYNC_IDS_ONLY ->
-                  "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after mapping the Camunda 7 IDs to Camunda 8 job keys.";
+                  "For Camunda 8.10+, use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after mapping the Camunda 7 IDs to Camunda 8 job keys; for Camunda 8.8/8.9, update each mapped job key with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               case ASYNC_JOB_QUERY_ONLY ->
-                  "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after translating the Camunda 7 query to a Camunda 8 JobFilter.";
+                  "For Camunda 8.10+, use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after translating the Camunda 7 query to a Camunda 8 JobFilter; for Camunda 8.8/8.9, resolve the query to job keys and update each with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               case ASYNC_JOB_IDS_AND_QUERY ->
-                  "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.";
+                  "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys; for Camunda 8.10+, use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(), and for Camunda 8.8/8.9 update each key with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               case ASYNC_PROCESS_QUERY_ONLY ->
                   "Resolve the Camunda 7 process-instance query to matching process instances and their job keys, then use the Camunda 8 batch job update API.";
               case ASYNC_PROCESS_IDS_AND_QUERY ->
