@@ -434,6 +434,10 @@ applicable check passes, `failed` after a check fails, and `unavailable` when a 
 deterministic tool is unavailable. The supplementary converter check is not required for the
 aggregate category state in M1, M2, M3, or E1. An unavailable target FEEL parser is also
 supplementary.
+When the applicable pre-Step-5e checks pass but cleanup, linkage, or deployment is intentionally
+deferred, record `pre-cleanup-passed` in check evidence, keep aggregate `Verification=pending`, and
+keep the verdict at **needs review**. Transition to aggregate `Verification=passed` only after the
+deferred checks and final cleanup pass.
 Record each applicable limitation only in its check evidence. An unavailable converter or FEEL
 parser is non-blocking. An executed converter comparison failure is blocking. Set the category to
 `passed` when all other required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy,
@@ -482,9 +486,9 @@ instead. Retain **no action** only after that code path passes.
 | Referenced wiring baseline | Use the immutable code baseline only for `Before` evidence. |
 | Referenced wiring applicability | Record the row as `not applicable` only when neither side has a wiring reference. In a code-only run, run code-side coverage checks against the recorded worker, listener, dispatcher, and precompute artifacts. Record model-side wiring as `not applicable`. When code is out of scope, confirm matching XML declarations and record code coverage as `not applicable`. |
 | Finding-specific postcondition | Define a deterministic postcondition from the category's cross-check and record the expected finding-specific evidence. A valid XML, namespace, or converter check does not replace this condition. If no deterministic postcondition exists, set the verification state to `failed`, keep the category at **needs review** or **needs fix**, and route it through the explicit escalation below. Do not set its verification state to `passed`. |
-| FEEL syntax | Use a namespace-aware XML walk over every participating converted copy. Extract text from BPMN `conditionExpression` and `formalExpression` elements, DMN `literalExpression`, `inputEntry`, `outputEntry`, and `contextEntry` elements, and FEEL-bearing Zeebe input `source` and task-header `value` attributes when their recorded mapping marks them as expressions. Extract every participating `.form` template/property expression with the form procedure. Strip one leading `=` serialization marker before parsing and retain the raw value as evidence. Record the parser, expression location, and result for every extracted value, or record `none present` only after the complete walk. If no parser is available, record `unavailable` in the FEEL evidence and continue the other required checks. Treat this limitation as non-blocking for the aggregate category state. Keep the category at **needs fix** when parsing fails. |
+| FEEL syntax | Use a namespace-aware XML walk over every participating converted copy. Extract only values whose expression language is FEEL, whose recorded mapping marks them as FEEL, or whose blank language uses the target-specific FEEL default. Extract text from BPMN `conditionExpression` and `formalExpression` elements, DMN `literalExpression`, `inputEntry`, `outputEntry`, and `contextEntry` elements, and FEEL-bearing Zeebe input `source` and task-header `value` attributes. Record non-FEEL script values as `not applicable` in their own script category. Extract every participating `.form` template/property expression with the form procedure. Strip one leading `=` serialization marker before parsing and retain the raw value as evidence. Record the parser, expression location, and result for every extracted value, or record `none present` only after the complete walk. If no parser is available, record `unavailable` in the FEEL evidence and continue the other required checks. Treat this limitation as non-blocking for the aggregate category state. Keep the category at **needs fix** when parsing fails. |
 | FEEL parser availability | Identify the target-compatible parser by exact executable and version or project dependency. Run its syntax-only parser command or API and record the command, version, expression, and result. Do not use an evaluation command as syntax proof. Record evaluation or context errors separately from syntax errors. If the executable or dependency cannot be resolved, record the attempted command or dependency and `unavailable` in FEEL evidence. |
-| Converter regression command | Where the local CLI, Java executable, and converter JAR support participating BPMN or DMN copies, normalize recorded paths to absolute paths. Use one single-file invocation per recorded converted path, or use an isolated directory containing only participating copies. Discard rows whose normalized filename is not a participating converted path. |
+| Converter regression command | Where the local CLI, Java executable, and converter JAR support participating BPMN or DMN copies, normalize recorded paths to absolute paths. Use one single-file invocation per recorded converted path, or use an isolated directory containing only participating BPMN or DMN copies. Do not include `.form` resources in this supplementary directory command. Discard rows whose normalized filename is not a participating converted path. |
 | Converter invocation | Run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" [captured conversion options] --check --csv`. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. |
 | Converter option parity | Capture the converter JAR/build identity and every conversion-affecting option, including `--default-job-type`, `--always-use-default-job-type`, `--keep-job-type-blank`, `--add-data-migration-execution-listener`, `--data-migration-execution-listener-job-type`, `--documentation`, `--only-task-and-warning`, and `--disable-append-elements`. Require the same build and options for baseline and verification comparisons. Set the comparison to `unavailable` when parity cannot be established. |
 | Converter result reuse | Reuse the captured command result only while file bytes, target metadata, converter JAR/build, Java runtime, input root, and conversion options are unchanged. Rerun the command after any remediation edit and during final validation. |
@@ -533,7 +537,7 @@ Record failures with their before-and-after values using this decision table:
 | A design decision or required deterministic check is unavailable | `failed` or `unavailable` | **needs review** | Ask for a new decision before another attempt. |
 | Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep `Verification=passed` after the other checks and the finding-specific postcondition pass. Do not write `unavailable` as the aggregate state. | Continue the other required checks. |
 | Provisional INFO with no decision | `passed` and finding-specific postcondition passed | Transition provisional **needs review** to **no action** when no user decision remains. | Do not ask for a finding-remediation decision. |
-| Completed generic form owner | `passed` with a procedure-defined terminal status | Keep `c7-generic-task-form` at **needs review**. Call the state accepted risk only when `Status=declined`. | Do not prompt again or offer the category for remediation. |
+| Completed procedure-defined terminal row | Explicit decision, required evidence, and `Verification=passed` | Keep the recorded procedure-defined status and verdict. Call the state accepted risk only when `Status=declined`. | Do not prompt again or offer the row for remediation. |
 
 Do not mark a category **no action** after a failed blocking check. Escalate after the single
 verification pass when the failure needs a new design or a second remediation attempt. Update the
@@ -560,8 +564,8 @@ answer in `MIGRATION_REPORT.md`. Do not retry automatically. Do not include the 
 generic follow-up offer until the user decides.
 Exclude an INFO category with provisional **needs review** and a category whose only pending action
 is the shared verification pass from this offer until its verification pass completes. Exclude a
-category with a failed or unavailable verification from this offer. Exclude a
-`c7-generic-task-form` category with an explicit completed decision and `Verification=passed`.
+category with a failed or unavailable verification from this offer. Exclude any
+procedure-defined terminal category with an explicit completed decision and `Verification=passed`.
 Report its procedure-defined terminal state without asking for another decision. Call it accepted
 risk only when `Status=declined`. Require a new explicit user decision before another remediation
 attempt for that category. If any other migration TODO, finding,
@@ -621,8 +625,7 @@ the declined candidates in `MIGRATION_REPORT.md`.
 The migration run may exit only when every pass condition in Step 4 holds, every category marked
 **no action** has a passing verification row in the Step 5 verification table, and
 `MIGRATION_REPORT.md` holds the complete inventories, decisions, open items, and validation results.
-The skill treats a completed `c7-generic-task-form` row with its procedure-defined status
-(`declined` for keep-form-free, `accepted` for rebuild, or `kept` for custom application),
+The skill treats any completed procedure-defined terminal row with its explicit status, decision,
 `Verdict=needs review`, `Verification=passed`, and the required evidence as a resolved terminal
 state. Exclude these procedure-defined terminal rows from the unresolved finding count.
 The skill reports a complete migration only when no other unresolved

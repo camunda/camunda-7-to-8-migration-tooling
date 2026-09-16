@@ -66,9 +66,10 @@ The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migr
 
 The CLI local subcommand accepts a single file or a directory (recursive by default). Stage each
 captured model and all in-scope C7 forms associated with it in an isolated directory that excludes
-existing Camunda 8 forms, then pass that directory as the single input. For a single-resource run, pass one captured
-file. Never pass a broad project directory. Always pass `--platform-version` set to the target version from the interview.
-Before validation, promote or copy the current-run converted outputs to final project-relative
+existing Camunda 8 forms, then pass that directory as the single input. For a model with associated
+forms, always pass the staged directory. Use one captured file only when the model has no associated
+form. Never pass a broad project directory. Always pass `--platform-version` set to the target version from the interview.
+Before validation, promote or copy the current-run converted copies to final project-relative
 resource paths, or explicitly make the staging directory the authoritative project resource root.
 Record the staged and final paths and use the final paths for Step 4, Step 5, and deployment.
 When relocating outputs, map every staged report `filename` identity to its final path and retain

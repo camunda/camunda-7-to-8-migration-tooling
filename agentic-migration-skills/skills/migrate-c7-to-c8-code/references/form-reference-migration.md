@@ -222,8 +222,9 @@ existing-form validation, not as a Camunda 7 form. Convert only a form with no C
    hashes, and all resulting schema, render, and FEEL evidence. In M1, stage the captured model
    and all in-scope C7 forms associated with that model in an isolated input directory and pass
    that directory as one invocation.
-   For a single-resource run, pass one captured path in one invocation. Exclude every existing
-   Camunda 8 form. Never pass a broad project directory that lets the converter rewrite an existing
+   For a model with associated forms, always pass the staged directory. Use one captured path in one
+   invocation only when the model has no associated form. Exclude every existing Camunda 8 form.
+   Never pass a broad project directory that lets the converter rewrite an existing
    form before its preservation check. In M2, regardless of why M2 was selected, apply a metadata-only JSON
    update to the converted copy: change only the target execution-platform metadata, preserve the
    schema and all other fields, and record before/after content hashes. Before this update, inspect
