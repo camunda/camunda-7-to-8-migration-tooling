@@ -172,9 +172,10 @@ remediation starting point. Do not infer a category-specific cross-check from an
 
 ## Deployment Wiring
 
-Apply the shared deployment state table first. Skip the startup-wiring question for `target=none`.
-Skip it for selected-target pending, declined, or deferred states only while no completed alternate
-binding or external-deployment plan exists. For an authorized selected target,
+Apply the shared deployment state table first. When no linked forms exist, ask the general model
+deployment-wiring question directly. When linked forms exist, skip form-specific wiring for
+`target=none`. Skip it for selected-target pending, declined, or deferred states only while no
+completed alternate binding or external-deployment plan exists. For an authorized selected target,
 ask whether to wire deployment in application code. Offer **Yes, add/update `@Deployment`** and
 **No, handle deployment outside app startup**.
 

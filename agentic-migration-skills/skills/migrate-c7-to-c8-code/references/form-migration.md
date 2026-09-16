@@ -391,7 +391,7 @@ For an authorized, explicitly requested target with `bindingType=deployment`, re
 BPMN and every linked accepted or existing form with that binding in the same deployment. For
 `target=none`, record `deployment=not applicable` and do not require a deployment result.
 Build an exact resource list from the recorded authorized paths. `versionTag` and implicit `latest`
-forms may use a separate verified form deployment. Never use a broad `converted-c8-*.form` pattern.
+forms may use (MAY) a separate verified form deployment. Never use a broad `converted-c8-*.form` pattern.
 If any deployment-bound form is not deployable for an authorized selected target, defer the whole
 model deployment instead of deploying the BPMN alone.
 

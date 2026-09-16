@@ -240,7 +240,7 @@ existing-form validation, not as a Camunda 7 form. Convert only a form with no C
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
    path. Ask the user which side changes. Remove or withhold any converter-emitted
    `zeebe:formDefinition` before Step 4 for a blocked or declined row. An accepted mapping may
-   retain a provisional definition until the post-Step-5e edit. For `camunda:formRef`, retain the exact
+   (MAY) retain a provisional definition until the post-Step-5e edit. For `camunda:formRef`, retain the exact
    report-safe rendering of the original reference in `MIGRATION_REPORT.md`. Keep any raw value only
    in the secure transient execution context. For a copied form key, retain the copied
    `externalReference` or `formKey` as the unresolved form pointer. Leave the owner unlinked until

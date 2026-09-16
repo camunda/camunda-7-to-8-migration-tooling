@@ -193,10 +193,13 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
-Enumerate every `.form` resource under the confirmed in-scope project and deployment-resource roots
-before pairing. Parse each resource, record its authoritative path and Modeler metadata, and pair it
-by form id, retained reference, or owner evidence. A resource with no owner enters the standalone
-inventory. Do not rely only on `.form` paths referenced by BPMN.
+Enumerate every authoritative `.form` resource under the confirmed in-scope project and
+deployment-resource roots before pairing. Exclude previous `converted-c8-*` copies, draft
+directories, stale migration reports, and other pre-flight leftovers. After conversion, add only
+`.form` paths captured from this run's `Created ...` lines. Parse each resource, record its
+authoritative path and Modeler metadata, and pair it by form id, retained reference, or owner
+evidence. A resource with no owner enters the standalone inventory. Do not rely only on `.form`
+paths referenced by BPMN.
 
 Pair every existing `.form` with its owner before Question 7 and verification. Record linkage and
 deployment as `not applicable` with the reason for a standalone form.
@@ -249,6 +252,8 @@ During Step 3, run these procedures for every participating form category. Inven
 Draft, collect decisions, and accept resources when the category and user decision require those
 actions.
 Defer edits that add or change converted-copy form linkage and all deployment until after Step 5e.
+The safety removal of a provisional converter-emitted definition for a blocked or declined row is
+an exception. It MAY occur before Step 4 so the row is not linked while blocked or declined.
 Record the planned linkage and deployment decision during Step 3.
 For each accepted, rebuilt, relinked, or existing Camunda 8 form with a deployable owner, record
 the deployment target, request, and authorization state.
@@ -398,9 +403,9 @@ An `@Deployment` edit alone is not a deployment result. Redact selected targets,
 logs, and API responses before recording them in `MIGRATION_REPORT.md`. Apply the report-safe URL
 redaction rules to query values and userinfo passwords. Never copy raw credentials or raw target
 URLs into a report or committed artifact. When this run has no deployment mechanism or access, keep
-the selected-target state `pending` and record `deployment mechanism=unavailable`. Require an
+the selected-target state `pending` and record `deployment mechanism=unavailable`.
 For an unauthorized or declined selected target, a recorded external plan with owner, target, and
-steps is the external result and may close that deployment state. For an authorized request, require
+steps is the external result and may close (MAY) that deployment state. For an authorized request, require
 an observed application or external deployment result. Otherwise leave the category open.
 
 ### Step 5: AI Follow-up (offer after validation)
