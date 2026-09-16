@@ -219,7 +219,9 @@ For both:
    default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
    `formRefVersion` has no numeric-version equivalent, so ask the user to choose `versionTag` with a
    real tag or accept another binding.
-5. Confirm the form deploys together with the process for a `deployment` binding.
+5. Confirm the form deploys together with the process for a `deployment` binding when a deployment
+   target is selected. Record an explicit out-of-scope `not applicable` decision when no target
+   exists or deployment is declined.
 
 If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
 
