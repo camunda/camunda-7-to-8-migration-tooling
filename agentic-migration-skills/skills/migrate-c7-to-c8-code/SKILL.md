@@ -550,8 +550,11 @@ the declined candidates in `MIGRATION_REPORT.md`.
 The migration run may exit only when every pass condition in Step 4 holds, every category marked
 **no action** has a passing verification row in the Step 5 verification table, and
 `MIGRATION_REPORT.md` holds the complete inventories, decisions, open items, and validation results.
-The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
-issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
+The skill treats a completed `c7-generic-task-form` keep-form-free row with
+`Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence as
+resolved accepted risk. The skill reports a complete migration only when no other unresolved
+migration TODO, finding, compilation issue, or deletion candidate remains and no item has `deferred`
+or `blocked` status.
 An open item is a team decision, so an `open` status does not block completion, but the summary
 always lists every open item.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.

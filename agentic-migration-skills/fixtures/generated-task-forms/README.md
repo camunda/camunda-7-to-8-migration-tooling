@@ -107,8 +107,10 @@ The evaluation is complete when the agent has:
   not present `c7-generic-task-form` as **no action**;
 * recorded the explicit keep-form-free, rebuild, or custom-application decision
   for the form-free start event and its converted-owner evidence;
-* recorded the explicit out-of-scope deployment decision and
-  `deployment=not applicable` for this Models-only fixture;
+* when no deployment target is selected, recorded the explicit out-of-scope
+  decision and `deployment=not applicable` for this Models-only fixture. When a
+  target is selected, recorded the pending or authorized target branch described
+  above;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * confirmed one `zeebe:userTask` and one matching form definition on the

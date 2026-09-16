@@ -353,7 +353,8 @@ choose and configure a supported binding.
 
 Do not rewrite the raw converter report or erase its historical `form-data` finding. Change the
 category verdict to `no action` only after every associated form is accepted, linked, and validated,
-the shared Step 5 verification row is `passed`, and final cleanup has passed.
+the deployment check is satisfied, the shared Step 5 verification row is `passed`, and final
+cleanup has passed.
 Collect and record an explicit deployment decision. Verify deployment when a target is selected.
 Record deployment as `not applicable` with the out-of-scope decision only when no target exists.
 If a target exists and the user declines deployment, keep deployment `pending` unless the user
