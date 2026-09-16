@@ -17,23 +17,36 @@ Cross-reference the grouped Diagram Converter findings (see `model-migration-app
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `original` and `jobType` for each
-original-implementation-to-emitted-type pair. Apply the same 1:1 or many-to-one check. Do not wait
-for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
+normalized input row with the columns `filename`, `elementId`, `headerKey`, `original`, and
+`jobType` for each original-implementation-to-emitted-type pair. Read `headerKey` and `original`
+from the matching `zeebe:header` on the converted element. Apply the same 1:1 or many-to-one
+check. Do not wait for `delegate-expression-as-job-type` findings, because M2-only runs do not
+produce them. If the converted element has no header matching the original C7 attribute and value,
+keep the category **needs fix** and do not offer a dispatcher scaffold until M2 adds or retains
+that header.
 
 ### 1. Detect many-to-one job-type collapse
 
 Build the normalized input rows from the `delegate-expression-as-job-type` findings and the M2 scan.
-For a converter finding, parse the original expression and job type from its `message`. For an M2
-row, use the `original` and `jobType` columns created above. Each normalized row has the shape:
+Pair each finding with its converted BPMN element by `filename` and `elementId`. Read the emitted
+job type from its task definition and the original C7 key and value from its `zeebe:header`.
+For a converter finding, use the paired header instead of parsing only its `message`. For a
+`delegate-implementation` finding, retain the original class or expression from its binding
+context or the paired original source attribute, then resolve its header pair on the converted
+element. For an M2 row, use the original source attribute and `jobType` created above, and verify
+the same pair in the converted element. Each normalized row has the shape:
 
+> `filename`: Converted BPMN file
+> `elementId`: Converted element identifier
+> `headerKey`: Original C7 attribute name
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-Group the normalized rows by `jobType`:
+Group the normalized rows by `jobType`, then distinguish values by the pair
+`(headerKey, original)`:
 
-- **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
+- **1:1**: every job type maps to exactly one distinct `(headerKey, original)` pair. Apply the simple check in 2a.
+- **Many-to-one**: one job type maps to multiple distinct pairs, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
 
 Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
 
@@ -50,26 +63,28 @@ Do NOT generate one `@JobWorker` per BPMN element for a collapsed job type. They
 Instead, flag for the user that the shared job type needs a single dispatcher/adapter job worker:
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
-- It reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
+- It reads the retained original expression from the job's task headers. The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`). For M2, verify or add this header during model migration before scaffolding.
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
-Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers every distinct original expression in the findings rows for that job type. List uncovered expressions for the user.
+Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
+every distinct `(headerKey, original)` pair in the normalized rows for that job type. List uncovered
+pairs for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
-When a many-to-one category has a **needs fix** verdict because no dispatcher exists, process each
-shared job type independently. Offer a scaffold through AskUserQuestion before asking the user to
-implement the dispatcher manually:
+When a many-to-one category has a **needs fix** verdict, process each shared job type independently.
+Offer a scaffold through AskUserQuestion only when no worker already subscribes to the shared type:
 
-- **Generate a dispatcher scaffold (recommended)** — show the shared job type, every retained
-  header key, and the distinct original expressions grouped by retained key before generating the
-  file.
+- **Generate a dispatcher scaffold (recommended)** — in the AskUserQuestion prompt, show the
+  shared job type, every retained header key, and the distinct original expressions grouped by
+  retained key before asking for acceptance and generating the file.
 - **I will implement the dispatcher manually** — do not create a source file, and keep the category
   as **needs fix**.
 
-Before generation, enumerate existing `@JobWorker` registrations for the shared job type. If a
-non-dispatcher registration already subscribes to that type, stop and ask the user to merge or
-remove it before creating the scaffold. Do not create a second subscriber.
+Before generation, enumerate every existing `@JobWorker` registration for the shared job type. If
+any registration already subscribes to that type, stop scaffold generation. Ask the user to extend
+an existing dispatcher, or to merge or remove a non-dispatcher registration before creating one.
+Do not create a second subscriber.
 
 Generate the scaffold only after the user chooses the first option. Create a new source file beside
 the migrated worker sources, using the project's conventional package, license header, naming, and
@@ -80,17 +95,20 @@ The generated Java source must contain exactly one `@JobWorker(type = "<shared j
 the project's worker registration convention, such as `@Component` for Spring. Use a method
 signature compatible with its Camunda 8 SDK. Read each original expression from the retained
 `zeebe:header` using its original C7 key. Prepopulate a routing map or switch with one entry for
-every distinct original expression in the findings rows, grouped by retained key. Use Java
+every distinct normalized `(headerKey, original)` pair for the shared job type, grouped by retained
+key. Use Java
 string-literal escaping for every generated route key and for the shared job type in the
 annotation. Escape quotes, backslashes, line breaks, and other control characters before writing
-the source. Put a `TODO` in every route for the actual legacy bean or method invocation. Add an
-explicit missing-or-unknown-header path instead of silently accepting an unroutable job.
+the source. Put a `TODO` in every route for the actual legacy bean or method invocation. Make each
+TODO route fail explicitly until its implementation exists. Add an explicit missing-or-unknown-header
+path that also fails instead of silently accepting or auto-completing an unroutable job.
 
-After generation, rerun the same cross-check used for hand-written dispatchers. Run the applicable
-formatter, compile, and test checks after writing the source. Record each validation result in
-MIGRATION_REPORT.md. The scaffold is not a completed remediation: keep the category **needs fix**
-while any generated `TODO` remains, and record the generated file and uncovered implementation work
-in MIGRATION_REPORT.md.
+After generation, present the complete source or diff to the user for explicit review. Do not commit
+or deploy the scaffold until the user accepts it. Then rerun the same cross-check used for
+hand-written dispatchers. Run the applicable formatter, compile, and test checks after writing the
+source. Record each validation result in MIGRATION_REPORT.md. The scaffold is not a completed
+remediation: keep the category **needs fix** while any generated `TODO` remains, and record the
+generated file and uncovered implementation work in MIGRATION_REPORT.md.
 
 ### 3. FEEL method-invocation category
 
