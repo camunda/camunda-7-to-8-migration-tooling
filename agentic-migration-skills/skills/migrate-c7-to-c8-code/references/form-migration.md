@@ -321,8 +321,10 @@ draft so one authoritative form file remains. Keep a second copy only when the u
 it.
 
 After Step 5e, the linker creates `bpmn:extensionElements` when the converted owner has no
-extension container. It reuses the existing container otherwise. It then applies exactly one
-accepted `zeebe:formDefinition` and the planned binding.
+extension container. It reuses the existing container otherwise. Before applying exactly one
+accepted `zeebe:formDefinition` and the planned binding, it checks for a different form definition,
+C7 form reference, or custom external reference. It asks the user before replacing any such
+existing definition and applies the accepted replacement only after approval.
 
 For M2 or any hand-edited/imported output, remove the migrated owner's `camunda:formData`,
 `camunda:formField`, `camunda:validation`, `camunda:constraint`, and direct `camunda:formProperty`
