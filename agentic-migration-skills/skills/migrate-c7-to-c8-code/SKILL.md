@@ -369,8 +369,9 @@ applicable check passes, `failed` after a check fails, and `unavailable` when a 
 deterministic tool is unavailable. The supplementary converter check is not required for the
 aggregate category state in M1, M2, M3, or E1. An unavailable target FEEL parser is also
 supplementary.
-Record each applicable limitation only in its check evidence. Set the category to `passed` when all other
-required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy,
+Record each applicable limitation only in its check evidence. An unavailable converter or FEEL
+parser is non-blocking. An executed converter comparison failure is blocking. Set the category to
+`passed` when all other required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy,
 record `not applicable` in converter applicability evidence only for the expected already-converted
 exception. For a form-only category with no BPMN or DMN copy, record converter checks as
 `not applicable`. Allow other check rows to record
@@ -423,13 +424,17 @@ original Camunda 7 mapping from an already-converted copy. It does not prove tha
 worker, listener, header, or FEEL expression has the intended runtime semantics. The namespace-aware
 checks and code cross-checks above provide that coverage.
 
-If any check fails, record the failure with its before-and-after values. Keep the category at
-**needs fix** when concrete remediation remains. Keep it at **needs review** when a design decision
-or an unavailable required deterministic check remains. Unavailable supplementary checks do not
-block `passed`. Do not mark it **no action**. Escalate after the
-single verification pass when the failure needs a new design or a second remediation attempt. Set
-the verification state to `failed` or `unavailable` and update the nonterminal verdict in both the
-findings inventory and verification table.
+Record failures with their before-and-after values using this decision table:
+
+| Failure condition | Verification | Verdict | Next action |
+|---|---|---|---|
+| Concrete remediation remains | `failed` | **needs fix** | Resolve the category after the required decision. |
+| A design decision or required deterministic check is unavailable | `failed` or `unavailable` | **needs review** | Ask for a new decision before another attempt. |
+| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep the current verdict | Continue the other required checks. |
+
+Do not mark a category **no action** after a failed blocking check. Escalate after the single
+verification pass when the failure needs a new design or a second remediation attempt. Update the
+nonterminal verdict in both the findings inventory and verification table.
 After any remediation batch edits a converted copy, `.form` resource, or referenced code artifact,
 invalidate every earlier `passed` verification row whose recorded file or code artifact changed and
 rerun every invalidated category. Before exit, run the
