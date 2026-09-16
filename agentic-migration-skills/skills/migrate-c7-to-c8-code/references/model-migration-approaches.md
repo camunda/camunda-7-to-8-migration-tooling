@@ -129,7 +129,9 @@ REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them
 
 Trust the converter's output for structural transformations it performed and did not flag. The
 converter does not replace the shared runtime and code-coverage checks. Apply manual structural
-fixes only for what the report flags. Never second-guess or re-derive converted structures.
+fixes for reported findings and for failed verification postconditions. Record any
+verification-driven fix in `MIGRATION_REPORT.md`. Never second-guess or re-derive converted
+structures.
 
 Group by category first. The category, not the individual row, is the unit of work.
 
