@@ -59,22 +59,28 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 #### Dispatcher scaffold
 
-When a many-to-one category has a **needs fix** verdict and no dispatcher, use AskUserQuestion to
-offer these actions:
+When a many-to-one job-type group has findings rows, a **needs fix** verdict, and no dispatcher, use
+AskUserQuestion to offer these actions:
 
 | User choice | Result |
 |---|---|
-| **Generate a dispatcher scaffold** | Create a source file for review. |
+| **Generate a dispatcher scaffold** | Create a draft for review. |
 | **I will implement the dispatcher manually** | Keep the category **needs fix**. |
 
 Generate the scaffold only after the user selects it. Never overwrite an existing file.
-Create the source beside migrated workers. Use the target project's package, license header, naming,
-and formatting conventions.
+Create the draft outside worker sources. Use the target project's conventional package, license
+header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
 Prepopulate a routing map or switch with every distinct original expression from the findings rows.
 Put a `TODO` in each route for the actual bean or method invocation.
+Escape every model-derived value before using it in a Java string literal.
+Make every TODO, missing-header, and unknown-route path fail explicitly.
 Show the complete source to the user for review.
-After the user completes every `TODO`, rerun the existing dispatcher cross-check.
+Keep the draft outside worker sources until the user completes its TODOs, accepts it, and resolves
+any other subscriber.
+If the user declines the draft, remove it.
+After acceptance, move the draft beside migrated workers.
+Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
 Keep the category **needs fix** until that check passes.
 
 ### 3. FEEL method-invocation category
