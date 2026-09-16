@@ -527,7 +527,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               case SINGLE_JOB_ID ->
                   "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               case SYNC_RETRY_BUILDER ->
-                  "Preserve the retry builder's job or job-definition selector and due-date semantics, resolve the selected Camunda 8 job keys, and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
+                  "Preserve the retry builder's job or job-definition selector; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; resolve the selected Camunda 8 job keys and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               case SYNC_BULK_OR_QUERY ->
                   "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
               case ASYNC_IDS_ONLY ->
@@ -543,9 +543,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               case ASYNC_PROCESS_IDS_AND_HISTORIC_QUERY ->
                   "Resolve the Camunda 7 process-instance IDs, process-instance query, and historic process-instance query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.";
               case ASYNC_BUILDER_JOBS ->
-                  "Preserve the job retry builder's job/job-definition selector and union semantics, then use the Camunda 8 batch job update API.";
+                  "Preserve the job retry builder's job/job-definition selector and union semantics; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; then use the Camunda 8 batch job update API.";
               case ASYNC_BUILDER_PROCESS ->
-                  "Preserve the process retry builder's process selector and union semantics, then use the Camunda 8 batch job update API.";
+                  "Preserve the process retry builder's process selector and union semantics; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; then use the Camunda 8 batch job update API.";
               case ASYNC_OTHER ->
                   "Preserve the Camunda 7 selection semantics and use the Camunda 8 batch job update API.";
               case NOT_APPLICABLE -> MANAGEMENT_METHOD_HINTS.getOrDefault(

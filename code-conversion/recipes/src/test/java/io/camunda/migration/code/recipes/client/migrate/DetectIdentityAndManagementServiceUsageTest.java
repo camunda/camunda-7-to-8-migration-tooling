@@ -199,7 +199,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(java.util.List.of(jobId), retries);
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
-                    // Preserve the retry builder's job or job-definition selector and due-date semantics, resolve the selected Camunda 8 job keys, and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
+                    // Preserve the retry builder's job or job-definition selector; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; resolve the selected Camunda 8 job keys and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(retries);
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
@@ -326,6 +326,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 public void manage(ManagementService managementService, int retries) {
                     managementService.setJobRetries(retries);
                     managementService.setJobRetriesByJobsAsync(retries);
+                    managementService.setJobRetriesByJobsAsync(retries).dueDate(new java.util.Date()).executeAsync();
                     managementService.setJobRetriesByProcessAsync(retries);
                 }
             }
@@ -339,15 +340,19 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void manage(ManagementService managementService, int retries) {
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
-                    // Preserve the retry builder's job or job-definition selector and due-date semantics, resolve the selected Camunda 8 job keys, and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
+                    // Preserve the retry builder's job or job-definition selector; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; resolve the selected Camunda 8 job keys and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(retries);
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesByJobsAsync()).
-                    // Preserve the job retry builder's job/job-definition selector and union semantics, then use the Camunda 8 batch job update API.
+                    // Preserve the job retry builder's job/job-definition selector and union semantics; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; then use the Camunda 8 batch job update API.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetriesByJobsAsync(retries);
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesByJobsAsync()).
+                    // Preserve the job retry builder's job/job-definition selector and union semantics; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; then use the Camunda 8 batch job update API.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetriesByJobsAsync(retries).dueDate(new java.util.Date()).executeAsync();
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesByProcessAsync()).
-                    // Preserve the process retry builder's process selector and union semantics, then use the Camunda 8 batch job update API.
+                    // Preserve the process retry builder's process selector and union semantics; dueDate has no direct Camunda 8 batch equivalent and requires a scheduling redesign; then use the Camunda 8 batch job update API.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetriesByProcessAsync(retries);
                 }
