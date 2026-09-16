@@ -257,10 +257,11 @@ existing-form validation, not as a Camunda 7 form. Convert only a form with no C
    `not applicable` with the reason. Record an unavailable FEEL parser as `unavailable` in FEEL
    evidence. Record other unavailable supplementary tooling according to `form-migration.md`.
 6. When unresolved Step 5 remediation first creates or accepts a deployable form, use the Question 7
-   decision already recorded after Step 3. Do not ask Question 7 again. After Step 5e, apply the
-   accepted linkage plan, then rerun the full form validation checklist, including target metadata,
-   FEEL parsing, exact `formId` linkage, and removal of the copied C7 reference. Rerun the
-   verification row after any linkage or form change.
+   decision already recorded after Step 3 when it covers this form. If no recorded decision covers
+   it, ask Question 7 in this post-Step-5e branch and record its target, request, authorization, and
+   result or pending state. Apply the accepted linkage plan, then rerun the full form validation
+   checklist, including target metadata, FEEL parsing, exact `formId` linkage, and removal of the
+   copied C7 reference. Rerun the verification row after any linkage or form change.
 7. Verify deployment only after the user explicitly requests it and selects a deployment target.
    Record the request, target, authorization, and deployment result separately. Do not deploy when a target exists
    without an explicit request. Record deployment as `pending` and keep the category open until the

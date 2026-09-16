@@ -68,6 +68,10 @@ The CLI local subcommand accepts a single file or a directory (recursive by defa
 captured model and its selected C7 forms in an isolated directory that excludes existing Camunda 8
 forms, then pass that directory as the single input. For a single-resource run, pass one captured
 file. Never pass a broad project directory. Always pass `--platform-version` set to the target version from the interview.
+Before validation, promote or copy the current-run converted outputs to final project-relative
+resource paths, or explicitly make the staging directory the authoritative project resource root.
+Record the staged and final paths and use the final paths for Step 4, Step 5, and deployment.
+Never retain a temporary staging path as deployable evidence.
 
 ```
 "<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
