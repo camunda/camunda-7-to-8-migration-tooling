@@ -490,6 +490,8 @@ function App() {
       switch (errorBody.errorCode) {
         case "FILE_COUNT_LIMIT_EXCEEDED":
           return "Too many files at once. Remove some files and try again.";
+        case "FILE_SIZE_LIMIT_EXCEEDED":
+          return "The uploaded file is too large. Choose a smaller file and try again.";
         case "MULTIPART_ERROR":
           return "The uploaded files could not be processed.";
         default:

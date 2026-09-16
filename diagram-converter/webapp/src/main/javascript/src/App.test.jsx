@@ -1158,6 +1158,38 @@ describe("per-file request failures and retry", () => {
     expect(within(row).getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
+  it("surfaces a size-specific error for a non-2xx JSON convert response", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: false,
+        status: 413,
+        headers: { get: vi.fn().mockReturnValue("application/json") },
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({ errorCode: "FILE_SIZE_LIMIT_EXCEEDED" })
+        ),
+      });
+    });
+
+    await uploadAndAnalyze([
+      { name: "large.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const row = fileRow("large.bpmn");
+    const alert = await within(row).findByRole("alert");
+    expect(alert.textContent).toMatch(
+      /uploaded file is too large\. choose a smaller file and try again\./i
+    );
+    expect(within(row).getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
   it("surfaces a plain-language error when the analyze response body cannot be parsed", async () => {
     fetchMock.mockImplementation((url) => {
       if (url.endsWith("/check")) {
