@@ -352,12 +352,12 @@ undifferentiated list.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- For a many-to-one shared job-type group across the `delegate-expression-as-job-type`,
-  `delegate-implementation`, and `topic` categories with a **needs fix** verdict in a Code + models
-  scope, follow the dispatcher scaffold procedure in `references/composing-code-and-models.md` for
-  each shared job type only after verifying that no effective `@JobWorker` registration subscribes
-  to that type. Extend an existing dispatcher, or merge or remove another registration, instead of
-  generating a second worker.
+- In a Code + models run that produced code output and a paired converted copy, follow the dispatcher
+  scaffold procedure in `references/composing-code-and-models.md` for each complete many-to-one
+  shared job-type group across the `delegate-expression-as-job-type`, `delegate-implementation`,
+  and `topic` categories with a **needs fix** verdict. That reference owns the effective-worker
+  scan and omits generation when a subscriber exists. Keep Approach C, M1 `--check`, and read-only
+  or no-copy M2 runs report-only.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 

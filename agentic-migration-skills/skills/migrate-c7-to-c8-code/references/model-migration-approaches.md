@@ -182,7 +182,7 @@ Keep this summary grouped by `messageId`. In a Code + models scope, build one sh
 job-type inventory across the three job-type categories before assigning verdicts. Do not assign
 independent 1:1 verdicts to category rows that share a job type. Use the shared job-type verdict and
 propagate it to each affected category as described in `composing-code-and-models.md`. In a Models
-only scope, keep each job-type category on the model-only verdict flow. Do not build a worker
+only scope, apply the severity fallback in step 5d to each job-type category. Do not build a worker
 inventory or apply the dispatcher cross-check. Use `n/a` for its cross-referenced code artifact.
 
 #### 5c. Present the grouped summary
@@ -200,7 +200,7 @@ The current dedicated cross-check categories are:
 
 | Category | Dedicated cross-check |
 |---|---|
-| `delegate-expression-as-job-type`, `delegate-implementation`, `topic` | In a Code + models scope, check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md`. In a Models only scope, apply the model-only verdict flow without a worker cross-check. |
+| `delegate-expression-as-job-type`, `delegate-implementation`, `topic` | In a Code + models scope, check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md`. In a Models only scope, apply the severity fallback from step 5d without a worker cross-check and use `n/a` for the code artifact. |
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |

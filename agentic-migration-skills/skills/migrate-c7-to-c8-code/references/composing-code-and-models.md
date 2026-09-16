@@ -22,39 +22,43 @@ When M1 runs with `--check` and produces no converted copy, keep this cross-chec
 offer or generate a dispatcher scaffold until a paired converted copy is available. Record the
 missing copy and the required rerun in `MIGRATION_REPORT.md`.
 
-When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
-each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
+When M2 has a converted copy, is not read-only, and has no Diagram Converter report, scan every
+`zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
+original file recorded by the M2 rewrite. Read the original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
 normalized input row with the columns `filename`, `elementId`, `headerKey`, `original`, and
-`jobType` for each delegate attribute or external-task topic. For delegate attributes, read
-`headerKey` and `original` from the matching `zeebe:header` on the converted element. For an
-external-task topic, set `headerKey` to `topic` and `original` to the topic value. Apply the same
-1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings, because
-M2-only runs do not produce them. If a delegate row has no header matching the original C7
-attribute and value, then mark the row incomplete. For a topic row, retain a non-empty `jobType`
-row without a `topic` header for the initial grouping. A 1:1 topic row can use its `jobType` for
-the simple check. If its job-type group has another distinct pair, mark the topic row incomplete
-and require a retained `topic` header before offering a dispatcher scaffold.
+`jobType` for each delegate attribute or external-task topic. Derive `headerKey` and `original`
+from the original C7 attribute. Verify the same delegate pair in the converted element's
+`zeebe:header`. For an external-task topic, set `headerKey` to `topic` and `original` to the
+original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
+`delegate-expression-as-job-type` findings, because M2-only runs do not produce them. A missing
+delegate header is incomplete for a many-to-one group. A 1:1 topic row can use its non-empty
+`jobType` for the simple check without a retained `topic` header. If a topic group has another
+distinct pair, require a retained `topic` header before offering a dispatcher scaffold.
+
+If M2 is read-only or has no converted copy, keep this cross-check report-only. Record the
+read-only mode or missing copy and do not scan for workers or offer a dispatcher scaffold.
 
 ### 1. Detect many-to-one job-type collapse
 
 Build the normalized input rows from the `delegate-expression-as-job-type`, `delegate-implementation`,
 and `topic` findings and the M2 scan. A findings report's `filename` identifies the source model, not
-the converted copy. Resolve it to the exact converted copy path captured from the converter output,
-using the configured prefix (`converted-c8-` by default) when necessary. Pair each finding with its
-converted BPMN element by that path and `elementId`. Read the emitted job type from its task
-definition and the original C7 key and value from its `zeebe:header`.
-For a converter finding, use the paired header instead of parsing only its `message`. For a
-`delegate-implementation` finding, retain the original class or expression from its binding
-context or the paired original source attribute, then resolve its header pair on the converted
-element. For a converter or M2 delegate row, use the original source attribute and `jobType`
-created above, and verify the same pair in the converted element. For a converter or M2 topic row,
-set `headerKey` to `topic` and `original` to the paired `camunda:topic` value. A 1:1 topic row can
-use its `jobType` for the simple check even when the converted copy lacks a retained `topic`
-header. Record a missing retained `topic` header. If the group has another distinct pair, treat
-the missing topic header as incomplete and require it before offering a dispatcher scaffold. Do
-not classify a topic and delegate or class that share a job type as 1:1 without that routing
-discriminator. Each normalized row has the shape:
+the converted copy. For M1, resolve it to the exact converted copy path captured from converter
+output, using the configured prefix (`converted-c8-` by default) when necessary. Pair each finding
+with its converted BPMN element by that path and `elementId`. For M2, use the exact original-to-
+converted path mapping recorded by the rewrite. For M3, require the original BPMN, the downloaded
+converted BPMN, and the explicit pairing supplied with the downloaded JSON report. If that pairing
+is missing, keep the cross-check report-only. Never infer an M2 or M3 pairing from a filename alone.
+Read the emitted job type from the task definition.
+For a converter finding, use the original C7 attribute and verify its pair in the converted
+element's `zeebe:header`; do not parse only its `message`. For a `delegate-implementation` finding,
+retain the original class or expression from its binding context or paired original source
+attribute. For a converter or M2 delegate row, use that source pair and the emitted `jobType`.
+For a converter or M2 topic row, set `headerKey` to `topic` and `original` to the paired original
+`camunda:topic` value. Record a missing retained `topic` header. A 1:1 topic row can use its
+non-empty `jobType` for the simple check. A topic row in a many-to-one group requires the retained
+header before scaffolding. Do not classify a topic and delegate or class that share a job type as
+1:1 without a routing discriminator. Each normalized row has the shape:
 
 > `filename`: Converted BPMN file
 > `elementId`: Converted element identifier
@@ -66,14 +70,15 @@ Identify incomplete rows before and after grouping:
 
 | Row state | Condition | Action |
 |---|---|---|
-| **Unknown job type before grouping** | A row has a missing or blank `jobType`. | Exclude the row from the shared inventory. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the Step 5 AI Follow-up flow. Do not block checks for unrelated job types. |
-| **Known job type before grouping** | A row has a non-empty `jobType`, but a delegate row lacks a matching retained header pair. | Retain the row as an incomplete member of its known job-type group. Keep that group and its affected category **needs fix** until model migration retains the header pair. |
-| **Incomplete after grouping** | A topic row lacks a retained `topic` header and its job-type group has another distinct pair. | Keep the row in the shared group. Keep that group and its affected category **needs fix**. Do not offer a dispatcher scaffold for that group until model migration retains the header. |
+| **Unknown job type before grouping** | A row has a missing or blank `jobType`. | Exclude the row from the shared inventory. Keep its category **needs fix** until a model migration step supplies a non-empty type. Do not block checks for unrelated job types. |
+| **Known job type before grouping** | A row has a non-empty `jobType`, but a delegate or topic row lacks a matching retained header pair. | Retain the source pair and mark the retained header as missing. A 1:1 group can use the job type for the simple check. A many-to-one group remains incomplete. |
+| **Incomplete after grouping** | A many-to-one group contains a row without its required retained header pair. | Keep the row in the shared group. Keep that group and its affected category **needs fix**. Do not offer a dispatcher scaffold for that group until model migration retains every required header. |
 
-While an incomplete row or group remains in a job-type group, do not offer or generate a dispatcher
-scaffold for that group. Resolve the row through model migration or the Step 5 AI Follow-up flow.
-Then rebuild the normalized rows and regroup before applying the mapping and verdict checks. Keep
-unrelated job-type groups eligible for their own checks.
+While an incomplete many-to-one group remains, do not offer or generate a dispatcher scaffold for
+that group. Resolve the row through model migration, or keep the M1/M3 cross-check report-only
+until a paired converted copy retains the required header. Then rebuild the normalized rows and
+regroup before applying the mapping and verdict checks. Keep unrelated job-type groups eligible
+for their own checks.
 
 Build one shared job-type inventory from the remaining normalized rows across all three categories.
 Group the inventory by `jobType`, then classify each job-type group by its distinct
@@ -86,6 +91,7 @@ many-to-one group.
 |---|---|---|
 | **1:1** | A job-type group contains one distinct `(headerKey, original)` pair. | Apply the simple check in 2a. |
 | **Many-to-one** | A job-type group contains multiple distinct `(headerKey, original)` pairs. | Apply the dispatcher check in 2b. The converter collapsed several delegates onto a shared job type. |
+| **Incomplete many-to-one** | A many-to-one group lacks a required retained header pair. | Keep the group **needs fix**. Do not offer a dispatcher scaffold. |
 
 This shape is common at scale. One generic job type can cover thousands of expression-based service tasks in a real project.
 
@@ -117,16 +123,22 @@ Do NOT generate one `@JobWorker` per BPMN element for a collapsed job type. They
 Instead, flag for the user that the shared job type needs a single dispatcher/adapter job worker:
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
-- It reads the retained original expression from the job's task headers. The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, `class`, or `topic`). Its value is the original expression or topic string (e.g. `${myBean.myMethod(execution)}`). For M2, verify or add the matching delegate or topic header during model migration before scaffolding.
+- For a delegate or class row, it reads the retained original value from the job's task headers.
+  The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`).
+  Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`).
+- For a topic row, it uses the original `camunda:topic` value as the pair identity. A many-to-one
+  topic group must also retain that value as a `topic` header before scaffolding. M2 can add and
+  validate this header during model migration. M1 and M3 do not edit the converted BPMN in this
+  code flow. Keep those cases report-only until a paired converted copy contains the header.
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
 every distinct `(headerKey, original)` pair in the normalized rows for that job type across all three
 categories. List uncovered pairs for the user.
 
-During M1 follow-up, add and validate a `topic` header from the original `camunda:topic` value on
-the converted copy before regrouping. During M2 migration, verify or add the matching delegate or
-topic header before scaffolding.
+For M2 migration, verify or add the matching delegate or topic header before scaffolding. For M1
+and M3, record the missing header and require a new or user-supplied paired converted copy before
+regrouping. Do not hand-edit BPMN in this code flow.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
@@ -137,29 +149,31 @@ Before asking for a decision, use the effective-type inventory to identify regis
 effective type resolves to the shared type. Resolve literal annotation values and method-name
 defaults. If a registration's effective type is unresolved, treat it as a possible subscriber and
 stop scaffold generation until the user resolves it. If any registration already subscribes to that
-type, then stop scaffold generation. Do not create a second subscriber.
+type, omit the generation option. Do not create a second subscriber.
 
 Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
 quarantine directory. Canonicalize the default directory before using it. Apply the same
 confirmed-root, source-set, packaged-resource, and worker-scan checks used for overrides. Reject it
 when it escapes the confirmed project root or enters an excluded tree, including through a symlink.
 Canonicalize every explicit override against the confirmed project root before recording or writing.
-Allow an explicit user override only when it remains under that root and outside runtime source sets,
-packaged resource directories, and every source tree scanned for `@JobWorker`. If
+Allow an explicit user override only when it remains under that root and outside every source set,
+build input, packaged resource directory, and source tree scanned for `@JobWorker`. If
 `MIGRATION_REPORT.md` records a path, reuse it on later invocations unless the user explicitly
 overrides it. Before each reuse, resolve the recorded path again. Verify that it remains under the
-confirmed project root and outside every runtime source set, packaged resource directory, and
+confirmed project root and outside every source set, build input, packaged resource directory, and
 worker-scan tree. Reject a stale or unsafe path and require a new selection. Exclude the selected
 quarantine directory from every project-code inventory, every `@JobWorker` scan, and every build
 input. Record the selected path in `MIGRATION_REPORT.md` before scanning or generating.
 
-Before generating, scan the selected quarantine directory for a prior draft whose worker annotation
-uses the shared type. If one exists, stop and ask the user whether to reuse, complete, or remove
+Before generating, scan the selected quarantine directory for a prior draft whose effective
+`@JobWorker` type uses the shared type. Resolve an omitted annotation `type` with the annotated
+method name. If a prior draft exists, stop and ask the user whether to reuse, complete, or remove
 that draft. Do not create another draft or collision variant until the prior draft is resolved.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
-Offer generation only for a group with a **needs fix** verdict and no effective worker. Do not offer
-generation for a group with a **no action** or **needs review** verdict.
+Offer generation only for a complete many-to-one group with a **needs fix** verdict and no effective
+worker. Keep a 1:1 group on the simple worker-remediation path. Do not offer generation for a group
+with a **no action**, **needs review**, or incomplete verdict.
 
 Use this decision table for each shared job type:
 
@@ -167,12 +181,12 @@ Use this decision table for each shared job type:
 |---|---|---|
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
-| **needs fix** | None | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct original expressions grouped by retained key. |
+| **needs fix** | None | For a complete many-to-one group, use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | Exactly one | Do not offer generation. Ask the user to extend the registration if it is a dispatcher, or merge or remove the non-dispatcher before creating one. |
 | **needs fix** | More than one | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher. Extend one dispatcher and merge or remove every other registration before resolving the group. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
-directory outside every runtime source set and every source tree scanned for `@JobWorker`
+directory outside every source set, build input, and source tree scanned for `@JobWorker`
 registrations. Use the project's conventional package, license header, naming, and formatting.
 Derive the class and file names from the exact shared job type with a deterministic sanitizer. Make
 the class name a legal Java identifier and the file name a safe path segment.
@@ -189,11 +203,11 @@ name from the same candidate stem, then tell the user which file was created. Ne
 original class name with a renamed file.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
-the project's worker registration convention, such as `@Component` for Spring. Use a method
-signature compatible with its Camunda 8 SDK. Read each original expression from the retained
-`zeebe:header` using its original C7 key. Prepopulate a routing map or switch with one entry for
-every distinct normalized `(headerKey, original)` pair for the shared job type, grouped by retained
-key. Use Java
+the project's worker registration convention, such as `@Component` for Spring. For the Java client
+worker shape, use `ActivatedJob job` and read headers with `job.getCustomHeaders()`. Read each
+original value from the retained `zeebe:header` using its original C7 key. Prepopulate a routing
+map or switch with one entry for every distinct normalized `(headerKey, original)` pair for the
+shared job type, grouped by retained key. Use Java
 string-literal escaping for every generated route key and for the shared job type in the
 annotation. Escape quotes, backslashes, line breaks, and other control characters before writing
 the source. Put a `TODO` in every route for the actual legacy bean or method invocation. Make each
@@ -280,8 +294,8 @@ for each shared job-type group in `MIGRATION_REPORT.md`.
 
 | Evidence across every normalized row and shared job type | Cross-referenced code artifact | Verdict |
 |---|---|---|
-| Every normalized row has a non-empty `jobType` and either a matching retained `(headerKey, original)` pair or is a 1:1 topic row checked directly by `jobType`, and every shared job-type group containing a row from the category has either exactly one confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
-| Any normalized row has a missing or blank `jobType`, any delegate row lacks a matching retained `(headerKey, original)` pair, any many-to-one topic group lacks a retained `topic` header, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, any invoked method is uncovered, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
+| Every normalized row has a non-empty `jobType`, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus exactly one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
+| Any normalized row has a missing or blank `jobType`, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, any invoked method is uncovered, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
