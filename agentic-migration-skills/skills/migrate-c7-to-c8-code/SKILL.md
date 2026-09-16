@@ -114,8 +114,9 @@ These rules apply to every later step.
 - A finished conversion is not a finished migration. Every WARNING, TASK, and REVIEW finding needs
   human follow-up.
 - An INFO finding is informational until a later cross-check identifies work.
-- Converter annotations are temporary review metadata. Once the verdict table is complete, strip
-  `conversion:*` elements and attributes from the converted copies with namespace-aware XML tooling.
+- Converter annotations are temporary review metadata. Once every category has a verdict and
+  recorded category verification evidence, strip `conversion:*` elements and attributes from the
+  converted copies with namespace-aware XML tooling.
 - A category verdict is provisional until every participating converted copy recorded for this run
   passes the verification gate in Step 5.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root.
@@ -225,6 +226,8 @@ See `references/model-migration-approaches.md` for all four.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
+Capture the immutable converted-copy, form, and code baselines before these form procedures run.
+Record `absent` for a form that the procedure will create.
 ### Step 4: Validation (always runs)
 
 Each item below is a check to run and a condition that must hold at exit. Record every result in
@@ -387,7 +390,7 @@ changes. Retain **no action** only after this sequence passes.
 | Check | Required evidence |
 |---|---|
 | XML structure | For every participating BPMN or DMN converted copy, re-parse the file with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
-| Generated form structure | Before Step 5e, parse every participating `.form` resource and apply its schema and render checks from `form-migration.md`. Record `not applicable` and the reason when target-compatible schema or render tooling is unavailable, as defined by `form-migration.md`. After Step 5e, verify form linkage and deployment. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
+| Generated form structure | Before Step 5e, parse every participating `.form` resource and apply its schema and render checks from `form-migration.md`. Record `not applicable` and the reason when target-compatible schema or render tooling is unavailable, as defined by `form-migration.md`. After Step 5e, verify form linkage and deployment. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
 | Namespace and metadata cleanup | For BPMN or DMN converted copies, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. |
 | Final whole-file cleanup | After category-specific verification runs for every category and Step 5e removes converter annotations, inspect the entire BPMN or DMN converted copy before retaining any **no action** verdict. Require and record zero remaining Camunda 7 elements, attributes, and QName-valued attribute values. Require and record zero conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
 | Final cleanup failure | If any final count is non-zero, invalidate every passed row for that file, update every invalidated row in both tables to **needs fix** or **needs review**, record a run-level validation failure when no category maps to the leftover, and keep the migration incomplete until final revalidation passes. |

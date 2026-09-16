@@ -309,7 +309,10 @@ Rules:
 
 #### 5e. Strip converter annotations from converted models
 
-After every finding has a verdict, remove the temporary converter annotations from the fresh `converted-c8-*` copies. The verdict table and `MIGRATION_REPORT.md` are the durable record. Never leave the report embedded in the deployable model.
+After every category has a verdict and recorded category verification evidence, remove the
+temporary converter annotations from the fresh converted copies. The verdict table and
+`MIGRATION_REPORT.md` are the durable record. Never leave the report embedded in the deployable
+model.
 
 Use a namespace-aware XML parser or XML tooling, never regular expressions. For each converted BPMN/DMN file:
 
@@ -325,7 +328,12 @@ validation and before linking or deploying generated forms.
 
 #### 5f. Generate and review Camunda 8 forms
 
-Run `form-migration.md` for every source Generated Task Form from the pre-conversion inventory. That procedure uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible warnings for unresolved mappings, asks the user about semantic gaps, and edits the fresh converted BPMN only after explicit acceptance. Rerun the full form verification after the form is created and linked.
+Step 3 runs `form-migration.md` for every source Generated Task Form from the pre-conversion
+inventory. For an unresolved form category, run the selected remediation procedure after Step 5e
+and the user's new decision. The procedure uses the original BPMN as source, writes deterministic
+draft `.form` files, inserts visible warnings for unresolved mappings, asks the user about semantic
+gaps, and edits the fresh converted BPMN only after explicit acceptance. Rerun the full form
+verification after the form is created and linked.
 
 Never infer a form from a `form-data` message. Never mark the finding resolved merely because the converter removed it. Never link a form that still lacks the user's required decisions.
 
@@ -347,6 +355,16 @@ Every C7 form type reaches this step, and each one is handled differently. Gener
 Use the specific converter messageId as the verdict-table category when it corroborates the source classification. If only the legacy generic `form-key` finding exists, use the source-derived `c7-*` category to keep the form types separate. Use the synthetic `c7-*` name when no finding exists, the same convention as `generated-form-property-source`.
 
 Never collapse these into one `form-reference` category. Never mark any of them **no action** because the converter copied a reference. A copied reference is not a working C8 form. Classify from the original BPMN source, not from findings alone. A report can be stale, imported, or produced by an older converter release that emitted a single generic `form-key` finding for all four form types.
+
+Use the procedure-specific terminal state as the finding-specific postcondition:
+
+- An accepted, relinked, or rebuilt form must pass JSON, schema, render, linkage, deployment, and
+  C7-metadata-removal checks.
+- A kept external or embedded reference must have owner confirmation, preserved reference evidence,
+  and recorded follow-up. Keep it nonterminal when migration work remains.
+- A declined or blocked form must have the user's decision or blocking prerequisite recorded and
+  must not be linked or deployed.
+- A form-free owner must have its recorded decision and converted-owner evidence.
 
 - **One C8 form per C7 form.** For every C7 form the user chooses to migrate, create a C8 `.form` and reference it from its owning user task or start event. Never drop forms or merge several C7 forms into one.
 - **Never rebuild a form unsolicited.** Offer the rebuild, ask one decision per integration group within each category, and generate only after an explicit instruction. Embedded HTML/JavaScript is never translated automatically.
