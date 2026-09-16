@@ -216,7 +216,7 @@ See `references/model-migration-approaches.md` for all four.
 - **M1. Diagram Converter CLI + AI** (recommended) — download and run the CLI, then handle the
   findings.
 - **M2. Agentic AI** — rewrite the XML directly, without the CLI.
-  Before rewriting, collect the M2 `scriptJobType` input. Use `scriptTask` when the user accepts
+  Before rewriting, collect the M2 `scriptJobType` input. Use `script` when the user accepts
   the default, and record the selected value in `MIGRATION_REPORT.md`.
 - **M3. Online Converter** — the user uploads the diagrams at the hosted service.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
@@ -366,7 +366,7 @@ target version. See the linting section in `references/model-migration-approache
     `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
     and rationale. Treat a mismatch without that entry as a validation failure. When code migration
     is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
-    every normalized binding, including target-only listener rows, when code migration is in scope.
+    every normalized binding, including target-only listener rows. When code migration is in scope,
     For a models-only M2 run, record `n/a` for the code artifact. Assign `needs review` only to
     paired, supported listener, target-only listener, or task mapping rows whose worker coverage is
     unverified. Keep missing, unsupported, blank-type, or unaccounted listener rows as `needs fix`
@@ -398,7 +398,7 @@ Use AskUserQuestion with these options:
 For model findings, work from the Step 4 verdict table. Never present model findings as one
 undifferentiated list.
 
-For `needs fix` categories, sequence the follow-up work by runtime impact:
+For follow-up categories, sequence the work by runtime impact:
 
 Before applying this order, assign severity with this table:
 

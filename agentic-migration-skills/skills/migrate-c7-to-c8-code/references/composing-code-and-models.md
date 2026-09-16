@@ -99,8 +99,10 @@ the same implementation and event can share one worker mapping. Each normalized 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-For listener rows, set `original` to '<implementation>' and retain the listener host, normalized
-event, and ordinal as evidence fields. Use
+For source-paired listener rows, set `original` to '<implementation>' and retain the listener host,
+normalized event, and ordinal as evidence fields. For target-only listener rows, set `original` to
+'<listener-host>:<normalized-event>#<ordinal>:<emitted-type>' and use the emitted type as the
+coverage identity. Use
 the emitted `zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic
 rows, use the original script binding or topic and the emitted
 `zeebe:taskDefinition/@type`. For connector rows, use the source connector ID and verify the
@@ -133,9 +135,11 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
   the original expression string (e.g. `${myBean.myMethod(execution)}`).
 - For delegate and expression rows, it routes on that header value to the correct legacy bean or
   method. A Spring bean lookup by name or an explicit mapping table can provide the routing.
-- For `script-job-type`, `topic`, `connector-id`, and `m2-task-binding` rows, do not use the
-  generic task-header rule. Require distinct job types, a binding-specific handler, or an
-  explicitly preserved routing discriminator before declaring a many-to-one group covered.
+- For `script-job-type`, `topic`, and `connector-id` rows, do not use the generic task-header rule.
+  Require distinct job types, a binding-specific handler, or an explicitly preserved routing
+  discriminator before declaring a many-to-one group covered. For `m2-task-binding` rows, use the
+  generic task-header rule for delegate and expression bindings. Apply the stricter discriminator
+  rule to script, topic, connector, and other bindings without preserved headers.
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
 every distinct original binding in the normalized rows for that job type. For listener rows, require

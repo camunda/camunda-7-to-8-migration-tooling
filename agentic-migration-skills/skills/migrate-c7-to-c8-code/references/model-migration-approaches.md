@@ -142,7 +142,8 @@ Determine the report's target version:
 If the report's version does not match the chosen target, or cannot be determined, warn the user and offer through AskUserQuestion before grouping (5b) or any cross-checks:
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
-- **Keep the imported report** (MAY) — use it only for non-runtime grouping, record the mismatch in
+- **Keep the imported report** (MAY) — use it only for non-runtime grouping, record the mismatch or
+  unknown target in
   MIGRATION_REPORT.md, and perform target-aware revalidation before assigning runtime impact or
   completing the verdict table.
 
@@ -201,6 +202,7 @@ Inspect every `bpmn:serviceTask`, `bpmn:sendTask`, `bpmn:businessRuleTask`, and
 | Source and converted task condition | Action |
 |---|---|
 | `businessRuleTask` has a non-blank source `camunda:decisionRef` and a non-blank converted `zeebe:calledDecision/@decisionId` | Exclude the task from the job-type scan. |
+| `businessRuleTask` has non-blank source and converted decision IDs that differ after normalization | Add an `unexpected-dmn-decision` source-derived finding. Require a confirmed decision-log entry before excluding the task from the job-type scan. |
 | `businessRuleTask` has a present but blank or whitespace-only source `camunda:decisionRef`, or a non-blank source `camunda:decisionRef` with a missing or blank converted `zeebe:calledDecision/@decisionId` | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
 | `businessRuleTask` has no source `camunda:decisionRef` and a converted `zeebe:calledDecision` with a missing or blank `@decisionId` | Add a `blank-dmn-decision-id` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
 | `businessRuleTask` has no source `camunda:decisionRef` and a converted `zeebe:calledDecision` with a non-blank `@decisionId` | Add an `unexpected-dmn-decision` source-derived finding. Do not add a `blank-executable-task-job-type` finding. |
@@ -250,19 +252,24 @@ verified.
 
 In an M2 run without a converter report, scan every source `camunda:script` child on an execution
 or task listener, executable task, event condition, or input/output mapping. Add a source-derived
-`camunda-script` row with Blocking runtime impact for every such child. Record the source owner,
-script format, script text or reference, and converted owner as evidence. Do not add a supported
-listener row when a listener script exists, including a FEEL listener script.
+`camunda-script` row with Blocking runtime impact for every listener script. Add the same row for
+non-FEEL or resource-backed scripts on executable tasks, event conditions, or input/output
+mappings. Do not add a supported listener row when a listener script exists, including a FEEL
+listener script. Treat an inline FEEL script in an input/output mapping as the supported
+`input-output-parameter-feel-script` conversion and record its source and converted mapping
+evidence instead of a `camunda-script` blocker. Record the source owner, script format, script
+text or reference, and converted owner as evidence.
 
 Source-derived categories, including `generated-form-property-source`,
 `blank-executable-task-job-type`, `blank-dmn-decision-id`, `unexpected-dmn-decision`,
-`blank-listener-job-type`, `m2-task-binding`, `target-only-listener`,
-`execution-listener-supported`, `task-listener-supported`, source-derived `camunda-script`, and
+`blank-listener-job-type`, `m2-task-binding`, `target-only-listener`, M2 source-derived
+`execution-listener-supported` and `task-listener-supported`, source-derived `camunda-script`, and
 synthetic M2 listener rows, have no converter severity.
 Record `n/a` as their converter severity and use `TASK` as their effective severity for sorting.
-Keep the converter severity for converter-emitted `execution-listener` and `task-listener`
-findings. If the imported report target differs from the chosen target, defer runtime impact for
-these findings until target-aware revalidation.
+Keep the reported converter severity for converter-emitted `execution-listener`,
+`execution-listener-supported`, `task-listener`, and `task-listener-supported` findings. If the
+imported report target differs from the chosen target, defer runtime impact for these findings until
+target-aware revalidation.
 
 Sort categories by effective severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
@@ -303,7 +310,8 @@ the chosen target, assign `Pending` runtime impact until target-aware revalidati
 
 If one `messageId` produces more than one runtime impact, split its findings into separate
 verdict-table rows before assigning verdicts. Preserve the count, examples, links, and evidence
-for each partition. Use the category and runtime impact together as the row identity.
+for each partition. Use the category, provenance (`converter` or `source-derived`), and runtime impact together as the
+row identity. Do not merge a source-derived row with a converter row that has the same category.
 
 Use the following rules:
 
@@ -317,7 +325,7 @@ Use the following rules:
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
 | `blank-dmn-decision-id` on a `businessRuleTask` with a blank or whitespace-only source `camunda:decisionRef`, or with a missing or blank converted `zeebe:calledDecision/@decisionId` when the source reference is non-blank | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
-| `unexpected-dmn-decision` when a `businessRuleTask` has no source `camunda:decisionRef` but has a non-blank converted `zeebe:calledDecision/@decisionId` | **Blocking** until the mismatch has a confirmed decision-log entry and validated intent | The converted model adds a decision call without a source binding. Record the source/output evidence and remove or explicitly approve the added decision. |
+| `unexpected-dmn-decision` when a `businessRuleTask` has no source `camunda:decisionRef`, or has differing normalized source and converted decision IDs, and has a non-blank converted `zeebe:calledDecision/@decisionId` | **Blocking** until the mismatch has a confirmed decision-log entry and validated intent | The converted model adds or changes a decision call without a confirmed source binding. Record the source/output evidence and remove or explicitly approve the deviation. |
 | `unexpected-dmn-decision` after a confirmed decision-log entry and validated intent | **Advisory** | The added decision call is intentional. Record the decision and validation evidence. |
 | `delegate-expression-as-job-type`, `delegate-implementation` in a models-only run without a code cross-check | **Pending** | The worker mapping is unverified. Record `n/a` for the code artifact and assign `needs review` until code coverage is verified. Do not infer Advisory or Blocking from an absent cross-check. |
 | `delegate-expression-as-job-type` when the code cross-check confirms a 1:1 mapping for every source implementation or expression, or confirms a documented intentional type deviation with a matching worker | **Advisory** | The cross-check confirms coverage. Record the matched worker mapping and assign no action. |
@@ -346,7 +354,7 @@ Use the following rules:
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete`, the chosen target is 8.9 or later, and source inspection confirms that delete behavior is required | **Blocking** | The converted `zeebe:conditionalFilter` cannot trigger on delete events because C8 supports only `create` and `update`. |
 | `delete-variable-event-not-supported` when the source conditional event includes `delete`, the chosen target is 8.9 or later, source inspection finds no required delete behavior, an explicit user decision records that evidence, and the converted filter retains a supported `create` or `update` trigger | **Advisory** | The converted filter drops a confirmed-unused delete trigger. Record the behavioral evidence and user decision. |
-| `delete-variable-event-not-supported` when the source conditional event includes `delete`, the chosen target is 8.9 or later, and the required-delete evidence or supported-trigger check is inconclusive | **Blocking** | The converted filter may lose required delete behavior or contain no supported trigger. Keep the finding unresolved until behavioral evidence and a user decision exist. |
+| `delete-variable-event-not-supported` when the source conditional event includes `delete`, the chosen target is 8.9 or later, and the required-delete evidence or supported-trigger check is inconclusive | **Pending** | The converted filter may lose required delete behavior or contain no supported trigger. Keep the finding at `needs review` until behavioral evidence and a user decision exist. |
 | `delete-variable-event-not-supported` when the source conditional event's `camunda:variableEvents` includes `delete` and the matching or revalidated target is below 8.9 | **Blocking** | The conditional event cannot deploy at this target. If the corresponding `element-available-in-future-version` finding is present, link both Blocking rows to the same event. Preserve each category's count, evidence, and link. |
 | `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
 | `loop-cardinality` when no valid C8 `inputCollection` replaces the cardinality | **Blocking** | The converter emits no C8 loop-count attribute. Inspect `zeebe:loopCharacteristics@inputCollection` and verify that its expression represents the same iteration set. |
@@ -356,9 +364,9 @@ Use the following rules:
 | `only-feel-supported` when the original DMN `expressionLanguage` is not the case-insensitive literal `feel` and is not exactly one of `https://www.omg.org/spec/DMN/20151101/FEEL/`, `https://www.omg.org/spec/DMN/20180521/FEEL/`, `https://www.omg.org/spec/DMN/20191111/FEEL/`, or `https://www.omg.org/spec/DMN/20211108/FEEL/` | **Blocking** | Read the source value before conversion. The converter removes this attribute from non-definition elements, so another language cannot execute. |
 | `only-feel-supported` when the original DMN `expressionLanguage` is the case-insensitive literal `feel` or exactly one of `https://www.omg.org/spec/DMN/20151101/FEEL/`, `https://www.omg.org/spec/DMN/20180521/FEEL/`, `https://www.omg.org/spec/DMN/20191111/FEEL/`, or `https://www.omg.org/spec/DMN/20211108/FEEL/` | **Advisory** | The converter removes the explicit language attribute, but FEEL remains the supported language. |
 | `generated-form-property-source` | **Advisory** | The source-only form-property finding needs form migration work, but it does not by itself prove a deployment or execution failure. |
-| `form-data` when `camunda:formData@businessKey` is present | **Blocking** | No C8 form-js property reproduces the C7 process business-key behavior. For target 8.9 or later, require an explicit Business ID design. For target 8.8, require a tag, variable, or correlation design. Record a no-migration decision when neither design is accepted. |
+| `form-data` when `camunda:formData@businessKey` is present | **Blocking** | No C8 form-js property reproduces the C7 process business-key behavior. For a start event on target 8.9 or later, choose Business ID, an ordinary variable, a tag, or a correlation design. For target 8.8, choose an ordinary variable, a tag, or a correlation design. For a user-task form, choose an ordinary variable, a tag, or a correlation design because the form cannot set creation-time Business ID. Record a no-migration decision when neither design is accepted. |
 | `form-data` without `camunda:formData@businessKey` | **Advisory** | The generated form needs migration work, but it does not by itself prove a deployment or execution failure. |
-| A form-reference category (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`, or source-derived `c7-*`) when source inspection finds a `cam-business-key` marker | **Blocking** | The referenced form cannot preserve C7 business-key behavior. For target 8.9 or later, require an explicit Business ID design. For target 8.8, require a tag, variable, or correlation design. Record a no-migration decision when neither design is accepted. |
+| A form-reference category (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`, or source-derived `c7-*`) when source inspection finds a `cam-business-key` marker | **Blocking** | The referenced form cannot preserve C7 business-key behavior. For a start event on target 8.9 or later, choose Business ID, an ordinary variable, a tag, or a correlation design. For target 8.8, choose an ordinary variable, a tag, or a correlation design. For a user-task form, choose an ordinary variable, a tag, or a correlation design because the form cannot set creation-time Business ID. Record a no-migration decision when neither design is accepted. |
 | A form-reference category when the form content is unavailable, dynamic, or otherwise `unknown` | **Pending** | Do not infer that no `cam-business-key` marker exists. Record the missing evidence and assign `needs review` until the content is resolved. |
 | A form-reference category after source inspection confirms resolved content without a `cam-business-key` marker | **Advisory** | The referenced form needs migration work or a decision, but the source evidence does not prove a deployment or execution failure. |
 | `variable-name-filter-not-supported` when the source filter variable is not referenced by the conditional event's FEEL expression | **Blocking** | The converter removes `camunda:variableName`, so the conditional event no longer triggers when that variable changes. |
@@ -369,7 +377,8 @@ Use the following rules:
 | `error-event-definition` when source inspection shows no active executable use | **Advisory** | The definition does not affect deployed execution. Record the finding for cleanup or review. |
 | `error-code-no-expression`, `escalation-code-no-expression` on a referenced error or escalation definition | **Blocking** | Camunda 8 accepts only static codes. A dynamic code cannot match or emit the intended code on the related throw or catch event. |
 | `error-code-no-expression`, `escalation-code-no-expression` on an unused definition | **Advisory** | The unused definition does not block deployed execution. Record the finding for cleanup or review. |
-| `camunda-script` when source inspection shows that any script belongs to an executable task, listener, event, or input/output mapping | **Blocking** | The converter creates no C8 transformation for the script. Record the source script format, owner, and behavior that needs replacement. |
+| `camunda-script` when source inspection shows that a listener has any script, or that a non-FEEL or resource-backed script belongs to an executable task, event, or input/output mapping | **Blocking** | The converter creates no C8 transformation for the script. Record the source script format, owner, and behavior that needs replacement. |
+| `input-output-parameter-feel-script` for an inline FEEL input/output mapping | **Advisory** | The converter creates a Zeebe I/O mapping for the inline FEEL script. Record the source and converted mapping evidence. |
 | `camunda-script` when source inspection shows no executable use | **Advisory** | The script does not prove a deployment or execution failure. Record the source context for cleanup or review. |
 | `field-content` when source inspection finds an executable delegate or listener that depends on the dropped field and no equivalent input mapping or handler redesign covers it | **Blocking** | The converted executable behavior can lack required field input. Record the affected field and the missing replacement. |
 | `field-content` when source inspection finds no executable dependency or confirms an equivalent input mapping or handler redesign | **Advisory** | The dropped field does not prove a deployment or execution failure. Record the evidence for cleanup or review. |
@@ -411,7 +420,7 @@ For a fallback category, assign the verdict with runtime impact before severity:
 | INFO with **Advisory** runtime impact | no action |
 | Any severity with **Pending** runtime impact | needs review |
 | REVIEW | needs review |
-| WARNING or TASK | needs fix |
+| WARNING or TASK with **Blocking** or **Advisory** runtime impact | needs fix |
 
 Set the cross-referenced code artifact to **no dedicated cross-check** for a known fallback category.
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
@@ -424,15 +433,16 @@ Never infer a category-specific cross-check from an unknown `messageId`, its mes
 #### 5d.1a. Source-derived findings inventory
 
 Maintain a source-derived findings inventory in `MIGRATION_REPORT.md` beside the grouped summary and
-verdict table. Record one row for each source-derived category with these fields:
+verdict table. Record one row for each source-derived category and runtime-impact partition with
+these fields:
 
 | Field | Required value |
 |---|---|
-| Category | The source-derived category name, such as `blank-dmn-decision-id` or `m2-task-binding` |
+| Category and runtime impact | The source-derived category and its `Blocking`, `Advisory`, or `Pending` partition |
 | Converter severity | `n/a` |
 | Effective severity | `TASK` |
 | Runtime impact | `Blocking`, `Advisory`, or `Pending` |
-| Count | The number of source-derived rows in the category |
+| Count | The number of source-derived rows in the category-impact partition |
 | Evidence | Source/output model pair, BPMN element or listener host, normalized event and ordinal when applicable, and the relevant source and converted values |
 | Link | `n/a` or a category-specific remediation link |
 | Verdict | `needs fix`, `needs review`, or `no action` |
@@ -510,7 +520,7 @@ Rules:
   severity for converter-derived rows unless a dedicated rule assigns another value.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Do not derive a fallback verdict from severity alone. Apply the runtime-impact override in 5d.1 first. Map INFO to no action only for Advisory rows. Map INFO with Blocking impact to needs fix when concrete work is defined, and to needs review when work is undefined or a decision is pending. Map REVIEW to needs review. Map WARNING/TASK to needs fix. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Do not derive a fallback verdict from severity alone. Apply the runtime-impact override in 5d.1 first. Map Pending rows to `needs review`. Map INFO to no action only for Advisory rows. Map INFO with Blocking impact to needs fix when concrete work is defined, and to needs review when work is undefined or a decision is pending. Map REVIEW to needs review. Map WARNING/TASK to needs fix only for Blocking or Advisory rows. Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
 - Include `blank-executable-task-job-type` even when the JSON report has no matching `messageId`.
   Give it `Blocking` runtime impact, `TASK` effective severity, `needs fix` verdict, and no
   dedicated cross-check.
@@ -611,7 +621,7 @@ Fetch the current diagram-conversion guidance:
 `https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
 
 Before rewriting the first model, collect the M2 `scriptJobType` input. Ask the user for the job
-type used by non-internal script tasks. Use `scriptTask` when the user accepts the default. Record
+type used by non-internal script tasks. Use `script` when the user accepts the default. Record
 the selected value and its source in `MIGRATION_REPORT.md`. Do not derive the value from
 `scriptFormat` or invent a different type during model validation.
 
@@ -625,8 +635,8 @@ the original Camunda 7 implementation attribute.
 | `camunda:delegateExpression` or `camunda:expression` with a bean reference | Remove the `${...}` or `#{...}` wrapper. Keep the first path segment unchanged. Capitalize the first character of each later path segment. | `${sampleBean}` becomes `sampleBean`. |
 | `camunda:delegateExpression` or `camunda:expression` with a method invocation (expression method) | Unwrap the expression. Replace each `.` with an uppercase first character of the following segment. Remove the `(...)` argument list after the camel-case transformation. | `${sampleBean.someMethod(x)}` becomes `sampleBeanSomeMethod`. |
 | `camunda:class` on a job-backed task | Take the class name after the final dot. Decapitalize its first character. | `com.example.SampleDelegate` becomes `sampleDelegate`. |
-| `camunda:delegateExpression` on an execution or task listener | Copy the converter's extracted listener implementation unchanged. Do not apply task job-type camel-case rules. | `${sampleListener}` becomes `sampleListener`. |
-| `camunda:expression` on an execution or task listener | Copy the listener implementation value unchanged. Do not apply task job-type camel-case rules. | `${sampleListener.handle(execution)}` remains the listener implementation value. |
+| `camunda:delegateExpression` on an execution or task listener | Extract the bean reference from the `${...}` or `#{...}` wrapper and copy that listener implementation unchanged. Do not apply task job-type camel-case rules. | `${sampleListener}` becomes `sampleListener`. |
+| `camunda:expression` on an execution or task listener | Copy the listener implementation value from the source expression unchanged. Do not apply task job-type camel-case rules. | `${sampleListener.handle(execution)}` remains the listener implementation value. |
 | `camunda:topic` on an external task | Copy the topic value without changing it. | `invoice-processing` remains `invoice-processing`. |
 | `camunda:connectorId` | Copy the connector ID unchanged as the job type. Verify that a matching connector registration or explicit connector handler exists. | `http-json` remains `http-json`. |
 | Non-internal `bpmn:scriptTask` | Use the configured M2 script job type unchanged. Preserve `bpmn:scriptFormat` as binding evidence. | A `groovy` script uses the configured script job type and retains `groovy` as its format. |
