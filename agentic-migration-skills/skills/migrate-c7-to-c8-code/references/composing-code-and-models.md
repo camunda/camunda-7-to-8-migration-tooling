@@ -39,11 +39,10 @@ type, set `jobType` to blank. Read the original Camunda 7 implementation attribu
 expected type from the M2 binding rules in `model-migration-approaches.md`. Create one normalized
 input row with the columns `category`, `sourceFilename`, `filename`, `elementId`, `headerKey`,
 `original`, and `jobType` for each source attribute. Set `category` to
-`expression-method-as-job-type` for a method-invoking `camunda:delegateExpression` or
-`camunda:expression`, to `delegate-expression-as-job-type` for another bean reference, to
-synthetic `delegate-implementation` for `camunda:class` only when the configured default job type
-was applied. Otherwise, use `delegate-expression-as-job-type` for the ordinary class binding, and
-use `topic` for `camunda:topic`. Derive
+`delegate-implementation` when the configured default job type was applied to any delegate or
+class attribute. Otherwise, use `expression-method-as-job-type` for a method-invoking
+`camunda:delegateExpression` or `camunda:expression`, `delegate-expression-as-job-type` for
+another bean reference or ordinary class binding, and `topic` for `camunda:topic`. Derive
 `headerKey` and `original` from the original C7 attribute. Verify the same delegate pair in the
 converted element's `zeebe:header`. For a `camunda:topic` source, set `headerKey` to `topic` and
 `original` to the original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
@@ -215,8 +214,9 @@ existing source and require explicit confirmation before extending, merging, rep
 a subscriber. If any registration already subscribes to the shared type, omit the generation
 option. Do not create or enable a second subscriber.
 
-Confirm a Spring target from the build configuration or AskUserQuestion. Record the evidence or
-user decision in `MIGRATION_REPORT.md` before offering an annotation scaffold.
+Confirm a Spring target and annotation discovery from the build configuration or AskUserQuestion.
+Record the evidence or user decision in `MIGRATION_REPORT.md` before offering an annotation
+scaffold.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a complete
@@ -284,10 +284,10 @@ After generation, present the complete source or diff to the user for explicit r
 in quarantine while the user reviews it. Do not treat review approval as approval to enable the
 draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
-accept the completed source. On acceptance, keep the source in quarantine and run an isolated
-validation build that temporarily includes the draft without enabling it as a normal project input.
-Remove that temporary validation input after the checks. Run the applicable formatter, compile, and
-test checks. If every check passes, move the source into the intended worker source tree, record
+accept the completed source. On acceptance, keep the source in quarantine and run the formatter and
+compile checks in an isolated validation source set that temporarily includes the draft. Remove that
+temporary validation input before running tests with the draft excluded from application and test
+runtime classpaths. If every check passes, move the source into the intended worker source tree, record
 its `runtimePath`, mark its `quarantinePath` inactive in `MIGRATION_REPORT.md`, and include the
 accepted source in active worker scans. If any check fails, keep the source quarantined, keep its
 report record active, and record the failure. If the user rejects or deletes the scaffold, remove
@@ -369,6 +369,9 @@ for each shared job-type group in `MIGRATION_REPORT.md`.
 |---|---|---|
 | Every source row in the category has a non-empty `jobType`, no source row is excluded for an unknown job type, no worker inventory is unresolved, every shared job-type group has exactly one effective worker, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
 | Any source row has a missing or blank `jobType`, any source row is excluded for an unknown job type, the worker inventory is unresolved, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
+- If a required source-to-converted pair, target root, or writable converted copy is unavailable, keep
+  the category **needs review**, record the report-only prerequisite in `MIGRATION_REPORT.md`, and
+  do not offer generation.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
