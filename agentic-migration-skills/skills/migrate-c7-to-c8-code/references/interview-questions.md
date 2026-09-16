@@ -91,7 +91,11 @@ targets and authorization states. Record the fields in `MIGRATION_REPORT.md`:
   `deployment=not applicable`.
 - **Target, explicit request, and authorization** — record the target, request, authorization,
   and deployment result. Deploy only after final cleanup.
-- **Target without request** — record the target, authorization state, and `deployment=pending`.
-  Obtain the request before deployment.
-- **Target with unavailable authorization or decline** — record `deployment=pending`. Require a
-  supported alternate binding or an explicit external-deployment plan before closing.
+- **Target without request** — record the target, `request=not requested`, authorization state,
+  and `deployment=pending`. Obtain the request before deployment.
+- **Target with unavailable authorization** — record the target, request, `authorization=unavailable`,
+  and `deployment=pending`. Require a supported alternate binding or an explicit
+  external-deployment plan before closing.
+- **Target with decline** — record the target, request, authorization state,
+  `deployment decision=declined`, and `deployment=pending`. Require a supported alternate binding
+  or an explicit external-deployment plan before closing.
