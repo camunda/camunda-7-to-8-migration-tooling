@@ -46,6 +46,11 @@ source model, not a deployable Camunda 8 process.
    decline the rebuild for one category and explicitly request it for another.
 5. Review any generated draft and explicitly accept it before the skill links
    it. Do not accept a form merely because its JSON parses.
+6. Keep this Models-only fixture out of live deployment. Record
+   `deployment decision=out of scope` and `deployment=not applicable` in
+   `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator selects
+   a deployment target and requests deployment, record the target, request, and
+   deployment result instead.
 
 The fixture does not require a Maven or Gradle build. Use the temporary
 directory as the migration skill project root.
@@ -112,6 +117,8 @@ The evaluation is complete when the agent has:
   including form-free owners and unresolved kept references. Passed rows are required
   only before closing a category as **no action**, and non-passed rows retain explicit
   verdict, verification, and follow-up evidence;
+* recorded the explicit out-of-scope deployment decision and
+  `deployment=not applicable` for this Models-only fixture;
 * recorded the converted definitions' exact Modeler metadata:
   `executionPlatform="Camunda Cloud"` and
   `executionPlatformVersion="8.9.0"`;
