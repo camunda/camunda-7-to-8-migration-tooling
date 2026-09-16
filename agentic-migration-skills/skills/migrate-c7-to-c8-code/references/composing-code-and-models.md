@@ -269,8 +269,9 @@ After generation, present the complete source or diff to the user for explicit r
 in quarantine while the user reviews it. Do not treat review approval as approval to enable the
 draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
-accept the completed source. On acceptance, keep the source in quarantine and run the applicable
-formatter, compile, and test checks. If every check passes, move the source into the intended
+accept the completed source. On acceptance, keep the source in quarantine and run an isolated
+validation build that explicitly includes the draft without enabling it as a normal project input.
+Run the applicable formatter, compile, and test checks. If every check passes, move the source into the intended
 worker source tree, mark the quarantine draft path inactive in `MIGRATION_REPORT.md`, and include
 the accepted source in active worker scans. If any check fails, keep the source quarantined, keep
 its report record active, and record the failure. If the user rejects or deletes the scaffold,

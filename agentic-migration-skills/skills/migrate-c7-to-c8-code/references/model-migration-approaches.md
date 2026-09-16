@@ -44,7 +44,7 @@ migration run. Capture each CLI output path from this run's `Created ...` lines 
 paths as authoritative. For M2, capture each rewrite output path and record its exact
 original-to-converted pair before validation. A later same-session M1 `--check` report (MAY) provide
 findings only when it uses the same original input paths, target version, recorded
-source-to-converted pairs, and matching SHA-256 source digests for every finding. Run the check
+source-to-converted pairs, and matching current SHA-256 source digests for every finding. Run the check
 against those original paths, exclude
 every captured converted copy, and reject report rows that name a converted copy. If any finding
 lacks a recorded pair, keep the cross-check report-only. M3 is the exception:
@@ -163,9 +163,10 @@ If the report's version does not match the chosen target, or cannot be determine
 
 Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
 path captured after step 3a relocation. A same-session M1 `--check` report is valid only when it
-covers the same original input paths and target version, excludes captured converted copies, and
-matches a recorded source-to-converted pair for every finding. If any finding lacks a recorded
-pair, keep the cross-check report-only. For an imported M3 report, use the downloaded JSON
+covers the same original input paths and target version, excludes captured converted copies, matches
+the current SHA-256 digest to the recorded source digest, and matches a recorded source-to-converted
+pair for every finding. If any finding lacks a recorded pair, keep the cross-check report-only. For
+an imported M3 report, use the downloaded JSON
 path after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when
 a stale report exists. Never parse a local findings report that predates this run. Never rely on
 stdout severity counts instead.
@@ -485,6 +486,7 @@ When a full M1 run in the same session already recorded a paired converted copy,
 `--check` run (MAY) provide the machine-readable findings input only when it uses the same original
 input paths and target version. Run one check invocation per captured original file. Exclude every
 captured converted copy. Reject
-rows that name converted copies, and verify a recorded source-to-converted pair for every finding
-before continuing the Step 5 cross-check. If any pair is missing, keep the cross-check report-only.
+rows that name converted copies, verify the current source digest against the recorded digest, and
+verify a recorded source-to-converted pair for every finding before continuing the Step 5 cross-check.
+If any pair is missing, keep the cross-check report-only.
 Do not consume a report or converted file that predates the session.
