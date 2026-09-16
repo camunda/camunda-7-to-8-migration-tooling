@@ -385,7 +385,9 @@ Use the procedure-specific terminal state as the finding-specific postcondition:
   the user selects a supported alternate binding or records an explicit external-deployment plan.
 - A kept external, embedded, or dynamic reference must have owner confirmation, preserved exact
   reference evidence, and recorded follow-up. For a dynamic reference, record the enumerated values
-  as well. Keep the row nonterminal when migration work remains.
+  as well. Use namespace-aware XML evidence to confirm that the matching owner still has exactly one
+  `zeebe:formDefinition` carrying the preserved value in `externalReference` or `formKey`. Keep the
+  row nonterminal when migration work remains.
 - A declined or blocked form must have the user's decision or blocking prerequisite recorded and
   must not be linked or deployed.
 - A form-free owner must have its recorded decision and converted-owner evidence.

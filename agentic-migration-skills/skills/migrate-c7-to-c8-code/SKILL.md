@@ -383,6 +383,14 @@ Other references and fixtures may add examples, but must not change these states
 | Target declined | Target, request, authorization state, `deployment decision=declined`, `deployment=pending` | Alternate binding or external plan required before closing. |
 | Alternate or external plan | `bindingType` and linkage evidence, or `deployment=external plan recorded` with owner, target, and steps | Apply normal verification and terminal rules. |
 
+Deployment result evidence is separate from the startup-wiring choice. A deployment result is
+observed output from the selected deployment mechanism, such as a deployment API response,
+application startup log, or deployment test that identifies the target and every deployed resource.
+An `@Deployment` edit alone is not a deployment result. When this run has no deployment mechanism or
+access, keep the selected-target state `pending` and record `deployment mechanism=unavailable`.
+Require an external plan with owner, target, and steps before closing the deployment state, or leave
+the category open.
+
 ### Step 5: AI Follow-up (offer after validation)
 
 #### Verification before resolving a category
@@ -532,8 +540,8 @@ revalidation as an integrity pass, not a new remediation loop. If a final check 
 row's `Verification` to `failed`, downgrade its verdict, and record the before-and-after evidence.
 Rerun the supplementary converter command for each changed BPMN or DMN copy during final
 validation. Rerun every affected category postcondition after Step 5e and after any 5f/5g linkage
-or deployment change. Retain **no action** only for rows that pass final category revalidation
-and the final whole-file cleanup.
+or deployment change. Retain **no action** only for rows that pass final category revalidation. Model rows also require
+the final whole-file cleanup. Code-only rows require the final Step 4 code validation instead.
 
 If the run is a model analyze-only run, present the findings, inventories, and provisional verdicts,
 update `MIGRATION_REPORT.md`, and stop before the model-finding remediation offer. Do not offer model

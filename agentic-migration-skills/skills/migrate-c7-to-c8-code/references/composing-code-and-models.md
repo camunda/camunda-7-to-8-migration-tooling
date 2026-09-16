@@ -174,7 +174,17 @@ remediation starting point. Do not infer a category-specific cross-check from an
 
 After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Build the deployment set from each model's recorded linked forms before wiring it. When at least one linked form exists and every linked form is `target=none`, record deployment as `not applicable` and skip startup deployment and wiring for that model. For every authorized linked form, including `deployment`, `versionTag`, and implicit `latest` bindings, include the form by its exact recorded path in the application deployment or record and verify a separate form deployment before wiring the process. A `bindingType=deployment` form must share the same deployment as the BPMN. Include the BPMN and every linked accepted or existing form only when all linked forms share the authorized deployment decision and the separate deployment-wiring question is **Yes**. Translate each recorded filesystem path to its classpath resource name. If any selected-target linked form is pending, declined, or external-plan-only, defer the whole model deployment rather than deploying the BPMN alone. Do not use a broad `converted-c8-*.form` glob. Never target original diagrams, draft forms, or declined forms.
+Use this code/model-specific wiring table after the shared deployment decision is recorded:
+
+| Linked-form state | Startup-wiring rule |
+|---|---|
+| At least one linked form and every linked form is `target=none` | Record `deployment=not applicable`. Skip startup deployment and wiring for that model. |
+| Authorized linked forms with `deployment`, `versionTag`, or implicit `latest` | Include every linked accepted or existing form by exact recorded path in the application deployment, or record and verify a separate form deployment before wiring the process. A `bindingType=deployment` form must share the same deployment as its BPMN. Require all linked forms to share the authorized deployment decision and require **Yes** for the separate deployment-wiring question. Translate each recorded filesystem path to its classpath resource name. |
+| Any selected-target linked form is pending, declined, or external-plan-only | Defer the whole model deployment. Do not deploy the BPMN alone. |
+| Any other model or form | Use the shared deployment state machine. |
+
+Do not use a broad `converted-c8-*.form` glob. Never target original diagrams, draft forms, or
+declined forms.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in `MIGRATION_REPORT.md`. For `target=none`, record deployment as `not applicable`. For a selected target, record the external plan owner, target, and steps or keep deployment pending until that evidence exists.
 
 After either deployment-wiring choice, rerun the applicable final Step 4 code validation because
