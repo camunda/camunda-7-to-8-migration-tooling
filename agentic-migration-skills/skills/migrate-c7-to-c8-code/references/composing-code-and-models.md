@@ -198,17 +198,17 @@ generation until the user resolves it. Classify a registration as a complete dis
 its routing covers every distinct `(headerKey, original)` pair, every known route has no unresolved
 TODO, placeholder, or unconditional throw, and all applicable validation checks pass. Preserve
 existing source and require explicit confirmation before extending, merging, replacing, or removing
-a subscriber. If any registration already subscribes to the shared type, omit the generation
-option. This flow intentionally excludes incomplete subscribers from generation. Resolve them
-through manual extension, consolidation, or replacement, then run the cross-check again. Do not
-create or enable a second subscriber.
+a subscriber. If a complete dispatcher exists, omit the generation option. If no complete
+dispatcher exists, keep **needs fix**, preserve ordinary subscribers, and offer a quarantined
+scaffold through AskUserQuestion for a Spring target. Require explicit consolidation or replacement
+before enabling the draft. Do not create or enable a second subscriber.
 
 Confirm a Spring target from the build configuration or AskUserQuestion. Record the evidence or
 user decision in `MIGRATION_REPORT.md` before offering an annotation scaffold.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a complete
-worker inventory, a confirmed Spring target, and no effective worker. Keep a 1:1 group on the
+worker inventory, a confirmed Spring target, and no complete dispatcher. Keep a 1:1 group on the
 simple worker-remediation path.
 Do not offer generation for a group with a **no action**, **needs review**, or incomplete verdict.
 
@@ -220,8 +220,9 @@ Use this decision table for each shared job type:
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None, complete many-to-one group and inventory, confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). Record the selected option in `MIGRATION_REPORT.md`. In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
-| **needs fix** | Exactly one effective worker | Do not offer generation. Ask the user to implement and validate the existing routes or confirm the required consolidation. |
-| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
+| **needs fix** | Exactly one routing-complete dispatcher with unresolved implementation or validation | Do not offer generation. Ask the user to implement and validate the existing routes. |
+| **needs fix** | No dispatcher and one or more ordinary subscribers, Spring target | Offer a quarantined scaffold through AskUserQuestion. Preserve existing source. Require explicit consolidation or replacement before enabling the draft, then verify exactly one validated dispatcher. |
+| **needs fix** | One or more incomplete dispatchers, or more than one dispatcher or dispatcher with another effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
