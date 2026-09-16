@@ -65,13 +65,14 @@ Identify incomplete rows before and after grouping:
 
 | Row state | Condition | Action |
 |---|---|---|
-| **Incomplete before grouping** | A row has a missing or blank `jobType`, or a delegate row lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the Step 5 AI Follow-up flow. The model must also retain the header pair. |
-| **Incomplete after grouping** | A topic row lacks a retained `topic` header and its job-type group has another distinct pair. | Keep the shared group and its category **needs fix**. Do not offer a dispatcher scaffold until model migration retains the header. |
+| **Unknown job type before grouping** | A row has a missing or blank `jobType`. | Exclude the row from the shared inventory. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the Step 5 AI Follow-up flow. Do not block checks for unrelated job types. |
+| **Known job type before grouping** | A row has a non-empty `jobType`, but a delegate row lacks a matching retained header pair. | Retain the row as an incomplete member of its known job-type group. Keep that group and its affected category **needs fix** until model migration retains the header pair. |
+| **Incomplete after grouping** | A topic row lacks a retained `topic` header and its job-type group has another distinct pair. | Keep the row in the shared group. Keep that group and its affected category **needs fix**. Do not offer a dispatcher scaffold for that group until model migration retains the header. |
 
-While any incomplete row or group remains in a category, do not offer or generate a dispatcher
-scaffold for any group in that category. Resolve the row through model migration or the Step 5
-AI Follow-up flow. Then rebuild the normalized rows and regroup before applying the mapping and verdict
-checks.
+While an incomplete row or group remains in a job-type group, do not offer or generate a dispatcher
+scaffold for that group. Resolve the row through model migration or the Step 5 AI Follow-up flow.
+Then rebuild the normalized rows and regroup before applying the mapping and verdict checks. Keep
+unrelated job-type groups eligible for their own checks.
 
 Build one shared job-type inventory from the remaining normalized rows across all three categories.
 Group the inventory by `jobType`, then classify each job-type group by its distinct
