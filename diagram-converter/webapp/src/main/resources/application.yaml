@@ -1,4 +1,5 @@
 server:
+  forward-headers-strategy: framework
   tomcat:
     max-part-count: 100
 
