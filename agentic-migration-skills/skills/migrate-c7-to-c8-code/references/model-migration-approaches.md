@@ -203,8 +203,8 @@ independent 1:1 verdicts to category rows that share a job type. Use the shared 
 propagate it to each affected category as described in `composing-code-and-models.md`. In a Models
 only scope, apply the severity fallback in step 5d to each job-type category. Do not build a worker
 inventory or apply the dispatcher cross-check. Use `n/a` for its cross-referenced code artifact.
-For M2-only normalized rows without converter severities, assign `REVIEW` before applying the
-fallback.
+For Models-only M2 normalized rows without converter severities, assign `REVIEW` before applying
+the fallback.
 
 #### 5c. Present the grouped summary
 
