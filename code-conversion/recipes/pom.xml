@@ -38,6 +38,14 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-89044: take precedence over Netty versions managed by Spring Boot. -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.openrewrite.recipe</groupId>
         <artifactId>rewrite-recipe-bom</artifactId>
