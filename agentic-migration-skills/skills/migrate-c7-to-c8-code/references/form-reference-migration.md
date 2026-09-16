@@ -227,7 +227,7 @@ For both:
    this model-edit plan only.
 4. Confirm the binding as a recorded decision, not an accident. Write `bindingType` for `deployment`
    and for `versionTag` (with its `versionTag` value). `latest` may stay implicit as the Camunda 8
-   default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
+   default (MAY). Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
    `formRefVersion` has no numeric-version equivalent, so ask the user to choose `versionTag` with a
    real tag or accept another binding.
 5. Before Step 5e, run the form validation checklist from `form-migration.md`. Confirm JSON parsing,
