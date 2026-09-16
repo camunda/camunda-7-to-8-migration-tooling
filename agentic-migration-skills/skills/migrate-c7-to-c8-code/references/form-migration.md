@@ -366,8 +366,8 @@ Collect the deployment decision with this table:
 | No target | `target=none`, `request=not applicable`, `authorization=not applicable`, `deployment decision=out of scope`, `deployment=not applicable` | The deployment check is satisfied. |
 | Target, explicit request, and authorization | Target, request, authorization, and deployment result | Verify deployment after final cleanup. |
 | Target without request | Target, `request=not requested`, authorization state, `deployment=pending` | Obtain the request before deployment. Keep the category open until the result is recorded. |
-| Target with request but unavailable authorization | Target, request, `authorization=unavailable`, `deployment=pending` | Select an alternate binding or record an explicit external-deployment plan before closing. |
-| Target with user decline | Target, request, authorization state, `deployment decision=declined`, `deployment=pending` | Select an alternate binding or record an explicit external-deployment plan before closing. |
+| Target with request but unavailable authorization | Target, request, `authorization=unavailable`, `deployment=pending` | Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps before closing. |
+| Target with user decline | Target, request, authorization state, `deployment decision=declined`, `deployment=pending` | Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps before closing. |
 Form-property-only discoveries use a synthetic
 `generated-form-property-source` category with the same lifecycle.
 

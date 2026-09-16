@@ -186,7 +186,7 @@ surfaces:
 |---|---|
 | Generated Task Forms (`camunda:formData`, `camunda:formProperty`) | source file, process id, owning user task or start event, field count, business-key field, custom types and validators, initial status |
 | Referenced forms (`camunda:formKey`, `camunda:formRef`) | the classification, and whether the referenced HTML or `.form` file exists in the project |
-| Existing Camunda 8 forms (`*.form` or `form-already-camunda-8`) | form path, form id, exact Modeler metadata, owner or standalone status, source-to-form pairing, and linkage/deployment state |
+| Existing Camunda 8 forms (`form-already-camunda-8` or parsed Camunda 8 Modeler metadata) | form path, form id, exact Modeler metadata, owner or standalone status, source-to-form pairing, and linkage/deployment state |
 | Generic Task Forms (no form metadata at all) | every form-free owner affected |
 
 See `references/form-reference-migration.md` for the classification rules and the full inventory
@@ -386,6 +386,8 @@ capture the same baseline. For XML and code, use a lowercase SHA-256 digest of e
 without normalization. Include namespace counts, wiring references, and FEEL state.
 For forms, use a lowercase SHA-256 digest of the exact UTF-8 bytes of every participating `.form`
 file without normalization.
+Use the original form hash as provenance. After a form conversion updates execution-platform metadata,
+capture a post-conversion form hash and use it for subsequent before-and-after comparisons.
 Also record JSON parsing, schema, render, FEEL, linkage, and deployment state. Record `absent` when
 a remediation will create a new form. Mark JSON parsing, schema, render, FEEL, linkage, and
 deployment checks `not applicable` in that absent `Before` state. Record `none present` when no
@@ -436,7 +438,7 @@ form remediation or linkage change. Retain **no action** only after this sequenc
 |---|---|
 | XML structure | For every participating BPMN or DMN converted copy, re-parse the file with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
 | Generated form pre-Step-5e checks | Before Step 5e, parse every participating `.form` resource and apply the schema and render checks from `form-migration.md`. A failed JSON, schema, or render check is a verification failure. Record unavailable schema or render tooling as `not applicable` with the reason. |
-| Generated form FEEL checks | Parse every FEEL-bearing form expression with the target FEEL parser when available. Record an unavailable parser in FEEL evidence and continue other required checks without changing the aggregate category state. A failed FEEL parse is a verification failure. Record `none present` when no FEEL expressions exist. |
+| Generated form FEEL checks | Extract FEEL expressions from form-js templates before parsing. Parse `{{...}}` expressions and the expressions in `{{#loop}}` blocks with the target FEEL parser when available. Do not send raw template delimiters to a plain FEEL parser. Record an unavailable parser in FEEL evidence and continue other required checks without changing the aggregate category state. A failed FEEL parse is a verification failure. Record `none present` when no FEEL expressions exist. |
 | Generated form post-Step-5e linkage | After Step 5e, verify form linkage. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. |
 | Generated form remediation rerun | After any form remediation or linkage edit, repeat the JSON, schema, render, and FEEL checks. |
 | Generated form final checks | Run the same full form checks in final verification after deployment. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. |
