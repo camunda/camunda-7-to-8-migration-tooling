@@ -322,7 +322,8 @@ target version. See the linting section in `references/model-migration-approache
    with it.
 10. Every accepted form with a converted owner has a planned matching `zeebe:formDefinition`.
     Step 5 verifies the actual linkage after form remediation and annotation cleanup. A standalone
-    `.form` with no owner or converted BPMN records linkage as `not applicable` with its reason.
+    `.form` with no owner by either linkage records linkage as `not applicable` with its reason.
+    A form with an owner but no paired converted BPMN is `blocked`.
 11. Every accepted form with a deployable owner that exists before Step 5 has a recorded deployment
     decision before Step 5. A form first created or accepted during post-Step-5 remediation uses
     the late Question 7 branch before linkage and final validation. Step 5 verifies deployment
@@ -331,8 +332,8 @@ target version. See the linting section in `references/model-migration-approache
     `not applicable` with the out-of-scope decision only when no target exists. Keep selected-target
     deployment `pending` without a request, authorization, or after a decline unless the user
     selects a supported alternate binding or records an explicit external-deployment plan. A
-    standalone `.form` with no owner or converted BPMN records deployment as `not applicable` with
-    its reason.
+    standalone `.form` with no owner by either linkage records deployment as `not applicable` with
+    its reason. A form with an owner but no paired converted BPMN remains `blocked`.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final
@@ -474,7 +475,7 @@ instead. Retain **no action** only after that code path passes.
 | XML structure | For every participating BPMN or DMN converted copy, re-parse the file with a namespace-aware XML parser, including files with no manual edit. For M1, use the recorded final project-relative paths after promotion. Retain paths captured from this run's `Created ...` lines only as provenance and staged-to-final pairing evidence. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
 | Generated form pre-Step-5e checks | Before Step 5e, parse every participating `.form` resource and apply the schema, render, exact `executionPlatform="Camunda Cloud"`, and canonical selected-target `executionPlatformVersion` checks from `form-migration.md`. A failed JSON, schema, render, or target-metadata check is a verification failure. Record unavailable schema or render tooling as `not applicable` with the reason. |
 | Generated form FEEL checks | Extract FEEL expressions from form-js templates and FEEL-capable form properties before parsing. Parse expressions inside `{{...}}` and `{{#loop}}` headers or bodies with the target FEEL parser when available. Extract leading-`=` serialized FEEL values, strip only that marker before parsing, and retain both raw and de-marked values as evidence. Do not send raw `{{#loop}}` delimiters to a plain FEEL parser. Record an unavailable parser in FEEL evidence and continue other required checks without changing the aggregate category state. A failed FEEL parse is a verification failure. Record `none present` when no FEEL expressions exist. |
-| Generated form post-Step-5e linkage | After Step 5e, verify form linkage. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. |
+| Generated form post-Step-5e linkage | After Step 5e, verify form linkage. A standalone `.form` with no owner by either linkage records linkage and deployment as `not applicable` with the reason. A form with an owner but no paired converted BPMN is `blocked`. |
 | Generated form remediation rerun | After any form remediation or linkage edit, repeat the JSON, schema, render, and FEEL checks. |
 | Generated form final checks | Run the same full form checks during final verification after final cleanup for every participating form, regardless of deployment scope. Include exact `executionPlatform="Camunda Cloud"` and canonical selected-target `executionPlatformVersion`. If an authorized in-application deployment occurs, run the additional deployment/linkage check after deployment. For `target=none` or an accepted external/non-deployment terminal decision, record deployment as not applicable or the external plan and do not require an in-application deployment. Keep the category pending when a selected-target deployment is still pending or declined without an alternate binding or external plan. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. |
 | Generated form evidence | Record before-and-after evidence, the command, exit code, and resource paths. |

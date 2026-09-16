@@ -212,11 +212,12 @@ version, skip conversion and follow **Validate an existing Camunda 8 form** belo
 target metadata there. Treat a missing, mismatched, or contradictory field as a blocked
 existing-form validation, not as a Camunda 7 form. Convert only a form with no Camunda 8 indicator.
 
-1. Locate the `.form` file. In M1 or M3, convert it with the existing Diagram Converter form
-   conversion. In E1, convert it only when the form resource was supplied separately. When E1 does
-   not provide the resource, record `Status=blocked`, `Verification=unavailable`, and the retained
-   original reference instead of claiming conversion. When M1 already captured a converted C7 form output, reuse that output and its
-   findings. Do not invoke the converter again for the same form. The converter may update
+1. Locate the `.form` file. In M1 or M3, reuse the captured converted form and findings when the
+   current run already produced them. Do not invoke the converter again for the same form. If no
+   captured form exists, convert it with the applicable Diagram Converter path. In E1, convert it
+   only when the form resource was supplied separately. When E1 does not provide the resource,
+   record `Status=blocked`, `Verification=unavailable`, and the retained original reference
+   instead of claiming conversion. The converter may update
    execution-platform metadata, rewrite supported simple JUEL
    component properties to FEEL, and emit findings. Capture the converter findings, before/after
    hashes, and all resulting schema, render, and FEEL evidence. In M1, stage the captured model
@@ -229,9 +230,9 @@ existing-form validation, not as a Camunda 7 form. Convert only a form with no C
    update to the converted copy: change only the target execution-platform metadata, preserve the
    schema and all other fields, and record before/after content hashes. Before this update, inspect
    the form JSON for C7 JUEL expressions. If any `${...}` or `#{...}` expression is present, do not
-   claim that M2 converted the form: record `Status=blocked`, `Verification=unavailable`, the
+   claim that M2 converted the form: record `Status=blocked`, `Verification=failed`, the
    expression paths, and the retained original reference. If no such expression is present, the
-   metadata-only update may proceed. If that update cannot be performed deterministically, record
+   metadata-only update may proceed. (MAY) If that update cannot be performed deterministically, record
    `Status=blocked` and `Verification=unavailable` with the reason and retain the original
    reference. Never hand-edit form schema content.
 2. Read the form's own `id` from the converted `.form` file. Do not derive it from the file name. Do
