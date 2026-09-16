@@ -110,6 +110,20 @@ Use this when:
 - Restricted environments where OpenRewrite cannot run
 - User wants to review every change individually
 
+## Code-only verification
+
+When model migration is out of scope, run the shared Step 5 gate against code artifacts.
+Record one verification-table row per code category with `Participating files`, `Before`,
+`Postcondition`, `Checks and evidence`, `After`, `Verdict`, and `Verification`.
+Capture immutable UTF-8 content hashes before each remediation batch.
+Record model-side XML and converted-copy checks as `not applicable` with the reason.
+Run the applicable compile, import/dependency, configuration, test, worker, listener, dispatcher,
+and precompute coverage checks against the recorded code artifacts.
+Define a deterministic category postcondition and record its before-and-after evidence.
+Invalidate and rerun every affected row after a code edit.
+Retain **no action** only after the code checks, postcondition, final cleanup, and verification row
+pass. A code-only run must not wait for a model source-to-converted pair.
+
 ---
 
 ## Approach C - Assessment Only

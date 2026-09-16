@@ -78,3 +78,18 @@ Any of M1-M3 can run in analyze-only mode first (`--check` flag).
 ## Question 6 - Build Tool
 
 Include only if scope includes code, approach is A, and detection was ambiguous (both Maven and Gradle found, or neither). If exactly one detected, state it rather than asking.
+
+## Question 7 - Form Deployment Decision
+
+Include when the selected model scope produces an accepted, rebuilt, or relinked form with a
+deployable owner. Collect one explicit deployment branch and record the fields in
+`MIGRATION_REPORT.md`:
+
+- **No deployment target** — record `deployment decision=out of scope` and
+  `deployment=not applicable`.
+- **Target, explicit request, and authorization** — record the target, request, authorization,
+  and deployment result. Deploy only after final cleanup.
+- **Target without request** — record the target, authorization state, and `deployment=pending`.
+  Obtain the request before deployment.
+- **Target with unavailable authorization or decline** — record `deployment=pending`. Require a
+  supported alternate binding or an explicit external-deployment plan before closing.
