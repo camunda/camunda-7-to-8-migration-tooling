@@ -39,8 +39,9 @@ normalized input row with the columns `category`, `filename`, `elementId`, `head
 and `jobType` for each supported delegate attribute or `camunda:topic` source. Set `category` to
 `expression-method-as-job-type` for a method-invoking `camunda:delegateExpression` or
 `camunda:expression`, to `delegate-expression-as-job-type` for another bean reference, to
-synthetic `delegate-implementation` for `camunda:class`, and to `topic` for `camunda:topic`.
-Derive
+synthetic `delegate-implementation` for `camunda:class` only when the configured default job type
+was applied. Otherwise, use `delegate-expression-as-job-type` for the ordinary class binding, and
+use `topic` for `camunda:topic`. Derive
 `headerKey` and `original` from the original C7 attribute. Verify the same delegate pair in the
 converted element's `zeebe:header`. For a `camunda:topic` source, set `headerKey` to `topic` and
 `original` to the original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
@@ -166,7 +167,8 @@ flow. Record the confirmed target root in `MIGRATION_REPORT.md`. Use that target
 scan and quarantine. If the target root is not confirmed, keep the cross-check report-only.
 
 Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
-quarantine directory. Canonicalize the default directory before using it. Apply the same
+quarantine directory. Resolve its nearest existing parent, verify containment, create missing
+components, then canonicalize the resulting directory. Apply the same
 confirmed-root, source-set, packaged-resource, and worker-scan checks used for overrides. Reject it
 when it escapes the confirmed project root or enters an excluded tree, including through a symlink.
 For an explicit override, resolve its nearest existing parent, verify containment, create missing
@@ -189,11 +191,12 @@ source tree, and `rejected` or `deleted` after the user declines or removes it. 
 prior-draft scans consume only `active` entries. Preserve all other entries as history.
 
 Before generating, scan every active recorded and selected quarantine directory for a prior draft
-whose report record is active and whose effective `@JobWorker` type uses the shared type. Ignore
-files linked to inactive or rejected draft records. Resolve an omitted annotation `type` with the
-annotated method name. If a prior draft exists, stop and ask the user whether to reuse, complete,
-or remove that draft. Do not create another draft or collision variant until every active prior draft
-is resolved.
+whose report record is active, or whose report record is missing, and whose effective `@JobWorker`
+type uses the shared type. Ignore files linked to inactive or rejected draft records. Treat an
+unrecorded matching draft as unresolved. Resolve an omitted annotation `type` with the annotated
+method name. If a prior draft exists, stop and ask the user whether to reuse, complete, or remove
+that draft. Do not create another draft or collision variant until every active prior draft is
+resolved.
 
 Before asking for a decision, after confirming the target root and excluding the quarantine
 directory from active scans, inventory every `@JobWorker` annotation and programmatic worker
