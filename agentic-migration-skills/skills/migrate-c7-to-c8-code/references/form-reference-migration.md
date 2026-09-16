@@ -239,7 +239,8 @@ existing-form validation, not as a Camunda 7 form. Convert only a form with no C
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
    path. Ask the user which side changes. Remove or withhold any converter-emitted
    `zeebe:formDefinition` during the post-Step-5e edit. For `camunda:formRef`, retain the exact
-   original reference in `MIGRATION_REPORT.md`. For a copied form key, retain the copied
+   report-safe rendering of the original reference in `MIGRATION_REPORT.md`. Keep any raw value only
+   in the secure transient execution context. For a copied form key, retain the copied
    `externalReference` or `formKey` as the unresolved form pointer. Leave the owner unlinked until
    the user resolves the blocker.
 3. Plan a converted element with exactly one `zeebe:formDefinition` whose `formId` is that id. For
@@ -428,15 +429,11 @@ Verdict rules for the model finding table:
 | Rebuild | The form is accepted, linked, validated, and has an explicit deployment decision. | Keep `needs fix` until linkage, deployment, the shared Step 5 row, and final cleanup pass. |
 | Keep reference | The owner confirms the integration. A dynamic reference also has its enumerated values and preserved exact reference evidence recorded. | Keep the category open until the custom-application follow-up is recorded. |
 | Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it with authorization for a selected target. | Keep the category open until the form checks and deployment check pass. |
-| No target | Record `target=none`, `request=not applicable`, `authorization=not applicable`, the out-of-scope decision, and `deployment=not applicable`. | This satisfies the deployment check. |
-| Selected target with request | Record the target, request, authorization, `deployment=pending` before final cleanup, and deployment result afterward. | Verify deployment before a form category can reach `no action`. |
-| Selected target without request | Record the target, `request=not requested`, authorization state, and `deployment=pending`. Obtain the explicit request, then record the authorized target and deployment result. | Keep the category open until the result is recorded. |
-| Selected target with unavailable authorization or decline | Record the target, request, authorization state, `deployment=pending`, and `deployment decision=declined` when applicable. Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps. | Keep the category open until the plan evidence exists. Then apply the normal `no action` checks. |
 | Keep-form-free generic owner | Record `Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence. | Treat this as a resolved accepted-risk terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
-| Removed reference | The user explicitly chooses **leave the element without a form**. Record the exact source reference, accepted-risk owner, and namespace-aware before/after evidence showing no copied `externalReference` or `formKey`, no `zeebe:formDefinition`, and no linked or deployed form. | Record `Status=declined`, `Verdict=needs review`, and `Verification=passed` as a procedure-defined terminal accepted-risk state. Never present it as **no action**. |
+| Removed reference | The user explicitly chooses **leave the element without a form**. Record the report-safe rendering of the source reference, accepted-risk owner, and namespace-aware before/after evidence showing no copied `externalReference` or `formKey`, no `zeebe:formDefinition`, and no linked or deployed form. Keep any raw value only in the secure transient execution context. | Record `Status=declined`, `Verdict=needs review`, and `Verification=passed` as a procedure-defined terminal accepted-risk state. Never present it as **no action**. |
 | `no action` transition | Every migratable row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, rebuilt, or accepted existing Camunda 8 categories. Keep kept embedded, external, or dynamic references nonterminal at `Verdict=needs review`. Keep `c7-generic-task-form` at `Verdict=needs review` with its procedure-defined terminal status. Do not call that generic status nonterminal or `no action`. |
 
 A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
