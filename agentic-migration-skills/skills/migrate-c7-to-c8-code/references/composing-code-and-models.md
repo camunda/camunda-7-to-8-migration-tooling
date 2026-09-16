@@ -201,6 +201,9 @@ option. This flow intentionally excludes incomplete subscribers from generation.
 through manual extension, consolidation, or replacement, then run the cross-check again. Do not
 create or enable a second subscriber.
 
+Confirm a Spring target from the build configuration or AskUserQuestion. Record the evidence or
+user decision in `MIGRATION_REPORT.md` before offering an annotation scaffold.
+
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
 Spring target, and no effective worker. Keep a 1:1 group on the simple worker-remediation path.
@@ -230,7 +233,8 @@ the remaining characters.
 Append `Worker` to the sanitized base unless it already ends with `Worker`. Call the result
 `workerStem`. Remove its final `Worker` suffix to form `workerPrefix`. If `workerPrefix` is empty,
 use `JobType`.
-Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8.
+Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8 with
+a real SHA-256 implementation. Never estimate or invent the digest.
 Use its first 12 characters to build `finalStem` as `workerPrefix` + `_` + the digest + `Worker`.
 Use that same `finalStem` for the public class and file name. If sanitized stems collide, extend
 every colliding digest prefix by four characters until each name is unique. If `finalStem.java`
