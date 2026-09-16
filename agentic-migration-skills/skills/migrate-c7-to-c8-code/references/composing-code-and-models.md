@@ -196,8 +196,9 @@ declined forms.
 
 - **Yes, add/update `@Deployment`** — use the exact resource paths and states above.
 - **No, handle deployment outside app startup** — leave code unchanged. For `target=none`, record
-  `deployment=not applicable`. For a selected target, record the external plan owner, target, and
-  steps or keep deployment pending until that evidence exists.
+  `deployment=not applicable`. For an unauthorized or declined selected target, record the external
+  plan owner, target, and steps. For an authorized selected target, require an observed external
+  deployment result or keep deployment pending.
 
 After either deployment-wiring choice, rerun the applicable final Step 4 code validation because
 the choice or any `@Deployment` edit can change compile, configuration, and test evidence.

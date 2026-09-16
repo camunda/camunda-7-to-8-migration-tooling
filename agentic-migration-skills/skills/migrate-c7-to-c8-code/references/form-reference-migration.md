@@ -220,7 +220,9 @@ existing-form validation, not as a Camunda 7 form. Convert only a form with no C
    instead of claiming conversion. The converter may update
    execution-platform metadata, rewrite supported simple JUEL
    component properties to FEEL, and emit findings. Capture the converter findings, before/after
-   hashes, and all resulting schema, render, and FEEL evidence. In M1, stage the captured model
+   hashes, and all resulting schema, render, and FEEL evidence. Before M1 staging, deduplicate
+   shared forms by canonical source path and form id. Stage each unique form once, map every owner
+   to that canonical form, and reuse its single captured conversion result. In M1, stage the captured model
    and all in-scope C7 forms associated with that model in an isolated input directory and pass
    that directory as one invocation.
    For a model with associated forms, always pass the staged directory. Use one captured path in one
@@ -300,6 +302,10 @@ metadata as a blocking verification failure. A `.form` suffix alone is not suffi
    linkage and deployment for a standalone form.
 4. Preserve the existing form bytes unless the user approves a remediation. Record the final form
    hash and every verification command in `MIGRATION_REPORT.md`.
+5. When metadata, schema, render, FEEL, linkage, and deployment checks pass, record
+   `Status=accepted`, `Verdict=needs review`, and `Verification=passed` with the existing-form
+   evidence. A standalone form uses `Status=accepted` with linkage and deployment
+   `not applicable`. The shared final transition may then move the category to **no action**.
 
 ## Rebuild a reference as a Camunda 8 form
 
