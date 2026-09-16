@@ -296,7 +296,8 @@ category. Never bundle unrelated decisions into one question.
 After applying decisions, present each form (or a coherent batch with identical decisions) for explicit
 acceptance:
 
-- **Accept and link**: only after the user reviews the field table and rendered preview/JSON.
+- **Accept**: only after the user reviews the field table and rendered preview/JSON. During Step 3,
+  record the accepted bytes and planned linkage only. Apply the linkage after Step 5e.
 - **Revise**: apply the requested design, regenerate deterministically, and present it again.
 - **Leave unlinked**: keep the draft and `needs fix` verdict.
 
