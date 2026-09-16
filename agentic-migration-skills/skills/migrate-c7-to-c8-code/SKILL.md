@@ -296,8 +296,8 @@ target version. See the linting section in `references/model-migration-approache
 8. Where a target-compatible official schema exists, the skill validates every accepted form with it.
 9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted form
    with it.
-10. Every accepted form has a planned matching `zeebe:formDefinition`; Step 5 verifies the actual
-    linkage after form remediation and annotation cleanup.
+10. Every accepted form has a planned matching `zeebe:formDefinition`.
+    Step 5 verifies the actual linkage after form remediation and annotation cleanup.
 11. Step 5 deploys every accepted form with its BPMN after form remediation and annotation cleanup.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
@@ -310,9 +310,9 @@ target version. See the linting section in `references/model-migration-approache
    binding decision: `bindingType` written for `deployment` and `versionTag`, or `latest` left
    deliberately to the Camunda 8 default. The copied Camunda 7 `externalReference` or `formKey` is
    gone from that element.
-15. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
-   `conversion:*` attribute, no unused Camunda 7 or conversion namespace declaration, and no
-   leftover BPMN definitions-level XPath `expressionLanguage` attribute.
+15. After Step 5e and the final whole-file cleanup, the converted copies hold no `conversion:*`
+   node, no `conversion:*` attribute, no unused Camunda 7 or conversion namespace declaration,
+   and no leftover BPMN definitions-level XPath `expressionLanguage` attribute.
 16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
     from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
     `camunda:topic` attribute using the binding rules in
@@ -393,7 +393,7 @@ changes. Retain **no action** only after this sequence passes.
 | Check | Required evidence |
 |---|---|
 | XML structure | For every participating BPMN or DMN converted copy, re-parse the file with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
-| Generated form structure | Before Step 5e, parse every participating `.form` resource and apply its schema and render checks from `form-migration.md`. Parse every FEEL-bearing form expression with the target FEEL parser when available. Keep a form category at **needs review** when its FEEL expressions cannot be checked. Record `not applicable` and the reason when target-compatible schema or render tooling is unavailable, as defined by `form-migration.md`. After Step 5e, verify form linkage and deployment. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
+| Generated form structure | Before Step 5e, parse every participating `.form` resource and apply its schema and render checks from `form-migration.md`. Parse every FEEL-bearing form expression with the target FEEL parser when available. Record an unavailable parser in FEEL evidence and continue other required checks. A failed parse remains a verification failure. Record `not applicable` and the reason when target-compatible schema or render tooling is unavailable, as defined by `form-migration.md`. After Step 5e, verify form linkage and deployment. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
 | Namespace and metadata cleanup | For BPMN or DMN converted copies, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. |
 | Final whole-file cleanup | After category-specific verification runs for every category and Step 5e removes converter annotations, inspect the entire BPMN or DMN converted copy before retaining any **no action** verdict. Require and record zero remaining Camunda 7 elements, attributes, and QName-valued attribute values. Require and record zero conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
 | Final cleanup failure | If any final count is non-zero, invalidate every passed row for that file, update every invalidated row in both tables to **needs fix** or **needs review**, record a run-level validation failure when no category maps to the leftover, and keep the migration incomplete until final revalidation passes. |

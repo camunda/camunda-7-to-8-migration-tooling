@@ -127,7 +127,9 @@ Use the shared verification gate in `SKILL.md` Step 5 before changing any catego
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
 
-Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
+Trust the converter's output for structural transformations it performed and did not flag. The
+converter does not replace the shared runtime and code-coverage checks. Apply manual structural
+fixes only for what the report flags. Never second-guess or re-derive converted structures.
 
 Group by category first. The category, not the individual row, is the unit of work.
 
