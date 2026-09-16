@@ -49,13 +49,16 @@ the same pair in the converted element. Each normalized row has the shape:
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-Group the normalized rows by `jobType`, then distinguish values by the pair
-`(headerKey, original)`:
+Classify each normalized row before grouping:
 
 | Mapping | Condition | Action |
 |---|---|---|
+| **Incomplete** | A row has a missing or blank `jobType`. | Exclude the row from collapse grouping. Keep its category **needs fix** until M2 supplies a non-empty type. |
 | **1:1** | Every job type maps to one distinct `(headerKey, original)` pair. | Apply the simple check in 2a. |
 | **Many-to-one** | A job type maps to multiple distinct `(headerKey, original)` pairs. | Apply the dispatcher check in 2b. The converter collapsed several delegates onto a shared job type. |
+
+Group the remaining normalized rows by `jobType`, then distinguish values by the pair
+`(headerKey, original)`:
 
 This shape is common at scale. One generic job type can cover thousands of expression-based service tasks in a real project.
 
@@ -107,8 +110,9 @@ sanitizer. Make the class name a legal Java identifier and the file name a safe 
 Include a stable hash of the original job type to prevent collisions between sanitized names.
 Resolve the proposed path and verify that it stays inside the intended source tree before writing.
 If it does not, stop and ask the user to choose a safe source tree. Never overwrite an existing
-file. If the proposed path exists, choose a new collision-safe path and tell the user which file was
-created.
+file. If the proposed path exists, choose a new collision-safe class and file name from the same
+candidate stem, then tell the user which file was created. Never reuse the original class name with
+a renamed file.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
 the project's worker registration convention, such as `@Component` for Spring. Use a method
@@ -128,9 +132,10 @@ quarantine the generated file before continuing. Do not leave the file beside th
 or let a later scan treat it as an existing subscriber. Then rerun the same cross-check used for
 hand-written dispatchers. Run the applicable formatter, compile, and test checks after writing the
 source. Record each validation result in MIGRATION_REPORT.md. The scaffold is not a completed
-remediation. Keep the category **needs fix** while any generated TODO route remains or the
-cross-check finds an uncovered pair. Mark the category **no action** only after the cross-check
-confirms coverage and the generated source has zero TODO routes. Record the generated file and
+remediation. Keep the category **needs fix** while any generated TODO route remains, the
+cross-check finds an uncovered pair, or any applicable formatter, compile, or test check fails.
+Mark the category **no action** only after the cross-check confirms coverage, the generated source
+has zero TODO routes, and all applicable post-generation checks pass. Record the generated file and
 uncovered implementation work in MIGRATION_REPORT.md.
 
 ### 3. FEEL method-invocation category
