@@ -519,12 +519,13 @@ Hosted CSV/markdown/XLSX downloads are not parsed as findings input (see 5a). A 
 the local verification command follows the shared gate's supplementary comparison rules. The
 imported-report version check in step 5 applies.
 
-During M3 acquisition, record the exact source-to-converted path pair for every downloaded BPMN or
-DMN, including models without forms, and the exact source-to-converted path pair for every
-referenced or existing `.form` resource that participates. If a paired form is unavailable, record
-the form content as unavailable and keep the category blocked rather than claiming linkage or
-conversion. Use these recorded pairs for every verification check. Do not discover participating
-files with a filesystem glob.
+During M3 acquisition, upload only the captured BPMN/DMN and selected C7 `.form` resources for
+each model. Exclude existing Camunda 8 forms from the hosted upload. Download and capture the exact
+source-to-converted path pair for every BPMN or DMN, including models without forms, and for every
+uploaded referenced C7 form. Validate existing Camunda 8 forms separately without uploading them.
+If a paired form is unavailable, record the form content as unavailable and keep the category blocked
+rather than claiming linkage or conversion. Use these recorded pairs for every verification check.
+Do not discover participating files with a filesystem glob.
 
 Generated-form follow-up also requires the exact original BPMN and an unambiguous pairing to each downloaded converted BPMN. Ask for either missing artifact rather than reconstructing C7 form metadata from the report.
 

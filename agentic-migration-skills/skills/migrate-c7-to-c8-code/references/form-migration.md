@@ -326,10 +326,11 @@ accepted `zeebe:formDefinition` and the planned binding, it checks for a differe
 C7 form reference, or custom external reference. It asks the user before replacing any such
 existing definition and applies the accepted replacement only after approval.
 
-For M2 or any hand-edited/imported output, remove the migrated owner's `camunda:formData`,
+For M2 or any hand-edited/imported output, retain the migrated owner's `camunda:formData`,
 `camunda:formField`, `camunda:validation`, `camunda:constraint`, and direct `camunda:formProperty`
-elements from the converted copy after the source inventory is captured. M1/E1 normally already removed
-them. Never remove them from the original C7 BPMN.
+elements through the pre-Step-5e checks as expected source-owned evidence. After Step 5e, remove
+them from the converted copy before final form verification. M1/E1 normally already removed them.
+Never remove them from the original C7 BPMN.
 
 For a user task, ensure exactly one standard Camunda user-task marker and one form definition:
 

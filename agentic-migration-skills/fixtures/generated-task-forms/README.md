@@ -103,8 +103,8 @@ The evaluation is complete when the agent has:
 * represented the standard field mappings and validation constraints in the
   draft and `MIGRATION_REPORT.md`;
 * presented the draft and mapping to the user for explicit acceptance;
-* linked only the accepted form with a matching `formId` and
-  `bindingType="deployment"`;
+* linked only the accepted form with a matching `formId` and the recorded
+  binding decision, such as `deployment`, `versionTag`, or implicit `latest`;
 * validated the form JSON and parsed the converted BPMN;
 * captured the immutable converted copy and form baselines and recorded
   before-and-after form schema, render, FEEL, linkage, and deployment evidence,

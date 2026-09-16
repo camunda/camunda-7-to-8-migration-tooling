@@ -206,10 +206,11 @@ nothing is rebuilt. The two reach the converted model differently:
 - A `camunda-forms:` form key is only copied verbatim into `externalReference`/`formKey`, which
   Camunda 8 does not resolve. It still needs relinking.
 
-Before the form conversion step, inspect the parsed form metadata. If `executionPlatform` identifies
-Camunda 8, skip conversion and follow **Validate an existing Camunda 8 form** below. Require exact
-target metadata there. Treat a missing or mismatched version as a blocked existing-form validation,
-not as a Camunda 7 form. Convert only a form identified as Camunda 7.
+Before the form conversion step, inspect both parsed metadata fields. If either
+`executionPlatform` identifies a Camunda 8 platform or `executionPlatformVersion` has a Camunda 8
+version, skip conversion and follow **Validate an existing Camunda 8 form** below. Require exact
+target metadata there. Treat a missing, mismatched, or contradictory field as a blocked
+existing-form validation, not as a Camunda 7 form. Convert only a form with no Camunda 8 indicator.
 
 1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
    conversion. When M1 already captured a converted C7 form output, reuse that output and its
@@ -250,15 +251,15 @@ not as a Camunda 7 form. Convert only a form identified as Camunda 7.
    `formRefVersion` has no numeric-version equivalent, so ask the user to choose `versionTag` with a
    real tag or accept another binding.
 5. Before Step 5e, run the form validation checklist from `form-migration.md`. Confirm JSON parsing,
-   applicable schema and render checks, and target metadata. Record the planned `formId` linkage and
-   binding, but do not edit the converted copy or require the final linkage check yet. Record
-   unavailable schema or render tooling as `not applicable` with the reason. Record an unavailable
-   FEEL parser as `unavailable` in FEEL evidence. Record other unavailable supplementary tooling
-   according to `form-migration.md`.
-6. When unresolved Step 5 remediation first creates or accepts a deployable form, ask Question 7
-   and record its target, request, authorization, and result or pending state before linkage. After
-   Step 5e, apply the accepted linkage plan, then rerun the full form validation checklist,
-   including the exact `formId` linkage and removal of the copied C7 reference. Rerun the
+   applicable schema and render checks, target metadata, and the shared FEEL extraction and syntax
+   parsing checks. Record the planned `formId` linkage and binding, but do not edit the converted
+   copy or require the final linkage check yet. Record unavailable schema or render tooling as
+   `not applicable` with the reason. Record an unavailable FEEL parser as `unavailable` in FEEL
+   evidence. Record other unavailable supplementary tooling according to `form-migration.md`.
+6. When unresolved Step 5 remediation first creates or accepts a deployable form, use the Question 7
+   decision already recorded after Step 3. Do not ask Question 7 again. After Step 5e, apply the
+   accepted linkage plan, then rerun the full form validation checklist, including target metadata,
+   FEEL parsing, exact `formId` linkage, and removal of the copied C7 reference. Rerun the
    verification row after any linkage or form change.
 7. Verify deployment only after the user explicitly requests it and selects a deployment target.
    Record the request, target, authorization, and deployment result separately. Do not deploy when a target exists
@@ -281,8 +282,9 @@ metadata as a blocking verification failure. A `.form` suffix alone is not suffi
    when no owner exists. Do not pass an existing Camunda 8 form to the C7 form converter.
 2. Capture the original form bytes and SHA-256 hash as provenance. Validate JSON, target-compatible
    schema, render, FEEL templates, and existing linkage with the shared gate.
-3. Ask Question 7 for an owner with a deployable form. Verify deployment after final cleanup.
-   Record `not applicable` linkage and deployment for a standalone form.
+3. Use the Question 7 decision already recorded after Step 3 for an owner with a deployable form.
+   Do not ask Question 7 again. Verify deployment after final cleanup. Record `not applicable`
+   linkage and deployment for a standalone form.
 4. Preserve the existing form bytes unless the user approves a remediation. Record the final form
    hash and every verification command in `MIGRATION_REPORT.md`.
 
