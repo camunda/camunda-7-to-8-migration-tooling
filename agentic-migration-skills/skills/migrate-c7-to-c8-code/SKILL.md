@@ -418,7 +418,8 @@ checks and code cross-checks above provide that coverage.
 
 If any check fails, record the failure with its before-and-after values. Keep the category at
 **needs fix** when concrete remediation remains. Keep it at **needs review** when a design decision
-or an unavailable deterministic check remains. Do not mark it **no action**. Escalate after the
+or an unavailable required deterministic check remains. Unavailable supplementary checks do not
+block `passed`. Do not mark it **no action**. Escalate after the
 single verification pass when the failure needs a new design or a second remediation attempt. Set
 the verification state to `failed` or `unavailable` and update the nonterminal verdict in both the
 findings inventory and verification table.
