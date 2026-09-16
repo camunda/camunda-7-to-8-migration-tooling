@@ -266,10 +266,11 @@ draft. Keep each TODO route in quarantine while the user implements the legacy i
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
 accept the completed source. On acceptance,
 move the source into the intended worker source tree and run the applicable formatter, compile, and
-test checks before deployment. If the user rejects the scaffold,
-remove the draft or keep it outside every scanned source tree. Do not leave the file beside the
-migrated sources or let a later scan treat it as an existing subscriber. Then rerun the same
-cross-check used for hand-written dispatchers. Record each validation result in MIGRATION_REPORT.md.
+test checks before deployment. On acceptance, mark the moved draft path inactive in
+`MIGRATION_REPORT.md`. If the user rejects or deletes the scaffold, mark its path inactive after
+removing it or recording the rejection. Do not leave the file beside the migrated sources or let a
+later scan treat it as an existing subscriber. Then rerun the same cross-check used for hand-written
+dispatchers. Record each validation result and the draft decision in `MIGRATION_REPORT.md`.
 The scaffold is not a completed remediation. Keep the category **needs fix** while any known route
 has an unresolved TODO, placeholder, or unconditional throw in a generated or hand-written
 dispatcher, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
