@@ -193,7 +193,9 @@ its routing covers every distinct `(headerKey, original)` pair, every known rout
 TODO, placeholder, or unconditional throw, and all applicable validation checks pass. Preserve
 existing source and require explicit confirmation before extending, merging, replacing, or removing
 a subscriber. If any registration already subscribes to the shared type, omit the generation
-option. Do not create or enable a second subscriber.
+option. Do not offer generation when the inventory contains any effective worker, incomplete
+dispatcher, or unresolved registration. Use the decision table below for those cases. Do not create
+or enable a second subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
