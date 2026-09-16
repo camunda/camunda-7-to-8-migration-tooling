@@ -387,11 +387,13 @@ another user question.
 
 ## Deployment and validation
 
-For `bindingType=deployment`, require the converted BPMN and every linked accepted or existing form
-with that binding in the same deployment. Build an exact resource list from the recorded authorized
-paths. `versionTag` and implicit `latest` forms may use a separate verified form deployment. Never
-use a broad `converted-c8-*.form` pattern. If any deployment-bound form is not deployable, defer
-the whole model deployment instead of deploying the BPMN alone.
+For an authorized, explicitly requested target with `bindingType=deployment`, require the converted
+BPMN and every linked accepted or existing form with that binding in the same deployment. For
+`target=none`, record `deployment=not applicable` and do not require a deployment result.
+Build an exact resource list from the recorded authorized paths. `versionTag` and implicit `latest`
+forms may use a separate verified form deployment. Never use a broad `converted-c8-*.form` pattern.
+If any deployment-bound form is not deployable for an authorized selected target, defer the whole
+model deployment instead of deploying the BPMN alone.
 
 Before reporting a form complete:
 

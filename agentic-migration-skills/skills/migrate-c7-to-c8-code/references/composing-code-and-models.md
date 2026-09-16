@@ -145,7 +145,7 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: set **no action** only after the shared verification pass succeeds. Until then, keep the existing category verdict with verification as the only pending action. Do not ask the user for a decision for this verification-pending category.
+- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: set **no action** only after the shared verification pass succeeds. Until then, reset the category to **needs review** with verification as the pending action. Do not ask the user for a decision for this verification-pending category.
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: provisional **needs review** until the verification pass succeeds.
