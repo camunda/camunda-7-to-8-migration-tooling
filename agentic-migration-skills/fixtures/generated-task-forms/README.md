@@ -99,8 +99,11 @@ The evaluation is complete when the agent has:
   `executionPlatformVersion="8.9.0"`;
 * added a verification-table row for every participating category, including
   `form-data` and the source-derived `c7-generic-task-form` owner, and recorded
-  `passed` before treating any category as **no action** or the evaluation as
-  complete;
+  `passed` before treating an eligible category as **no action** or the
+  evaluation as complete;
+* recorded the generic form-free owner's explicit terminal status, such as
+  `declined` with accepted-risk evidence for a keep-form-free decision, and did
+  not present `c7-generic-task-form` as **no action**;
 * recorded the explicit keep-form-free, rebuild, or custom-application decision
   for the form-free start event and its converted-owner evidence;
 * recorded the explicit out-of-scope deployment decision and

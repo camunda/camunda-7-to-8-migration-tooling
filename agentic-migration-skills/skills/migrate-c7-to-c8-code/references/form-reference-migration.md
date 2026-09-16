@@ -48,7 +48,9 @@ case-sensitive prefix, in this order:
 
 `camunda:formRef` is always `c7-camunda-form-reference`, whatever its binding. A **form-free owner**
 — a user task or a process-level none start event with no form metadata at all — is
-`c7-generic-task-form`.
+`c7-generic-task-form`. A completed keep-form-free decision is terminal as
+`Status=declined`, `Verdict=needs review`, and `Verification=passed` with accepted-risk evidence.
+Do not prompt for another decision. Never present this category as **no action**.
 
 In the model finding verdict table, use the specific converter messageId (`form-key-embedded`,
 `form-key-camunda-form`, `form-key-external`, `form-key-expression`) when it corroborates the source
@@ -212,9 +214,10 @@ For both:
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
    path. Ask the user which side changes. The skill does not relink until the user decides.
-3. Plan a converted element with exactly one `zeebe:formDefinition` whose `formId` is that id. Remove
-   any copied Camunda 7 reference (`externalReference` or `formKey`) during the post-Step-5e edit.
-   During Step 3, record this model-edit plan only.
+3. Plan a converted element with exactly one `zeebe:formDefinition` whose `formId` is that id. For
+   literal `camunda:formRef`, reuse or update the converter-emitted definition. Do not append a
+   second definition. Remove any copied Camunda 7 reference (`externalReference` or `formKey`)
+   during the post-Step-5e edit. During Step 3, record this model-edit plan only.
 4. Confirm the binding as a recorded decision, not an accident. Write `bindingType` for `deployment`
    and for `versionTag` (with its `versionTag` value). `latest` may stay implicit as the Camunda 8
    default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
