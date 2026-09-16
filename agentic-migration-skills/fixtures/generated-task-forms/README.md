@@ -93,8 +93,10 @@ The evaluation is complete when the agent has:
 * recorded the converted definitions' exact Modeler metadata:
   `executionPlatform="Camunda Cloud"` and
   `executionPlatformVersion="8.9.0"`;
-* added a verification-table row for the category and recorded `passed` before
-  treating the category as **no action** or the evaluation as complete;
+* added a verification-table row for every participating category, including
+  `form-data` and the source-derived `c7-generic-task-form` owner, and recorded
+  `passed` before treating any category as **no action** or the evaluation as
+  complete;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * confirmed one `zeebe:userTask` and one matching form definition on the
