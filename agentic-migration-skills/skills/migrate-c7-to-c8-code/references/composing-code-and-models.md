@@ -25,9 +25,11 @@ converted copy is available. Record the missing copy and the required rerun in
 
 When a full M1 run in the current migration session produced and recorded a paired converted copy,
 a later `--check` run in the same session may provide the findings input only when it uses the same
-original model inputs and target version. Record that report path from the same session and do not
-consume a report that predates the session. Gate generation on the recorded source-to-converted
-pair, not on the latest report invocation.
+original model inputs and target version. Resolve every finding filename and elementId to its
+recorded source-to-converted pair. If any finding lacks a pair, keep the cross-check report-only.
+Record that report path from the same session and do not consume a report that predates the session.
+Gate generation on the complete set of recorded source-to-converted pairs, not on the latest report
+invocation.
 
 When M2 has a converted copy, is not read-only, and has no Diagram Converter report, scan every
 `zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
@@ -185,15 +187,17 @@ directory from active scans, inventory every `@JobWorker` annotation and program
 registration for the shared type. Resolve literal annotation values, method-name defaults, and
 client worker-builder registrations. If a registration's effective type is unresolved, or the
 inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
-generation until the user resolves it. If any registration already subscribes to the shared type,
-omit the generation option. Preserve existing source and require explicit confirmation before
-extending, merging, replacing, or removing a subscriber. Do not create or enable a second
-subscriber.
+generation until the user resolves it. If any registration already subscribes to the shared type, classify it as a dispatcher only when
+its routing covers every distinct `(headerKey, original)` pair for the shared job type. If a
+complete dispatcher exists, omit the generation option. If no complete dispatcher exists, keep
+**needs fix**, preserve ordinary subscribers, and offer a quarantined scaffold through
+AskUserQuestion for a Spring target. Require explicit confirmation before merging, replacing, or
+removing a subscriber. Do not create or enable a second subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
-Offer generation only for a complete many-to-one group with a **needs fix** verdict and no effective
-worker. Keep a 1:1 group on the simple worker-remediation path. Do not offer generation for a group
-with a **no action**, **needs review**, or incomplete verdict.
+Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
+Spring target, and no complete dispatcher. Keep a 1:1 group on the simple worker-remediation path.
+Do not offer generation for a group with a **no action**, **needs review**, or incomplete verdict.
 
 Use this decision table for each shared job type:
 
@@ -201,9 +205,11 @@ Use this decision table for each shared job type:
 |---|---|---|
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
-| **needs fix** | None | For a complete many-to-one group, use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
-| **needs fix** | Exactly one effective worker | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
-| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one subscriber before resolving the group. |
+| **needs fix** | None and confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
+| **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
+| **needs fix** | Exactly one complete dispatcher | Do not offer generation. Ask the user to extend the existing dispatcher. |
+| **needs fix** | One or more subscribers and no complete dispatcher, Spring target | Offer a quarantined scaffold through AskUserQuestion. Preserve existing source. Require explicit confirmation before merging, replacing, or removing subscribers, then verify exactly one active dispatcher before acceptance. |
+| **needs fix** | More than one complete dispatcher or a dispatcher with another effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
