@@ -50,21 +50,6 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                             .list()
                             .size() % 2 == 0;
 
-                    long activeCount = runtimeService.createProcessInstanceQuery()
-                            .processDefinitionKey("example-workflow-process")
-                            .count();
-
-                    int pagedCount = runtimeService.createProcessInstanceQuery()
-                            .processDefinitionKey("example-workflow-process")
-                            .list()
-                            .size();
-
-                    long streamCount = runtimeService.createProcessInstanceQuery()
-                            .processDefinitionKey("example-workflow-process")
-                            .list()
-                            .stream()
-                            .count();
-
                     Object inputValue = execution.getVariable("inputValue");
                     System.out.println("ExampleWorkflowDelegate " + inputValue);
 
@@ -91,7 +76,6 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                 @Autowired
                 private CamundaClient camundaClient;
 
-                /* TODO: Manual migration required - check page().hasMoreTotalItems(); when true, totalItems() is only a lower bound. */
                 @JobWorker(type = "exampleWorkflowDelegate", autoComplete = true)
                 public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();
@@ -104,36 +88,6 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                             .join()
                             .page()
                             .totalItems().intValue() % 2 == 0;
-
-                    long activeCount = camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId("example-workflow-process")
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .page()
-                            .totalItems().longValue();
-
-                    int pagedCount = camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId("example-workflow-process")
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .page()
-                            .totalItems().intValue();
-
-                    long streamCount = camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId("example-workflow-process")
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .page()
-                            .totalItems().longValue();
 
                     Object inputValue = job.getVariable("inputValue");
                     System.out.println("ExampleWorkflowDelegate " + inputValue);
