@@ -195,9 +195,9 @@ its routing covers every distinct `(headerKey, original)` pair, every known rout
 TODO, placeholder, or unconditional throw, and all applicable validation checks pass. Preserve
 existing source and require explicit confirmation before extending, merging, replacing, or removing
 a subscriber. If any registration already subscribes to the shared type, omit the generation
-option. Do not offer generation when the inventory contains any effective worker, incomplete
-dispatcher, or unresolved registration. Use the decision table below for those cases. Do not create
-or enable a second subscriber.
+option. This flow intentionally excludes incomplete subscribers from generation. Resolve them
+through manual extension, consolidation, or replacement, then run the cross-check again. Do not
+create or enable a second subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
@@ -249,9 +249,9 @@ this scaffold for a non-Spring Java client target. Keep that group **needs fix**
 user-owned client-worker builder implementation and validation. Use the project's worker registration
 convention, such as `@Component` for Spring. Use `ActivatedJob job` and read headers with
 `job.getCustomHeaders()`. Read each original value from the retained
-`zeebe:header` using its original C7 key. Prepopulate a routing map or switch with one entry for
-every distinct normalized
-`(headerKey, original)` pair for the shared job type, grouped by retained key. Use Java
+`zeebe:header` using its original C7 key. Prepopulate a nested map keyed first by the retained
+header key and then by the original value, or use an equivalent composite key. Add one entry for
+every distinct normalized `(headerKey, original)` pair for the shared job type. Use Java
 string-literal escaping for every generated route key and for the shared job type in the
 annotation. Escape quotes, backslashes, line breaks, and other control characters before writing
 the source. Put a `TODO` in every route for the actual legacy bean or method invocation. Make each
