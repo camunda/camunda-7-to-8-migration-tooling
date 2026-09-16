@@ -129,7 +129,8 @@ REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them
 
 Trust the converter's output for structural transformations it performed and did not flag. The
 converter does not replace the shared runtime and code-coverage checks. Apply manual structural
-fixes for reported findings and for failed verification postconditions. Record any
+fixes for reported findings. Apply a fix for a failed verification postcondition only after the
+Step 5 user decision and explicit new remediation plan authorize a retry. Record any
 verification-driven fix in `MIGRATION_REPORT.md`. Never second-guess or re-derive converted
 structures.
 

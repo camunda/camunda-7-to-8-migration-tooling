@@ -111,7 +111,9 @@ The evaluation is complete when the agent has:
   it for acceptance, linked it with a matching `formId` and a recorded binding
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
-  external reference;
+  external reference, and recorded the fixture's explicit out-of-scope
+  deployment decision (`deployment=not applicable`) or the selected target,
+  request, and result;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references. Passed rows are required

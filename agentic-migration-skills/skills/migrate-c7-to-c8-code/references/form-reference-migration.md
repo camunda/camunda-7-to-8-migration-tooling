@@ -219,10 +219,14 @@ For both:
    default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
    `formRefVersion` has no numeric-version equivalent, so ask the user to choose `versionTag` with a
    real tag or accept another binding.
-5. Run the form validation checklist from `form-migration.md`. Confirm JSON parsing, applicable
-   schema and render checks, exact `formId` linkage, and target metadata. Record unavailable
-   supplementary tooling as `not applicable` with the reason.
-6. Confirm the form deploys together with the process for a `deployment` binding when a deployment
+5. Before Step 5e, run the form validation checklist from `form-migration.md`. Confirm JSON parsing,
+   applicable schema and render checks, and target metadata. Record the planned `formId` linkage and
+   binding, but do not edit the converted copy or require the final linkage check yet. Record
+   unavailable supplementary tooling as `not applicable` with the reason.
+6. After Step 5e and final form cleanup, apply the accepted linkage plan, then verify the exact
+   `formId` linkage and removal of the copied C7 reference. Rerun the verification row after any
+   linkage or form change.
+7. Confirm the form deploys together with the process for a `deployment` binding when a deployment
    target is selected. Record an explicit out-of-scope `not applicable` decision when no target
    exists or deployment is declined.
 
@@ -355,8 +359,9 @@ Verdict rules for the model finding table:
   link, and validate the form. Collect and record an explicit deployment decision. Verify deployment
   when a target is selected, and record deployment as `not applicable` with the out-of-scope
   decision when no target exists or deployment is declined. For a keep, the owner confirms the
-  integration. For a Camunda Form reference, convert, relink, and verify deployment when a target
-  is selected.
+  integration. For a Camunda Form reference, convert and relink, then verify deployment when a
+  target is selected; an explicit out-of-scope decision satisfies the deployment check when no
+  target exists or deployment is declined.
 - Move a category to `no action` only when every row reaches a terminal state. Record a `declined` or
   `deferred` row as accepted risk, not completed work.
 - Do not rewrite the raw converter report or remove its historical findings.
