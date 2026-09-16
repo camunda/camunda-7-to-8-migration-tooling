@@ -214,14 +214,15 @@ For both:
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
    path. Ask the user which side changes. Remove or withhold any converter-emitted
-   `zeebe:formDefinition` during the post-Step-5e edit. Leave the owner unlinked until the user
-   resolves the blocker.
+   `zeebe:formDefinition` during the post-Step-5e edit. Retain the copied
+   `externalReference` or `formKey` as the unresolved form pointer. Leave the owner unlinked until
+   the user resolves the blocker.
 3. Plan a converted element with exactly one `zeebe:formDefinition` whose `formId` is that id. For
    literal `camunda:formRef`, reuse or update the converter-emitted definition only after the
    mapping and form checks pass. Do not append a second definition. If the row is blocked, remove
-   or withhold the emitted definition instead. Remove any copied Camunda 7 reference
-   (`externalReference` or `formKey`) during the post-Step-5e edit. During Step 3, record this
-   model-edit plan only.
+   or withhold the emitted definition and retain the copied form pointer instead. Remove any copied
+   Camunda 7 reference (`externalReference` or `formKey`) during the post-Step-5e edit only after
+   an accepted mapping is applied. During Step 3, record this model-edit plan only.
 4. Confirm the binding as a recorded decision, not an accident. Write `bindingType` for `deployment`
    and for `versionTag` (with its `versionTag` value). `latest` may stay implicit as the Camunda 8
    default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
