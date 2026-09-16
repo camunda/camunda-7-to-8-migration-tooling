@@ -61,6 +61,10 @@ See `references/interview-questions.md` for the question set and the batching ru
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6 (code approach, model approach, build tool) where they apply.
 6. When the user accepts the defaults, continue without further questions.
+7. After the Step 3 form inventory, ask Question 7 before Step 4 or Step 5 for every deployable
+   accepted, rebuilt, relinked, or existing Camunda 8 form. Ask per form. Group only forms with
+   identical targets and authorization states. Record the target, request, authorization, and
+   result or pending state for every form.
 
 #### Shared rules
 
@@ -373,9 +377,9 @@ capture the same baseline. For XML and code, use a lowercase SHA-256 digest of e
 without normalization. Include namespace counts, wiring references, and FEEL state.
 For forms, use a lowercase SHA-256 digest of the exact UTF-8 bytes of every participating `.form`
 file without normalization.
-Also record the schema result, render result, linkage, and deployment state. Record `absent` when
-a remediation will create a new form. Mark the schema, render, linkage,
-JSON parsing, schema, render, linkage, and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
+Also record JSON parsing, schema, render, linkage, and deployment state. Record `absent` when
+a remediation will create a new form. Mark JSON parsing, schema, render, linkage, and deployment
+checks `not applicable` in that absent `Before` state. Record `not applicable` when
 no form resource participates. For code, include content hashes and matched worker, listener,
 dispatcher, and precompute declarations. Record `absent` when a remediation will create a code
 artifact, and mark its declaration checks `not applicable` in that absent `Before` state. Use the
@@ -492,8 +496,8 @@ and the final whole-file cleanup.
 
 If the run is a model analyze-only run, present the findings, inventories, and provisional verdicts,
 update `MIGRATION_REPORT.md`, and stop before the model-finding remediation offer. Do not offer model
-remediation for a run that created no converted copies. Code-only follow-up remains eligible for
-the generic offer.
+remediation for a run that created no converted copies. If code-only uses Approach C, stop after the
+report. Code-only follow-up remains eligible for the generic offer only for Approaches A and B.
 If a category has failed or unavailable verification, use AskUserQuestion before another
 remediation attempt. Present the category, failure evidence, and the recorded postcondition.
 Ask whether to retry with a new remediation plan or leave the category unresolved. Record the

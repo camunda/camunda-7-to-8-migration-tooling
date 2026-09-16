@@ -83,8 +83,8 @@ Include only if scope includes code, approach is A, and detection was ambiguous 
 
 Include when the selected model scope produces an existing Camunda 8 form, accepted form, rebuilt
 form, or relinked form with a
-deployable owner. Collect one explicit deployment branch and record the fields in
-`MIGRATION_REPORT.md`:
+deployable owner. Ask and record the branch per form. Group forms only when they have identical
+targets and authorization states. Record the fields in `MIGRATION_REPORT.md`:
 
 - **No deployment target** — record `deployment decision=out of scope` and
   `deployment=not applicable`.
