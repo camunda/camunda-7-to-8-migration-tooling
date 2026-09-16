@@ -121,11 +121,14 @@ The evaluation is complete when the agent has:
   it for acceptance, linked it with a matching `formId` and a recorded binding
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
-  embedded or external reference, and recorded the fixture's explicit out-of-scope
-  deployment decision (`deployment=not applicable`), or recorded
-  `deployment=pending` for a selected target without an explicit request,
-  unavailable authorization, or a selected-target decline, or recorded the
-  selected target, request, authorization, and result;
+  embedded or external reference;
+* for every accepted, rebuilt, relinked, or existing Camunda 8 form with a
+  deployable owner, recorded the fixture's explicit out-of-scope deployment
+  decision (`deployment=not applicable`), or recorded `deployment=pending` for
+  a selected target without an explicit request, unavailable authorization, or
+  selected-target decline, or recorded the selected target, request,
+  authorization, and result. A pending selected target may resolve through an
+  alternate binding or external-deployment plan;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
