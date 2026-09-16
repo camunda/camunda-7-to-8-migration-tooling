@@ -54,14 +54,17 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 - It routes on the retained header key and value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
-every distinct retained header key and original expression pair in the findings rows for that job
+every distinct retained header key and original expression pair in the findings for that job
 type. List uncovered pairs for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
 #### Dispatcher scaffold
 
-When a many-to-one job-type group has findings rows, a **needs fix** verdict, and no dispatcher, use
+Locate the converted BPMN element for each finding. Read its retained header key before
+building routes.
+
+When a many-to-one job-type group has findings, a **needs fix** verdict, and no dispatcher, use
 AskUserQuestion to offer these actions:
 
 | User choice | Result |
@@ -74,7 +77,7 @@ Create the draft outside worker sources. Use the target project's conventional p
 header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
 Prepopulate a routing map or switch with every distinct retained header key and original expression
-pair from the findings rows.
+pair from the findings.
 Put a `TODO` in each route for the actual bean or method invocation.
 Escape every model-derived value before using it in a Java string literal.
 Make every TODO, missing-header, and unknown-route path fail explicitly.
