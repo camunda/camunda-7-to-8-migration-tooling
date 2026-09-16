@@ -108,9 +108,10 @@ The evaluation is complete when the agent has:
 * recorded the custom-application checklist, with an owner, for any kept
   external reference;
 * captured the immutable baseline for every participating converted copy or `.form`
-  resource and recorded its verification-table row as `passed` before closing
-  any category as **no action**; unresolved kept references remain recorded as
-  follow-up work;
+  resource and recorded a verification-table row for every participating category,
+  including form-free owners and unresolved kept references; passed rows are required
+  only before closing a category as **no action**, and non-passed rows retain explicit
+  verdict, verification, and follow-up evidence;
 * recorded the converted definitions' exact Modeler metadata:
   `executionPlatform="Camunda Cloud"` and
   `executionPlatformVersion="8.9.0"`;

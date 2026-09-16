@@ -278,7 +278,7 @@ Verdicts:
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict | Verification |
+| Category | Count | Cross-referenced code artifact | Link | Verdict | Verification |
 |---|---|---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review | pending |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix | pending |
