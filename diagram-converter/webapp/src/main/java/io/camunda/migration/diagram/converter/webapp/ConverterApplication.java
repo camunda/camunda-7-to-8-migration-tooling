@@ -12,8 +12,10 @@ import io.camunda.migration.diagram.converter.DiagramConverterFactory;
 import io.camunda.migration.diagram.converter.NotificationService;
 import io.camunda.migration.diagram.converter.NotificationServiceFactory;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 
 @SpringBootApplication
@@ -31,5 +33,14 @@ public class ConverterApplication {
   @Bean
   public ExcelWriter excelWriter() {
     return new ExcelWriter();
+  }
+
+  @Bean
+  public FilterRegistrationBean<SecurityHeadersFilter> securityHeadersFilter() {
+    final var registration = new FilterRegistrationBean<>(new SecurityHeadersFilter());
+    registration.addUrlPatterns("/*");
+    registration.setDispatcherTypes(
+        DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
+    return registration;
   }
 }
