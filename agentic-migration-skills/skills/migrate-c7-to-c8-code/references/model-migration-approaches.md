@@ -65,8 +65,8 @@ The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migr
 ### 3. Run the Converter
 
 The CLI local subcommand accepts a single file or a directory (recursive by default). Stage each
-captured model and its selected C7 forms in an isolated directory that excludes existing Camunda 8
-forms, then pass that directory as the single input. For a single-resource run, pass one captured
+captured model and all in-scope C7 forms associated with it in an isolated directory that excludes
+existing Camunda 8 forms, then pass that directory as the single input. For a single-resource run, pass one captured
 file. Never pass a broad project directory. Always pass `--platform-version` set to the target version from the interview.
 Before validation, promote or copy the current-run converted outputs to final project-relative
 resource paths, or explicitly make the staging directory the authoritative project resource root.
@@ -361,7 +361,7 @@ Then run `form-reference-migration.md` for every referenced form (embedded, exte
 
 #### 5g. Named category: Forms
 
-Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, stage each captured model and its selected C7 forms in an isolated directory and pass that directory as one invocation. For a single-resource run, pass one captured path in one invocation. Exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
+Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, stage each captured model and all in-scope C7 forms associated with it in an isolated directory and pass that directory as one invocation. For a single-resource run, pass one captured path in one invocation. Exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|
@@ -525,7 +525,7 @@ Hosted CSV/markdown/XLSX downloads are not parsed as findings input (see 5a). A 
 the local verification command follows the shared gate's supplementary comparison rules. The
 imported-report version check in step 5 applies.
 
-During M3 acquisition, upload only the captured BPMN/DMN and selected C7 `.form` resources for
+During M3 acquisition, upload only the captured BPMN/DMN and all in-scope C7 `.form` resources for
 each model. Exclude existing Camunda 8 forms from the hosted upload. Download and capture the exact
 source-to-converted path pair for every BPMN or DMN, including models without forms, and for every
 uploaded referenced C7 form. Validate existing Camunda 8 forms separately without uploading them.

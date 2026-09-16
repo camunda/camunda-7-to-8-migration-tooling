@@ -212,13 +212,16 @@ version, skip conversion and follow **Validate an existing Camunda 8 form** belo
 target metadata there. Treat a missing, mismatched, or contradictory field as a blocked
 existing-form validation, not as a Camunda 7 form. Convert only a form with no Camunda 8 indicator.
 
-1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
-   conversion. When M1 already captured a converted C7 form output, reuse that output and its
+1. Locate the `.form` file. In M1 or M3, convert it with the existing Diagram Converter form
+   conversion. In E1, convert it only when the form resource was supplied separately. When E1 does
+   not provide the resource, record `Status=blocked`, `Verification=unavailable`, and the retained
+   original reference instead of claiming conversion. When M1 already captured a converted C7 form output, reuse that output and its
    findings. Do not invoke the converter again for the same form. The converter may update
    execution-platform metadata, rewrite supported simple JUEL
    component properties to FEEL, and emit findings. Capture the converter findings, before/after
    hashes, and all resulting schema, render, and FEEL evidence. In M1, stage the captured model
-   and selected C7 forms in an isolated input directory and pass that directory as one invocation.
+   and all in-scope C7 forms associated with that model in an isolated input directory and pass
+   that directory as one invocation.
    For a single-resource run, pass one captured path in one invocation. Exclude every existing
    Camunda 8 form. Never pass a broad project directory that lets the converter rewrite an existing
    form before its preservation check. In M2, regardless of why M2 was selected, apply a metadata-only JSON
@@ -279,8 +282,10 @@ exact `executionPlatform="Camunda Cloud"` and canonical selected-target
 `executionPlatformVersion` before accepting the existing-form path. Treat missing or mismatched
 metadata as a blocking verification failure. A `.form` suffix alone is not sufficient.
 
-1. Pair the `.form` path with its owner from `zeebe:formDefinition@formId`. Record a standalone form
-   when no owner exists. Do not pass an existing Camunda 8 form to the C7 form converter.
+1. Pair the `.form` path with its owner from `zeebe:formDefinition@formId`. When the converted owner
+   has no `formId`, pair it by the exact `externalReference` or `formKey` value retained from the
+   source. Record a standalone form only when no owner exists by either linkage. Do not pass an
+   existing Camunda 8 form to the C7 form converter.
 2. Capture the original form bytes and SHA-256 hash as provenance. Validate JSON, target-compatible
    schema, render, FEEL templates, and existing linkage with the shared gate.
 3. Use the Question 7 decision already recorded after Step 3 for an owner with a deployable form.
