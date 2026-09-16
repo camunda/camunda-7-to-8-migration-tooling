@@ -327,9 +327,13 @@ target version. See the linting section in `references/model-migration-approache
     | Either listener | Any target | `timeout` or an unknown event | Omitted |
 
     Classify each source listener as target-emittable only when the target and event match this
-    matrix. Pair only target-emittable source listeners with emitted listeners by listener host,
-    normalized event, and declaration ordinal. Do not pair raw list ordinals across omitted
-    declarations. If a source
+    matrix. Record every non-emittable source listener as an unsupported source-derived
+    `execution-listener` or `task-listener` finding before pairing. Pair raw source and emitted
+    candidates by a stable source identity when available. When no stable identity exists, filter
+    omitted source declarations before ordinal pairing only when the filtered lists have an
+    unambiguous one-to-one shape. If an omitted declaration creates a gap or an extra emitted
+    listener makes the pairing ambiguous, record the omitted source and unaccounted emitted
+    listener and require a decision-log mapping. Do not force an ordinal pairing. If a source
     listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
     finding with the source implementation and no emitted job type. For every emitted pair, verify
     target-version and event support before adding a source-derived
@@ -337,7 +341,7 @@ target version. See the linting section in `references/model-migration-approache
     execution-listener pair under the source-derived `execution-listener` category, or an
     unsupported task-listener pair under the source-derived `task-listener` category, with
     Blocking runtime impact instead of marking it supported.
-    If a paired source listener has a non-FEEL `camunda:script` child, record a source-derived
+    If a paired source listener has any `camunda:script` child, record a source-derived
     `camunda-script` finding with Blocking runtime impact and do not add a supported-listener row.
     If an emitted listener has a missing or blank `@type`, record a source-derived
     `blank-listener-job-type` finding with Blocking runtime impact and do not add a
@@ -346,7 +350,8 @@ target version. See the linting section in `references/model-migration-approache
     `execution-listener` validation finding. Record any emitted task listener without a source pair
     as a synthetic `task-listener` validation finding. Before recording either finding, inspect
     `MIGRATION_REPORT.md` for an explicit target-only listener decision with the listener host,
-    normalized event, emitted type, and rationale. Record an intentional target-only listener under
+    normalized event, emitted declaration ordinal, emitted type, and rationale. Record an intentional
+    target-only listener under
     `target-only-listener` and exclude it from the missing-source category.
     Include the listener host, normalized event, emitted type, and missing source implementation in
     each unaccounted-listener finding.
@@ -358,8 +363,9 @@ target version. See the linting section in `references/model-migration-approache
     `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
     and rationale. Treat a mismatch without that entry as a validation failure. When code migration
     is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
-    every normalized binding. For a models-only M2 run, record `n/a` for the code artifact. Assign
-    `needs review` only to paired, supported listener or task mapping rows whose worker coverage is
+    every normalized binding, including target-only listener rows, when code migration is in scope.
+    For a models-only M2 run, record `n/a` for the code artifact. Assign `needs review` only to
+    paired, supported listener, target-only listener, or task mapping rows whose worker coverage is
     unverified. Keep missing, unsupported, blank-type, or unaccounted listener rows as `needs fix`
     under their Blocking lifecycle.
 
@@ -396,8 +402,8 @@ Before applying this order, assign severity with this table:
 | Finding row | Converter severity | Effective severity |
 |---|---|---|
 | Converter-derived category | Reported severity | Reported severity |
-| Source-derived category without converter severity, including `c7-*`, `generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`, `unexpected-dmn-decision`, `blank-listener-job-type`, `m2-task-binding`, `target-only-listener`, source-derived `camunda-script`, and synthetic M2 listener rows | `n/a` | `TASK` |
-| Converter-emitted `execution-listener` or `task-listener` finding | Reported severity | Reported severity |
+| Source-derived category without converter severity, including `c7-*`, `generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`, `unexpected-dmn-decision`, `blank-listener-job-type`, `m2-task-binding`, `target-only-listener`, `execution-listener-supported`, `task-listener-supported`, source-derived `camunda-script`, and synthetic M2 listener rows | `n/a` | `TASK` |
+| Converter-emitted `execution-listener`, `execution-listener-supported`, `task-listener`, or `task-listener-supported` finding | Reported severity | Reported severity |
 
 Effective severity only orders follow-up and does not change the finding severity.
 

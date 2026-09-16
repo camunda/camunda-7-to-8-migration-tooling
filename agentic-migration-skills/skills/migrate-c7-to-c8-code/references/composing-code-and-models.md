@@ -23,12 +23,16 @@ each converted BPMN file. Normalize source and emitted listener events before pa
 listeners, map `create` to `creating`, `assignment` to `assigning`, `complete` to `completing`,
 `delete` to `canceling`, and `update` to `updating`. Keep execution events and already normalized
 events unchanged. Use the listener support matrix in `SKILL.md` to classify source listeners as
-target-emittable or omitted before pairing. Treat `timeout` and unknown task events as omitted.
-Pair only target-emittable source declarations with emitted listeners. Within each listener host
-and normalized event, pair the filtered lists by their one-based declaration ordinal. Do not pair
-raw list ordinals across omitted declarations. Use a stable source identity when the converted data
-preserves one. Use the listener host, normalized event, and ordinal as the listener key. Keep the
-source implementation as the source binding.
+target-emittable or omitted. Treat `timeout` and unknown task events as omitted and record each
+omitted source listener under the corresponding Blocking listener category before pairing. First
+collect raw source and emitted
+candidates by listener host and normalized event. Pair by a stable source identity when the
+converted data preserves one. When no stable identity exists, filter omitted source declarations
+before ordinal pairing only when the filtered lists have an unambiguous one-to-one shape. If an
+omitted declaration creates a gap or an extra emitted listener makes the pairing ambiguous, record
+the omitted source and unaccounted emitted listener and require a decision-log mapping. Do not force
+an ordinal pairing. Use the listener host, normalized event, and ordinal as the evidence key. Keep
+the source implementation as the source binding.
 
 If a source listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
 finding with the source implementation and no emitted job type. Apply the Blocking rule for that
@@ -37,7 +41,11 @@ event support before adding a source-derived `execution-listener-supported` or
 `task-listener-supported` category row. Record an unsupported execution-listener pair under the
 source-derived `execution-listener` category, or an unsupported task-listener pair under the
 source-derived `task-listener` category, with Blocking runtime impact instead of marking it
-supported. Record each supported row with its listener host, normalized event, ordinal, source
+supported. If a paired source listener has any `camunda:script` child, record a source-derived
+`camunda-script` finding with Blocking runtime impact and do not add a supported-listener row. If
+an emitted listener has a missing or blank `@type`, record a source-derived
+`blank-listener-job-type` finding with Blocking runtime impact and do not add a supported-listener
+row. Record each supported row with its listener host, normalized event, ordinal, source
 implementation, emitted type, and `n/a` converter severity. Add every row to the grouped summary
 and verdict table. In a models-only run, record `n/a` for the code artifact. Assign `needs review`
 only to paired, supported listener rows whose worker coverage is unverified. Keep missing or
@@ -45,12 +53,14 @@ unsupported listener rows as `needs fix` under their Blocking lifecycle.
 
 After pairing, inspect every emitted listener without a source pair against
 `MIGRATION_REPORT.md`. When the decision log records an intentional target-only listener with its
-listener host, normalized event, emitted type, and rationale, record a source-derived
-`target-only-listener` row and exclude it from the missing-source category. Otherwise record an
+listener host, normalized event, emitted ordinal, emitted type, and rationale, record a source-derived
+`target-only-listener` row and exclude it from the missing-source category. Require its emitted
+type to pass the worker or handler coverage cross-check before assigning no action. Otherwise record an
 execution listener under the synthetic `execution-listener` category or a task listener under the
 synthetic `task-listener` category with Blocking runtime impact. Include the listener host,
-normalized event, emitted type, and missing source implementation in each unaccounted-listener
-finding. Add every row to the grouped summary and verdict table.
+normalized event, emitted ordinal, emitted type, and missing source implementation in each
+unaccounted-listener finding. Add every row to the grouped summary and verdict table. Include
+target-only rows in the normalized binding input and the worker or handler coverage cross-check.
 
 For every emitted `zeebe:taskDefinition/@type`, pair the converted service, send, non-DMN business
 rule, or non-internal script task with its source element by model ID. Exclude DMN business-rule
@@ -82,8 +92,9 @@ listener's `@type`. For
 paired source model and use the converted model for the emitted type. If neither source model nor
 message provides the binding, record the row as unresolved and do not mark the mapping as a
 covered 1:1 mapping. For an M2 row, use the `original` and `jobType` columns created above.
-Treat the normalized binding identity as the listener host, normalized listener event, declaration
-ordinal, and source binding for listener rows. Each normalized row has the shape:
+Treat listener host, normalized event, and declaration ordinal as evidence fields. Use the source
+implementation and behaviorally relevant event as the coverage identity. Repeated listeners with
+the same implementation and event can share one worker mapping. Each normalized row has the shape:
 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
@@ -199,9 +210,10 @@ when a category has no dedicated cross-check in step 5d and no named form proced
 |---|---|---|---|
 | INFO | Blocking with concrete work defined | needs fix | no dedicated cross-check |
 | INFO | Blocking with pending decision or neither concrete work nor pending decision defined | needs review | no dedicated cross-check |
+| Any severity | Pending | needs review | no dedicated cross-check |
 | INFO | Advisory | no action | no dedicated cross-check |
 | REVIEW | Any assigned runtime impact | needs review | no dedicated cross-check |
-| WARNING or TASK | Any assigned runtime impact | needs fix | no dedicated cross-check |
+| WARNING or TASK | Blocking or Advisory | needs fix | no dedicated cross-check |
 
 Copy the finding's `link` into the verdict table's `Link` column. Surface that link as the
 remediation starting point. Do not infer a category-specific cross-check from an unknown
