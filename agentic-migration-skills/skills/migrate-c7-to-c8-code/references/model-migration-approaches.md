@@ -106,6 +106,9 @@ not package that directory. Otherwise, create another explicitly non-packaged re
 the project root. Move every fresh findings report captured from a `Created ...` line into that
 directory before validation, including ` (n)`-suffixed names. Keep every `converted-c8-*` file beside
 its source model.
+Before validation, record every original-to-converted path pair, target platform version, and
+relocated report path in `MIGRATION_REPORT.md`. Use these records for Step 5 pairing and generation
+gates. Do not offer the cross-check until every converted copy has a recorded pair.
 
 Do not overwrite an existing file in the chosen reports directory. Choose an available ` (n)`-suffixed
 name and use the moved path as the authoritative report path. If relocation fails, stop model
