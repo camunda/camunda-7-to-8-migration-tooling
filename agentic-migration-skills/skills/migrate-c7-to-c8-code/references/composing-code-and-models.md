@@ -86,9 +86,10 @@ Apply these code and model additions:
   When code is out of scope, record XML evidence and `not applicable` code coverage.
 - Record the category, edited paths, checks, command results, and before-and-after evidence in
   `MIGRATION_REPORT.md`.
-- After any worker, listener, dispatcher, or precompute artifact changes, rerun every applicable
-  Step 4 code validation. Replace stale compile, dependency, configuration, and test evidence with
-  the new results before retaining **no action** or exiting.
+- After any worker, listener, dispatcher, precompute, deployment-wiring, or workaround-deletion
+  artifact changes, rerun every applicable Step 4 code validation. Replace stale compile,
+  dependency, configuration, and test evidence with the new results before retaining **no action**
+  or exiting.
 - Keep the findings inventory and verification table from the shared gate. Add one row for every
   category, including INFO and no-edit categories.
 
@@ -180,8 +181,11 @@ remediation starting point. Do not infer a category-specific cross-check from an
 
 After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Include accepted generated forms when present, for example: `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn", "classpath*:**/converted-c8-*.form"})`. Never target original diagrams, draft forms, or declined forms.
+- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Include accepted generated forms when present, for example: `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn", "classpath*:**/converted-c8-*.form"})`. Never target original diagrams, draft forms, or declined forms. Add a form resource only when Question 7 records an authorized selected target or an accepted alternate binding/external deployment plan; for `target=none`, `pending`, or an unplanned decline, leave form deployment wiring deferred and non-deploying.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+
+After either deployment-wiring choice, rerun the applicable final Step 4 code validation because
+the choice or any `@Deployment` edit can change compile, configuration, and test evidence.
 
 ## Report Keeping
 

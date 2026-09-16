@@ -208,8 +208,13 @@ nothing is rebuilt. The two reach the converted model differently:
 
 For both:
 
-1. Locate the `.form` file and convert it with the existing Diagram Converter form conversion, which
-   updates the execution platform metadata only. Never hand-edit the schema.
+1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
+   conversion, which updates the execution platform metadata only. In M2, where no CLI is
+   available, apply a metadata-only JSON update to the converted copy: change only the target
+   execution-platform metadata, preserve the schema and all other fields, and record before/after
+   content hashes. If the metadata-only update cannot be performed deterministically, mark the
+   form category `blocked`/`unavailable` and retain the original reference instead of claiming
+   conversion. Never hand-edit form schema content.
 2. Read the form's own `id` from the converted `.form` file. Do not derive it from the file name. Do
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and

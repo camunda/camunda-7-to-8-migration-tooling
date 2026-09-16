@@ -156,7 +156,8 @@ The evaluation is complete when the agent has:
   `executionPlatform="Camunda Cloud"` and
   `executionPlatformVersion="8.9.0"`;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
-  converter annotations, legacy Camunda 7 constructs, and unused namespaces;
+  converter annotations, legacy Camunda 7 constructs, unused namespaces, and
+  definitions-level XPath `expressionLanguage`;
 * left the original Camunda 7 BPMN and HTML untouched; and
 * left no form-reference category marked "no action" on the strength of the
   copied reference alone.

@@ -130,7 +130,8 @@ The evaluation is complete when the agent has:
   target is selected, recorded the pending or authorized target branch described
   above;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
-  converter annotations, legacy Camunda 7 constructs, and unused namespaces;
+  converter annotations, legacy Camunda 7 constructs, unused namespaces, and
+  definitions-level XPath `expressionLanguage`;
 * confirmed one `zeebe:userTask` and one matching form definition on the
   accepted user task; and
 * confirmed the original Camunda 7 BPMN is unchanged and regeneration is
