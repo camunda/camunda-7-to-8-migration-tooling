@@ -123,9 +123,10 @@ The evaluation is complete when the agent has:
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
   `Before`, `Checks and evidence`, `After`, `Verdict`, and `Verification`
-  fields. Completed form-free decisions require
-  `Status=declined`, `Verdict=needs review`, `Verification=passed`, and
-  accepted-risk evidence.
+  fields. Completed form-free decisions require a procedure-specific terminal
+  status, `Verdict`, `Verification=passed`, and follow-up evidence. For the
+  keep-form-free branch, require `Status=declined`, `Verdict=needs review`,
+  and accepted-risk evidence.
   Unresolved kept references may retain non-passed verification with explicit
   verdict and follow-up evidence;
 * when the user chooses **leave the element without a form**, removed the copied
