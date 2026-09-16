@@ -88,6 +88,16 @@ deployable owner. Ask and record the branch per form. Group forms only when they
 targets, request states, authorization states, and deployment decisions. Record the fields in
 `MIGRATION_REPORT.md`:
 
+Ask: **"Which deployment state applies to `<form-owner>`?"** Use these options:
+
+- **No target** — no deployment is in scope.
+- **Target and authorized request** — provide the target, request, and authorization.
+- **Target but request not made** — provide the target and current authorization state.
+- **Target but authorization unavailable** — provide the target, request state, and authorization.
+- **Target declined** — provide the target, request, authorization, and decline decision.
+
+For every selected target, collect the concrete target value as a follow-up field.
+
 - **No deployment target** — record `target=none`, `request=not applicable`,
   `authorization=not applicable`, `deployment decision=out of scope`, and
   `deployment=not applicable`.
