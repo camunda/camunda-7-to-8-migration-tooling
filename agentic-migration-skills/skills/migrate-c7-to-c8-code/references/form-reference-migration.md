@@ -261,9 +261,9 @@ metadata as a blocking verification failure. A `.form` suffix alone is not suffi
 1. Pair the `.form` path with its owner from `zeebe:formDefinition@formId`. Record a standalone form
    when no owner exists. Do not pass an existing Camunda 8 form to the C7 form converter.
 2. Capture the original form bytes and SHA-256 hash as provenance. Validate JSON, target-compatible
-   schema, render, FEEL templates, linkage, and deployment with the shared gate.
-3. Ask Question 7 for an owner with a deployable form. Record `not applicable` linkage and deployment
-   for a standalone form.
+   schema, render, FEEL templates, and existing linkage with the shared gate.
+3. Ask Question 7 for an owner with a deployable form. Verify deployment after final cleanup.
+   Record `not applicable` linkage and deployment for a standalone form.
 4. Preserve the existing form bytes unless the user approves a remediation. Record the final form
    hash and every verification command in `MIGRATION_REPORT.md`.
 
@@ -405,7 +405,7 @@ Verdict rules for the model finding table:
 | Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
-| `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** unless the category is `c7-generic-task-form`. Keep procedure-defined generic-owner terminal rows at `Verdict=needs review`. |
+| `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, or rebuilt categories. Keep `c7-generic-task-form` and kept embedded/external references nonterminal at `Verdict=needs review`. |
 
 A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
 deployment or verification requirements above.
