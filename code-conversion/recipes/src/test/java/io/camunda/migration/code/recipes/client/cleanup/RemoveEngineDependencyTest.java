@@ -16,6 +16,32 @@ import static org.openrewrite.java.Assertions.java;
 class RemoveEngineDependencyTest implements RewriteTest {
 
     @Test
+    void preservesRepositoryServiceDependencyWhenStillUsed() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                //language=java
+                java(
+                        """
+                                package org.camunda.community.migration.example;
+
+                                import org.camunda.bpm.engine.RepositoryService;
+                                import org.springframework.beans.factory.annotation.Autowired;
+
+                                public class RepositoryQueryTestClass {
+
+                                    @Autowired
+                                    private RepositoryService repositoryService;
+
+                                    public long processDefinitionCount() {
+                                        return repositoryService.createProcessDefinitionQuery().count();
+                                    }
+                                }
+                                """
+                )
+        );
+    }
+
+    @Test
     void removeEngineDependencyTest() {
         rewriteRun(
                 spec -> spec.recipe(new CleanupEngineDependencyRecipe()),

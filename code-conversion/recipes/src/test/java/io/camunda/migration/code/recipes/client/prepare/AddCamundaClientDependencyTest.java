@@ -16,6 +16,26 @@ import static org.openrewrite.java.Assertions.java;
 class AddCamundaClientDependencyTest implements RewriteTest {
 
     @Test
+    void keepsExistingCanonicalCamundaClient() {
+        rewriteRun(
+                spec -> spec.recipe(new PrepareCamundaClientDependencyRecipe()),
+                java(
+                        """
+                                package org.camunda.community.migration.example;
+
+                                import io.camunda.client.CamundaClient;
+                                import org.camunda.bpm.engine.RepositoryService;
+
+                                class Deployer {
+                                    private CamundaClient camundaClient;
+                                    private RepositoryService repositoryService;
+                                }
+                                """
+                )
+        );
+    }
+
+    @Test
     void addCamundaClientDependencyTest() {
         rewriteRun(
                 spec -> spec.recipe(new PrepareCamundaClientDependencyRecipe()),
