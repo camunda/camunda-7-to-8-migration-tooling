@@ -51,6 +51,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     identityService.createMembership(userId, groupId);
                     identityService.setAuthenticatedUserId(userId);
                     identityService.setAuthentication(userId, java.util.List.of(groupId));
+                    identityService.unlockUser(userId);
                 }
             }
             """,
@@ -104,6 +105,10 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Authentication and password operations are handled by the identity provider; use its API instead.
                     // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                     identityService.setAuthentication(userId, java.util.List.of(groupId));
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (unlockUser()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
+                    // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
+                    identityService.unlockUser(userId);
                 }
             }
             """));

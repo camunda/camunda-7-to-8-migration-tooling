@@ -107,6 +107,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           "getPasswordPolicy",
           "setAuthenticatedUserId",
           "setAuthentication",
+          "unlockUser",
           "getCurrentAuthentication",
           "clearAuthentication");
   private static final Map<String, String> MANAGEMENT_METHOD_HINTS =
