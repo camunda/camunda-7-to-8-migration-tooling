@@ -46,10 +46,14 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    authorization, record the request, authorization, and deployment result. If
    authorization is unavailable, record the target, request,
    `authorization=unavailable`, and `deployment=pending` unless an alternate binding or
-   external-deployment plan is selected. If the user declines deployment for a
+   external-deployment plan is selected. Record an alternate `bindingType` and
+   linkage evidence, or the external plan owner, target, and steps, before
+   closing. If the user declines deployment for a
    selected target, record the request, authorization state,
    `deployment decision=declined`, and `deployment=pending` unless an alternate
-   binding or external-deployment plan is selected.
+   binding or external-deployment plan is selected. Record the alternate
+   `bindingType` and linkage evidence, or the external plan owner, target, and
+   steps, before closing.
    Otherwise keep deployment `pending` and do not deploy.
 
 The fixture does not require a Maven or Gradle build. Use the temporary project

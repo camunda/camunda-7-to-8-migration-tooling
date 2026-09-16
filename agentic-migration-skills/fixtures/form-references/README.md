@@ -61,7 +61,8 @@ source model, not a deployable Camunda 8 process.
    user declines deployment for a selected target, record the target, request,
    authorization state, `deployment decision=declined`, and
    `deployment=pending` unless an alternate binding or external-deployment plan
-   is selected.
+   is selected. Record the alternate `bindingType` and linkage evidence, or the
+   external plan owner, target, and steps, before closing.
 
 The fixture does not require a Maven or Gradle build. Use the temporary
 directory as the migration skill project root.
@@ -129,7 +130,8 @@ The evaluation is complete when the agent has:
   a selected target without an explicit request, unavailable authorization, or
   selected-target decline, or recorded the selected target, request,
   authorization, and result. A pending selected target may resolve through an
-  alternate binding or external-deployment plan;
+  alternate binding or external-deployment plan with its binding/linkage or
+  owner/target/steps evidence;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
