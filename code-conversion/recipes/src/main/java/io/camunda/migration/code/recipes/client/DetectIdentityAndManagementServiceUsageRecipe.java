@@ -303,6 +303,16 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             if (methodType == null) {
               return RetrySelection.ASYNC_OTHER;
             }
+            if ("setJobRetries".equals(methodType.getName())) {
+              return methodType.getParameterTypes().size() == 2
+                      && isStringType(methodType.getParameterTypes().get(0))
+                      && isIntType(methodType.getParameterTypes().get(1))
+                  ? RetrySelection.SINGLE_JOB_ID
+                  : RetrySelection.SYNC_BULK_OR_QUERY;
+            }
+            if (!"setJobRetriesAsync".equals(methodType.getName())) {
+              return RetrySelection.NOT_APPLICABLE;
+            }
             boolean hasJobIds = hasParameterType(methodType, "java.util.List");
             boolean hasQuery =
                 hasParameterType(methodType, "org.camunda.bpm.engine.runtime.JobQuery")
@@ -329,6 +339,16 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                     type ->
                         type instanceof JavaType.FullyQualified fullyQualified
                             && fullyQualifiedName.equals(fullyQualified.getFullyQualifiedName()));
+          }
+
+          private boolean isStringType(JavaType type) {
+            return type == JavaType.Primitive.String
+                || type instanceof JavaType.FullyQualified fullyQualified
+                    && "java.lang.String".equals(fullyQualified.getFullyQualifiedName());
+          }
+
+          private boolean isIntType(JavaType type) {
+            return type == JavaType.Primitive.Int;
           }
 
           private boolean isSupportedService(JavaType.FullyQualified type) {
