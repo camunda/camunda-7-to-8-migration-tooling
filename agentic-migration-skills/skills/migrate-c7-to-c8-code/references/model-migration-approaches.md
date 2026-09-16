@@ -582,7 +582,7 @@ the original Camunda 7 implementation attribute.
 |---|---|---|
 | `camunda:delegateExpression` or `camunda:expression` with a bean reference | Remove the `${...}` or `#{...}` wrapper. Keep the first path segment unchanged. Capitalize the first character of each later path segment. | `${sampleBean}` becomes `sampleBean`. |
 | `camunda:delegateExpression` or `camunda:expression` with a method invocation (expression method) | Unwrap the expression. Replace each `.` with an uppercase first character of the following segment. Remove the `(...)` argument list after the camel-case transformation. | `${sampleBean.someMethod(x)}` becomes `sampleBeanSomeMethod`. |
-| `camunda:class` | Take the class name after the final dot. Decapitalize its first character. | `com.example.SampleDelegate` becomes `sampleDelegate`. |
+| `camunda:class` on a job-backed task | Take the class name after the final dot. Decapitalize its first character. | `com.example.SampleDelegate` becomes `sampleDelegate`. |
 | `camunda:topic` on an external task | Copy the topic value without changing it. | `invoice-processing` remains `invoice-processing`. |
 | `camunda:connectorId` | Copy the connector ID unchanged as the job type. Verify that a matching connector registration or explicit connector handler exists. | `http-json` remains `http-json`. |
 | Non-internal `bpmn:scriptTask` | Use the configured M2 script job type unchanged. Preserve `bpmn:scriptFormat` as binding evidence. | A `groovy` script uses the configured script job type and retains `groovy` as its format. |
