@@ -400,7 +400,7 @@ Verdict rules for the model finding table:
 |---|---|---|
 | Decision pending | The pending question and scope are recorded. | Keep `Verdict=needs review`. Do not edit or relink. |
 | Rebuild | The form is accepted, linked, validated, and has an explicit deployment decision. | Keep `needs fix` until linkage, deployment, the shared Step 5 row, and final cleanup pass. |
-| Keep reference | The owner confirms the integration. | Keep the category open until the custom-application follow-up is recorded. |
+| Keep reference | The owner confirms the integration. A dynamic reference also has its enumerated values and preserved exact reference evidence recorded. | Keep the category open until the custom-application follow-up is recorded. |
 | Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it with authorization for a selected target. | Keep the category open until the form checks and deployment check pass. |
 | No target | Record `target=none`, `request=not applicable`, `authorization=not applicable`, the out-of-scope decision, and `deployment=not applicable`. | This satisfies the deployment check. |
 | Selected target with request | Record the target, request, authorization, `deployment=pending` before final cleanup, and deployment result afterward. | Verify deployment before a form category can reach `no action`. |
@@ -410,7 +410,7 @@ Verdict rules for the model finding table:
 | Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
-| `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, or rebuilt categories. Keep `c7-generic-task-form` and kept embedded/external references nonterminal at `Verdict=needs review`. |
+| `no action` transition | Every migratable row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, or rebuilt categories. Keep kept embedded, external, or dynamic references nonterminal at `Verdict=needs review`. Keep `c7-generic-task-form` at `Verdict=needs review` with its procedure-defined terminal status; do not call that generic status nonterminal or `no action`. |
 
 A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
 deployment or verification requirements above.

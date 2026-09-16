@@ -374,8 +374,9 @@ Use the procedure-specific terminal state as the finding-specific postcondition:
   `not applicable` for deployment without a target, and for linkage without an owner or converted
   BPMN. If a target exists and the user declines deployment, keep the deployment pending unless
   the user selects a supported alternate binding or records an explicit external-deployment plan.
-- A kept external or embedded reference must have owner confirmation, preserved reference evidence,
-  and recorded follow-up. Keep it nonterminal when migration work remains.
+- A kept external, embedded, or dynamic reference must have owner confirmation, preserved exact
+  reference evidence, and recorded follow-up. For a dynamic reference, record the enumerated values
+  as well. Keep the row nonterminal when migration work remains.
 - A declined or blocked form must have the user's decision or blocking prerequisite recorded and
   must not be linked or deployed.
 - A form-free owner must have its recorded decision and converted-owner evidence.

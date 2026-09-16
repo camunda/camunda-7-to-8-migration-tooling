@@ -490,13 +490,17 @@ instead. Retain **no action** only after that code path passes.
 | Converter evidence | Capture the command, exit code, parse failures, and CLI's `Created ...` CSV path for each command run. Before the next per-copy run, move every fresh CSV to the chosen explicitly non-packaged reports directory under a unique filename derived from the normalized input path and run identifier. Verify that the destination does not already exist. Never overwrite a prior CSV. Record the final evidence path after relocation, `removed` after cleanup deletes the CSV, or `not created` when the command produces no CSV. |
 | Findings source | Do not use CSV rows as findings input or as the sole pass/fail criterion. Use JSON for findings input in M1, M3, and E1. For M2, use the structured direct-rewrite findings summary and do not consume an unrelated JSON report. |
 
-Keep the per-category findings inventory from `references/model-migration-approaches.md` step 5d
-with its `Category`, `Count`, `Cross-referenced code artifact`, `Link`, `Verdict`, and
-`Verification` columns. Use `pending`, `passed`, `failed`, or `unavailable` in the `Verification`
-column. Record permitted `not applicable` checks in the evidence.
-Add a separate verification table with one row per category and these columns: `Category`,
-`Participating files`, `Before`, `Postcondition`, `Checks and evidence`, `After`, `Verdict`, and
-`Verification`. Do not replace the findings inventory with the verification table.
+For model runs, keep the per-category findings inventory from
+`references/model-migration-approaches.md` step 5d with its `Category`, `Count`,
+`Cross-referenced code artifact`, `Link`, `Verdict`, and `Verification` columns. Use `pending`,
+`passed`, `failed`, or `unavailable` in the `Verification` column. Record permitted
+`not applicable` checks in the evidence. Code-only runs instead keep the code findings and
+verification rows required by `references/code-migration-approaches.md`; they do not need a model
+findings inventory.
+For model runs, add a separate verification table with one row per category and these columns:
+`Category`, `Participating files`, `Before`, `Postcondition`, `Checks and evidence`, `After`,
+`Verdict`, and `Verification`. Do not replace the applicable findings inventory with the
+verification table.
 
 The CLI can filter parse failures before its visitor pipeline and writes a header-only CSV when no
 findings exist. That output is valid evidence. Missing or malformed CSV output is a failure.
