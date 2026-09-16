@@ -191,7 +191,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                 if (isTimerQueryInvocation(invocation)) {
                   current.add(
                       new ServiceCall(
-                          MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true));
+                          MANAGEMENT_SERVICE_FQN, "createJobQuery", true));
                 }
                 ServiceCall serviceCall = serviceCall(invocation);
                 if (serviceCall != null
@@ -249,17 +249,23 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
           private ServiceCall serviceCall(J.MethodInvocation invocation) {
             if (SET_JOB_RETRIES_MATCHER.matches(invocation)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), true);
+              return new ServiceCall(
+                  MANAGEMENT_SERVICE_FQN,
+                  invocation.getSimpleName(),
+                  RetrySelection.SINGLE_JOB_ID);
             }
             if (JOB_QUERY_TIMERS_MATCHER.matches(invocation)
                 && !isTimerQueryInvocation(invocation)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true);
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", true);
             }
             if (new MethodMatcher(IDENTITY_SERVICE_FQN + " *(..)").matches(invocation)) {
-              return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName(), false);
+              return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName());
             }
             if (new MethodMatcher(MANAGEMENT_SERVICE_FQN + " *(..)").matches(invocation)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), false);
+              return new ServiceCall(
+                  MANAGEMENT_SERVICE_FQN,
+                  invocation.getSimpleName(),
+                  retrySelection(invocation));
             }
             return null;
           }
@@ -270,20 +276,59 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return null;
             }
             if (JOB_QUERY_TIMERS_MATCHER.matches(reference)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true);
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", true);
             }
             String serviceFqn = methodType.getDeclaringType().getFullyQualifiedName();
             if (!IDENTITY_SERVICE_FQN.equals(serviceFqn)
                 && !MANAGEMENT_SERVICE_FQN.equals(serviceFqn)) {
               return null;
             }
-            boolean singleJobRetry =
-                MANAGEMENT_SERVICE_FQN.equals(serviceFqn)
-                    && "setJobRetries".equals(methodType.getName())
-                    && methodType.getParameterTypes().size() == 2
-                    && methodType.getParameterTypes().get(0) == JavaType.Primitive.String
-                    && methodType.getParameterTypes().get(1) == JavaType.Primitive.Int;
-            return new ServiceCall(serviceFqn, methodType.getName(), singleJobRetry);
+            return new ServiceCall(
+                serviceFqn, methodType.getName(), retrySelection(methodType));
+          }
+
+          private RetrySelection retrySelection(J.MethodInvocation invocation) {
+            if ("setJobRetries".equals(invocation.getSimpleName())) {
+              return SET_JOB_RETRIES_MATCHER.matches(invocation)
+                  ? RetrySelection.SINGLE_JOB_ID
+                  : RetrySelection.SYNC_BULK_OR_QUERY;
+            }
+            if (!"setJobRetriesAsync".equals(invocation.getSimpleName())) {
+              return RetrySelection.NOT_APPLICABLE;
+            }
+            return retrySelection(invocation.getMethodType());
+          }
+
+          private RetrySelection retrySelection(JavaType.Method methodType) {
+            if (methodType == null) {
+              return RetrySelection.ASYNC_OTHER;
+            }
+            boolean hasJobIds = hasParameterType(methodType, "java.util.List");
+            boolean hasQuery =
+                hasParameterType(methodType, "org.camunda.bpm.engine.runtime.JobQuery")
+                    || hasParameterType(
+                        methodType, "org.camunda.bpm.engine.runtime.ProcessInstanceQuery")
+                    || hasParameterType(
+                        methodType,
+                        "org.camunda.bpm.engine.history.HistoricProcessInstanceQuery");
+            if (hasJobIds && hasQuery) {
+              return RetrySelection.ASYNC_IDS_AND_QUERY;
+            }
+            if (hasJobIds) {
+              return RetrySelection.ASYNC_IDS_ONLY;
+            }
+            if (hasQuery) {
+              return RetrySelection.ASYNC_QUERY_ONLY;
+            }
+            return RetrySelection.ASYNC_OTHER;
+          }
+
+          private boolean hasParameterType(JavaType.Method methodType, String fullyQualifiedName) {
+            return methodType.getParameterTypes().stream()
+                .anyMatch(
+                    type ->
+                        type instanceof JavaType.FullyQualified fullyQualified
+                            && fullyQualifiedName.equals(fullyQualified.getFullyQualifiedName()));
           }
 
           private boolean isSupportedService(JavaType.FullyQualified type) {
@@ -394,19 +439,23 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             if (serviceCall.timerQuery()) {
               return "Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).";
             }
-            if ("setJobRetriesAsync".equals(serviceCall.methodName())) {
-              return "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.";
-            }
-            if (isJobRetryMethod(serviceCall.methodName())) {
-              if ("setJobRetries".equals(serviceCall.methodName())
-                  && serviceCall.singleJobRetry()) {
-                return "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
-              }
-              return "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
-            }
-            return MANAGEMENT_METHOD_HINTS.getOrDefault(
-                serviceCall.methodName(),
-                "Use CamundaClient or the Orchestration Cluster REST API.");
+            return switch (serviceCall.retrySelection()) {
+              case SINGLE_JOB_ID ->
+                  "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
+              case SYNC_BULK_OR_QUERY ->
+                  "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
+              case ASYNC_IDS_ONLY ->
+                  "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after mapping the Camunda 7 IDs to Camunda 8 job keys.";
+              case ASYNC_QUERY_ONLY ->
+                  "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after translating the Camunda 7 query to a Camunda 8 JobFilter.";
+              case ASYNC_IDS_AND_QUERY ->
+                  "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.";
+              case ASYNC_OTHER ->
+                  "Preserve the Camunda 7 selection semantics and use the Camunda 8 batch job update API.";
+              case NOT_APPLICABLE -> MANAGEMENT_METHOD_HINTS.getOrDefault(
+                  serviceCall.methodName(),
+                  "Use CamundaClient or the Orchestration Cluster REST API.");
+            };
           }
 
           private String methodMarker(ServiceCall serviceCall) {
@@ -430,10 +479,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                 && IDENTITY_AUTHENTICATION_METHODS.contains(serviceCall.methodName());
           }
 
-          private boolean isJobRetryMethod(String methodName) {
-            return "setJobRetries".equals(methodName) || "setJobRetriesAsync".equals(methodName);
-          }
-
           private String methodDocsUrl(ServiceCall serviceCall) {
             if (!IDENTITY_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
               return ORCHESTRATION_API_URL;
@@ -448,11 +493,31 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           private record ServiceCall(
               String serviceFqn,
               String methodName,
-              boolean singleJobRetry,
+              RetrySelection retrySelection,
               boolean timerQuery) {
-            private ServiceCall(String serviceFqn, String methodName, boolean singleJobRetry) {
-              this(serviceFqn, methodName, singleJobRetry, false);
+            private ServiceCall(String serviceFqn, String methodName) {
+              this(serviceFqn, methodName, RetrySelection.NOT_APPLICABLE, false);
             }
+
+            private ServiceCall(
+                String serviceFqn, String methodName, RetrySelection retrySelection) {
+              this(serviceFqn, methodName, retrySelection, false);
+            }
+
+            private ServiceCall(
+                String serviceFqn, String methodName, boolean timerQuery) {
+              this(serviceFqn, methodName, RetrySelection.NOT_APPLICABLE, timerQuery);
+            }
+          }
+
+          private enum RetrySelection {
+            NOT_APPLICABLE,
+            SINGLE_JOB_ID,
+            SYNC_BULK_OR_QUERY,
+            ASYNC_IDS_ONLY,
+            ASYNC_QUERY_ONLY,
+            ASYNC_IDS_AND_QUERY,
+            ASYNC_OTHER
           }
         });
   }
