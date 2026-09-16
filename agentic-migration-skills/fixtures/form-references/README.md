@@ -111,6 +111,9 @@ The evaluation is complete when the agent has:
   resource and recorded its verification-table row as `passed` before closing
   any category as **no action**; unresolved kept references remain recorded as
   follow-up work;
+* recorded the converted definitions' exact Modeler metadata:
+  `executionPlatform="Camunda Cloud"` and the selected target patch-zero
+  `executionPlatformVersion`;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * left the original Camunda 7 BPMN and HTML untouched; and

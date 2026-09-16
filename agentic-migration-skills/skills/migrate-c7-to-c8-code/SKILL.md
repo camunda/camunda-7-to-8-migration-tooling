@@ -452,12 +452,13 @@ Use AskUserQuestion with these options:
 For model findings, work from the Step 4 verdict table. Never present model findings as one
 undifferentiated list.
 
-| Verdict | Verification | Action |
-|---|---|---|
-| **needs fix** | Any | Resolve one category at a time, using that category's cross-check guidance. |
-| **needs review** | `pending` for provisional INFO or verification-only work | Run the verification gate. Do not ask for a user decision. |
-| **needs review** | Any other state | Collect the pending user decision through AskUserQuestion before any fix. |
-| **no action** | `passed` | Do not offer the category. |
+| Verdict | Verification | Outstanding action | Action |
+|---|---|---|---|
+| **needs fix** | `failed` or `unavailable` | Retry or redesign is required | Use AskUserQuestion for a new decision. Do not retry automatically. |
+| **needs fix** | Any other state | Concrete remediation remains | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs review** | `pending` and verification is the only outstanding action | No user or design decision remains | Run the verification gate. Do not ask for a user decision. |
+| **needs review** | Any other state | A user or design decision remains | Collect the pending user decision through AskUserQuestion before any fix. |
+| **no action** | `passed` | None | Do not offer the category. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
 - Propose an ambiguous fix through AskUserQuestion. Skip whatever the user declines.
