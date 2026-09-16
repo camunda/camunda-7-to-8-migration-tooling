@@ -227,7 +227,9 @@ verdict to **no action** only after the verification state becomes `passed`.
 Set the cross-referenced code artifact to **no dedicated cross-check** for a fallback category.
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
 Apply the same fallback when a report contains a category that is absent from the inventory below.
-Never infer a category-specific cross-check from the category name or message text.
+Never infer a category-specific cross-check solely from the category name or message text. Use
+message text as a lead only when source or converted-model evidence supports the deterministic
+postcondition.
 Define a concrete, source- or message-specific postcondition for every fallback category,
 including INFO. Do not use severity alone to infer that no remediation is required. If a fallback
 category has no concrete postcondition, keep its verdict at **needs review** or **needs fix**. Do

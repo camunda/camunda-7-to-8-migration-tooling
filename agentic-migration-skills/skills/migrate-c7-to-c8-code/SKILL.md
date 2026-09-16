@@ -229,8 +229,8 @@ For every approach, once each original BPMN is paired with its converted copy, r
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
 During Step 3, run these procedures for every participating form category. Inventory is mandatory.
-(MAY) Draft, collect decisions, and accept resources when the category and user decision require
-those actions.
+Draft, collect decisions, and accept resources when the category and user decision require those
+actions (MAY).
 Defer edits that add or change converted-copy form linkage and all deployment until after Step 5e.
 Record the planned linkage and deployment decision during Step 3.
 For each accepted form with a deployable owner, record the deployment target and authorization state.
@@ -426,7 +426,7 @@ form remediation or linkage change. Retain **no action** only after this sequenc
 | Converter regression command | Where the local CLI, Java executable, and converter JAR support a participating BPMN or DMN converted copy, normalize the recorded path to an absolute path. Run the command once per unique converted copy for each unchanged file state. |
 | Converter invocation | Run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv`. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. |
 | Converter result reuse | Reuse the captured command result only while the file and target metadata are unchanged. Rerun the command after any remediation edit and during final validation. |
-| Converter regression parsing | Parse each captured CSV with the converter's semicolon delimiter. Map each CSV `filename` to its recorded original-to-converted pair before comparing rows. Record `none` when no relevant rows exist. |
+| Converter regression parsing | Parse each captured CSV with the converter's semicolon delimiter. Resolve each relative CSV `filename` against the verification command's input root, not the process working directory. Map the resulting identity to its recorded original-to-converted pair before comparing rows. Record `none` when no relevant rows exist. |
 | Converter row identity | Treat `messageId` as the category. Compare `severity`, `elementId`, and the mapped `filename` identity. Record raw messages and the path mapping as supplementary evidence. Do not use raw message text for the pass/fail comparison. |
 | Converter CSV cell normalization | For `filename` and `elementId`, compare the expected value with either its exact CSV encoding or the converter-sanitized encoding. The sanitized encoding prepends one apostrophe when the first non-whitespace character is `=`, `+`, `-`, or `@`. Accept exactly one matching encoding. Treat two matching encodings as `unavailable` and use non-CSV evidence. |
 | Converter regression comparison | Filter the parsed result for each category. Capture relevant rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record the mapping and comparison as supplementary evidence. Allow an unchanged row when its stable fields match the baseline and the finding-specific postcondition does not require it to disappear. Do not use CSV rows as findings input or as the sole pass/fail criterion. |

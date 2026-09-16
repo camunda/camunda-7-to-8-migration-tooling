@@ -46,9 +46,10 @@ source model, not a deployable Camunda 8 process.
    decline the rebuild for one category and explicitly request it for another.
 5. Review any generated draft and explicitly accept it before the skill links
    it. Do not accept a form merely because its JSON parses.
-6. Keep this Models-only fixture out of live deployment. Record
+6. Use no deployment target by default for this Models-only fixture. In the
+   default path, keep it out of live deployment. Record
    `deployment decision=out of scope` and `deployment=not applicable` in
-   `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator selects
+   `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator intentionally selects
    a deployment target without an explicit request, record `deployment=pending`
    and do not deploy. If the evaluator selects a target and explicitly requests
    deployment, record the target, request, and deployment result. If the user
@@ -114,7 +115,7 @@ The evaluation is complete when the agent has:
   it for acceptance, linked it with a matching `formId` and a recorded binding
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
-  external reference, and recorded the fixture's explicit out-of-scope
+  embedded or external reference, and recorded the fixture's explicit out-of-scope
   deployment decision (`deployment=not applicable`), or recorded
   `deployment=pending` for a selected target without authorization or a
   selected-target decline, or recorded the selected target, request, and result;
@@ -122,7 +123,9 @@ The evaluation is complete when the agent has:
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
   `Before`, `Checks and evidence`, `After`, `Verdict`, and `Verification`
-  fields. Completed form-free decisions require `Verification=passed`.
+  fields. Completed form-free decisions require
+  `Status=declined`, `Verdict=needs review`, `Verification=passed`, and
+  accepted-risk evidence.
   Unresolved kept references may retain non-passed verification with explicit
   verdict and follow-up evidence;
 * when the user chooses **leave the element without a form**, removed the copied
