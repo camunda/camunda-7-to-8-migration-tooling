@@ -43,8 +43,9 @@ For local M1 and E1 CLI runs, never consume a report or converted file that exis
 migration run. Capture each CLI output path from this run's `Created ...` lines and use only those
 paths as authoritative. For M2, capture each rewrite output path and record its exact
 original-to-converted pair before validation. A later same-session M1 `--check` report (MAY) provide
-findings only when it uses the same original input paths, target version, and recorded
-source-to-converted pairs for every finding. Run the check against those original paths, exclude
+findings only when it uses the same original input paths, target version, recorded
+source-to-converted pairs, and matching SHA-256 source digests for every finding. Run the check
+against those original paths, exclude
 every captured converted copy, and reject report rows that name a converted copy. If any finding
 lacks a recorded pair, keep the cross-check report-only. M3 is the exception:
 hosted-converter outputs are allowed only after the imported-report version and pairing checks in
@@ -108,8 +109,9 @@ the project root. Move every fresh findings report captured from a `Created ...`
 directory before validation, including ` (n)`-suffixed names. Keep every `converted-c8-*` file beside
 its source model.
 Before validation, record every original-to-converted path pair, target platform version, and
-relocated report path in `MIGRATION_REPORT.md`. Use these records for Step 5 pairing and generation
-gates. Do not offer the cross-check until every converted copy has a recorded pair.
+relocated report path in `MIGRATION_REPORT.md`. Record a SHA-256 digest of each original source
+file with its pair. Use these records for Step 5 pairing and generation gates. Do not offer the
+cross-check until every converted copy has a recorded pair.
 
 Do not overwrite an existing file in the chosen reports directory. Choose an available ` (n)`-suffixed
 name and use the moved path as the authoritative report path. If relocation fails, stop model

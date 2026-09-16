@@ -168,7 +168,8 @@ Use `.camunda-migration/generated-worker-drafts/` under the confirmed project ro
 quarantine directory. Canonicalize the default directory before using it. Apply the same
 confirmed-root, source-set, packaged-resource, and worker-scan checks used for overrides. Reject it
 when it escapes the confirmed project root or enters an excluded tree, including through a symlink.
-Canonicalize every explicit override against the confirmed project root before recording or writing.
+For an explicit override, resolve its nearest existing parent, verify containment, create missing
+components, then canonicalize the resulting directory before recording or writing.
 Allow an explicit user override only when it remains under that root and outside every source set,
 build input, packaged resource directory, and source tree scanned for `@JobWorker`. If `MIGRATION_REPORT.md` records one or more active paths, collect all active recorded paths before
 applying an override. Mark a deleted or retired path inactive in `MIGRATION_REPORT.md` and allow a
@@ -270,9 +271,8 @@ After generation, present the complete source or diff to the user for explicit r
 in quarantine while the user reviews it. Do not treat review approval as approval to enable the
 draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
-accept the completed source. On acceptance,
-move the source into the intended worker source tree and run the applicable formatter, compile, and
-test checks before deployment. On acceptance, move the source into the intended worker source tree,
+accept the completed source. On acceptance, move the source into the intended worker source tree and
+run the applicable formatter, compile, and test checks before deployment. Then
 mark the quarantine draft path inactive in `MIGRATION_REPORT.md`, and include the accepted source in
 active worker scans. If the user rejects or deletes the scaffold, remove it and mark its path
 inactive. Do not leave a rejected file beside the migrated sources or let a later scan treat it as
