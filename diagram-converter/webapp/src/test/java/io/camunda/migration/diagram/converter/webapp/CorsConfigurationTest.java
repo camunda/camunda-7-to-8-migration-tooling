@@ -39,6 +39,15 @@ class CorsConfigurationTest {
   }
 
   @Test
+  void exposesContentDispositionToConfiguredOrigin() {
+    final var response = RestAssured.given().header("Origin", ALLOWED_ORIGIN).get("/version");
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.getHeader("Access-Control-Expose-Headers"))
+        .isEqualTo("Content-Disposition");
+  }
+
+  @Test
   void rejectsOriginNotInConfiguration() {
     final var response = RestAssured.given().header("Origin", DISALLOWED_ORIGIN).get("/version");
 

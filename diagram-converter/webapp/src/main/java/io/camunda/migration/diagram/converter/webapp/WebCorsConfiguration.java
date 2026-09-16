@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter.webapp;
 
 import io.camunda.migration.diagram.converter.webapp.properties.CorsProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -27,6 +28,7 @@ public class WebCorsConfiguration implements WebMvcConfigurer {
         .allowedOrigins(corsProperties.getAllowedOrigins().toArray(String[]::new))
         .allowedMethods("GET", "POST", "OPTIONS")
         .allowedHeaders("*")
+        .exposedHeaders(HttpHeaders.CONTENT_DISPOSITION)
         .allowCredentials(false);
   }
 }
