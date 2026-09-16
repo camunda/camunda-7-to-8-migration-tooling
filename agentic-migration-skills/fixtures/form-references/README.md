@@ -52,9 +52,11 @@ source model, not a deployable Camunda 8 process.
    `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator intentionally selects
    a deployment target without an explicit request, record `deployment=pending`
    and do not deploy. If the evaluator selects a target and explicitly requests
-   deployment, record the target, request, and deployment result. If the user
-   declines deployment for a selected target, record `deployment=pending` unless
-   an alternate binding or external-deployment plan is selected.
+   deployment with authorization, record the target, request, authorization,
+   and deployment result. If authorization is unavailable, record
+   `deployment=pending`. If the user declines deployment for a selected target,
+   record `deployment=pending` unless an alternate binding or
+   external-deployment plan is selected.
 
 The fixture does not require a Maven or Gradle build. Use the temporary
 directory as the migration skill project root.

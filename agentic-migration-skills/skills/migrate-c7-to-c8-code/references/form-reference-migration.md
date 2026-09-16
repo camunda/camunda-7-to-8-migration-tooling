@@ -384,6 +384,8 @@ Verdict rules for the model finding table:
 | Selected target without request | Record `deployment=pending`. Obtain the explicit request, then record the authorized target and deployment result. | Keep the category open until the result is recorded. |
 | Selected target with unavailable authorization or decline | Record `deployment=pending`. Use an alternate binding or an explicit external-deployment plan to resolve it. | Keep the category open until the plan exists. Then apply the normal `no action` checks. |
 | Keep-form-free generic owner | Record `Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence. | Treat this as a resolved accepted-risk terminal state. Never present `c7-generic-task-form` as `no action`. |
+| Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
+| Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
 | `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action**. |
 

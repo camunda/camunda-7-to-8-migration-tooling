@@ -561,9 +561,10 @@ the declined candidates in `MIGRATION_REPORT.md`.
 The migration run may exit only when every pass condition in Step 4 holds, every category marked
 **no action** has a passing verification row in the Step 5 verification table, and
 `MIGRATION_REPORT.md` holds the complete inventories, decisions, open items, and validation results.
-The skill treats a completed `c7-generic-task-form` keep-form-free row with
-`Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence as
-resolved accepted risk. Exclude this accepted-risk terminal row from the unresolved finding count.
+The skill treats a completed `c7-generic-task-form` row with its procedure-defined status
+(`declined` for keep-form-free, `accepted` for rebuild, or `kept` for custom application),
+`Verdict=needs review`, `Verification=passed`, and the required evidence as a resolved terminal
+state. Exclude these procedure-defined terminal rows from the unresolved finding count.
 The skill reports a complete migration only when no other unresolved
 migration TODO, finding, compilation issue, or deletion candidate remains and no item has `deferred`
 or `blocked` status.
