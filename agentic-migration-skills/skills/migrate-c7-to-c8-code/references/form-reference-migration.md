@@ -380,7 +380,7 @@ Verdict rules for the model finding table:
 | Keep reference | The owner confirms the integration. | Keep the category open until the custom-application follow-up is recorded. |
 | Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it for a selected target. | Keep the category open until the form checks and deployment check pass. |
 | No target | Record the out-of-scope decision and `deployment=not applicable`. | This satisfies the deployment check. |
-| Selected target with request | Record the request, target, and deployment result. | Verify deployment before a form category can reach `no action`. |
+| Selected target with request | Record the request, target, authorization, and deployment result. | Verify deployment before a form category can reach `no action`. |
 | Selected target without request | Record `deployment=pending`. Obtain the explicit request, then record the authorized target and deployment result. | Keep the category open until the result is recorded. |
 | Selected target with unavailable authorization or decline | Record `deployment=pending`. Use an alternate binding or an explicit external-deployment plan to resolve it. | Keep the category open until the plan exists. Then apply the normal `no action` checks. |
 | Keep-form-free generic owner | Record `Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence. | Treat this as a resolved accepted-risk terminal state. Never present `c7-generic-task-form` as `no action`. |

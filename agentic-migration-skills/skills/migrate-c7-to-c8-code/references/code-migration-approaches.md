@@ -112,7 +112,8 @@ Use this when:
 
 ## Code-only verification
 
-When model migration is out of scope, run the shared Step 5 gate against code artifacts.
+When model migration is out of scope and code migration uses Approach A or B, run the shared Step 5
+gate against code artifacts. Keep Approach C assessment-only and report-only.
 Record one verification-table row per code category with `Participating files`, `Before`,
 `Postcondition`, `Checks and evidence`, `After`, `Verdict`, and `Verification`.
 Capture immutable UTF-8 content hashes before each remediation batch.
@@ -121,8 +122,8 @@ Run the applicable compile, import/dependency, configuration, test, worker, list
 and precompute coverage checks against the recorded code artifacts.
 Define a deterministic category postcondition and record its before-and-after evidence.
 Invalidate and rerun every affected row after a code edit.
-Retain **no action** only after the code checks, postcondition, final cleanup, and verification row
-pass. A code-only run must not wait for a model source-to-converted pair.
+Retain **no action** only after the code checks, postcondition, final Step 4 code validation, and
+verification row pass. A code-only run must not wait for a model source-to-converted pair.
 
 ---
 
