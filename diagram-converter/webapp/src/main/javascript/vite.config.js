@@ -15,6 +15,14 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      "/check": "http://localhost:8080",
+      "/convert": "http://localhost:8080",
+      "/convertBatch": "http://localhost:8080",
+      "/version": "http://localhost:8080",
+    },
+  },
   build: {
     cssMinify: "esbuild",
   },
