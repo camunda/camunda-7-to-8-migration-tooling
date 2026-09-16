@@ -178,6 +178,11 @@ Group findings by `messageId` (the category). For each category compute:
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
+Keep this summary grouped by `messageId`. For the three job-type categories, build one shared
+normalized job-type inventory across all categories before assigning verdicts. Do not assign
+independent 1:1 verdicts to category rows that share a job type. Use the shared job-type verdict and
+propagate it to each affected category as described in `composing-code-and-models.md`.
+
 #### 5c. Present the grouped summary
 
 Present the grouped table before any per-finding follow-up starts, and record it in MIGRATION_REPORT.md:
