@@ -142,7 +142,7 @@ Group by category first. The category, not the individual row, is the unit of wo
 
 Skip this check for this skill's own CLI run: it already passed the chosen `--platform-version`, and leftover local reports are never consumed (see Pre-flight: Leftover Artifacts).
 
-This check fires only for a report deliberately imported without a fresh run — generated earlier, by someone else, or downloaded from the hosted converter (M3). Only a JSON report is consumable (see 5a — there is no CSV parsing path). If the import is CSV, markdown, or XLSX only, re-run the CLI locally with `--check --json --xlsx` on the input models. For an imported JSON report, confirm it was generated for the chosen target version before consuming it. Findings are version-dependent. Conditional events are flagged unsupported in a report targeting 8.6, but are native since 8.9. A stale report can send the user chasing findings that do not apply to their target.
+This check fires only for a report deliberately imported without a fresh run — generated earlier, by someone else, or downloaded from the hosted converter (M3). Only a JSON report is consumable as imported findings input (see 5a). The shared Step 5 gate parses verification CSVs as supplementary evidence. If the import is CSV, markdown, or XLSX only, re-run the CLI locally with `--check --json --xlsx` on the input models. For an imported JSON report, confirm it was generated for the chosen target version before consuming it. Findings are version-dependent. Conditional events are flagged unsupported in a report targeting 8.6, but are native since 8.9. A stale report can send the user chasing findings that do not apply to their target.
 
 Determine the report's target version:
 

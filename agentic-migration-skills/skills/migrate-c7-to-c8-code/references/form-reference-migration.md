@@ -238,8 +238,9 @@ For both:
    Record the request, target, and deployment result separately. Do not deploy when a target exists
    without an explicit request. Record deployment as `pending` and keep the category open until the
    user decides. Record an explicit out-of-scope `not applicable` decision when no target exists.
-   If the user declines deployment for a selected target, keep deployment `pending` unless the user
-   selects a supported alternate binding or records an explicit external-deployment plan.
+   If authorization is unavailable or the user declines deployment for a selected target, keep
+   deployment `pending` unless the user selects a supported alternate binding or records an explicit
+   external-deployment plan.
 
 If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
 
