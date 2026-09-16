@@ -216,6 +216,8 @@ See `references/model-migration-approaches.md` for all four.
 - **M1. Diagram Converter CLI + AI** (recommended) — download and run the CLI, then handle the
   findings.
 - **M2. Agentic AI** — rewrite the XML directly, without the CLI.
+  Before rewriting, collect the M2 `scriptJobType` input. Use `scriptTask` when the user accepts
+  the default, and record the selected value in `MIGRATION_REPORT.md`.
 - **M3. Online Converter** — the user uploads the diagrams at the hosted service.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
   model exists.
@@ -281,8 +283,8 @@ target version. See the linting section in `references/model-migration-approache
    directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict
    table with its category, converter and effective severity, runtime impact, count,
-   cross-referenced code artifact, and verdict. Every INFO finding with Blocking runtime impact is
-   fixed or classified in the same table. Classify every source-derived finding with `n/a`
+   cross-referenced code artifact, and verdict. Classify every INFO finding with Blocking or Pending
+   runtime impact in the same table. Classify every source-derived finding with `n/a`
    converter severity in the same table. See `references/model-migration-approaches.md` step 5d.
    A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
@@ -333,7 +335,8 @@ target version. See the linting section in `references/model-migration-approache
     omitted source declarations before ordinal pairing only when the filtered lists have an
     unambiguous one-to-one shape. If an omitted declaration creates a gap or an extra emitted
     listener makes the pairing ambiguous, record the omitted source and unaccounted emitted
-    listener and require a decision-log mapping. Do not force an ordinal pairing. If a source
+    listener and require a decision-log mapping. Do not force an ordinal pairing. If a
+    target-emittable source
     listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
     finding with the source implementation and no emitted job type. For every emitted pair, verify
     target-version and event support before adding a source-derived
@@ -402,7 +405,7 @@ Before applying this order, assign severity with this table:
 | Finding row | Converter severity | Effective severity |
 |---|---|---|
 | Converter-derived category | Reported severity | Reported severity |
-| Source-derived category without converter severity, including `c7-*`, `generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`, `unexpected-dmn-decision`, `blank-listener-job-type`, `m2-task-binding`, `target-only-listener`, `execution-listener-supported`, `task-listener-supported`, source-derived `camunda-script`, and synthetic M2 listener rows | `n/a` | `TASK` |
+| Source-derived category without converter severity, including `c7-*`, `generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`, `unexpected-dmn-decision`, `blank-listener-job-type`, `m2-task-binding`, `target-only-listener`, M2 source-derived `execution-listener-supported` and `task-listener-supported`, source-derived `camunda-script`, and synthetic M2 listener rows | `n/a` | `TASK` |
 | Converter-emitted `execution-listener`, `execution-listener-supported`, `task-listener`, or `task-listener-supported` finding | Reported severity | Reported severity |
 
 Effective severity only orders follow-up and does not change the finding severity.

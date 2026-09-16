@@ -34,7 +34,7 @@ the omitted source and unaccounted emitted listener and require a decision-log m
 an ordinal pairing. Use the listener host, normalized event, and ordinal as the evidence key. Keep
 the source implementation as the source binding.
 
-If a source listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
+If a target-emittable source listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
 finding with the source implementation and no emitted job type. Apply the Blocking rule for that
 category in `model-migration-approaches.md`. For every emitted pair, verify target-version and
 event support before adding a source-derived `execution-listener-supported` or
@@ -55,7 +55,7 @@ After pairing, inspect every emitted listener without a source pair against
 `MIGRATION_REPORT.md`. When the decision log records an intentional target-only listener with its
 listener host, normalized event, emitted ordinal, emitted type, and rationale, record a source-derived
 `target-only-listener` row and exclude it from the missing-source category. Require its emitted
-type to pass the worker or handler coverage cross-check before assigning no action. Otherwise record an
+ordinal and type to pass the worker or handler coverage cross-check before assigning no action. Otherwise record an
 execution listener under the synthetic `execution-listener` category or a task listener under the
 synthetic `task-listener` category with Blocking runtime impact. Include the listener host,
 normalized event, emitted ordinal, emitted type, and missing source implementation in each
@@ -99,7 +99,8 @@ the same implementation and event can share one worker mapping. Each normalized 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-For listener rows, set `original` to '<listener-host>:<normalized-event>#<ordinal>:<implementation>' and use
+For listener rows, set `original` to '<implementation>' and retain the listener host, normalized
+event, and ordinal as evidence fields. Use
 the emitted `zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic
 rows, use the original script binding or topic and the emitted
 `zeebe:taskDefinition/@type`. For connector rows, use the source connector ID and verify the

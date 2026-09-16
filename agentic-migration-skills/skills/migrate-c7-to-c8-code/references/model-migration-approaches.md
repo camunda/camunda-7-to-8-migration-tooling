@@ -236,8 +236,9 @@ passes the target and event support matrix. Add a source-derived `camunda-script
 runtime impact for any paired listener that has a `camunda:script` child. Add a source-derived
 `blank-listener-job-type` row with Blocking runtime impact for a paired listener whose emitted
 `@type` is missing or blank. Do not add a supported-listener row for either case.
-Add a synthetic `execution-listener` or `task-listener` row for every source listener without an
-emitted pair. Before adding a missing-source row for an emitted listener, inspect the decision log.
+Add a synthetic `execution-listener` or `task-listener` row only for a target-emittable source
+listener without an emitted pair. Before adding a missing-source row for an emitted listener,
+inspect the decision log.
 Record an intentional target-only listener as `target-only-listener` when the decision log contains
 its listener host, normalized event, emitted declaration ordinal, emitted type, and rationale.
 Include its emitted type in the worker or handler coverage cross-check. Record an unaccounted
@@ -315,7 +316,7 @@ Use the following rules:
 | `element-available-in-future-version` after target match or target-aware revalidation when the chosen target meets or exceeds the required version | **Advisory** | The target supports the element. A fresh report for that target would not emit this finding. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | A missing `zeebe:taskDefinition` or blank `zeebe:taskDefinition/@type` on a `serviceTask`, `sendTask`, non-DMN `businessRuleTask`, or non-internal `scriptTask` | **Blocking** | The converted job-backed task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. Exclude DMN business-rule tasks and internal FEEL script tasks because they use a called decision or an internal script instead of a job worker. |
-| `blank-dmn-decision-id` on a `businessRuleTask` with a blank or whitespace-only source `camunda:decisionRef`, or with an existing converted `zeebe:calledDecision` whose `@decisionId` is missing or blank | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
+| `blank-dmn-decision-id` on a `businessRuleTask` with a blank or whitespace-only source `camunda:decisionRef`, or with a missing or blank converted `zeebe:calledDecision/@decisionId` when the source reference is non-blank | **Blocking** | The task has no decision to resolve. Record this source-derived category instead of treating the task as a job-backed task. |
 | `unexpected-dmn-decision` when a `businessRuleTask` has no source `camunda:decisionRef` but has a non-blank converted `zeebe:calledDecision/@decisionId` | **Blocking** until the mismatch has a confirmed decision-log entry and validated intent | The converted model adds a decision call without a source binding. Record the source/output evidence and remove or explicitly approve the added decision. |
 | `unexpected-dmn-decision` after a confirmed decision-log entry and validated intent | **Advisory** | The added decision call is intentional. Record the decision and validation evidence. |
 | `delegate-expression-as-job-type`, `delegate-implementation` in a models-only run without a code cross-check | **Pending** | The worker mapping is unverified. Record `n/a` for the code artifact and assign `needs review` until code coverage is verified. Do not infer Advisory or Blocking from an absent cross-check. |
@@ -334,7 +335,7 @@ Use the following rules:
 | `execution-listener`, `task-listener` when an emitted listener has no source pair and no intentional target-only decision | **Blocking** | The converted model contains unaccounted listener behavior. Require a source pair or an explicit decision-log entry before deployment. |
 | `target-only-listener` with an explicit decision-log entry and validated behavior | **Advisory** | The target-only listener is an intentional remediation. Record its decision and validation evidence. |
 | `blank-listener-job-type` on an emitted execution or task listener | **Blocking** | The listener has no routable job type. Record the source pair and replace or remove the blank type. |
-| `correlation-key-hint` when the referenced message is used by an intermediate, boundary, or event-subprocess message catch event | **Blocking** | The converter emits no `zeebe:subscription` when no correlation key is available. The catch event cannot correlate an incoming message. |
+| `correlation-key-hint` when the referenced message is used by an intermediate, boundary, event-subprocess message catch event, or `bpmn:receiveTask` | **Blocking** | The converter emits no usable `zeebe:subscription` when no correlation key is available. The receiving element cannot correlate the incoming message. |
 | `correlation-key-hint` when the referenced message is used only by a process-level message start event | **Advisory** | A message start event can create a new process instance without a correlation key. Record the finding for review. |
 | `correlation-key-hint` when the referenced message is not used by a message catch event | **Advisory** | No converted catch event requires an incoming correlation key. Record the finding for review. |
 | `expression-execution-not-available`, `expression-method-not-possible` on conditions, called-process IDs, timers, multi-instance collections, completion conditions, DMN decision IDs (`camunda:decisionRef`), or executable DMN expressions | **Blocking** | The affected expression controls routing, process invocation, timing, loop execution, decision resolution, or decision evaluation and cannot execute in the converted model. |
@@ -419,6 +420,27 @@ Use the unknown-category evidence table before assigning an impact to an unknown
 inventory before applying the known-category fallback. Keep source-derived categories outside the
 converter inventory and record them in the source-derived findings inventory instead.
 Never infer a category-specific cross-check from an unknown `messageId`, its message text, or a similar category.
+
+#### 5d.1a. Source-derived findings inventory
+
+Maintain a source-derived findings inventory in `MIGRATION_REPORT.md` beside the grouped summary and
+verdict table. Record one row for each source-derived category with these fields:
+
+| Field | Required value |
+|---|---|
+| Category | The source-derived category name, such as `blank-dmn-decision-id` or `m2-task-binding` |
+| Converter severity | `n/a` |
+| Effective severity | `TASK` |
+| Runtime impact | `Blocking`, `Advisory`, or `Pending` |
+| Count | The number of source-derived rows in the category |
+| Evidence | Source/output model pair, BPMN element or listener host, normalized event and ordinal when applicable, and the relevant source and converted values |
+| Link | `n/a` or a category-specific remediation link |
+| Verdict | `needs fix`, `needs review`, or `no action` |
+
+Keep this inventory separate from the converter `messageId` inventory. Include `m2-task-binding`,
+`execution-listener-supported`, and `task-listener-supported` rows here only when they were created
+by the M2 source scan. Converter-emitted rows for those message IDs stay in the converter findings
+inventory and retain their reported severity.
 
 #### 5d.2. Converter category inventory
 
