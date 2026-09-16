@@ -206,12 +206,15 @@ nothing is rebuilt. The two reach the converted model differently:
 - A `camunda-forms:` form key is only copied verbatim into `externalReference`/`formKey`, which
   Camunda 8 does not resolve. It still needs relinking.
 
-Before the form conversion step, inspect the parsed form metadata. If the form already has exact
-Camunda 8 metadata, skip conversion and follow **Validate an existing Camunda 8 form** below. For
-a Camunda 7 form reference, continue with this procedure.
+Before the form conversion step, inspect the parsed form metadata. If `executionPlatform` identifies
+Camunda 8, skip conversion and follow **Validate an existing Camunda 8 form** below. Require exact
+target metadata there. Treat a missing or mismatched version as a blocked existing-form validation,
+not as a Camunda 7 form. Convert only a form identified as Camunda 7.
 
 1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
-   conversion. The converter may update execution-platform metadata, rewrite supported simple JUEL
+   conversion. When M1 already captured a converted C7 form output, reuse that output and its
+   findings. Do not invoke the converter again for the same form. The converter may update
+   execution-platform metadata, rewrite supported simple JUEL
    component properties to FEEL, and emit findings. Capture the converter findings, before/after
    hashes, and all resulting schema, render, and FEEL evidence. In M1, stage the captured model
    and selected C7 forms in an isolated input directory and pass that directory as one invocation.

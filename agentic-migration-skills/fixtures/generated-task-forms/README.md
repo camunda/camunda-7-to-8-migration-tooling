@@ -107,7 +107,8 @@ The evaluation is complete when the agent has:
   `bindingType="deployment"`;
 * validated the form JSON and parsed the converted BPMN;
 * captured the immutable converted copy and form baselines and recorded
-  before-and-after form schema, render, linkage, and deployment evidence;
+  before-and-after form schema, render, FEEL, linkage, and deployment evidence,
+  including `none present` when no FEEL expressions exist;
 * recorded the converted definitions' exact Modeler metadata:
   `executionPlatform="Camunda Cloud"` and
   `executionPlatformVersion="8.9.0"`;

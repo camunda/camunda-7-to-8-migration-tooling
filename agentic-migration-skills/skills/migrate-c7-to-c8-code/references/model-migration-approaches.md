@@ -64,7 +64,10 @@ The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migr
 
 ### 3. Run the Converter
 
-The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
+The CLI local subcommand accepts a single file or a directory (recursive by default). Stage each
+captured model and its selected C7 forms in an isolated directory that excludes existing Camunda 8
+forms, then pass that directory as the single input. For a single-resource run, pass one captured
+file. Never pass a broad project directory. Always pass `--platform-version` set to the target version from the interview.
 
 ```
 "<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx

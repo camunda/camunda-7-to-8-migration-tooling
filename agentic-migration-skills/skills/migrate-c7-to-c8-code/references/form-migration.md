@@ -364,7 +364,7 @@ Collect the deployment decision with this table:
 | Deployment state | Required report fields | Terminal rule |
 |---|---|---|
 | No target | `target=none`, `request=not applicable`, `authorization=not applicable`, `deployment decision=out of scope`, `deployment=not applicable` | The deployment check is satisfied. |
-| Target, explicit request, and authorization | Target, request, authorization, and deployment result | Verify deployment after final cleanup. |
+| Target, explicit request, and authorization | Target, request, authorization, `deployment=pending` before final cleanup, and deployment result afterward | Record the pending state before final cleanup. Verify deployment after final cleanup and replace it with the result. |
 | Target without request | Target, `request=not requested`, authorization state, `deployment=pending` | Obtain the request before deployment. Keep the category open until the result is recorded. |
 | Target with request but unavailable authorization | Target, request, `authorization=unavailable`, `deployment=pending` | Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps before closing. |
 | Target with user decline | Target, request, authorization state, `deployment decision=declined`, `deployment=pending` | Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps before closing. |
@@ -391,9 +391,10 @@ another user question.
 
 ## Deployment and validation
 
-Deployment binding requires the converted BPMN and accepted `.form` file in the same deployment. Use
-explicit accepted resource paths when possible. Use a recursive pattern such as
-`classpath*:**/converted-c8-*.form` only when it cannot include drafts or declined forms.
+Deployment binding requires the converted BPMN and every linked accepted or existing `.form` file in
+the same deployment. Build an exact resource list from the recorded authorized paths. Never use a
+broad `converted-c8-*.form` pattern. If any linked form is not deployable, defer the whole model
+deployment instead of deploying the BPMN alone.
 
 Before reporting a form complete:
 
