@@ -198,17 +198,15 @@ generation until the user resolves it. Classify a registration as a complete dis
 its routing covers every distinct `(headerKey, original)` pair, every known route has no unresolved
 TODO, placeholder, or unconditional throw, and all applicable validation checks pass. Preserve
 existing source and require explicit confirmation before extending, merging, replacing, or removing
-a subscriber. If a complete dispatcher exists, omit the generation option. If no complete
-dispatcher exists, keep **needs fix**, preserve ordinary subscribers, and offer a quarantined
-scaffold through AskUserQuestion for a Spring target. Require explicit consolidation or replacement
-before enabling the draft. Do not create or enable a second subscriber.
+a subscriber. If any registration already subscribes to the shared type, omit the generation
+option. Do not create or enable a second subscriber.
 
 Confirm a Spring target from the build configuration or AskUserQuestion. Record the evidence or
 user decision in `MIGRATION_REPORT.md` before offering an annotation scaffold.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a complete
-worker inventory, a confirmed Spring target, and no complete dispatcher. Keep a 1:1 group on the
+worker inventory, a confirmed Spring target, and no effective worker. Keep a 1:1 group on the
 simple worker-remediation path.
 Do not offer generation for a group with a **no action**, **needs review**, or incomplete verdict.
 
@@ -220,9 +218,8 @@ Use this decision table for each shared job type:
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None, complete many-to-one group and inventory, confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). Record the selected option in `MIGRATION_REPORT.md`. In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
-| **needs fix** | Exactly one routing-complete dispatcher with unresolved implementation or validation | Do not offer generation. Ask the user to implement and validate the existing routes. |
-| **needs fix** | No dispatcher and one or more ordinary subscribers, Spring target | Offer a quarantined scaffold through AskUserQuestion. Preserve existing source. Require explicit consolidation or replacement before enabling the draft, then verify exactly one validated dispatcher. |
-| **needs fix** | One or more incomplete dispatchers, or more than one dispatcher or dispatcher with another effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
+| **needs fix** | Exactly one effective worker | Do not offer generation. Ask the user to implement and validate the existing routes or confirm the required consolidation. |
+| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
@@ -272,13 +269,15 @@ After generation, present the complete source or diff to the user for explicit r
 in quarantine while the user reviews it. Do not treat review approval as approval to enable the
 draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
-accept the completed source. On acceptance, move the source into the intended worker source tree and
-run the applicable formatter, compile, and test checks before deployment. Then
-mark the quarantine draft path inactive in `MIGRATION_REPORT.md`, and include the accepted source in
-active worker scans. If the user rejects or deletes the scaffold, remove it and mark its path
-inactive. Do not leave a rejected file beside the migrated sources or let a later scan treat it as
-an existing subscriber. Then rerun the same cross-check used for hand-written dispatchers. Record
-each validation result and the draft decision in `MIGRATION_REPORT.md`.
+accept the completed source. On acceptance, keep the source in quarantine and run the applicable
+formatter, compile, and test checks. If every check passes, move the source into the intended
+worker source tree, mark the quarantine draft path inactive in `MIGRATION_REPORT.md`, and include
+the accepted source in active worker scans. If any check fails, keep the source quarantined, keep
+its report record active, and record the failure. If the user rejects or deletes the scaffold,
+remove it and mark its path inactive. Do not leave a rejected file beside the migrated sources or
+let a later scan treat it as an existing subscriber. Then rerun the same cross-check used for
+hand-written dispatchers. Record each validation result and the draft decision in
+`MIGRATION_REPORT.md`.
 The scaffold is not a completed remediation. Keep the category **needs fix** while any known route
 has an unresolved TODO, placeholder, or unconditional throw in a generated or hand-written
 dispatcher, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
