@@ -15,7 +15,7 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 - At most 4 questions per AskUserQuestion call
 - Every question with `options` must have at least 2 options
 - Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q6.
-Ask Q7 separately after the Step 3 form inventory.
+Ask Q7 separately after the Step 3 form procedures finalize statuses.
 
 ---
 

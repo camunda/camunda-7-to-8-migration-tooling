@@ -61,7 +61,7 @@ See `references/interview-questions.md` for the question set and the batching ru
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6 (code approach, model approach, build tool) where they apply.
 6. When the user accepts the defaults, continue without further questions.
-7. After the Step 3 form inventory, ask Question 7 before Step 4 or Step 5 for every deployable
+7. After the Step 3 form procedures finalize statuses, ask Question 7 before Step 4 or Step 5 for every deployable
    accepted, rebuilt, relinked, or existing Camunda 8 form. Ask per form. Group only forms with
    identical targets, request states, authorization states, and deployment decisions. Record the
    target, request, authorization, and result or pending state for every form.
@@ -184,10 +184,14 @@ surfaces:
 |---|---|
 | Generated Task Forms (`camunda:formData`, `camunda:formProperty`) | source file, process id, owning user task or start event, field count, business-key field, custom types and validators, initial status |
 | Referenced forms (`camunda:formKey`, `camunda:formRef`) | the classification, and whether the referenced HTML or `.form` file exists in the project |
+| Existing Camunda 8 forms (`*.form` or `form-already-camunda-8`) | form path, form id, exact Modeler metadata, owner or standalone status, source-to-form pairing, and linkage/deployment state |
 | Generic Task Forms (no form metadata at all) | every form-free owner affected |
 
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
+
+Pair every existing `.form` with its owner before Question 7 and verification. Record linkage and
+deployment as `not applicable` with the reason for a standalone form.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
@@ -334,9 +338,10 @@ target version. See the linting section in `references/model-migration-approache
    binding decision: `bindingType` written for `deployment` and `versionTag`, or `latest` left
    deliberately to the Camunda 8 default. The copied Camunda 7 `externalReference` or `formKey` is
    gone from that element.
-15. At final exit after Step 5e and the final whole-file cleanup, the converted copies hold no `conversion:*`
-   node, no `conversion:*` attribute, no unused Camunda 7 or conversion namespace declaration,
-   and no leftover BPMN definitions-level XPath `expressionLanguage` attribute.
+15. Step 5 and final exit require a whole-file cleanup. At final exit after Step 5e and that cleanup,
+   the converted copies hold no `conversion:*` node, no `conversion:*` attribute, no unused Camunda 7
+   or conversion namespace declaration, and no leftover BPMN definitions-level XPath
+   `expressionLanguage` attribute.
 16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
     from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
     `camunda:topic` attribute using the binding rules in
@@ -488,7 +493,9 @@ Record failures with their before-and-after values using this decision table:
 |---|---|---|---|
 | Concrete remediation remains | `failed` | **needs fix** | Resolve the category after the required decision. |
 | A design decision or required deterministic check is unavailable | `failed` or `unavailable` | **needs review** | Ask for a new decision before another attempt. |
-| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep `Verification=passed` after the other checks and the finding-specific postcondition pass. Transition provisional **needs review** to **no action** when no user decision remains, except for `c7-generic-task-form`. Keep that category at **needs review** with its procedure-defined terminal state. Call the state accepted risk only when `Status=declined`. Do not write `unavailable` as the aggregate state. | Continue the other required checks. |
+| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep `Verification=passed` after the other checks and the finding-specific postcondition pass. Do not write `unavailable` as the aggregate state. | Continue the other required checks. |
+| Provisional INFO with no decision | `passed` and finding-specific postcondition passed | Transition provisional **needs review** to **no action** when no user decision remains. | Do not ask for a finding-remediation decision. |
+| Completed generic form owner | `passed` with a procedure-defined terminal status | Keep `c7-generic-task-form` at **needs review**. Call the state accepted risk only when `Status=declined`. | Do not prompt again or offer the category for remediation. |
 
 Do not mark a category **no action** after a failed blocking check. Escalate after the single
 verification pass when the failure needs a new design or a second remediation attempt. Update the
