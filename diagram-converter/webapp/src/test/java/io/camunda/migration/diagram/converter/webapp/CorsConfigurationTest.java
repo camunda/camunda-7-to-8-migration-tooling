@@ -15,10 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@TestPropertySource(properties = "webapp.cors.allowed-origins=http://localhost:5173")
+@ActiveProfiles("dev")
 class CorsConfigurationTest {
   private static final String ALLOWED_ORIGIN = "http://localhost:5173";
   private static final String DISALLOWED_ORIGIN = "https://untrusted.example";

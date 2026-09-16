@@ -28,9 +28,10 @@ Additional browser origins can be explicitly configured with
 java -jar target/camunda-7-to-8-diagram-converter-webapp-*.jar --spring.profiles.active=dev
 ```
 
-The `dev` profile permits `http://localhost:5173`. The Vite development server
-also proxies API requests to `http://localhost:8080`, so `npm run dev` works
-without enabling cross-origin access in the default configuration.
+To use the Vite development server, start the backend with the `dev` profile as
+shown above. The profile permits `http://localhost:5173`; the Vite development
+server proxies API requests to `http://localhost:8080` and forwards the browser's
+`Origin` header, so the profile is required for `npm run dev`.
 
 `POST /check`: Check required tasks for Camunda 7 to 8 migration for all provided models
 

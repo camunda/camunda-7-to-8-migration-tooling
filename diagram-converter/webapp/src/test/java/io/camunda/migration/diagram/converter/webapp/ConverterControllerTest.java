@@ -148,6 +148,20 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void allowsSameOriginMultipartRequestsByDefault() throws URISyntaxException {
+    final var response =
+        RestAssured.given()
+            .header("Origin", "http://localhost:" + port)
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(ContentType.JSON)
+            .post("/check");
+
+    assertThat(response.statusCode()).isEqualTo(200);
+  }
+
+  @Test
   void singleBpmnCheckWithJsonResult() throws URISyntaxException {
     List<DiagramCheckResult> checkResult =
         RestAssured.given()
