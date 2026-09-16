@@ -14,6 +14,10 @@ Follow the user's preference.
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 
+If the user selects Approach C, the skill keeps this cross-check report-only. The skill does not offer
+or generate a dispatcher scaffold. The skill records the category, its routing gaps, and the
+recommended Approach A or B in `MIGRATION_REPORT.md`.
+
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
@@ -27,9 +31,12 @@ that header.
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type` findings and the M2 scan.
-Pair each finding with its converted BPMN element by `filename` and `elementId`. Read the emitted
-job type from its task definition and the original C7 key and value from its `zeebe:header`.
+Build the normalized input rows from the `delegate-expression-as-job-type` and
+`delegate-implementation` findings and the M2 scan. A findings report's `filename` identifies the
+source model, not the converted copy. Resolve it to the exact converted copy path captured from the
+converter output, using the configured prefix (`converted-c8-` by default) when necessary. Pair
+each finding with its converted BPMN element by that path and `elementId`. Read the emitted job type
+from its task definition and the original C7 key and value from its `zeebe:header`.
 For a converter finding, use the paired header instead of parsing only its `message`. For a
 `delegate-implementation` finding, retain the original class or expression from its binding
 context or the paired original source attribute, then resolve its header pair on the converted
@@ -81,10 +88,12 @@ Offer a scaffold through AskUserQuestion only when no worker already subscribes 
 - **I will implement the dispatcher manually** — do not create a source file, and keep the category
   as **needs fix**.
 
-Before generation, enumerate every existing `@JobWorker` registration for the shared job type. If
-any registration already subscribes to that type, stop scaffold generation. Ask the user to extend
-an existing dispatcher, or to merge or remove a non-dispatcher registration before creating one.
-Do not create a second subscriber.
+Before generation, enumerate every existing `@JobWorker` registration and resolve its effective
+type. When an `@JobWorker` omits `type`, use the annotated method name as its effective type.
+Include equivalent worker registrations whose effective type resolves to the shared type. If any
+registration already subscribes to that type, stop scaffold generation. Ask the user to extend an
+existing dispatcher, or to merge or remove a non-dispatcher registration before creating one. Do
+not create a second subscriber.
 
 Generate the scaffold only after the user chooses the first option. Create a new source file beside
 the migrated worker sources, using the project's conventional package, license header, naming, and
