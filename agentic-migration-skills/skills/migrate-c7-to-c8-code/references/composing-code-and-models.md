@@ -31,12 +31,14 @@ Record that report path from the same session and do not consume a report that p
 Gate generation on the complete set of recorded source-to-converted pairs, not on the latest report
 invocation.
 
-When M2 has a converted copy, is not read-only, and has no Diagram Converter report, scan every
-`zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
-original file recorded by the M2 rewrite. Read the original Camunda 7 implementation attribute and
-derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `category`, `filename`, `elementId`, `headerKey`, `original`,
-and `jobType` for each supported delegate attribute or `camunda:topic` source. Set `category` to
+When M2 has a converted copy, is not read-only, and has no Diagram Converter report, enumerate every
+supported original delegate attribute or `camunda:topic` source in each captured original BPMN.
+Pair each original file with its exact converted file recorded by the M2 rewrite. Read the optional
+emitted job type from the converted task definition. If the converted element has no task definition
+type, set `jobType` to blank. Read the original Camunda 7 implementation attribute and derive the
+expected type from the M2 binding rules in `model-migration-approaches.md`. Create one normalized
+input row with the columns `category`, `sourceFilename`, `filename`, `elementId`, `headerKey`,
+`original`, and `jobType` for each source attribute. Set `category` to
 `expression-method-as-job-type` for a method-invoking `camunda:delegateExpression` or
 `camunda:expression`, to `delegate-expression-as-job-type` for another bean reference, to
 synthetic `delegate-implementation` for `camunda:class` only when the configured default job type
@@ -75,6 +77,7 @@ non-empty `jobType` for the simple check. A topic row in a many-to-one group req
 header before scaffolding. Do not classify a topic and delegate or class that share a job type as
 1:1 without a routing discriminator. Each normalized row has the shape:
 
+> `sourceFilename`: Original BPMN file when the row came from M2 source scanning
 > `filename`: Converted BPMN file
 > `elementId`: Converted element identifier
 > `category`: Normalized source category
@@ -185,10 +188,11 @@ build input. Keep the separate prior-draft scan below enabled for every recorded
 quarantine directory. Record the selected path in `MIGRATION_REPORT.md` before scanning or
 generating.
 
-For each dispatcher draft, record one inventory entry with `jobType`, `path`, `status`, and
-`decision`. Use `active` while the draft is pending, `accepted` after it moves into the worker
-source tree, and `rejected` or `deleted` after the user declines or removes it. Active scans and
-prior-draft scans consume only `active` entries. Preserve all other entries as history.
+For each dispatcher draft, record one inventory entry with `jobType`, `quarantinePath`,
+`runtimePath`, `status`, and `decision`. Use `active` while the draft is pending, `accepted` after
+it moves into the worker source tree, and `rejected` or `deleted` after the user declines or
+removes it. Active scans use `runtimePath` for accepted entries. Prior-draft scans use active
+`quarantinePath` entries. Preserve all other entries as history.
 
 Before generating, scan every active recorded and selected quarantine directory for a prior draft
 whose report record is active, or whose report record is missing, and whose effective `@JobWorker`
@@ -279,12 +283,13 @@ in quarantine while the user reviews it. Do not treat review approval as approva
 draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
 accept the completed source. On acceptance, keep the source in quarantine and run an isolated
-validation build that explicitly includes the draft without enabling it as a normal project input.
-Run the applicable formatter, compile, and test checks. If every check passes, move the source into the intended
-worker source tree, mark the quarantine draft path inactive in `MIGRATION_REPORT.md`, and include
-the accepted source in active worker scans. If any check fails, keep the source quarantined, keep
-its report record active, and record the failure. If the user rejects or deletes the scaffold,
-remove it and mark its path inactive. Do not leave a rejected file beside the migrated sources or
+validation build that temporarily includes the draft without enabling it as a normal project input.
+Remove that temporary validation input after the checks. Run the applicable formatter, compile, and
+test checks. If every check passes, move the source into the intended worker source tree, record
+its `runtimePath`, mark its `quarantinePath` inactive in `MIGRATION_REPORT.md`, and include the
+accepted source in active worker scans. If any check fails, keep the source quarantined, keep its
+report record active, and record the failure. If the user rejects or deletes the scaffold, remove
+it and mark its `quarantinePath` inactive. Do not leave a rejected file beside the migrated sources or
 let a later scan treat it as an existing subscriber. Then rerun the same cross-check used for
 hand-written dispatchers. Record each validation result and the draft decision in
 `MIGRATION_REPORT.md`.
