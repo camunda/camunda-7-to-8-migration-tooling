@@ -36,12 +36,12 @@ When M2 has a converted copy, is not read-only, and has no Diagram Converter rep
 original file recorded by the M2 rewrite. Read the original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
 normalized input row with the columns `category`, `filename`, `elementId`, `headerKey`, `original`,
-and `jobType` for each delegate attribute or external-task topic. Set `category` to
+and `jobType` for each supported delegate attribute or `camunda:topic` source. Set `category` to
 `expression-method-as-job-type` for a method-invoking `camunda:delegateExpression` or
 `camunda:expression`, to `delegate-expression-as-job-type` for another bean reference, to
 `delegate-implementation` for `camunda:class`, and to `topic` for `camunda:topic`. Derive
 `headerKey` and `original` from the original C7 attribute. Verify the same delegate pair in the
-converted element's `zeebe:header`. For an external-task topic, set `headerKey` to `topic` and
+converted element's `zeebe:header`. For a `camunda:topic` source, set `headerKey` to `topic` and
 `original` to the original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
 converter findings, because M2-only runs do not produce them. A missing delegate header is
 incomplete for a many-to-one group. A 1:1 topic row can use its non-empty `jobType` for the simple
@@ -170,10 +170,12 @@ confirmed-root, source-set, packaged-resource, and worker-scan checks used for o
 when it escapes the confirmed project root or enters an excluded tree, including through a symlink.
 Canonicalize every explicit override against the confirmed project root before recording or writing.
 Allow an explicit user override only when it remains under that root and outside every source set,
-build input, packaged resource directory, and source tree scanned for `@JobWorker`. If `MIGRATION_REPORT.md` records one or more paths, collect all recorded paths before applying an
-override. Resolve every recorded path again and verify that each remains under the confirmed project
-root and outside every source set, build input, packaged resource directory, and worker-scan tree.
-Reject any stale or unsafe path and require a new selection. Exclude every recorded and selected
+build input, packaged resource directory, and source tree scanned for `@JobWorker`. If `MIGRATION_REPORT.md` records one or more active paths, collect all active recorded paths before
+applying an override. Mark a deleted or retired path inactive in `MIGRATION_REPORT.md` and allow a
+new override. Resolve every active recorded path again and verify that each remains under the
+confirmed project root and outside every source set, build input, packaged resource directory, and
+worker-scan tree. Reject any stale or unsafe active path and require a new selection. Exclude every
+recorded and selected
 quarantine directory from active project-code inventories, active `@JobWorker` scans, and every
 build input. Keep the separate prior-draft scan below enabled for every recorded and selected
 quarantine directory. Record the selected path in `MIGRATION_REPORT.md` before scanning or
