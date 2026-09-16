@@ -44,8 +44,8 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    record the target, `request=not requested`, the actual authorization state,
    and `deployment=pending` until deployment is explicitly requested. With an explicit request and
    authorization, record the request, authorization, and deployment result. If
-   authorization is unavailable, record the target, `authorization=unavailable`,
-   and `deployment=pending` unless an alternate binding or
+   authorization is unavailable, record the target, request,
+   `authorization=unavailable`, and `deployment=pending` unless an alternate binding or
    external-deployment plan is selected. If the user declines deployment for a
    selected target, record the request, authorization state,
    `deployment decision=declined`, and `deployment=pending` unless an alternate

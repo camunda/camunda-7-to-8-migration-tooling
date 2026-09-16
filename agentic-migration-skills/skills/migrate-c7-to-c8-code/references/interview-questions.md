@@ -102,7 +102,7 @@ For every selected target, collect the concrete target value as a follow-up fiel
   `authorization=not applicable`, `deployment decision=out of scope`, and
   `deployment=not applicable`.
 - **Target, explicit request, and authorization** — record the target, request, authorization,
-  and deployment result. Deploy only after final cleanup.
+  and `deployment=pending` before final cleanup. Record the deployment result after final cleanup.
 - **Target without request** — record the target, `request=not requested`, authorization state,
   and `deployment=pending`. Obtain the request before deployment.
 - **Target with unavailable authorization** — record the target, request, `authorization=unavailable`,

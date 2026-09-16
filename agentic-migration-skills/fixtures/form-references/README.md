@@ -56,8 +56,8 @@ source model, not a deployable Camunda 8 process.
    and do not deploy. If the
    evaluator selects a target and explicitly requests
    deployment with authorization, record the target, request, authorization,
-   and deployment result. If authorization is unavailable, record
-   the target, `authorization=unavailable`, and `deployment=pending`. If the
+   and deployment result. If authorization is unavailable, record the target,
+   request, `authorization=unavailable`, and `deployment=pending`. If the
    user declines deployment for a selected target, record the target, request,
    authorization state, `deployment decision=declined`, and
    `deployment=pending` unless an alternate binding or external-deployment plan
