@@ -12,10 +12,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
 public class SecurityHeadersFilter extends OncePerRequestFilter {
   static final String CONTENT_SECURITY_POLICY =
       "default-src 'self'; "

@@ -24,6 +24,15 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-89044: import before spring-boot-dependencies and
+           zeebe-parent so transitive Netty dependencies stay fixed. -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-bom</artifactId>

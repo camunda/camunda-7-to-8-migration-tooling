@@ -40,6 +40,7 @@
     <version.log4j-bom>2.26.1</version.log4j-bom>
     <logback.version>1.6.3</logback.version>
     <tomcat.version>11.0.25</tomcat.version>
+    <version.netty>4.2.18.Final</version.netty>
     <version.protobuf>4.36.1</version.protobuf>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.1.3</version.junit.jupiter>
@@ -109,11 +110,22 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- CVE-2026-59889: make the fixed Jackson BOM inherited by every module, including modules without a local BOM import. -->
+      <!-- CVE-2026-54515 / CVE-2026-59889 / CVE-2026-68497 / CVE-2026-77310 /
+           CVE-2026-83557 / CVE-2026-19032: make the fixed Jackson BOM
+           inherited by every module, including modules without a local BOM
+           import. -->
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
         <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-89044: pin Netty to the version that rejects malformed Transfer-Encoding headers. -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -196,13 +208,18 @@
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
       </dependency>
-      <!-- CVE-2026-54515 / CVE-2026-59889 / CVE-2026-77310: close residual jackson-databind gaps in modules not covered by the per-module jackson-bom import (plugins/cockpit, examples/*) -->
+      <!-- CVE-2026-54515 / CVE-2026-59889 / CVE-2026-68497 / CVE-2026-77310 /
+           CVE-2026-83557 / CVE-2026-19032: close residual jackson-databind
+           gaps in modules not covered by the per-module jackson-bom import
+           (plugins/cockpit, examples/*). -->
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
         <version>${version.jackson-bom}</version>
       </dependency>
-      <!-- CVE-2026-59889: close residual Jackson 3 gaps in modules not covered by a per-module tools.jackson BOM import -->
+      <!-- CVE-2026-59889 / CVE-2026-68497 / CVE-2026-83557 / CVE-2026-19032:
+           close residual Jackson 3 gaps in modules not covered by a per-module
+           tools.jackson BOM import. -->
       <dependency>
         <groupId>tools.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
@@ -392,16 +409,18 @@
                     <exclude>org.springframework:spring-expression:[6.2,6.2.20)</exclude>
                     <exclude>org.springframework:spring-expression:[7.0,7.0.9)</exclude>
                     <exclude>org.apache.httpcomponents.client5:httpclient5:[5.4,5.6.4)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.8,2.18.9)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.5)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.1)</exclude>
-                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.5)</exclude>
-                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.1)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.18.10)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.6)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.2)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.6)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.2)</exclude>
+                    <exclude>io.netty:netty-codec-http:[4.1,4.1.138)</exclude>
+                    <exclude>io.netty:netty-codec-http:[4.2,4.2.18)</exclude>
                   </excludes>
                   <message>
                     Use a patched Spring Framework line (5.3.50+, 6.0.31+, 6.1.29+, 6.2.20+, or 7.0.9+),
-                    HttpClient5 5.6.4+, and jackson-databind 2.18.9+ on 2.18, 2.21.5+ on 2.21, 2.22.1+ on 2.22,
-                    3.1.5+ on 3.1, or 3.2.1+ on 3.2.
+                    HttpClient5 5.6.4+, jackson-databind 2.18.10+ on 2.18, 2.21.6+ on 2.21, 2.22.2+ on 2.22,
+                    3.1.6+ on 3.1, or 3.2.2+ on 3.2, and Netty 4.1.138+ or 4.2.18+.
                   </message>
                   <searchTransitive>true</searchTransitive>
                 </bannedDependencies>
