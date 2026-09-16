@@ -221,10 +221,13 @@ Set the cross-referenced code artifact to **no dedicated cross-check** for a fal
 Add the finding `link` to the `Link` column and surface it as the remediation starting point.
 Apply the same fallback when a report contains a category that is absent from the inventory below.
 Never infer a category-specific cross-check from the category name or message text.
-Define a deterministic finding-specific postcondition for every fallback category. If the category
-has no deterministic postcondition, keep its verdict at **needs review** or **needs fix**. Do not
-set its verification state to `passed` or its verdict to **no action** from generic XML, namespace,
-or converter checks alone.
+Define a deterministic finding-specific postcondition for every fallback category. For a fallback
+INFO category, the generic postcondition is that the source finding remains informational, no
+remediation is required, and every applicable structural, cleanup, form, FEEL, and code check
+passes. Record that no semantic change is expected. If another fallback category has no
+deterministic postcondition, keep its verdict at **needs review** or **needs fix**. Do not set its
+verification state to `passed` or its verdict to **no action** from generic XML, namespace, or
+converter checks alone.
 For `form-already-camunda-8`, verify the existing form's Camunda 8 metadata, JSON schema, render,
 linkage, and deployment state. Use these form checks as the finding-specific postcondition.
 
@@ -440,33 +443,23 @@ Emit the structured findings summary with CLI severities (WARNING/TASK/REVIEW/IN
 review for non-INFO findings, except when the shared verification pass is the only pending action.
 Keep INFO findings provisional until their verification pass succeeds, and do not request a human
 decision for that provisional verdict. Lint every rewritten BPMN file per the linting section below.
-After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against
-the original/converted pair.
+After Step 5e strips converter annotations, run `form-migration.md` and
+`form-reference-migration.md` against the original/converted pair. Rerun the form verification row
+after acceptance, linkage, or deployment changes before retaining **no action**.
 
 ## Verification before resolving a finding category
 
 Use the authoritative shared verification gate in `SKILL.md` Step 5 for M1, M2, M3, and E1.
-Do not restate that gate here. Apply its verification states, whole-file cleanup checks, exact
-target-metadata rule, all-resulting-FEEL rule, CLI failure rule, report schema, and retry rule.
-Keep every category in the findings inventory and verification table. Keep INFO categories
-provisional and out of human follow-up until their verification state is `passed`.
+Do not restate that gate here. Keep INFO categories provisional and out of human follow-up until
+their verification state is `passed`.
 
 Apply these model-specific additions:
 
 - For M2, use the recorded original-to-converted pair paths and the structured direct-rewrite
   findings summary. Do not discover participating files with a filesystem glob.
-- For M2, record `unavailable` only in the supplementary converter check when the local CLI, Java
-  executable, or converter JAR is unavailable. Continue the other required checks. Set the
-  aggregate category verification to `passed` after those checks and the finding-specific
-  postcondition pass.
-- For M3, use the exact original-to-converted pair paths. Record `unavailable` only in the
-  supplementary converter check when the local CLI, Java executable, or converter JAR is
-  unavailable. Continue the other required checks. Set the aggregate category verification to
-  `passed` after those checks and the finding-specific postcondition pass.
+- For M3, use the exact original-to-converted pair paths.
 - For E1, preserve the definition-to-source and source-to-converted path mapping captured during
   acquisition.
-- Capture the immutable baseline before each remediation batch and before each no-edit check.
-  Record namespace counts, wiring references, and FEEL state in `MIGRATION_REPORT.md`.
 - Do not run the gate for analyze-only runs. Present the provisional findings and stop before
   remediation follow-up.
 
