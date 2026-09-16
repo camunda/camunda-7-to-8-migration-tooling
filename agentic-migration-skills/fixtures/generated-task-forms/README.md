@@ -97,6 +97,8 @@ The evaluation is complete when the agent has:
   `form-data` and the source-derived `c7-generic-task-form` owner, and recorded
   `passed` before treating any category as **no action** or the evaluation as
   complete;
+* recorded the explicit keep-form-free, rebuild, or custom-application decision
+  for the form-free start event and its converted-owner evidence;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * confirmed one `zeebe:userTask` and one matching form definition on the

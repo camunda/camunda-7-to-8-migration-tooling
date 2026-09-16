@@ -223,7 +223,7 @@ See `references/model-migration-approaches.md` for all four.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
   model exists.
 
-Capture the immutable converted-copy, form, and code baselines before these form procedures run.
+Capture the immutable converted copy, form, and code baselines before these form procedures run.
 Record `absent` for a form that the procedure will create.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
@@ -482,7 +482,8 @@ undifferentiated list.
 | Verdict | Verification | Outstanding action | Action |
 |---|---|---|---|
 | **needs fix** | `failed` or `unavailable` | Retry or redesign is required | Use AskUserQuestion for a new decision. Do not retry automatically. |
-| **needs fix** | `pending` | Concrete remediation remains | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs fix** | `pending` and verification is the only outstanding action | No remediation remains | Run the verification gate. Do not start another fix. |
+| **needs fix** | `pending` and remediation remains | Concrete remediation remains | Resolve one category at a time, using that category's cross-check guidance. |
 | **needs review** | `pending` and verification is the only outstanding action | No user or design decision remains | Run the verification gate. Do not ask for a user decision. |
 | **needs review** | Any other state | A user or design decision remains | Collect the pending user decision through AskUserQuestion before any fix. |
 | **no action** | `passed` | None | Do not offer the category. |
