@@ -212,8 +212,9 @@ For both:
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
    path. Ask the user which side changes. The skill does not relink until the user decides.
-3. Ensure the converted element carries exactly one `zeebe:formDefinition` with `formId` set to that
-   id, and remove any copied Camunda 7 reference (`externalReference` or `formKey`).
+3. Plan a converted element with exactly one `zeebe:formDefinition` whose `formId` is that id. Remove
+   any copied Camunda 7 reference (`externalReference` or `formKey`) during the post-Step-5e edit.
+   During Step 3, record this model-edit plan only.
 4. Confirm the binding as a recorded decision, not an accident. Write `bindingType` for `deployment`
    and for `versionTag` (with its `versionTag` value). `latest` may stay implicit as the Camunda 8
    default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
@@ -226,9 +227,11 @@ For both:
 6. After Step 5e, apply the accepted linkage plan, then rerun the full form validation checklist,
    including the exact `formId` linkage and removal of the copied C7 reference. Rerun the
    verification row after any linkage or form change.
-7. Confirm the form deploys together with the process for a `deployment` binding when a deployment
-   target is selected. Record an explicit out-of-scope `not applicable` decision when no target
-   exists or deployment is declined.
+7. Verify deployment only after the user explicitly requests it and selects a deployment target.
+   Record the request, target, and deployment result separately. Do not deploy when a target exists
+   without an explicit request. Record deployment as `pending` and keep the category open until the
+   user decides. Record an explicit out-of-scope `not applicable` decision when no target exists or
+   the user declines deployment.
 
 If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
 
@@ -359,9 +362,9 @@ Verdict rules for the model finding table:
   link, and validate the form. Collect and record an explicit deployment decision. Verify deployment
   when a target is selected, and record deployment as `not applicable` with the out-of-scope
   decision when no target exists or deployment is declined. For a keep, the owner confirms the
-  integration. For a Camunda Form reference, convert and relink, then verify deployment when a
-  target is selected; an explicit out-of-scope decision satisfies the deployment check when no
-  target exists or deployment is declined.
+  integration. For a Camunda Form reference, convert and relink. Verify deployment when a target is
+  selected and the user explicitly requests it. An explicit out-of-scope decision satisfies the
+  deployment check when no target exists or deployment is declined.
 - Move a category to `no action` only when every row reaches a terminal state, the shared Step 5
   verification row is `passed`, and final cleanup has passed. Record a `declined` or `deferred`
   row as accepted risk, not completed work.

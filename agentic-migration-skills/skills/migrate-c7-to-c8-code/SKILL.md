@@ -430,7 +430,8 @@ Add a separate verification table with one row per category and these columns: `
 `Verification`. Do not replace the findings inventory with the verification table.
 
 The CLI can filter parse failures before its visitor pipeline and writes a header-only CSV when no
-findings exist; that is valid evidence. Missing or malformed CSV output is a failure. Therefore,
+findings exist. That output is valid evidence. Missing or malformed CSV output is a failure.
+Therefore,
 the gate treats every reported parse failure as failed evidence. The CLI does not reconstruct the
 original Camunda 7 mapping from an already-converted copy. It does not prove that a job
 worker, listener, header, or FEEL expression has the intended runtime semantics. The namespace-aware
