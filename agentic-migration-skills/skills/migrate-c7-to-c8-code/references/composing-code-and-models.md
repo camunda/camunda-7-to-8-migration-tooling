@@ -47,13 +47,14 @@ definition and the original C7 key and value from its `zeebe:header`.
 For a converter finding, use the paired header instead of parsing only its `message`. For a
 `delegate-implementation` finding, retain the original class or expression from its binding
 context or the paired original source attribute, then resolve its header pair on the converted
-element. For an M2 row, use the original source attribute and `jobType` created above, and verify
-the same pair in the converted element. For a `topic` finding, set `headerKey` to `topic` and
-`original` to the paired `camunda:topic` value. Record a missing retained `topic` header, but keep
-the row for the initial job-type grouping. A 1:1 topic row can use its `jobType` for the simple
-check. If the group has another distinct pair, treat the missing topic header as incomplete and
-require it before offering a dispatcher scaffold. Do not classify a topic and delegate or class
-that share a job type as 1:1 without that routing discriminator. Each normalized row has the shape:
+element. For a converter or M2 delegate row, use the original source attribute and `jobType`
+created above, and verify the same pair in the converted element. For a converter or M2 topic row,
+set `headerKey` to `topic` and `original` to the paired `camunda:topic` value. A 1:1 topic row can
+use its `jobType` for the simple check even when the converted copy lacks a retained `topic`
+header. Record a missing retained `topic` header. If the group has another distinct pair, treat
+the missing topic header as incomplete and require it before offering a dispatcher scaffold. Do
+not classify a topic and delegate or class that share a job type as 1:1 without that routing
+discriminator. Each normalized row has the shape:
 
 > `filename`: Converted BPMN file
 > `elementId`: Converted element identifier
@@ -97,13 +98,13 @@ Before either mapping check, enumerate every existing `@JobWorker` registration 
 effective type. When an annotation omits `type`, use the annotated method name. Use this effective
 type for the 1:1 comparison and for duplicate-subscriber detection.
 
-Use this table for each 1:1 job-type group:
+Use this table for each 1:1 job-type group. When no registration matches the job type, record any
+enumerated registration with a different effective type as mismatch evidence.
 
-| Effective workers for the job type | Condition | Verdict and action |
+| Workers matching the job type | Condition | Verdict and action |
 |---|---|---|
-| None | No worker has the job type as its effective type. | Mark **needs fix** and identify the missing worker. |
+| None | No worker has the job type as its effective type. | Mark **needs fix** and identify the missing worker or mismatch. |
 | Exactly one | The worker's effective type matches the job type. | Mark **no action** for the worker mapping. |
-| Exactly one | The worker's effective type does not match the job type. | Mark **needs fix** and flag the mismatch for the user. |
 | More than one | Multiple workers have the job type as their effective type. | Mark **needs fix** and require the user to consolidate the duplicate subscribers. |
 
 Use the Diagram Converter output for M1 and the binding rules in `model-migration-approaches.md` for
@@ -123,6 +124,10 @@ Cross-check for this shape: exactly one worker subscribes to the shared job type
 every distinct `(headerKey, original)` pair in the normalized rows for that job type across all three
 categories. List uncovered pairs for the user.
 
+During M1 follow-up, add and validate a `topic` header from the original `camunda:topic` value on
+the converted copy before regrouping. During M2 migration, verify or add the matching delegate or
+topic header before scaffolding.
+
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
 When a shared job-type group has a **needs fix** verdict, process it independently. Propagate its
@@ -134,9 +139,13 @@ then stop scaffold generation. Do not create a second subscriber.
 
 Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
 quarantine directory. Allow an explicit user override only when it remains outside runtime source
-sets and every source tree scanned for `@JobWorker`. If `MIGRATION_REPORT.md` records a path, reuse
-it on later invocations unless the user explicitly overrides it. Record the selected path in
-`MIGRATION_REPORT.md` before scanning or generating.
+sets, packaged resource directories, and every source tree scanned for `@JobWorker`. If
+`MIGRATION_REPORT.md` records a path, reuse it on later invocations unless the user explicitly
+overrides it. Before each reuse, resolve the recorded path again. Verify that it remains under the
+confirmed project root and outside every runtime source set, packaged resource directory, and
+worker-scan tree. Reject a stale or unsafe path and require a new selection. Exclude the selected
+quarantine directory from every project-code inventory, every `@JobWorker` scan, and every build
+input. Record the selected path in `MIGRATION_REPORT.md` before scanning or generating.
 
 Before generating, scan the selected quarantine directory for a prior draft whose worker annotation
 uses the shared type. If one exists, stop and ask the user whether to reuse, complete, or remove
@@ -163,7 +172,9 @@ Derive the class and file names from the exact shared job type with a determinis
 the class name a legal Java identifier and the file name a safe path segment.
 Append `Worker` to the sanitized base unless it already ends with `Worker`, and use that same
 `Worker` stem for the class and file.
-Include a stable hash of the original job type to prevent collisions between sanitized names.
+Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8.
+Use its first 12 characters in the class and file stem. If sanitized stems collide, extend every
+colliding digest prefix by four characters until each name is unique.
 Resolve the proposed quarantine path and verify that it stays inside the chosen quarantine directory
 before writing. Resolve the eventual runtime path separately before moving the accepted source. If
 either path escapes its intended directory, stop and ask the user to choose a safe directory. Never
@@ -188,8 +199,8 @@ in quarantine while the user reviews it. Do not treat review approval as approva
 draft. Keep each TODO route in quarantine while the user implements the legacy invocation. Do not
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
 accept the completed source. On acceptance,
-remove draft-only markers, move the source into the intended worker source tree, and run the
-applicable formatter, compile, and test checks before deployment. If the user rejects the scaffold,
+move the source into the intended worker source tree and run the applicable formatter, compile, and
+test checks before deployment. If the user rejects the scaffold,
 remove the draft or keep it outside every scanned source tree. Do not leave the file beside the
 migrated sources or let a later scan treat it as an existing subscriber. Then rerun the same
 cross-check used for hand-written dispatchers. Record each validation result in MIGRATION_REPORT.md.
