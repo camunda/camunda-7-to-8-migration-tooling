@@ -296,8 +296,9 @@ target version. See the linting section in `references/model-migration-approache
 8. Where a target-compatible official schema exists, the skill validates every accepted form with it.
 9. Where target-compatible form-js tooling exists, the skill imports or renders every accepted form
    with it.
-10. Every accepted form has a matching `zeebe:formDefinition`.
-11. The skill deploys every accepted form with its BPMN.
+10. Every accepted form has a planned matching `zeebe:formDefinition`; Step 5 verifies the actual
+    linkage after form remediation and annotation cleanup.
+11. Step 5 deploys every accepted form with its BPMN after form remediation and annotation cleanup.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final
@@ -350,10 +351,11 @@ manual edit was needed. Record before-and-after evidence in `MIGRATION_REPORT.md
 automatic fix loop.
 Before each remediation batch, capture an immutable baseline for every participating converted copy,
 `.form` resource, and referenced code artifact. Immediately before verifying a no-edit category,
-capture the same baseline. For XML, include the content hash, namespace counts, wiring references,
-and FEEL state.
-For forms, include the JSON content hash, schema result, render result, linkage, and deployment
-state. Record `absent` when a remediation will create a new form. Mark the schema, render, linkage,
+capture the same baseline. For XML and code, use a lowercase SHA-256 digest of exact UTF-8 bytes
+without normalization. Include namespace counts, wiring references, and FEEL state.
+For forms, use a lowercase SHA-256 digest of the exact generated JSON bytes without normalization.
+Also record the schema result, render result, linkage, and deployment state. Record `absent` when
+a remediation will create a new form. Mark the schema, render, linkage,
 and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
 no form resource participates. For code, include content hashes and matched worker, listener,
 dispatcher, and precompute declarations. Record `absent` when a remediation will create a code
@@ -390,7 +392,7 @@ changes. Retain **no action** only after this sequence passes.
 | Check | Required evidence |
 |---|---|
 | XML structure | For every participating BPMN or DMN converted copy, re-parse the file with a namespace-aware XML parser, including files with no manual edit. For M1, use paths captured from this run's `Created ...` lines. For M2, M3, and E1, use the recorded original-to-converted pair paths. Record the command, exit code, and paths. |
-| Generated form structure | Before Step 5e, parse every participating `.form` resource and apply its schema and render checks from `form-migration.md`. Record `not applicable` and the reason when target-compatible schema or render tooling is unavailable, as defined by `form-migration.md`. After Step 5e, verify form linkage and deployment. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
+| Generated form structure | Before Step 5e, parse every participating `.form` resource and apply its schema and render checks from `form-migration.md`. Parse every FEEL-bearing form expression with the target FEEL parser when available. Keep a form category at **needs review** when its FEEL expressions cannot be checked. Record `not applicable` and the reason when target-compatible schema or render tooling is unavailable, as defined by `form-migration.md`. After Step 5e, verify form linkage and deployment. For a standalone `.form` with no owner or converted BPMN, record linkage and deployment as `not applicable` with the reason. Compare the results with the immutable form baseline. Compare `absent` with the created resource when a remediation creates a form. Record before-and-after evidence, the command, exit code, and resource paths. |
 | Namespace and metadata cleanup | For BPMN or DMN converted copies, use namespace-aware XML queries by namespace URI, not literal prefixes. Count remaining Camunda 7 elements or attributes, conversion nodes or attributes, and QName-valued attribute values resolved to those namespace URIs. Record before-and-after counts. Require zero remaining Camunda 7 elements, attributes, or QName-valued attribute values for the category's touched elements before changing its verdict to **no action**. |
 | Final whole-file cleanup | After category-specific verification runs for every category and Step 5e removes converter annotations, inspect the entire BPMN or DMN converted copy before retaining any **no action** verdict. Require and record zero remaining Camunda 7 elements, attributes, and QName-valued attribute values. Require and record zero conversion nodes or attributes, zero unused Camunda 7 or conversion namespace declarations, and zero leftover BPMN definitions-level XPath `expressionLanguage`. |
 | Final cleanup failure | If any final count is non-zero, invalidate every passed row for that file, update every invalidated row in both tables to **needs fix** or **needs review**, record a run-level validation failure when no category maps to the leftover, and keep the migration incomplete until final revalidation passes. |
