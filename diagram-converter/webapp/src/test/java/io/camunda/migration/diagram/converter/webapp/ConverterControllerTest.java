@@ -133,11 +133,17 @@ public class ConverterControllerTest {
   }
 
   @Test
-  void doesNotAllowCrossOriginRequestsByDefault() {
+  void rejectsCrossOriginMultipartRequestsByDefault() throws URISyntaxException {
     final var response =
-        RestAssured.given().header("Origin", "https://untrusted.example").get("/version");
+        RestAssured.given()
+            .header("Origin", "https://untrusted.example")
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(ContentType.JSON)
+            .post("/check");
 
-    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.statusCode()).isEqualTo(403);
     assertThat(response.getHeader("Access-Control-Allow-Origin")).isNull();
   }
 

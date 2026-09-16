@@ -15,17 +15,17 @@ results list.
 ### CORS policy
 
 The hosted webapp intentionally allows browser requests only from its own origin.
-The default configuration does not send CORS headers for other origins, and it
-does not enable credentials. This prevents unrelated websites from using the
-hosted converter through visitors' browsers while keeping the anonymous REST API
-available to non-browser clients such as `curl`, CI jobs, and scripts; CORS does
-not apply to those clients.
+The default configuration rejects cross-origin requests with HTTP 403 before they
+reach the converter, and it does not enable credentials. This prevents unrelated
+websites from submitting conversion work through visitors' browsers while keeping
+the anonymous REST API available to clients without an `Origin` header, such as
+`curl`, CI jobs, and scripts; CORS does not apply to those clients.
 
 Additional browser origins can be explicitly configured with
 `webapp.cors.allowed-origins`, for example by activating the `dev` profile:
 
 ```bash
-java -jar diagram-converter-webapp.jar --spring.profiles.active=dev
+java -jar target/camunda-7-to-8-diagram-converter-webapp-*.jar --spring.profiles.active=dev
 ```
 
 The `dev` profile permits `http://localhost:5173`. The Vite development server

@@ -22,13 +22,11 @@ public class WebCorsConfiguration implements WebMvcConfigurer {
 
   @Override
   public void addCorsMappings(CorsRegistry registry) {
-    if (!corsProperties.getAllowedOrigins().isEmpty()) {
-      registry
-          .addMapping("/**")
-          .allowedOrigins(corsProperties.getAllowedOrigins().toArray(String[]::new))
-          .allowedMethods("GET", "POST", "OPTIONS")
-          .allowedHeaders("*")
-          .allowCredentials(false);
-    }
+    registry
+        .addMapping("/**")
+        .allowedOrigins(corsProperties.getAllowedOrigins().toArray(String[]::new))
+        .allowedMethods("GET", "POST", "OPTIONS")
+        .allowedHeaders("*")
+        .allowCredentials(false);
   }
 }
