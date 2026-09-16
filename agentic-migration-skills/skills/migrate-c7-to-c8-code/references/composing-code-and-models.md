@@ -51,9 +51,11 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
 - It reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
-- It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
+- It routes on the retained header key and value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
-Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers every distinct original expression in the findings rows for that job type. List uncovered expressions for the user.
+Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
+every distinct retained header key and original expression pair in the findings rows for that job
+type. List uncovered pairs for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
@@ -71,7 +73,8 @@ Generate the scaffold only after the user selects it. Never overwrite an existin
 Create the draft outside worker sources. Use the target project's conventional package, license
 header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
-Prepopulate a routing map or switch with every distinct original expression from the findings rows.
+Prepopulate a routing map or switch with every distinct retained header key and original expression
+pair from the findings rows.
 Put a `TODO` in each route for the actual bean or method invocation.
 Escape every model-derived value before using it in a Java string literal.
 Make every TODO, missing-header, and unknown-route path fail explicitly.
