@@ -296,8 +296,7 @@ category. Never bundle unrelated decisions into one question.
 After applying decisions, present each form (or a coherent batch with identical decisions) for explicit
 acceptance:
 
-- **Accept**: only after the user reviews the field table and rendered preview/JSON. During Step 3,
-  record the accepted bytes and planned linkage only. Apply the linkage after Step 5e.
+- **Accept and link**: only after the user reviews the field table and rendered preview/JSON.
 - **Revise**: apply the requested design, regenerate deterministically, and present it again.
 - **Leave unlinked**: keep the draft and `needs fix` verdict.
 
@@ -306,31 +305,15 @@ approve removing it, and record the accepted risk. Never treat silence as accept
 
 ## Link only accepted forms
 
-When this procedure runs during Step 3, record the accepted bytes and planned linkage and deployment
-decision only. Do not edit the converted BPMN or deploy during Step 3. After Step 5e, apply the
-converted-copy linkage for forms accepted in Step 3, then run the final form verification and
-deployment checks. When this procedure runs for unresolved Step 5 remediation and first creates or
-accepts a deployable form, ask Question 7 when no recorded decision covers that form. Record its
-target, request, authorization, and result or pending state, then apply the linkage immediately in
-this post-Step-5e branch before the final form verification. The following promotion, linkage, and
-deployment instructions apply after Step 5e. Skip them during Step 3.
-
 Promote an accepted draft beside its converted BPMN under the accepted filename, then edit only the
 converted BPMN. Preserve the exact accepted bytes, verify the destination, and remove the generated
 draft so one authoritative form file remains. Keep a second copy only when the user explicitly requests
 it.
 
-After Step 5e, the linker creates `bpmn:extensionElements` when the converted owner has no
-extension container. It reuses the existing container otherwise. Before applying exactly one
-accepted `zeebe:formDefinition` and the planned binding, it checks for a different form definition,
-C7 form reference, or custom external reference. It asks the user before replacing any such
-existing definition and applies the accepted replacement only after approval.
-
-For M2 or any hand-edited/imported output, retain the migrated owner's `camunda:formData`,
+For M2 or any hand-edited/imported output, remove the migrated owner's `camunda:formData`,
 `camunda:formField`, `camunda:validation`, `camunda:constraint`, and direct `camunda:formProperty`
-elements through the pre-Step-5e checks as expected source-owned evidence. After Step 5e, remove
-them from the converted copy before final form verification. M1/E1 normally already removed them.
-Never remove them from the original C7 BPMN.
+elements from the converted copy after the source inventory is captured. M1/E1 normally already removed
+them. Never remove them from the original C7 BPMN.
 
 For a user task, ensure exactly one standard Camunda user-task marker and one form definition:
 
@@ -357,15 +340,9 @@ Use `bindingType="deployment"` only when BPMN and form deploy together. Otherwis
 choose and configure a supported binding.
 
 Do not rewrite the raw converter report or erase its historical `form-data` finding. Change the
-category verdict to `no action` only after every associated form is accepted, linked, and validated,
-the deployment check is satisfied, the shared Step 5 verification row is `passed`, and final
-cleanup has passed.
-Use the canonical deployment decision table in `SKILL.md`. For this form procedure, record
-`deployment=pending` before final cleanup for an authorized selected target and replace it with the
-observed result after final cleanup. Record `deployment=not applicable` with the out-of-scope
-decision when no target exists. Do not duplicate the shared state transitions here.
-Form-property-only discoveries use a synthetic
-`generated-form-property-source` category with the same lifecycle.
+category verdict to `no action` only after every associated form is accepted, linked, validated, and
+covered by deployment. Form-property-only discoveries use a synthetic `generated-form-property-source`
+category with the same lifecycle.
 
 ## Cross-check application consumers for every scope
 
@@ -387,13 +364,9 @@ another user question.
 
 ## Deployment and validation
 
-For an authorized, explicitly requested target with `bindingType=deployment`, require the converted
-BPMN and every linked accepted or existing form with that binding in the same deployment. For
-`target=none`, record `deployment=not applicable` and do not require a deployment result.
-Build an exact resource list from the recorded authorized paths. `versionTag` and implicit `latest`
-forms may use (MAY) a separate verified form deployment. Never use a broad `converted-c8-*.form` pattern.
-If any deployment-bound form is not deployable for an authorized selected target, defer the whole
-model deployment instead of deploying the BPMN alone.
+Deployment binding requires the converted BPMN and accepted `.form` file in the same deployment. Use
+explicit accepted resource paths when possible. Use a recursive pattern such as
+`classpath*:**/converted-c8-*.form` only when it cannot include drafts or declined forms.
 
 Before reporting a form complete:
 
@@ -409,11 +382,6 @@ Before reporting a form complete:
 9. Rerun generation from the same source and decisions and compare bytes.
 10. Confirm the original Camunda 7 BPMN is unchanged.
 11. Confirm linked owners in the converted BPMN retain no C7 generated-form metadata.
-
-Record `not applicable` and the reason when the official schema or renderer is unavailable. Treat
-only unavailable tooling as supplementary. When the tooling is available, a schema or render
-failure is a verification failure. A JSON parse failure, invalid BPMN, linkage failure, or
-deployment failure also remains a verification failure.
 
 Add these report sections:
 

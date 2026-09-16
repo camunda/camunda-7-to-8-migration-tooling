@@ -14,8 +14,7 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 
 - At most 4 questions per AskUserQuestion call
 - Every question with `options` must have at least 2 options
-- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q6.
-Ask Q7 separately after the Step 3 form procedures finalize statuses.
+- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q6
 
 ---
 
@@ -79,44 +78,3 @@ Any of M1-M3 can run in analyze-only mode first (`--check` flag).
 ## Question 6 - Build Tool
 
 Include only if scope includes code, approach is A, and detection was ambiguous (both Maven and Gradle found, or neither). If exactly one detected, state it rather than asking.
-
-## Question 7 - Form Deployment Decision
-
-Include when the selected model scope produces an existing Camunda 8 form, accepted form, rebuilt
-form, or relinked form with a
-deployable owner. Ask and record the branch per form. Group forms only when they have identical
-targets, request states, authorization states, and deployment decisions. Record the fields in
-`MIGRATION_REPORT.md`:
-
-Ask: **"Which deployment state applies to `<form-owner>`?"** Use these options:
-
-- **No target** — no deployment is in scope.
-- **Target and authorized request** — provide the target, request, and authorization.
-- **Target but request not made** — provide the target and current authorization state.
-- **Target but authorization unavailable** — provide the target, request state, and authorization.
-- **Target declined** — provide the target, request, authorization, and decline decision.
-
-For **Target but authorization unavailable** and **Target declined**, ask a follow-up:
-
-- **Use an alternate binding** — record `bindingType`, any `versionTag`, and linkage evidence.
-- **Record an external deployment plan** — record the plan owner, target, and steps.
-- **Keep deployment pending** — leave the category open until one of the supported paths is chosen.
-
-For every selected target, collect the concrete target value through the secure deployment
-mechanism. The report-safe target field must redact credential-like URL query values and URL userinfo
-passwords with `<redacted>`, using the same rules as the form-reference inventory. Never write the
-unredacted target to `MIGRATION_REPORT.md` or any committed artifact.
-
-- **No deployment target** — record `target=none`, `request=not applicable`,
-  `authorization=not applicable`, `deployment decision=out of scope`, and
-  `deployment=not applicable`.
-- **Target, explicit request, and authorization** — record the target, request, authorization,
-  and `deployment=pending` before final cleanup. Record the deployment result after final cleanup.
-- **Target without request** — record the target, `request=not requested`, authorization state,
-  and `deployment=pending`. Obtain the request before deployment.
-- **Target with unavailable authorization** — record the target, request, `authorization=unavailable`,
-  and `deployment=pending`. Require a supported alternate binding or an explicit
-  external-deployment plan before closing.
-- **Target with decline** — record the target, request, authorization state,
-  `deployment decision=declined`, and `deployment=pending`. Require a supported alternate binding
-  or an explicit external-deployment plan before closing.

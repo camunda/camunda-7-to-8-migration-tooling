@@ -48,9 +48,7 @@ case-sensitive prefix, in this order:
 
 `camunda:formRef` is always `c7-camunda-form-reference`, whatever its binding. A **form-free owner**
 — a user task or a process-level none start event with no form metadata at all — is
-`c7-generic-task-form`. A completed keep-form-free decision is terminal as
-`Status=declined`, `Verdict=needs review`, and `Verification=passed` with accepted-risk evidence.
-Do not prompt for another decision. Never present this category as **no action**.
+`c7-generic-task-form`.
 
 In the model finding verdict table, use the specific converter messageId (`form-key-embedded`,
 `form-key-camunda-form`, `form-key-external`, `form-key-expression`) when it corroborates the source
@@ -206,106 +204,24 @@ nothing is rebuilt. The two reach the converted model differently:
 - A `camunda-forms:` form key is only copied verbatim into `externalReference`/`formKey`, which
   Camunda 8 does not resolve. It still needs relinking.
 
-Before the form conversion step, inspect both parsed metadata fields. If either
-`executionPlatform` identifies a Camunda 8 platform or `executionPlatformVersion` has a Camunda 8
-version, skip conversion and follow **Validate an existing Camunda 8 form** below. Require exact
-target metadata there. Treat a missing, mismatched, or contradictory field as a blocked
-existing-form validation, not as a Camunda 7 form. Convert only a form with no Camunda 8 indicator.
+For both:
 
-1. Locate the `.form` file. In M1 or M3, reuse the captured converted form and findings when the
-   current run already produced them. Do not invoke the converter again for the same form. If no
-   captured form exists, convert it with the applicable Diagram Converter path. In E1, convert it
-   only when the form resource was supplied separately. When E1 does not provide the resource,
-   record `Status=blocked`, `Verification=unavailable`, and the retained original reference
-   instead of claiming conversion. The converter may update
-   execution-platform metadata, rewrite supported simple JUEL
-   component properties to FEEL, and emit findings. Capture the converter findings, before/after
-   hashes, and all resulting schema, render, and FEEL evidence. Before M1 staging, deduplicate
-   shared forms by canonical source path and form id. Stage each unique form once, map every owner
-   to that canonical form, and reuse its single captured conversion result. In M1, stage the captured model
-   and all in-scope C7 forms associated with that model in an isolated input directory and pass
-   that directory as one invocation.
-   For a model with associated forms, always pass the staged directory. Use one captured path in one
-   invocation only when the model has no associated form. Exclude every existing Camunda 8 form.
-   Never pass a broad project directory that lets the converter rewrite an existing
-   form before its preservation check. In M2, regardless of why M2 was selected, apply a metadata-only JSON
-   update to the converted copy: change only the target execution-platform metadata, preserve the
-   schema and all other fields, and record before/after content hashes. Before this update, inspect
-   the form JSON for C7 JUEL expressions. If any `${...}` or `#{...}` expression is present, do not
-   claim that M2 converted the form: record `Status=blocked`, `Verification=failed`, the
-   expression paths, and the retained original reference. If no such expression is present, the
-   metadata-only update may proceed. (MAY) If that update cannot be performed deterministically, record
-   `Status=blocked` and `Verification=unavailable` with the reason and retain the original
-   reference. Never hand-edit form schema content.
+1. Locate the `.form` file and convert it with the existing Diagram Converter form conversion, which
+   updates the execution platform metadata only. Never hand-edit the schema.
 2. Read the form's own `id` from the converted `.form` file. Do not derive it from the file name. Do
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
-   path. Ask the user which side changes. Remove or withhold any converter-emitted
-   `zeebe:formDefinition` before Step 4 for a blocked or declined row. An accepted mapping may
-   (MAY) retain a provisional definition until the post-Step-5e edit. For `camunda:formRef`, retain the exact
-   report-safe rendering of the original reference in `MIGRATION_REPORT.md`. Keep any raw value only
-   in the secure transient execution context. For a copied form key, retain the copied
-   `externalReference` or `formKey` as the unresolved form pointer. Leave the owner unlinked until
-   the user resolves the blocker.
-3. Plan a converted element with exactly one `zeebe:formDefinition` whose `formId` is that id. For
-   literal `camunda:formRef`, reuse or update the converter-emitted definition only after the
-   mapping and form checks pass. Do not append a second definition. If the row is blocked, remove
-   or withhold the emitted definition and retain the recorded original `camunda:formRef` or copied
-   form pointer instead. Remove any copied Camunda 7 reference (`externalReference` or `formKey`)
-   during the post-Step-5e edit only after an accepted mapping is applied. During Step 3, record
-   this model-edit plan only.
+   path. Ask the user which side changes. The skill does not relink until the user decides.
+3. Ensure the converted element carries exactly one `zeebe:formDefinition` with `formId` set to that
+   id, and remove any copied Camunda 7 reference (`externalReference` or `formKey`).
 4. Confirm the binding as a recorded decision, not an accident. Write `bindingType` for `deployment`
    and for `versionTag` (with its `versionTag` value). `latest` may stay implicit as the Camunda 8
-   default (MAY). Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
+   default. Record the choice in `MIGRATION_REPORT.md` either way. A Camunda 7 `version` binding with
    `formRefVersion` has no numeric-version equivalent, so ask the user to choose `versionTag` with a
    real tag or accept another binding.
-5. Before Step 5e, run the form validation checklist from `form-migration.md`. Confirm JSON parsing,
-   applicable schema and render checks, target metadata, and the shared FEEL extraction and syntax
-   parsing checks. Record the planned `formId` linkage and binding, but do not edit the converted
-   copy or require the final linkage check yet. Record unavailable schema or render tooling as
-   `not applicable` with the reason. Record an unavailable FEEL parser as `unavailable` in FEEL
-   evidence. Record other unavailable supplementary tooling according to `form-migration.md`.
-6. When unresolved Step 5 remediation first creates or accepts a deployable form, use the Question 7
-   decision already recorded after Step 3 when it covers this form. If no recorded decision covers
-   it, ask Question 7 in this post-Step-5e branch and record its target, request, authorization, and
-   result or pending state. Apply the accepted linkage plan, then rerun the full form validation
-   checklist, including target metadata, FEEL parsing, exact `formId` linkage, and removal of the
-   copied C7 reference. Rerun the verification row after any linkage or form change.
-7. Verify deployment only after the user explicitly requests it and selects a deployment target.
-   Record the request, target, authorization, and deployment result separately. Do not deploy when a target exists
-   without an explicit request. Record deployment as `pending` and keep the category open until the
-   user decides. Record an explicit out-of-scope `not applicable` decision when no target exists.
-   If authorization is unavailable or the user declines deployment for a selected target, keep
-   deployment `pending` unless the user selects a supported alternate binding or records an explicit
-   external-deployment plan.
+5. Confirm the form deploys together with the process for a `deployment` binding.
 
 If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
-
-## Validate an existing Camunda 8 form
-
-Use the `form-already-camunda-8` finding or parsed metadata only as a candidate signal. Require
-exact `executionPlatform="Camunda Cloud"` and canonical selected-target
-`executionPlatformVersion` before accepting the existing-form path. Treat missing or mismatched
-metadata as a blocking verification failure. A `.form` suffix alone is not sufficient.
-
-1. Pair the `.form` path with its owner from `zeebe:formDefinition@formId`. When the converted owner
-   has no `formId`, pair it by the exact `externalReference` or `formKey` value retained from the
-   source. Record a standalone form only when no owner exists by either linkage. Do not pass an
-   existing Camunda 8 form to the C7 form converter.
-2. Capture the original form bytes and SHA-256 hash as provenance. Scan parsed JSON values for
-   legacy C7 `${...}` or `#{...}` expressions. If any remain, record `Status=blocked`,
-   `Verification=failed`, the expression paths, and an approved remediation decision before
-   accepting the form as existing Camunda 8. Validate JSON, target-compatible schema, render, FEEL
-   templates, and existing linkage with the shared gate.
-3. Use the Question 7 decision already recorded after Step 3 for an owner with a deployable form.
-   Do not ask Question 7 again. Verify deployment after final cleanup. Record `not applicable`
-   linkage and deployment for a standalone form.
-4. Preserve the existing form bytes unless the user approves a remediation. Record the final form
-   hash and every verification command in `MIGRATION_REPORT.md`.
-5. When metadata, schema, render, FEEL, linkage, and deployment checks pass, record
-   `Status=accepted`, `Verdict=needs review`, and `Verification=passed` with the existing-form
-   evidence. A standalone form uses `Status=accepted` with linkage and deployment
-   `not applicable`. The shared final transition may then move the category to **no action**.
 
 ## Rebuild a reference as a Camunda 8 form
 
@@ -429,21 +345,10 @@ Add these sections to `MIGRATION_REPORT.md`:
 Verdict rules for the model finding table:
 
 - Every category starts at `needs review`. A decision must precede any work. No category is
-  `no action` because the converter copied a reference.
-
-| Lifecycle case | Required evidence | Verdict, status, and transition |
-|---|---|---|
-| Decision pending | The pending question and scope are recorded. | Keep `Verdict=needs review`. Do not edit or relink. |
-| Rebuild | The form is accepted, linked, validated, and has an explicit deployment decision. | Keep `needs fix` until linkage, deployment, the shared Step 5 row, and final cleanup pass. |
-| Keep reference | The owner confirms the integration. A dynamic reference also has its enumerated values and preserved exact reference evidence recorded. | Keep the category open until the custom-application follow-up is recorded. |
-| Camunda Form reference | Convert and relink the form. Verify deployment when the user requests it with authorization for a selected target. | Keep the category open until the form checks and deployment check pass. |
-| Keep-form-free generic owner | Record `Status=declined`, `Verdict=needs review`, `Verification=passed`, and accepted-risk evidence. | Treat this as a resolved accepted-risk terminal state. Never present `c7-generic-task-form` as `no action`. |
-| Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
-| Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
-| Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
-| Removed reference | The user explicitly chooses **leave the element without a form**. Record the report-safe rendering of the source reference, accepted-risk owner, and namespace-aware before/after evidence showing no copied `externalReference` or `formKey`, no `zeebe:formDefinition`, and no linked or deployed form. Keep any raw value only in the secure transient execution context. | Record `Status=declined`, `Verdict=needs review`, and `Verification=passed` as a procedure-defined terminal accepted-risk state. Never present it as **no action**. |
-| `no action` transition | Every migratable row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** for migrated, relinked, rebuilt, or accepted existing Camunda 8 categories. Keep kept embedded, external, or dynamic references nonterminal at `Verdict=needs review`. Keep `c7-generic-task-form` at `Verdict=needs review` with its procedure-defined terminal status. Do not call that generic status nonterminal or `no action`. |
-
-A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
-deployment or verification requirements above.
+  ever `no action` because the converter copied a reference.
+- After a decision, a category stays `needs fix` until the work finishes. For a rebuild, accept,
+  link, validate, and deploy the form. For a keep, the owner confirms the integration. For a
+  Camunda Form reference, convert, relink, and deploy the `.form`.
+- Move a category to `no action` only when every row reaches a terminal state. Record a `declined` or
+  `deferred` row as accepted risk, not completed work.
 - Do not rewrite the raw converter report or remove its historical findings.

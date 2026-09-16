@@ -70,13 +70,7 @@ The skill recommends a model built for complex reasoning. Example identifiers ar
 For Camunda 7 Generated Task Forms (`camunda:formData`/`formField` and legacy `formProperty`), the
 Diagram Converter leaves a manual finding on purpose. The skill reads the original BPMN metadata and
 generates deterministic standard Camunda 8 `.form` files. It presents every semantic gap for your
-review. It applies linkage after Step 5e and reruns form verification before final cleanup. It
-reruns the full form checklist after final cleanup for every participating form. It runs an
-additional deployment and linkage check after an authorized in-application deployment. It deploys
-only after final cleanup, an explicit request, authorization, and a selected target. It records no-target
-deployment as out of scope and keeps
-unauthorized or declined selected-target deployment pending unless an alternate binding or explicit
-external-deployment plan is recorded.
+review, and it links and deploys only the forms you accept.
 Every other Camunda 7 form type is *referenced* rather than defined on the element. The skill reads
 each `camunda:formKey` from the original BPMN and classifies it as embedded HTML/JavaScript, a
 Camunda Form, an external or custom application, or a runtime expression. It classifies each

@@ -46,23 +46,6 @@ source model, not a deployable Camunda 8 process.
    decline the rebuild for one category and explicitly request it for another.
 5. Review any generated draft and explicitly accept it before the skill links
    it. Do not accept a form merely because its JSON parses.
-6. Use no deployment target by default for this Models-only fixture. In the
-   default path, keep it out of live deployment. Record `target=none`,
-   `request=not applicable`, `authorization=not applicable`,
-   `deployment decision=out of scope`, and `deployment=not applicable` in
-   `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator intentionally selects
-   a deployment target without an explicit request, record the target,
-   `request=not requested`, the actual authorization state, `deployment=pending`,
-   and do not deploy. If the
-   evaluator selects a target and explicitly requests
-   deployment with authorization, record the target, request, authorization,
-   and deployment result. If authorization is unavailable, record the target,
-   request, `authorization=unavailable`, and `deployment=pending`. If the
-   user declines deployment for a selected target, record the target, request,
-   authorization state, `deployment decision=declined`, and
-   `deployment=pending` unless an alternate binding or external-deployment plan
-   is selected. Record the alternate `bindingType` and linkage evidence, or the
-   external plan owner, target, and steps, before closing.
 
 The fixture does not require a Maven or Gradle build. Use the temporary
 directory as the migration skill project root.
@@ -123,41 +106,7 @@ The evaluation is complete when the agent has:
   it for acceptance, linked it with a matching `formId` and a recorded binding
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
-  embedded or external reference;
-* for every accepted, rebuilt, relinked, or existing Camunda 8 form with a
-  deployable owner, recorded the fixture's explicit out-of-scope deployment
-  decision (`deployment=not applicable`), or recorded `deployment=pending` for
-  a selected target without an explicit request, unavailable authorization, or
-  selected-target decline, or recorded the selected target, request,
-  authorization, and result. A pending selected target may resolve through an
-  alternate binding or external-deployment plan with its binding/linkage or
-  owner/target/steps evidence;
-* captured the immutable baseline for every participating converted copy or `.form`
-  resource and recorded a verification-table row for every participating category,
-  including form-free owners and unresolved kept references, with populated
-  `Participating files`, `Before`, `Postcondition`, `Checks and evidence`,
-  `After`, `Verdict`, and `Verification` fields. Completed form-free decisions
-  require a procedure-specific terminal
-  status, `Verdict`, `Verification=passed`, and follow-up evidence. For the
-  keep-form-free branch, require `Status=declined`, `Verdict=needs review`,
-  and accepted-risk evidence.
-  Unresolved kept references may retain non-passed verification with explicit
-  verdict and follow-up evidence;
-* when the user chooses **leave the element without a form**, removed the copied
-  `externalReference` or `formKey` and recorded the removal postcondition. Kept
-  references retain their exact value and custom-application evidence;
-* when no deployment target is selected, recorded `target=none`,
-  `request=not applicable`, `authorization=not applicable`, the explicit
-  out-of-scope decision, and `deployment=not applicable` for this Models-only
-  fixture. When a
-  target is selected, recorded the pending or authorized target branch described
-  above;
-* recorded the converted definitions' exact Modeler metadata:
-  `executionPlatform="Camunda Cloud"` and
-  `executionPlatformVersion="8.9.0"`;
-* recorded a passing final whole-file cleanup after Step 5e, including zero
-  converter annotations, legacy Camunda 7 constructs, unused namespaces, and
-  definitions-level XPath `expressionLanguage`;
+  external reference;
 * left the original Camunda 7 BPMN and HTML untouched; and
 * left no form-reference category marked "no action" on the strength of the
   copied reference alone.

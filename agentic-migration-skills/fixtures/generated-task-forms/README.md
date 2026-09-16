@@ -37,24 +37,6 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    it. Do not accept a form merely because its JSON parses.
 6. Repeat generation from the same source and recorded decisions. The accepted
    bytes and draft bytes should be identical on the rerun.
-7. For this Models-only fixture, select no deployment target and record
-   `target=none`, `request=not applicable`, `authorization=not applicable`,
-   `deployment decision=out of scope`, and `deployment=not applicable` in
-   `MIGRATION_REPORT.md`. Do not deploy automatically. If a target is selected,
-   record the target, `request=not requested`, the actual authorization state,
-   and `deployment=pending` until deployment is explicitly requested. With an explicit request and
-   authorization, record the request, authorization, and deployment result. If
-   authorization is unavailable, record the target, request,
-   `authorization=unavailable`, and `deployment=pending` unless an alternate binding or
-   external-deployment plan is selected. Record an alternate `bindingType` and
-   linkage evidence, or the external plan owner, target, and steps, before
-   closing. If the user declines deployment for a
-   selected target, record the request, authorization state,
-   `deployment decision=declined`, and `deployment=pending` unless an alternate
-   binding or external-deployment plan is selected. Record the alternate
-   `bindingType` and linkage evidence, or the external plan owner, target, and
-   steps, before closing.
-   Otherwise keep deployment `pending` and do not deploy.
 
 The fixture does not require a Maven or Gradle build. Use the temporary project
 directory as the migration skill project root.
@@ -103,45 +85,13 @@ The evaluation is complete when the agent has:
 * represented the standard field mappings and validation constraints in the
   draft and `MIGRATION_REPORT.md`;
 * presented the draft and mapping to the user for explicit acceptance;
-* linked only the accepted form with a matching `formId` and the recorded
-  binding decision, such as `deployment`, `versionTag`, or implicit `latest`;
+* linked only the accepted form with a matching `formId` and
+  `bindingType="deployment"`;
 * validated the form JSON and parsed the converted BPMN;
-* captured the immutable converted copy and form baselines and recorded
-  before-and-after form schema, render, FEEL, linkage, and deployment evidence,
-  including `none present` when no FEEL expressions exist;
-* recorded the converted definitions' exact Modeler metadata:
-  `executionPlatform="Camunda Cloud"` and
-  `executionPlatformVersion="8.9.0"`;
-* added a verification-table row for every participating category, including
-  `form-data`. Include a source-derived `c7-generic-task-form` row only when
-  the source scan finds a form-free owner, and recorded
-  all required columns: `Participating files`, `Before`, `Postcondition`,
-  `Checks and evidence`, `After`, `Verdict`, and `Verification`. Recorded
-  `passed` before treating an eligible category as **no action** or the
-  evaluation as complete;
-* recorded the generic form-free owner's explicit terminal status, such as
-  `declined` with accepted-risk evidence for a keep-form-free decision, and did
-  not present `c7-generic-task-form` as **no action**;
-* recorded the explicit keep-form-free, rebuild, or custom-application decision
-  for the form-free start event and its converted-owner evidence;
-* ran the referenced-form procedure for the form-free start event and recorded
-  its terminal status in `MIGRATION_REPORT.md` before treating the fixture as
-  complete;
-* when no deployment target is selected, recorded `target=none`,
-  `request=not applicable`, `authorization=not applicable`, the explicit
-  out-of-scope decision, and `deployment=not applicable` for this Models-only
-  fixture. When a
-  target is selected, recorded the pending or authorized target branch described
-  above;
-* recorded a passing final whole-file cleanup after Step 5e, including zero
-  converter annotations, legacy Camunda 7 constructs, unused namespaces, and
-  definitions-level XPath `expressionLanguage`;
 * confirmed one `zeebe:userTask` and one matching form definition on the
   accepted user task; and
 * confirmed the original Camunda 7 BPMN is unchanged and regeneration is
   byte-for-byte deterministic.
 
-When the form-free owner chooses keep-form-free, the expected output is one
-reviewable Camunda 8 form and a migration report. A rebuild or custom-application
-decision for that owner may add a second form resource and its owner evidence.
-Nothing is automatically accepted.
+Expected output is one reviewable Camunda 8 form and a migration report, not an
+automatically accepted form.

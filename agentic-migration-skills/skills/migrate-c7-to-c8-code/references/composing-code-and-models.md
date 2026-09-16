@@ -13,6 +13,8 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
+Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category with a
+`converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
@@ -69,30 +71,6 @@ Handle these rows as ONE named category, not one by one:
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
 
-### Verification gate before resolving a category
-
-Use the authoritative shared verification gate in `SKILL.md` Step 5. Do not restate its checks,
-verification states, report schema, or retry rules here.
-
-Apply these code and model additions:
-
-- Use authoritative `Created ...` paths or recorded original-to-converted pair paths. Do not discover
-  participating files with a filesystem glob.
-- Use the recorded converted copies as verification targets. Never edit the original models.
-  Use the recorded source-to-converted pair to derive expected source values. Use the immutable
-  baseline only for `Before` evidence.
-- When code is in scope, record element IDs, matching XML declarations, and code-side match and
-  coverage evidence for task wiring, listeners, headers, dispatchers, and DMN or precompute wiring.
-  When code is out of scope, record XML evidence and `not applicable` code coverage.
-- Record the category, edited paths, checks, command results, and before-and-after evidence in
-  `MIGRATION_REPORT.md`.
-- After any worker, listener, dispatcher, precompute, deployment-wiring, or workaround-deletion
-  artifact changes, rerun every applicable Step 4 code validation. Replace stale compile,
-  dependency, configuration, and test evidence with the new results before retaining **no action**
-  or exiting.
-- Keep the findings inventory and verification table from the shared gate. Add one row for every
-  category, including INFO and no-edit categories.
-
 ### 4. Generated-form code and behavior
 
 For every `form-data` or `generated-form-property-source` item, cross-check the code inventory before accepting the generated form:
@@ -112,21 +90,7 @@ For every `c7-embedded-html-form`, `c7-external-form-reference`, `c7-camunda-for
 - Locate `FormService`, `submitTaskForm`, `submitStartForm`, `/form-variables`, and Camunda 7 task REST API clients. A kept external application depends on these callers, and they must all be rewritten against the Camunda 8 Orchestration Cluster API.
 - Locate code that serves or packages embedded form HTML (for example resources under `src/main/webapp/forms`) so the user can decide what happens to those files.
 
-- Use `form-reference-migration.md` to collect decisions.
-- A category stays **needs review** until its procedure-specific decision or prerequisite is complete.
-- Embedded, external, and generic forms need a remediation decision.
-- Camunda Form references need form discovery and a binding decision.
-- Dynamic references need possible-value enumeration before a decision.
-- A category stays **needs fix** until its relevant work is finished.
-- A rebuilt form must be accepted and linked.
-- A custom-application integration must be confirmed by a named owner.
-- A Camunda Form must be converted and relinked.
-- Use the deployment state machine in `SKILL.md` Step 5 and
-  `form-reference-migration.md`. Do not duplicate or override its target, request, authorization,
-  pending, alternate-binding, or external-plan rules here.
-- If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the
-  category at **needs review** until the user resolves that prerequisite.
-- A kept reference is never **no action** on the strength of the converter having copied it.
+Use `form-reference-migration.md` to collect decisions. A category stays **needs review** until its procedure-specific decision or prerequisite is complete. Embedded, external, and generic forms need a remediation decision. Camunda Form references need form discovery and a binding decision. Dynamic references need possible-value enumeration before a decision. The category is then **needs fix** until the relevant work is finished: a rebuilt form is accepted and linked, a custom-application integration is confirmed by a named owner, or a Camunda Form is converted, relinked, and deployed. If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the category at **needs review** until the user resolves that prerequisite. A kept reference is never **no action** on the strength of the converter having copied it.
 
 ### 5. Now-redundant workaround code (deletion candidates)
 
@@ -145,24 +109,18 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: set **no action** only after the shared verification pass succeeds. Until then, reset the category to **needs review** with verification as the pending action. Do not ask the user for a decision for this verification-pending category.
+- Complete job-type, dispatcher, or invoked-method coverage makes the category eligible for **no action** after the verification gate passes.
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
-- Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: provisional **needs review** until the verification pass succeeds.
-- Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**.
-- Pending form or validation decisions: **needs review**.
-- Only accepted and validated forms with covered consumers, complete linkage, and a satisfied deployment
-  check become **no action** after the shared verification pass succeeds.
-- Use the deployment state machine in `SKILL.md` and `form-reference-migration.md` for target,
-  request, authorization, pending, decline, alternate-binding, external-plan, and not-applicable
-  transitions. This file defines only the code/model deployment-wiring set and its final code
-  validation. Apply the same state-machine reference to a Camunda Form reference.
+- A deletion candidate is **needs review**, because deleting code requires an explicit user decision.
+- If no workaround exists, keep the category **needs review** until the verification gate passes.
+- Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
 Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
 
 | Finding severity | Fallback verdict | Cross-reference |
 |---|---|---|
-| INFO | provisional needs review | no dedicated cross-check |
+| INFO | needs review until the verification gate passes | no dedicated cross-check |
 | REVIEW | needs review | no dedicated cross-check |
 | WARNING or TASK | needs fix | no dedicated cross-check |
 
@@ -172,36 +130,10 @@ remediation starting point. Do not infer a category-specific cross-check from an
 
 ## Deployment Wiring
 
-Apply the shared deployment state table first. When no linked forms exist, ask the general model
-deployment-wiring question directly. When linked forms exist, skip form-specific wiring for
-`target=none`. Skip it for selected-target pending, declined, or deferred states only while no
-completed alternate binding or external-deployment plan exists. For an authorized selected target,
-ask whether to wire deployment in application code. Offer **Yes, add/update `@Deployment`** and
-**No, handle deployment outside app startup**.
+After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
 
-Use this code/model-specific wiring table after the shared deployment decision is recorded:
-
-| Linked-form state | Startup-wiring rule |
-|---|---|
-| At least one linked form and every linked form is `target=none` | Record `deployment=not applicable`. Skip startup deployment and wiring for that model. |
-| Authorized linked forms with `deployment`, `versionTag`, or implicit `latest` | If startup wiring is **Yes**, include every linked accepted or existing form by exact recorded path in the application deployment. If startup wiring is **No**, a `bindingType=deployment` form still requires one verified deployment containing the BPMN and every deployment-bound form. Only `versionTag` and implicit `latest` forms may use (MAY) a separate verified form deployment before wiring the process. Require forms included in the same deployment to share the authorized deployment decision. Translate each recorded filesystem path to its classpath resource name. |
-| Mixed authorized targets or deployment decisions | Do not add `@Deployment` while linked forms require different targets or incompatible deployment decisions. Record the category `pending` until a common target or supported separate deployments are recorded and verified. |
-| Any selected-target linked form is pending or declined | Defer the whole model deployment. Do not deploy the BPMN alone. |
-| A `bindingType=deployment` linked form has only an external plan | Defer the whole model deployment until the same-deployment result exists. |
-| A `versionTag` or implicit `latest` linked form has a complete external plan | Verify the external form deployment from the recorded plan before wiring the BPMN independently. |
-| Any other model or form | Use the shared deployment state machine. |
-
-Do not use a broad `converted-c8-*.form` glob. Never target original diagrams, draft forms, or
-declined forms.
-
-- **Yes, add/update `@Deployment`** — use the exact resource paths and states above.
-- **No, handle deployment outside app startup** — leave code unchanged. For `target=none`, record
-  `deployment=not applicable`. For an unauthorized or declined selected target, record the external
-  plan owner, target, and steps. For an authorized selected target, require an observed external
-  deployment result or keep deployment pending.
-
-After either deployment-wiring choice, rerun the applicable final Step 4 code validation because
-the choice or any `@Deployment` edit can change compile, configuration, and test evidence.
+- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Include accepted generated forms when present, for example: `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn", "classpath*:**/converted-c8-*.form"})`. Never target original diagrams, draft forms, or declined forms.
+- **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
 
 ## Report Keeping
 
