@@ -122,6 +122,9 @@ Run the applicable compile, import/dependency, configuration, test, worker, list
 and precompute coverage checks against the recorded code artifacts.
 Define a deterministic category postcondition and record its before-and-after evidence.
 Invalidate and rerun every affected row after a code edit.
+The final Step 4 code validation is the code-only final cleanup. Rerun compile, dependency/import,
+configuration, test, and worker/listener/dispatcher/precompute checks after the last edit. Record
+their commands and results in the verification row.
 Retain **no action** only after the code checks, postcondition, final Step 4 code validation, and
 verification row pass. A code-only run must not wait for a model source-to-converted pair.
 

@@ -14,7 +14,7 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 
 - At most 4 questions per AskUserQuestion call
 - Every question with `options` must have at least 2 options
-- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q6
+- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q6/Q7
 
 ---
 
@@ -81,7 +81,8 @@ Include only if scope includes code, approach is A, and detection was ambiguous 
 
 ## Question 7 - Form Deployment Decision
 
-Include when the selected model scope produces an accepted, rebuilt, or relinked form with a
+Include when the selected model scope produces an existing Camunda 8 form, accepted form, rebuilt
+form, or relinked form with a
 deployable owner. Collect one explicit deployment branch and record the fields in
 `MIGRATION_REPORT.md`:
 
