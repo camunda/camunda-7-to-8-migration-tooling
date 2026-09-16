@@ -488,7 +488,12 @@ When the scope is **Code + models**:
 4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
 6. **Run tests**: `mvn test` or `./gradlew test` — fix failures
-7. **Check common pitfalls**:
+7. **Check query counts and pagination**:
+  - Search for `.items().size()` and `.items().stream().count()` after migrated query calls.
+  - Trace query results assigned to variables before checking later count uses.
+  - Replace complete counts with `.page().totalItems()`, using `.intValue()` for `int` or `Integer` results.
+  - Review `.page().hasMoreTotalItems()` when a search can exceed cluster result limits.
+8. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling
   - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone

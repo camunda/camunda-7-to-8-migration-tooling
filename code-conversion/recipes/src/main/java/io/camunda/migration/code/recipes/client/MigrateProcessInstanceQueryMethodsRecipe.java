@@ -12,15 +12,31 @@ import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import java.util.*;
 import org.jspecify.annotations.NonNull;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.tree.Expression;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 
 public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationRecipe {
 
   private static final String PROCESS_INSTANCE_STATE = "io.camunda.client.api.search.enums.ProcessInstanceState";
+  private static final String PROCESS_INSTANCE_FILTER =
+      "io.camunda.client.api.search.filter.ProcessInstanceFilter";
+  private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
+      Set.of(
+          "active",
+          "activityIdIn",
+          "count",
+          "createProcessInstanceQuery",
+          "list",
+          "processDefinitionKey",
+          "processInstanceBusinessKey");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -191,6 +207,168 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   }
 
   @Override
+  protected List<ReplacementUtils.BuilderReplacementSpec> countBuilderMethodInvocations() {
+    JavaTemplate activityCountTemplate =
+        RecipeUtils.createSimpleJavaTemplate(
+            """
+            #{camundaClient:any(io.camunda.client.CamundaClient)}
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter
+                    .elementId(#{activityIdIn:any(java.lang.String)})
+                    .state(ProcessInstanceState.ACTIVE))
+                .send()
+                .join()
+                .page()
+                .totalItems()
+            """,
+            PROCESS_INSTANCE_STATE,
+            PROCESS_INSTANCE_FILTER);
+    JavaTemplate activeCountTemplate =
+        RecipeUtils.createSimpleJavaTemplate(
+            """
+            #{camundaClient:any(io.camunda.client.CamundaClient)}
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                .send()
+                .join()
+                .page()
+                .totalItems()
+            """,
+            PROCESS_INSTANCE_STATE,
+            PROCESS_INSTANCE_FILTER);
+    JavaTemplate processDefinitionCountTemplate =
+        RecipeUtils.createSimpleJavaTemplate(
+            """
+            #{camundaClient:any(io.camunda.client.CamundaClient)}
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter
+                    .processDefinitionId(#{processDefinitionKey:any(java.lang.String)})
+                    .state(ProcessInstanceState.ACTIVE))
+                .send()
+                .join()
+                .page()
+                .totalItems()
+            """,
+            PROCESS_INSTANCE_STATE,
+            PROCESS_INSTANCE_FILTER);
+
+    List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
+    addCountSpecs(
+        specs,
+        Set.of("activityIdIn"),
+        List.of("activityIdIn"),
+        activityCountTemplate,
+        Collections.emptyList());
+    addCountSpecs(
+        specs, Set.of(), Collections.emptyList(), activeCountTemplate, Collections.emptyList());
+    addCountSpecs(
+        specs,
+        Set.of("processInstanceBusinessKey"),
+        Collections.emptyList(),
+        activeCountTemplate,
+        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
+    addCountSpecs(
+        specs,
+        Set.of("processDefinitionKey"),
+        List.of("processDefinitionKey"),
+        processDefinitionCountTemplate,
+        Collections.emptyList());
+    addCountSpecs(
+        specs,
+        Set.of("processInstanceBusinessKey", "processDefinitionKey"),
+        List.of("processDefinitionKey"),
+        processDefinitionCountTemplate,
+        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
+    return specs;
+  }
+
+  private void addCountSpecs(
+      List<ReplacementUtils.BuilderReplacementSpec> specs,
+      Set<String> methodNamesToExtractParameters,
+      List<String> extractedParametersToApply,
+      JavaTemplate template,
+      List<String> textComments) {
+    specs.add(
+        countSpec(
+            "list",
+            methodNamesToExtractParameters,
+            extractedParametersToApply,
+            template,
+            textComments));
+    specs.add(
+        countSpec(
+            "count",
+            methodNamesToExtractParameters,
+            extractedParametersToApply,
+            template,
+            textComments));
+  }
+
+  private ReplacementUtils.BuilderReplacementSpec countSpec(
+      String terminalMethod,
+      Set<String> methodNamesToExtractParameters,
+      List<String> extractedParametersToApply,
+      JavaTemplate template,
+      List<String> textComments) {
+    return new ReplacementUtils.BuilderReplacementSpec(
+        new MethodMatcher("org.camunda.bpm.engine.query.Query " + terminalMethod + "()"),
+        methodNamesToExtractParameters,
+        extractedParametersToApply,
+        template,
+        RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+        "java.lang.Long",
+        ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+        textComments,
+        Collections.emptyList(),
+        List.of(PROCESS_INSTANCE_STATE),
+        Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
+  }
+
+  @Override
+  protected boolean supportsCountedQuery(J.MethodInvocation queryTerminal) {
+    Set<String> seenFilters = new HashSet<>();
+    Expression current = queryTerminal;
+
+    while (current instanceof J.MethodInvocation invocation) {
+      if (invocation.getSimpleName().equals("createProcessInstanceQuery")) {
+        return true;
+      }
+
+      String methodName = invocation.getSimpleName();
+      if (!SUPPORTED_COUNT_QUERY_METHODS.contains(methodName)) {
+        return false;
+      }
+      if (methodName.equals("active") && !invocation.getArguments().isEmpty()) {
+        return false;
+      }
+      if (methodName.equals("activityIdIn") && !hasSingleStringArgument(invocation)) {
+        return false;
+      }
+      if (methodName.equals("processDefinitionKey") && invocation.getArguments().size() != 1) {
+        return false;
+      }
+      if (methodName.equals("processInstanceBusinessKey")
+          && invocation.getArguments().size() != 1) {
+        return false;
+      }
+      if (!invocation.getArguments().isEmpty() && !seenFilters.add(methodName)) {
+        return false;
+      }
+      current = unwrapParentheses(invocation.getSelect());
+    }
+    return false;
+  }
+
+  @Override
+  protected J.MethodInvocation adjustCountBuilderReplacement(
+      J.MethodInvocation replacement, J.MethodInvocation replacementTarget, Cursor cursor) {
+    String accessor = replacementTarget.getSimpleName().equals("size") ? "intValue" : "longValue";
+    return (J.MethodInvocation)
+        RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Long)}." + accessor + "()")
+            .apply(cursor, replacementTarget.getCoordinates().replace(), replacement);
+  }
+
+  @Override
   protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
     return List.of();
   }
@@ -198,5 +376,24 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   @Override
   protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
     return List.of();
+  }
+
+  private static boolean hasSingleStringArgument(J.MethodInvocation invocation) {
+    return invocation.getArguments().size() == 1
+        && isStringType(invocation.getArguments().get(0).getType());
+  }
+
+  private static boolean isStringType(JavaType type) {
+    return type == JavaType.Primitive.String
+        || (type instanceof JavaType.FullyQualified fqn
+            && fqn.getFullyQualifiedName().equals("java.lang.String"));
+  }
+
+  private static Expression unwrapParentheses(Expression expression) {
+    while (expression instanceof J.Parentheses<?> parentheses
+        && parentheses.getTree() instanceof Expression nested) {
+      expression = nested;
+    }
+    return expression;
   }
 }
