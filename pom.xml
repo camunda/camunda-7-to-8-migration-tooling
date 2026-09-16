@@ -128,6 +128,16 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-89044: make the fixed Netty BOM inherited by every module,
+           including modules with dependency management that does not import
+           Spring Boot or the Camunda BOM. -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
@@ -361,14 +371,16 @@
               <rules>
                 <bannedDependencies>
                   <excludes>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.8,2.18.9)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.5)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.1)</exclude>
-                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.5)</exclude>
-                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.1)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.18.10)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.6)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.2)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.6)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.2)</exclude>
+                    <exclude>io.netty:netty-codec-http:[4.1,4.1.138)</exclude>
+                    <exclude>io.netty:netty-codec-http:[4.2,4.2.18)</exclude>
                   </excludes>
                   <message>
-                    jackson-databind must not resolve to a version affected by CVE-2026-54515 or CVE-2026-59889.
+                    Jackson databind and Netty HTTP dependencies must not resolve to versions affected by the current CVE set. Fixed versions are Jackson 2.22.2/3.2.2 and Netty 4.1.138/4.2.18 or newer.
                   </message>
                   <searchTransitive>true</searchTransitive>
                 </bannedDependencies>
