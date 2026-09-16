@@ -42,11 +42,11 @@ For local M1 and E1 CLI runs, never consume a report or converted file that exis
 migration run. Capture each CLI output path from this run's `Created ...` lines and use only those
 paths as authoritative. For M2, capture each rewrite output path and record its exact
 original-to-converted pair before validation. A later same-session M1 `--check` report may provide
-findings only when this run already captured and recorded the same original input paths, target
-version, and paired converted copy. Run that check against the captured original paths, exclude
-captured converted copies, and reject report rows for `converted-c8-*` files. Preserve the pairing
-and revalidate the report target version. M3 is the exception: hosted-converter outputs are allowed
-only after the imported-report version and pairing checks in step 5.
+findings only when it uses the same original input paths, target version, and recorded
+source-to-converted pairs. Run the check against those original paths, exclude every captured
+converted copy, and reject report rows that name a converted copy. M3 is the exception:
+hosted-converter outputs are allowed only after the imported-report version and pairing checks in
+step 5.
 
 ## Approach M1 - Diagram Converter CLI + AI (recommended)
 
@@ -155,12 +155,12 @@ If the report's version does not match the chosen target, or cannot be determine
 #### 5a. Parse the JSON report
 
 Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
-path captured after step 3a relocation. A same-session M1 `--check` report is valid only when the
-same original input paths and target version produced the paired converted copy earlier in this
-run, and the report excludes captured converted copies. For an imported M3 report, use the
-downloaded JSON path after the version and pairing checks in step 5. The local path may include a
-` (n)` suffix when a stale report exists. Never parse a local findings report that predates this
-run. Never rely on stdout severity counts instead.
+path captured after step 3a relocation. A same-session M1 `--check` report is valid only when it
+covers the same original input paths and target version, excludes captured converted copies, and
+matches the recorded source-to-converted pairs. For an imported M3 report, use the downloaded JSON
+path after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when
+a stale report exists. Never parse a local findings report that predates this run. Never rely on
+stdout severity counts instead.
 
 Format: a JSON array with one object per finding, fields:
 
@@ -472,6 +472,8 @@ Generated Task Form inventory, the referenced-form inventory from `form-referenc
 likely decision categories. Do not create `.form` files or edit BPMN. Then stop.
 
 When a full M1 run in the same session already recorded a paired converted copy, a later M1
-`--check` run may provide the machine-readable findings input. Preserve the recorded copy and
-continue the Step 5 cross-check after parsing the new report. Do not consume a report or converted
-file that predates the session.
+`--check` run may provide the machine-readable findings input only when it uses the same original
+input paths and target version. Run it against those original paths, exclude every captured
+converted copy, reject rows that name converted copies, and verify the recorded source-to-converted
+pairs before continuing the Step 5 cross-check. Do not consume a report or converted file that
+predates the session.

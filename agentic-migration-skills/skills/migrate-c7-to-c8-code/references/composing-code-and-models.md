@@ -138,18 +138,20 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
   The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`).
   Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`).
 - For a topic row, it uses the original `camunda:topic` value as the pair identity. A many-to-one
-  topic group must also retain that value as a `topic` header before scaffolding. M2 can add and
-  validate this header during model migration. M1 and M3 do not edit the converted BPMN in this
-  code flow. Keep those cases report-only until a paired converted copy contains the header.
+  topic group must also retain that value as a `topic` header before scaffolding. M1 can add and
+  validate this header during converted-copy follow-up. M2 can add and validate it during model
+  migration. M3 does not edit the converted BPMN in this code flow. Keep M3 report-only until a
+  paired converted copy contains the header.
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
 every distinct `(headerKey, original)` pair in the normalized rows for that job type across all four
 categories. List uncovered pairs for the user.
 
-For M2 migration, verify or add the matching delegate or topic header before scaffolding. For M1
-and M3, record the missing header and require a new or user-supplied paired converted copy before
-regrouping. Do not edit BPMN in this code flow.
+For M1, add and validate the matching delegate or topic header on the converted copy during model
+follow-up. For M2 migration, verify or add the matching header before scaffolding. For M3, record
+the missing header and require a new or user-supplied paired converted copy before regrouping. Do
+not edit the original BPMN.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
@@ -186,14 +188,16 @@ registration for the shared type. Resolve literal annotation values, method-name
 client worker-builder registrations. If a registration's effective type is unresolved, or the
 inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
 generation until the user resolves it. If any registration already subscribes to the shared type,
-omit the generation option. Preserve existing source and require explicit confirmation before
-extending, merging, replacing, or removing a subscriber. Do not create or enable a second
-subscriber.
+classify it as a dispatcher when it routes on retained header pair values. If a dispatcher exists,
+omit the generation option. If only
+ordinary subscribers exist, keep **needs fix**, preserve their source, and offer a quarantined
+scaffold through AskUserQuestion. Require explicit confirmation before merging, replacing, or
+removing an ordinary subscriber. Do not create or enable a second subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict and no effective
-worker. Keep a 1:1 group on the simple worker-remediation path. Do not offer generation for a group
-with a **no action**, **needs review**, or incomplete verdict.
+dispatcher. Keep a 1:1 group on the simple worker-remediation path. Do not offer generation for a
+group with a **no action**, **needs review**, or incomplete verdict.
 
 Use this decision table for each shared job type:
 
@@ -202,8 +206,9 @@ Use this decision table for each shared job type:
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None | For a complete many-to-one group, use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
-| **needs fix** | Exactly one effective worker | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
-| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one subscriber before resolving the group. |
+| **needs fix** | Exactly one dispatcher and no other effective worker | Do not offer generation. Ask the user to extend the existing dispatcher. |
+| **needs fix** | One or more ordinary subscribers and no dispatcher | Offer a quarantined scaffold through AskUserQuestion. Preserve the existing source. Require explicit confirmation before merging, replacing, or removing subscribers, then verify exactly one active subscriber before acceptance. |
+| **needs fix** | More than one dispatcher or a dispatcher with another effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
@@ -232,12 +237,12 @@ name from the same candidate stem, then tell the user which file was created. Ne
 original class name with a renamed file.
 
 The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Offer
-this scaffold only for a Spring worker target that discovers `@JobWorker` annotations. For a
-non-Spring Java client target, omit generation and require a manual client-worker builder
-implementation and validation. Use the project's worker registration convention, such as
-`@Component` for Spring. For the Java client worker shape, use `ActivatedJob job` and read headers
-with `job.getCustomHeaders()`. Read each original value from the retained `zeebe:header` using its
-original C7 key. Prepopulate a routing map or switch with one entry for every distinct normalized
+this scaffold only for a Spring worker target that discovers `@JobWorker` annotations. Do not offer
+this scaffold for a non-Spring Java client target. Keep that group **needs fix** and require a
+user-owned client-worker builder implementation and validation. Use the project's worker registration
+convention, such as `@Component` for Spring. Read each original value from the retained
+`zeebe:header` using its original C7 key. Prepopulate a routing map or switch with one entry for
+every distinct normalized
 `(headerKey, original)` pair for the shared job type, grouped by retained key. Use Java
 string-literal escaping for every generated route key and for the shared job type in the
 annotation. Escape quotes, backslashes, line breaks, and other control characters before writing
