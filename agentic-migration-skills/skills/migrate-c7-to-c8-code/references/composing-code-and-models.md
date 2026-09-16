@@ -18,13 +18,15 @@ When the user selects Approach C, the skill keeps this cross-check report-only. 
 or generate a dispatcher scaffold. The skill records the category, its routing gaps, and the
 recommended Approach A or B in `MIGRATION_REPORT.md`.
 
-When M1 runs with `--check` and produces no converted copy, keep this cross-check report-only. Do not
-offer or generate a dispatcher scaffold until a paired converted copy is available. Record the
-missing copy and the required rerun in `MIGRATION_REPORT.md`.
+When M1 runs with `--check` and no paired converted copy exists in the current migration session,
+keep this cross-check report-only. Do not offer or generate a dispatcher scaffold until a paired
+converted copy is available. Record the missing copy and the required rerun in
+`MIGRATION_REPORT.md`.
 
-When a full M1 run produced and recorded a paired converted copy, a later `--check` report may
-provide the findings input. Gate generation on the recorded paired copy, not on the latest report
-invocation.
+When a full M1 run in the current migration session produced and recorded a paired converted copy,
+a later `--check` run in the same session may provide the findings input. Record that report path
+from the same session and do not consume a report that predates the session. Gate generation on the
+recorded paired copy, not on the latest report invocation.
 
 When M2 has a converted copy, is not read-only, and has no Diagram Converter report, scan every
 `zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
@@ -146,18 +148,21 @@ categories. List uncovered pairs for the user.
 
 For M2 migration, verify or add the matching delegate or topic header before scaffolding. For M1
 and M3, record the missing header and require a new or user-supplied paired converted copy before
-regrouping. Do not hand-edit BPMN in this code flow.
+regrouping. Do not edit BPMN in this code flow.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
 When a shared job-type group has a **needs fix** verdict, process it independently. Propagate its
 verdict to every affected category before assigning category verdicts.
 
-Before asking for a decision, use the effective-type inventory to identify registrations whose
-effective type resolves to the shared type. Resolve literal annotation values and method-name
-defaults. If a registration's effective type is unresolved, treat it as a possible subscriber and
-stop scaffold generation until the user resolves it. If any registration already subscribes to that
-type, omit the generation option. Do not create a second subscriber.
+Before asking for a decision, inventory every `@JobWorker` annotation and programmatic worker
+registration for the shared type. Resolve literal annotation values, method-name defaults, and
+client worker-builder registrations. If a registration's effective type is unresolved, or the
+inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
+generation until the user resolves it. If any registration already subscribes to the shared type,
+omit the generation option. Preserve existing source and require explicit confirmation before
+extending, merging, replacing, or removing a subscriber. Do not create or enable a second
+subscriber.
 
 When the target is a separate project, confirm its target root before using this flow. Use that
 target root for the worker scan and quarantine. If the target root is not confirmed, keep the
@@ -194,22 +199,28 @@ Use this decision table for each shared job type:
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None | For a complete many-to-one group, use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
-| **needs fix** | Exactly one | Do not offer generation. Review the registration for extension if it is a dispatcher. Otherwise merge or remove the non-dispatcher before creating one. Never enable a second subscriber. |
-| **needs fix** | More than one | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher. Extend one dispatcher and merge or remove every other registration before resolving the group. |
+| **needs fix** | One or more effective workers | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
+| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one subscriber before resolving the group. |
+| **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
 directory outside every source set, build input, and source tree scanned for `@JobWorker`
 registrations. Use the project's conventional package, license header, naming, and formatting.
 Derive the class and file names from the exact shared job type with this deterministic sanitizer:
-replace each character outside ASCII letters, digits, and `_` with `_`, preserve case, and do not
-truncate the result. If the result is empty, use `JobType`. Otherwise, prefix `JobType_` once when
-the first character is not a letter or the result contains no letter. Make the class name a legal
-Java identifier and the file name a safe path segment.
+replace each character outside ASCII letters, digits, and `_` with `_`, and preserve case. If the
+result is empty, use `JobType`. Otherwise, prefix `JobType_` once when the first character is not a
+letter or the result contains no letter. Make the class name a legal Java identifier and the file
+name a safe path segment.
 Append `Worker` to the sanitized base unless it already ends with `Worker`, and use that same
 `Worker` stem for the class and file.
 Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8.
 Use its first 12 characters in the class and file stem. If sanitized stems collide, extend every
-colliding digest prefix by four characters until each name is unique.
+colliding digest prefix by four characters until each name is unique. Build the final filename from
+the sanitized base, worker stem, digest, and `.java`. If the complete stem exceeds 200 ASCII
+characters, truncate only the sanitized base while preserving the worker stem and digest. Reapply
+the limit after any digest extension. Reject a final path component longer than 255 bytes. If the
+resolved parent path leaves no valid filename length, ask the user to choose a shorter quarantine
+path before writing.
 Resolve the proposed quarantine path and verify that it stays inside the chosen quarantine directory
 before writing. Resolve the eventual runtime path separately before moving the accepted source. If
 either path escapes its intended directory, stop and ask the user to choose a safe directory. Never

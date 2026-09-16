@@ -38,7 +38,12 @@ If anything else is found, warn through AskUserQuestion before converting:
 - **OK, proceed** — when no findings report remains under a packaged resource directory, run without `-o`/`--override`. Old files stay untouched.
 - **Cancel** — stop so the user can back up or clean up first.
 
-For local approaches (M1, M2, E1), never consume a pre-existing report or converted file found on disk. It may come from an interrupted attempt or a different `--platform-version`. The findings flow (M1 steps 3-5) works only from this session's own run. M3 is the exception: hosted-converter outputs are allowed only after the imported-report version and pairing checks in step 5.
+For local approaches (M1, M2, E1), never consume a report or converted file that existed before
+this migration run. Capture each output path from this run's `Created ...` lines and use only those
+paths as authoritative. A later same-session M1 `--check` report may provide findings when this run
+already captured and recorded its paired converted copy. Preserve that pairing and revalidate the
+report target version. M3 is the exception: hosted-converter outputs are allowed only after the
+imported-report version and pairing checks in step 5.
 
 ## Approach M1 - Diagram Converter CLI + AI (recommended)
 
@@ -147,10 +152,11 @@ If the report's version does not match the chosen target, or cannot be determine
 #### 5a. Parse the JSON report
 
 Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
-path captured after step 3a relocation. For an imported M3 report, use the downloaded JSON path
-after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when a
-stale report exists. Never parse a pre-existing local findings report found on disk. Never rely on
-stdout severity counts instead.
+path captured after step 3a relocation. A same-session M1 `--check` report is valid only when the
+paired converted copy was captured earlier in this run. For an imported M3 report, use the
+downloaded JSON path after the version and pairing checks in step 5. The local path may include a
+` (n)` suffix when a stale report exists. Never parse a local findings report that predates this
+run. Never rely on stdout severity counts instead.
 
 Format: a JSON array with one object per finding, fields:
 
@@ -389,8 +395,9 @@ Treat a job type that differs from this table as an intentional deviation only w
 job type, and the confirmed rationale. Record the same decision for a custom or shared job type that
 has no source binding in the table. Do not replace a method-specific type with the bean-only type.
 
-For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original),
-record the exact original-to-converted path pair in `MIGRATION_REPORT.md`, and apply:
+For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the
+original). Before validation, record the exact original-to-converted path pair in
+`MIGRATION_REPORT.md`. Use that recorded pair for Step 5 cross-checks. Apply:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.

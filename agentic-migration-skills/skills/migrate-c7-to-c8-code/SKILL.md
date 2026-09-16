@@ -359,7 +359,8 @@ undifferentiated list.
   **needs fix** verdict. Process each shared group once, then
   propagate its verdict to every affected category before continuing. That reference owns the
   effective-worker scan and omits generation when a subscriber exists. Keep Approach C, M1
-  `--check`, and read-only or no-copy M2 runs report-only.
+  `--check` runs without a paired converted copy, and read-only or no-copy M2 runs report-only.
+  A same-session M1 `--check` run may provide findings after a paired converted copy is recorded.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 
