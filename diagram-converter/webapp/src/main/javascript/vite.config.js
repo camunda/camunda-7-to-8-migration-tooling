@@ -11,6 +11,14 @@ import react from "@vitejs/plugin-react";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      "/check": "http://localhost:8080",
+      "/convert": "http://localhost:8080",
+      "/convertBatch": "http://localhost:8080",
+      "/version": "http://localhost:8080",
+    },
+  },
   build: {
     // Design System CSS contains container-query placeholders unsupported by Lightning CSS.
     cssMinify: false,
