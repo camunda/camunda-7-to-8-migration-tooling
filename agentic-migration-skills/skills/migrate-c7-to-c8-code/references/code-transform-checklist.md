@@ -142,6 +142,19 @@ record its wording. Replace `<call site>` with the class and the method.
 Set each open item to status `open`. Resolve it only on an explicit user decision, and record that
 decision in `MIGRATION_REPORT.md`.
 
+### Query counts and pagination
+
+Catalog: `20-client-code/10-process-engine/count-query-results.md`.
+
+- If the code needs the complete query count, then replace `list().size()`,
+  `list().stream().count()`, and `count()` with `page().totalItems()`.
+- If the original result type is `int` or `Integer`, then append `.intValue()` to
+  `page().totalItems()`.
+- Trace search results assigned to variables before checking later `.size()` or `.stream().count()`
+  uses.
+- Never use `items().size()` or `items().stream().count()` for a complete query count.
+- If the search can exceed cluster result limits, then review `page().hasMoreTotalItems()`.
+
 ---
 
 ## 3. JavaDelegate to Job Worker (OpenRewrite covers this)

@@ -249,7 +249,15 @@ Each item below is a check to run and a condition that must hold at exit. Record
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
    missing entry fails the check. See the mandatory open items in
    `references/code-transform-checklist.md`.
-10. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
+10. **Query counts and pagination**
+    - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.size()`.
+    - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.stream()` and `.count()`.
+    - Trace search results assigned to variables before checking later `.size()` or `.stream().count()` uses.
+    - If a hit represents a complete query count, then treat it as a validation failure.
+    - Confirm that each migrated C7 `list().size()`, `list().stream().count()`, or `count()` uses
+      `.page().totalItems()`.
+    - If a search can exceed cluster result limits, then review `.page().hasMoreTotalItems()`.
+11. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates

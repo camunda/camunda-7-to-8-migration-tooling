@@ -40,6 +40,7 @@ Patterns:
 - [Business Key &#8594; Business ID / Tags](20-client-code/10-process-engine/business-key-and-tags.md)
 - [Cancel Process Instance](20-client-code/10-process-engine/cancel-process-instance.md)
 - [Correlate Messages](20-client-code/10-process-engine/correlate-messages.md)
+- [Count Query Results](20-client-code/10-process-engine/count-query-results.md)
 - [Evaluate Decisions (DMN)](20-client-code/10-process-engine/evaluate-decisions.md)
 - [File Variables &#8594; Document API](20-client-code/10-process-engine/handle-files-and-documents.md)
 - [Handle Variables](20-client-code/10-process-engine/handle-process-variables.md)

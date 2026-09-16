@@ -44,6 +44,19 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
   protected abstract List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations();
 
+  protected List<ReplacementUtils.BuilderReplacementSpec> countBuilderMethodInvocations() {
+    return List.of();
+  }
+
+  protected boolean supportsCountedQuery(J.MethodInvocation queryTerminal) {
+    return true;
+  }
+
+  protected J.MethodInvocation adjustCountBuilderReplacement(
+      J.MethodInvocation replacement, J.MethodInvocation replacementTarget, Cursor cursor) {
+    return replacement;
+  }
+
   protected abstract List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations();
 
   protected abstract List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations();
@@ -296,6 +309,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               builderMethodInvocations().stream()
                   .collect(Collectors.groupingBy(ReplacementUtils.BuilderReplacementSpec::matcher));
 
+          final Map<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>> countBuilderSpecMap =
+              countBuilderMethodInvocations().stream()
+                  .collect(Collectors.groupingBy(ReplacementUtils.BuilderReplacementSpec::matcher));
+
           final List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations =
               returnMethodInvocations();
 
@@ -303,6 +320,19 @@ public abstract class AbstractMigrationRecipe extends Recipe {
           @Override
           public J.MethodInvocation visitMethodInvocation(
               J.MethodInvocation invocation, ExecutionContext ctx) {
+
+            J.MethodInvocation countedQuery = findCountedQuery(invocation);
+            if (countedQuery != null && hasCountBuilderSpec(countedQuery)) {
+              J.MethodInvocation countReplacement =
+                  replaceCountBuilderInvocation(invocation, countedQuery, ctx);
+              if (countReplacement != null) {
+                return countReplacement;
+              }
+              if (!countBuilderSpecMap.isEmpty()) {
+                // Do not partially migrate an unsupported count chain.
+                return invocation;
+              }
+            }
 
             // test to skip visitor
             if (visitorSkipCondition().test(getCursor())) {
@@ -464,6 +494,97 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
             // no match, continue tree traversal
             return super.visitMethodInvocation(invocation, ctx);
+          }
+
+          private boolean hasCountBuilderSpec(J.MethodInvocation queryTerminal) {
+            return countBuilderSpecMap.keySet().stream()
+                .anyMatch(matcher -> matcher.matches(queryTerminal));
+          }
+
+          private J.MethodInvocation replaceCountBuilderInvocation(
+              J.MethodInvocation replacementTarget,
+              J.MethodInvocation queryTerminal,
+              ExecutionContext ctx) {
+            Map<String, Expression> collectedArguments = collectBuilderArguments(queryTerminal);
+
+            for (Map.Entry<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>> entry :
+                countBuilderSpecMap.entrySet()) {
+              if (!entry.getKey().matches(queryTerminal)) {
+                continue;
+              }
+
+              for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
+                if (!collectedArguments.keySet().equals(spec.methodNamesToExtractParameters())
+                    || !supportsCountedQuery(queryTerminal)
+                    || !spec.receiverTypeFqn()
+                        .map(
+                            fqn ->
+                                queryTerminal.getSelect() != null
+                                    && TypeUtils.isOfClassType(
+                                        queryTerminal.getSelect().getType(), fqn))
+                        .orElse(true)) {
+                  continue;
+                }
+
+                spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
+                spec.maybeAddImports().forEach(this::maybeAddImport);
+
+                Object[] args =
+                    ReplacementUtils.prependBaseIdentifier(
+                        spec.baseIdentifier(),
+                        spec.extractedParametersToApply().stream()
+                            .map(collectedArguments::get)
+                            .toArray());
+                J.MethodInvocation replacement =
+                    (J.MethodInvocation)
+                        RecipeUtils.applyTemplate(
+                            spec.template(),
+                            replacementTarget,
+                            getCursor(),
+                            args,
+                            getCursor().getNearestMessage(replacementTarget.getId().toString()) != null
+                                ? Collections.emptyList()
+                                : spec.textComments());
+
+                return maybeAutoFormat(
+                    replacementTarget,
+                    adjustCountBuilderReplacement(replacement, replacementTarget, getCursor()),
+                    ctx);
+              }
+            }
+            return null;
+          }
+
+          private Map<String, Expression> collectBuilderArguments(
+              J.MethodInvocation invocation) {
+            Map<String, Expression> collectedArguments = new HashMap<>();
+            Expression current = invocation.getSelect();
+
+            while (current instanceof J.MethodInvocation methodInvocation) {
+              if (!methodInvocation.getArguments().isEmpty()
+                  && !(methodInvocation.getArguments().get(0) instanceof J.Empty)) {
+                collectedArguments.put(
+                    methodInvocation.getSimpleName(), methodInvocation.getArguments().get(0));
+              }
+              current = methodInvocation.getSelect();
+            }
+            return collectedArguments;
+          }
+
+          private J.MethodInvocation findCountedQuery(J.MethodInvocation invocation) {
+            Expression select = invocation.getSelect();
+            if (invocation.getSimpleName().equals("size")
+                && select instanceof J.MethodInvocation query) {
+              return query;
+            }
+
+            if (invocation.getSimpleName().equals("count")
+                && select instanceof J.MethodInvocation stream
+                && stream.getSimpleName().equals("stream")
+                && stream.getSelect() instanceof J.MethodInvocation query) {
+              return query;
+            }
+            return invocation.getSimpleName().equals("count") ? invocation : null;
           }
 
           private boolean hasAnyMethodInReceiverChain(
