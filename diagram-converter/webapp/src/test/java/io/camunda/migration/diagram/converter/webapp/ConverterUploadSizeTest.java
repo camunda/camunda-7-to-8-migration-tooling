@@ -50,6 +50,20 @@ class ConverterUploadSizeTest {
   }
 
   @Test
+  void rejectsFileExceedingFileSizeLimitOnConvert() {
+    Response response =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "large.bpmn", new byte[4096], "application/xml")
+            .accept(ContentType.JSON)
+            .post("/convert");
+
+    assertThat(response.statusCode()).isEqualTo(413);
+    assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_SIZE_LIMIT_EXCEEDED");
+    assertThat(response.jsonPath().getLong("maxUploadSize")).isEqualTo(3 * 1024);
+  }
+
+  @Test
   void rejectsRequestExceedingRequestSizeLimit() {
     Response response =
         RestAssured.given()
