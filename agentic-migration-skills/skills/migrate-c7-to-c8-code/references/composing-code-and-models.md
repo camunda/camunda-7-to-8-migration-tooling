@@ -22,12 +22,14 @@ When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDe
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
 normalized input row with the columns `filename`, `elementId`, `headerKey`, `original`, and
-`jobType` for each original-implementation-to-emitted-type pair. Read `headerKey` and `original`
-from the matching `zeebe:header` on the converted element. Apply the same 1:1 or many-to-one
-check. Do not wait for `delegate-expression-as-job-type` findings, because M2-only runs do not
-produce them. If the converted element has no header matching the original C7 attribute and value,
-then keep the category **needs fix** and do not offer a dispatcher scaffold until M2 adds or retains
-that header.
+`jobType` for each delegate attribute or external-task topic. For delegate attributes, read
+`headerKey` and `original` from the matching `zeebe:header` on the converted element. For an
+external-task topic, set `headerKey` to `topic` and `original` to the topic value. Apply the same
+1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings, because
+M2-only runs do not produce them. If a delegate row has no header matching the original C7
+attribute and value, keep the category **needs fix** and do not offer a dispatcher scaffold until
+M2 adds or retains that header. Topic rows are exempt because the topic itself supplies the
+original value and job type.
 
 ### 1. Detect many-to-one job-type collapse
 
@@ -49,16 +51,19 @@ the same pair in the converted element. Each normalized row has the shape:
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-Classify each normalized row before grouping:
+Identify incomplete rows before grouping:
 
-| Mapping | Condition | Action |
+| Row state | Condition | Action |
 |---|---|---|
-| **Incomplete** | A row has a missing or blank `jobType`. | Exclude the row from collapse grouping. Keep its category **needs fix** until M2 supplies a non-empty type. |
-| **1:1** | Every job type maps to one distinct `(headerKey, original)` pair. | Apply the simple check in 2a. |
-| **Many-to-one** | A job type maps to multiple distinct `(headerKey, original)` pairs. | Apply the dispatcher check in 2b. The converter collapsed several delegates onto a shared job type. |
+| **Incomplete** | A row has a missing or blank `jobType`. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user explicitly chooses one in the model-edit follow-up. |
 
-Group the remaining normalized rows by `jobType`, then distinguish values by the pair
-`(headerKey, original)`:
+Group the remaining normalized rows by `jobType`, then classify each job-type group by its
+distinct `(headerKey, original)` pairs:
+
+| Mapping | Group condition | Action |
+|---|---|---|
+| **1:1** | A job-type group contains one distinct `(headerKey, original)` pair. | Apply the simple check in 2a. |
+| **Many-to-one** | A job-type group contains multiple distinct `(headerKey, original)` pairs. | Apply the dispatcher check in 2b. The converter collapsed several delegates onto a shared job type. |
 
 This shape is common at scale. One generic job type can cover thousands of expression-based service tasks in a real project.
 
@@ -77,7 +82,7 @@ Do NOT generate one `@JobWorker` per BPMN element for a collapsed job type. They
 Instead, flag for the user that the shared job type needs a single dispatcher/adapter job worker:
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
-- It reads the retained original expression from the job's task headers. The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`). For M2, verify or add this header during model migration before scaffolding.
+- It reads the retained original expression from the job's task headers. The converted element must preserve it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, `class`, or `topic`). Its value is the original expression or topic string (e.g. `${myBean.myMethod(execution)}`). For M2, verify or add delegate headers during model migration before scaffolding. Topic rows use the external-task topic as the original value and do not require a retained header.
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
@@ -107,6 +112,8 @@ Generate the scaffold only after the user chooses the first option. Create a new
 the migrated worker sources, using the project's conventional package, license header, naming, and
 formatting. Derive the class and file names from the exact shared job type with a deterministic
 sanitizer. Make the class name a legal Java identifier and the file name a safe path segment.
+Append `Worker` to the sanitized base unless it already ends with `Worker`, and use that same
+`Worker` stem for the class and file.
 Include a stable hash of the original job type to prevent collisions between sanitized names.
 Resolve the proposed path and verify that it stays inside the intended source tree before writing.
 If it does not, stop and ask the user to choose a safe source tree. Never overwrite an existing
@@ -186,12 +193,13 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 ### 6. Assign verdicts to the verdict table
 
-Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
+Before assigning a verdict, aggregate all normalized rows and shared job-type groups in the category.
+The table's cross-reference column names the matched code artifact:
 
-- A 1:1 job-type match is confirmed: **no action** (the category is fully covered).
-- A dispatcher covers every distinct `(headerKey, original)` pair and has no generated TODO routes:
-  **no action** (the category is fully covered).
-- Mismatched job types, uncovered `(headerKey, original)` pairs, generated TODO routes, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
+| Evidence across every normalized row and shared job type | Verdict |
+|---|---|
+| Every normalized row has a non-empty `jobType`, and every job-type group has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with zero generated TODO routes and passing all applicable validation checks. | **no action** |
+| Any normalized row has a missing or blank `jobType`, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or generated TODO route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
