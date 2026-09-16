@@ -60,7 +60,8 @@ See `references/interview-questions.md` for the question set and the batching ru
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6 (code approach, model approach, build tool) where they apply.
-6. When the user accepts the defaults, continue without further questions.
+6. When the user accepts the defaults, continue without further initial questions. Question 7 remains
+   mandatory after Step 3 whenever a deployable form exists.
 7. After the Step 3 form procedures finalize statuses, ask Question 7 before Step 4 or Step 5 for every deployable
    accepted, rebuilt, relinked, or existing Camunda 8 form. Ask per form. Group only forms with
    identical targets, request states, authorization states, and deployment decisions. Record the
