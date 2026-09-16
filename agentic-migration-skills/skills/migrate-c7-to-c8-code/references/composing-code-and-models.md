@@ -27,9 +27,10 @@ normalized input row with the columns `filename`, `elementId`, `headerKey`, `ori
 external-task topic, set `headerKey` to `topic` and `original` to the topic value. Apply the same
 1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings, because
 M2-only runs do not produce them. If a delegate row has no header matching the original C7
-attribute and value, or a topic row has no matching retained `topic` header, then mark the row
-incomplete. Keep the category **needs fix** and do not offer a dispatcher scaffold until M2 adds or
-retains that header.
+attribute and value, then mark the row incomplete. For a topic row, retain a non-empty `jobType`
+row without a `topic` header for the initial grouping. A 1:1 topic row can use its `jobType` for
+the simple check. If its job-type group has another distinct pair, mark the topic row incomplete
+and require a retained `topic` header before offering a dispatcher scaffold.
 
 ### 1. Detect many-to-one job-type collapse
 
@@ -44,9 +45,11 @@ For a converter finding, use the paired header instead of parsing only its `mess
 context or the paired original source attribute, then resolve its header pair on the converted
 element. For an M2 row, use the original source attribute and `jobType` created above, and verify
 the same pair in the converted element. For a `topic` finding, set `headerKey` to `topic` and
-`original` to the paired `camunda:topic` value. Treat a missing retained `topic` header as an
-incomplete row. Do not classify a topic and delegate or class that share a job type as 1:1 without
-that routing discriminator. Each normalized row has the shape:
+`original` to the paired `camunda:topic` value. Record a missing retained `topic` header, but keep
+the row for the initial job-type grouping. A 1:1 topic row can use its `jobType` for the simple
+check. If the group has another distinct pair, treat the missing topic header as incomplete and
+require it before offering a dispatcher scaffold. Do not classify a topic and delegate or class
+that share a job type as 1:1 without that routing discriminator. Each normalized row has the shape:
 
 > `filename`: Converted BPMN file
 > `elementId`: Converted element identifier
@@ -54,15 +57,17 @@ that routing discriminator. Each normalized row has the shape:
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-Identify incomplete rows before grouping:
+Identify incomplete rows before and after grouping:
 
 | Row state | Condition | Action |
 |---|---|---|
-| **Incomplete** | A row has a missing or blank `jobType`, or lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the model-edit follow-up. The model must also retain the header pair. |
+| **Incomplete before grouping** | A row has a missing or blank `jobType`, or a delegate row lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the model-edit follow-up. The model must also retain the header pair. |
+| **Incomplete after grouping** | A topic row lacks a retained `topic` header and its job-type group has another distinct pair. | Keep the shared group and its category **needs fix**. Do not offer a dispatcher scaffold until model migration retains the header. |
 
-While any incomplete row remains in a category, do not offer or generate a dispatcher scaffold for
-any group in that category. Resolve the row through model migration or the model-edit follow-up.
-Then rebuild the normalized rows and regroup before applying the mapping and verdict checks.
+While any incomplete row or group remains in a category, do not offer or generate a dispatcher
+scaffold for any group in that category. Resolve the row through model migration or the model-edit
+follow-up. Then rebuild the normalized rows and regroup before applying the mapping and verdict
+checks.
 
 Group the remaining normalized rows by `jobType`, then classify each job-type group by its
 distinct `(headerKey, original)` pairs:
@@ -108,6 +113,10 @@ Before asking for a decision, use the effective-type inventory to identify regis
 effective type resolves to the shared type. If any registration already subscribes to that type,
 then stop scaffold generation. Do not create a second subscriber.
 
+Before generating, scan the chosen quarantine directory for a prior draft whose worker annotation
+uses the shared type. If one exists, stop and ask the user whether to reuse, complete, or remove
+that draft. Do not create another draft or collision variant until the prior draft is resolved.
+
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a group with a **needs fix** verdict and no effective worker. Do not offer
 generation for a group with a **no action** or **needs review** verdict.
@@ -150,18 +159,22 @@ TODO route fail explicitly until its implementation exists. Add an explicit miss
 path that also fails instead of silently accepting or auto-completing an unroutable job.
 
 After generation, present the complete source or diff to the user for explicit review. Keep the draft
-in quarantine until the user accepts it. Do not move or enable the draft while any TODO route remains.
-After acceptance, remove every TODO route, move the source into the intended worker source tree, and
-run the applicable formatter, compile, and test checks before deployment. If the user rejects the
-scaffold, remove the draft or keep it outside every scanned source tree. Do not leave the file beside
-the migrated sources or let a later scan treat it as an existing subscriber. Then rerun the same
-cross-check used for hand-written dispatchers. Record each validation result in
-MIGRATION_REPORT.md. The scaffold is not a completed remediation. Keep the category **needs fix**
-while any generated TODO route remains, the cross-check finds an uncovered pair, or any applicable
-formatter, compile, or test check fails.
-Mark the category **no action** only after the cross-check confirms coverage, the generated source
-has zero TODO routes, and all applicable post-generation checks pass. Record the generated file and
-uncovered implementation work in MIGRATION_REPORT.md.
+in quarantine while the user reviews it. Do not treat review approval as approval to enable the
+draft. Replace every TODO route with its actual legacy invocation while the draft remains quarantined.
+After every known route is implemented, ask the user to accept the completed source. On acceptance,
+remove draft-only markers, move the source into the intended worker source tree, and run the
+applicable formatter, compile, and test checks before deployment. If the user rejects the scaffold,
+remove the draft or keep it outside every scanned source tree. Do not leave the file beside the
+migrated sources or let a later scan treat it as an existing subscriber. Then rerun the same
+cross-check used for hand-written dispatchers. Record each validation result in MIGRATION_REPORT.md.
+The scaffold is not a completed remediation. Keep the category **needs fix** while any known route
+has an unresolved TODO, placeholder, or unconditional throw in a generated or hand-written
+dispatcher, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
+check fails.
+Mark the category **no action** only after the cross-check confirms coverage, every known route
+invokes its mapped implementation without an unresolved TODO, placeholder, or unconditional throw,
+and all applicable post-generation checks pass. Record the generated file and uncovered
+implementation work in MIGRATION_REPORT.md.
 
 ### 3. FEEL method-invocation category
 
@@ -222,8 +235,8 @@ The table's cross-reference column names the matched code artifact:
 
 | Evidence across every normalized row and shared job type | Verdict |
 |---|---|
-| Every normalized row has a non-empty `jobType` and a matching retained `(headerKey, original)` pair, and every job-type group has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with zero generated TODO routes and passing all applicable validation checks. | **no action** |
-| Any normalized row has a missing or blank `jobType` or lacks a matching retained `(headerKey, original)` pair, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or generated TODO route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
+| Every normalized row has a non-empty `jobType` and either a matching retained `(headerKey, original)` pair or is a 1:1 topic row checked directly by `jobType`, and every job-type group has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with no unresolved TODO, placeholder, or unconditional throw on any known route and passing all applicable validation checks. | **no action** |
+| Any normalized row has a missing or blank `jobType`, any delegate row lacks a matching retained `(headerKey, original)` pair, any many-to-one topic group lacks a retained `topic` header, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw on a known route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
