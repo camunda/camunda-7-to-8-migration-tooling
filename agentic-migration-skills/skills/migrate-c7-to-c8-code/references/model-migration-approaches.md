@@ -126,6 +126,16 @@ REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them
 
 Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
 
+#### Verification gate
+
+Use the shared gate in `SKILL.md` Step 5 before changing a BPMN or DMN category to **no action**.
+The `--check` mode analyzes its input but does not export converted diagrams.
+A successful `--check` run does not compare an edited converted copy with its source or prove a
+manual remediation.
+When the original input, CLI release, and converter options are available, run
+`local <original-input> --check --csv` as supplementary regression evidence.
+Check the edited converted copies with the gate's XML, namespace, wiring, and FEEL checks.
+
 Group by category first. The category, not the individual row, is the unit of work.
 
 #### Imported reports: verify the target platform version
@@ -206,7 +216,7 @@ For a fallback category, assign the default verdict from the finding severity:
 
 | Severity | Default verdict |
 |---|---|
-| INFO | no action |
+| INFO | needs review until the verification gate passes |
 | REVIEW | needs review |
 | WARNING or TASK | needs fix |
 
@@ -252,14 +262,17 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category exactly one verdict, and record the table in MIGRATION_REPORT.md. INFO categories are optional (MAY). If included, they typically take verdict no action. Never leave findings as severity counts or a generic "findings need follow-up" note.
+After grouping, assign each category exactly one verdict. Include INFO categories.
+When code is in scope, complete the code cross-checks before assigning the verdict.
+Record the table in `MIGRATION_REPORT.md`.
+Never leave findings as severity counts or a generic "findings need follow-up" note.
 
 Verdicts:
 
 | Verdict | Meaning | Required action |
 |---|---|---|
-| **no action** | The converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage. | Nothing to do. |
-| **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
+| **no action** | The converter handled the category deterministically or a cross-check shows full coverage. The shared verification gate passed. | Nothing to do. |
+| **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision through AskUserQuestion before any fix. Run the verification gate directly when it is the only pending action. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
@@ -274,9 +287,17 @@ Verdicts:
 Rules:
 
 - One row per category, sorted as in 5b.
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other matched code element.
+- Write `none yet` when no remediation exists.
+- For models-only scope, write `n/a`.
+- For a fallback category, write `no dedicated cross-check`.
+- Use the preceding severity table for a converter finding.
+- Apply the procedure-defined lifecycle to source-derived synthetic categories.
+- Apply it to `c7-*` categories that split a legacy generic `form-key` finding.
+- These categories have no independent converter severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
-- Classify every WARNING/TASK/REVIEW category. Never leave one without a verdict.
+- Run the verification gate directly for an INFO category. Do not ask the user unless a separate decision is needed.
+- Classify every category, including INFO. Never leave one without a verdict.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.

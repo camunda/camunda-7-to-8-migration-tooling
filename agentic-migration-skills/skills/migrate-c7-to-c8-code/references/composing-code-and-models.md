@@ -13,6 +13,8 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
+Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category with a
+`converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
@@ -107,17 +109,18 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
+- Complete job-type, dispatcher, or invoked-method coverage makes the category eligible for **no action** after the verification gate passes.
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
-- Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
+- A deletion candidate is **needs review**, because deleting code requires an explicit user decision.
+- If no workaround exists, keep the category **needs review** until the verification gate passes.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
 Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
 
 | Finding severity | Fallback verdict | Cross-reference |
 |---|---|---|
-| INFO | no action | no dedicated cross-check |
+| INFO | needs review until the verification gate passes | no dedicated cross-check |
 | REVIEW | needs review | no dedicated cross-check |
 | WARNING or TASK | needs fix | no dedicated cross-check |
 
