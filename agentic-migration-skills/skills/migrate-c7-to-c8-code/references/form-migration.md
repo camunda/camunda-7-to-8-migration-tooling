@@ -340,9 +340,10 @@ Use `bindingType="deployment"` only when BPMN and form deploy together. Otherwis
 choose and configure a supported binding.
 
 Do not rewrite the raw converter report or erase its historical `form-data` finding. Change the
-category verdict to `no action` only after every associated form is accepted, linked, validated, and
-covered by deployment. Form-property-only discoveries use a synthetic `generated-form-property-source`
-category with the same lifecycle.
+category verdict to `no action` only after every associated form is accepted, linked, and validated.
+Verify deployment when a target is selected. Record deployment as `not applicable` when no target
+exists. Form-property-only discoveries use a synthetic `generated-form-property-source` category
+with the same lifecycle.
 
 ## Cross-check application consumers for every scope
 

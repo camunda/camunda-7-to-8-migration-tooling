@@ -312,7 +312,7 @@ target version. See the linting section in `references/model-migration-approache
    binding decision: `bindingType` written for `deployment` and `versionTag`, or `latest` left
    deliberately to the Camunda 8 default. The copied Camunda 7 `externalReference` or `formKey` is
    gone from that element.
-15. After Step 5e and the final whole-file cleanup, the converted copies hold no `conversion:*`
+15. At final exit after Step 5e and the final whole-file cleanup, the converted copies hold no `conversion:*`
    node, no `conversion:*` attribute, no unused Camunda 7 or conversion namespace declaration,
    and no leftover BPMN definitions-level XPath `expressionLanguage` attribute.
 16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
@@ -386,12 +386,12 @@ restriction does not apply to those other check rows. A category with any state 
 Apply XML, namespace, and converter checks only to BPMN or DMN converted copies. Apply the
 generated-form check to `.form` resources. Record `not applicable` for XML-only and converter
 checks when a category contains only generated forms.
-Run category-specific checks before Step 5e strips converter annotations. Run Step 5e after every
-category has a verdict and verification evidence. Run form procedures in 5f and 5g only for
-unresolved form remediation after the Step 3 execution. Do not repeat an accepted Step 3 form
-procedure. Rerun the form verification row after any form remediation, linkage, or deployment
-change. Run model validation and final whole-file cleanup after those form checks and all 5f/5g
-changes. Retain **no action** only after this sequence passes.
+Run model category checks and form schema/render checks before Step 5e strips converter annotations.
+Run Step 5e after every category has a verdict and verification evidence. Run form procedures in 5f
+and 5g only for unresolved form remediation after the Step 3 execution. Do not repeat an accepted
+Step 3 form procedure. Rerun the form verification row after any form remediation, linkage, or
+deployment change. Run model validation and final whole-file cleanup after those form checks and
+all 5f/5g changes. Retain **no action** only after this sequence passes.
 
 | Check | Required evidence |
 |---|---|
@@ -482,7 +482,7 @@ undifferentiated list.
 | Verdict | Verification | Outstanding action | Action |
 |---|---|---|---|
 | **needs fix** | `failed` or `unavailable` | Retry or redesign is required | Use AskUserQuestion for a new decision. Do not retry automatically. |
-| **needs fix** | `pending` or `passed` | Concrete remediation remains | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs fix** | `pending` | Concrete remediation remains | Resolve one category at a time, using that category's cross-check guidance. |
 | **needs review** | `pending` and verification is the only outstanding action | No user or design decision remains | Run the verification gate. Do not ask for a user decision. |
 | **needs review** | Any other state | A user or design decision remains | Collect the pending user decision through AskUserQuestion before any fix. |
 | **no action** | `passed` | None | Do not offer the category. |
