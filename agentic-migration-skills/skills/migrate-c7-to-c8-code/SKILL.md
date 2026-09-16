@@ -323,8 +323,10 @@ target version. See the linting section in `references/model-migration-approache
 10. Every accepted form with a converted owner has a planned matching `zeebe:formDefinition`.
     Step 5 verifies the actual linkage after form remediation and annotation cleanup. A standalone
     `.form` with no owner or converted BPMN records linkage as `not applicable` with its reason.
-11. Every accepted form with a deployable owner has a recorded deployment decision before Step 5.
-    Step 5 verifies deployment coverage after form remediation and annotation cleanup. Deploy only
+11. Every accepted form with a deployable owner that exists before Step 5 has a recorded deployment
+    decision before Step 5. A form first created or accepted during post-Step-5 remediation uses
+    the late Question 7 branch before linkage and final validation. Step 5 verifies deployment
+    coverage after form remediation and annotation cleanup. Deploy only
     after an explicit user request, authorization, and selected target. Record deployment as
     `not applicable` with the out-of-scope decision only when no target exists. Keep selected-target
     deployment `pending` without a request, authorization, or after a decline unless the user
@@ -372,7 +374,7 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 #### Canonical deployment decision table
 
 Use this table for every deployable accepted, rebuilt, relinked, or existing Camunda 8 form.
-Other references and fixtures may add examples, but must not change these states.
+Other references and fixtures may add examples. (MAY) They must not change these states.
 
 | State | Required evidence | Terminal handling |
 |---|---|---|

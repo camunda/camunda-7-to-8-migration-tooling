@@ -360,15 +360,10 @@ Do not rewrite the raw converter report or erase its historical `form-data` find
 category verdict to `no action` only after every associated form is accepted, linked, and validated,
 the deployment check is satisfied, the shared Step 5 verification row is `passed`, and final
 cleanup has passed.
-Collect the deployment decision with this table:
-
-| Deployment state | Required report fields | Terminal rule |
-|---|---|---|
-| No target | `target=none`, `request=not applicable`, `authorization=not applicable`, `deployment decision=out of scope`, `deployment=not applicable` | The deployment check is satisfied. |
-| Target, explicit request, and authorization | Target, request, authorization, `deployment=pending` before final cleanup, and deployment result afterward | Record the pending state before final cleanup. Verify deployment after final cleanup and replace it with the result. |
-| Target without request | Target, `request=not requested`, authorization state, `deployment=pending` | Obtain the request before deployment. Keep the category open until the result is recorded. |
-| Target with request but unavailable authorization | Target, request, `authorization=unavailable`, `deployment=pending` | Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps before closing. |
-| Target with user decline | Target, request, authorization state, `deployment decision=declined`, `deployment=pending` | Select an alternate binding and record its `bindingType` and linkage evidence, or record `deployment=external plan recorded` with plan owner, target, and steps before closing. |
+Use the canonical deployment decision table in `SKILL.md`. For this form procedure, record
+`deployment=pending` before final cleanup for an authorized selected target and replace it with the
+observed result after final cleanup. Record `deployment=not applicable` with the out-of-scope
+decision when no target exists. Do not duplicate the shared state transitions here.
 Form-property-only discoveries use a synthetic
 `generated-form-property-source` category with the same lifecycle.
 
