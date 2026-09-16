@@ -352,17 +352,8 @@ undifferentiated list.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- When a many-to-one job-type category has a **needs fix** verdict because no dispatcher exists,
-  offer the dispatcher scaffold from `references/composing-code-and-models.md` through
-  AskUserQuestion. Show the shared job type, retained header key, and complete expression list
-  before asking.
-- Generate the scaffold only after explicit acceptance. Create a new source file in the project's
-  conventional package beside migrated workers, with the project license header and formatting.
-  Never overwrite an existing file. Prepopulate one routing map or switch entry per distinct
-  original expression, and put a `TODO` in every branch for the actual bean or method invocation.
-- Rerun the dispatcher cross-check after generation. Treat missing or unknown headers explicitly,
-  and keep the category **needs fix** until every generated `TODO` is resolved and the dispatcher
-  covers every original expression.
+- For a many-to-one job-type category with a **needs fix** verdict, follow the dispatcher scaffold
+  procedure in `references/composing-code-and-models.md` for each shared job type.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 
