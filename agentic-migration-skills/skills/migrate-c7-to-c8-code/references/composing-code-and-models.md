@@ -134,12 +134,18 @@ When a shared job-type group has a **needs fix** verdict, process it independent
 verdict to every affected category before assigning category verdicts.
 
 Before asking for a decision, use the effective-type inventory to identify registrations whose
-effective type resolves to the shared type. If any registration already subscribes to that type,
-then stop scaffold generation. Do not create a second subscriber.
+effective type resolves to the shared type. Resolve literal annotation values and method-name
+defaults. If a registration's effective type is unresolved, treat it as a possible subscriber and
+stop scaffold generation until the user resolves it. If any registration already subscribes to that
+type, then stop scaffold generation. Do not create a second subscriber.
 
 Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
-quarantine directory. Allow an explicit user override only when it remains outside runtime source
-sets, packaged resource directories, and every source tree scanned for `@JobWorker`. If
+quarantine directory. Canonicalize the default directory before using it. Apply the same
+confirmed-root, source-set, packaged-resource, and worker-scan checks used for overrides. Reject it
+when it escapes the confirmed project root or enters an excluded tree, including through a symlink.
+Canonicalize every explicit override against the confirmed project root before recording or writing.
+Allow an explicit user override only when it remains under that root and outside runtime source sets,
+packaged resource directories, and every source tree scanned for `@JobWorker`. If
 `MIGRATION_REPORT.md` records a path, reuse it on later invocations unless the user explicitly
 overrides it. Before each reuse, resolve the recorded path again. Verify that it remains under the
 confirmed project root and outside every runtime source set, packaged resource directory, and
