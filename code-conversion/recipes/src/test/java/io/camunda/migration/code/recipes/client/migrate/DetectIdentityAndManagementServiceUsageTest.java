@@ -199,6 +199,47 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
   }
 
   @Test
+  void annotatesSplitTimerQuery() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.runtime.JobQuery;
+
+            public class SplitTimerQuery {
+
+                public void manage(ManagementService managementService) {
+                    JobQuery query = managementService.createJobQuery();
+                    query.timers().singleResult();
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.runtime.JobQuery;
+
+            public class SplitTimerQuery {
+
+                public void manage(ManagementService managementService) {
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (createJobQuery()).
+                    // Use POST /v2/jobs/search or CamundaClient job search requests.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    JobQuery query = managementService.createJobQuery();
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (createJobQuery()).
+                    // Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    query.timers().singleResult();
+                }
+            }
+            """));
+  }
+
+  @Test
   void annotatesServiceCallsFromParameters() {
     rewriteRun(
         // language=java

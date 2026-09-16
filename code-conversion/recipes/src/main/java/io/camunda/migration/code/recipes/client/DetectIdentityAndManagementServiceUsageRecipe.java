@@ -60,6 +60,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           MANAGEMENT_SERVICE_FQN + " setJobRetries(java.lang.String, int)");
   private static final MethodMatcher CREATE_JOB_QUERY_MATCHER =
       new MethodMatcher(MANAGEMENT_SERVICE_FQN + " createJobQuery()");
+  private static final MethodMatcher JOB_QUERY_TIMERS_MATCHER =
+      new MethodMatcher("org.camunda.bpm.engine.runtime.JobQuery timers()");
   private static final Map<String, String> IDENTITY_METHOD_HINTS =
       Map.ofEntries(
           Map.entry("newUser", "Use CamundaClient.newCreateUserCommand()."),
@@ -186,16 +188,16 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               @Override
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation invocation, List<ServiceCall> current) {
+                if (isTimerQueryInvocation(invocation)) {
+                  current.add(
+                      new ServiceCall(
+                          MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true));
+                }
                 ServiceCall serviceCall = serviceCall(invocation);
                 if (serviceCall != null
                     && !(CREATE_JOB_QUERY_MATCHER.matches(invocation)
                         && isWithinTimerQuery())) {
                   current.add(serviceCall);
-                }
-                if (isTimerQueryInvocation(invocation)) {
-                  current.add(
-                      new ServiceCall(
-                          MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true));
                 }
                 return (J.MethodInvocation) super.visitMethodInvocation(invocation, current);
               }
@@ -249,6 +251,10 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             if (SET_JOB_RETRIES_MATCHER.matches(invocation)) {
               return new ServiceCall(MANAGEMENT_SERVICE_FQN, invocation.getSimpleName(), true);
             }
+            if (JOB_QUERY_TIMERS_MATCHER.matches(invocation)
+                && !isTimerQueryInvocation(invocation)) {
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true);
+            }
             if (new MethodMatcher(IDENTITY_SERVICE_FQN + " *(..)").matches(invocation)) {
               return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName(), false);
             }
@@ -262,6 +268,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             JavaType.Method methodType = reference.getMethodType();
             if (methodType == null || methodType.getDeclaringType() == null) {
               return null;
+            }
+            if (JOB_QUERY_TIMERS_MATCHER.matches(reference)) {
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true);
             }
             String serviceFqn = methodType.getDeclaringType().getFullyQualifiedName();
             if (!IDENTITY_SERVICE_FQN.equals(serviceFqn)
