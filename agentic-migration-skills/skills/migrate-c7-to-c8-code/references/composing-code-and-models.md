@@ -183,6 +183,11 @@ build input. Keep the separate prior-draft scan below enabled for every recorded
 quarantine directory. Record the selected path in `MIGRATION_REPORT.md` before scanning or
 generating.
 
+For each dispatcher draft, record one inventory entry with `jobType`, `path`, `status`, and
+`decision`. Use `active` while the draft is pending, `accepted` after it moves into the worker
+source tree, and `rejected` or `deleted` after the user declines or removes it. Active scans and
+prior-draft scans consume only `active` entries. Preserve all other entries as history.
+
 Before generating, scan every active recorded and selected quarantine directory for a prior draft
 whose report record is active and whose effective `@JobWorker` type uses the shared type. Ignore
 files linked to inactive or rejected draft records. Resolve an omitted annotation `type` with the
