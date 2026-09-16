@@ -377,9 +377,10 @@ capture the same baseline. For XML and code, use a lowercase SHA-256 digest of e
 without normalization. Include namespace counts, wiring references, and FEEL state.
 For forms, use a lowercase SHA-256 digest of the exact UTF-8 bytes of every participating `.form`
 file without normalization.
-Also record JSON parsing, schema, render, linkage, and deployment state. Record `absent` when
-a remediation will create a new form. Mark JSON parsing, schema, render, linkage, and deployment
-checks `not applicable` in that absent `Before` state. Record `not applicable` when
+Also record JSON parsing, schema, render, FEEL, linkage, and deployment state. Record `absent` when
+a remediation will create a new form. Mark JSON parsing, schema, render, FEEL, linkage, and
+deployment checks `not applicable` in that absent `Before` state. Record `none present` when no
+FEEL expressions exist. Record `not applicable` when
 no form resource participates. For code, include content hashes and matched worker, listener,
 dispatcher, and precompute declarations. Record `absent` when a remediation will create a code
 artifact, and mark its declaration checks `not applicable` in that absent `Before` state. Use the
