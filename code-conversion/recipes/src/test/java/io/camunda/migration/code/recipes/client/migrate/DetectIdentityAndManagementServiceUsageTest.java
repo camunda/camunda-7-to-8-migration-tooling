@@ -404,6 +404,56 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
   }
 
   @Test
+  void annotatesNewRetryOverloadInPartiallyAnnotatedStatement() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.runtime.JobQuery;
+
+            public class PartiallyAnnotatedRetryUse {
+
+                private void use(Object first, Object second) {}
+
+                public void manage(ManagementService managementService, JobQuery query) {
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
+                    // Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after mapping the Camunda 7 IDs to Camunda 8 job keys.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    use(
+                        managementService.setJobRetriesAsync(java.util.List.of("job"), 1),
+                        managementService.setJobRetriesAsync(query, 1));
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.runtime.JobQuery;
+
+            public class PartiallyAnnotatedRetryUse {
+
+                private void use(Object first, Object second) {}
+
+                public void manage(ManagementService managementService, JobQuery query) {
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
+                    // Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after mapping the Camunda 7 IDs to Camunda 8 job keys.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
+                    // Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after translating the Camunda 7 query to a Camunda 8 JobFilter.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    use(
+                        managementService.setJobRetriesAsync(java.util.List.of("job"), 1),
+                        managementService.setJobRetriesAsync(query, 1));
+                }
+            }
+            """));
+  }
+
+  @Test
   void annotatesSplitTimerQuery() {
     rewriteRun(
         // language=java

@@ -446,12 +446,16 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           private boolean alreadyAnnotated(List<Comment> comments, ServiceCall serviceCall) {
             String marker = methodMarker(serviceCall);
             String methodCall = "(" + serviceCall.methodName() + "())";
-            return comments.stream()
-                .anyMatch(
-                    comment ->
-                        comment instanceof TextComment textComment
-                            && textComment.getText().contains(marker)
-                            && textComment.getText().contains(methodCall));
+            String hint = methodHint(serviceCall);
+            String commentText =
+                comments.stream()
+                    .filter(TextComment.class::isInstance)
+                    .map(TextComment.class::cast)
+                    .map(TextComment::getText)
+                    .collect(java.util.stream.Collectors.joining("\n"));
+            return commentText.contains(marker)
+                && commentText.contains(methodCall)
+                && commentText.contains(hint);
           }
 
           private List<Comment> declarationComments(
