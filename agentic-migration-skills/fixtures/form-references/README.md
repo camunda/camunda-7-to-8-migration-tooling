@@ -107,7 +107,7 @@ The evaluation is complete when the agent has:
   decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
   external reference;
-* captured the immutable baseline for every participating BPMN or `.form`
+* captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded its verification-table row as `passed` before closing
   any category as **no action**; unresolved kept references remain recorded as
   follow-up work;

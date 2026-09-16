@@ -443,9 +443,10 @@ Emit the structured findings summary with CLI severities (WARNING/TASK/REVIEW/IN
 review for non-INFO findings, except when the shared verification pass is the only pending action.
 Keep INFO findings provisional until their verification pass succeeds, and do not request a human
 decision for that provisional verdict. Lint every rewritten BPMN file per the linting section below.
-After Step 5e strips converter annotations, run `form-migration.md` and
-`form-reference-migration.md` against the original/converted pair. Rerun the form verification row
-after acceptance, linkage, or deployment changes before retaining **no action**.
+Step 3 runs `form-migration.md` and `form-reference-migration.md` once for each paired model.
+For an unresolved form category, run only the selected remediation procedure after Step 5e and
+the user's new decision. Rerun the form verification row after acceptance, linkage, or deployment
+changes before retaining **no action**.
 
 ## Verification before resolving a finding category
 
