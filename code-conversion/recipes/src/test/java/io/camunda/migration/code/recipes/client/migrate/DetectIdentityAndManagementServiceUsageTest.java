@@ -199,7 +199,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(java.util.List.of(jobId), retries);
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
-                    // For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.
+                    // Preserve the retry builder's job or job-definition selector and due-date semantics, resolve the selected Camunda 8 job keys, and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetries(retries);
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
@@ -260,6 +260,144 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Resolve the Camunda 7 process-instance IDs and query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetriesAsync(java.util.List.of("pi"), processQuery, retries);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void addsHistoricProcessInstanceRetryGuidance() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.history.HistoricProcessInstanceQuery;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+
+            public class HistoricProcessInstanceRetry {
+
+                public void manage(
+                        ManagementService managementService,
+                        ProcessInstanceQuery processQuery,
+                        HistoricProcessInstanceQuery historicQuery) {
+                    managementService.setJobRetriesAsync(
+                        java.util.List.of("pi"), processQuery, historicQuery, 3);
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.history.HistoricProcessInstanceQuery;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+
+            public class HistoricProcessInstanceRetry {
+
+                public void manage(
+                        ManagementService managementService,
+                        ProcessInstanceQuery processQuery,
+                        HistoricProcessInstanceQuery historicQuery) {
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
+                    // Resolve the Camunda 7 process-instance IDs, process-instance query, and historic process-instance query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetriesAsync(
+                        java.util.List.of("pi"), processQuery, historicQuery, 3);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void addsRetryBuilderGuidance() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class RetryBuilderUse {
+
+                public void manage(ManagementService managementService, int retries) {
+                    managementService.setJobRetries(retries);
+                    managementService.setJobRetriesByJobsAsync(retries);
+                    managementService.setJobRetriesByProcessAsync(retries);
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class RetryBuilderUse {
+
+                public void manage(ManagementService managementService, int retries) {
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
+                    // Preserve the retry builder's job or job-definition selector and due-date semantics, resolve the selected Camunda 8 job keys, and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetries(retries);
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesByJobsAsync()).
+                    // Preserve the job retry builder's job/job-definition selector and union semantics, then use the Camunda 8 batch job update API.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetriesByJobsAsync(retries);
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesByProcessAsync()).
+                    // Preserve the process retry builder's process selector and union semantics, then use the Camunda 8 batch job update API.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetriesByProcessAsync(retries);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void annotatesNewCallsInPartiallyAnnotatedStatement() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.IdentityService;
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class PartiallyAnnotatedUse {
+
+                private void use(Object first, Object second) {}
+
+                public void manage(
+                        IdentityService identityService, ManagementService managementService) {
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (clearAuthentication()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
+                    // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
+                    use(identityService.clearAuthentication(), managementService.getRegisteredDeployments());
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.IdentityService;
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class PartiallyAnnotatedUse {
+
+                private void use(Object first, Object second) {}
+
+                public void manage(
+                        IdentityService identityService, ManagementService managementService) {
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (clearAuthentication()).
+                    // Authentication and password operations are handled by the identity provider; use its API instead.
+                    // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (getRegisteredDeployments()).
+                    // Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    use(identityService.clearAuthentication(), managementService.getRegisteredDeployments());
                 }
             }
             """));

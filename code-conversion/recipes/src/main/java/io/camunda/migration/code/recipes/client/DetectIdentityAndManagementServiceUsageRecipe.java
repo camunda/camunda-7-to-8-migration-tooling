@@ -53,7 +53,13 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
   private static final Set<String> MANAGEMENT_CLIENT_METHODS =
-      Set.of("createJobQuery", "createIncidentQuery", "setJobRetries", "setJobRetriesAsync");
+      Set.of(
+          "createJobQuery",
+          "createIncidentQuery",
+          "setJobRetries",
+          "setJobRetriesAsync",
+          "setJobRetriesByJobsAsync",
+          "setJobRetriesByProcessAsync");
 
   private static final MethodMatcher SET_JOB_RETRIES_MATCHER =
       new MethodMatcher(
@@ -173,10 +179,12 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           private Statement maybeAnnotateStatement(Statement statement) {
-            if (alreadyAnnotated(statement.getComments())) {
-              return statement;
-            }
             List<ServiceCall> serviceCalls = findServiceCalls(statement);
+            serviceCalls =
+                serviceCalls.stream()
+                    .distinct()
+                    .filter(call -> !alreadyAnnotated(statement.getComments(), call))
+                    .toList();
             if (serviceCalls.isEmpty()) {
               return statement;
             }
@@ -290,9 +298,18 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
           private RetrySelection retrySelection(J.MethodInvocation invocation) {
             if ("setJobRetries".equals(invocation.getSimpleName())) {
-              return SET_JOB_RETRIES_MATCHER.matches(invocation)
-                  ? RetrySelection.SINGLE_JOB_ID
+              if (SET_JOB_RETRIES_MATCHER.matches(invocation)) {
+                return RetrySelection.SINGLE_JOB_ID;
+              }
+              return invocation.getArguments().size() == 1
+                  ? RetrySelection.SYNC_RETRY_BUILDER
                   : RetrySelection.SYNC_BULK_OR_QUERY;
+            }
+            if ("setJobRetriesByJobsAsync".equals(invocation.getSimpleName())) {
+              return RetrySelection.ASYNC_BUILDER_JOBS;
+            }
+            if ("setJobRetriesByProcessAsync".equals(invocation.getSimpleName())) {
+              return RetrySelection.ASYNC_BUILDER_PROCESS;
             }
             if (!"setJobRetriesAsync".equals(invocation.getSimpleName())) {
               return RetrySelection.NOT_APPLICABLE;
@@ -305,11 +322,20 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return RetrySelection.ASYNC_OTHER;
             }
             if ("setJobRetries".equals(methodType.getName())) {
-              return methodType.getParameterTypes().size() == 2
-                      && isStringType(methodType.getParameterTypes().get(0))
-                      && isIntType(methodType.getParameterTypes().get(1))
-                  ? RetrySelection.SINGLE_JOB_ID
+              if (methodType.getParameterTypes().size() == 2
+                  && isStringType(methodType.getParameterTypes().get(0))
+                  && isIntType(methodType.getParameterTypes().get(1))) {
+                return RetrySelection.SINGLE_JOB_ID;
+              }
+              return methodType.getParameterTypes().size() == 1
+                  ? RetrySelection.SYNC_RETRY_BUILDER
                   : RetrySelection.SYNC_BULK_OR_QUERY;
+            }
+            if ("setJobRetriesByJobsAsync".equals(methodType.getName())) {
+              return RetrySelection.ASYNC_BUILDER_JOBS;
+            }
+            if ("setJobRetriesByProcessAsync".equals(methodType.getName())) {
+              return RetrySelection.ASYNC_BUILDER_PROCESS;
             }
             if (!"setJobRetriesAsync".equals(methodType.getName())) {
               return RetrySelection.NOT_APPLICABLE;
@@ -324,6 +350,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   hasJobIds
                       ? RetrySelection.ASYNC_PROCESS_IDS_AND_QUERY
                       : RetrySelection.ASYNC_PROCESS_QUERY_ONLY;
+              case PROCESS_INSTANCE_AND_HISTORIC ->
+                  RetrySelection.ASYNC_PROCESS_IDS_AND_HISTORIC_QUERY;
               case NONE ->
                   hasJobIds
                       ? RetrySelection.ASYNC_IDS_ONLY
@@ -332,15 +360,23 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           private AsyncQueryKind queryKind(JavaType.Method methodType) {
+            boolean hasProcessInstanceQuery =
+                hasParameterType(
+                    methodType, "org.camunda.bpm.engine.runtime.ProcessInstanceQuery");
+            boolean hasHistoricProcessInstanceQuery =
+                hasParameterType(
+                    methodType,
+                    "org.camunda.bpm.engine.history.HistoricProcessInstanceQuery");
+            if (hasProcessInstanceQuery && hasHistoricProcessInstanceQuery) {
+              return AsyncQueryKind.PROCESS_INSTANCE_AND_HISTORIC;
+            }
             if (hasParameterType(methodType, "org.camunda.bpm.engine.runtime.JobQuery")) {
               return AsyncQueryKind.JOB;
             }
-            if (hasParameterType(
-                methodType, "org.camunda.bpm.engine.runtime.ProcessInstanceQuery")) {
+            if (hasProcessInstanceQuery) {
               return AsyncQueryKind.PROCESS_INSTANCE;
             }
-            if (hasParameterType(
-                methodType, "org.camunda.bpm.engine.history.HistoricProcessInstanceQuery")) {
+            if (hasHistoricProcessInstanceQuery) {
               return AsyncQueryKind.HISTORIC_PROCESS_INSTANCE;
             }
             return AsyncQueryKind.NONE;
@@ -405,6 +441,17 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                                 || textComment.getText().contains(IDENTITY_MANUAL_MARKER)
                                 || textComment.getText().contains(MANAGEMENT_CLIENT_MARKER)
                                 || textComment.getText().contains(MANAGEMENT_MARKER)));
+          }
+
+          private boolean alreadyAnnotated(List<Comment> comments, ServiceCall serviceCall) {
+            String marker = methodMarker(serviceCall);
+            String methodCall = "(" + serviceCall.methodName() + "())";
+            return comments.stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment.getText().contains(marker)
+                            && textComment.getText().contains(methodCall));
           }
 
           private List<Comment> declarationComments(
@@ -475,6 +522,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             return switch (serviceCall.retrySelection()) {
               case SINGLE_JOB_ID ->
                   "Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
+              case SYNC_RETRY_BUILDER ->
+                  "Preserve the retry builder's job or job-definition selector and due-date semantics, resolve the selected Camunda 8 job keys, and update retries with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().";
               case SYNC_BULK_OR_QUERY ->
                   "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
               case ASYNC_IDS_ONLY ->
@@ -487,6 +536,12 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   "Resolve the Camunda 7 process-instance query to matching process instances and their job keys, then use the Camunda 8 batch job update API.";
               case ASYNC_PROCESS_IDS_AND_QUERY ->
                   "Resolve the Camunda 7 process-instance IDs and query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.";
+              case ASYNC_PROCESS_IDS_AND_HISTORIC_QUERY ->
+                  "Resolve the Camunda 7 process-instance IDs, process-instance query, and historic process-instance query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.";
+              case ASYNC_BUILDER_JOBS ->
+                  "Preserve the job retry builder's job/job-definition selector and union semantics, then use the Camunda 8 batch job update API.";
+              case ASYNC_BUILDER_PROCESS ->
+                  "Preserve the process retry builder's process selector and union semantics, then use the Camunda 8 batch job update API.";
               case ASYNC_OTHER ->
                   "Preserve the Camunda 7 selection semantics and use the Camunda 8 batch job update API.";
               case NOT_APPLICABLE -> MANAGEMENT_METHOD_HINTS.getOrDefault(
@@ -550,12 +605,16 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           private enum RetrySelection {
             NOT_APPLICABLE,
             SINGLE_JOB_ID,
+            SYNC_RETRY_BUILDER,
             SYNC_BULK_OR_QUERY,
             ASYNC_IDS_ONLY,
             ASYNC_JOB_QUERY_ONLY,
             ASYNC_JOB_IDS_AND_QUERY,
             ASYNC_PROCESS_QUERY_ONLY,
             ASYNC_PROCESS_IDS_AND_QUERY,
+            ASYNC_PROCESS_IDS_AND_HISTORIC_QUERY,
+            ASYNC_BUILDER_JOBS,
+            ASYNC_BUILDER_PROCESS,
             ASYNC_OTHER
           }
 
@@ -563,7 +622,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             NONE,
             JOB,
             PROCESS_INSTANCE,
-            HISTORIC_PROCESS_INSTANCE
+            HISTORIC_PROCESS_INSTANCE,
+            PROCESS_INSTANCE_AND_HISTORIC
           }
         });
   }
