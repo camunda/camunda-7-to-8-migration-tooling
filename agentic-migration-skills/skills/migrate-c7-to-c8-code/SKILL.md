@@ -323,9 +323,10 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 #### Verification before closing a model category
 
-Never mark a model-finding category resolved or **no action** until this gate passes.
+Never set a model-finding category's verdict to **no action** or report it as resolved until this
+gate passes.
 Run the gate after each accepted fix and before a no-change category becomes **no action**.
-Use every `converted-c8-*` BPMN or DMN copy that contains a finding in the category.
+Use every `converted-c8-*` BPMN or DMN copy named by the category's pre-fix findings report.
 Record `Before` evidence before editing and `After` evidence after checking in
 `MIGRATION_REPORT.md`.
 
