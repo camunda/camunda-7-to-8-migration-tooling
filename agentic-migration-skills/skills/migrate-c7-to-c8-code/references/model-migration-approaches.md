@@ -38,13 +38,13 @@ If anything else is found, warn through AskUserQuestion before converting:
 - **OK, proceed** — when no findings report remains under a packaged resource directory, run without `-o`/`--override`. Old files stay untouched.
 - **Cancel** — stop so the user can back up or clean up first.
 
-For local CLI approaches (M1 and E1), never consume a report or converted file that existed before
-this migration run. Capture each output path from this run's `Created ...` lines and use only those
-paths as authoritative. For M2, record the exact original-to-converted path pair from the rewrite
-before using either path. A later same-session M1 `--check` report may provide findings when this
-run already captured and recorded its paired converted copy. Preserve that pairing and revalidate
-the report target version. M3 is the exception: hosted-converter outputs are allowed only after the
-imported-report version and pairing checks in step 5.
+For local M1 and E1 CLI runs, never consume a report or converted file that existed before this
+migration run. Capture each CLI output path from this run's `Created ...` lines and use only those
+paths as authoritative. For M2, capture each rewrite output path and record its exact
+original-to-converted pair before validation. A later same-session M1 `--check` report may provide
+findings when this run already captured and recorded its paired converted copy. Preserve that
+pairing and revalidate the report target version. M3 is the exception: hosted-converter outputs are
+allowed only after the imported-report version and pairing checks in step 5.
 
 ## Approach M1 - Diagram Converter CLI + AI (recommended)
 
@@ -462,9 +462,13 @@ npx bpmnlint <converted-file>.bpmn
 
 ## Analyze-Only Mode
 
-For "analyze but don't convert": run M1 with `--check --json --xlsx` or do an M2 read-only pass.
+For "analyze but don't convert" without a paired converted copy from an earlier full M1 run in the
+same session, run M1 with `--check --json --xlsx` (no converted files), or do an M2 read-only pass.
 Parse and present findings grouped by category as in M1 step 5. Include the namespace-derived
 Generated Task Form inventory, the referenced-form inventory from `form-reference-migration.md`, and
-likely decision categories. Do not create `.form` files or edit BPMN. If no paired converted copy
-was recorded earlier in this migration run, then stop. Otherwise continue the same-session
-cross-check with the recorded pair.
+likely decision categories. Do not create `.form` files or edit BPMN. Then stop.
+
+When a full M1 run in the same session already recorded a paired converted copy, a later M1
+`--check` run may provide the machine-readable findings input. Preserve the recorded copy and
+continue the Step 5 cross-check after parsing the new report. Do not consume a report or converted
+file that predates the session.

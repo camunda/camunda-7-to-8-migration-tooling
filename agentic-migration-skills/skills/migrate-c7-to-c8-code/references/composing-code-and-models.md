@@ -155,15 +155,6 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 When a shared job-type group has a **needs fix** verdict, process it independently. Propagate its
 verdict to every affected category before assigning category verdicts.
 
-Before asking for a decision, inventory every `@JobWorker` annotation and programmatic worker
-registration for the shared type. Resolve literal annotation values, method-name defaults, and
-client worker-builder registrations. If a registration's effective type is unresolved, or the
-inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
-generation until the user resolves it. If any registration already subscribes to the shared type,
-omit the generation option. Preserve existing source and require explicit confirmation before
-extending, merging, replacing, or removing a subscriber. Do not create or enable a second
-subscriber.
-
 When the target is a separate project, confirm its target root before using this flow. Use that
 target root for the worker scan and quarantine. If the target root is not confirmed, keep the
 cross-check report-only.
@@ -179,13 +170,24 @@ build input, packaged resource directory, and source tree scanned for `@JobWorke
 overrides it. Before each reuse, resolve the recorded path again. Verify that it remains under the
 confirmed project root and outside every source set, build input, packaged resource directory, and
 worker-scan tree. Reject a stale or unsafe path and require a new selection. Exclude the selected
-quarantine directory from every project-code inventory, every `@JobWorker` scan, and every build
-input. Record the selected path in `MIGRATION_REPORT.md` before scanning or generating.
+quarantine directory from active project-code inventories, active `@JobWorker` scans, and every
+build input. Keep the separate prior-draft scan below enabled for the quarantine directory. Record
+the selected path in `MIGRATION_REPORT.md` before scanning or generating.
 
 Before generating, scan the selected quarantine directory for a prior draft whose effective
 `@JobWorker` type uses the shared type. Resolve an omitted annotation `type` with the annotated
 method name. If a prior draft exists, stop and ask the user whether to reuse, complete, or remove
 that draft. Do not create another draft or collision variant until the prior draft is resolved.
+
+Before asking for a decision, after confirming the target root and excluding the quarantine
+directory from active scans, inventory every `@JobWorker` annotation and programmatic worker
+registration for the shared type. Resolve literal annotation values, method-name defaults, and
+client worker-builder registrations. If a registration's effective type is unresolved, or the
+inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
+generation until the user resolves it. If any registration already subscribes to the shared type,
+omit the generation option. Preserve existing source and require explicit confirmation before
+extending, merging, replacing, or removing a subscriber. Do not create or enable a second
+subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict and no effective
@@ -199,7 +201,7 @@ Use this decision table for each shared job type:
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None | For a complete many-to-one group, use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
-| **needs fix** | One or more effective workers | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
+| **needs fix** | Exactly one effective worker | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
 | **needs fix** | More than one effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one subscriber before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
@@ -211,16 +213,16 @@ replace each character outside ASCII letters, digits, and `_` with `_`, and pres
 result is empty, use `JobType`. Otherwise, prefix `JobType_` once when the first character is not a
 letter or the result contains no letter. Make the class name a legal Java identifier and the file
 name a safe path segment.
-Append `Worker` to the sanitized base unless it already ends with `Worker`, and use that same
-`Worker` stem for the class and file.
+Append `Worker` to the sanitized base unless it already ends with `Worker`. Call the result
+`workerStem` and use it as the class and file stem before adding the digest.
 Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8.
-Use its first 12 characters in the class and file stem. If sanitized stems collide, extend every
-colliding digest prefix by four characters until each name is unique. Build the final filename from
-the sanitized base, worker stem, digest, and `.java`. If the complete stem exceeds 200 ASCII
-characters, truncate only the sanitized base while preserving the worker stem and digest. Reapply
-the limit after any digest extension. Reject a final path component longer than 255 bytes. If the
-resolved parent path leaves no valid filename length, ask the user to choose a shorter quarantine
-path before writing.
+Use its first 12 characters to build `finalStem` as `workerStem` + `_` + the digest. Use that same
+`finalStem` for the public class and file name. If sanitized stems collide, extend every colliding
+digest prefix by four characters until each name is unique. If `finalStem.java` exceeds 200 ASCII
+bytes, truncate only the sanitized base portion before the `Worker` suffix while preserving the
+suffix and digest. Reapply the limit after any digest extension. Reject a final path component
+longer than 255 bytes. If the resolved parent path leaves no valid filename length, ask the user to
+choose a shorter quarantine path before writing.
 Resolve the proposed quarantine path and verify that it stays inside the chosen quarantine directory
 before writing. Resolve the eventual runtime path separately before moving the accepted source. If
 either path escapes its intended directory, stop and ask the user to choose a safe directory. Never
@@ -228,15 +230,14 @@ overwrite an existing file. If the proposed path exists, choose a new collision-
 name from the same candidate stem, then tell the user which file was created. Never reuse the
 original class name with a renamed file.
 
-The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Use
-the project's worker registration convention, such as `@Component` for Spring. Offer this annotated
-scaffold only when the target convention discovers `@JobWorker` registrations. For a non-Spring
-Java-client target, omit generation unless the project has an established client-builder scaffold
-and validation path. For the Java client worker shape, use `ActivatedJob job` and read headers with
-`job.getCustomHeaders()`. Read each
-original value from the retained `zeebe:header` using its original C7 key. Prepopulate a routing
-map or switch with one entry for every distinct normalized `(headerKey, original)` pair for the
-shared job type, grouped by retained key. Use Java
+The generated Java source must contain exactly one `@JobWorker(type = "<shared job type>")`. Offer
+this scaffold only for a Spring worker target that discovers `@JobWorker` annotations. For a
+non-Spring Java client target, keep the group **needs fix** and require a manual client-worker
+builder implementation and validation. Use the project's worker registration convention, such as
+`@Component` for Spring. For the Java client worker shape, use `ActivatedJob job` and read headers
+with `job.getCustomHeaders()`. Read each original value from the retained `zeebe:header` using its
+original C7 key. Prepopulate a routing map or switch with one entry for every distinct normalized
+`(headerKey, original)` pair for the shared job type, grouped by retained key. Use Java
 string-literal escaping for every generated route key and for the shared job type in the
 annotation. Escape quotes, backslashes, line breaks, and other control characters before writing
 the source. Put a `TODO` in every route for the actual legacy bean or method invocation. Make each
