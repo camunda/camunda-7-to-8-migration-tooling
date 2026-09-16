@@ -24,7 +24,7 @@ converted copy is available. Record the missing copy and the required rerun in
 `MIGRATION_REPORT.md`.
 
 When a full M1 run in the current migration session produced and recorded a paired converted copy,
-a later `--check` run in the same session may provide the findings input only when it uses the same
+a later `--check` run in the same session (MAY) provide the findings input only when it uses the same
 original model inputs and target version. Resolve every finding filename and elementId to its
 recorded source-to-converted pair. If any finding lacks a pair, keep the cross-check report-only.
 Record that report path from the same session and do not consume a report that predates the session.

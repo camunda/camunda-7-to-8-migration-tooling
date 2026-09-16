@@ -361,7 +361,7 @@ undifferentiated list.
   effective-worker scan and omits generation when a subscriber exists. Keep Approach C report-only.
   Keep M1 `--check` runs without a paired converted copy report-only. Keep read-only or no-copy M2
   runs report-only.
-  A same-session M1 `--check` run may provide findings only when it covers the same original inputs,
+  A same-session M1 `--check` run (MAY) provide findings only when it covers the same original inputs,
   target version, and every recorded source-to-converted pair.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.

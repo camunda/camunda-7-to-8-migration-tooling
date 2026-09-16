@@ -42,7 +42,7 @@ If anything else is found, warn through AskUserQuestion before converting:
 For local M1 and E1 CLI runs, never consume a report or converted file that existed before this
 migration run. Capture each CLI output path from this run's `Created ...` lines and use only those
 paths as authoritative. For M2, capture each rewrite output path and record its exact
-original-to-converted pair before validation. A later same-session M1 `--check` report may provide
+original-to-converted pair before validation. A later same-session M1 `--check` report (MAY) provide
 findings only when it uses the same original input paths, target version, and recorded
 source-to-converted pairs for every finding. Run the check against those original paths, exclude
 every captured converted copy, and reject report rows that name a converted copy. If any finding
@@ -200,6 +200,8 @@ independent 1:1 verdicts to category rows that share a job type. Use the shared 
 propagate it to each affected category as described in `composing-code-and-models.md`. In a Models
 only scope, apply the severity fallback in step 5d to each job-type category. Do not build a worker
 inventory or apply the dispatcher cross-check. Use `n/a` for its cross-referenced code artifact.
+For M2-only normalized rows without converter severities, assign `REVIEW` before applying the
+fallback.
 
 #### 5c. Present the grouped summary
 
@@ -478,7 +480,7 @@ Generated Task Form inventory, the referenced-form inventory from `form-referenc
 likely decision categories. Do not create `.form` files or edit BPMN. Then stop.
 
 When a full M1 run in the same session already recorded a paired converted copy, a later M1
-`--check` run may provide the machine-readable findings input only when it uses the same original
+`--check` run (MAY) provide the machine-readable findings input only when it uses the same original
 input paths and target version. Run one check invocation per captured original file. Exclude every
 captured converted copy. Reject
 rows that name converted copies, and verify a recorded source-to-converted pair for every finding
