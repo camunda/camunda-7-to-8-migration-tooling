@@ -223,9 +223,9 @@ For both:
    applicable schema and render checks, and target metadata. Record the planned `formId` linkage and
    binding, but do not edit the converted copy or require the final linkage check yet. Record
    unavailable supplementary tooling as `not applicable` with the reason.
-6. After Step 5e and final form cleanup, apply the accepted linkage plan, then verify the exact
-   `formId` linkage and removal of the copied C7 reference. Rerun the verification row after any
-   linkage or form change.
+6. After Step 5e, apply the accepted linkage plan, then rerun the full form validation checklist,
+   including the exact `formId` linkage and removal of the copied C7 reference. Rerun the
+   verification row after any linkage or form change.
 7. Confirm the form deploys together with the process for a `deployment` binding when a deployment
    target is selected. Record an explicit out-of-scope `not applicable` decision when no target
    exists or deployment is declined.
@@ -362,6 +362,7 @@ Verdict rules for the model finding table:
   integration. For a Camunda Form reference, convert and relink, then verify deployment when a
   target is selected; an explicit out-of-scope decision satisfies the deployment check when no
   target exists or deployment is declined.
-- Move a category to `no action` only when every row reaches a terminal state. Record a `declined` or
-  `deferred` row as accepted risk, not completed work.
+- Move a category to `no action` only when every row reaches a terminal state, the shared Step 5
+  verification row is `passed`, and final cleanup has passed. Record a `declined` or `deferred`
+  row as accepted risk, not completed work.
 - Do not rewrite the raw converter report or remove its historical findings.

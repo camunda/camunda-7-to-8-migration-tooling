@@ -305,9 +305,10 @@ approve removing it, and record the accepted risk. Never treat silence as accept
 
 ## Link only accepted forms
 
-When this procedure runs during Step 3, record the accepted bytes and planned linkage only.
-Defer converted-copy linkage and deployment until after Step 5e and the final form verification.
-When this procedure runs for unresolved Step 5 remediation, apply the linkage after Step 5e.
+When this procedure runs during Step 3, record the accepted bytes and planned linkage and deployment
+decision only. After Step 5e, apply the converted-copy linkage, then run the final form verification
+and deployment checks. When this procedure runs for unresolved Step 5 remediation, apply the linkage
+after Step 5e before the final form verification.
 
 Promote an accepted draft beside its converted BPMN under the accepted filename, then edit only the
 converted BPMN. Preserve the exact accepted bytes, verify the destination, and remove the generated
@@ -344,7 +345,8 @@ Use `bindingType="deployment"` only when BPMN and form deploy together. Otherwis
 choose and configure a supported binding.
 
 Do not rewrite the raw converter report or erase its historical `form-data` finding. Change the
-category verdict to `no action` only after every associated form is accepted, linked, and validated.
+category verdict to `no action` only after every associated form is accepted, linked, and validated,
+the shared Step 5 verification row is `passed`, and final cleanup has passed.
 Collect and record an explicit deployment decision. Verify deployment when a target is selected.
 Record deployment as `not applicable` with the out-of-scope decision when no target exists or
 deployment is declined. Form-property-only discoveries use a synthetic

@@ -41,11 +41,6 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    `deployment decision=out of scope` and `deployment=not applicable` in
    `MIGRATION_REPORT.md`. Do not deploy automatically. If a target is selected,
    record the explicit request and deployment result.
-7. Keep this Models-only fixture out of live deployment. Record
-   `deployment decision=out of scope` and `deployment=not applicable` in
-   `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator selects
-   a deployment target and requests deployment, record the target, request, and
-   deployment result instead.
 
 The fixture does not require a Maven or Gradle build. Use the temporary project
 directory as the migration skill project root.

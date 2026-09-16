@@ -393,9 +393,11 @@ checks when a category contains only generated forms.
 Run model category checks and form schema/render checks before Step 5e strips converter annotations.
 Run Step 5e after every category has a verdict and verification evidence. Run form procedures in 5f
 and 5g only for unresolved form remediation after the Step 3 execution. Do not repeat an accepted
-Step 3 form procedure. Rerun the form verification row after any form remediation, linkage, or
-deployment change. Run model validation and final whole-file cleanup after those form checks and
-all 5f/5g changes. Retain **no action** only after this sequence passes.
+Step 3 form procedure. After Step 5e, apply every accepted Step 3 form's planned linkage and
+deployment decision, then rerun the form verification checks. Rerun the form verification row after
+any form remediation, linkage, or deployment change. Run model validation and final whole-file
+cleanup after those form checks and all 5f/5g changes. Retain **no action** only after this sequence
+passes.
 
 | Check | Required evidence |
 |---|---|
@@ -412,10 +414,10 @@ all 5f/5g changes. Retain **no action** only after this sequence passes.
 | Converter result reuse | Reuse the captured command result only while the file and target metadata are unchanged. Rerun the command after any remediation edit and during final validation. |
 | Converter regression comparison | Parse each captured CSV with the converter's semicolon delimiter. Filter the parsed result for each category. Capture relevant rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record `none` when no relevant rows exist. Record the comparison as supplementary evidence. Allow an unchanged row when it matches the baseline and the finding-specific postcondition does not require it to disappear. If the comparison finds a new row, an unexpected change, or a baseline row that the finding-specific postcondition requires to disappear, set the verification state to `failed` and keep the category at **needs fix** or **needs review**. The unavailable-CLI exception does not apply to a failed comparison. Do not use CSV rows as findings input or as the sole pass/fail criterion. |
 | Converter applicability | For a participating BPMN or DMN converted copy, query `executionPlatform` and `executionPlatformVersion` on the document's BPMN or DMN `definitions` element. Resolve both attributes by the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local names. Compare `executionPlatform` exactly with `Camunda Cloud` and the version exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Apply this check before the converter failure rule for M1, M2, M3, and E1. Set converter applicability to `not applicable` when a category has no participating BPMN or DMN copy. |
-| Already-converted exception | Record `not applicable` only when a participating BPMN or DMN converted copy has both exact metadata values and the CLI reports `This diagram is already a Camunda 8 diagram`. Do not treat that expected rejection exit code as a failure. Treat any other non-zero result, parse failure, or empty result without that message as failed evidence. |
+| Already-converted exception | Record `not applicable` only when a participating BPMN or DMN converted copy has both exact metadata values and the CLI reports `This diagram is already a Camunda 8 diagram`. Do not treat that expected rejection exit code as a failure. Treat any other non-zero result, parse failure, missing or malformed CSV, or CSV-generation failure as failed evidence. A header-only CSV is valid clean output and is not an empty-result failure. |
 | Converter metadata failure | Record missing or mismatched metadata as a run-level validation failure. When a category maps to the file, keep that category at **needs review** or **needs fix**. Do not treat CLI output as applicable passing evidence. |
 | Converter unavailable | For M1, M2, M3, or E1, record `unavailable` in the converter check evidence when the local CLI, Java executable, or converter JAR is unavailable. Treat this supplementary check as non-blocking for the aggregate category state. Set the category to `passed` only after every other required check and the finding-specific postcondition pass. |
-| Converter failure | After the applicability row classifies an expected already-converted rejection as `not applicable`, do not treat its non-zero exit code as a failure. For all other files, treat any reported parse failure as a failed verification even when the CLI exits `0` or writes an empty CSV. Treat any other non-zero exit code or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. |
+| Converter failure | After the applicability row classifies an expected already-converted rejection as `not applicable`, do not treat its non-zero exit code as a failure. For all other files, treat any reported parse failure as a failed verification even when the CLI exits `0`. Treat any other non-zero exit code, missing or malformed CSV, or CSV-generation failure as a failed verification and keep the category at **needs fix** or **needs review**. A header-only CSV is valid clean output. |
 | Converter evidence | Capture the command, exit code, parse failures, and CLI's `Created ...` CSV path for each command run. Before continuing or exiting, move every fresh CSV to the chosen explicitly non-packaged reports directory. Record the final evidence path after relocation, `removed` after cleanup deletes the CSV, or `not created` when the command produces no CSV. |
 | Findings source | Do not use CSV rows as findings input or as the sole pass/fail criterion. Use JSON for findings input in M1, M3, and E1. For M2, use the structured direct-rewrite findings summary and do not consume an unrelated JSON report. |
 
@@ -427,7 +429,8 @@ Add a separate verification table with one row per category and these columns: `
 `Participating files`, `Before`, `Postcondition`, `Checks and evidence`, `After`, `Verdict`, and
 `Verification`. Do not replace the findings inventory with the verification table.
 
-The CLI can filter parse failures before its visitor pipeline and can write an empty CSV. Therefore,
+The CLI can filter parse failures before its visitor pipeline and writes a header-only CSV when no
+findings exist; that is valid evidence. Missing or malformed CSV output is a failure. Therefore,
 the gate treats every reported parse failure as failed evidence. The CLI does not reconstruct the
 original Camunda 7 mapping from an already-converted copy. It does not prove that a job
 worker, listener, header, or FEEL expression has the intended runtime semantics. The namespace-aware
