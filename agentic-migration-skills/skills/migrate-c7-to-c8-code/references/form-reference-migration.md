@@ -233,8 +233,9 @@ For both:
 7. Verify deployment only after the user explicitly requests it and selects a deployment target.
    Record the request, target, and deployment result separately. Do not deploy when a target exists
    without an explicit request. Record deployment as `pending` and keep the category open until the
-   user decides. Record an explicit out-of-scope `not applicable` decision when no target exists or
-   the user declines deployment.
+   user decides. Record an explicit out-of-scope `not applicable` decision when no target exists.
+   If the user declines deployment for a selected target, keep deployment `pending` unless the user
+   selects a supported alternate binding or records an explicit external-deployment plan.
 
 If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
 
@@ -364,10 +365,11 @@ Verdict rules for the model finding table:
 - After a decision, a category stays `needs fix` until the work finishes. For a rebuild, accept,
   link, and validate the form. Collect and record an explicit deployment decision. Verify deployment
   when a target is selected, and record deployment as `not applicable` with the out-of-scope
-  decision when no target exists or deployment is declined. For a keep, the owner confirms the
-  integration. For a Camunda Form reference, convert and relink. Verify deployment when a target is
-  selected and the user explicitly requests it. An explicit out-of-scope decision satisfies the
-  deployment check when no target exists or deployment is declined.
+  decision when no target exists. A selected-target deployment decline keeps the category open unless
+  the user selects a supported alternate binding or records an explicit external-deployment plan. For
+  a keep, the owner confirms the integration. For a Camunda Form reference, convert and relink. Verify
+  deployment when a target is selected and the user explicitly requests it. An explicit out-of-scope
+  decision satisfies the deployment check when no target exists.
 - Move a category to `no action` only when every row reaches a completed terminal state, the shared
   Step 5 verification row is `passed`, and final cleanup has passed. A `deferred` or `blocked` row
   is open follow-up and keeps the category open. A `declined` row requires explicit accepted-risk

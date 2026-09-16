@@ -228,7 +228,7 @@ Record `absent` for a form that the procedure will create.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
-During Step 3, these procedures may inventory, draft, collect decisions, and accept resources.
+During Step 3, these procedures (MAY) inventory, draft, collect decisions, and accept resources.
 Defer edits that add or change converted-copy form linkage and all deployment until after Step 5e.
 Record the planned linkage and deployment decision during Step 3.
 ### Step 4: Validation (always runs)
@@ -305,9 +305,10 @@ target version. See the linting section in `references/model-migration-approache
 11. Step 5 verifies deployment coverage for every accepted form with a deployable owner after form
     remediation and annotation cleanup. Collect and record an explicit deployment decision. Deploy
     only after an explicit user request and when a deployment target is selected. Record deployment
-    as `not applicable` with the out-of-scope decision when no target exists or deployment is
-    declined. A standalone `.form` with no owner or converted BPMN records deployment as
-    `not applicable` with its reason.
+    as `not applicable` with the out-of-scope decision only when no target exists. If a target exists
+    and the user declines deployment, keep deployment `pending` unless the user selects a supported
+    alternate binding or records an explicit external-deployment plan. A standalone `.form` with no
+    owner or converted BPMN records deployment as `not applicable` with its reason.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final
@@ -400,8 +401,9 @@ Step 3 form procedure. After Step 5e, apply every accepted Step 3 form's planned
 record the planned deployment decision, then rerun the form verification checks. Run model validation
 and final whole-file cleanup after those form checks and all 5f/5g changes. Only after final cleanup,
 carry out an authorized deployment when an explicit user request and target exist. Record the target
-and result. Record `not applicable` with its reason when no target exists or deployment is declined.
-Keep deployment `pending` when a target exists without an explicit request. Rerun deployment
+and result. Record `not applicable` with its reason when no target exists. Keep deployment `pending`
+when a target exists without an explicit request or the user declines deployment. Require a supported
+alternate binding or an explicit external-deployment plan before closing that state. Rerun deployment
 coverage and the form verification row after deployment. Rerun the form verification row after any
 form remediation or linkage change. Retain **no action** only after this sequence passes.
 
@@ -418,7 +420,7 @@ form remediation or linkage change. Retain **no action** only after this sequenc
 | Converter regression command | Where the local CLI, Java executable, and converter JAR support a participating BPMN or DMN converted copy, normalize the recorded path to an absolute path. Run the command once per unique converted copy for each unchanged file state. |
 | Converter invocation | Run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv`. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. |
 | Converter result reuse | Reuse the captured command result only while the file and target metadata are unchanged. Rerun the command after any remediation edit and during final validation. |
-| Converter regression comparison | Parse each captured CSV with the converter's semicolon delimiter. Map each converted filename to its recorded original-to-converted pair before comparing rows. Compare stable fields such as category, message id, severity, element id, and normalized message rather than raw filenames. Filter the parsed result for each category. Capture relevant rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record `none` when no relevant rows exist. Record the mapping and comparison as supplementary evidence. Allow an unchanged row when its stable fields match the baseline and the finding-specific postcondition does not require it to disappear. If the comparison finds a new row, an unexpected stable-field change, or a baseline row that the finding-specific postcondition requires to disappear, set the verification state to `failed` and keep the category at **needs fix** or **needs review**. The unavailable-CLI exception does not apply to a failed comparison. Do not use CSV rows as findings input or as the sole pass/fail criterion. |
+| Converter regression comparison | Parse each captured CSV with the converter's semicolon delimiter. Map each converted filename to its recorded original-to-converted pair before comparing rows. Compare exactly these stable fields: `category`, `messageId`, `severity`, and `elementId`. Record raw messages and the path mapping as supplementary evidence, but do not use raw message text for the pass/fail comparison. Filter the parsed result for each category. Capture relevant rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record `none` when no relevant rows exist. Record the mapping and comparison as supplementary evidence. Allow an unchanged row when its stable fields match the baseline and the finding-specific postcondition does not require it to disappear. If the comparison finds a new row, an unexpected stable-field change, or a baseline row that the finding-specific postcondition requires to disappear, set the verification state to `failed` and keep the category at **needs fix** or **needs review**. The unavailable-CLI exception does not apply to a failed comparison. Do not use CSV rows as findings input or as the sole pass/fail criterion. |
 | Converter applicability | For a participating BPMN or DMN converted copy, query `executionPlatform` and `executionPlatformVersion` on the document's BPMN or DMN `definitions` element. Resolve both attributes by the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local names. Compare `executionPlatform` exactly with `Camunda Cloud` and the version exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Apply this check before the converter failure rule for M1, M2, M3, and E1. Set converter applicability to `not applicable` when a category has no participating BPMN or DMN copy. |
 | Already-converted exception | Record `not applicable` only when a participating BPMN or DMN converted copy has both exact metadata values and the CLI reports `This diagram is already a Camunda 8 diagram`. Do not treat that expected rejection exit code as a failure. Treat any other non-zero result, parse failure, missing or malformed CSV, or CSV-generation failure as failed evidence. A header-only CSV is valid clean output and is not an empty-result failure. |
 | Converter metadata failure | Record missing or mismatched metadata as a run-level validation failure. When a category maps to the file, keep that category at **needs review** or **needs fix**. Do not treat CLI output as applicable passing evidence. |

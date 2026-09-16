@@ -350,8 +350,10 @@ Do not rewrite the raw converter report or erase its historical `form-data` find
 category verdict to `no action` only after every associated form is accepted, linked, and validated,
 the shared Step 5 verification row is `passed`, and final cleanup has passed.
 Collect and record an explicit deployment decision. Verify deployment when a target is selected.
-Record deployment as `not applicable` with the out-of-scope decision when no target exists or
-deployment is declined. Form-property-only discoveries use a synthetic
+Record deployment as `not applicable` with the out-of-scope decision only when no target exists.
+If a target exists and the user declines deployment, keep deployment `pending` unless the user
+selects a supported alternate binding or records an explicit external-deployment plan.
+Form-property-only discoveries use a synthetic
 `generated-form-property-source` category with the same lifecycle.
 
 ## Cross-check application consumers for every scope
