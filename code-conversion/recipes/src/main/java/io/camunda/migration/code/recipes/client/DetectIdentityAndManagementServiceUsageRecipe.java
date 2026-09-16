@@ -58,6 +58,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   private static final MethodMatcher SET_JOB_RETRIES_MATCHER =
       new MethodMatcher(
           MANAGEMENT_SERVICE_FQN + " setJobRetries(java.lang.String, int)");
+  private static final MethodMatcher CREATE_JOB_QUERY_MATCHER =
+      new MethodMatcher(MANAGEMENT_SERVICE_FQN + " createJobQuery()");
   private static final Map<String, String> IDENTITY_METHOD_HINTS =
       Map.ofEntries(
           Map.entry("newUser", "Use CamundaClient.newCreateUserCommand()."),
@@ -188,6 +190,11 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                 if (serviceCall != null) {
                   current.add(serviceCall);
                 }
+                if (isTimerQueryInvocation(invocation)) {
+                  current.add(
+                      new ServiceCall(
+                          MANAGEMENT_SERVICE_FQN, "createJobQuery", false, true));
+                }
                 return (J.MethodInvocation) super.visitMethodInvocation(invocation, current);
               }
 
@@ -207,7 +214,18 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
 
             }.visit(statement, found);
+            if (found.stream().anyMatch(ServiceCall::timerQuery)) {
+              found.removeIf(
+                  call ->
+                      "createJobQuery".equals(call.methodName()) && !call.timerQuery());
+            }
             return found;
+          }
+
+          private boolean isTimerQueryInvocation(J.MethodInvocation invocation) {
+            return "timers".equals(invocation.getSimpleName())
+                && invocation.getSelect() instanceof J.MethodInvocation query
+                && CREATE_JOB_QUERY_MATCHER.matches(query);
           }
 
           private ServiceCall serviceCall(J.MethodInvocation invocation) {
@@ -347,6 +365,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
+            if (serviceCall.timerQuery()) {
+              return "Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).";
+            }
             if ("setJobRetriesAsync".equals(serviceCall.methodName())) {
               return "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.";
             }
@@ -364,7 +385,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
           private String methodMarker(ServiceCall serviceCall) {
             if (MANAGEMENT_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
-              return MANAGEMENT_CLIENT_METHODS.contains(serviceCall.methodName())
+              return !serviceCall.timerQuery()
+                      && MANAGEMENT_CLIENT_METHODS.contains(serviceCall.methodName())
                   ? MANAGEMENT_CLIENT_MARKER
                   : MANAGEMENT_MARKER;
             }
@@ -398,7 +420,14 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           }
 
           private record ServiceCall(
-              String serviceFqn, String methodName, boolean singleJobRetry) {}
+              String serviceFqn,
+              String methodName,
+              boolean singleJobRetry,
+              boolean timerQuery) {
+            private ServiceCall(String serviceFqn, String methodName, boolean singleJobRetry) {
+              this(serviceFqn, methodName, singleJobRetry, false);
+            }
+          }
         });
   }
 }
