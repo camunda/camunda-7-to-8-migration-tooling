@@ -117,8 +117,9 @@ The evaluation is complete when the agent has:
 * recorded the custom-application checklist, with an owner, for any kept
   embedded or external reference, and recorded the fixture's explicit out-of-scope
   deployment decision (`deployment=not applicable`), or recorded
-  `deployment=pending` for a selected target without authorization or a
-  selected-target decline, or recorded the selected target, request, and result;
+  `deployment=pending` for a selected target without an explicit request,
+  unavailable authorization, or a selected-target decline, or recorded the
+  selected target, request, and result;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
