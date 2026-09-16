@@ -437,20 +437,16 @@ restriction does not apply to those other check rows. A category with any state 
 Apply XML, namespace, and converter checks only to BPMN or DMN converted copies. Apply the
 generated-form check to `.form` resources. Record `not applicable` for XML-only and converter
 checks when a category contains only generated forms.
-Run model category checks and form schema/render checks before Step 5e strips converter annotations.
-Run Step 5e after every category has a verdict and verification evidence. Run form procedures in 5f
-and 5g only for unresolved form remediation after the Step 3 execution. Do not repeat an accepted
-Step 3 form procedure. After Step 5e, apply every accepted Step 3 form's planned linkage and
-record the planned deployment decision, then rerun the form verification checks. Run model validation
-and final whole-file cleanup after those form checks and all 5f/5g changes. Only after final cleanup,
-carry out an authorized deployment when an explicit user request and target exist. Record the target
-and result. Record `not applicable` with its reason when no target exists. Keep deployment `pending`
-when a target exists without an explicit request. Obtain the request, then record the authorized
-target and deployment result. If authorization is unavailable or the user declines deployment, keep
-deployment `pending` and require a supported alternate binding or an explicit external-deployment
-plan before closing that state. Rerun deployment
-coverage and the form verification row after deployment. Rerun the form verification row after any
-form remediation or linkage change. Retain **no action** only after this sequence passes.
+For model migrations, run model category checks and form schema/render checks before Step 5e strips
+converter annotations. Run Step 5e after every category has a verdict and verification evidence.
+Run form procedures in 5f and 5g only for unresolved form remediation after the Step 3 execution.
+Do not repeat an accepted Step 3 form procedure. After Step 5e, apply every accepted Step 3 form's
+planned linkage and record the planned deployment decision, then rerun form verification checks.
+Run model validation and final whole-file cleanup after those form checks and all 5f/5g changes.
+Only after final cleanup, carry out authorized deployment and record its result. Retain **no action**
+only after this sequence passes.
+For code-only migrations, skip Step 5e, 5f, and 5g. Run the code-only final Step 4 validation
+instead. Retain **no action** only after that code path passes.
 
 | Check | Required evidence |
 |---|---|
@@ -478,11 +474,11 @@ form remediation or linkage change. Retain **no action** only after this sequenc
 | Converter option parity | Capture the converter JAR/build identity and every conversion-affecting option, including `--default-job-type`, `--always-use-default-job-type`, `--keep-job-type-blank`, `--add-data-migration-execution-listener`, `--data-migration-execution-listener-job-type`, `--documentation`, `--only-task-and-warning`, and `--disable-append-elements`. Require the same build and options for baseline and verification comparisons. Set the comparison to `unavailable` when parity cannot be established. |
 | Converter result reuse | Reuse the captured command result only while file bytes, target metadata, converter JAR/build, Java runtime, input root, and conversion options are unchanged. Rerun the command after any remediation edit and during final validation. |
 | Converter regression parsing | Parse each captured CSV with the converter's semicolon delimiter. Normalize each CSV `filename` cell before path resolution. For a single-file command, use the parent directory of `<file>` as the input root. For a directory command, use the directory argument as the input root. Resolve each relative normalized `filename` against that root, not the process working directory. Map the resulting identity to its recorded original-to-converted pair before comparing rows. Record `none` when no relevant rows exist. |
-| Converter row identity | Treat `messageId` as the category. Compare `messageId`, `severity`, `elementName`, `elementId`, `elementType`, and the resolved normalized `filename` identity with the recorded absolute converted path. Record raw and de-sanitized cells and the path mapping as supplementary evidence. Do not compare raw cells with absolute paths or use raw message text for the pass/fail comparison. |
-| Converter CSV raw cell | Record the raw CSV cell for `filename` and `elementId` as supplementary evidence. |
-| Converter CSV expected identity | Build the expected identity from the recorded source-to-converted pair. Use the resolved absolute converted path for `filename`. |
-| Converter CSV de-sanitization | If the raw cell starts with one apostrophe and the first character after skipping all `Character.isWhitespace` and `Character.isISOControl` characters in the remainder is `=`, `+`, `-`, or `@`, create a de-sanitized candidate by removing that apostrophe. |
-| Converter CSV candidate selection | Resolve each `filename` candidate against the verification command's input root before comparison. Compare the resolved candidate identity with the recorded absolute converted path. Compare `elementId` candidates with the recorded element id. Use the sole matching normalized candidate. If neither candidate matches or both candidates match distinct identities, set the comparison to `unavailable` and use non-CSV evidence. Keep raw and de-sanitized cells as evidence only. |
+| Converter row identity | Treat `messageId` as the category. Compare `messageId`, `severity`, `elementName`, `elementId`, `elementType`, and the resolved normalized `filename` identity with the recorded absolute converted path. |
+| Converter CSV raw cells | Record the raw CSV cell for every compared field as supplementary evidence. |
+| Converter CSV expected identity | Build the expected identity for every compared field from the recorded source-to-converted pair. Use the resolved absolute converted path for `filename`. |
+| Converter CSV de-sanitization | For every compared field, if the raw cell starts with one apostrophe and the first character after skipping all `Character.isWhitespace` and `Character.isISOControl` characters in the remainder is `=`, `+`, `-`, or `@`, create a de-sanitized candidate by removing that apostrophe. |
+| Converter CSV candidate selection | For `filename`, resolve each raw and de-sanitized candidate against the verification input root before comparing with the recorded absolute path. For other fields, compare candidates directly with the recorded value. Use the sole matching normalized candidate. If neither candidate matches or both candidates match distinct identities, set the comparison to `unavailable` and use non-CSV evidence. Keep raw cells as evidence only. |
 | Converter regression comparison | When converter applicability identifies the expected already-converted rejection, record row comparison as `not applicable` or evidence-only `unavailable` with the CLI message and header-only CSV. Require row comparison only when the CLI visits the file. Otherwise, filter the parsed result for each category. Capture relevant rows and compare them with the immutable pre-remediation findings evidence or the expected result. Record the mapping and comparison as supplementary evidence. Allow an unchanged row when its stable fields match the baseline and the finding-specific postcondition does not require it to disappear. Do not use CSV rows as findings input or as the sole pass/fail criterion. |
 | Converter comparison failure | If the comparison finds a new row, an unexpected stable-field change, or a baseline row that the finding-specific postcondition requires to disappear, set the verification state to `failed` and keep the category at **needs fix** or **needs review**. If a CSV contains a new `messageId`, record it in verification evidence and record a run-level validation failure. Do not use CSV rows as findings input. The unavailable-CLI exception does not apply to a failed comparison. |
 | Converter applicability | For a participating BPMN or DMN converted copy, query `executionPlatform` and `executionPlatformVersion` on the document's BPMN or DMN `definitions` element. Resolve both attributes by the Modeler namespace URI `http://camunda.org/schema/modeler/1.0` and local names. Compare `executionPlatform` exactly with `Camunda Cloud` and the version exactly with the selected target in canonical patch-zero form, such as `8.10.0` for target `8.10`. Apply this check before the converter failure rule for M1, M2, M3, and E1. Set converter applicability to `not applicable` when a category has no participating BPMN or DMN copy. Classify a CLI or JAR target-support rejection as converter `unavailable` before the failure rule, and record the command output. |

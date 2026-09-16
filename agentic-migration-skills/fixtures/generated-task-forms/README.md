@@ -112,7 +112,8 @@ The evaluation is complete when the agent has:
   `executionPlatform="Camunda Cloud"` and
   `executionPlatformVersion="8.9.0"`;
 * added a verification-table row for every participating category, including
-  `form-data` and the source-derived `c7-generic-task-form` owner, and recorded
+  `form-data`. Include a source-derived `c7-generic-task-form` row only when
+  the source scan finds a form-free owner, and recorded
   all required columns: `Participating files`, `Before`, `Postcondition`,
   `Checks and evidence`, `After`, `Verdict`, and `Verification`. Recorded
   `passed` before treating an eligible category as **no action** or the
