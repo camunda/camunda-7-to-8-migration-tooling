@@ -122,8 +122,9 @@ The evaluation is complete when the agent has:
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
-  `Before`, `Checks and evidence`, `After`, `Verdict`, and `Verification`
-  fields. Completed form-free decisions require a procedure-specific terminal
+  `Participating files`, `Before`, `Postcondition`, `Checks and evidence`,
+  `After`, `Verdict`, and `Verification` fields. Completed form-free decisions
+  require a procedure-specific terminal
   status, `Verdict`, `Verification=passed`, and follow-up evidence. For the
   keep-form-free branch, require `Status=declined`, `Verdict=needs review`,
   and accepted-risk evidence.
