@@ -73,8 +73,8 @@ AskUserQuestion to offer these actions:
 | **I will implement the dispatcher manually** | Keep the category **needs fix**. |
 
 Generate the scaffold only after the user selects it. Never overwrite an existing file.
-Create the draft outside worker sources. Use the target project's conventional package, license
-header, naming, and formatting.
+Create the draft outside every configured Java source root. Use the target project's conventional
+package, license header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
 Prepopulate a routing map or switch with every distinct retained header key and original expression
 pair from the findings.
@@ -82,8 +82,8 @@ Put a `TODO` in each route for the actual bean or method invocation.
 Escape every model-derived value before using it in a Java string literal.
 Make every TODO, missing-header, and unknown-route path fail explicitly.
 Show the complete source to the user for review.
-Keep the draft outside worker sources until the user completes its TODOs, accepts it, and resolves
-any other subscriber.
+Keep the draft outside every configured Java source root until the user completes its TODOs, accepts
+it, and resolves any other subscriber.
 If the user declines the draft, remove it.
 After acceptance, move the draft beside migrated workers.
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
