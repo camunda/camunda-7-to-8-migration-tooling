@@ -305,6 +305,10 @@ approve removing it, and record the accepted risk. Never treat silence as accept
 
 ## Link only accepted forms
 
+When this procedure runs during Step 3, record the accepted bytes and planned linkage only.
+Defer converted-copy linkage and deployment until after Step 5e and the final form verification.
+When this procedure runs for unresolved Step 5 remediation, apply the linkage after Step 5e.
+
 Promote an accepted draft beside its converted BPMN under the accepted filename, then edit only the
 converted BPMN. Preserve the exact accepted bytes, verify the destination, and remove the generated
 draft so one authoritative form file remains. Keep a second copy only when the user explicitly requests

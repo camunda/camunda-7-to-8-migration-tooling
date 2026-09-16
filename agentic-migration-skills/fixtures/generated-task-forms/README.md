@@ -37,6 +37,10 @@ Camunda 7 source model, not a deployable Camunda 8 process.
    it. Do not accept a form merely because its JSON parses.
 6. Repeat generation from the same source and recorded decisions. The accepted
    bytes and draft bytes should be identical on the rerun.
+7. For this Models-only fixture, select no deployment target and record
+   `deployment decision=out of scope` and `deployment=not applicable` in
+   `MIGRATION_REPORT.md`. Do not deploy automatically. If a target is selected,
+   record the explicit request and deployment result.
 7. Keep this Models-only fixture out of live deployment. Record
    `deployment decision=out of scope` and `deployment=not applicable` in
    `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator selects

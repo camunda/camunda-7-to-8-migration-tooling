@@ -228,6 +228,9 @@ Record `absent` for a form that the procedure will create.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
+During Step 3, these procedures may inventory, draft, collect decisions, and accept resources.
+Defer edits that add or change converted-copy form linkage and all deployment until after Step 5e.
+Record the planned linkage and deployment decision during Step 3.
 ### Step 4: Validation (always runs)
 
 Each item below is a check to run and a condition that must hold at exit. Record every result in
@@ -449,8 +452,9 @@ rerun every category's applicable verification checks on the final bytes. Treat 
 revalidation as an integrity pass, not a new remediation loop. If a final check differs, set the
 row's `Verification` to `failed`, downgrade its verdict, and record the before-and-after evidence.
 Rerun the supplementary converter command for each changed BPMN or DMN copy during final
-validation. Retain **no action** only for rows that pass final category revalidation and the final
-whole-file cleanup.
+validation. Rerun every affected category postcondition after Step 5e and after any 5f/5g linkage
+or deployment change. Retain **no action** only for rows that pass final category revalidation
+and the final whole-file cleanup.
 
 If the run is a model analyze-only run, present the findings, inventories, and provisional verdicts,
 update `MIGRATION_REPORT.md`, and stop before the model-finding remediation offer. Do not offer model
