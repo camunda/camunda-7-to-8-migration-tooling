@@ -22,30 +22,35 @@ When M1 runs with `--check` and produces no converted copy, keep this cross-chec
 offer or generate a dispatcher scaffold until a paired converted copy is available. Record the
 missing copy and the required rerun in `MIGRATION_REPORT.md`.
 
+When a full M1 run produced and recorded a paired converted copy, a later `--check` report may
+provide the findings input. Gate generation on the recorded paired copy, not on the latest report
+invocation.
+
 When M2 has a converted copy, is not read-only, and has no Diagram Converter report, scan every
 `zeebe:taskDefinition/@type` in each converted BPMN file. Pair each converted file with the exact
 original file recorded by the M2 rewrite. Read the original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
 normalized input row with the columns `category`, `filename`, `elementId`, `headerKey`, `original`,
 and `jobType` for each delegate attribute or external-task topic. Set `category` to
-`delegate-expression-as-job-type` for `camunda:delegateExpression` or `camunda:expression`, to
+`expression-method-as-job-type` for a method-invoking `camunda:delegateExpression` or
+`camunda:expression`, to `delegate-expression-as-job-type` for another bean reference, to
 `delegate-implementation` for `camunda:class`, and to `topic` for `camunda:topic`. Derive
 `headerKey` and `original` from the original C7 attribute. Verify the same delegate pair in the
 converted element's `zeebe:header`. For an external-task topic, set `headerKey` to `topic` and
 `original` to the original topic value. Apply the same 1:1 or many-to-one check. Do not wait for
-`delegate-expression-as-job-type` findings, because M2-only runs do not produce them. A missing
-delegate header is incomplete for a many-to-one group. A 1:1 topic row can use its non-empty
-`jobType` for the simple check without a retained `topic` header. If a topic group has another
-distinct pair, require a retained `topic` header before offering a dispatcher scaffold.
+converter findings, because M2-only runs do not produce them. A missing delegate header is
+incomplete for a many-to-one group. A 1:1 topic row can use its non-empty `jobType` for the simple
+check without a retained `topic` header. If a topic group has another distinct pair, require a
+retained `topic` header before offering a dispatcher scaffold.
 
 If M2 is read-only or has no converted copy, keep this cross-check report-only. Record the
 read-only mode or missing copy and do not scan for workers or offer a dispatcher scaffold.
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type`, `delegate-implementation`,
-and `topic` findings and the M2 scan. A findings report's `filename` identifies the source model, not
-the converted copy. For M1, resolve it to the exact converted copy path captured from converter
+Build the normalized input rows from the `delegate-expression-as-job-type`,
+`expression-method-as-job-type`, `delegate-implementation`, and `topic` findings and the M2 scan.
+A findings report's `filename` identifies the source model, not the converted copy. For M1, resolve it to the exact converted copy path captured from converter
 output, using the configured prefix (`converted-c8-` by default) when necessary. Pair each finding
 with its converted BPMN element by that path and `elementId`. For M2, use the exact original-to-
 converted path mapping recorded by the rewrite. For M3, require the original BPMN, the downloaded
@@ -83,7 +88,7 @@ until a paired converted copy retains the required header. Then rebuild the norm
 regroup before applying the mapping and verdict checks. Keep unrelated job-type groups eligible
 for their own checks.
 
-Build one shared job-type inventory from the remaining normalized rows across all three categories.
+Build one shared job-type inventory from the remaining normalized rows across all four categories.
 Group the inventory by `jobType`, then classify each job-type group by its distinct
 `(headerKey, original)` pairs. A shared job-type group can contain rows from multiple categories.
 Assign one mapping and dispatcher verdict to each shared job-type group. Project that verdict and its
@@ -136,7 +141,7 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 - It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
-every distinct `(headerKey, original)` pair in the normalized rows for that job type across all three
+every distinct `(headerKey, original)` pair in the normalized rows for that job type across all four
 categories. List uncovered pairs for the user.
 
 For M2 migration, verify or add the matching delegate or topic header before scaffolding. For M1
@@ -195,8 +200,11 @@ Use this decision table for each shared job type:
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
 directory outside every source set, build input, and source tree scanned for `@JobWorker`
 registrations. Use the project's conventional package, license header, naming, and formatting.
-Derive the class and file names from the exact shared job type with a deterministic sanitizer. Make
-the class name a legal Java identifier and the file name a safe path segment.
+Derive the class and file names from the exact shared job type with this deterministic sanitizer:
+replace each character outside ASCII letters, digits, and `_` with `_`, preserve case, and do not
+truncate the result. If the result is empty, use `JobType`. Otherwise, prefix `JobType_` once when
+the first character is not a letter or the result contains no letter. Make the class name a legal
+Java identifier and the file name a safe path segment.
 Append `Worker` to the sanitized base unless it already ends with `Worker`, and use that same
 `Worker` stem for the class and file.
 Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8.
@@ -289,7 +297,8 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 ### 6. Assign verdicts to the verdict table
 
 Use this table only for categories with normalized rows from sections 1–2. This cross-check includes
-`delegate-expression-as-job-type`, `delegate-implementation`, and `topic` findings. Do not apply this
+`delegate-expression-as-job-type`, `expression-method-as-job-type`, `delegate-implementation`, and
+`topic` findings. Do not apply this
 table to categories with dedicated procedures, including `delegate-implementation-no-default-job-type`,
 `collection-hint`, and form categories. Use those procedures to assign their verdicts. An empty
 normalized-row set never produces **no action**.
