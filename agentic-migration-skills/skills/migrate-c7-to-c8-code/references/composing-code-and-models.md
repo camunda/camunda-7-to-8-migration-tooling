@@ -120,14 +120,9 @@ For every `c7-embedded-html-form`, `c7-external-form-reference`, `c7-camunda-for
 - A rebuilt form must be accepted and linked.
 - A custom-application integration must be confirmed by a named owner.
 - A Camunda Form must be converted and relinked.
-- Verify deployment only when the user explicitly requests it with authorization for a selected target.
-- An explicit out-of-scope deployment decision satisfies the deployment check when no target exists.
-- Keep a selected-target deployment pending while the request is absent.
-- Keep a selected-target deployment decline open unless the user selects a supported alternate binding or
-  records an explicit external-deployment plan.
-- An alternate binding resolves deployment only after its `bindingType` and linkage evidence are recorded.
-- An external plan resolves deployment only after recording `deployment=external plan recorded` with
-  its owner, target, and steps.
+- Use the deployment state machine in `SKILL.md` Step 5 and
+  `form-reference-migration.md`. Do not duplicate or override its target, request, authorization,
+  pending, alternate-binding, or external-plan rules here.
 - If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the
   category at **needs review** until the user resolves that prerequisite.
 - A kept reference is never **no action** on the strength of the converter having copied it.

@@ -476,7 +476,8 @@ review for non-INFO findings, except when the shared verification pass is the on
 Keep INFO findings provisional until their verification pass succeeds, and do not request a human
 decision for that provisional verdict. Lint every rewritten BPMN file per the linting section below.
 For each paired model, Step 3 runs `form-migration.md` once per source Generated Task Form and
-`form-reference-migration.md` once per referenced form and form-free owner.
+`form-reference-migration.md` once per referenced form, existing Camunda 8 form, and form-free owner.
+Do not pass an accepted Step 3 form through the procedure again.
 For an unresolved form category, run only the selected remediation procedure after Step 5e and
 the user's new decision. Rerun the form verification row after acceptance, linkage, or deployment
 changes before retaining **no action**.

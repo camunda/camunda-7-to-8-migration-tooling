@@ -253,8 +253,10 @@ If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabri
 
 ## Validate an existing Camunda 8 form
 
-Use this procedure only when the form has exact Camunda 8 Modeler metadata or the converter emits
-`form-already-camunda-8`. A `.form` suffix alone is not sufficient.
+Use the `form-already-camunda-8` finding or parsed metadata only as a candidate signal. Require
+exact `executionPlatform="Camunda Cloud"` and canonical selected-target
+`executionPlatformVersion` before accepting the existing-form path. Treat missing or mismatched
+metadata as a blocking verification failure. A `.form` suffix alone is not sufficient.
 
 1. Pair the `.form` path with its owner from `zeebe:formDefinition@formId`. Record a standalone form
    when no owner exists. Do not pass an existing Camunda 8 form to the C7 form converter.
