@@ -7,6 +7,10 @@ spring:
     multipart:
       resolve-lazily: true
 
+webapp:
+  cors:
+    allowed-origins: []
+
 notification:
   slack:
     enabled: false

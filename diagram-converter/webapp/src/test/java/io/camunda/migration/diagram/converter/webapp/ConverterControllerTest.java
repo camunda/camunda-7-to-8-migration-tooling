@@ -133,6 +133,15 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void doesNotAllowCrossOriginRequestsByDefault() {
+    final var response =
+        RestAssured.given().header("Origin", "https://untrusted.example").get("/version");
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.getHeader("Access-Control-Allow-Origin")).isNull();
+  }
+
+  @Test
   void singleBpmnCheckWithJsonResult() throws URISyntaxException {
     List<DiagramCheckResult> checkResult =
         RestAssured.given()
