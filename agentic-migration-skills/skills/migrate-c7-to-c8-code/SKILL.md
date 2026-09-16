@@ -315,13 +315,14 @@ target version. See the linting section in `references/model-migration-approache
 10. Every accepted form with a converted owner has a planned matching `zeebe:formDefinition`.
     Step 5 verifies the actual linkage after form remediation and annotation cleanup. A standalone
     `.form` with no owner or converted BPMN records linkage as `not applicable` with its reason.
-11. Step 5 verifies deployment coverage for every accepted form with a deployable owner after form
-    remediation and annotation cleanup. Collect and record an explicit deployment decision. Deploy
-    only after an explicit user request and when a deployment target is selected. Record deployment
-    as `not applicable` with the out-of-scope decision only when no target exists. If a target exists
-    and the user declines deployment, keep deployment `pending` unless the user selects a supported
-    alternate binding or records an explicit external-deployment plan. A standalone `.form` with no
-    owner or converted BPMN records deployment as `not applicable` with its reason.
+11. Every accepted form with a deployable owner has a recorded deployment decision before Step 5.
+    Step 5 verifies deployment coverage after form remediation and annotation cleanup. Deploy only
+    after an explicit user request, authorization, and selected target. Record deployment as
+    `not applicable` with the out-of-scope decision only when no target exists. Keep selected-target
+    deployment `pending` without a request, authorization, or after a decline unless the user
+    selects a supported alternate binding or records an explicit external-deployment plan. A
+    standalone `.form` with no owner or converted BPMN records deployment as `not applicable` with
+    its reason.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final

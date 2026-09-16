@@ -47,8 +47,9 @@ source model, not a deployable Camunda 8 process.
 5. Review any generated draft and explicitly accept it before the skill links
    it. Do not accept a form merely because its JSON parses.
 6. Use no deployment target by default for this Models-only fixture. In the
-   default path, keep it out of live deployment. Record
-   `deployment decision=out of scope` and `deployment=not applicable` in
+   default path, keep it out of live deployment. Record `target=none`,
+   `request=not applicable`, `authorization=not applicable`,
+   `deployment decision=out of scope`, and `deployment=not applicable` in
    `MIGRATION_REPORT.md`. Do not deploy automatically. If the evaluator intentionally selects
    a deployment target without an explicit request, record the target,
    `request=not requested`, the actual authorization state, `deployment=pending`,

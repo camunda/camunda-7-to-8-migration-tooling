@@ -38,7 +38,8 @@ Camunda 7 source model, not a deployable Camunda 8 process.
 6. Repeat generation from the same source and recorded decisions. The accepted
    bytes and draft bytes should be identical on the rerun.
 7. For this Models-only fixture, select no deployment target and record
-   `deployment decision=out of scope` and `deployment=not applicable` in
+   `target=none`, `request=not applicable`, `authorization=not applicable`,
+   `deployment decision=out of scope`, and `deployment=not applicable` in
    `MIGRATION_REPORT.md`. Do not deploy automatically. If a target is selected,
    record the target, `request=not requested`, the actual authorization state,
    and `deployment=pending` until deployment is explicitly requested. With an explicit request and
