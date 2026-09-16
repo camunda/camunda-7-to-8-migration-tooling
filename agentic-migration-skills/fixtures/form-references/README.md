@@ -109,7 +109,7 @@ The evaluation is complete when the agent has:
   external reference;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
-  including form-free owners and unresolved kept references; passed rows are required
+  including form-free owners and unresolved kept references. Passed rows are required
   only before closing a category as **no action**, and non-passed rows retain explicit
   verdict, verification, and follow-up evidence;
 * recorded the converted definitions' exact Modeler metadata:

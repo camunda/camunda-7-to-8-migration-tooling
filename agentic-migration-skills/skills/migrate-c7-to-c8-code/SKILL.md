@@ -223,11 +223,11 @@ See `references/model-migration-approaches.md` for all four.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
   model exists.
 
+Capture the immutable converted-copy, form, and code baselines before these form procedures run.
+Record `absent` for a form that the procedure will create.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
-Capture the immutable converted-copy, form, and code baselines before these form procedures run.
-Record `absent` for a form that the procedure will create.
 ### Step 4: Validation (always runs)
 
 Each item below is a check to run and a condition that must hold at exit. Record every result in
@@ -433,7 +433,7 @@ Record failures with their before-and-after values using this decision table:
 |---|---|---|---|
 | Concrete remediation remains | `failed` | **needs fix** | Resolve the category after the required decision. |
 | A design decision or required deterministic check is unavailable | `failed` or `unavailable` | **needs review** | Ask for a new decision before another attempt. |
-| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep the verdict produced by the other checks. A `passed` state may become **no action**. | Continue the other required checks. |
+| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | After the other checks pass, set aggregate verification to `passed`. Transition provisional **needs review** to **no action** when no user decision remains. | Continue the other required checks. |
 
 Do not mark a category **no action** after a failed blocking check. Escalate after the single
 verification pass when the failure needs a new design or a second remediation attempt. Update the
