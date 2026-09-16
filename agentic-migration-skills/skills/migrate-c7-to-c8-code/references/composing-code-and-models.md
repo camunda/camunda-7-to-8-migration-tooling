@@ -76,12 +76,15 @@ Generate the scaffold only after the user selects it. Never overwrite an existin
 Create the draft outside every configured Java source root. Use the target project's conventional
 package, license header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
+Register the worker class with the project's bean-registration convention.
 Prepopulate a routing map or switch with every distinct retained header key and original expression
 pair from the findings.
 Put a `TODO` in each route for the actual bean or method invocation.
 Escape every model-derived value before using it in a Java string literal.
 Make every TODO, missing-header, and unknown-route path fail explicitly.
 Show the complete source to the user for review.
+After review, use AskUserQuestion to ask the user to revise, accept, or decline the draft.
+Do not treat the generation choice as acceptance.
 Keep the draft outside every configured Java source root until the user completes its TODOs, accepts
 it, and resolves any other subscriber.
 If the user declines the draft, remove it.
