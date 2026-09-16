@@ -352,17 +352,9 @@ undifferentiated list.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- In a Code + models run that produced code output and a paired converted copy, follow the dispatcher
-  scaffold procedure in `references/composing-code-and-models.md` for each complete many-to-one
-  shared job-type group across the `delegate-expression-as-job-type`,
-  `expression-method-as-job-type`, `delegate-implementation`, and `topic` categories with a
-  **needs fix** verdict. Process each shared group once, then
-  propagate its verdict to every affected category before continuing. That reference owns the
-  effective-worker scan and omits generation when a subscriber exists. Keep Approach C report-only.
-  Keep M1 `--check` runs without a paired converted copy report-only. Keep read-only or no-copy M2
-  runs report-only.
-  A same-session M1 `--check` run (MAY) provide findings only when it covers the same original inputs,
-  target version, every recorded source-to-converted pair, and matching source SHA-256 digests.
+- In a Code + models run, offer a dispatcher scaffold for each many-to-one job-type category with a
+  **needs fix** verdict and no dispatcher. Use the procedure in
+  `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
 - For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
 

@@ -17,7 +17,6 @@ Before any local approach (M1, M2, E1), scan for outputs of previous migration a
 
 - `converted-c8-*.bpmn` / `converted-c8-*.dmn` (or the `--prefix` equivalent)
 - accepted generated forms beside converted BPMN, and drafts under `.camunda-migration/generated-form-drafts/`
-- dispatcher drafts under `.camunda-migration/generated-worker-drafts/`
 - `analysis-results.<ext>` and `analysis-results (n).<ext>` findings reports, where `n` is a positive integer and `<ext>` is `.csv`, `.json`, `.md`, or `.xlsx`
 
 Never flag the `.camunda-migration/` CLI JAR — an intentional cache, not a leftover.
@@ -39,17 +38,7 @@ If anything else is found, warn through AskUserQuestion before converting:
 - **OK, proceed** — when no findings report remains under a packaged resource directory, run without `-o`/`--override`. Old files stay untouched.
 - **Cancel** — stop so the user can back up or clean up first.
 
-For local M1 and E1 CLI runs, never consume a report or converted file that existed before this
-migration run. Capture each CLI output path from this run's `Created ...` lines and use only those
-paths as authoritative. For M2, capture each rewrite output path and record its exact
-original-to-converted pair before validation. A later same-session M1 `--check` report (MAY) provide
-findings only when it uses the same original input paths, target version, recorded
-source-to-converted pairs, and matching current SHA-256 source digests for every finding. Run the check
-against those original paths, exclude
-every captured converted copy, and reject report rows that name a converted copy. If any finding
-lacks a recorded pair, keep the cross-check report-only. M3 is the exception:
-hosted-converter outputs are allowed only after the imported-report version and pairing checks in
-step 5.
+For local approaches (M1, M2, E1), never consume a pre-existing report or converted file found on disk. It may come from an interrupted attempt or a different `--platform-version`. The findings flow (M1 steps 3-5) works only from this session's own run. M3 is the exception: hosted-converter outputs are allowed only after the imported-report version and pairing checks in step 5.
 
 ## Approach M1 - Diagram Converter CLI + AI (recommended)
 
@@ -108,10 +97,6 @@ not package that directory. Otherwise, create another explicitly non-packaged re
 the project root. Move every fresh findings report captured from a `Created ...` line into that
 directory before validation, including ` (n)`-suffixed names. Keep every `converted-c8-*` file beside
 its source model.
-Before validation, record every original-to-converted path pair, target platform version, and
-relocated report path in `MIGRATION_REPORT.md`. Record a SHA-256 digest of each original source
-file with its pair. Use these records for Step 5 pairing and generation gates. Do not offer the
-cross-check until every converted copy has a recorded pair.
 
 Do not overwrite an existing file in the chosen reports directory. Choose an available ` (n)`-suffixed
 name and use the moved path as the authoritative report path. If relocation fails, stop model
@@ -162,13 +147,9 @@ If the report's version does not match the chosen target, or cannot be determine
 #### 5a. Parse the JSON report
 
 Read the JSON report programmatically at the authoritative path. For a local M1 or E1 run, use the
-path captured after step 3a relocation. A same-session M1 `--check` report is valid only when it
-covers the same original input paths and target version, excludes captured converted copies, matches
-the current SHA-256 digest to the recorded source digest, and matches a recorded source-to-converted
-pair for every finding. If any finding lacks a recorded pair, keep the cross-check report-only. For
-an imported M3 report, use the downloaded JSON
-path after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when
-a stale report exists. Never parse a local findings report that predates this run. Never rely on
+path captured after step 3a relocation. For an imported M3 report, use the downloaded JSON path
+after the version and pairing checks in step 5. The local path may include a ` (n)` suffix when a
+stale report exists. Never parse a pre-existing local findings report found on disk. Never rely on
 stdout severity counts instead.
 
 Format: a JSON array with one object per finding, fields:
@@ -197,15 +178,6 @@ Group findings by `messageId` (the category). For each category compute:
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
-Keep this summary grouped by `messageId`. In a Code + models scope, build one shared normalized
-job-type inventory across the four job-type categories before assigning verdicts. Do not assign
-independent 1:1 verdicts to category rows that share a job type. Use the shared job-type verdict and
-propagate it to each affected category as described in `composing-code-and-models.md`. In a Models
-only scope, apply the severity fallback in step 5d to each job-type category. Do not build a worker
-inventory or apply the dispatcher cross-check. Use `n/a` for its cross-referenced code artifact.
-For Models-only M2 normalized rows without converter severities, assign `REVIEW` before applying
-the fallback.
-
 #### 5c. Present the grouped summary
 
 Present the grouped table before any per-finding follow-up starts, and record it in MIGRATION_REPORT.md:
@@ -221,7 +193,7 @@ The current dedicated cross-check categories are:
 
 | Category | Dedicated cross-check |
 |---|---|
-| `delegate-expression-as-job-type`, `expression-method-as-job-type`, `delegate-implementation`, `topic` | In a Code + models scope, check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md`. In a Models only scope, apply the severity fallback from step 5d without a worker cross-check and use `n/a` for the code artifact. |
+| `delegate-expression-as-job-type`, `delegate-implementation` | Check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md` |
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
@@ -410,9 +382,7 @@ Treat a job type that differs from this table as an intentional deviation only w
 job type, and the confirmed rationale. Record the same decision for a custom or shared job type that
 has no source binding in the table. Do not replace a method-specific type with the bean-only type.
 
-For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the
-original). Before validation, record the exact original-to-converted path pair in
-`MIGRATION_REPORT.md`. Use that recorded pair for Step 5 cross-checks. Apply:
+For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
@@ -476,17 +446,4 @@ npx bpmnlint <converted-file>.bpmn
 
 ## Analyze-Only Mode
 
-For "analyze but don't convert" without a paired converted copy from an earlier full M1 run in the
-same session, run M1 with `--check --json --xlsx` (no converted files), or do an M2 read-only pass.
-Parse and present findings grouped by category as in M1 step 5. Include the namespace-derived
-Generated Task Form inventory, the referenced-form inventory from `form-reference-migration.md`, and
-likely decision categories. Do not create `.form` files or edit BPMN. Then stop.
-
-When a full M1 run in the same session already recorded a paired converted copy, a later M1
-`--check` run (MAY) provide the machine-readable findings input only when it uses the same original
-input paths and target version. Run one check invocation per captured original file. Exclude every
-captured converted copy. Reject
-rows that name converted copies, verify the current source digest against the recorded digest, and
-verify a recorded source-to-converted pair for every finding before continuing the Step 5 cross-check.
-If any pair is missing, keep the cross-check report-only.
-Do not consume a report or converted file that predates the session.
+For "analyze but don't convert": run M1 with `--check --json --xlsx` (no converted files), or do an M2 read-only pass. Parse and present findings grouped by category as in M1 step 5. Include the namespace-derived Generated Task Form inventory, the referenced-form inventory from `form-reference-migration.md`, and likely decision categories. Do not create `.form` files or edit BPMN. Then stop.
