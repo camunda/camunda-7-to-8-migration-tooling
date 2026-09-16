@@ -238,7 +238,7 @@ Capture the immutable converted copy, form, and code baselines before these form
 Record `absent` for a form that the procedure will create.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
-`references/form-reference-migration.md` for the referenced forms and the form-free owners.
+`references/form-reference-migration.md` for referenced forms, existing Camunda 8 forms, and form-free owners.
 During Step 3, run these procedures for every participating form category. Inventory is mandatory.
 Draft, collect decisions, and accept resources when the category and user decision require those
 actions.

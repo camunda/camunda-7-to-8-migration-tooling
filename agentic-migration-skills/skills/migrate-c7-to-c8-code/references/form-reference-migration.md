@@ -251,6 +251,20 @@ For both:
 
 If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
 
+## Validate an existing Camunda 8 form
+
+Use this procedure only when the form has exact Camunda 8 Modeler metadata or the converter emits
+`form-already-camunda-8`. A `.form` suffix alone is not sufficient.
+
+1. Pair the `.form` path with its owner from `zeebe:formDefinition@formId`. Record a standalone form
+   when no owner exists. Do not pass an existing Camunda 8 form to the C7 form converter.
+2. Capture the original form bytes and SHA-256 hash as provenance. Validate JSON, target-compatible
+   schema, render, FEEL templates, linkage, and deployment with the shared gate.
+3. Ask Question 7 for an owner with a deployable form. Record `not applicable` linkage and deployment
+   for a standalone form.
+4. Preserve the existing form bytes unless the user approves a remediation. Record the final form
+   hash and every verification command in `MIGRATION_REPORT.md`.
+
 ## Rebuild a reference as a Camunda 8 form
 
 Rebuild only after an explicit per-category rebuild decision. Reuse `form-migration.md` unchanged for

@@ -350,7 +350,7 @@ Then run `form-reference-migration.md` for every referenced form (embedded, exte
 
 #### 5g. Named category: Forms
 
-Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`:
+Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|
@@ -457,7 +457,7 @@ has no source binding in the table. Do not replace a method-specific type with t
 For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
-- remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
+- remove C7 generated-form elements from the converted copy after Step 5e and before final form verification. `form-migration.md` creates separate standard `.form` resources.
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)
 - Simple JUEL to FEEL for pure data expressions. Flag bean-invoking expressions for manual work.
