@@ -347,9 +347,11 @@ Verdict rules for the model finding table:
 - Every category starts at `needs review`. A decision must precede any work. No category is
   ever `no action` because the converter copied a reference.
 - After a decision, a category stays `needs fix` until the work finishes. For a rebuild, accept,
-  link, and validate the form. Verify deployment when a target is selected, and record deployment
-  as `not applicable` when no target exists. For a keep, the owner confirms the integration. For a
-  Camunda Form reference, convert, relink, and verify deployment when a target is selected.
+  link, and validate the form. Collect and record an explicit deployment decision. Verify deployment
+  when a target is selected, and record deployment as `not applicable` with the out-of-scope
+  decision when no target exists or deployment is declined. For a keep, the owner confirms the
+  integration. For a Camunda Form reference, convert, relink, and verify deployment when a target
+  is selected.
 - Move a category to `no action` only when every row reaches a terminal state. Record a `declined` or
   `deferred` row as accepted risk, not completed work.
 - Do not rewrite the raw converter report or remove its historical findings.

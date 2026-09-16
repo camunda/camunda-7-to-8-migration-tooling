@@ -299,8 +299,9 @@ target version. See the linting section in `references/model-migration-approache
 10. Every accepted form has a planned matching `zeebe:formDefinition`.
     Step 5 verifies the actual linkage after form remediation and annotation cleanup.
 11. Step 5 verifies deployment coverage for every accepted form after form remediation and
-    annotation cleanup. Deploy only after an explicit user request and when a deployment target
-    is selected. Record deployment as `not applicable` when no deployment target is available.
+    annotation cleanup. Collect and record an explicit deployment decision. Deploy only after an
+    explicit user request and when a deployment target is selected. Record deployment as
+    `not applicable` with the out-of-scope decision when no target exists or deployment is declined.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final
@@ -436,7 +437,7 @@ Record failures with their before-and-after values using this decision table:
 |---|---|---|---|
 | Concrete remediation remains | `failed` | **needs fix** | Resolve the category after the required decision. |
 | A design decision or required deterministic check is unavailable | `failed` or `unavailable` | **needs review** | Ask for a new decision before another attempt. |
-| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | After the other checks pass, set aggregate verification to `passed`. Transition provisional **needs review** to **no action** when no user decision remains. | Continue the other required checks. |
+| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep `Verification=passed` after the other checks pass. Transition provisional **needs review** to **no action** when no user decision remains. Do not write `unavailable` as the aggregate state. | Continue the other required checks. |
 
 Do not mark a category **no action** after a failed blocking check. Escalate after the single
 verification pass when the failure needs a new design or a second remediation attempt. Update the

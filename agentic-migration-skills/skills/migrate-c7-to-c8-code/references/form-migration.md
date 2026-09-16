@@ -341,9 +341,10 @@ choose and configure a supported binding.
 
 Do not rewrite the raw converter report or erase its historical `form-data` finding. Change the
 category verdict to `no action` only after every associated form is accepted, linked, and validated.
-Verify deployment when a target is selected. Record deployment as `not applicable` when no target
-exists. Form-property-only discoveries use a synthetic `generated-form-property-source` category
-with the same lifecycle.
+Collect and record an explicit deployment decision. Verify deployment when a target is selected.
+Record deployment as `not applicable` with the out-of-scope decision when no target exists or
+deployment is declined. Form-property-only discoveries use a synthetic
+`generated-form-property-source` category with the same lifecycle.
 
 ## Cross-check application consumers for every scope
 
