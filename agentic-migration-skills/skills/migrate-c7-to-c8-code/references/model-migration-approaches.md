@@ -362,8 +362,10 @@ Never collapse these into one `form-reference` category. Never mark any of them 
 
 Use the procedure-specific terminal state as the finding-specific postcondition:
 
-- An accepted, relinked, or rebuilt form must pass JSON, schema, render, linkage, deployment, and
-  C7-metadata-removal checks.
+- An accepted, relinked, or rebuilt form must pass JSON, applicable schema and render, applicable
+  linkage, deployment when a target is selected, and C7-metadata-removal checks. Record
+  `not applicable` for deployment without a target and for linkage without an owner or converted
+  BPMN.
 - A kept external or embedded reference must have owner confirmation, preserved reference evidence,
   and recorded follow-up. Keep it nonterminal when migration work remains.
 - A declined or blocked form must have the user's decision or blocking prerequisite recorded and
@@ -500,7 +502,9 @@ This path does not automate the hosted service. Once the user brings the convert
 the same findings follow-up as M1 step 5, including the shared verification gate before changing any
 category verdict to **no action**. For machine-readable findings, use the hosted converter's
 'Download JSON' button. It produces the same `analysis-results.json` the CLI writes. Its
-CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
+Hosted CSV/markdown/XLSX downloads are not parsed as findings input (see 5a). A CSV produced by
+the local verification command follows the shared gate's supplementary comparison rules. The
+imported-report version check in step 5 applies.
 
 During M3 acquisition, record the exact source-to-converted path pair for every downloaded BPMN or
 DMN, including models without forms. Use these recorded pairs for every verification check. Do not
