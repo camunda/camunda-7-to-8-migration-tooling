@@ -192,7 +192,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                 if (isTimerQueryInvocation(invocation)) {
                   current.add(
                       new ServiceCall(
-                          MANAGEMENT_SERVICE_FQN, "createJobQuery", true));
+                          MANAGEMENT_SERVICE_FQN, "timers", true));
                 }
                 ServiceCall serviceCall = serviceCall(invocation);
                 if (serviceCall != null
@@ -257,7 +257,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             }
             if (JOB_QUERY_TIMERS_MATCHER.matches(invocation)
                 && !isTimerQueryInvocation(invocation)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", true);
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "timers", true);
             }
             if (new MethodMatcher(IDENTITY_SERVICE_FQN + " *(..)").matches(invocation)) {
               return new ServiceCall(IDENTITY_SERVICE_FQN, invocation.getSimpleName());
@@ -277,7 +277,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return null;
             }
             if (JOB_QUERY_TIMERS_MATCHER.matches(reference)) {
-              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "createJobQuery", true);
+              return new ServiceCall(MANAGEMENT_SERVICE_FQN, "timers", true);
             }
             String serviceFqn = methodType.getDeclaringType().getFullyQualifiedName();
             if (!IDENTITY_SERVICE_FQN.equals(serviceFqn)
