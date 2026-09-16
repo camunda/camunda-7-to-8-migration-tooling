@@ -18,6 +18,10 @@ When the user selects Approach C, the skill keeps this cross-check report-only. 
 or generate a dispatcher scaffold. The skill records the category, its routing gaps, and the
 recommended Approach A or B in `MIGRATION_REPORT.md`.
 
+When M1 runs with `--check` and produces no converted copy, keep this cross-check report-only. Do not
+offer or generate a dispatcher scaffold until a paired converted copy is available. Record the
+missing copy and the required rerun in `MIGRATION_REPORT.md`.
+
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
@@ -61,12 +65,12 @@ Identify incomplete rows before and after grouping:
 
 | Row state | Condition | Action |
 |---|---|---|
-| **Incomplete before grouping** | A row has a missing or blank `jobType`, or a delegate row lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the model-edit follow-up. The model must also retain the header pair. |
+| **Incomplete before grouping** | A row has a missing or blank `jobType`, or a delegate row lacks a matching retained header pair. | Exclude the row from collapse grouping. Keep its category **needs fix** until model migration supplies a non-empty type or the user chooses one in the Step 5 AI Follow-up flow. The model must also retain the header pair. |
 | **Incomplete after grouping** | A topic row lacks a retained `topic` header and its job-type group has another distinct pair. | Keep the shared group and its category **needs fix**. Do not offer a dispatcher scaffold until model migration retains the header. |
 
 While any incomplete row or group remains in a category, do not offer or generate a dispatcher
-scaffold for any group in that category. Resolve the row through model migration or the model-edit
-follow-up. Then rebuild the normalized rows and regroup before applying the mapping and verdict
+scaffold for any group in that category. Resolve the row through model migration or the Step 5
+AI Follow-up flow. Then rebuild the normalized rows and regroup before applying the mapping and verdict
 checks.
 
 Build one shared job-type inventory from the remaining normalized rows across all three categories.
@@ -92,9 +96,17 @@ Before either mapping check, enumerate every existing `@JobWorker` registration 
 effective type. When an annotation omits `type`, use the annotated method name. Use this effective
 type for the 1:1 comparison and for duplicate-subscriber detection.
 
-Job types in the converted model should match each worker's effective type. Use the Diagram Converter
-output for M1 and the binding rules in `model-migration-approaches.md` for M2. Flag mismatches for
-the user.
+Use this table for each 1:1 job-type group:
+
+| Effective workers for the job type | Condition | Verdict and action |
+|---|---|---|
+| None | No worker has the job type as its effective type. | Mark **needs fix** and identify the missing worker. |
+| Exactly one | The worker's effective type matches the job type. | Mark **no action** for the worker mapping. |
+| Exactly one | The worker's effective type does not match the job type. | Mark **needs fix** and flag the mismatch for the user. |
+| More than one | Multiple workers have the job type as their effective type. | Mark **needs fix** and require the user to consolidate the duplicate subscribers. |
+
+Use the Diagram Converter output for M1 and the binding rules in `model-migration-approaches.md` for
+M2.
 
 ### 2b. Many-to-one mapping - dispatcher/adapter worker needed
 
@@ -244,12 +256,13 @@ normalized-row set never produces **no action**.
 
 Before assigning a category verdict, include every shared job-type group that contains a row in the
 category. Use the shared group verdict and evidence. Do not recompute a category-local verdict from
-`messageId` rows alone. The table's cross-reference column names the matched code artifact:
+`messageId` rows alone. Record the matched worker registration, dispatcher source, or generated draft
+for each shared job-type group in `MIGRATION_REPORT.md`.
 
-| Evidence across every normalized row and shared job type | Verdict |
-|---|---|
-| Every normalized row has a non-empty `jobType` and either a matching retained `(headerKey, original)` pair or is a 1:1 topic row checked directly by `jobType`, and every shared job-type group containing a row from the category has either a confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | **no action** |
-| Any normalized row has a missing or blank `jobType`, any delegate row lacks a matching retained `(headerKey, original)` pair, any many-to-one topic group lacks a retained `topic` header, any many-to-one shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, any invoked method is uncovered, or any applicable validation check fails. | **needs fix**, which becomes an AI follow-up work item. |
+| Evidence across every normalized row and shared job type | Cross-referenced code artifact | Verdict |
+|---|---|---|
+| Every normalized row has a non-empty `jobType` and either a matching retained `(headerKey, original)` pair or is a 1:1 topic row checked directly by `jobType`, and every shared job-type group containing a row from the category has either exactly one confirmed 1:1 worker match or exactly one dispatcher covering every distinct `(headerKey, original)` pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
+| Any normalized row has a missing or blank `jobType`, any delegate row lacks a matching retained `(headerKey, original)` pair, any many-to-one topic group lacks a retained `topic` header, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, any invoked method is uncovered, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
