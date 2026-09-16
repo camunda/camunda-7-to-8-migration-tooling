@@ -12,8 +12,6 @@ import static org.assertj.core.api.Assertions.*;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import java.io.File;
-import java.net.URISyntaxException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,15 +32,13 @@ public class ConverterExceptionHandlerTest {
   }
 
   @Test
-  void convertBatchExceedingPartCountLimit() throws URISyntaxException {
+  void convertBatchExceedingPartCountLimit() {
     // max-part-count=2, this request sends 3 parts: 2 files + 1 form field
     Response response =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
-            .multiPart(
-                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
-            .multiPart(
-                "file", new File(getClass().getClassLoader().getResource("example2.bpmn").toURI()))
+            .multiPart("file", "first.bpmn", new byte[] {1}, "application/octet-stream")
+            .multiPart("file", "second.bpmn", new byte[] {1}, "application/octet-stream")
             .formParam("appendDocumentation", true)
             .accept("application/zip")
             .post("/convertBatch");
