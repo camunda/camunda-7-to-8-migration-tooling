@@ -187,10 +187,12 @@ directory from active scans, inventory every `@JobWorker` annotation and program
 registration for the shared type. Resolve literal annotation values, method-name defaults, and
 client worker-builder registrations. If a registration's effective type is unresolved, or the
 inventory cannot inspect a registration source, treat it as a possible subscriber and stop scaffold
-generation until the user resolves it. If any registration already subscribes to the shared type,
-omit the generation option. Preserve existing source and require explicit confirmation before
-extending, merging, replacing, or removing a subscriber. Do not create or enable a second
-subscriber.
+generation until the user resolves it. Classify a registration as a complete dispatcher only when
+its routing covers every distinct `(headerKey, original)` pair, every known route has no unresolved
+TODO, placeholder, or unconditional throw, and all applicable validation checks pass. Preserve
+existing source and require explicit confirmation before extending, merging, replacing, or removing
+a subscriber. If any registration already subscribes to the shared type, omit the generation
+option. Do not create or enable a second subscriber.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
 Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
@@ -205,8 +207,8 @@ Use this decision table for each shared job type:
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None and confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
-| **needs fix** | Exactly one effective worker | Do not offer generation. Use AskUserQuestion for explicit confirmation before extending, merging, replacing, or removing a subscriber. Preserve the existing source and resolve the group to exactly one active subscriber. |
-| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to consolidate registrations to exactly one subscriber before resolving the group. |
+| **needs fix** | Exactly one effective worker | Do not offer generation. Ask the user to implement and validate the existing routes or confirm the required consolidation. |
+| **needs fix** | More than one effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
 | **needs fix** | Incomplete or unresolved inventory | Do not offer generation. Ask the user to resolve the inventory before continuing. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
