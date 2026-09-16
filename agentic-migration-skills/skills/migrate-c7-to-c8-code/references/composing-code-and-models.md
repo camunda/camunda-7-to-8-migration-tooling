@@ -125,6 +125,9 @@ For every `c7-embedded-html-form`, `c7-external-form-reference`, `c7-camunda-for
 - Keep a selected-target deployment pending while the request is absent.
 - Keep a selected-target deployment decline open unless the user selects a supported alternate binding or
   records an explicit external-deployment plan.
+- An alternate binding resolves deployment only after its `bindingType` and linkage evidence are recorded.
+- An external plan resolves deployment only after recording `deployment=external plan recorded` with
+  its owner, target, and steps.
 - If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the
   category at **needs review** until the user resolves that prerequisite.
 - A kept reference is never **no action** on the strength of the converter having copied it.
@@ -159,6 +162,9 @@ Each cross-check result maps to a verdict in the per-category verdict table (see
 - Keep a selected-target deployment pending while the request is absent.
 - Keep a selected-target deployment decline open unless the user selects a supported alternate binding
   or records an explicit external-deployment plan.
+- An alternate binding resolves deployment only after its `bindingType` and linkage evidence are recorded.
+- An external plan resolves deployment only after recording `deployment=external plan recorded` with
+  its owner, target, and steps.
 - Apply the same rules to a Camunda Form reference.
 - Conversion and relinking are required.
 - Verify deployment only when the user explicitly requests it with authorization for a selected target.
