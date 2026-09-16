@@ -233,8 +233,10 @@ message text as a lead only when source or converted-model evidence supports the
 postcondition.
 Define a concrete, source- or message-specific postcondition for every fallback category,
 including INFO. Do not use severity alone to infer that no remediation is required. If a fallback
-category has no concrete postcondition, use the safe fallback: keep its verdict at **needs review**,
-set `Verification=pending`, record `postcondition=not defined`, and keep the migration incomplete.
+category has no concrete postcondition, use the safe fallback. Before the gate attempt, keep its
+verdict at **needs review**, set `Verification=pending`, and record `postcondition=not defined`.
+After the gate cannot establish a postcondition, set `Verification=failed`, keep the verdict at
+**needs review**, and route the category through the explicit escalation.
 Do not set its verification state to `passed` or its verdict to **no action** from generic XML,
 namespace, or converter checks alone.
 For `form-already-camunda-8`, verify the existing form's Camunda 8 metadata, JSON schema, render,
