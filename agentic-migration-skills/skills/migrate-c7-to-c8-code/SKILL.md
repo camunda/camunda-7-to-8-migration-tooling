@@ -399,9 +399,9 @@ parser is non-blocking. An executed converter comparison failure is blocking. Se
 `passed` when all other required checks and the finding-specific postcondition pass. For a participating BPMN or DMN copy,
 record `not applicable` in converter applicability evidence only for the expected already-converted
 exception. For a form-only category with no BPMN or DMN copy, record converter checks as
-`not applicable`. Allow other check rows to record
-`not applicable` for their explicitly
-defined cases, such as out-of-scope code coverage or no referenced wiring. This converter-specific
+`not applicable`. Other check rows can record
+`not applicable` for their explicitly defined cases, such as out-of-scope code coverage or no
+referenced wiring (MAY). This converter-specific
 restriction does not apply to those other check rows. A category with any state other than
 `passed` cannot receive the **no action** verdict.
 

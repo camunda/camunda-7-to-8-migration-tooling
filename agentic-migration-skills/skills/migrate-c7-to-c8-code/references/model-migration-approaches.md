@@ -217,7 +217,7 @@ For a fallback category, assign the default verdict from the finding severity:
 
 | Severity | Default verdict | Initial verification | User decision |
 |---|---|---|---|
-| INFO | **needs review** (provisional) | `pending` | Do not ask before the gate |
+| INFO | **needs review** (provisional) | `pending` | Do not ask for a finding-remediation decision before the gate. Ask the independent deployment question when Question 7 applies. |
 | REVIEW | **needs review** | `pending` | Ask when a design decision is required |
 | WARNING or TASK | **needs fix** | `pending` | Follow the category cross-check |
 
