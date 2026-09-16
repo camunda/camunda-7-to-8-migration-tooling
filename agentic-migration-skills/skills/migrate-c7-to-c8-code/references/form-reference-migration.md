@@ -240,7 +240,7 @@ For both:
    including the exact `formId` linkage and removal of the copied C7 reference. Rerun the
    verification row after any linkage or form change.
 7. Verify deployment only after the user explicitly requests it and selects a deployment target.
-   Record the request, target, and deployment result separately. Do not deploy when a target exists
+   Record the request, target, authorization, and deployment result separately. Do not deploy when a target exists
    without an explicit request. Record deployment as `pending` and keep the category open until the
    user decides. Record an explicit out-of-scope `not applicable` decision when no target exists.
    If authorization is unavailable or the user declines deployment for a selected target, keep

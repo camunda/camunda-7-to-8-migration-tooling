@@ -375,7 +375,7 @@ For forms, use a lowercase SHA-256 digest of the exact UTF-8 bytes of every part
 file without normalization.
 Also record the schema result, render result, linkage, and deployment state. Record `absent` when
 a remediation will create a new form. Mark the schema, render, linkage,
-and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
+JSON parsing, schema, render, linkage, and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
 no form resource participates. For code, include content hashes and matched worker, listener,
 dispatcher, and precompute declarations. Record `absent` when a remediation will create a code
 artifact, and mark its declaration checks `not applicable` in that absent `Before` state. Use the

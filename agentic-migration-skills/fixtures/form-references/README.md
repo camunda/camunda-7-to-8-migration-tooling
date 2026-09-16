@@ -121,7 +121,7 @@ The evaluation is complete when the agent has:
   deployment decision (`deployment=not applicable`), or recorded
   `deployment=pending` for a selected target without an explicit request,
   unavailable authorization, or a selected-target decline, or recorded the
-  selected target, request, and result;
+  selected target, request, authorization, and result;
 * captured the immutable baseline for every participating converted copy or `.form`
   resource and recorded a verification-table row for every participating category,
   including form-free owners and unresolved kept references, with populated
