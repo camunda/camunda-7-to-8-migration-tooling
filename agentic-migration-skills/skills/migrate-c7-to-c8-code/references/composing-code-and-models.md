@@ -160,9 +160,9 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 When a shared job-type group has a **needs fix** verdict, process it independently. Propagate its
 verdict to every affected category before assigning category verdicts.
 
-When the target is a separate project, confirm its target root before using this flow. Use that
-target root for the worker scan and quarantine. If the target root is not confirmed, keep the
-cross-check report-only.
+When the target is a separate project, ask the user to confirm its target root before using this
+flow. Record the confirmed target root in `MIGRATION_REPORT.md`. Use that target root for the worker
+scan and quarantine. If the target root is not confirmed, keep the cross-check report-only.
 
 Use `.camunda-migration/generated-worker-drafts/` under the confirmed project root as the default
 quarantine directory. Canonicalize the default directory before using it. Apply the same
@@ -181,7 +181,7 @@ build input. Keep the separate prior-draft scan below enabled for every recorded
 quarantine directory. Record the selected path in `MIGRATION_REPORT.md` before scanning or
 generating.
 
-Before generating, scan every recorded and selected quarantine directory for a prior draft whose
+Before generating, scan every active recorded and selected quarantine directory for a prior draft whose
 effective `@JobWorker` type uses the shared type. Resolve an omitted annotation `type` with the
 annotated method name. If a prior draft exists, stop and ask the user whether to reuse, complete,
 or remove that draft. Do not create another draft or collision variant until every prior draft is
@@ -205,8 +205,9 @@ Confirm a Spring target from the build configuration or AskUserQuestion. Record 
 user decision in `MIGRATION_REPORT.md` before offering an annotation scaffold.
 
 Assign a cross-check verdict to each shared job-type group before assigning the category verdict.
-Offer generation only for a complete many-to-one group with a **needs fix** verdict, a confirmed
-Spring target, and no effective worker. Keep a 1:1 group on the simple worker-remediation path.
+Offer generation only for a complete many-to-one group with a **needs fix** verdict, a complete
+worker inventory, a confirmed Spring target, and no effective worker. Keep a 1:1 group on the
+simple worker-remediation path.
 Do not offer generation for a group with a **no action**, **needs review**, or incomplete verdict.
 
 Use this decision table for each shared job type:
@@ -215,7 +216,7 @@ Use this decision table for each shared job type:
 |---|---|---|
 | **no action** | Exactly one validated effective worker | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
-| **needs fix** | None and confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
+| **needs fix** | None, complete group and inventory, confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). Record the selected option in `MIGRATION_REPORT.md`. In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
 | **needs fix** | Exactly one effective worker | Do not offer generation. Ask the user to implement and validate the existing routes or confirm the required consolidation. |
 | **needs fix** | More than one effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
