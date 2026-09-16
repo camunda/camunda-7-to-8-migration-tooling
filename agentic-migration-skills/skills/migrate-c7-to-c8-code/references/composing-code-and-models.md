@@ -64,7 +64,7 @@ JSON path. If that pairing is missing, or M3 is analyze-only, keep the cross-che
 Never infer an M2
 or M3 pairing from a filename alone. Read the emitted job type from the task definition.
 For a converter finding, use the original C7 attribute and verify its pair in the converted
-element's `zeebe:header`; do not parse only its `message`. For a `delegate-implementation` finding,
+element's `zeebe:header`. Do not parse only its `message`. For a `delegate-implementation` finding,
 retain the original class or expression from its binding context or paired original source
 attribute. For a converter or M2 delegate row, use that source pair and the emitted `jobType`.
 For a converter or M2 topic row, set `headerKey` to `topic` and `original` to the paired original
@@ -226,15 +226,16 @@ letter or the result contains no letter. Make the class name a legal Java identi
 name a safe path segment. Capitalize the first ASCII letter of the sanitized base without changing
 the remaining characters.
 Append `Worker` to the sanitized base unless it already ends with `Worker`. Call the result
-`workerStem` and use it as the class and file stem before adding the digest.
+`workerStem`. Remove its final `Worker` suffix to form `workerPrefix`. If `workerPrefix` is empty,
+use `JobType`.
 Compute the lowercase SHA-256 hexadecimal digest of the exact shared job type encoded as UTF-8.
-Use its first 12 characters to build `finalStem` as `workerStem` + `_` + the digest. Use that same
-`finalStem` for the public class and file name. If sanitized stems collide, extend every colliding
-digest prefix by four characters until each name is unique. If `finalStem.java` exceeds 200 ASCII
-bytes, truncate only the sanitized base portion before the `Worker` suffix while preserving the
-suffix and digest. Reapply the limit after any digest extension. Reject a final path component
-longer than 255 bytes. If the resolved parent path leaves no valid filename length, ask the user to
-choose a shorter quarantine path before writing.
+Use its first 12 characters to build `finalStem` as `workerPrefix` + `_` + the digest + `Worker`.
+Use that same `finalStem` for the public class and file name. If sanitized stems collide, extend
+every colliding digest prefix by four characters until each name is unique. If `finalStem.java`
+exceeds 200 ASCII bytes, truncate only `workerPrefix` while preserving the digest and final
+`Worker` suffix. Reapply the limit after any digest extension. Reject a final path component longer
+than 255 bytes. If the resolved parent path leaves no valid filename length, ask the user to choose
+a shorter quarantine path before writing.
 Resolve the proposed quarantine path and verify that it stays inside the chosen quarantine directory
 before writing. Resolve the eventual runtime path separately before moving the accepted source. If
 either path escapes its intended directory, stop and ask the user to choose a safe directory. Never
@@ -339,8 +340,8 @@ for each shared job-type group in `MIGRATION_REPORT.md`.
 
 | Evidence across every normalized row and shared job type | Cross-referenced code artifact | Verdict |
 |---|---|---|
-| Every source row in the category has a non-empty `jobType`, no source row is excluded for an unknown job type, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus exactly one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
-| Any source row has a missing or blank `jobType`, any source row is excluded for an unknown job type, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
+| Every source row in the category has a non-empty `jobType`, no source row is excluded for an unknown job type, no worker inventory is unresolved, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
+| Any source row has a missing or blank `jobType`, any source row is excluded for an unknown job type, the worker inventory is unresolved, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
