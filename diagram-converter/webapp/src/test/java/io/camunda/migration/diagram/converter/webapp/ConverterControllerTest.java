@@ -56,6 +56,18 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 public class ConverterControllerTest {
   private static final Logger LOG = LoggerFactory.getLogger(ConverterControllerTest.class);
+  private static final String EXPECTED_CONTENT_SECURITY_POLICY =
+      "default-src 'self'; "
+          + "base-uri 'self'; "
+          + "object-src 'none'; "
+          + "script-src 'self'; "
+          + "style-src 'self' 'unsafe-inline'; "
+          + "img-src 'self' data:; "
+          + "font-src 'self' data:; "
+          + "connect-src 'self'; "
+          + "frame-src 'none'; "
+          + "frame-ancestors 'none'; "
+          + "form-action 'self'";
   @LocalServerPort int port;
 
   private static final String XML_CONTENT_IN_FORM_FILE =
@@ -138,11 +150,7 @@ public class ConverterControllerTest {
     Response response = RestAssured.get("/");
 
     assertThat(response.statusCode()).isEqualTo(200);
-    assertThat(response.header("Content-Security-Policy"))
-        .isEqualTo(SecurityHeadersFilter.CONTENT_SECURITY_POLICY);
-    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
-    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
-    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
+    assertSecurityHeaders(response);
   }
 
   @Test
@@ -155,11 +163,7 @@ public class ConverterControllerTest {
             .accept(ContentType.JSON)
             .post("/check");
 
-    assertThat(response.header("Content-Security-Policy"))
-        .isEqualTo(SecurityHeadersFilter.CONTENT_SECURITY_POLICY);
-    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
-    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
-    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
+    assertSecurityHeaders(response);
 
     List<DiagramCheckResult> checkResult = response.as(new TypeRef<List<DiagramCheckResult>>() {});
 
@@ -168,6 +172,14 @@ public class ConverterControllerTest {
         .first()
         .matches(result -> result.getFilename().equals("example.bpmn"), "Filename is set correctly")
         .matches(result -> result.getResults().size() > 0, "Found results");
+  }
+
+  private static void assertSecurityHeaders(Response response) {
+    assertThat(response.header("Content-Security-Policy"))
+        .isEqualTo(EXPECTED_CONTENT_SECURITY_POLICY);
+    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
+    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
   }
 
   @Test

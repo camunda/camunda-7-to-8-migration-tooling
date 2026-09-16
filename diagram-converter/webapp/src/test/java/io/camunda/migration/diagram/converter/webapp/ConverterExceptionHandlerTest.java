@@ -51,7 +51,18 @@ public class ConverterExceptionHandlerTest {
     assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_COUNT_LIMIT_EXCEEDED");
     assertThat(response.jsonPath().getLong("maxPartCount")).isEqualTo(2);
     assertThat(response.header("Content-Security-Policy"))
-        .isEqualTo(SecurityHeadersFilter.CONTENT_SECURITY_POLICY);
+        .isEqualTo(
+            "default-src 'self'; "
+                + "base-uri 'self'; "
+                + "object-src 'none'; "
+                + "script-src 'self'; "
+                + "style-src 'self' 'unsafe-inline'; "
+                + "img-src 'self' data:; "
+                + "font-src 'self' data:; "
+                + "connect-src 'self'; "
+                + "frame-src 'none'; "
+                + "frame-ancestors 'none'; "
+                + "form-action 'self'");
     assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
     assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
     assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");

@@ -22,6 +22,8 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
           + "base-uri 'self'; "
           + "object-src 'none'; "
           + "script-src 'self'; "
+          // form-js and React render dynamic styles as inline style attributes; scripts remain
+          // restricted to same-origin external bundles.
           + "style-src 'self' 'unsafe-inline'; "
           + "img-src 'self' data:; "
           + "font-src 'self' data:; "
@@ -40,5 +42,17 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
     response.setHeader("X-Frame-Options", "DENY");
 
     filterChain.doFilter(request, response);
+  }
+
+  @Override
+  protected boolean shouldNotFilterErrorDispatch() {
+    return false;
+  }
+
+  @Override
+  protected void doFilterNestedErrorDispatch(
+      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
+    doFilterInternal(request, response, filterChain);
   }
 }
