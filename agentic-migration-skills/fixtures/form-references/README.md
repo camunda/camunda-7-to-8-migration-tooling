@@ -112,8 +112,8 @@ The evaluation is complete when the agent has:
   any category as **no action**; unresolved kept references remain recorded as
   follow-up work;
 * recorded the converted definitions' exact Modeler metadata:
-  `executionPlatform="Camunda Cloud"` and the selected target patch-zero
-  `executionPlatformVersion`;
+  `executionPlatform="Camunda Cloud"` and
+  `executionPlatformVersion="8.9.0"`;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
   converter annotations, legacy Camunda 7 constructs, and unused namespaces;
 * left the original Camunda 7 BPMN and HTML untouched; and

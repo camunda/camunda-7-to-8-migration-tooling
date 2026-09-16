@@ -91,8 +91,8 @@ The evaluation is complete when the agent has:
 * captured the immutable converted-BPMN and form baselines and recorded
   before-and-after form schema, render, linkage, and deployment evidence;
 * recorded the converted definitions' exact Modeler metadata:
-  `executionPlatform="Camunda Cloud"` and the selected target patch-zero
-  `executionPlatformVersion`;
+  `executionPlatform="Camunda Cloud"` and
+  `executionPlatformVersion="8.9.0"`;
 * added a verification-table row for the category and recorded `passed` before
   treating the category as **no action** or the evaluation as complete;
 * recorded a passing final whole-file cleanup after Step 5e, including zero
