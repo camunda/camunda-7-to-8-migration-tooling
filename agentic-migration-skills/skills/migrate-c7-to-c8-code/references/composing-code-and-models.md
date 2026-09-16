@@ -48,8 +48,8 @@ output, using the configured prefix (`converted-c8-` by default) when necessary.
 with its converted BPMN element by that path and `elementId`. For M2, use the exact original-to-
 converted path mapping recorded by the rewrite. For M3, require the original BPMN, the downloaded
 converted BPMN, and the explicit pairing supplied with the downloaded JSON report. If that pairing
-is missing, keep the cross-check report-only. Never infer an M2 or M3 pairing from a filename alone.
-Read the emitted job type from the task definition.
+is missing, or M3 is analyze-only, keep the cross-check report-only. Never infer an M2 or M3
+pairing from a filename alone. Read the emitted job type from the task definition.
 For a converter finding, use the original C7 attribute and verify its pair in the converted
 element's `zeebe:header`; do not parse only its `message`. For a `delegate-implementation` finding,
 retain the original class or expression from its binding context or paired original source
@@ -182,7 +182,7 @@ Use this decision table for each shared job type:
 | **no action** | Any | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
 | **needs fix** | None | For a complete many-to-one group, use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
-| **needs fix** | Exactly one | Do not offer generation. Ask the user to extend the registration if it is a dispatcher, or merge or remove the non-dispatcher before creating one. |
+| **needs fix** | Exactly one | Do not offer generation. Review the registration for extension if it is a dispatcher. Otherwise merge or remove the non-dispatcher before creating one. Never enable a second subscriber. |
 | **needs fix** | More than one | Do not offer generation. Ask the user to consolidate registrations to exactly one dispatcher. Extend one dispatcher and merge or remove every other registration before resolving the group. |
 
 Generate the scaffold only after the user chooses the first option. Write the draft to a quarantine
