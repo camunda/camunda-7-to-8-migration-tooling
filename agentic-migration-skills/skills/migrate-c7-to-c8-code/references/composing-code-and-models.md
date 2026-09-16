@@ -86,6 +86,9 @@ Apply these code and model additions:
   When code is out of scope, record XML evidence and `not applicable` code coverage.
 - Record the category, edited paths, checks, command results, and before-and-after evidence in
   `MIGRATION_REPORT.md`.
+- After any worker, listener, dispatcher, or precompute artifact changes, rerun every applicable
+  Step 4 code validation. Replace stale compile, dependency, configuration, and test evidence with
+  the new results before retaining **no action** or exiting.
 - Keep the findings inventory and verification table from the shared gate. Add one row for every
   category, including INFO and no-edit categories.
 
