@@ -138,6 +138,7 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     managementService.createJobQuery().active().timers().singleResult();
                     managementService.executeJob(jobId);
                     managementService.getRegisteredDeployments();
+                    managementService.updateJobSuspensionState().byProcessInstanceId("pi").suspend();
                     managementService.setJobRetries(jobId, retries);
                     managementService.setJobRetries(java.util.List.of(jobId), retries);
                     managementService.setJobRetries(retries);
@@ -185,6 +186,10 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.getRegisteredDeployments();
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (updateJobSuspensionState()).
+                    // Job suspension is unsupported in Camunda 8. If pausing the entire process instance is acceptable, use the process-instance suspension API.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.updateJobSuspensionState().byProcessInstanceId("pi").suspend();
                     // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetries()).
                     // Map the Camunda 7 job id to a Camunda 8 job key, then use CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join().
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
@@ -213,6 +218,48 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobRetriesAsync(java.util.List.of(jobId), query, retries);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void addsProcessInstanceRetryGuidance() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+
+            public class ProcessInstanceRetry {
+
+                public void manage(
+                        ManagementService managementService,
+                        ProcessInstanceQuery processQuery,
+                        int retries) {
+                    managementService.setJobRetriesAsync(java.util.List.of("pi"), processQuery, retries);
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.ManagementService;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+
+            public class ProcessInstanceRetry {
+
+                public void manage(
+                        ManagementService managementService,
+                        ProcessInstanceQuery processQuery,
+                        int retries) {
+                    // TODO: ManagementService method has a direct Java client equivalent in Camunda 8 (setJobRetriesAsync()).
+                    // Resolve the Camunda 7 process-instance IDs and query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobRetriesAsync(java.util.List.of("pi"), processQuery, retries);
                 }
             }
             """));

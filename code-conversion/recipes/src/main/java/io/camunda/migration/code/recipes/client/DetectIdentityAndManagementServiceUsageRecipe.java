@@ -118,7 +118,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           "createIncidentQuery", "Use POST /v2/incidents/search.",
           "getRegisteredDeployments",
               "Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.",
-          "suspendJobByProcessInstanceId",
+          "updateJobSuspensionState",
               "Job suspension is unsupported in Camunda 8. If pausing the entire process instance is acceptable, use the process-instance suspension API.");
 
   @Override
@@ -315,23 +315,35 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return RetrySelection.NOT_APPLICABLE;
             }
             boolean hasJobIds = hasParameterType(methodType, "java.util.List");
-            boolean hasQuery =
-                hasParameterType(methodType, "org.camunda.bpm.engine.runtime.JobQuery")
-                    || hasParameterType(
-                        methodType, "org.camunda.bpm.engine.runtime.ProcessInstanceQuery")
-                    || hasParameterType(
-                        methodType,
-                        "org.camunda.bpm.engine.history.HistoricProcessInstanceQuery");
-            if (hasJobIds && hasQuery) {
-              return RetrySelection.ASYNC_IDS_AND_QUERY;
+            return switch (queryKind(methodType)) {
+              case JOB ->
+                  hasJobIds
+                      ? RetrySelection.ASYNC_JOB_IDS_AND_QUERY
+                      : RetrySelection.ASYNC_JOB_QUERY_ONLY;
+              case PROCESS_INSTANCE, HISTORIC_PROCESS_INSTANCE ->
+                  hasJobIds
+                      ? RetrySelection.ASYNC_PROCESS_IDS_AND_QUERY
+                      : RetrySelection.ASYNC_PROCESS_QUERY_ONLY;
+              case NONE ->
+                  hasJobIds
+                      ? RetrySelection.ASYNC_IDS_ONLY
+                      : RetrySelection.ASYNC_OTHER;
+            };
+          }
+
+          private AsyncQueryKind queryKind(JavaType.Method methodType) {
+            if (hasParameterType(methodType, "org.camunda.bpm.engine.runtime.JobQuery")) {
+              return AsyncQueryKind.JOB;
             }
-            if (hasJobIds) {
-              return RetrySelection.ASYNC_IDS_ONLY;
+            if (hasParameterType(
+                methodType, "org.camunda.bpm.engine.runtime.ProcessInstanceQuery")) {
+              return AsyncQueryKind.PROCESS_INSTANCE;
             }
-            if (hasQuery) {
-              return RetrySelection.ASYNC_QUERY_ONLY;
+            if (hasParameterType(
+                methodType, "org.camunda.bpm.engine.history.HistoricProcessInstanceQuery")) {
+              return AsyncQueryKind.HISTORIC_PROCESS_INSTANCE;
             }
-            return RetrySelection.ASYNC_OTHER;
+            return AsyncQueryKind.NONE;
           }
 
           private boolean hasParameterType(JavaType.Method methodType, String fullyQualifiedName) {
@@ -467,10 +479,14 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
                   "For synchronous bulk or query updates, preserve the selection, resolve each affected Camunda 7 job id to a Camunda 8 job key, and update each job with CamundaClient.newUpdateJobCommand(jobKey).updateRetries(n).send().join(); account for partial success.";
               case ASYNC_IDS_ONLY ->
                   "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after mapping the Camunda 7 IDs to Camunda 8 job keys.";
-              case ASYNC_QUERY_ONLY ->
+              case ASYNC_JOB_QUERY_ONLY ->
                   "Use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join() after translating the Camunda 7 query to a Camunda 8 JobFilter.";
-              case ASYNC_IDS_AND_QUERY ->
+              case ASYNC_JOB_IDS_AND_QUERY ->
                   "Resolve the Camunda 7 IDs and query separately, union and deduplicate their mapped Camunda 8 job keys, then use CamundaClient.newCreateBatchOperationCommand().updateJob().retries(n).filter(jobFilter).send().join(); a single conjunctive JobFilter cannot represent the C7 union.";
+              case ASYNC_PROCESS_QUERY_ONLY ->
+                  "Resolve the Camunda 7 process-instance query to matching process instances and their job keys, then use the Camunda 8 batch job update API.";
+              case ASYNC_PROCESS_IDS_AND_QUERY ->
+                  "Resolve the Camunda 7 process-instance IDs and query separately, union and deduplicate their matching Camunda 8 job keys, then use the Camunda 8 batch job update API.";
               case ASYNC_OTHER ->
                   "Preserve the Camunda 7 selection semantics and use the Camunda 8 batch job update API.";
               case NOT_APPLICABLE -> MANAGEMENT_METHOD_HINTS.getOrDefault(
@@ -536,9 +552,18 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
             SINGLE_JOB_ID,
             SYNC_BULK_OR_QUERY,
             ASYNC_IDS_ONLY,
-            ASYNC_QUERY_ONLY,
-            ASYNC_IDS_AND_QUERY,
+            ASYNC_JOB_QUERY_ONLY,
+            ASYNC_JOB_IDS_AND_QUERY,
+            ASYNC_PROCESS_QUERY_ONLY,
+            ASYNC_PROCESS_IDS_AND_QUERY,
             ASYNC_OTHER
+          }
+
+          private enum AsyncQueryKind {
+            NONE,
+            JOB,
+            PROCESS_INSTANCE,
+            HISTORIC_PROCESS_INSTANCE
           }
         });
   }
