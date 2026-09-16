@@ -386,10 +386,13 @@ Other references and fixtures may add examples, but must not change these states
 Deployment result evidence is separate from the startup-wiring choice. A deployment result is
 observed output from the selected deployment mechanism, such as a deployment API response,
 application startup log, or deployment test that identifies the target and every deployed resource.
-An `@Deployment` edit alone is not a deployment result. When this run has no deployment mechanism or
-access, keep the selected-target state `pending` and record `deployment mechanism=unavailable`.
-Require an external plan with owner, target, and steps before closing the deployment state, or leave
-the category open.
+An `@Deployment` edit alone is not a deployment result. Redact selected targets, command output,
+logs, and API responses before recording them in `MIGRATION_REPORT.md`. Apply the report-safe URL
+redaction rules to query values and userinfo passwords. Never copy raw credentials or raw target
+URLs into a report or committed artifact. When this run has no deployment mechanism or access, keep
+the selected-target state `pending` and record `deployment mechanism=unavailable`. Require an
+external plan with owner, target, and steps before closing the deployment state, or leave the
+category open.
 
 ### Step 5: AI Follow-up (offer after validation)
 
@@ -447,6 +450,9 @@ generated-form check to `.form` resources. Record `not applicable` for XML-only 
 checks when a category contains only generated forms.
 For model migrations, run model category checks and form schema/render checks before Step 5e strips
 converter annotations. Run Step 5e after every category has a verdict and verification evidence.
+Record linkage and deployment checks that are intentionally deferred until after Step 5e as
+`pending` before Step 5e. They do not fail the pre-Step-5e gate. Require them to pass during the
+post-Step-5e final validation.
 Run form procedures in 5f and 5g only for unresolved form remediation after the Step 3 execution.
 Do not repeat an accepted Step 3 form procedure. After Step 5e, promote every accepted Step 3 form
 draft to its authoritative path, apply its planned linkage, and record the planned deployment
@@ -476,7 +482,7 @@ instead. Retain **no action** only after that code path passes.
 | Referenced wiring baseline | Use the immutable code baseline only for `Before` evidence. |
 | Referenced wiring applicability | Record the row as `not applicable` only when neither side has a wiring reference. In a code-only run, run code-side coverage checks against the recorded worker, listener, dispatcher, and precompute artifacts. Record model-side wiring as `not applicable`. When code is out of scope, confirm matching XML declarations and record code coverage as `not applicable`. |
 | Finding-specific postcondition | Define a deterministic postcondition from the category's cross-check and record the expected finding-specific evidence. A valid XML, namespace, or converter check does not replace this condition. If no deterministic postcondition exists, set the verification state to `failed`, keep the category at **needs review** or **needs fix**, and route it through the explicit escalation below. Do not set its verification state to `passed`. |
-| FEEL syntax | Parse every resulting FEEL expression in every participating converted copy with the target FEEL parser when one is available. Strip one leading `=` serialization marker before parsing and retain the raw value as evidence. Record the parser, expression location, and result, or record `none present`. If no parser is available, record `unavailable` in the FEEL evidence and continue the other required checks. Treat this limitation as non-blocking for the aggregate category state. Keep the category at **needs fix** when parsing fails. |
+| FEEL syntax | Use a namespace-aware XML walk over every participating converted copy. Extract text from BPMN `conditionExpression` and `formalExpression` elements, DMN `literalExpression`, `inputEntry`, `outputEntry`, and `contextEntry` elements, and FEEL-bearing Zeebe input `source` and task-header `value` attributes when their recorded mapping marks them as expressions. Extract every participating `.form` template/property expression with the form procedure. Strip one leading `=` serialization marker before parsing and retain the raw value as evidence. Record the parser, expression location, and result for every extracted value, or record `none present` only after the complete walk. If no parser is available, record `unavailable` in the FEEL evidence and continue the other required checks. Treat this limitation as non-blocking for the aggregate category state. Keep the category at **needs fix** when parsing fails. |
 | FEEL parser availability | Identify the target-compatible parser by exact executable and version or project dependency. Run its syntax-only parser command or API and record the command, version, expression, and result. Do not use an evaluation command as syntax proof. Record evaluation or context errors separately from syntax errors. If the executable or dependency cannot be resolved, record the attempted command or dependency and `unavailable` in FEEL evidence. |
 | Converter regression command | Where the local CLI, Java executable, and converter JAR support participating BPMN or DMN copies, normalize recorded paths to absolute paths. Use one single-file invocation per recorded converted path, or use an isolated directory containing only participating copies. Discard rows whose normalized filename is not a participating converted path. |
 | Converter invocation | Run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" [captured conversion options] --check --csv`. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. |

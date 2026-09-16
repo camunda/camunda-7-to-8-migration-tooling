@@ -172,7 +172,9 @@ remediation starting point. Do not infer a category-specific cross-check from an
 
 ## Deployment Wiring
 
-After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
+After both complete, ask via AskUserQuestion whether to wire deployment of converted files in
+application code. Offer **Yes, add/update `@Deployment`** and **No, handle deployment outside app
+startup**.
 
 Use this code/model-specific wiring table after the shared deployment decision is recorded:
 
@@ -180,12 +182,18 @@ Use this code/model-specific wiring table after the shared deployment decision i
 |---|---|
 | At least one linked form and every linked form is `target=none` | Record `deployment=not applicable`. Skip startup deployment and wiring for that model. |
 | Authorized linked forms with `deployment`, `versionTag`, or implicit `latest` | Include every linked accepted or existing form by exact recorded path in the application deployment, or record and verify a separate form deployment before wiring the process. A `bindingType=deployment` form must share the same deployment as its BPMN. Require all linked forms to share the authorized deployment decision and require **Yes** for the separate deployment-wiring question. Translate each recorded filesystem path to its classpath resource name. |
-| Any selected-target linked form is pending, declined, or external-plan-only | Defer the whole model deployment. Do not deploy the BPMN alone. |
+| Any selected-target linked form is pending or declined | Defer the whole model deployment. Do not deploy the BPMN alone. |
+| A `bindingType=deployment` linked form has only an external plan | Defer the whole model deployment until the same-deployment result exists. |
+| A `versionTag` or implicit `latest` linked form has a complete external plan | Verify the external form deployment from the recorded plan before wiring the BPMN independently. |
 | Any other model or form | Use the shared deployment state machine. |
 
 Do not use a broad `converted-c8-*.form` glob. Never target original diagrams, draft forms, or
 declined forms.
-- **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in `MIGRATION_REPORT.md`. For `target=none`, record deployment as `not applicable`. For a selected target, record the external plan owner, target, and steps or keep deployment pending until that evidence exists.
+
+- **Yes, add/update `@Deployment`** — use the exact resource paths and states above.
+- **No, handle deployment outside app startup** — leave code unchanged. For `target=none`, record
+  `deployment=not applicable`. For a selected target, record the external plan owner, target, and
+  steps or keep deployment pending until that evidence exists.
 
 After either deployment-wiring choice, rerun the applicable final Step 4 code validation because
 the choice or any `@Deployment` edit can change compile, configuration, and test evidence.

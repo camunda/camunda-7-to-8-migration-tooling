@@ -96,6 +96,12 @@ Ask: **"Which deployment state applies to `<form-owner>`?"** Use these options:
 - **Target but authorization unavailable** — provide the target, request state, and authorization.
 - **Target declined** — provide the target, request, authorization, and decline decision.
 
+For **Target but authorization unavailable** and **Target declined**, ask a follow-up:
+
+- **Use an alternate binding** — record `bindingType`, any `versionTag`, and linkage evidence.
+- **Record an external deployment plan** — record the plan owner, target, and steps.
+- **Keep deployment pending** — leave the category open until one of the supported paths is chosen.
+
 For every selected target, collect the concrete target value through the secure deployment
 mechanism. The report-safe target field must redact credential-like URL query values and URL userinfo
 passwords with `<redacted>`, using the same rules as the form-reference inventory. Never write the
