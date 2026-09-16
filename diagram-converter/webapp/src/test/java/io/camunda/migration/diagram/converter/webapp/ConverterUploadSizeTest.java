@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.diagram.converter.webapp;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -21,8 +21,12 @@ import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @TestPropertySource(
-    properties = {"server.tomcat.max-part-count=2", "spring.servlet.multipart.resolve-lazily=true"})
-public class ConverterExceptionHandlerTest {
+    properties = {
+      "spring.servlet.multipart.resolve-lazily=true",
+      "spring.servlet.multipart.max-file-size=3KB",
+      "spring.servlet.multipart.max-request-size=8KB"
+    })
+class ConverterUploadSizeTest {
 
   @LocalServerPort int port;
 
@@ -32,19 +36,32 @@ public class ConverterExceptionHandlerTest {
   }
 
   @Test
-  void convertBatchExceedingPartCountLimit() {
-    // max-part-count=2, this request sends 3 parts: 2 files + 1 form field
+  void rejectsFileExceedingFileSizeLimit() {
     Response response =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
-            .multiPart("file", "first.bpmn", new byte[] {1}, "application/octet-stream")
-            .multiPart("file", "second.bpmn", new byte[] {1}, "application/octet-stream")
-            .formParam("appendDocumentation", true)
+            .multiPart("file", "large.bpmn", new byte[4096], "application/xml")
+            .accept(ContentType.JSON)
+            .post("/check");
+
+    assertThat(response.statusCode()).isEqualTo(413);
+    assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_SIZE_LIMIT_EXCEEDED");
+    assertThat(response.jsonPath().getLong("maxUploadSize")).isEqualTo(3 * 1024);
+  }
+
+  @Test
+  void rejectsRequestExceedingRequestSizeLimit() {
+    Response response =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "first.bpmn", new byte[2300], "application/xml")
+            .multiPart("file", "second.bpmn", new byte[2300], "application/xml")
+            .formParam("defaultJobType", "x".repeat(4096))
             .accept("application/zip")
             .post("/convertBatch");
 
     assertThat(response.statusCode()).isEqualTo(413);
-    assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_COUNT_LIMIT_EXCEEDED");
-    assertThat(response.jsonPath().getLong("maxPartCount")).isEqualTo(2);
+    assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_SIZE_LIMIT_EXCEEDED");
+    assertThat(response.jsonPath().getLong("maxUploadSize")).isEqualTo(8 * 1024);
   }
 }
