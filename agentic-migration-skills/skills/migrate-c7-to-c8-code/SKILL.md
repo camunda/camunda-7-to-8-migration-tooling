@@ -299,8 +299,8 @@ target version. See the linting section in `references/model-migration-approache
 10. Every accepted form has a planned matching `zeebe:formDefinition`.
     Step 5 verifies the actual linkage after form remediation and annotation cleanup.
 11. Step 5 verifies deployment coverage for every accepted form after form remediation and
-    annotation cleanup. Deploy when a deployment target is selected. Record deployment as
-    `not applicable` when no deployment target is available.
+    annotation cleanup. Deploy only after an explicit user request and when a deployment target
+    is selected. Record deployment as `not applicable` when no deployment target is available.
 12. No draft, blocked, or declined form is linked or deployed. Every semantic gap and every user
    decision is recorded.
 13. Every referenced form and every form-free owner has a recorded per-category decision and a final
@@ -355,7 +355,8 @@ Before each remediation batch, capture an immutable baseline for every participa
 `.form` resource, and referenced code artifact. Immediately before verifying a no-edit category,
 capture the same baseline. For XML and code, use a lowercase SHA-256 digest of exact UTF-8 bytes
 without normalization. Include namespace counts, wiring references, and FEEL state.
-For forms, use a lowercase SHA-256 digest of the exact generated JSON bytes without normalization.
+For forms, use a lowercase SHA-256 digest of the exact UTF-8 bytes of every participating `.form`
+file without normalization.
 Also record the schema result, render result, linkage, and deployment state. Record `absent` when
 a remediation will create a new form. Mark the schema, render, linkage,
 and deployment checks `not applicable` in that absent `Before` state. Record `not applicable` when
