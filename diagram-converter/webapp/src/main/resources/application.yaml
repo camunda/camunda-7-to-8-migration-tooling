@@ -6,6 +6,10 @@ spring:
   servlet:
     multipart:
       resolve-lazily: true
+      # Real-world BPMN, DMN, and form models can exceed Spring's 1 MB default.
+      # Allow up to 10 MB per model and 100 MB for the 100-part batch endpoint.
+      max-file-size: 10MB
+      max-request-size: 100MB
 
 notification:
   slack:

@@ -848,6 +848,43 @@ describe("voice and tone", () => {
     expect(within(alert).queryByText(/please/i)).toBeNull();
   });
 
+  it("surfaces a size-specific error for a non-2xx JSON download response", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download XLSX",
+    });
+    await waitFor(() => expect(downloadButton.disabled).toBe(false));
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 413,
+        json: vi.fn().mockResolvedValue({
+          errorCode: "FILE_SIZE_LIMIT_EXCEEDED",
+        }),
+      })
+    );
+    fireEvent.click(downloadButton);
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(
+      "The uploaded files are too large. Choose smaller files and try again."
+    )).toBeTruthy();
+  });
+
   it("spells out 'for example' instead of 'e.g.' in the JSON download hint", async () => {
     configureUpload({
       fileName: "process.bpmn",
@@ -1213,6 +1250,38 @@ describe("per-file request failures and retry", () => {
     const row = fileRow("server-error.bpmn");
     const alert = await within(row).findByRole("alert");
     expect(alert.textContent).toMatch(/analysis failed \(http 500\)/i);
+    expect(within(row).getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("surfaces a size-specific error for a non-2xx JSON convert response", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: false,
+        status: 413,
+        headers: { get: vi.fn().mockReturnValue("application/json") },
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({ errorCode: "FILE_SIZE_LIMIT_EXCEEDED" })
+        ),
+      });
+    });
+
+    await uploadAndAnalyze([
+      { name: "large.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const row = fileRow("large.bpmn");
+    const alert = await within(row).findByRole("alert");
+    expect(alert.textContent).toMatch(
+      /uploaded file is too large\. choose a smaller file and try again\./i
+    );
     expect(within(row).getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
