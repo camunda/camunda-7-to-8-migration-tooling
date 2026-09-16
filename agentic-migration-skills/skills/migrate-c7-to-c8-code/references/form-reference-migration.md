@@ -209,12 +209,16 @@ nothing is rebuilt. The two reach the converted model differently:
 For both:
 
 1. Locate the `.form` file. In M1, M3, or E1, convert it with the existing Diagram Converter form
-   conversion, which updates the execution platform metadata only. In M2, where no CLI is
-   available, apply a metadata-only JSON update to the converted copy: change only the target
-   execution-platform metadata, preserve the schema and all other fields, and record before/after
-   content hashes. If the metadata-only update cannot be performed deterministically, mark the
-   form category `blocked`/`unavailable` and retain the original reference instead of claiming
-   conversion. Never hand-edit form schema content.
+   conversion. The converter may update execution-platform metadata, rewrite supported simple JUEL
+   component properties to FEEL, and emit findings; capture the converter findings, before/after
+   hashes, and all resulting schema, render, and FEEL evidence. In M1, pass explicit captured
+   BPMN/DMN/C7-form paths or use an isolated input directory that excludes every existing
+   Camunda 8 form; never pass a broad project directory that lets the converter rewrite an existing
+   form before its preservation check. In M2, where no CLI is available, apply a metadata-only JSON
+   update to the converted copy: change only the target execution-platform metadata, preserve the
+   schema and all other fields, and record before/after content hashes. If the metadata-only update
+   cannot be performed deterministically, mark the form category `blocked`/`unavailable` and
+   retain the original reference instead of claiming conversion. Never hand-edit form schema content.
 2. Read the form's own `id` from the converted `.form` file. Do not derive it from the file name. Do
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and
