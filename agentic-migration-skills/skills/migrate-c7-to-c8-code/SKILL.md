@@ -63,8 +63,8 @@ See `references/interview-questions.md` for the question set and the batching ru
 6. When the user accepts the defaults, continue without further questions.
 7. After the Step 3 form inventory, ask Question 7 before Step 4 or Step 5 for every deployable
    accepted, rebuilt, relinked, or existing Camunda 8 form. Ask per form. Group only forms with
-   identical targets and authorization states. Record the target, request, authorization, and
-   result or pending state for every form.
+   identical targets, request states, authorization states, and deployment decisions. Record the
+   target, request, authorization, and result or pending state for every form.
 
 #### Shared rules
 
@@ -440,7 +440,7 @@ form remediation or linkage change. Retain **no action** only after this sequenc
 | Converter regression command | Where the local CLI, Java executable, and converter JAR support a participating BPMN or DMN converted copy, normalize the recorded path to an absolute path. Run the command once per unique converted copy for each unchanged file state. |
 | Converter invocation | Run `"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file>" --platform-version "<target>" --check --csv`. On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. |
 | Converter result reuse | Reuse the captured command result only while the file and target metadata are unchanged. Rerun the command after any remediation edit and during final validation. |
-| Converter regression parsing | Parse each captured CSV with the converter's semicolon delimiter. Normalize each CSV `filename` cell before path resolution. Resolve each relative normalized `filename` against the verification command's input root, not the process working directory. Map the resulting identity to its recorded original-to-converted pair before comparing rows. Record `none` when no relevant rows exist. |
+| Converter regression parsing | Parse each captured CSV with the converter's semicolon delimiter. Normalize each CSV `filename` cell before path resolution. For a single-file command, use the parent directory of `<file>` as the input root. For a directory command, use the directory argument as the input root. Resolve each relative normalized `filename` against that root, not the process working directory. Map the resulting identity to its recorded original-to-converted pair before comparing rows. Record `none` when no relevant rows exist. |
 | Converter row identity | Treat `messageId` as the category. Compare `severity`, `elementId`, and the resolved normalized `filename` identity with the recorded absolute converted path. Record raw and de-sanitized cells and the path mapping as supplementary evidence. Do not compare raw cells with absolute paths or use raw message text for the pass/fail comparison. |
 | Converter CSV raw cell | Record the raw CSV cell for `filename` and `elementId` as supplementary evidence. |
 | Converter CSV expected identity | Build the expected identity from the recorded source-to-converted pair. Use the resolved absolute converted path for `filename`. |
@@ -479,7 +479,7 @@ Record failures with their before-and-after values using this decision table:
 |---|---|---|---|
 | Concrete remediation remains | `failed` | **needs fix** | Resolve the category after the required decision. |
 | A design decision or required deterministic check is unavailable | `failed` or `unavailable` | **needs review** | Ask for a new decision before another attempt. |
-| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep `Verification=passed` after the other checks and the finding-specific postcondition pass. Transition provisional **needs review** to **no action** when no user decision remains, except for `c7-generic-task-form`. Keep that category at **needs review** with its accepted-risk terminal state. Do not write `unavailable` as the aggregate state. | Continue the other required checks. |
+| Supplementary converter or FEEL tooling is unavailable | Evidence-only `unavailable` | Keep `Verification=passed` after the other checks and the finding-specific postcondition pass. Transition provisional **needs review** to **no action** when no user decision remains, except for `c7-generic-task-form`. Keep that category at **needs review** with its procedure-defined terminal state. Call the state accepted risk only when `Status=declined`. Do not write `unavailable` as the aggregate state. | Continue the other required checks. |
 
 Do not mark a category **no action** after a failed blocking check. Escalate after the single
 verification pass when the failure needs a new design or a second remediation attempt. Update the
@@ -508,8 +508,9 @@ Exclude an INFO category with provisional **needs review** and a category whose 
 is the shared verification pass from this offer until its verification pass completes. Exclude a
 category with a failed or unavailable verification from this offer. Exclude a
 `c7-generic-task-form` category with an explicit completed decision and `Verification=passed`.
-Report its accepted risk without asking for another decision. Require a new explicit user decision
-before another remediation attempt for that category. If any other migration TODO, finding,
+Report its procedure-defined terminal state without asking for another decision. Call it accepted
+risk only when `Status=declined`. Require a new explicit user decision before another remediation
+attempt for that category. If any other migration TODO, finding,
 compilation issue, deletion candidate, or unresolved item remains, then offer to resolve it:
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?

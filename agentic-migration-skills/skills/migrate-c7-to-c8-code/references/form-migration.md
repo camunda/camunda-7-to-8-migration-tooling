@@ -309,8 +309,10 @@ approve removing it, and record the accepted risk. Never treat silence as accept
 When this procedure runs during Step 3, record the accepted bytes and planned linkage and deployment
 decision only. Do not edit the converted BPMN or deploy during Step 3. After Step 5e, apply the
 converted-copy linkage, then run the final form verification and deployment checks. When this
-procedure runs for unresolved Step 5 remediation, apply the linkage after Step 5e before the final
-form verification. The following promotion, linkage, and deployment instructions apply only after
+procedure runs for unresolved Step 5 remediation and first creates or accepts a deployable form,
+ask Question 7 and record its target, request, authorization, and result or pending state before
+applying linkage. Apply the linkage after Step 5e before the final form verification. The following
+promotion, linkage, and deployment instructions apply only after
 Step 5e. Skip them during Step 3.
 
 Promote an accepted draft beside its converted BPMN under the accepted filename, then edit only the

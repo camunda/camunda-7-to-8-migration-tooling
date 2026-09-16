@@ -236,7 +236,9 @@ For both:
    unavailable schema or render tooling as `not applicable` with the reason. Record an unavailable
    FEEL parser as `unavailable` in FEEL evidence. Record other unavailable supplementary tooling
    according to `form-migration.md`.
-6. After Step 5e, apply the accepted linkage plan, then rerun the full form validation checklist,
+6. When unresolved Step 5 remediation first creates or accepts a deployable form, ask Question 7
+   and record its target, request, authorization, and result or pending state before linkage. After
+   Step 5e, apply the accepted linkage plan, then rerun the full form validation checklist,
    including the exact `formId` linkage and removal of the copied C7 reference. Rerun the
    verification row after any linkage or form change.
 7. Verify deployment only after the user explicitly requests it and selects a deployment target.
@@ -387,7 +389,7 @@ Verdict rules for the model finding table:
 | Rebuild generic owner | Record `Status=accepted`, accepted form linkage and deployment evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Custom-application generic owner | Record `Status=kept`, a named owner and integration evidence, `Verdict=needs review`, and `Verification=passed`. | Treat this as a resolved procedure-defined terminal state. Never present `c7-generic-task-form` as `no action`. |
 | Deferred or blocked row | Record the blocker or follow-up owner. | Keep the category open. |
-| `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action**. |
+| `no action` transition | Every row has a completed terminal state. The deployment check is satisfied. The shared Step 5 row is `passed`. Final cleanup has passed. | Set **no action** unless the category is `c7-generic-task-form`. Keep procedure-defined generic-owner terminal rows at `Verdict=needs review`. |
 
 A declined remediation row requires explicit accepted-risk evidence. It does not bypass the
 deployment or verification requirements above.
