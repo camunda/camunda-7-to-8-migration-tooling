@@ -227,7 +227,7 @@ For a fallback category, assign the default verdict from the finding severity:
 
 | Severity | Default verdict | Initial verification | User decision |
 |---|---|---|---|
-| INFO | **needs review** (provisional) | `pending` | Do not ask for a finding-remediation decision before the gate. Ask the independent deployment question when Question 7 applies. (MAY) |
+| INFO | **needs review** (provisional) | `pending` | Do not ask for a finding-remediation decision before the gate. Ask the independent deployment question when Question 7 applies. |
 | REVIEW | **needs review** | `pending` | Ask when a design decision is required |
 | WARNING or TASK | **needs fix** | `pending` | Follow the category cross-check |
 
@@ -362,7 +362,7 @@ Then run `form-reference-migration.md` for every referenced form (embedded, exte
 
 #### 5g. Named category: Forms
 
-Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, stage each captured model and all in-scope C7 forms associated with it in an isolated directory and pass that directory as one invocation. For a single-resource run, pass one captured path in one invocation. Exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
+Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, stage each captured model and all in-scope C7 forms associated with it in an isolated directory and pass that directory as one invocation. For a single-resource run, pass one captured path in one invocation. Exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use their existing-form validation procedure and never the C7 form converter:
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|

@@ -374,7 +374,7 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 #### Canonical deployment decision table
 
 Use this table for every deployable accepted, rebuilt, relinked, or existing Camunda 8 form.
-Other references and fixtures may add examples. (MAY) They must not change these states.
+Other references and fixtures may add examples (MAY). They must not change these states.
 
 | State | Required evidence | Terminal handling |
 |---|---|---|
