@@ -216,9 +216,13 @@ For both:
    Camunda 8 form; never pass a broad project directory that lets the converter rewrite an existing
    form before its preservation check. In M2, where no CLI is available, apply a metadata-only JSON
    update to the converted copy: change only the target execution-platform metadata, preserve the
-   schema and all other fields, and record before/after content hashes. If the metadata-only update
-   cannot be performed deterministically, mark the form category `blocked`/`unavailable` and
-   retain the original reference instead of claiming conversion. Never hand-edit form schema content.
+   schema and all other fields, and record before/after content hashes. Before this update, inspect
+   the form JSON for C7 JUEL expressions. If any `${...}` or `#{...}` expression is present, do not
+   claim that M2 converted the form: record `Status=blocked`, `Verification=unavailable`, the
+   expression paths, and the retained original reference. If no such expression is present, the
+   metadata-only update may proceed. If that update cannot be performed deterministically, record
+   `Status=blocked` and `Verification=unavailable` with the reason and retain the original
+   reference. Never hand-edit form schema content.
 2. Read the form's own `id` from the converted `.form` file. Do not derive it from the file name. Do
    not assume a Camunda 7 `formRef` value equals the schema id. If the reference and schema id do not
    establish an unambiguous mapping, mark the row `blocked`, record the reference, schema id, and

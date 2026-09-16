@@ -352,7 +352,7 @@ Then run `form-reference-migration.md` for every referenced form (embedded, exte
 
 #### 5g. Named category: Forms
 
-Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
+Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`. In M1, invoke the converter per model with only its captured BPMN/DMN and explicitly selected C7 form paths, or use an isolated directory containing those inputs; exclude existing Camunda 8 forms from the invocation. Existing Camunda 8 forms use its existing-form validation procedure and never the C7 form converter:
 
 | Report category | Source classification | Converter finding | Handling |
 |---|---|---|---|
@@ -517,8 +517,11 @@ the local verification command follows the shared gate's supplementary compariso
 imported-report version check in step 5 applies.
 
 During M3 acquisition, record the exact source-to-converted path pair for every downloaded BPMN or
-DMN, including models without forms. Use these recorded pairs for every verification check. Do not
-discover participating files with a filesystem glob.
+DMN, including models without forms, and the exact source-to-converted path pair for every
+referenced or existing `.form` resource that participates. If a paired form is unavailable, record
+the form content as unavailable and keep the category blocked rather than claiming linkage or
+conversion. Use these recorded pairs for every verification check. Do not discover participating
+files with a filesystem glob.
 
 Generated-form follow-up also requires the exact original BPMN and an unambiguous pairing to each downloaded converted BPMN. Ask for either missing artifact rather than reconstructing C7 form metadata from the report.
 
