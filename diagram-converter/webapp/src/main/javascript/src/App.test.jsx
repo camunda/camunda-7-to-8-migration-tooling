@@ -848,6 +848,43 @@ describe("voice and tone", () => {
     expect(within(alert).queryByText(/please/i)).toBeNull();
   });
 
+  it("surfaces a size-specific error for a non-2xx JSON download response", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download XLSX",
+    });
+    await waitFor(() => expect(downloadButton.disabled).toBe(false));
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 413,
+        json: vi.fn().mockResolvedValue({
+          errorCode: "FILE_SIZE_LIMIT_EXCEEDED",
+        }),
+      })
+    );
+    fireEvent.click(downloadButton);
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(
+      "The uploaded files are too large. Choose smaller files and try again."
+    )).toBeTruthy();
+  });
+
   it("spells out 'for example' instead of 'e.g.' in the JSON download hint", async () => {
     configureUpload({
       fileName: "process.bpmn",
