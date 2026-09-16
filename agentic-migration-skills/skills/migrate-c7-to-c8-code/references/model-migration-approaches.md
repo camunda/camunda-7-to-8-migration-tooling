@@ -125,7 +125,9 @@ Severity counts are only a headline. Never start per-finding work from them. Par
 Use the shared verification gate in `SKILL.md` Step 5 before changing any category verdict to
 **no action**.
 
-REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
+INFO/REVIEW/WARNING/TASK findings remain provisional until the shared verification gate succeeds.
+JUEL conversion is partial. Resolve these findings in the AI follow-up step, working on the
+`converted-c8-*` copies, never the originals.
 
 Trust the converter's output for structural transformations it performed and did not flag. The
 converter does not replace the shared runtime and code-coverage checks. Apply manual structural
