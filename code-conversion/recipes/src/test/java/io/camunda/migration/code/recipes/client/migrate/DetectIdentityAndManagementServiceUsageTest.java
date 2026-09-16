@@ -372,10 +372,10 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void manage(
                         IdentityService identityService, ManagementService managementService) {
-                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (clearAuthentication()).
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (getCurrentAuthentication()).
                     // Authentication and password operations are handled by the identity provider; use its API instead.
                     // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
-                    use(identityService.clearAuthentication(), managementService.getRegisteredDeployments());
+                    use(identityService.getCurrentAuthentication(), managementService.getRegisteredDeployments());
                 }
             }
             """,
@@ -391,13 +391,13 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void manage(
                         IdentityService identityService, ManagementService managementService) {
-                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (clearAuthentication()).
+                    // TODO: IdentityService method has no direct Java client equivalent in Camunda 8 (getCurrentAuthentication()).
                     // Authentication and password operations are handled by the identity provider; use its API instead.
                     // See: https://docs.camunda.io/docs/components/concepts/access-control/connect-to-identity-provider/
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (getRegisteredDeployments()).
                     // Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
-                    use(identityService.clearAuthentication(), managementService.getRegisteredDeployments());
+                    use(identityService.getCurrentAuthentication(), managementService.getRegisteredDeployments());
                 }
             }
             """));
