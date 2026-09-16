@@ -216,7 +216,7 @@ Use this decision table for each shared job type:
 |---|---|---|
 | **no action** | Exactly one validated effective worker | Do not offer a scaffold. Record the covered pairs. |
 | **needs review** | Any | Collect the pending user decision before offering a scaffold. |
-| **needs fix** | None, complete group and inventory, confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). Record the selected option in `MIGRATION_REPORT.md`. In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
+| **needs fix** | None, complete many-to-one group and inventory, confirmed Spring target | Use AskUserQuestion to ask whether to **Generate a dispatcher scaffold** (SHOULD) or **I will implement the dispatcher manually** (MAY). Record the selected option in `MIGRATION_REPORT.md`. In the generation prompt, show the shared job type, every retained header key, and the distinct `(headerKey, original)` pairs grouped by retained key. |
 | **needs fix** | None and non-Spring target | Do not offer generation. Keep the group **needs fix** and require a user-owned client-worker implementation and validation. |
 | **needs fix** | Exactly one effective worker | Do not offer generation. Ask the user to implement and validate the existing routes or confirm the required consolidation. |
 | **needs fix** | More than one effective worker | Do not offer generation. Ask the user to complete or consolidate registrations before resolving the group. |
@@ -271,11 +271,12 @@ draft. Keep each TODO route in quarantine while the user implements the legacy i
 invent or replace the legacy invocation. After every known route is implemented, ask the user to
 accept the completed source. On acceptance,
 move the source into the intended worker source tree and run the applicable formatter, compile, and
-test checks before deployment. On acceptance, mark the moved draft path inactive in
-`MIGRATION_REPORT.md`. If the user rejects or deletes the scaffold, mark its path inactive after
-removing it or recording the rejection. Do not leave the file beside the migrated sources or let a
-later scan treat it as an existing subscriber. Then rerun the same cross-check used for hand-written
-dispatchers. Record each validation result and the draft decision in `MIGRATION_REPORT.md`.
+test checks before deployment. On acceptance, move the source into the intended worker source tree,
+mark the quarantine draft path inactive in `MIGRATION_REPORT.md`, and include the accepted source in
+active worker scans. If the user rejects or deletes the scaffold, remove it and mark its path
+inactive. Do not leave a rejected file beside the migrated sources or let a later scan treat it as
+an existing subscriber. Then rerun the same cross-check used for hand-written dispatchers. Record
+each validation result and the draft decision in `MIGRATION_REPORT.md`.
 The scaffold is not a completed remediation. Keep the category **needs fix** while any known route
 has an unresolved TODO, placeholder, or unconditional throw in a generated or hand-written
 dispatcher, the cross-check finds an uncovered pair, or any applicable formatter, compile, or test
@@ -348,7 +349,7 @@ for each shared job-type group in `MIGRATION_REPORT.md`.
 
 | Evidence across every normalized row and shared job type | Cross-referenced code artifact | Verdict |
 |---|---|---|
-| Every source row in the category has a non-empty `jobType`, no source row is excluded for an unknown job type, no worker inventory is unresolved, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
+| Every source row in the category has a non-empty `jobType`, no source row is excluded for an unknown job type, no worker inventory is unresolved, every shared job-type group has exactly one effective worker, every 1:1 group has exactly one confirmed worker match, and every many-to-one group has a retained `(headerKey, original)` pair for every row plus one dispatcher covering every distinct pair with no unresolved TODO, placeholder, or unconditional throw in any known route and passing all applicable validation checks. | Record the matched worker registration or dispatcher source in `MIGRATION_REPORT.md`. | **no action** |
 | Any source row has a missing or blank `jobType`, any source row is excluded for an unknown job type, the worker inventory is unresolved, any many-to-one group lacks a required retained `(headerKey, original)` pair, any shared job-type group does not have exactly one effective worker, any 1:1 worker mismatch exists, any shared job-type group has an uncovered pair or an unresolved TODO, placeholder, or unconditional throw in a known route, or any applicable validation check fails. | Record the existing or missing worker artifact and the unresolved implementation work in `MIGRATION_REPORT.md`. | **needs fix**, which becomes an AI follow-up work item. |
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
