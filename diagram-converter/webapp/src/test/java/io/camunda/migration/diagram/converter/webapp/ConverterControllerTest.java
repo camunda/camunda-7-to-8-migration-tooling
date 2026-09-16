@@ -23,6 +23,7 @@ import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import io.restassured.RestAssured;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -133,16 +134,34 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void responsesContainSecurityHeaders() {
+    Response response = RestAssured.get("/");
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.header("Content-Security-Policy"))
+        .isEqualTo(SecurityHeadersFilter.CONTENT_SECURITY_POLICY);
+    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
+    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
+  }
+
+  @Test
   void singleBpmnCheckWithJsonResult() throws URISyntaxException {
-    List<DiagramCheckResult> checkResult =
+    Response response =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
             .multiPart(
                 "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
             .accept(ContentType.JSON)
-            .post("/check")
-            .getBody()
-            .as(new TypeRef<List<DiagramCheckResult>>() {});
+            .post("/check");
+
+    assertThat(response.header("Content-Security-Policy"))
+        .isEqualTo(SecurityHeadersFilter.CONTENT_SECURITY_POLICY);
+    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
+    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
+
+    List<DiagramCheckResult> checkResult = response.as(new TypeRef<List<DiagramCheckResult>>() {});
 
     assertThat(checkResult)
         .hasSize(1)
