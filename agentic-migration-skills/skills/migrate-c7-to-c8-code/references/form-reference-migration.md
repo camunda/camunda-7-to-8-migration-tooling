@@ -230,7 +230,9 @@ For both:
 5. Before Step 5e, run the form validation checklist from `form-migration.md`. Confirm JSON parsing,
    applicable schema and render checks, and target metadata. Record the planned `formId` linkage and
    binding, but do not edit the converted copy or require the final linkage check yet. Record
-   unavailable supplementary tooling as `not applicable` with the reason.
+   unavailable schema or render tooling as `not applicable` with the reason. Record an unavailable
+   FEEL parser as `unavailable` in FEEL evidence. Record other unavailable supplementary tooling
+   according to `form-migration.md`.
 6. After Step 5e, apply the accepted linkage plan, then rerun the full form validation checklist,
    including the exact `formId` linkage and removal of the copied C7 reference. Rerun the
    verification row after any linkage or form change.
