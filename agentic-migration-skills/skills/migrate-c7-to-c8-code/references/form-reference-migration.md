@@ -365,7 +365,9 @@ Verdict rules for the model finding table:
   integration. For a Camunda Form reference, convert and relink. Verify deployment when a target is
   selected and the user explicitly requests it. An explicit out-of-scope decision satisfies the
   deployment check when no target exists or deployment is declined.
-- Move a category to `no action` only when every row reaches a terminal state, the shared Step 5
-  verification row is `passed`, and final cleanup has passed. Record a `declined` or `deferred`
-  row as accepted risk, not completed work.
+- Move a category to `no action` only when every row reaches a completed terminal state, the shared
+  Step 5 verification row is `passed`, and final cleanup has passed. A `deferred` or `blocked` row
+  is open follow-up and keeps the category open. A `declined` row requires explicit accepted-risk
+  evidence. Exclude `c7-generic-task-form` from this rule because its category must never be
+  presented as `no action`.
 - Do not rewrite the raw converter report or remove its historical findings.

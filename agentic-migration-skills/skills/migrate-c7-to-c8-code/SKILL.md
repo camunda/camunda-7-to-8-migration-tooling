@@ -397,10 +397,13 @@ Run model category checks and form schema/render checks before Step 5e strips co
 Run Step 5e after every category has a verdict and verification evidence. Run form procedures in 5f
 and 5g only for unresolved form remediation after the Step 3 execution. Do not repeat an accepted
 Step 3 form procedure. After Step 5e, apply every accepted Step 3 form's planned linkage and
-deployment decision, then rerun the form verification checks. Rerun the form verification row after
-any form remediation, linkage, or deployment change. Run model validation and final whole-file
-cleanup after those form checks and all 5f/5g changes. Retain **no action** only after this sequence
-passes.
+record the planned deployment decision, then rerun the form verification checks. Run model validation
+and final whole-file cleanup after those form checks and all 5f/5g changes. Only after final cleanup,
+carry out an authorized deployment when an explicit user request and target exist. Record the target
+and result. Record `not applicable` with its reason when no target exists or deployment is declined.
+Keep deployment `pending` when a target exists without an explicit request. Rerun deployment
+coverage and the form verification row after deployment. Rerun the form verification row after any
+form remediation or linkage change. Retain **no action** only after this sequence passes.
 
 | Check | Required evidence |
 |---|---|
