@@ -33,11 +33,11 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
 
               void deploy(InputStream stream, String text, String tenantId) {
                 repositoryService.createDeployment()
+                    .tenantId(tenantId)
                     .addClasspathResource("bpmn/order.bpmn")
                     .addInputStream("stream.bpmn", stream)
                     .addString("text.bpmn", text)
                     .name("orders")
-                    .tenantId(tenantId)
                     .deploy();
               }
             }
@@ -62,6 +62,103 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
                           .tenantId(tenantId)
                           .send()
                           .join();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void migratesTenantBeforeClasspathResourceWhenArgumentsAreSafe() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient camundaClient;
+              private RepositoryService repositoryService;
+
+              void deploy(String tenantId, String resource) {
+                repositoryService.createDeployment()
+                    .tenantId(tenantId)
+                    .addClasspathResource(resource)
+                    .deploy();
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient camundaClient;
+              private RepositoryService repositoryService;
+
+              void deploy(String tenantId, String resource) {
+                  camundaClient
+                          .newDeployResourceCommand()
+                          .addResourceFromClasspath(resource)
+                          .tenantId(tenantId)
+                          .send()
+                          .join();
+              }
+            }
+            """));
+  }
+
+  @Test
+  void defersTenantBeforeResourceWhenItWouldReorderAnExpression() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient camundaClient;
+              private RepositoryService repositoryService;
+
+              void deploy(String resource) {
+                repositoryService.createDeployment()
+                    .tenantId(resolveTenant())
+                    .addClasspathResource(resource)
+                    .deploy();
+              }
+
+              private String resolveTenant() {
+                return "tenant";
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private CamundaClient camundaClient;
+              private RepositoryService repositoryService;
+
+              void deploy(String resource) {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                repositoryService.createDeployment()
+                    .tenantId(resolveTenant())
+                    .addClasspathResource(resource)
+                    .deploy();
+              }
+
+              private String resolveTenant() {
+                return "tenant";
               }
             }
             """));

@@ -187,13 +187,15 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 new StringBuilder(
                     "#{client:any(io.camunda.client.CamundaClient)}\n.newDeployResourceCommand()");
             List<Expression> arguments = new ArrayList<>();
+            Expression tenantId = null;
             boolean hasResource = false;
             boolean hasTenantId = false;
 
             for (J.MethodInvocation method : sourceMethods.subList(1, sourceMethods.size())) {
               switch (method.getSimpleName()) {
                 case "addClasspathResource" -> {
-                  if (method.getArguments().size() != 1 || hasTenantId) {
+                  if (method.getArguments().size() != 1
+                      || !canMoveTenantAfterResource(tenantId, method.getArguments())) {
                     return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
                   }
                   templateCode.append("\n.addResourceFromClasspath(#{any(java.lang.String)})");
@@ -202,8 +204,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 }
                 case "addInputStream" -> {
                   if (method.getArguments().size() != 2
-                      || hasTenantId
-                      || !canReorder(method.getArguments())) {
+                      || !canReorder(method.getArguments())
+                      || !canMoveTenantAfterResource(tenantId, method.getArguments())) {
                     return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
                   }
                   templateCode.append(
@@ -215,8 +217,8 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 }
                 case "addString" -> {
                   if (method.getArguments().size() != 2
-                      || hasTenantId
-                      || !canReorder(method.getArguments())) {
+                      || !canReorder(method.getArguments())
+                      || !canMoveTenantAfterResource(tenantId, method.getArguments())) {
                     return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
                   }
                   templateCode.append(
@@ -227,11 +229,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                   hasResource = true;
                 }
                 case "tenantId" -> {
-                  if (method.getArguments().size() != 1 || !hasResource || hasTenantId) {
+                  if (method.getArguments().size() != 1 || hasTenantId) {
                     return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
                   }
-                  templateCode.append("\n.tenantId(#{any(java.lang.String)})");
-                  arguments.add(method.getArguments().getFirst());
+                  tenantId = method.getArguments().getFirst();
                   hasTenantId = true;
                 }
                 case "name" -> {
@@ -250,6 +251,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
               return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
             }
 
+            if (tenantId != null) {
+              templateCode.append("\n.tenantId(#{any(java.lang.String)})");
+              arguments.add(tenantId);
+            }
             templateCode.append("\n.send()\n.join()");
             JavaTemplate template =
                 RecipeUtils.createSimpleJavaTemplate(
@@ -342,6 +347,11 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
           private boolean canReorder(List<Expression> arguments) {
             return arguments.stream().allMatch(this::canDiscard);
+          }
+
+          private boolean canMoveTenantAfterResource(
+              Expression tenantId, List<Expression> resourceArguments) {
+            return tenantId == null || (canDiscard(tenantId) && canReorder(resourceArguments));
           }
 
           private boolean canDiscard(Expression expression) {
