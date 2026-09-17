@@ -80,14 +80,13 @@ While any task lacks a route pair, do not offer a scaffold.
 
 Use this table to decide whether to offer a scaffold:
 
-| Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Verdict | Dispatcher | Action |
-|---|---|---|---|---|---|
-| No | Any | Any | Any | Any | Do not offer a scaffold. |
-| Yes | No | Any | Any | Any | Do not offer a scaffold. |
-| Yes | Yes | Fewer than two | Any | Any | Do not offer a scaffold. |
-| Yes | Yes | Two or more | **no action** or **needs review** | Any | Do not offer a scaffold. |
-| Yes | Yes | Two or more | **needs fix** | Present | Do not offer a scaffold. |
-| Yes | Yes | Two or more | **needs fix** | None | Use AskUserQuestion to offer these actions. |
+| Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Dispatcher | Action |
+|---|---|---|---|---|
+| No | Any | Any | Any | Do not offer a scaffold. |
+| Yes | No | Any | Any | Do not offer a scaffold. |
+| Yes | Yes | Fewer than two | Any | Do not offer a scaffold. |
+| Yes | Yes | Two or more | Present | Do not offer a scaffold. |
+| Yes | Yes | Two or more | None | Use AskUserQuestion to offer these actions. |
 
 | User choice | Result |
 |---|---|
@@ -170,7 +169,7 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 Use this section to collect cross-check and code-artifact evidence. `model-migration-approaches.md`
 step 5d owns the final `Runtime impact` and `Verdict` values in category/impact rows. This section
 and the named form procedures supply lifecycle evidence and conditions. Record this section's
-results in that table's `Cross-referenced code artifact` and `Impact evidence` columns:
+results in that table's `Code artifact` and `Impact evidence` columns:
 
 - Complete job-type, dispatcher, or invoked-method coverage is evidence for a **no action** row after the verification gate passes.
 - Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods are evidence for a **needs fix** row.

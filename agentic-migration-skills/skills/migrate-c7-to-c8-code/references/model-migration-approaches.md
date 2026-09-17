@@ -155,8 +155,9 @@ If the report's version does not match the chosen target, or cannot be determine
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
 - **Keep the imported report** (MAY) — use it only for non-runtime grouping. Record the target
   mismatch or unknown target in `MIGRATION_REPORT.md`. If the original input is available, re-run
-  the converter at the chosen target. Use its fresh JSON report for runtime impact and the verdict
-  table. Otherwise, request the input through AskUserQuestion and stop.
+  the converter at the chosen target without `--check`. Use its JSON report for runtime impact and
+  the verdict table. Use its converted copy for target-support tests. Otherwise, request the input
+  through AskUserQuestion and stop.
 
 #### 5a. Parse the JSON report
 
@@ -172,7 +173,7 @@ Format: a JSON array with one object per finding, fields:
 filename, elementName, elementId, elementType, severity, messageId, message, link
 ```
 
-The findings report can include converter-provided runtime-impact metadata.
+A future converter can define a documented runtime-impact JSON field. Preserve it when present.
 Parse it with real JSON tooling (e.g. `jq` or a built-in JSON parser), never ad-hoc string splitting.
 
 If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated), re-run
@@ -201,7 +202,7 @@ For each M1 run, generate it from the current parsed JSON report.
 Never use a pre-existing artifact as input.
 The JSON object maps each `messageId` category to every finding in that category.
 Never add a source inventory entry to this artifact.
-Keep only `filename`, `elementId`, `elementType`, `message`, and runtime-impact metadata when present.
+Keep only `filename`, `elementId`, `elementType`, `message`, and a documented runtime-impact field when present.
 
 #### 5c. Present the grouped summary
 
@@ -235,16 +236,18 @@ Add `Runtime impact` to each verdict-table row before its verdict. It states whe
 target can deploy and execute the affected element or condition. Do not derive runtime impact from
 severity.
 
-Where the findings report provides runtime-impact metadata, use its value. Record its source and
-value in `Impact evidence`. Otherwise, apply the first matching rule in this table.
+Where a documented converter runtime-impact field is present, use its value. Record its name and
+value in `Impact evidence`. Do not infer an undocumented field. Otherwise, apply the first matching
+rule in this table.
 
-For target support, deploy a fresh converted copy to the selected target. Record the target,
-deployment identifier, and result in `Impact evidence`. Start an instance only after deployment
-succeeds. The instance must reach the affected element or condition. Record its key and execution result.
+For target support, deploy every fresh converted copy named by the row. Record each target,
+deployment identifier, and result in `Impact evidence`. After a deployment succeeds, start
+instances that reach every Element list ID from that copy. Record each execution result.
 
-If the target-support test and verification gate pass, use **Advisory** and **no action**. If a
-failure identifies the affected element or condition, use **Blocking** and **needs fix**. If the
-test is unavailable, incomplete, or blocked by another failure, use **Blocking** and **needs review**.
+For `element-not-supported-hint` and `conditional-flow`, use **Advisory** and **no action** only
+after the target-support test and verification gate pass. If a test failure identifies an affected
+element or condition, use **Blocking** and **needs fix**. If the test is unavailable, incomplete,
+or blocked by another failure, use **Blocking** and **needs review**.
 
 | Category or condition | Runtime impact | Evidence |
 |---|---|---|
@@ -253,11 +256,17 @@ test is unavailable, incomplete, or blocked by another failure, use **Blocking**
 | `element-not-supported-hint` or `conditional-flow` without a passed target-support test | **Blocking** | Target support is not confirmed. |
 | `element-available-in-future-version` below the required target | **Blocking** | The required target is unavailable. |
 | `element-available-in-future-version` at or above the required target | n/a | Omit the verdict-table row. |
+| `delegate-implementation-no-default-job-type` or `delegate-expression-as-job-type-null` | **Blocking** | The job type is blank or missing. |
 | A job-worker activity without a nonblank task type | **Blocking** | The job cannot execute. |
 | An uncovered or mismatched job-type or dispatcher mapping for `delegate-expression-as-job-type` or `delegate-implementation` | **Blocking** | The job cannot execute. |
+| `delegate-expression-as-job-type` or `delegate-implementation` without worker-route evidence | **Blocking** | Keep the row **needs review**. |
+| `camunda-script` | **Blocking** | The converter did not transform the script. |
+| `script` or `script-job-type` without worker-route evidence | **Blocking** | The task cannot execute. |
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, or `script-on-conditional-event` | **Blocking** | The condition cannot execute. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, or `loop-cardinality` | **Blocking** | The element cannot retain its execution semantics. |
-| A form category, including `form-data`, `generated-form-property-source`, form references, `businessKey`, or `cam-business-key` | **Advisory** | Form work is not a deployment or execution blocker. |
+| `in-out-business-key` | **Advisory** | The converter maps a supported process business key. |
+| `in-out-business-key-not-supported` | **Blocking** | The call activity needs a target-compatible mapping. |
+| A form category, including `form-data`, `generated-form-property-source`, or form references | **Advisory** | Form work is not a deployment or execution blocker. |
 | Another known category with mapping, removal, target-support, or nonblocking-context evidence | **Advisory** | Record the evidence. |
 | Another category | **Blocking** | No evidence confirms safe deployment and execution. |
 
