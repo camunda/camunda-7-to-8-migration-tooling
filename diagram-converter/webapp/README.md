@@ -12,6 +12,27 @@ results list.
 
 ## Rest API
 
+### CORS policy
+
+The hosted webapp intentionally allows browser requests only from its own origin.
+The default configuration rejects cross-origin requests with HTTP 403 before they
+reach the converter, and it does not enable credentials. This prevents unrelated
+websites from submitting conversion work through visitors' browsers while keeping
+the anonymous REST API available to clients without an `Origin` header, such as
+`curl`, CI jobs, and scripts; CORS does not apply to those clients.
+
+Additional browser origins can be explicitly configured with
+`webapp.cors.allowed-origins`, for example by activating the `dev` profile:
+
+```bash
+java -jar target/camunda-7-to-8-diagram-converter-webapp-*.jar --spring.profiles.active=dev
+```
+
+To use the Vite development server, start the backend with the `dev` profile as
+shown above. The profile permits `http://localhost:5173`; the Vite development
+server proxies API requests to `http://localhost:8080` and forwards the browser's
+`Origin` header, so the profile is required for `npm run dev`.
+
 `POST /check`: Check required tasks for Camunda 7 to 8 migration for all provided models
 
 - Request:

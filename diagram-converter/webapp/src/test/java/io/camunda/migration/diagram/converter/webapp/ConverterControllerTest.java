@@ -23,6 +23,7 @@ import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import io.restassured.RestAssured;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -55,6 +56,18 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 public class ConverterControllerTest {
   private static final Logger LOG = LoggerFactory.getLogger(ConverterControllerTest.class);
+  private static final String EXPECTED_CONTENT_SECURITY_POLICY =
+      "default-src 'self'; "
+          + "base-uri 'self'; "
+          + "object-src 'none'; "
+          + "script-src 'self'; "
+          + "style-src 'self' 'unsafe-inline'; "
+          + "img-src 'self' data:; "
+          + "font-src 'self' data:; "
+          + "connect-src 'self'; "
+          + "frame-src 'none'; "
+          + "frame-ancestors 'none'; "
+          + "form-action 'self'";
   @LocalServerPort int port;
 
   private static final String XML_CONTENT_IN_FORM_FILE =
@@ -133,22 +146,68 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void responsesContainSecurityHeaders() {
+    Response response = RestAssured.get("/");
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertSecurityHeaders(response);
+  }
+
+  @Test
+  void rejectsCrossOriginMultipartRequestsByDefault() throws URISyntaxException {
+    final var response =
+        RestAssured.given()
+            .header("Origin", "https://untrusted.example")
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(ContentType.JSON)
+            .post("/check");
+
+    assertThat(response.statusCode()).isEqualTo(403);
+    assertThat(response.getHeader("Access-Control-Allow-Origin")).isNull();
+  }
+
+  @Test
+  void allowsSameOriginMultipartRequestsByDefault() throws URISyntaxException {
+    final var response =
+        RestAssured.given()
+            .header("Origin", "http://localhost:" + port)
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(ContentType.JSON)
+            .post("/check");
+    assertThat(response.statusCode()).isEqualTo(200);
+  }
+
+  @Test
   void singleBpmnCheckWithJsonResult() throws URISyntaxException {
-    List<DiagramCheckResult> checkResult =
+    Response response =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
             .multiPart(
                 "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
             .accept(ContentType.JSON)
-            .post("/check")
-            .getBody()
-            .as(new TypeRef<List<DiagramCheckResult>>() {});
+            .post("/check");
+
+    assertSecurityHeaders(response);
+
+    List<DiagramCheckResult> checkResult = response.as(new TypeRef<List<DiagramCheckResult>>() {});
 
     assertThat(checkResult)
         .hasSize(1)
         .first()
         .matches(result -> result.getFilename().equals("example.bpmn"), "Filename is set correctly")
         .matches(result -> result.getResults().size() > 0, "Found results");
+  }
+
+  private static void assertSecurityHeaders(Response response) {
+    assertThat(response.header("Content-Security-Policy"))
+        .isEqualTo(EXPECTED_CONTENT_SECURITY_POLICY);
+    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
+    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
   }
 
   @Test

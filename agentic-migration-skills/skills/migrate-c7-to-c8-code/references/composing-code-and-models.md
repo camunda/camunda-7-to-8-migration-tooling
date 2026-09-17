@@ -13,6 +13,8 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
+Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category with a
+`converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
@@ -23,7 +25,8 @@ for `delegate-expression-as-job-type` findings, because M2-only runs do not prod
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type` findings and the M2 scan.
+Build the normalized input rows from the `delegate-expression-as-job-type` and
+`delegate-implementation` findings, and the M2 scan.
 For a converter finding, parse the original expression and job type from its `message`. For an M2
 row, use the `original` and `jobType` columns created above. Each normalized row has the shape:
 
@@ -79,7 +82,8 @@ Generate the scaffold only after the user selects it. Never overwrite an existin
 Create the draft outside every configured Java source root. Use the target project's conventional
 package, license header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
-Register the worker class with the project's bean-registration convention.
+Use the project's bean-registration convention. Do not edit an existing registration source before
+acceptance.
 Prepopulate a routing map or switch with every distinct retained header key and original expression
 pair from the findings.
 Put a `TODO` in each route for the actual bean or method invocation.
@@ -92,6 +96,7 @@ Keep the draft outside every configured Java source root until the user complete
 it, and resolves any other subscriber.
 When the user declines the draft, remove it.
 After acceptance, move the draft beside migrated workers.
+When the project requires an existing registration source, update it after acceptance.
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
 Keep the category **needs fix** until that check passes.
 
@@ -145,17 +150,18 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every retained header key and original expression pair, or every invoked method covered by a remediation: **no action** (the category is fully covered).
+- Complete job-type, dispatcher, or invoked-method coverage makes the category eligible for **no action** after the verification gate passes.
 - Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
-- Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
+- A deletion candidate is **needs review**, because deleting code requires an explicit user decision.
+- If no workaround exists, keep the category **needs review** until the verification gate passes.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
 Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
 
 | Finding severity | Fallback verdict | Cross-reference |
 |---|---|---|
-| INFO | no action | no dedicated cross-check |
+| INFO | needs review until the verification gate passes | no dedicated cross-check |
 | REVIEW | needs review | no dedicated cross-check |
 | WARNING or TASK | needs fix | no dedicated cross-check |
 
