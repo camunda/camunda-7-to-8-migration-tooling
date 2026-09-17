@@ -13,7 +13,6 @@ import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.TypeUtils;
 
 public class PrepareCamundaClientDependencyRecipe extends Recipe {
 
@@ -31,7 +30,6 @@ public class PrepareCamundaClientDependencyRecipe extends Recipe {
   }
 
   String CAMUNDA_CLIENT = "io.camunda.client.CamundaClient";
-  String CAMUNDA_CLIENT_FIELD = "camundaClient";
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -77,11 +75,7 @@ public class PrepareCamundaClientDependencyRecipe extends Recipe {
                     .anyMatch(
                         varDecl ->
                             varDecl.getVariables().stream()
-                                .anyMatch(
-                                    v ->
-                                        v.getSimpleName().equals(CAMUNDA_CLIENT_FIELD)
-                                            && TypeUtils.isOfClassType(
-                                                v.getType(), CAMUNDA_CLIENT)));
+                                .anyMatch(v -> v.getSimpleName().equals(CAMUNDA_CLIENT)));
 
             if (hasField) {
               return classDeclaration; // Already present

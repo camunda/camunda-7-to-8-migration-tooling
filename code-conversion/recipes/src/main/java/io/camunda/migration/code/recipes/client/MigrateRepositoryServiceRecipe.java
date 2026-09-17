@@ -10,7 +10,9 @@ package io.camunda.migration.code.recipes.client;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.TreeVisitor;
@@ -20,13 +22,16 @@ import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TextComment;
+import org.openrewrite.java.tree.TypeUtils;
 
 /** Migrates complete RepositoryService deployment chains to CamundaClient commands. */
 public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
   private static final String CAMUNDA_CLIENT = "io.camunda.client.CamundaClient";
+  private static final String CAMUNDA_CLIENT_FIELD = "camundaClient";
   private static final String REPOSITORY_SERVICE = "org.camunda.bpm.engine.RepositoryService";
   private static final String DEPLOYMENT_TODO =
       " TODO: RepositoryService deployment method was not migrated automatically";
@@ -41,6 +46,19 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
       new MethodMatcher("org.camunda.bpm.engine.repository.DeploymentBuilder deploy()");
   private static final MethodMatcher REPOSITORY_QUERY =
       new MethodMatcher(REPOSITORY_SERVICE + " create*Query(..)");
+  private static final Set<String> NAMED_INJECTION_ANNOTATIONS =
+      Set.of("Qualifier", "Resource", "Named");
+
+  private static final class ClassContext {
+    private final String camundaClientIdentifier;
+    private final Set<String> migratableRepositoryServiceFields;
+
+    private ClassContext(
+        String camundaClientIdentifier, Set<String> migratableRepositoryServiceFields) {
+      this.camundaClientIdentifier = camundaClientIdentifier;
+      this.migratableRepositoryServiceFields = migratableRepositoryServiceFields;
+    }
+  }
 
   @Override
   public String getDisplayName() {
@@ -60,6 +78,19 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             new UsesMethod<>(REPOSITORY_SERVICE + " createDeployment()", true),
             new UsesMethod<>(REPOSITORY_SERVICE + " create*Query(..)", true)),
         new JavaIsoVisitor<>() {
+          private ClassContext classContext;
+
+          @Override
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            ClassContext previousContext = classContext;
+            classContext = createClassContext(classDeclaration);
+            try {
+              return super.visitClassDeclaration(classDeclaration, ctx);
+            } finally {
+              classContext = previousContext;
+            }
+          }
 
           @Override
           public J.VariableDeclarations visitVariableDeclarations(
@@ -127,6 +158,11 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
 
             List<J.MethodInvocation> sourceMethods = sourceMethods(deployment);
             if (sourceMethods.isEmpty() || !CREATE_DEPLOYMENT.matches(sourceMethods.getFirst())) {
+              return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
+            }
+            String clientIdentifier = classContext == null ? null : classContext.camundaClientIdentifier;
+            if (clientIdentifier == null
+                || !isMigratableRepositoryServiceField(sourceMethods.getFirst().getSelect())) {
               return addCommentIfMissing(deployment, DEPLOYMENT_TODO);
             }
 
@@ -205,7 +241,7 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                     "io.camunda.client.api.command.DeployResourceCommandStep1");
             Object[] templateArguments = new Object[arguments.size() + 1];
             templateArguments[0] =
-                RecipeUtils.createSimpleIdentifier("camundaClient", CAMUNDA_CLIENT);
+                RecipeUtils.createSimpleIdentifier(clientIdentifier, CAMUNDA_CLIENT);
             System.arraycopy(arguments.toArray(), 0, templateArguments, 1, arguments.size());
 
             maybeAddImport(CAMUNDA_CLIENT);
@@ -218,6 +254,73 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                         templateArguments,
                         Collections.emptyList());
             return maybeAutoFormat(deployment, replacement, ctx);
+          }
+
+          private ClassContext createClassContext(J.ClassDeclaration classDeclaration) {
+            List<String> clientIdentifiers = new ArrayList<>();
+            Set<String> migratableRepositoryServiceFields = new HashSet<>();
+
+            for (Statement statement : classDeclaration.getBody().getStatements()) {
+              if (!(statement instanceof J.VariableDeclarations declaration)) {
+                continue;
+              }
+              if (TypeUtils.isOfClassType(declaration.getType(), CAMUNDA_CLIENT)
+                  && !hasNamedInjection(declaration)) {
+                declaration.getVariables().stream()
+                    .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                    .forEach(clientIdentifiers::add);
+              }
+              if (TypeUtils.isOfClassType(declaration.getType(), REPOSITORY_SERVICE)
+                  && isMigratableField(declaration)) {
+                declaration.getVariables().stream()
+                    .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                    .forEach(migratableRepositoryServiceFields::add);
+              }
+            }
+
+            String clientIdentifier =
+                clientIdentifiers.contains(CAMUNDA_CLIENT_FIELD)
+                    ? CAMUNDA_CLIENT_FIELD
+                    : clientIdentifiers.size() == 1 ? clientIdentifiers.getFirst() : null;
+            return new ClassContext(clientIdentifier, migratableRepositoryServiceFields);
+          }
+
+          private boolean isMigratableField(J.VariableDeclarations declaration) {
+            return declaration.getModifiers().stream()
+                    .anyMatch(modifier -> modifier.getType() == J.Modifier.Type.Private)
+                && declaration.getModifiers().stream()
+                    .noneMatch(modifier -> modifier.getType() == J.Modifier.Type.Static)
+                && !hasNamedInjection(declaration)
+                && declaration.getVariables().stream()
+                    .noneMatch(variable -> variable.getInitializer() != null);
+          }
+
+          private boolean hasNamedInjection(J.VariableDeclarations declaration) {
+            return declaration.getLeadingAnnotations().stream()
+                .map(annotation -> annotation.getAnnotationType().toString())
+                .map(
+                    annotationType ->
+                        annotationType.substring(annotationType.lastIndexOf('.') + 1))
+                .anyMatch(NAMED_INJECTION_ANNOTATIONS::contains);
+          }
+
+          private boolean isMigratableRepositoryServiceField(Expression expression) {
+            J.Identifier identifier = null;
+            if (expression instanceof J.Identifier select) {
+              identifier = select;
+            } else if (expression instanceof J.FieldAccess access
+                && access.getTarget() instanceof J.Identifier target
+                && target.getSimpleName().equals("this")) {
+              identifier = access.getName();
+            }
+            if (identifier == null || classContext == null) {
+              return false;
+            }
+            JavaType.Variable fieldType = identifier.getFieldType();
+            return fieldType != null
+                && TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE)
+                && classContext.migratableRepositoryServiceFields.contains(
+                    identifier.getSimpleName());
           }
 
           private boolean canReorder(List<Expression> arguments) {
