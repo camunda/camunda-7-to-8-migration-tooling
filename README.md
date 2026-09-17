@@ -138,6 +138,13 @@ The `Release` GitHub Actions workflow is the supported way to publish release ar
    - `ONLY_PUSH_TO_MAVEN_CENTRAL=false`
 3. The workflow now auto-publishes the validated Sonatype Central deployment, so no manual "Publish" step is required in the Central UI.
 4. The workflow waits until the deployment is published and verifies that all Maven Central artifacts are available before the release succeeds.
+5. After Maven Central verification, the workflow creates a draft GitHub Release with generated notes for the tag when needed, uploads and verifies these release assets, then publishes the release:
+   - Data Migrator `.tar.gz` and `.zip` distributions
+   - Data Migrator Cockpit plugin `.jar`
+   - Code Conversion recipes `.jar`
+   - Diagram Converter core, webapp, and CLI `.jar` files
+
+   If publication fails because an expected asset is missing or differs from the built artifact, the workflow fails and any newly created release remains a draft. Customers therefore never see a published release with an incomplete asset set. A failed job can be rerun safely; it uploads only missing assets and refuses to overwrite a file with a different digest.
 
 ### Backfill Maven Central for an existing tag
 
@@ -149,7 +156,7 @@ If a GitHub release/tag already exists but Maven Central is missing the artifact
 - `ONLY_PUSH_TO_MAVEN_CENTRAL=true`
 
 Run the workflow from the current `main` branch so it uses the fixed publication workflow, not the old workflow definition stored in the release tag. This mode skips `release:prepare`, checks out the release tag, rebuilds the artifacts from that source, and publishes them to Maven Central only.
-It performs the same publication verification and fails if any expected artifact is still unavailable after the Central propagation timeout.
+It performs the same publication verification and fails if any expected artifact is still unavailable after the Central propagation timeout. It does not create, modify, or publish GitHub Release assets.
 
 ## License
 
