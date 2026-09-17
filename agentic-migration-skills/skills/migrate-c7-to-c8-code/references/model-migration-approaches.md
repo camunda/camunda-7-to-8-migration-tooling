@@ -223,10 +223,12 @@ The current dedicated cross-check categories are:
 | Category | Dedicated cross-check |
 |---|---|
 | `delegate-expression-as-job-type`, `delegate-implementation` | Check the 1:1 and many-to-one job-type mappings in `composing-code-and-models.md` |
+| `script`, `script-job-type` | Check the worker coverage in `composing-code-and-models.md` |
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
 | `element-not-supported-hint` | Verify target support for the affected element |
+| `job-worker-task-definition` | Check the source-versus-converted job-worker scan in `composing-code-and-models.md` |
 | `conditional-flow` | Verify target support for the converted flow and condition |
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
 
@@ -266,14 +268,16 @@ Use the following rules:
 | `element-not-supported-hint` otherwise | **Blocking** | Treat the affected element as blocking until target-support verification shows it can deploy and execute. |
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
 | `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
-| A job-worker activity with no converted `zeebe:taskDefinition`, or a blank `zeebe:taskDefinition/@type` | **Blocking** | A missing or blank type prevents job worker activation. This includes `delegate-implementation-no-default-job-type` and `delegate-expression-as-job-type-null`. |
-| `delegate-expression-as-job-type` or `delegate-implementation` with an uncovered or mismatched job-type mapping | **Blocking** | The affected job cannot execute until a worker or dispatcher route covers it. Record the cross-check evidence. |
+| `job-worker-task-definition` | **Blocking** | A missing or blank task type prevents job worker activation. Capture one source-derived inventory entry per affected converted element. This covers `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null`, and any converted job-worker activity with no `zeebe:taskDefinition`. |
+| `delegate-expression-as-job-type`, `delegate-implementation`, `script`, or `script-job-type` when the worker-coverage cross-check is unavailable | **Blocking** | Treat worker coverage as unknown until the code/model cross-check confirms a route. This includes models-only scope and incomplete code inventory. |
+| `delegate-expression-as-job-type`, `delegate-implementation`, `script`, or `script-job-type` with an uncovered or mismatched job-type mapping, or another uncovered worker route | **Blocking** | The affected job cannot execute until a worker or dispatcher route covers it. Record the cross-check evidence. |
 | `conditional-flow` when target-support verification shows the converted flow and its condition can deploy and execute | **Advisory** | The finding does not apply to the chosen target. |
 | `conditional-flow` otherwise | **Blocking** | Treat the flow as blocking until target-support verification shows the flow and condition can deploy and execute. |
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
 | A `businessKey` or `cam-business-key` marker in a form category | **Advisory** | **Blocking** in the named form procedure means migration-blocking. It does not identify a deployment or execution blocker. |
 | `form-data`, `generated-form-property-source`, and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
+| `script` or `script-job-type` with confirmed worker coverage | **Advisory** | The converted task has a covered worker route. Record the cross-check evidence in the `Impact evidence` column. |
 | Any other known category where the converter or guidance shows a deterministic mapping, removal, or target support | **Advisory** | Record the mapping, removal, or support evidence in the `Impact evidence` column. |
 | Any other known category when guidance or verified context shows no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
 | Any other category | **Blocking** | Treat the category as blocking until verification shows no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
@@ -399,6 +403,7 @@ Rules:
 - The missing artifact is a separate C8 form.
 - Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
+- Add a synthetic `job-worker-task-definition` row when the source-versus-converted scan finds a job-worker activity with no `zeebe:taskDefinition` or a blank `zeebe:taskDefinition/@type`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
 - The table above is illustrative, not a template to copy: every category present in *this* run gets one or more impact rows. In particular, each specific form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) has separate rows and verdicts. They are different migrations and routinely land on different verdicts. When only the legacy generic `form-key` finding exists, use one source-derived `c7-*` row per form-key classification instead. Add a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
 

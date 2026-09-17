@@ -15,14 +15,21 @@ Follow the user's preference.
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category/impact row with a
 `converted-c8-*` BPMN or DMN copy.
+Use the same worker-coverage checks for `delegate-expression-as-job-type`, `delegate-implementation`,
+`script`, and `script-job-type` when a converted service task depends on a worker route.
 
-When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
-each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
-derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `headerKey`, `original`, and `jobType` for each
-original-implementation-to-emitted-type pair. Record the original C7 attribute name as `headerKey`.
-Apply the same 1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings,
-because M2-only runs do not produce them.
+When M2 is in scope, compare each converted job-worker activity with its original Camunda 7
+implementation. If the converted activity has no `zeebe:taskDefinition`, or a blank
+`zeebe:taskDefinition/@type`, add one source-derived `job-worker-task-definition` inventory entry in
+`MIGRATION_REPORT.md` for that element. Record the converted file, element ID, original
+implementation attribute, and `missing` or blank job type in its evidence.
+When M2 is in scope without a Diagram Converter report, scan every existing
+`zeebe:taskDefinition/@type` in each converted BPMN file. Read the corresponding original Camunda 7
+implementation attribute and derive the expected type from the M2 binding rules in
+`model-migration-approaches.md`. Create one normalized input row with the columns `headerKey`,
+`original`, and `jobType` for each original-implementation-to-emitted-type pair. Record the
+original C7 attribute name as `headerKey`. Apply the same 1:1 or many-to-one check. Do not wait
+for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
 
@@ -45,7 +52,8 @@ Group the normalized rows by `jobType`:
 For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
 
 For each many-to-one group, check each converted element retains the row's `headerKey` and
-`original` value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**.
+`original` value as a `zeebe:header`. If a pair is missing, record uncovered routing evidence for
+step 5d.
 While a pair is missing, do not run the dispatcher check.
 
 ### 2a. 1:1 mapping - simple job-type match
@@ -74,7 +82,7 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 For each candidate job-type group, check every converted task definition with that job type maps to
 a normalized route pair.
-If a task lacks a route pair, then keep the group **needs fix**.
+If a task lacks a route pair, record uncovered routing evidence for step 5d.
 While any task lacks a route pair, do not offer a scaffold.
 
 Use this table to decide whether to offer a scaffold:
@@ -91,7 +99,7 @@ Use this table to decide whether to offer a scaffold:
 | User choice | Result |
 |---|---|
 | **Generate a dispatcher scaffold** | Create a draft for review. |
-| **I will implement the dispatcher manually** | Keep the category **needs fix**. |
+| **I will implement the dispatcher manually** | Record that the existing needs-fix evidence stays open. |
 
 Generate the scaffold only after the user selects it.
 Never overwrite an existing file.
@@ -116,7 +124,7 @@ When the user declines the draft, remove it.
 After acceptance, move the draft beside migrated workers.
 When the project requires an existing registration source, update it after acceptance.
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
-Keep the category **needs fix** until that check passes.
+Keep the existing needs-fix evidence until that check passes.
 
 ### 3. FEEL method-invocation category
 
