@@ -309,4 +309,67 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
             }
             """));
   }
+
+  @Test
+  void addsTodoForDeploymentUsedAsAnArgument() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                consume(repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy());
+              }
+
+              boolean hasDeployment() {
+                if (repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy() != null) {
+                  return true;
+                }
+                return false;
+              }
+
+              private void consume(Object deployment) {
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Deployer {
+              private RepositoryService repositoryService;
+
+              void deploy() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                consume(repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy());
+              }
+
+              boolean hasDeployment() {
+                // TODO: RepositoryService deployment method was not migrated automatically
+                if (repositoryService.createDeployment()
+                    .addClasspathResource("bpmn/order.bpmn")
+                    .deploy() != null) {
+                  return true;
+                }
+                return false;
+              }
+
+              private void consume(Object deployment) {
+              }
+            }
+            """));
+  }
 }

@@ -115,7 +115,10 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
           public J.If visitIf(J.If ifStatement, ExecutionContext ctx) {
             J.If visited = super.visitIf(ifStatement, ctx);
             if (containsMethod(visited.getIfCondition(), REPOSITORY_QUERY, ctx)) {
-              return (J.If) addCommentIfMissing((Statement) visited, QUERY_TODO);
+              visited = (J.If) addCommentIfMissing((Statement) visited, QUERY_TODO);
+            }
+            if (containsMethod(visited.getIfCondition(), CREATE_DEPLOYMENT, ctx)) {
+              visited = (J.If) addCommentIfMissing((Statement) visited, DEPLOYMENT_TODO);
             }
             return visited;
           }
@@ -128,10 +131,13 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             if (DEPLOY.matches(visited) && containsMethod(visited, CREATE_DEPLOYMENT)) {
               return migrateDeployment(visited, ctx);
             }
-            if (isOutermostMethodInvocation()
-                && !hasEnclosingTodoStatement()
-                && containsMethod(visited, REPOSITORY_QUERY, ctx)) {
-              return addCommentIfMissing(visited, QUERY_TODO);
+            if (isOutermostMethodInvocation() && !hasEnclosingTodoStatement()) {
+              if (containsMethod(visited, REPOSITORY_QUERY, ctx)) {
+                visited = addCommentIfMissing(visited, QUERY_TODO);
+              }
+              if (containsMethod(visited, CREATE_DEPLOYMENT, ctx)) {
+                visited = addCommentIfMissing(visited, DEPLOYMENT_TODO);
+              }
             }
             return visited;
           }
