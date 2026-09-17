@@ -102,6 +102,68 @@ class ReplaceRepositoryServiceMethodsTest implements RewriteTest {
   }
 
   @Test
+  void addsTodoForNestedRepositoryQueries() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+
+              boolean hasDefinitions() {
+                if (repositoryService.createProcessDefinitionQuery().count() > 0) {
+                  return true;
+                }
+                consume(repositoryService.createDecisionDefinitionQuery().count());
+                return false;
+              }
+
+              void reportWhenEnabled(boolean enabled) {
+                if (enabled) {
+                  consume(repositoryService.createCaseDefinitionQuery().count());
+                }
+              }
+
+              private void consume(long count) {
+              }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.RepositoryService;
+
+            class Definitions {
+              private RepositoryService repositoryService;
+
+              boolean hasDefinitions() {
+                // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+                if (repositoryService.createProcessDefinitionQuery().count() > 0) {
+                  return true;
+                }
+                // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+                consume(repositoryService.createDecisionDefinitionQuery().count());
+                return false;
+              }
+
+              void reportWhenEnabled(boolean enabled) {
+                if (enabled) {
+                  // TODO: RepositoryService query was not migrated automatically. Migrate it manually with the corresponding Camunda 8 Java client search request or REST endpoint.
+                  consume(repositoryService.createCaseDefinitionQuery().count());
+                }
+              }
+
+              private void consume(long count) {
+              }
+            }
+            """));
+  }
+
+  @Test
   void usesAnUnambiguousExistingCamundaClient() {
     rewriteRun(
         spec -> spec.recipe(new MigrateRepositoryServiceRecipe()),

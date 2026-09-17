@@ -112,6 +112,15 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
           }
 
           @Override
+          public J.If visitIf(J.If ifStatement, ExecutionContext ctx) {
+            J.If visited = super.visitIf(ifStatement, ctx);
+            if (containsMethod(visited.getIfCondition(), REPOSITORY_QUERY, ctx)) {
+              return (J.If) addCommentIfMissing((Statement) visited, QUERY_TODO);
+            }
+            return visited;
+          }
+
+          @Override
           public J.MethodInvocation visitMethodInvocation(
               J.MethodInvocation invocation, ExecutionContext ctx) {
             J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
@@ -119,7 +128,9 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
             if (DEPLOY.matches(visited) && containsMethod(visited, CREATE_DEPLOYMENT)) {
               return migrateDeployment(visited, ctx);
             }
-            if (isStandaloneStatement() && containsMethod(visited, REPOSITORY_QUERY)) {
+            if (isOutermostMethodInvocation()
+                && !hasEnclosingTodoStatement()
+                && containsMethod(visited, REPOSITORY_QUERY, ctx)) {
               return addCommentIfMissing(visited, QUERY_TODO);
             }
             return visited;
@@ -340,6 +351,22 @@ public class MigrateRepositoryServiceRecipe extends org.openrewrite.Recipe {
                 || parent instanceof J.ForEachLoop
                 || parent instanceof J.WhileLoop
                 || parent instanceof J.DoWhileLoop;
+          }
+
+          private boolean isOutermostMethodInvocation() {
+            return !(getCursor().getParentTreeCursor().getValue() instanceof J.MethodInvocation);
+          }
+
+          private boolean hasEnclosingTodoStatement() {
+            return getCursor().firstEnclosing(J.VariableDeclarations.class) != null
+                || getCursor().firstEnclosing(J.Assignment.class) != null
+                || getCursor().firstEnclosing(J.Return.class) != null
+                || isInsideIfCondition();
+          }
+
+          private boolean isInsideIfCondition() {
+            J.If ifStatement = getCursor().firstEnclosing(J.If.class);
+            return ifStatement != null && getCursor().isScopeInPath(ifStatement.getIfCondition());
           }
 
           private boolean containsMethod(J.MethodInvocation invocation, MethodMatcher matcher) {
