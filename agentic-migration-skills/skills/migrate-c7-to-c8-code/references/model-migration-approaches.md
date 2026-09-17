@@ -211,6 +211,11 @@ impact is independent of severity. Step 5 uses runtime impact before severity wh
 follow-up work. Runtime impact describes whether the finding blocks deployment or execution on the
 chosen target.
 
+When a category has both impacts, use one row per impact. Add the affected element or attribute to
+the row label.
+A finding context is its report element type and message. Do not add a source scan for this
+classification.
+
 Use the following rules:
 
 | Category or validation condition | Runtime impact | Derivation |
@@ -218,9 +223,8 @@ Use the following rules:
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
 | `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version | Compare the report's required version with the chosen target. A report generated for another target must be revalidated before this classification is used. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
-| `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
-| `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
-| Every other known category, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
+| A dedicated cross-check, form procedure, or finding context identifies a deployment or execution blocker | **Blocking** | Use the existing category guidance for the affected finding. |
+| Every other finding | **Advisory** | The finding can require migration work or a decision, but it does not identify a deployment or execution blocker. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
 assigning its impact. Use **Blocking** only when the evidence shows a deployment or execution
@@ -291,16 +295,17 @@ Verdicts:
 
 | Category (messageId or source category) | Runtime impact | Count | Cross-referenced code artifact | Link | Verdict |
 |---|---|---|---|---|---|
-| `expression-method-not-possible` | Blocking | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
+| `element-not-supported` | Blocking | 12 | none yet — replace or remove the unsupported element | `<finding link>` | needs fix |
 | `delegate-expression-as-job-type` | Advisory | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
-| `form-data` | Advisory | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | Advisory | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | Advisory | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
+| `form-data` without `businessKey` | Advisory | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
+| `form-key-embedded` without `cam-business-key` | Advisory | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
+| `form-key-external` without `cam-business-key` | Advisory | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
 | `c7-generic-task-form` | Advisory | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
 
 Rules:
 
-- One row per category, sorted as in 5b.
+- Use one row per category. When a category has both impacts, use one row per impact. Sort the rows
+  as in 5b.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched, or `none yet` when no remediation exists. For models-only scope there is no code to cross-reference: use `n/a`. For a fallback category, write `no dedicated cross-check` in this column. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix). Apply the procedure-defined lifecycle instead to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding. Those categories have no independent converter severity.
