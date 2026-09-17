@@ -16,6 +16,72 @@ import static org.openrewrite.java.Assertions.java;
 class RemoveEngineDependencyTest implements RewriteTest {
 
     @Test
+    void removesUnusedRepositoryServiceFieldsForSameNamedNonFieldIdentifiers() {
+        rewriteRun(
+                spec -> spec.recipe(new CleanupEngineDependencyRecipe()),
+                //language=java
+                java(
+                        """
+                                package org.camunda.community.migration.example;
+
+                                import org.camunda.bpm.engine.RepositoryService;
+
+                                class ParameterShadow {
+
+                                    private RepositoryService repositoryService;
+
+                                    void deploy(String repositoryService) {
+                                        System.out.println(repositoryService);
+                                    }
+                                }
+
+                                class LocalShadow {
+
+                                    private RepositoryService repositoryService;
+
+                                    void deploy() {
+                                        String repositoryService = "resource";
+                                        System.out.println(repositoryService);
+                                    }
+                                }
+
+                                class MethodNameCollision {
+
+                                    private RepositoryService repositoryService;
+
+                                    void repositoryService() {
+                                    }
+                                }
+                                """,
+                        """
+                                package org.camunda.community.migration.example;
+
+                                class ParameterShadow {
+
+                                    void deploy(String repositoryService) {
+                                        System.out.println(repositoryService);
+                                    }
+                                }
+
+                                class LocalShadow {
+
+                                    void deploy() {
+                                        String repositoryService = "resource";
+                                        System.out.println(repositoryService);
+                                    }
+                                }
+
+                                class MethodNameCollision {
+
+                                    void repositoryService() {
+                                    }
+                                }
+                                """
+                )
+        );
+    }
+
+    @Test
     void preservesRepositoryServiceDependencyWhenStillUsed() {
         rewriteRun(
                 spec -> spec.recipe(new CleanupEngineDependencyRecipe()),

@@ -118,8 +118,8 @@ public class CleanupEngineDependencyRecipe extends Recipe {
                 if (fieldNames.contains(identifier.getSimpleName())) {
                   JavaType.Variable fieldType = identifier.getFieldType();
                   referenced[0] |=
-                      fieldType == null
-                          || TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE);
+                      fieldType != null
+                          && TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE);
                 }
                 return super.visitIdentifier(identifier, nestedCtx);
               }
