@@ -154,8 +154,9 @@ If the report's version does not match the chosen target, or cannot be determine
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
 - **Keep the imported report** (MAY) — use it only for non-runtime grouping. Record the target
-  mismatch or unknown target in MIGRATION_REPORT.md. Run target-aware revalidation before assigning
-  runtime impact or completing the verdict table.
+  mismatch or unknown target in MIGRATION_REPORT.md. Before assigning runtime impact or completing
+  the verdict table, re-run the converter at the chosen target. Use its fresh JSON report as the
+  authoritative findings source.
 
 #### 5a. Parse the JSON report
 
@@ -233,28 +234,24 @@ follow-up work. Runtime impact describes whether the finding blocks deployment o
 chosen target.
 
 When a category has both impacts, use one row per impact. Put the matching element IDs in each
-row's Element list. A finding context is its report element type and message. Before classifying a
-form category, run the discovery and classification work from its named form procedure. Use the
-collected `businessKey` or `cam-business-key` marker to partition its element IDs. Do not add a
-separate source scan for this classification.
+row's Element list. A finding context is its report element type and message. Apply the first
+matching rule in the following table.
 
 Use the following rules:
 
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
-| `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
+| `element-not-supported` | **Blocking** | The target cannot deploy or execute the affected element. |
+| `element-not-supported-hint` with evidence that the target cannot deploy or execute the affected element | **Blocking** | Use the affected element and existing category guidance as evidence. |
+| `element-not-supported-hint` without that evidence | **Advisory** | The hint alone does not establish a deployment or execution blocker. |
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
 | `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
-| `form-data` with `camunda:formData@businessKey`, or a form-reference category with a `cam-business-key` marker | **Blocking** | Use the marker collected by the named form procedure. Camunda 8 forms have no direct equivalent for the required business-key behavior. |
-| A finding's report context or dedicated procedure identifies a deployment or execution blocker | **Blocking** | Use the existing category guidance for the affected finding. |
-| Every other finding after the relevant category guidance confirms no deployment or execution blocker | **Advisory** | The finding can require migration work or a decision, but it does not identify a deployment or execution blocker. |
-
-If a new or unknown `messageId` appears, verify the converted model and the affected element before
-assigning its impact. Use **Blocking** only when the evidence shows a deployment or execution
-failure. Otherwise use **Advisory**, record the evidence, and add the category to the inventory.
+| `form-data` and form-reference categories, including business-key markers | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
+| Any other known or unknown category when guidance or verified context identifies a deployment or execution blocker | **Blocking** | Verify the converted model and affected element. Record the evidence and category in the inventory. |
+| Any other known or unknown category without that evidence | **Advisory** | Record the evidence and category in the inventory. |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
 **Advisory**, such as `form-data` without a business-key marker. A WARNING can be **Blocking**, such
@@ -332,12 +329,10 @@ Verdicts:
 |---|---|---|---|---|---|---|
 | `element-not-supported` | Blocking | 12 | `.camunda-migration/findings-by-category.json`: `element-not-supported` | none yet — replace or remove the unsupported element | `<finding link>` | needs fix |
 | `delegate-expression-as-job-type` (uncovered mappings) | Blocking | `<uncovered count>` | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` — `<uncovered element IDs>` | `DelegateDispatcher` (routes 38/42 pairs) | `<finding link>` | needs fix |
-| `form-data` with `camunda:formData@businessKey` | Blocking | `<business-key count>` | `.camunda-migration/findings-by-category.json`: `form-data` — `<business-key element IDs>` | none yet — choose an explicit Camunda 8 design | `<finding link>` | needs fix |
-| `form-key-embedded` with `cam-business-key` | Blocking | `<business-key count>` | `.camunda-migration/findings-by-category.json`: `form-key-embedded` — `<business-key element IDs>` | none yet — choose an explicit Camunda 8 design | `<finding link>` | needs fix |
 | `delegate-expression-as-job-type` (covered mappings) | Advisory | `<covered count>` | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` — `<covered element IDs>` | `DelegateDispatcher` (covers every listed mapping) | `<finding link>` | no action |
-| `form-data` without `camunda:formData@businessKey` | Advisory | `<non-business-key count>` | `.camunda-migration/findings-by-category.json`: `form-data` — `<non-business-key element IDs>` | one `.form` per C7 Generated Task Form (see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` without `cam-business-key` | Advisory | `<non-business-key count>` | `.camunda-migration/findings-by-category.json`: `form-key-embedded` — `<non-business-key element IDs>` | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` without `cam-business-key` | Advisory | `<non-business-key count>` | `.camunda-migration/findings-by-category.json`: `form-key-external` — `<non-business-key element IDs>` | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
+| `form-data` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-data` | one `.form` per C7 Generated Task Form (see 5f) | `<finding link>` | needs fix |
+| `form-key-embedded` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-key-embedded` | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
+| `form-key-external` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-key-external` | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
 | `c7-generic-task-form` | Advisory | 8 | `MIGRATION_REPORT.md` source inventory: `c7-generic-task-form` | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
 
 Rules:
