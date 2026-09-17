@@ -222,6 +222,7 @@ The current dedicated cross-check categories are:
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
 | `element-not-supported-hint` | Verify target support for the affected element |
+| `conditional-flow` | Verify target support for the converted flow and condition |
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
 
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
@@ -267,11 +268,13 @@ Use the following rules:
 | Any other known or unknown category when guidance or verified context shows no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
 | Any other known or unknown category otherwise | **Blocking** | Treat the category as blocking until verification shows no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
 
-For `element-not-supported-hint`, assign the verdict after target-support verification:
+For `element-not-supported-hint` and `conditional-flow`, assign the verdict after target-support
+verification:
 
 | Verification condition | Verdict |
 |---|---|
 | The target supports the affected element and the verification gate passes | **no action** |
+| The target supports the converted flow and condition and the verification gate passes | **no action** |
 | The target-support test shows that the model cannot deploy or execute | **needs fix** |
 | A test cluster or complete result is unavailable | **needs review** |
 
