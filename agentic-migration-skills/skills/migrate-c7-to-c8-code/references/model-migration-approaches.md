@@ -278,7 +278,7 @@ Verdicts:
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
 |---|---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 pairs) | `<finding link>` | needs fix |
 | `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
 | `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
 | `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |

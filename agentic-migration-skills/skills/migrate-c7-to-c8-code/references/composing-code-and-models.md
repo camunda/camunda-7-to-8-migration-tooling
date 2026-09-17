@@ -29,8 +29,8 @@ because M2-only runs do not produce them.
 Build the normalized input rows from the `delegate-expression-as-job-type` and
 `delegate-implementation` findings, and the M2 scan.
 For a converter finding, parse the original expression and job type from its `message`. Locate the
-converted BPMN element. Read its retained header key. For an M2 row, use the `headerKey`, `original`,
-and `jobType` columns created above. Each normalized row has the shape:
+original C7 BPMN element. Read its implementation attribute name as `headerKey`. For an M2 row, use
+the `headerKey`, `original`, and `jobType` columns created above. Each normalized row has the shape:
 
 > `headerKey`: Original C7 attribute name
 > `original`: Delegate class or expression '\<original\>'
