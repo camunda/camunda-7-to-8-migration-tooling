@@ -234,6 +234,16 @@ impact is independent of severity. Step 5 uses runtime impact before severity wh
 follow-up work. Runtime impact describes whether the finding blocks deployment or execution on the
 chosen target.
 
+For target-support verification, use a test cluster at the chosen target version:
+
+1. Deploy the fresh converted copy.
+2. Start an instance that reaches the affected element or condition.
+3. Record the target version and deployment identifier in `Impact evidence`.
+4. Record the process-instance key and result in `Impact evidence`.
+
+If the test shows that the model cannot deploy or execute, use **Blocking** and **needs fix**. If a
+test cluster or complete result is unavailable, use **Blocking** and **needs review**.
+
 When a category has both impacts, use one row per impact. Put the matching element IDs in each
 row's Element list. A finding context is its report element type and message. Apply the first
 matching rule in the following table.
@@ -262,7 +272,8 @@ For `element-not-supported-hint`, assign the verdict after target-support verifi
 | Verification condition | Verdict |
 |---|---|
 | The target supports the affected element and the verification gate passes | **no action** |
-| Otherwise | **needs fix** |
+| The target-support test shows that the model cannot deploy or execute | **needs fix** |
+| A test cluster or complete result is unavailable | **needs review** |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
 **Advisory**, such as `form-data`. A WARNING can be **Blocking**, such

@@ -167,7 +167,8 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 ### 6. Provide verdict evidence
 
 Use this section to collect cross-check and code-artifact evidence. `model-migration-approaches.md`
-step 5d alone assigns runtime impact and verdicts to category/impact rows. Record this section's
+step 5d owns the final `Runtime impact` and `Verdict` values in category/impact rows. This section
+and the named form procedures supply lifecycle evidence and conditions. Record this section's
 results in that table's `Cross-referenced code artifact` and `Impact evidence` columns:
 
 - Complete job-type, dispatcher, or invoked-method coverage is evidence for a **no action** row after the verification gate passes.
