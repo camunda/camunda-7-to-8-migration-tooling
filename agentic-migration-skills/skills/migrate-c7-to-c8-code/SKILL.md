@@ -288,7 +288,9 @@ target version. See the linting section in `references/model-migration-approache
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, count, cross-referenced code artifact, and verdict. See
+   with its category, count, cross-referenced code artifact, and verdict. In an M1 run, every
+   **needs fix** or **needs review** category references its complete element list in the verdict
+   table. A converter category names the actual artifact path. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
@@ -369,8 +371,9 @@ Use AskUserQuestion with these options:
 
 #### Action 1: fix findings and migration TODOs
 
-For model findings, work from the Step 4 verdict table. Never present model findings as one
-undifferentiated list.
+For model categories, work from the Step 4 verdict table.
+For each M1 **needs fix** or **needs review** category, load its complete list from the Element list
+reference. Use the grouped summary example only to select a category.
 
 | Verdict | Action |
 |---|---|
