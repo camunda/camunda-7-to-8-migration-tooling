@@ -145,15 +145,26 @@ jobs:
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
         id: release-artifacts
         run: |
+          set -euo pipefail
+
           ARTIFACT_DIR=$(mktemp -d)
-          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.tar.gz "${ARTIFACT_DIR}/"
-          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip "${ARTIFACT_DIR}/"
-          cp data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          release_assets=(
+            "data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.tar.gz"
+            "data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip"
+            "data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar"
+            "code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar"
+            "diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar"
+            "diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar"
+            "diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar"
+          )
+
+          for asset in "${release_assets[@]}"; do
+            cp "${asset}" "${ARTIFACT_DIR}/"
+            basename "${asset}" >> "${ARTIFACT_DIR}/release-assets.txt"
+          done
+
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
+
       - name: Upload Release Artifacts
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
         uses: actions/upload-artifact@v7
@@ -248,10 +259,221 @@ jobs:
           printf 'Missing artifact: %s\n' "${missing[@]}"
           exit 1
 
+  publish-github-release:
+    name: Publish GitHub Release Assets
+    runs-on: ubuntu-latest
+    needs: release
+    if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
+    timeout-minutes: 15
+    concurrency:
+      group: github-release-assets-${{ inputs.RELEASE_VERSION }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artifacts-${{ env.RELEASE_VERSION }}
+          path: ./release-assets
+
+      - name: Create or reuse draft GitHub release
+        id: github-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release_json=$(mktemp)
+          release_error=$(mktemp)
+          trap 'rm -f "${release_json}" "${release_error}"' EXIT
+
+          expected_prerelease=false
+          if [[ "${RELEASE_VERSION}" == *-* ]]; then
+            expected_prerelease=true
+          fi
+
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}" \
+            > "${release_json}" 2> "${release_error}"; then
+            release_draft=$(jq --raw-output '.draft' "${release_json}")
+            release_prerelease=$(jq --raw-output '.prerelease' "${release_json}")
+
+            if [[ "${release_prerelease}" != "${expected_prerelease}" ]]; then
+              echo "::error::Release '${RELEASE_VERSION}' has prerelease=${release_prerelease}, expected ${expected_prerelease}."
+              exit 1
+            fi
+          else
+            if [[ "$(jq --raw-output '.status // empty' "${release_json}")" != 404 ]]; then
+              cat "${release_error}" >&2
+              cat "${release_json}" >&2
+              echo "::error::Could not determine whether GitHub release '${RELEASE_VERSION}' exists."
+              exit 1
+            fi
+
+            release_flags=(
+              --repo "${GITHUB_REPOSITORY}"
+              --title "${RELEASE_VERSION}"
+              --draft
+              --generate-notes
+              --verify-tag
+            )
+            if [[ "${expected_prerelease}" == true ]]; then
+              release_flags+=(--prerelease)
+            fi
+
+            gh release create "${RELEASE_VERSION}" "${release_flags[@]}"
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}" > "${release_json}"
+            release_draft=$(jq --raw-output '.draft' "${release_json}")
+            release_prerelease=$(jq --raw-output '.prerelease' "${release_json}")
+            if [[ "${release_draft}" != true || "${release_prerelease}" != "${expected_prerelease}" ]]; then
+              echo "::error::New GitHub release '${RELEASE_VERSION}' has an unexpected state."
+              exit 1
+            fi
+          fi
+
+          if [[ "${release_draft}" != true && "${release_draft}" != false ]]; then
+            echo "::error::GitHub release '${RELEASE_VERSION}' returned an invalid draft state '${release_draft}'."
+            exit 1
+          fi
+
+          echo "draft=${release_draft}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload GitHub release assets
+        if: ${{ steps.github-release.outputs.draft == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          asset_directory=release-assets
+          manifest="${asset_directory}/release-assets.txt"
+          if [[ ! -s "${manifest}" ]]; then
+            echo "::error::Release asset manifest '${manifest}' is missing or empty."
+            exit 1
+          fi
+
+          mapfile -t assets < "${manifest}"
+          if ((${#assets[@]} != 7)); then
+            echo "::error::Expected seven release assets, found ${#assets[@]}."
+            exit 1
+          fi
+
+          duplicates=$(printf '%s\n' "${assets[@]}" | sort | uniq --repeated)
+          if [[ -n "${duplicates}" ]]; then
+            echo "::error::Release asset manifest contains duplicates:"
+            printf '%s\n' "${duplicates}"
+            exit 1
+          fi
+
+          declare -A local_digests
+          declare -A remote_digests
+          remote_assets=$(gh release view "${RELEASE_VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json assets \
+            --jq '.[] | [.name, .digest] | @tsv')
+          while IFS=$'\t' read -r asset_name asset_digest; do
+            [[ -z "${asset_name}" ]] && continue
+            remote_digests["${asset_name}"]="${asset_digest}"
+          done <<< "${remote_assets}"
+
+          for asset in "${assets[@]}"; do
+            asset_path="${asset_directory}/${asset}"
+            if [[ ! -f "${asset_path}" ]]; then
+              echo "::error::Expected release asset '${asset_path}' is missing."
+              exit 1
+            fi
+
+            local_digests["${asset}"]="sha256:$(sha256sum "${asset_path}" | awk '{print $1}')"
+            if [[ -n "${remote_digests[${asset}]+present}" ]] \
+              && [[ "${remote_digests[${asset}]}" != "${local_digests[${asset}]}" ]]; then
+              echo "::error::Existing asset '${asset}' has a different digest and will not be overwritten."
+              echo "Expected: ${local_digests[${asset}]}"
+              echo "Actual:   ${remote_digests[${asset}]}"
+              exit 1
+            fi
+          done
+
+          for asset in "${assets[@]}"; do
+            if [[ -z "${remote_digests[${asset}]+present}" ]]; then
+              gh release upload "${RELEASE_VERSION}" "${asset_directory}/${asset}" \
+                --repo "${GITHUB_REPOSITORY}"
+            fi
+          done
+
+      - name: Verify GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          asset_directory=release-assets
+          manifest="${asset_directory}/release-assets.txt"
+          mapfile -t assets < "${manifest}"
+          if ((${#assets[@]} != 7)); then
+            echo "::error::Expected seven release assets, found ${#assets[@]}."
+            exit 1
+          fi
+
+          for attempt in {1..5}; do
+            declare -A remote_digests=()
+            remote_assets=$(gh release view "${RELEASE_VERSION}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --json assets \
+              --jq '.[] | [.name, .digest] | @tsv')
+            while IFS=$'\t' read -r asset_name asset_digest; do
+              [[ -z "${asset_name}" ]] && continue
+              remote_digests["${asset_name}"]="${asset_digest}"
+            done <<< "${remote_assets}"
+
+            missing=()
+            mismatched=()
+            for asset in "${assets[@]}"; do
+              asset_path="${asset_directory}/${asset}"
+              expected_digest="sha256:$(sha256sum "${asset_path}" | awk '{print $1}')"
+              if [[ -z "${remote_digests[${asset}]+present}" ]]; then
+                missing+=("${asset}")
+              elif [[ "${remote_digests[${asset}]}" != "${expected_digest}" ]]; then
+                mismatched+=("${asset}")
+              fi
+            done
+
+            if ((${#missing[@]} == 0 && ${#mismatched[@]} == 0)); then
+              echo "Verified all ${#assets[@]} GitHub release assets for ${RELEASE_VERSION}."
+              exit 0
+            fi
+
+            if ((attempt < 5)); then
+              echo "::notice::GitHub release asset verification is incomplete (attempt ${attempt}/5)."
+              sleep 2
+            fi
+          done
+
+          echo "::error::GitHub release '${RELEASE_VERSION}' does not match the expected asset manifest."
+          printf 'Missing asset: %s\n' "${missing[@]}"
+          printf 'Mismatched asset: %s\n' "${mismatched[@]}"
+          exit 1
+
+      - name: Publish GitHub release
+        if: ${{ steps.github-release.outputs.draft == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh release edit "${RELEASE_VERSION}" --repo "${GITHUB_REPOSITORY}" --draft=false
+          if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}" --jq '.draft')" != false ]]; then
+            echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
+            exit 1
+          fi
+
   docker-image:
     name: Build and Publish Docker Image
     runs-on: ubuntu-latest
-    needs: release
+    needs:
+      - release
+      - publish-github-release
     if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
     timeout-minutes: 30
 
