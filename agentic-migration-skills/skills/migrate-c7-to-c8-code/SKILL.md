@@ -17,6 +17,24 @@ Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds 
 Every instruction here is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an
 option is marked (MAY).
 
+## Scope and run modes
+
+Use this table to map the user's request to a migration path. See Question 3 in
+`references/interview-questions.md` for the scope question.
+
+| User intent | Scope and mode | Required result |
+|---|---|---|
+| Assess a project | Assessment only | Inventory code and models. Do not change project files. |
+| Analyze models | Models only and analyze-only | For M1, use `--check`. Do not create converted copies. |
+| Convert models | Models only and M1 | Create converted copies and findings reports. Preserve source models. |
+| Migrate code | Code only | Run Part A. |
+| Migrate code and models | Code + models | Run Parts A and B. Run the cross-check. |
+
+The Diagram Converter CLI needs Java 21 or later. See the
+[Diagram Converter guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)
+for setup and CLI options.
+Data migration is outside this skill's scope. Do not migrate runtime, history, or identity data here.
+
 ## Step 0: Model preflight
 
 This skill needs complex, multi-file reasoning. Before the scan, read the active model identifier or
