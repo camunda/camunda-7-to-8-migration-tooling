@@ -136,7 +136,8 @@ When the original input, CLI release, and converter options are available, run
 `local <original-input> --check --csv` as supplementary regression evidence.
 Check the edited converted copies with the gate's XML, namespace, wiring, and FEEL checks.
 
-Group by category first. The category, not the individual row, is the unit of work.
+Group by category first. When a category has mixed impact, partition it in 5d.1. The category/impact
+row, not the individual finding, is the unit of work.
 
 #### Imported reports: verify the target platform version
 
@@ -243,7 +244,7 @@ Use the following rules:
 |---|---|---|
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
-| `element-available-in-future-version` when the chosen target meets or exceeds the required version | **Advisory** | The target supports the element. |
+| `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
@@ -309,14 +310,15 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping, assign each category exactly one verdict. Include INFO categories.
+After grouping and runtime-impact partitioning, assign each category/impact row exactly one verdict.
+Include INFO categories.
 When code is in scope, complete the code cross-checks before assigning the verdict.
 Record the table in `MIGRATION_REPORT.md`.
 Never leave findings as severity counts or a generic "findings need follow-up" note.
-For each M1 **needs fix** or **needs review** category, reference its complete element list.
-For an M1 converter category, name the artifact and its category key.
-For an M1 source-derived category, name its complete source inventory list.
-The grouped summary example only identifies the category.
+For each M1 **needs fix** or **needs review** row, reference its complete element list.
+For an M1 converter row, name the artifact and its category key.
+For an M1 source-derived row, name its complete source inventory list.
+The grouped summary identifies the category.
 
 Verdicts:
 
@@ -358,11 +360,13 @@ Rules:
 - These categories have no independent converter severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
 - Run the verification gate directly for an INFO category. Do not ask the user unless a separate decision is needed.
-- Classify every category, including INFO. Never leave one without a verdict.
-- `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
+- Classify every category/impact row, including INFO. Never leave one without a verdict.
+- Every `form-data` row is **needs fix** even when the converter behaved correctly.
+- The missing artifact is a separate C8 form.
+- Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
-- The table above is illustrative, not a template to copy: every category present in *this* run gets its own row. In particular, each specific form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) is a separate row with its own verdict. They are different migrations and routinely land on different verdicts. When only the legacy generic `form-key` finding exists, use one source-derived `c7-*` row per form-key classification instead. Add a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
+- The table above is illustrative, not a template to copy: every category present in *this* run gets one or more impact rows. In particular, each specific form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) has separate rows and verdicts. They are different migrations and routinely land on different verdicts. When only the legacy generic `form-key` finding exists, use one source-derived `c7-*` row per form-key classification instead. Add a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
 
 #### 5e. Strip converter annotations from converted models
 

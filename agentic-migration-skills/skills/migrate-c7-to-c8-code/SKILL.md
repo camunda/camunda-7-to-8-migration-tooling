@@ -372,25 +372,25 @@ Use AskUserQuestion with these options:
 
 #### Action 1: fix findings and migration TODOs
 
-For model categories, work from the Step 4 verdict table.
-For each M1 **needs fix** or **needs review** category, load its complete list from the Element list
-reference. Use the grouped summary example only to select a category.
+For model categories, work from the Step 4 verdict-table rows.
+For each M1 **needs fix** or **needs review** row, load its complete list from the Element list
+reference. Use the grouped summary only to select a category.
 
-For `needs fix` categories, sequence the follow-up work by runtime impact:
+For `needs fix` rows, sequence the follow-up work by runtime impact:
 
 | Order | Runtime impact | Secondary order |
 |---|---|---|
 | 1 | **Blocking** | Severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
 | 2 | **Advisory** | Severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
 
-Present the runtime impact with every category. Resolve all **Blocking** categories before
-**Advisory** categories. Do not use severity as a substitute for runtime impact.
+Present the runtime impact with every verdict-table row. Resolve all **Blocking** rows before
+**Advisory** rows. Do not use severity as a substitute for runtime impact.
 
 | Verdict | Action |
 |---|---|
-| **needs fix** | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs fix** | Resolve one verdict-table row at a time, using that row's cross-check guidance. |
 | **needs review** | Collect the pending user decision through AskUserQuestion before any fix. Run the gate directly when verification is the only pending action. |
-| **no action** | Do not offer the category. |
+| **no action** | Do not offer the row. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
 - Propose an ambiguous fix through AskUserQuestion. Skip whatever the user declines.
