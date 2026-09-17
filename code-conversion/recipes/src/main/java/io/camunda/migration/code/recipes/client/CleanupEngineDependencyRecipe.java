@@ -62,11 +62,21 @@ public class CleanupEngineDependencyRecipe extends Recipe {
 
             List<Statement> newStatements = new ArrayList<>();
             for (Statement statement : classDeclaration.getBody().getStatements()) {
-              if (statement instanceof J.VariableDeclarations varDecls
-                  && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE))) {
+              if (!(statement instanceof J.VariableDeclarations varDecls)) {
+                newStatements.add(statement);
+                continue;
+              }
+
+              if (TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE)
+                  && hasRepositoryServiceReference(classDeclaration, varDecls, ctx)) {
+                newStatements.add(statement);
+                continue;
+              }
+
+              if (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
+                  || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
+                  || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
+                  || TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE)) {
                 // This is the statement we want to remove, so skip adding it
                 continue;
               }
@@ -80,6 +90,42 @@ public class CleanupEngineDependencyRecipe extends Recipe {
 
             return classDeclaration.withBody(
                 classDeclaration.getBody().withStatements(newStatements));
+          }
+
+          private boolean hasRepositoryServiceReference(
+              J.ClassDeclaration classDeclaration,
+              J.VariableDeclarations declaration,
+              ExecutionContext ctx) {
+            Set<String> fieldNames =
+                declaration.getVariables().stream()
+                    .map(J.VariableDeclarations.NamedVariable::getSimpleName)
+                    .collect(java.util.stream.Collectors.toSet());
+            boolean[] referenced = {false};
+
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.VariableDeclarations visitVariableDeclarations(
+                  J.VariableDeclarations declarations, ExecutionContext nestedCtx) {
+                if (declarations.getId().equals(declaration.getId())) {
+                  return declarations;
+                }
+                return super.visitVariableDeclarations(declarations, nestedCtx);
+              }
+
+              @Override
+              public J.Identifier visitIdentifier(
+                  J.Identifier identifier, ExecutionContext nestedCtx) {
+                if (fieldNames.contains(identifier.getSimpleName())) {
+                  JavaType.Variable fieldType = identifier.getFieldType();
+                  referenced[0] |=
+                      fieldType != null
+                          && TypeUtils.isOfClassType(fieldType.getType(), REPOSITORY_SERVICE);
+                }
+                return super.visitIdentifier(identifier, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+
+            return referenced[0];
           }
         });
   }
