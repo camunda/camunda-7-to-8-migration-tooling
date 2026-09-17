@@ -17,24 +17,6 @@ Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds 
 Every instruction here is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an
 option is marked (MAY).
 
-## Scope and run modes
-
-Use this table to map the user's request to a migration path. See Question 3 in
-`references/interview-questions.md` for the scope question.
-
-| User intent | Scope and mode | Required result |
-|---|---|---|
-| Assess a project | Assessment only | Inventory code and models. Write `MIGRATION_REPORT.md`. Do not change source assets. |
-| Analyze models | Models only and analyze-only | For M1, use `--check`. For M2, use a read-only pass. Do not create converted copies. |
-| Convert models | Models only | Use the selected M1 (recommended), M2, or M3 path. Use E1 only when no local models exist. Preserve source models. |
-| Migrate code | Code only | Run Part A. |
-| Migrate code and models | Code + models | Run Parts A and B. Run the cross-check. |
-
-The Diagram Converter CLI needs Java 21 or later. See the
-[Diagram Converter guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)
-for setup and CLI options.
-Data migration is outside this skill's scope. Do not migrate runtime, history, or identity data here.
-
 ## Step 0: Model preflight
 
 This skill needs complex, multi-file reasoning. Before the scan, read the active model identifier or
@@ -214,8 +196,13 @@ AskUserQuestion.
 
 ### Step 3: Execute Migration
 
-Run Part A when the scope includes code. Run Part B when the scope includes models. For Code +
-models, see `references/composing-code-and-models.md`.
+Run Part A when the scope includes code.
+Run Part B when the scope includes models and the user did not select analyze-only.
+For Code + models, see `references/composing-code-and-models.md`.
+
+When the user selects Models only and analyze-only, run `Analyze-Only Mode` in
+`references/model-migration-approaches.md` instead of Part B. Do not run conversion or form follow-up.
+Then stop.
 
 #### Part A - Code Migration
 
