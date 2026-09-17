@@ -43,6 +43,10 @@ Group the normalized rows by `jobType`:
 
 For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
 
+For an M2 many-to-one group, check each converted element retains its `headerKey` and `original`
+value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**. While a pair is
+missing, do not run the dispatcher check.
+
 ### 2a. 1:1 mapping - simple job-type match
 
 Job types in the converted model should match the `@JobWorker(type = ...)` values produced by the
@@ -60,7 +64,7 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 - It routes on the retained header key and value to the mapped legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
-every distinct retained header key and original expression pair in the findings for that job
+every distinct retained header key and original expression pair in the normalized rows for that job
 type. List uncovered pairs for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
