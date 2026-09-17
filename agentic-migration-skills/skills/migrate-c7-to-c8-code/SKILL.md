@@ -385,8 +385,8 @@ For `needs fix` rows, sequence the follow-up work by runtime impact:
 
 | Order | Runtime impact | Secondary order |
 |---|---|---|
-| 1 | **Blocking** | Severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
-| 2 | **Advisory** | Severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 1 | **Blocking** | Highest severity present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Highest severity present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
 
 Present the runtime impact with every verdict-table row. Resolve all **Blocking** rows before
 **Advisory** rows. Do not use severity as a substitute for runtime impact.
@@ -406,7 +406,7 @@ Within each impact, process rows with a severity before source-derived rows with
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
 - When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
-  job-type group with a **needs fix** verdict and no dispatcher. Use the procedure in
+  job-type group with a **needs review** verdict and no dispatcher. Use the procedure in
   `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
 - For a model-finding batch, run the verification gate before updating the verdict table in

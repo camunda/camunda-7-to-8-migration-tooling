@@ -91,7 +91,7 @@ Use this table to decide whether to offer a scaffold:
 | User choice | Result |
 |---|---|
 | **Generate a dispatcher scaffold** | Create a draft for review. |
-| **I will implement the dispatcher manually** | Record that the existing needs-fix evidence stays open. |
+| **I will implement the dispatcher manually** | Record that the existing needs-review evidence stays open. |
 
 Generate the scaffold only after the user selects it.
 Never overwrite an existing file.

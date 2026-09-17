@@ -265,9 +265,9 @@ or blocked by another failure, use **Blocking** and **needs review**.
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, or `script-on-conditional-event` | **Blocking** | The condition cannot execute. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, or `loop-cardinality` | **Blocking** | The element cannot retain its execution semantics. |
 | `in-out-business-key` | **Advisory** | The converter maps a supported process business key. |
-| `in-out-business-key-not-supported` | **Blocking** | The call activity needs a target-compatible mapping. |
+| `in-out-business-key-not-supported` | **Advisory** | The call activity loses business-id propagation. |
 | A form category, including `form-data`, `generated-form-property-source`, or form references | **Advisory** | Form work is not a deployment or execution blocker. |
-| Another known category with mapping, removal, target-support, or nonblocking-context evidence | **Advisory** | Record the evidence. |
+| Another known category with nonblocking evidence. An emitted job needs worker/connector-route evidence. A condition needs execution evidence. | **Advisory** | Record the evidence. |
 | Another category | **Blocking** | No evidence confirms safe deployment and execution. |
 
 **Blocking** in a form procedure means migration-blocking, not runtime-blocking.
@@ -350,8 +350,9 @@ Verdicts:
 Rules:
 
 - Use one row per category and runtime impact. Each split row lists its matching element IDs.
-- Sort verdict-table rows by runtime impact: **Blocking**, then **Advisory**. Within each impact,
-  sort by severity and count. Put source-derived rows last.
+- Sort verdict-table rows by runtime impact: **Blocking**, then **Advisory**.
+- Within each impact, sort rows by highest severity and count.
+- Within each impact, put source-derived rows without a severity after rows with one.
 - For an M1 converter category, Element list names the actual artifact path and the category key.
 - For an M1 source-derived category, Element list names its category in the source inventory in `MIGRATION_REPORT.md`.
 - The Code artifact column names the matched `@JobWorker`, DMN definition, or other code element.
