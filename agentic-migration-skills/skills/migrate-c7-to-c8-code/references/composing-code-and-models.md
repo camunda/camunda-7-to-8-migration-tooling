@@ -29,8 +29,9 @@ because M2-only runs do not produce them.
 Build the normalized input rows from the `delegate-expression-as-job-type` and
 `delegate-implementation` findings, and the M2 scan.
 For a converter finding, parse the original expression and job type from its `message`. Locate the
-original C7 BPMN element. Read its implementation attribute name as `headerKey`. For an M2 row, use
-the `headerKey`, `original`, and `jobType` columns created above. Each normalized row has the shape:
+original C7 BPMN element. Read its implementation attribute name as `headerKey`. Locate the
+converted BPMN element as the later header-verification target. For an M2 row, use the `headerKey`,
+`original`, and `jobType` columns created above. Each normalized row has the shape:
 
 > `headerKey`: Original C7 attribute name
 > `original`: Delegate class or expression '\<original\>'
@@ -43,9 +44,9 @@ Group the normalized rows by `jobType`:
 
 For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
 
-For each many-to-one group, check each converted element retains its `headerKey` and `original`
-value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**. While a pair is
-missing, do not run the dispatcher check.
+For each many-to-one group, check each converted element retains the row's `headerKey` and
+`original` value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**.
+While a pair is missing, do not run the dispatcher check.
 
 ### 2a. 1:1 mapping - simple job-type match
 
