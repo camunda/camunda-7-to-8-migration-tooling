@@ -15,21 +15,14 @@ Follow the user's preference.
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category/impact row with a
 `converted-c8-*` BPMN or DMN copy.
-Use the same worker-coverage checks for `delegate-expression-as-job-type`, `delegate-implementation`,
-`script`, and `script-job-type` when a converted service task depends on a worker route.
 
-When M2 is in scope, compare each converted job-worker activity with its original Camunda 7
-implementation. If the converted activity has no `zeebe:taskDefinition`, or a blank
-`zeebe:taskDefinition/@type`, add one source-derived `job-worker-task-definition` inventory entry in
-`MIGRATION_REPORT.md` for that element. Record the converted file, element ID, original
-implementation attribute, and `missing` or blank job type in its evidence.
-When M2 is in scope without a Diagram Converter report, scan every existing
-`zeebe:taskDefinition/@type` in each converted BPMN file. Read the corresponding original Camunda 7
-implementation attribute and derive the expected type from the M2 binding rules in
-`model-migration-approaches.md`. Create one normalized input row with the columns `headerKey`,
-`original`, and `jobType` for each original-implementation-to-emitted-type pair. Record the
-original C7 attribute name as `headerKey`. Apply the same 1:1 or many-to-one check. Do not wait
-for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
+When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
+each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
+derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
+normalized input row with the columns `headerKey`, `original`, and `jobType` for each
+original-implementation-to-emitted-type pair. Record the original C7 attribute name as `headerKey`.
+Apply the same 1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings,
+because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
 
@@ -184,7 +177,7 @@ results in that table's `Cross-referenced code artifact` and `Impact evidence` c
 - A pending remediation decision, such as the FEEL method-invocation option, is evidence for a **needs review** row.
 - A deletion candidate is evidence for a **needs review** row because deleting code requires an explicit user decision.
 - If no workaround exists, record **needs review** evidence until the verification gate passes.
-- Uncovered code consumers or incomplete form linkage/deployment are evidence for a **needs fix** row. Pending form or validation decisions are evidence for a **needs review** row. Accepted, validated, linked, and deployed forms with covered consumers are evidence for a **no action** row.
+- Record form cross-check results and lifecycle evidence from `form-migration.md`.
 
 Step 5d applies the fallback when a category has no dedicated cross-check or named form procedure.
 Do not infer a category-specific cross-check from an unknown `messageId`, its message text, or a
