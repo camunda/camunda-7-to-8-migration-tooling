@@ -71,7 +71,7 @@ Include only if user selected model migration.
 - E1. Camunda 7 engine (recommended) - fetch definitions from C7 REST API
 - E2. Provide a model path - wait for user to provide another file/directory
 
-Any of M1-M3 can run in analyze-only mode first (`--check` flag).
+M1 and M2 can run in analyze-only mode first. M1 uses `--check`. M2 uses a read-only pass.
 
 ---
 

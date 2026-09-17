@@ -54,7 +54,7 @@ The skill separates assessment, model analysis, model conversion, and complete m
 | Goal | Select or ask for | Result |
 |---|---|---|
 | Inventory a Camunda 7 project | **Assessment only** | The skill inventories code and models. It writes `MIGRATION_REPORT.md`, but does not edit source code or models. |
-| Analyze BPMN/DMN models | **Models only** and analyze-only | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. Online Converter analyzes an uploaded copy. |
+| Analyze BPMN/DMN models | **Models only** and analyze-only | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
 | Convert BPMN/DMN models | **Models only** | Select the Diagram Converter CLI (recommended), Agentic AI, or Online Converter. Each path preserves source models and produces reviewable converted copies. |
 | Migrate Java/Spring code | **Code only** | The skill runs OpenRewrite with AI cleanup, or uses an AI-only approach. |
 | Migrate code and models | **Code + models** | The skill converts models, migrates code, then cross-checks their integration. |
