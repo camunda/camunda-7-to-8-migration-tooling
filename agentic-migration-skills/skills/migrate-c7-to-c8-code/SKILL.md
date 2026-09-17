@@ -292,10 +292,11 @@ target version. See the linting section in `references/model-migration-approache
    `.json`, `.md`, or `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
-4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, count, cross-referenced code artifact, and verdict. In an M1 run, every
-   **needs fix** or **needs review** category references its complete element list in the verdict
-   table. A converter category names the actual artifact path. See
+4. Fix every WARNING, TASK, REVIEW, and INFO finding, or classify it in the per-category/impact
+   verdict table. Each row gives its category, runtime impact, count, Element list,
+   cross-referenced code artifact, impact evidence, and verdict. In an M1 run, every **needs fix**
+   or **needs review** verdict-table row references its matching complete Element list. A converter
+   category names the actual artifact path. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
@@ -336,12 +337,12 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
-#### Verification before closing a model category
+#### Verification before closing a model verdict-table row
 
-Never set a model-finding category's verdict to **no action** or report it as resolved until this
+Never set a model-finding category/impact row's verdict to **no action** or report it as resolved until this
 gate passes.
-Run the gate after each accepted fix and before a no-change category becomes **no action**.
-Use every `converted-c8-*` BPMN or DMN copy named by the category's pre-fix findings report.
+Run the gate after each accepted fix and before a no-change row becomes **no action**.
+Use every `converted-c8-*` BPMN or DMN copy named by the row's pre-fix findings report.
 Record `Before` evidence before editing and `After` evidence after checking in
 `MIGRATION_REPORT.md`.
 
@@ -353,12 +354,12 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
 
-Record one verification row per category with its check results and `pending`, `passed`, or
+Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
 Mark verification `passed` only when every applicable check passes.
-If a check fails, re-open the category as **needs fix**.
-If a check cannot run or a user decision remains, keep the category **needs review**.
-In analyze-only mode, keep every model category **needs review**.
+If a check fails, re-open the row as **needs fix**.
+If a check cannot run or a user decision remains, keep the row **needs review**.
+In analyze-only mode, keep every model category/impact row **needs review**.
 Never start an automatic remediation loop.
 
 If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
@@ -376,15 +377,26 @@ Use AskUserQuestion with these options:
 
 #### Action 1: fix findings and migration TODOs
 
-For model categories, work from the Step 4 verdict table.
-For each M1 **needs fix** or **needs review** category, load its complete list from the Element list
-reference. Use the grouped summary example only to select a category.
+For model categories, work from the verdict table in `model-migration-approaches.md` step 5d.
+For each M1 **needs fix** or **needs review** row, load its complete list from the Element list
+reference. Use the grouped summary only to select a category.
+
+For `needs fix` rows, sequence the follow-up work by runtime impact:
+
+| Order | Runtime impact | Secondary order |
+|---|---|---|
+| 1 | **Blocking** | Highest severity present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Highest severity present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+
+Present the runtime impact with every verdict-table row. Resolve all **Blocking** rows before
+**Advisory** rows. Do not use severity as a substitute for runtime impact.
+Within each impact, process rows with a severity before source-derived rows without one.
 
 | Verdict | Action |
 |---|---|
-| **needs fix** | Resolve one category at a time, using that category's cross-check guidance. |
+| **needs fix** | Resolve one verdict-table row at a time, using that row's cross-check guidance. |
 | **needs review** | Collect the pending user decision through AskUserQuestion before any fix. Run the gate directly when verification is the only pending action. |
-| **no action** | Do not offer the category. |
+| **no action** | Do not offer the row. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
 - Propose an ambiguous fix through AskUserQuestion. Skip whatever the user declines.
@@ -394,7 +406,7 @@ reference. Use the grouped summary example only to select a category.
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
 - When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
-  job-type group with a **needs fix** verdict and no dispatcher. Use the procedure in
+  job-type group with a **needs review** verdict and no dispatcher. Use the procedure in
   `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
 - For a model-finding batch, run the verification gate before updating the verdict table in

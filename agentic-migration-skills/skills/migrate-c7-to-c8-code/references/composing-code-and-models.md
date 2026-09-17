@@ -13,7 +13,7 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
-Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category with a
+Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category/impact row with a
 `converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
@@ -45,7 +45,8 @@ Group the normalized rows by `jobType`:
 For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
 
 For each many-to-one group, check each converted element retains the row's `headerKey` and
-`original` value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**.
+`original` value as a `zeebe:header`. If a pair is missing, record uncovered routing evidence for
+step 5d.
 While a pair is missing, do not run the dispatcher check.
 
 ### 2a. 1:1 mapping - simple job-type match
@@ -74,24 +75,23 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 For each candidate job-type group, check every converted task definition with that job type maps to
 a normalized route pair.
-If a task lacks a route pair, then keep the group **needs fix**.
+If a task lacks a route pair, record uncovered routing evidence for step 5d.
 While any task lacks a route pair, do not offer a scaffold.
 
 Use this table to decide whether to offer a scaffold:
 
-| Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Verdict | Dispatcher | Action |
-|---|---|---|---|---|---|
-| No | Any | Any | Any | Any | Do not offer a scaffold. |
-| Yes | No | Any | Any | Any | Do not offer a scaffold. |
-| Yes | Yes | Fewer than two | Any | Any | Do not offer a scaffold. |
-| Yes | Yes | Two or more | **no action** or **needs review** | Any | Do not offer a scaffold. |
-| Yes | Yes | Two or more | **needs fix** | Present | Do not offer a scaffold. |
-| Yes | Yes | Two or more | **needs fix** | None | Use AskUserQuestion to offer these actions. |
+| Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Dispatcher | Action |
+|---|---|---|---|---|
+| No | Any | Any | Any | Do not offer a scaffold. |
+| Yes | No | Any | Any | Do not offer a scaffold. |
+| Yes | Yes | Fewer than two | Any | Do not offer a scaffold. |
+| Yes | Yes | Two or more | Present | Do not offer a scaffold. |
+| Yes | Yes | Two or more | None | Use AskUserQuestion to offer these actions. |
 
 | User choice | Result |
 |---|---|
 | **Generate a dispatcher scaffold** | Create a draft for review. |
-| **I will implement the dispatcher manually** | Keep the category **needs fix**. |
+| **I will implement the dispatcher manually** | Record that the existing needs-review evidence stays open. |
 
 Generate the scaffold only after the user selects it.
 Never overwrite an existing file.
@@ -116,7 +116,7 @@ When the user declines the draft, remove it.
 After acceptance, move the draft beside migrated workers.
 When the project requires an existing registration source, update it after acceptance.
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
-Keep the category **needs fix** until that check passes.
+Keep the existing needs-fix evidence until that check passes.
 
 ### 3. FEEL method-invocation category
 
@@ -164,28 +164,23 @@ For each row in this family, find the code that manually implemented what Zeebe 
 
 A candidate is safe to delete only once the converted copy actually uses the native capability (for multi-instance results, `outputCollection`/`outputElement` are set, which the converter does not set automatically), or the user confirms the aggregation is no longer needed. Both are user decisions, collected in the Step 5 AI Follow-up flow.
 
-### 6. Assign verdicts to the verdict table
+### 6. Provide verdict evidence
 
-Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
+Use this section to collect cross-check and code-artifact evidence. `model-migration-approaches.md`
+step 5d owns the final `Runtime impact` and `Verdict` values in category/impact rows. This section
+and the named form procedures supply lifecycle evidence and conditions. Record this section's
+results in that table's `Code artifact` and `Impact evidence` columns:
 
-- Complete job-type, dispatcher, or invoked-method coverage makes the category eligible for **no action** after the verification gate passes.
-- Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
-- Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
-- A deletion candidate is **needs review**, because deleting code requires an explicit user decision.
-- If no workaround exists, keep the category **needs review** until the verification gate passes.
-- Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
+- Complete job-type, dispatcher, or invoked-method coverage is evidence for a **no action** row after the verification gate passes.
+- Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods are evidence for a **needs fix** row.
+- A pending remediation decision, such as the FEEL method-invocation option, is evidence for a **needs review** row.
+- A deletion candidate is evidence for a **needs review** row because deleting code requires an explicit user decision.
+- If no workaround exists, record **needs review** evidence until the verification gate passes.
+- Record form cross-check results and lifecycle evidence from `form-migration.md`.
 
-Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
-
-| Finding severity | Fallback verdict | Cross-reference |
-|---|---|---|
-| INFO | needs review until the verification gate passes | no dedicated cross-check |
-| REVIEW | needs review | no dedicated cross-check |
-| WARNING or TASK | needs fix | no dedicated cross-check |
-
-Copy the finding's `link` into the verdict table's `Link` column. Surface that link as the
-remediation starting point. Do not infer a category-specific cross-check from an unknown
-`messageId`, its message text, or a similar category.
+Step 5d applies the fallback when a category has no dedicated cross-check or named form procedure.
+Do not infer a category-specific cross-check from an unknown `messageId`, its message text, or a
+similar category.
 
 ## Deployment Wiring
 

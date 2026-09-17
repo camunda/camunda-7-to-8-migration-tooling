@@ -128,7 +128,7 @@ Trust the converter's output for what it did NOT flag. The job types and listene
 
 #### Verification gate
 
-Use the shared gate in `SKILL.md` Step 5 before changing a BPMN or DMN category to **no action**.
+Use the shared gate in `SKILL.md` Step 5 before changing a BPMN or DMN category/impact row to **no action**.
 The `--check` mode analyzes its input but does not export converted diagrams.
 A successful `--check` run does not compare an edited converted copy with its source or prove a
 manual remediation.
@@ -136,7 +136,8 @@ When the original input, CLI release, and converter options are available, run
 `local <original-input> --check --csv` as supplementary regression evidence.
 Check the edited converted copies with the gate's XML, namespace, wiring, and FEEL checks.
 
-Group by category first. The category, not the individual row, is the unit of work.
+Group findings by category. Split a category only when its findings have different runtime impact.
+Each category/impact row is a unit of work.
 
 #### Imported reports: verify the target platform version
 
@@ -152,7 +153,11 @@ Determine the report's target version:
 If the report's version does not match the chosen target, or cannot be determined, warn the user and offer through AskUserQuestion before grouping (5b) or any cross-checks:
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
-- **Keep the imported report** — proceed as-is and record in MIGRATION_REPORT.md that the findings target a different or unknown version.
+- **Keep the imported report** (MAY) — use it only for non-runtime grouping. Record the target
+  mismatch or unknown target in `MIGRATION_REPORT.md`. If the original input is available, re-run
+  the converter at the chosen target without `--check`. Use its JSON report for runtime impact and
+  the verdict table. Use its converted copy for target-support tests. Otherwise, request the input
+  through AskUserQuestion and stop.
 
 #### 5a. Parse the JSON report
 
@@ -168,6 +173,7 @@ Format: a JSON array with one object per finding, fields:
 filename, elementName, elementId, elementType, severity, messageId, message, link
 ```
 
+A future converter can define a documented runtime-impact JSON field. Preserve it when present.
 Parse it with real JSON tooling (e.g. `jq` or a built-in JSON parser), never ad-hoc string splitting.
 
 If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated), re-run
@@ -196,7 +202,7 @@ For each M1 run, generate it from the current parsed JSON report.
 Never use a pre-existing artifact as input.
 The JSON object maps each `messageId` category to every finding in that category.
 Never add a source inventory entry to this artifact.
-Keep only `filename`, `elementId`, `elementType`, and `message` for each finding.
+Keep only `filename`, `elementId`, `elementType`, `message`, and a documented runtime-impact field when present.
 
 #### 5c. Present the grouped summary
 
@@ -217,10 +223,54 @@ The current dedicated cross-check categories are:
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
+| `element-not-supported-hint` | Verify target support for the affected element |
+| `conditional-flow` | Verify target support for the converted flow and condition |
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
 
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
+
+#### 5d.1. Classify runtime impact
+
+Add `Runtime impact` to each verdict-table row before its verdict. It states whether the selected
+target can deploy and execute the affected element or condition. Do not derive runtime impact from
+severity.
+
+Where a documented converter runtime-impact field is present, use its value. Record its name and
+value in `Impact evidence`. Do not infer an undocumented field. Otherwise, apply the first matching
+rule in this table.
+
+For target support, deploy every fresh converted copy named by the row. Record each target,
+deployment identifier, and result in `Impact evidence`. After a deployment succeeds, start
+instances that reach every Element list ID from that copy. Record each execution result.
+
+For `element-not-supported-hint` and `conditional-flow`, use **Advisory** and **no action** only
+after the target-support test and verification gate pass. If a test failure identifies an affected
+element or condition, use **Blocking** and **needs fix**. If the test is unavailable, incomplete,
+or blocked by another failure, use **Blocking** and **needs review**.
+
+| Category or condition | Runtime impact | Evidence |
+|---|---|---|
+| `element-not-supported` | **Blocking** | The target cannot deploy or execute the element. |
+| `element-not-supported-hint` or `conditional-flow` after a passed target-support test | **Advisory** | The target supports the affected element or condition. |
+| `element-not-supported-hint` or `conditional-flow` without a passed target-support test | **Blocking** | Target support is not confirmed. |
+| `element-available-in-future-version` below the required target | **Blocking** | The required target is unavailable. |
+| `element-available-in-future-version` at or above the required target | n/a | Omit the verdict-table row. |
+| `delegate-implementation-no-default-job-type` or `delegate-expression-as-job-type-null` | **Blocking** | The job type is blank or missing. |
+| A job-worker activity without a nonblank task type | **Blocking** | The job cannot execute. |
+| A confirmed job-type or dispatcher mapping that is incomplete or mismatched for `delegate-expression-as-job-type` or `delegate-implementation` | **Blocking** | The job cannot execute. |
+| `delegate-expression-as-job-type` or `delegate-implementation` without worker-route evidence | **Blocking** | Keep the row **needs review**. |
+| `camunda-script` | **Blocking** | The converter did not transform the script. |
+| `script` or `script-job-type` without worker-route evidence | **Blocking** | The task cannot execute. |
+| `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, or `script-on-conditional-event` | **Blocking** | The condition cannot execute. |
+| `timer-expression-not-supported`, `inclusive-gateway-join`, or `loop-cardinality` | **Blocking** | The element cannot retain its execution semantics. |
+| `in-out-business-key` | **Advisory** | The converter maps a supported process business key. |
+| `in-out-business-key-not-supported` | **Advisory** | The call activity loses business-id propagation. |
+| A form category, including `form-data`, `generated-form-property-source`, or form references | **Advisory** | Form work is not a deployment or execution blocker. |
+| Another known category with nonblocking evidence. An emitted job needs worker/connector-route evidence. A condition needs execution evidence. | **Advisory** | Record the evidence. |
+| Another category | **Blocking** | No evidence confirms safe deployment and execution. |
+
+**Blocking** in a form procedure means migration-blocking, not runtime-blocking.
 
 For a fallback category, assign the default verdict from the finding severity:
 
@@ -235,7 +285,7 @@ Add the finding `link` to the `Link` column and surface it as the remediation st
 Apply the same fallback when a report contains a category that is absent from the inventory below.
 Never infer a category-specific cross-check from the category name or message text.
 
-#### 5d.1. Converter category inventory
+#### 5d.2. Converter category inventory
 
 This inventory records the `messageId` values produced by `MessageFactory` in converter version
 `0.3.6-SNAPSHOT`. It is the known-category list, not a list of dedicated cross-checks:
@@ -272,14 +322,15 @@ Include IDs passed through helper methods, such as the `FormKeyType` mapping, no
 arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
 `MessageFactory` IDs with this inventory and report any difference.
 
-After grouping, assign each category exactly one verdict. Include INFO categories.
+After grouping and runtime-impact partitioning, assign each category/impact row exactly one verdict.
+Include INFO categories.
 When code is in scope, complete the code cross-checks before assigning the verdict.
 Record the table in `MIGRATION_REPORT.md`.
 Never leave findings as severity counts or a generic "findings need follow-up" note.
-For each M1 **needs fix** or **needs review** category, reference its complete element list.
-For an M1 converter category, name the artifact and its category key.
-For an M1 source-derived category, name its complete source inventory list.
-The grouped summary example only identifies the category.
+For each M1 **needs fix** or **needs review** row, reference its complete element list.
+For an M1 converter row, name the artifact and its category key.
+For an M1 source-derived row, name its complete source inventory list.
+The grouped summary identifies the category.
 
 Verdicts:
 
@@ -289,21 +340,23 @@ Verdicts:
 | **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision through AskUserQuestion before any fix. Run the verification gate directly when it is the only pending action. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Element list | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | `.camunda-migration/findings-by-category.json`: `expression-method-not-possible` | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` | `DelegateDispatcher` @JobWorker (routes 38/42 pairs) | `<finding link>` | needs fix |
-| `form-data` | 96 | `.camunda-migration/findings-by-category.json`: `form-data` | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | 14 | `.camunda-migration/findings-by-category.json`: `form-key-embedded` | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | 31 | `.camunda-migration/findings-by-category.json`: `form-key-external` | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | 8 | `MIGRATION_REPORT.md` source inventory: `c7-generic-task-form` | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Runtime impact | Count | Element list | Code artifact | Impact evidence | Link | Verdict |
+|---|---|---|---|---|---|---|---|
+| `element-not-supported` | Blocking | 12 | `.camunda-migration/findings-by-category.json`: `element-not-supported` | none yet | Category rule | `<finding link>` | needs fix |
+| `delegate-expression-as-job-type` (uncovered mappings) | Blocking | `<count>` | `.camunda-migration/findings-by-category.json`: matching IDs | `DelegateDispatcher` | Cross-check: route missing | `<finding link>` | needs fix |
+| `delegate-expression-as-job-type` (covered mappings) | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: matching IDs | `DelegateDispatcher` | Cross-check: all routes exist | `<finding link>` | no action |
+| `form-data` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-data` | one `.form` per form | Form procedure | `<finding link>` | needs fix |
 
 Rules:
 
-- One row per category, sorted as in 5b.
+- Use one row per category and runtime impact. Each split row lists its matching element IDs.
+- Sort verdict-table rows by runtime impact: **Blocking**, then **Advisory**.
+- Within each impact, sort rows by highest severity and count.
+- Within each impact, put source-derived rows without a severity after rows with one.
 - For an M1 converter category, Element list names the actual artifact path and the category key.
 - For an M1 source-derived category, Element list names its category in the source inventory in `MIGRATION_REPORT.md`.
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other matched code element.
+- The Code artifact column names the matched `@JobWorker`, DMN definition, or other code element.
+- Impact evidence names the rule, target-support test, or cross-check that set runtime impact.
 - Write `none yet` when no remediation exists.
 - For models-only scope, write `n/a`.
 - For a fallback category, write `no dedicated cross-check`.
@@ -313,11 +366,13 @@ Rules:
 - These categories have no independent converter severity.
 - Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
 - Run the verification gate directly for an INFO category. Do not ask the user unless a separate decision is needed.
-- Classify every category, including INFO. Never leave one without a verdict.
-- `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate C8 form. Keep it needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
+- Give every category/impact row, including INFO, a verdict.
+- Keep each `form-data` row **needs fix** until `form-migration.md` completes.
 - A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
-- The table above is illustrative, not a template to copy: every category present in *this* run gets its own row. In particular, each specific form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) is a separate row with its own verdict. They are different migrations and routinely land on different verdicts. When only the legacy generic `form-key` finding exists, use one source-derived `c7-*` row per form-key classification instead. Add a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
+- Use one or more rows for each category in this run. Keep specific form-key categories separate.
+  Use source-derived `c7-*` rows for a legacy generic `form-key` finding. Add
+  `c7-generic-task-form` only for form-free owners.
 
 #### 5e. Strip converter annotations from converted models
 
