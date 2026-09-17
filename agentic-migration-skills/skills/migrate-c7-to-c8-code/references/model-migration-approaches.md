@@ -242,8 +242,10 @@ For target-support verification, use a test cluster at the chosen target version
 3. Record the target version and deployment identifier in `Impact evidence`.
 4. Record the process-instance key and result in `Impact evidence`.
 
-If the test shows that the model cannot deploy or execute, use **Blocking** and **needs fix**. If a
-test cluster or complete result is unavailable, use **Blocking** and **needs review**.
+If the target-support test attributes a deployment or execution failure to the affected element or
+condition, use **Blocking** and **needs fix**. If another failure prevents the test from reaching
+that element or condition, use **Blocking** and **needs review**. Use **Blocking** and **needs
+review** when a test cluster or complete result is unavailable.
 
 When a category has both impacts, use one row per impact. Put the matching element IDs in each
 row's Element list. A finding context is its report element type and message. Apply the first
@@ -265,8 +267,9 @@ Use the following rules:
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
 | A `businessKey` or `cam-business-key` marker in a form category | **Advisory** | **Blocking** in the named form procedure means migration-blocking. It does not identify a deployment or execution blocker. |
 | `form-data`, `generated-form-property-source`, and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
-| Any other known or unknown category when guidance or verified context shows no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
-| Any other known or unknown category otherwise | **Blocking** | Treat the category as blocking until verification shows no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
+| Any other known category where the converter or guidance shows a deterministic mapping, removal, or target support | **Advisory** | Record the mapping, removal, or support evidence in the `Impact evidence` column. |
+| Any other known category when guidance or verified context shows no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
+| Any other category | **Blocking** | Treat the category as blocking until verification shows no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
 
 For `element-not-supported-hint` and `conditional-flow`, assign the verdict after target-support
 verification:
@@ -275,7 +278,8 @@ verification:
 |---|---|
 | The target supports the affected element and the verification gate passes | **no action** |
 | The target supports the converted flow and condition and the verification gate passes | **no action** |
-| The target-support test shows that the model cannot deploy or execute | **needs fix** |
+| The target-support test attributes a deployment or execution failure to the affected element or condition | **needs fix** |
+| Another failure prevents the test from reaching the affected element or condition | **needs review** |
 | A test cluster or complete result is unavailable | **needs review** |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
