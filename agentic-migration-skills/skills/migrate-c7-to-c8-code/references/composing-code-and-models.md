@@ -74,13 +74,14 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 Use this table to decide whether to offer a scaffold:
 
-| Converter findings cover all route pairs | Distinct route pairs | Verdict | Dispatcher | Action |
-|---|---|---|---|---|
-| No | Any | Any | Any | Do not offer a scaffold. |
-| Yes | Fewer than two | Any | Any | Do not offer a scaffold. |
-| Yes | Two or more | **no action** or **needs review** | Any | Do not offer a scaffold. |
-| Yes | Two or more | **needs fix** | Present | Do not offer a scaffold. |
-| Yes | Two or more | **needs fix** | None | Use AskUserQuestion to offer these actions. |
+| Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Verdict | Dispatcher | Action |
+|---|---|---|---|---|---|
+| No | Any | Any | Any | Any | Do not offer a scaffold. |
+| Yes | No | Any | Any | Any | Do not offer a scaffold. |
+| Yes | Yes | Fewer than two | Any | Any | Do not offer a scaffold. |
+| Yes | Yes | Two or more | **no action** or **needs review** | Any | Do not offer a scaffold. |
+| Yes | Yes | Two or more | **needs fix** | Present | Do not offer a scaffold. |
+| Yes | Yes | Two or more | **needs fix** | None | Use AskUserQuestion to offer these actions. |
 
 | User choice | Result |
 |---|---|
