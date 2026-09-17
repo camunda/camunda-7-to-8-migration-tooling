@@ -188,6 +188,16 @@ Group findings by `messageId` (the category). For each category compute:
 
 Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then count descending.
 
+Write one local artifact at `.camunda-migration/findings-by-category.json` when that directory is
+not packaged.
+Otherwise write it in another explicitly non-packaged local directory.
+Record its actual path in each M1 converter category's Element list cell. Never commit it.
+For each M1 run, generate it from the current parsed JSON report.
+Never use a pre-existing artifact as input.
+The JSON object maps each `messageId` category to every finding in that category.
+Never add a source inventory entry to this artifact.
+Keep only `filename`, `elementId`, `elementType`, and `message` for each finding.
+
 #### 5c. Present the grouped summary
 
 Present the grouped table before any per-finding follow-up starts, and record it in MIGRATION_REPORT.md:
@@ -266,6 +276,10 @@ After grouping, assign each category exactly one verdict. Include INFO categorie
 When code is in scope, complete the code cross-checks before assigning the verdict.
 Record the table in `MIGRATION_REPORT.md`.
 Never leave findings as severity counts or a generic "findings need follow-up" note.
+For each M1 **needs fix** or **needs review** category, reference its complete element list.
+For an M1 converter category, name the artifact and its category key.
+For an M1 source-derived category, name its complete source inventory list.
+The grouped summary example only identifies the category.
 
 Verdicts:
 
@@ -275,18 +289,20 @@ Verdicts:
 | **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision through AskUserQuestion before any fix. Run the verification gate directly when it is the only pending action. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|
-| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 pairs) | `<finding link>` | needs fix |
-| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | 8 | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Count | Element list | Cross-referenced code artifact | Link | Verdict |
+|---|---|---|---|---|---|
+| `expression-method-not-possible` | 2,137 | `.camunda-migration/findings-by-category.json`: `expression-method-not-possible` | none yet — remediation decision pending | `<finding link>` | needs review |
+| `delegate-expression-as-job-type` | 2,491 | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` | `DelegateDispatcher` @JobWorker (routes 38/42 pairs) | `<finding link>` | needs fix |
+| `form-data` | 96 | `.camunda-migration/findings-by-category.json`: `form-data` | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
+| `form-key-embedded` | 14 | `.camunda-migration/findings-by-category.json`: `form-key-embedded` | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
+| `form-key-external` | 31 | `.camunda-migration/findings-by-category.json`: `form-key-external` | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
+| `c7-generic-task-form` | 8 | `MIGRATION_REPORT.md` source inventory: `c7-generic-task-form` | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
 
 Rules:
 
 - One row per category, sorted as in 5b.
+- For an M1 converter category, Element list names the actual artifact path and the category key.
+- For an M1 source-derived category, Element list names its category in the source inventory in `MIGRATION_REPORT.md`.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other matched code element.
 - Write `none yet` when no remediation exists.
 - For models-only scope, write `n/a`.
