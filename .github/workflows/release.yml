@@ -315,7 +315,7 @@ jobs:
               exit 1
             fi
           else
-            if [[ "$(jq --raw-output '.status // empty' "${release_json}")" != 404 ]]; then
+            if ! grep -q 'HTTP 404' "${release_error}"; then
               cat "${release_error}" >&2
               cat "${release_json}" >&2
               echo "::error::Could not determine whether GitHub release '${RELEASE_VERSION}' exists."
