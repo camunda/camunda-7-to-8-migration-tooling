@@ -43,7 +43,7 @@ Group the normalized rows by `jobType`:
 
 For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
 
-For an M2 many-to-one group, check each converted element retains its `headerKey` and `original`
+For each many-to-one group, check each converted element retains its `headerKey` and `original`
 value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**. While a pair is
 missing, do not run the dispatcher check.
 
