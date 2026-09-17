@@ -25,8 +25,8 @@ Use this table to map the user's request to a migration path. See Question 3 in
 | User intent | Scope and mode | Required result |
 |---|---|---|
 | Assess a project | Assessment only | Inventory code and models. Write `MIGRATION_REPORT.md`. Do not change source assets. |
-| Analyze models | Models only and analyze-only | For M1, use `--check`. For M2, use a read-only pass. Do not create converted copies. |
-| Convert models | Models only | Use the selected M1 (recommended), M2, M3, or E1 path. Preserve source models. |
+| Analyze models | Models only and analyze-only | For M1, use `--check`. For M2, use a read-only pass. For M3, direct the user to analyze an uploaded copy in the hosted converter. Do not create converted copies. |
+| Convert models | Models only | Use the selected M1 (recommended), M2, or M3 path. Use E1 only when no local models exist. Preserve source models. |
 | Migrate code | Code only | Run Part A. |
 | Migrate code and models | Code + models | Run Parts A and B. Run the cross-check. |
 
