@@ -221,6 +221,7 @@ The current dedicated cross-check categories are:
 | `expression-method-not-possible` | Check the FEEL method-invocation remediation |
 | `collection-hint` | Check for now-redundant workaround code |
 | `element-available-in-future-version` | Verify the report target version |
+| `element-not-supported-hint` | Verify target support for the affected element |
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
 
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
@@ -242,19 +243,26 @@ Use the following rules:
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
 | `element-not-supported` | **Blocking** | The target cannot deploy or execute the affected element. |
-| `element-not-supported-hint` when target-support verification confirms the affected element can deploy and execute | **Advisory** | The hint does not apply to the chosen target. |
-| `element-not-supported-hint` otherwise | **Blocking** | Treat the affected element as blocking until target-support verification confirms it can deploy and execute. |
+| `element-not-supported-hint` when target-support verification shows the affected element can deploy and execute | **Advisory** | The hint does not apply to the chosen target. |
+| `element-not-supported-hint` otherwise | **Blocking** | Treat the affected element as blocking until target-support verification shows it can deploy and execute. |
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
 | `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
 | A job-worker activity with no converted `zeebe:taskDefinition`, or a blank `zeebe:taskDefinition/@type` | **Blocking** | A missing or blank type prevents job worker activation. This includes `delegate-implementation-no-default-job-type` and `delegate-expression-as-job-type-null`. |
-| `conditional-flow` when the converted condition is missing or cannot execute | **Blocking** | The affected conditional flow cannot evaluate its condition. |
-| `conditional-flow` otherwise | **Advisory** | The converted condition can execute. |
+| `conditional-flow` when target-support verification shows the converted flow and its condition can deploy and execute | **Advisory** | The finding does not apply to the chosen target. |
+| `conditional-flow` otherwise | **Blocking** | Treat the flow as blocking until target-support verification shows the flow and condition can deploy and execute. |
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
 | A `businessKey` or `cam-business-key` marker in a form category | **Advisory** | **Blocking** in the named form procedure means migration-blocking. It does not identify a deployment or execution blocker. |
 | `form-data`, `generated-form-property-source`, and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
-| Any other known or unknown category when guidance or verified context confirms no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
-| Any other known or unknown category otherwise | **Blocking** | Treat the category as blocking until verification confirms no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
+| Any other known or unknown category when guidance or verified context shows no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
+| Any other known or unknown category otherwise | **Blocking** | Treat the category as blocking until verification shows no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
+
+For `element-not-supported-hint`, assign the verdict after target-support verification:
+
+| Verification condition | Verdict |
+|---|---|
+| The target supports the affected element and the verification gate passes | **no action** |
+| Otherwise | **needs fix** |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
 **Advisory**, such as `form-data`. A WARNING can be **Blocking**, such
