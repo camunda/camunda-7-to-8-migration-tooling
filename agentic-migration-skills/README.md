@@ -54,10 +54,13 @@ The skill separates assessment, model analysis, model conversion, and complete m
 | Goal | Select or ask for | Result |
 |---|---|---|
 | Inventory a Camunda 7 project | **Assessment only** | The skill inventories code and models. It writes `MIGRATION_REPORT.md`, but does not edit source code or models. |
-| Analyze BPMN/DMN models | **Models only** and analyze-only | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
+| Analyze BPMN/DMN models | **Models only**, **Diagram Converter CLI** or **Agentic AI**, then **Analyze-only** | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
 | Convert BPMN/DMN models | **Models only** | Select the Diagram Converter CLI (recommended), Agentic AI, or Online Converter. Each path preserves source models and produces reviewable converted copies. |
 | Migrate Java/Spring code | **Code only** | The skill runs OpenRewrite with AI cleanup, or uses an AI-only approach. |
 | Migrate code and models | **Code + models** | The skill converts models, migrates code, then cross-checks their integration. |
+
+Analyze-only is available only with **Models only** and the Diagram Converter CLI or Agentic AI.
+Select **Assessment only** to inspect code and models without editing source code or models.
 
 The Diagram Converter CLI needs Java 21 or later. See the
 [Diagram Converter guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)
@@ -71,9 +74,10 @@ Use this workflow to move a Camunda 7 project with Java code and BPMN/DMN models
 1. Start the skill in the project directory. Choose **Code + models** and select the target Camunda 8 version.
 2. Review the code and model inventory. Select **OpenRewrite + AI** for code.
 3. Select **Diagram Converter CLI + AI** for models when Java 21+ is available. Otherwise, select **Agentic AI** or **Online Converter**.
-4. The CLI path checks Java, downloads the CLI, and analyzes models with `--check` or writes converted copies.
-5. The skill runs OpenRewrite, resolves remaining code work, and cross-checks the code with the converted models.
-6. Review `MIGRATION_REPORT.md`, resolve findings that need a decision, and run the recorded validation checks.
+4. The selected local model path writes converted copies. The CLI path checks Java and downloads the converter first.
+5. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
+6. After converted model copies are available, the skill runs OpenRewrite, resolves remaining code work, and cross-checks the code with the models.
+7. Review `MIGRATION_REPORT.md`, resolve findings that need a decision, and run the recorded validation checks.
 
 ### Model recommendation
 
