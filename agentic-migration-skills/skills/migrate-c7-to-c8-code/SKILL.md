@@ -287,11 +287,10 @@ target version. See the linting section in `references/model-migration-approache
    `.json`, `.md`, or `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
-4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, runtime impact, count, Element list, cross-referenced code artifact, and
-   verdict. In an M1 run, every
-   **needs fix** or **needs review** category references its complete element list in the verdict
-   table. A converter category names the actual artifact path. See
+4. Fix every WARNING, TASK, REVIEW, and INFO finding, or classify it in the per-category/impact
+   verdict table. Each row gives its category, runtime impact, count, Element list,
+   cross-referenced code artifact, and verdict. In an M1 run, every **needs fix** or **needs
+   review** verdict-table row references its matching complete Element list. A converter category names the actual artifact path. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.

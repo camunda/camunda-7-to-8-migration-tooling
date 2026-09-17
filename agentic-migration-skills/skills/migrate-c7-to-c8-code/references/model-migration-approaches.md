@@ -249,12 +249,13 @@ Use the following rules:
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
-| `form-data` and form-reference categories, including business-key markers | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
-| Any other known or unknown category when guidance or verified context identifies a deployment or execution blocker | **Blocking** | Verify the converted model and affected element. Record the evidence and category in the inventory. |
-| Any other known or unknown category without that evidence | **Advisory** | Record the evidence and category in the inventory. |
+| A `businessKey` or `cam-business-key` marker in a form category | **Advisory** | **Blocking** in the named form procedure means migration-blocking. It does not identify a deployment or execution blocker. |
+| `form-data` and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
+| Any other known or unknown category when guidance or verified context identifies a deployment or execution blocker | **Blocking** | Verify the converted model and affected element. Record the evidence and category in the `MIGRATION_REPORT.md` verdict table. |
+| Any other known or unknown category without that evidence | **Advisory** | Record the evidence and category in the `MIGRATION_REPORT.md` verdict table. |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
-**Advisory**, such as `form-data` without a business-key marker. A WARNING can be **Blocking**, such
+**Advisory**, such as `form-data`. A WARNING can be **Blocking**, such
 as `element-not-supported`.
 
 For a fallback category, assign the default verdict from the finding severity:
@@ -339,8 +340,8 @@ Rules:
 
 - Use one row per category and runtime impact. Each split row lists its matching element IDs in the
   Element list.
-- Sort the grouped summary as in 5b. Sort verdict-table rows by runtime impact, then severity and
-  count.
+- Sort the grouped summary as in 5b. Sort verdict-table rows by runtime impact, then highest
+  severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
 - For an M1 converter category, Element list names the actual artifact path and the category key.
