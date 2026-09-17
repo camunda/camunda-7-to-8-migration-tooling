@@ -142,7 +142,9 @@ Determine the report's target version:
 If the report's version does not match the chosen target, or cannot be determined, warn the user and offer through AskUserQuestion before grouping (5b) or any cross-checks:
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
-- **Keep the imported report** — proceed as-is and record in MIGRATION_REPORT.md that the findings target a different or unknown version.
+- **Keep the imported report** (MAY) — use it only for non-runtime grouping. Record the target
+  mismatch or unknown target in MIGRATION_REPORT.md. Run target-aware revalidation before assigning
+  runtime impact or completing the verdict table.
 
 #### 5a. Parse the JSON report
 
@@ -205,20 +207,27 @@ Treat every other category as a fallback category.
 #### 5d.1. Classify runtime impact
 
 Assign one `Runtime impact` value to every verdict-table row before assigning its verdict. Runtime
-impact is independent of severity. Severity describes the urgency of follow-up. Runtime impact
-describes whether the finding blocks deployment or execution on the chosen target.
+impact is independent of severity. Use severity only to sort categories with the same runtime
+impact. Runtime impact describes whether the finding blocks deployment or execution on the chosen
+target.
+
+Before assigning runtime impact, inspect each converted job-backed task. When no non-blank
+`zeebe:taskDefinition/@type` exists, add a `blank-executable-task-job-type` row to the verdict
+table. Its count includes every affected task. Use **Blocking** impact, `no dedicated cross-check`,
+`n/a` link, and a **needs fix** verdict.
 
 Use the following rules:
 
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
-| `element-not-supported` | **Blocking** | The target cannot deploy or execute the affected element. |
+| `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
 | `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version | Compare the report's required version with the chosen target. A report generated for another target must be revalidated before this classification is used. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
-| A job-backed task has a blank `zeebe:taskDefinition/@type` | **Blocking** | The converted executable task has no routable job type. Record this as the synthetic category `blank-executable-task-job-type` when no converter message identifies it. |
+| `blank-executable-task-job-type` | **Blocking** | A job-backed task has no non-blank `zeebe:taskDefinition/@type`. The converted executable task has no routable job type. |
 | `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
-| `timer-expression-not-supported`, `inclusive-gateway-join`, `only-feel-supported` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
+| `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
+| `only-feel-supported` when source inspection finds a non-FEEL expression language | **Blocking** | The source language cannot execute in Camunda 8. |
 | Every other known category, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before

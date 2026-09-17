@@ -343,8 +343,8 @@ For `needs fix` categories, sequence the follow-up work by runtime impact:
 
 | Order | Runtime impact | Secondary order |
 |---|---|---|
-| 1 | **Blocking** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
-| 2 | **Advisory** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 1 | **Blocking** | Severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
 
 Present the runtime impact with every category. Resolve all **Blocking** categories before
 **Advisory** categories. Do not use severity as a substitute for runtime impact.
