@@ -13,29 +13,40 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
+Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category with a
+`converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `original` and `jobType` for each
-original-implementation-to-emitted-type pair. Apply the same 1:1 or many-to-one check. Do not wait
-for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
+normalized input row with the columns `headerKey`, `original`, and `jobType` for each
+original-implementation-to-emitted-type pair. Record the original C7 attribute name as `headerKey`.
+Apply the same 1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings,
+because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type` findings and the M2 scan.
-For a converter finding, parse the original expression and job type from its `message`. For an M2
-row, use the `original` and `jobType` columns created above. Each normalized row has the shape:
+Build the normalized input rows from the `delegate-expression-as-job-type` and
+`delegate-implementation` findings, and the M2 scan.
+For a converter finding, parse the original expression and job type from its `message`. Locate the
+original C7 BPMN element. Read its implementation attribute name as `headerKey`. Locate the
+converted BPMN element as the later header-verification target. For an M2 row, use the `headerKey`,
+`original`, and `jobType` columns created above. Each normalized row has the shape:
 
+> `headerKey`: Original C7 attribute name
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
 Group the normalized rows by `jobType`:
 
-- **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
+- **1:1**: every job type maps to exactly one distinct `(headerKey, original)` pair. Apply the simple check in 2a.
+- **Many-to-one**: one job type maps to multiple distinct `(headerKey, original)` pairs, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
 
-Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
+For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
+
+For each many-to-one group, check each converted element retains the row's `headerKey` and
+`original` value as a `zeebe:header`. If a pair is missing, then keep the group **needs fix**.
+While a pair is missing, do not run the dispatcher check.
 
 ### 2a. 1:1 mapping - simple job-type match
 
@@ -51,11 +62,61 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
 - It reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
-- It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
+- It routes on the retained header key and value to the mapped legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
-Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers every distinct original expression in the findings rows for that job type. List uncovered expressions for the user.
+Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
+every distinct retained header key and original expression pair in the normalized rows for that job
+type. List uncovered pairs for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
+
+#### Dispatcher scaffold
+
+For each candidate job-type group, check every converted task definition with that job type maps to
+a normalized route pair.
+If a task lacks a route pair, then keep the group **needs fix**.
+While any task lacks a route pair, do not offer a scaffold.
+
+Use this table to decide whether to offer a scaffold:
+
+| Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Verdict | Dispatcher | Action |
+|---|---|---|---|---|---|
+| No | Any | Any | Any | Any | Do not offer a scaffold. |
+| Yes | No | Any | Any | Any | Do not offer a scaffold. |
+| Yes | Yes | Fewer than two | Any | Any | Do not offer a scaffold. |
+| Yes | Yes | Two or more | **no action** or **needs review** | Any | Do not offer a scaffold. |
+| Yes | Yes | Two or more | **needs fix** | Present | Do not offer a scaffold. |
+| Yes | Yes | Two or more | **needs fix** | None | Use AskUserQuestion to offer these actions. |
+
+| User choice | Result |
+|---|---|
+| **Generate a dispatcher scaffold** | Create a draft for review. |
+| **I will implement the dispatcher manually** | Keep the category **needs fix**. |
+
+Generate the scaffold only after the user selects it.
+Never overwrite an existing file.
+Create the draft outside every configured Java source root. Use the target project's conventional
+package, license header, naming, and formatting.
+The source contains one `@JobWorker(type = "<shared job type>")`.
+Use the project's bean-registration convention. Do not edit an existing registration source before
+acceptance.
+Prepopulate a routing map or switch with every distinct retained header key and original expression
+pair from the findings.
+Put a `TODO` in each route for the actual bean or method invocation.
+Escape every model-derived value before using it in a Java string literal.
+Make every TODO, missing-header, and unknown-route path fail explicitly.
+Show the complete source to the user for review.
+After review, use AskUserQuestion to ask the user to revise, continue, or decline the draft.
+Do not treat the generation choice or review response as acceptance.
+Keep the draft outside every configured Java source root until the user completes its TODOs and
+resolves any other subscriber.
+When the user completes the TODOs and resolves other subscribers, use AskUserQuestion to ask the
+user to accept or decline the draft.
+When the user declines the draft, remove it.
+After acceptance, move the draft beside migrated workers.
+When the project requires an existing registration source, update it after acceptance.
+Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
+Keep the category **needs fix** until that check passes.
 
 ### 3. FEEL method-invocation category
 
@@ -107,17 +168,18 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
-- Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
+- Complete job-type, dispatcher, or invoked-method coverage makes the category eligible for **no action** after the verification gate passes.
+- Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
-- Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
+- A deletion candidate is **needs review**, because deleting code requires an explicit user decision.
+- If no workaround exists, keep the category **needs review** until the verification gate passes.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
 Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
 
 | Finding severity | Fallback verdict | Cross-reference |
 |---|---|---|
-| INFO | no action | no dedicated cross-check |
+| INFO | needs review until the verification gate passes | no dedicated cross-check |
 | REVIEW | needs review | no dedicated cross-check |
 | WARNING or TASK | needs fix | no dedicated cross-check |
 

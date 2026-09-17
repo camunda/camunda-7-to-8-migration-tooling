@@ -12,8 +12,6 @@ import static org.assertj.core.api.Assertions.*;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import java.io.File;
-import java.net.URISyntaxException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,15 +32,13 @@ public class ConverterExceptionHandlerTest {
   }
 
   @Test
-  void convertBatchExceedingPartCountLimit() throws URISyntaxException {
+  void convertBatchExceedingPartCountLimit() {
     // max-part-count=2, this request sends 3 parts: 2 files + 1 form field
     Response response =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
-            .multiPart(
-                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
-            .multiPart(
-                "file", new File(getClass().getClassLoader().getResource("example2.bpmn").toURI()))
+            .multiPart("file", "first.bpmn", new byte[] {1}, "application/octet-stream")
+            .multiPart("file", "second.bpmn", new byte[] {1}, "application/octet-stream")
             .formParam("appendDocumentation", true)
             .accept("application/zip")
             .post("/convertBatch");
@@ -50,5 +46,21 @@ public class ConverterExceptionHandlerTest {
     assertThat(response.statusCode()).isEqualTo(413);
     assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_COUNT_LIMIT_EXCEEDED");
     assertThat(response.jsonPath().getLong("maxPartCount")).isEqualTo(2);
+    assertThat(response.header("Content-Security-Policy"))
+        .isEqualTo(
+            "default-src 'self'; "
+                + "base-uri 'self'; "
+                + "object-src 'none'; "
+                + "script-src 'self'; "
+                + "style-src 'self' 'unsafe-inline'; "
+                + "img-src 'self' data:; "
+                + "font-src 'self' data:; "
+                + "connect-src 'self'; "
+                + "frame-src 'none'; "
+                + "frame-ancestors 'none'; "
+                + "form-action 'self'");
+    assertThat(response.header("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.header("Referrer-Policy")).isEqualTo("no-referrer");
+    assertThat(response.header("X-Frame-Options")).isEqualTo("DENY");
   }
 }

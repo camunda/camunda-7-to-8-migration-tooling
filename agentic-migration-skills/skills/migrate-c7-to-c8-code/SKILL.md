@@ -249,7 +249,15 @@ Each item below is a check to run and a condition that must hold at exit. Record
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
    missing entry fails the check. See the mandatory open items in
    `references/code-transform-checklist.md`.
-10. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
+10. **Query counts and pagination**
+    - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.size()`.
+    - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.stream()` and `.count()`.
+    - Trace search results assigned to variables before checking later `.size()` or `.stream().count()` uses.
+    - If a hit represents a complete query count, then treat it as a validation failure.
+    - Confirm that each migrated C7 `list().size()`, `list().stream().count()`, or `count()` uses
+      `.page().totalItems()`.
+    - If a search can exceed cluster result limits, then review `.page().hasMoreTotalItems()`.
+11. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
@@ -280,7 +288,10 @@ target version. See the linting section in `references/model-migration-approache
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
 4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
-   with its category, runtime impact, count, cross-referenced code artifact, and verdict. See
+   with its category, runtime impact, count, Element list, cross-referenced code artifact, and
+   verdict. In an M1 run, every
+   **needs fix** or **needs review** category references its complete element list in the verdict
+   table. A converter category names the actual artifact path. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
@@ -321,6 +332,31 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
+#### Verification before closing a model category
+
+Never set a model-finding category's verdict to **no action** or report it as resolved until this
+gate passes.
+Run the gate after each accepted fix and before a no-change category becomes **no action**.
+Use every `converted-c8-*` BPMN or DMN copy named by the category's pre-fix findings report.
+Record `Before` evidence before editing and `After` evidence after checking in
+`MIGRATION_REPORT.md`.
+
+| Check | Pass condition | Record |
+|---|---|---|
+| XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
+| Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
+| Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
+| FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
+| Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
+
+Record one verification row per category with its check results and `pending`, `passed`, or
+`failed` state.
+Mark verification `passed` only when every applicable check passes.
+If a check fails, re-open the category as **needs fix**.
+If a check cannot run or a user decision remains, keep the category **needs review**.
+In analyze-only mode, keep every model category **needs review**.
+Never start an automatic remediation loop.
+
 If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer
 to resolve it:
 
@@ -336,8 +372,9 @@ Use AskUserQuestion with these options:
 
 #### Action 1: fix findings and migration TODOs
 
-For model findings, work from the Step 4 verdict table. Never present model findings as one
-undifferentiated list.
+For model categories, work from the Step 4 verdict table.
+For each M1 **needs fix** or **needs review** category, load its complete list from the Element list
+reference. Use the grouped summary example only to select a category.
 
 For `needs fix` categories, sequence the follow-up work by runtime impact:
 
@@ -352,7 +389,7 @@ Present the runtime impact with every category. Resolve all **Blocking** categor
 | Verdict | Action |
 |---|---|
 | **needs fix** | Resolve one category at a time, using that category's cross-check guidance. |
-| **needs review** | Collect the pending user decision through AskUserQuestion before any fix. |
+| **needs review** | Collect the pending user decision through AskUserQuestion before any fix. Run the gate directly when verification is the only pending action. |
 | **no action** | Do not offer the category. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
@@ -362,8 +399,12 @@ Present the runtime impact with every category. Resolve all **Blocking** categor
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
+- When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
+  job-type group with a **needs fix** verdict and no dispatcher. Use the procedure in
+  `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
-- For a model-finding batch, update the verdict table in `MIGRATION_REPORT.md`.
+- For a model-finding batch, run the verification gate before updating the verdict table in
+  `MIGRATION_REPORT.md`.
 
 #### Action 2: delete now-redundant code
 
