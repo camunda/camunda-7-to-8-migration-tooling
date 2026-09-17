@@ -337,12 +337,12 @@ findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
-#### Verification before closing a model category
+#### Verification before closing a model verdict-table row
 
-Never set a model-finding category's verdict to **no action** or report it as resolved until this
+Never set a model-finding category/impact row's verdict to **no action** or report it as resolved until this
 gate passes.
-Run the gate after each accepted fix and before a no-change category becomes **no action**.
-Use every `converted-c8-*` BPMN or DMN copy named by the category's pre-fix findings report.
+Run the gate after each accepted fix and before a no-change row becomes **no action**.
+Use every `converted-c8-*` BPMN or DMN copy named by the row's pre-fix findings report.
 Record `Before` evidence before editing and `After` evidence after checking in
 `MIGRATION_REPORT.md`.
 
@@ -354,12 +354,12 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
 
-Record one verification row per category with its check results and `pending`, `passed`, or
+Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
 Mark verification `passed` only when every applicable check passes.
-If a check fails, re-open the category as **needs fix**.
-If a check cannot run or a user decision remains, keep the category **needs review**.
-In analyze-only mode, keep every model category **needs review**.
+If a check fails, re-open the row as **needs fix**.
+If a check cannot run or a user decision remains, keep the row **needs review**.
+In analyze-only mode, keep every model category/impact row **needs review**.
 Never start an automatic remediation loop.
 
 If any migration TODO, finding, compilation issue, deletion candidate, or unresolved item remains, then offer

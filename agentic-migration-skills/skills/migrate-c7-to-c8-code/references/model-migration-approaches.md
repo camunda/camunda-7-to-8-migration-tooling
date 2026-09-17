@@ -153,10 +153,13 @@ Determine the report's target version:
 If the report's version does not match the chosen target, or cannot be determined, warn the user and offer through AskUserQuestion before grouping (5b) or any cross-checks:
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
-- **Keep the imported report** (MAY) — use it only for non-runtime grouping. Record the target
-  mismatch or unknown target in MIGRATION_REPORT.md. Before assigning runtime impact or completing
-  the verdict table, re-run the converter at the chosen target. Use its fresh JSON report as the
-  authoritative findings source.
+- **Keep the imported report** (MAY) — use it only for non-runtime grouping when the original input
+  is available. Record the target mismatch or unknown target in MIGRATION_REPORT.md. Before
+  assigning runtime impact or completing the verdict table, re-run the converter at the chosen
+  target. Use its fresh JSON report as the authoritative findings source.
+
+If the original input is unavailable, request it through AskUserQuestion. Stop before assigning
+runtime impact or completing the verdict table.
 
 #### 5a. Parse the JSON report
 
@@ -172,6 +175,7 @@ Format: a JSON array with one object per finding, fields:
 filename, elementName, elementId, elementType, severity, messageId, message, link
 ```
 
+The findings report can include converter-provided runtime-impact metadata.
 Parse it with real JSON tooling (e.g. `jq` or a built-in JSON parser), never ad-hoc string splitting.
 
 If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated), re-run
@@ -200,7 +204,8 @@ For each M1 run, generate it from the current parsed JSON report.
 Never use a pre-existing artifact as input.
 The JSON object maps each `messageId` category to every finding in that category.
 Never add a source inventory entry to this artifact.
-Keep only `filename`, `elementId`, `elementType`, and `message` for each finding.
+Keep only `filename`, `elementId`, `elementType`, `message`, and any converter-provided runtime-impact
+metadata for each finding.
 
 #### 5c. Present the grouped summary
 
@@ -230,17 +235,18 @@ Treat every other category as a fallback category.
 
 #### 5d.1. Classify runtime impact
 
-Assign one `Runtime impact` value to every verdict-table row before assigning its verdict. Runtime
-impact is independent of severity. Step 5 uses runtime impact before severity when it orders
-follow-up work. Runtime impact describes whether the finding blocks deployment or execution on the
-chosen target.
+Where the findings report provides runtime-impact metadata for a finding or category, use that value.
+Record its source and value in `Impact evidence`. Otherwise, assign one `Runtime impact` value to
+every verdict-table row before assigning its verdict. Runtime impact is independent of severity.
+Step 5 uses runtime impact before severity when it orders follow-up work. Runtime impact describes
+whether the finding blocks deployment or execution on the chosen target.
 
 For target-support verification, use a test cluster at the chosen target version:
 
 1. Deploy the fresh converted copy.
-2. Start an instance that reaches the affected element or condition.
-3. Record the target version and deployment identifier in `Impact evidence`.
-4. Record the process-instance key and result in `Impact evidence`.
+2. Record the target version, deployment identifier, and deployment result in `Impact evidence`.
+3. When deployment succeeds, start an instance that reaches the affected element or condition.
+4. Record the process-instance key and execution result in `Impact evidence`.
 
 If the target-support test attributes a deployment or execution failure to the affected element or
 condition, use **Blocking** and **needs fix**. If another failure prevents the test from reaching
@@ -261,6 +267,7 @@ Use the following rules:
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
 | `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
 | A job-worker activity with no converted `zeebe:taskDefinition`, or a blank `zeebe:taskDefinition/@type` | **Blocking** | A missing or blank type prevents job worker activation. This includes `delegate-implementation-no-default-job-type` and `delegate-expression-as-job-type-null`. |
+| `delegate-expression-as-job-type` or `delegate-implementation` with an uncovered or mismatched job-type mapping | **Blocking** | The affected job cannot execute until a worker or dispatcher route covers it. Record the cross-check evidence. |
 | `conditional-flow` when target-support verification shows the converted flow and its condition can deploy and execute | **Advisory** | The finding does not apply to the chosen target. |
 | `conditional-flow` otherwise | **Blocking** | Treat the flow as blocking until target-support verification shows the flow and condition can deploy and execute. |
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |

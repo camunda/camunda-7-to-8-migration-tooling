@@ -13,7 +13,7 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
-Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category with a
+Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category/impact row with a
 `converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
