@@ -164,28 +164,22 @@ For each row in this family, find the code that manually implemented what Zeebe 
 
 A candidate is safe to delete only once the converted copy actually uses the native capability (for multi-instance results, `outputCollection`/`outputElement` are set, which the converter does not set automatically), or the user confirms the aggregation is no longer needed. Both are user decisions, collected in the Step 5 AI Follow-up flow.
 
-### 6. Assign verdicts to the verdict table
+### 6. Provide verdict evidence
 
-Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
+Use this section to collect cross-check and code-artifact evidence. `model-migration-approaches.md`
+step 5d alone assigns runtime impact and verdicts to category/impact rows. Record this section's
+results in that table's `Cross-referenced code artifact` and `Impact evidence` columns:
 
-- Complete job-type, dispatcher, or invoked-method coverage makes the category eligible for **no action** after the verification gate passes.
-- Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
-- Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
-- A deletion candidate is **needs review**, because deleting code requires an explicit user decision.
-- If no workaround exists, keep the category **needs review** until the verification gate passes.
-- Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
+- Complete job-type, dispatcher, or invoked-method coverage is evidence for a **no action** row after the verification gate passes.
+- Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods are evidence for a **needs fix** row.
+- A pending remediation decision, such as the FEEL method-invocation option, is evidence for a **needs review** row.
+- A deletion candidate is evidence for a **needs review** row because deleting code requires an explicit user decision.
+- If no workaround exists, record **needs review** evidence until the verification gate passes.
+- Uncovered code consumers or incomplete form linkage/deployment are evidence for a **needs fix** row. Pending form or validation decisions are evidence for a **needs review** row. Accepted, validated, linked, and deployed forms with covered consumers are evidence for a **no action** row.
 
-Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
-
-| Finding severity | Fallback verdict | Cross-reference |
-|---|---|---|
-| INFO | needs review until the verification gate passes | no dedicated cross-check |
-| REVIEW | needs review | no dedicated cross-check |
-| WARNING or TASK | needs fix | no dedicated cross-check |
-
-Copy the finding's `link` into the verdict table's `Link` column. Surface that link as the
-remediation starting point. Do not infer a category-specific cross-check from an unknown
-`messageId`, its message text, or a similar category.
+Step 5d applies the fallback when a category has no dedicated cross-check or named form procedure.
+Do not infer a category-specific cross-check from an unknown `messageId`, its message text, or a
+similar category.
 
 ## Deployment Wiring
 

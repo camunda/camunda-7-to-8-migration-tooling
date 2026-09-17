@@ -246,11 +246,13 @@ Use the following rules:
 | `element-not-supported-hint` otherwise | **Blocking** | Treat the affected element as blocking until target-support verification confirms it can deploy and execute. |
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
 | `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
-| An executable task with no converted `zeebe:taskDefinition`, or a blank `zeebe:taskDefinition/@type` | **Blocking** | A missing or blank type prevents job worker activation. This includes `delegate-implementation-no-default-job-type` and `delegate-expression-as-job-type-null`. |
-| `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
+| A job-worker activity with no converted `zeebe:taskDefinition`, or a blank `zeebe:taskDefinition/@type` | **Blocking** | A missing or blank type prevents job worker activation. This includes `delegate-implementation-no-default-job-type` and `delegate-expression-as-job-type-null`. |
+| `conditional-flow` when the converted condition is missing or cannot execute | **Blocking** | The affected conditional flow cannot evaluate its condition. |
+| `conditional-flow` otherwise | **Advisory** | The converted condition can execute. |
+| `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
 | A `businessKey` or `cam-business-key` marker in a form category | **Advisory** | **Blocking** in the named form procedure means migration-blocking. It does not identify a deployment or execution blocker. |
-| `form-data` and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
+| `form-data`, `generated-form-property-source`, and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
 | Any other known or unknown category when guidance or verified context confirms no deployment or execution blocker | **Advisory** | Record the evidence in the `Impact evidence` column. |
 | Any other known or unknown category otherwise | **Blocking** | Treat the category as blocking until verification confirms no deployment or execution blocker. Record the evidence in the `Impact evidence` column. |
 
