@@ -143,11 +143,11 @@ jobs:
           # https://maven.apache.org/maven-release/maven-release-plugin/usage/prepare-release.html
           mvn release:prepare -B \
             -Dresume=false \
-            -Dtag=${RELEASE_VERSION} \
-            -DreleaseVersion=${RELEASE_VERSION} \
-            -DdevelopmentVersion=${DEVELOPMENT_VERSION} \
-            -DpushChanges=${PUSH_CHANGES} \
-            -DremoteTagging=${PUSH_CHANGES} \
+            -Dtag="${RELEASE_VERSION}" \
+            -DreleaseVersion="${RELEASE_VERSION}" \
+            -DdevelopmentVersion="${DEVELOPMENT_VERSION}" \
+            -DpushChanges="${PUSH_CHANGES}" \
+            -DremoteTagging="${PUSH_CHANGES}" \
             -DignoreSnapshots=true \
             -Darguments='-Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" -DskipTests=true'
 
@@ -173,7 +173,7 @@ jobs:
             basename "${asset}" >> "${ARTIFACT_DIR}/release-assets.txt"
           done
 
-          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
+          echo "dir=${ARTIFACT_DIR}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload Release Artifacts
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
@@ -194,9 +194,9 @@ jobs:
           # https://maven.apache.org/maven-release/maven-release-plugin/usage/perform-release.html
           mvn release:perform -B \
             -Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" \
-            -DlocalCheckout=${{ inputs.IS_DRY_RUN }} \
+            -DlocalCheckout="${{ inputs.IS_DRY_RUN }}" \
             -Pcentral-sonatype-publish,distro \
-            -Darguments='-DskipTests=true -Dskip.central.release=true -Dskip.camunda.release=${SKIP_REPO_DEPLOY}'
+            -Darguments="-DskipTests=true -Dskip.central.release=true -Dskip.camunda.release=${SKIP_REPO_DEPLOY}"
 
       - name: Checkout Code
         # The release tag exists for backfills even when running a dry run.
@@ -214,10 +214,10 @@ jobs:
         run: |
           mvn deploy -B \
             -Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" \
-            -DlocalCheckout=${{ inputs.IS_DRY_RUN }} \
+            -DlocalCheckout="${{ inputs.IS_DRY_RUN }}" \
             -Pcentral-sonatype-publish,central-release \
             -DskipTests=true \
-            -Dskip.central.release=${SKIP_REPO_DEPLOY} \
+            -Dskip.central.release="${SKIP_REPO_DEPLOY}" \
             -Dskip.camunda.release=true \
             -Dcentral.autoPublish=true \
             -DwaitUntil=published
@@ -382,7 +382,7 @@ jobs:
           remote_assets=$(gh release view "${RELEASE_VERSION}" \
             --repo "${GITHUB_REPOSITORY}" \
             --json assets \
-              --jq '.assets[] | [.name, .digest] | @tsv'
+            --jq '.assets[] | [.name, .digest] | @tsv')
           while IFS=$'\t' read -r asset_name asset_digest; do
             [[ -z "${asset_name}" ]] && continue
             remote_digests["${asset_name}"]="${asset_digest}"
@@ -431,7 +431,7 @@ jobs:
             remote_assets=$(gh release view "${RELEASE_VERSION}" \
               --repo "${GITHUB_REPOSITORY}" \
               --json assets \
-              --jq '.[] | [.name, .digest] | @tsv')
+              --jq '.assets[] | [.name, .digest] | @tsv')
             while IFS=$'\t' read -r asset_name asset_digest; do
               [[ -z "${asset_name}" ]] && continue
               remote_digests["${asset_name}"]="${asset_digest}"
@@ -520,12 +520,12 @@ jobs:
         run: |
           mkdir -p docker-context
           cd docker-context
-          tar -xzf ../artifacts/camunda-7-to-8-data-migrator-${{ env.RELEASE_VERSION }}.tar.gz
-          cp ../artifacts/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar ./
-          cp ../artifacts/camunda-7-to-8-data-migrator-cockpit-plugin-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-diagram-converter-core-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-diagram-converter-webapp-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-diagram-converter-cli-${{ env.RELEASE_VERSION }}.jar ./
+          tar -xzf "../artifacts/camunda-7-to-8-data-migrator-${{ env.RELEASE_VERSION }}.tar.gz"
+          cp "../artifacts/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar" ./
+          cp "../artifacts/camunda-7-to-8-data-migrator-cockpit-plugin-${{ env.RELEASE_VERSION }}.jar" ./
+          cp "../artifacts/camunda-7-to-8-diagram-converter-core-${{ env.RELEASE_VERSION }}.jar" ./
+          cp "../artifacts/camunda-7-to-8-diagram-converter-webapp-${{ env.RELEASE_VERSION }}.jar" ./
+          cp "../artifacts/camunda-7-to-8-diagram-converter-cli-${{ env.RELEASE_VERSION }}.jar" ./
           
           # Create Dockerfile
           cat > Dockerfile << 'EOF'
