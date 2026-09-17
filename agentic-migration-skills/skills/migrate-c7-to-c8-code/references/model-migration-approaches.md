@@ -258,7 +258,7 @@ or blocked by another failure, use **Blocking** and **needs review**.
 | `element-available-in-future-version` at or above the required target | n/a | Omit the verdict-table row. |
 | `delegate-implementation-no-default-job-type` or `delegate-expression-as-job-type-null` | **Blocking** | The job type is blank or missing. |
 | A job-worker activity without a nonblank task type | **Blocking** | The job cannot execute. |
-| An uncovered or mismatched job-type or dispatcher mapping for `delegate-expression-as-job-type` or `delegate-implementation` | **Blocking** | The job cannot execute. |
+| A confirmed job-type or dispatcher mapping that is incomplete or mismatched for `delegate-expression-as-job-type` or `delegate-implementation` | **Blocking** | The job cannot execute. |
 | `delegate-expression-as-job-type` or `delegate-implementation` without worker-route evidence | **Blocking** | Keep the row **needs review**. |
 | `camunda-script` | **Blocking** | The converter did not transform the script. |
 | `script` or `script-job-type` without worker-route evidence | **Blocking** | The task cannot execute. |
