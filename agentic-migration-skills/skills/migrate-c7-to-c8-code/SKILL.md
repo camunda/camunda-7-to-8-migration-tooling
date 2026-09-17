@@ -59,7 +59,7 @@ See `references/interview-questions.md` for the question set and the batching ru
 2. Ask Question 1 (project location) through AskUserQuestion.
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
-5. Ask Questions 4 to 6 (code approach, model approach, build tool) where they apply.
+5. Ask Questions 4 to 6, including Question 5a where it applies.
 6. When the user accepts the defaults, continue without further questions.
 
 #### Shared rules
@@ -196,8 +196,13 @@ AskUserQuestion.
 
 ### Step 3: Execute Migration
 
-Run Part A when the scope includes code. Run Part B when the scope includes models. For Code +
-models, see `references/composing-code-and-models.md`.
+When the user selects Models only and Analyze-only, run `Analyze-Only Mode` in
+`references/model-migration-approaches.md` instead of Part B.
+Exit after it presents findings. Do not run conversion, form follow-up, Step 4, or Step 5.
+
+Run Part B when the scope includes models.
+Run Part A when the scope includes code.
+For Code + models, see `references/composing-code-and-models.md`.
 
 #### Part A - Code Migration
 

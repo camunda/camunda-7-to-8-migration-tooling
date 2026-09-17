@@ -47,6 +47,38 @@ From your Camunda 7 project directory:
 
 The skill asks what to migrate — **code**, **models**, or **both** — then guides you through the approaches for each.
 
+### Scope and modes
+
+The skill separates assessment, model analysis, model conversion, and complete migration.
+
+| Goal | Select or ask for | Result |
+|---|---|---|
+| Inventory a Camunda 7 project | **Assessment only** | The skill inventories code and models. It writes `MIGRATION_REPORT.md`, but does not edit source code or models. |
+| Analyze BPMN/DMN models | **Models only**, **Diagram Converter CLI** or **Agentic AI**, then **Analyze-only** | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
+| Convert BPMN/DMN models | **Models only** | Select the Diagram Converter CLI (recommended), Agentic AI, or Online Converter. Each path preserves source models and produces reviewable converted copies. |
+| Migrate Java/Spring code | **Code only** | The skill runs OpenRewrite with AI cleanup, or uses an AI-only approach. |
+| Migrate code and models | **Code + models** | The skill converts models, migrates code, then cross-checks their integration. |
+
+Analyze-only is available only with **Models only** and the Diagram Converter CLI or Agentic AI.
+Select **Assessment only** to inspect code and models without editing source code or models.
+
+The Diagram Converter CLI needs Java 21 or later. See the
+[Diagram Converter guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)
+for its installation and CLI options. Runtime, history, and identity data migration are outside this
+skill's scope.
+
+### Code + models walkthrough
+
+Use this workflow to move a Camunda 7 project with Java code and BPMN/DMN models toward Camunda 8:
+
+1. Start the skill in the project directory. Choose **Code + models** and select the target Camunda 8 version.
+2. Review the code and model inventory. Select **OpenRewrite + AI** for code.
+3. Select **Diagram Converter CLI + AI** for models when Java 21+ is available. Otherwise, select **Agentic AI** or **Online Converter**.
+4. The selected local model path writes converted copies. The CLI path checks Java and downloads the converter first.
+5. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
+6. After converted model copies are available, the skill runs OpenRewrite, resolves remaining code work, and cross-checks the code with the models.
+7. Review `MIGRATION_REPORT.md`, resolve findings that need a decision, and run the recorded validation checks.
+
 ### Model recommendation
 
 The skill recommends a model built for complex reasoning. Example identifiers are `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. These are routing hints, not a benchmark. At activation the skill warns you about a lightweight or unverified model. You can then switch models or continue with extra review. The skill never changes the model, and it never claims to have changed it.
@@ -63,7 +95,7 @@ The skill recommends a model built for complex reasoning. Example identifiers ar
 
 | Approach | What it does |
 |----------|-------------|
-| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Deterministic. Produces converted files plus a JSON/XLSX analysis. Needs Java 21+ |
+| **[Diagram Converter CLI](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Deterministic. Produces converted files plus a JSON/XLSX analysis. Needs Java 21+ |
 | **Agentic AI** | AI rewrites the BPMN/DMN XML directly. Use it when Java 21 is unavailable, or when you want to review every change |
 | **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/). No local Java needed |
 
