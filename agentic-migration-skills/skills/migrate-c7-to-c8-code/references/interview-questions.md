@@ -14,7 +14,7 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 
 - At most 4 questions per AskUserQuestion call
 - Every question with `options` must have at least 2 options
-- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q6
+- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q5a/Q6
 
 ---
 
@@ -71,7 +71,14 @@ Include only if user selected model migration.
 - E1. Camunda 7 engine (recommended) - fetch definitions from C7 REST API
 - E2. Provide a model path - wait for user to provide another file/directory
 
-Any of M1-M3 can run in analyze-only mode first (`--check` flag).
+## Question 5a - Model Execution Mode
+
+Include only when the user selected **Models only** and M1 or M2.
+
+Options:
+- **Analyze-only** - Run the M1 `--check` or M2 read-only pass. Report findings. Do not create
+  converted copies, forms, or fixes.
+- **Convert models** - Run the selected model approach. Continue with form and finding follow-up.
 
 ---
 
