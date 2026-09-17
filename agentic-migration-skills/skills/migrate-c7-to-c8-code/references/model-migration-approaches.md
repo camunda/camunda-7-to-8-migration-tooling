@@ -273,12 +273,12 @@ Verdicts:
 |---|---|---|
 | **no action** | The converter handled the category deterministically or a cross-check shows full coverage. The shared verification gate passed. | Nothing to do. |
 | **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision through AskUserQuestion before any fix. Run the verification gate directly when it is the only pending action. |
-| **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
+| **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
 |---|---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | `<finding link>` | needs review |
-| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | `<finding link>` | needs fix |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 pairs) | `<finding link>` | needs fix |
 | `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`, see 5f) | `<finding link>` | needs fix |
 | `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
 | `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |

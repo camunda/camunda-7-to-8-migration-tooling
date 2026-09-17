@@ -385,6 +385,9 @@ undifferentiated list.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
+- When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
+  job-type group with a **needs fix** verdict and no dispatcher. Use the procedure in
+  `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
 - For a model-finding batch, run the verification gate before updating the verdict table in
   `MIGRATION_REPORT.md`.
