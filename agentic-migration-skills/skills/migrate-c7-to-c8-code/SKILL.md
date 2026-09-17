@@ -390,6 +390,7 @@ For `needs fix` rows, sequence the follow-up work by runtime impact:
 
 Present the runtime impact with every verdict-table row. Resolve all **Blocking** rows before
 **Advisory** rows. Do not use severity as a substitute for runtime impact.
+Within each impact, process rows with a severity before source-derived rows without one.
 
 | Verdict | Action |
 |---|---|
