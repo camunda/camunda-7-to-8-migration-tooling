@@ -19,26 +19,29 @@ Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
 derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
-normalized input row with the columns `original` and `jobType` for each
-original-implementation-to-emitted-type pair. Apply the same 1:1 or many-to-one check. Do not wait
-for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
+normalized input row with the columns `headerKey`, `original`, and `jobType` for each
+original-implementation-to-emitted-type pair. Record the original C7 attribute name as `headerKey`.
+Apply the same 1:1 or many-to-one check. Do not wait for `delegate-expression-as-job-type` findings,
+because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
 
 Build the normalized input rows from the `delegate-expression-as-job-type` and
 `delegate-implementation` findings, and the M2 scan.
-For a converter finding, parse the original expression and job type from its `message`. For an M2
-row, use the `original` and `jobType` columns created above. Each normalized row has the shape:
+For a converter finding, parse the original expression and job type from its `message`. Locate the
+converted BPMN element. Read its retained header key. For an M2 row, use the `headerKey`, `original`,
+and `jobType` columns created above. Each normalized row has the shape:
 
+> `headerKey`: Original C7 attribute name
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
 Group the normalized rows by `jobType`:
 
-- **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
+- **1:1**: every job type maps to exactly one distinct `(headerKey, original)` pair. Apply the simple check in 2a.
+- **Many-to-one**: one job type maps to multiple distinct `(headerKey, original)` pairs, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
 
-For `delegate-implementation`, use the same distinct-expression count. One expression is 1:1.
+For `delegate-implementation`, use the same distinct-pair count. One pair is 1:1.
 
 ### 2a. 1:1 mapping - simple job-type match
 
@@ -54,7 +57,7 @@ Instead, flag for the user that the shared job type needs a single dispatcher/ad
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
 - It reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
-- It routes on the retained header key and value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
+- It routes on the retained header key and value to the mapped legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
 Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
 every distinct retained header key and original expression pair in the findings for that job
@@ -64,14 +67,15 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 #### Dispatcher scaffold
 
-Locate the converted BPMN element for each finding. Read its retained header key before
-building routes.
+Use this table to decide whether to offer a scaffold:
 
-If a job-type group has fewer than two distinct retained header key and original expression pairs,
-then do not offer a scaffold.
-
-When a many-to-one job-type group has findings, a **needs fix** verdict, and no dispatcher, use
-AskUserQuestion to offer these actions:
+| Findings | Distinct route pairs | Verdict | Dispatcher | Action |
+|---|---|---|---|---|
+| Missing | Any | Any | Any | Do not offer a scaffold. |
+| Present | Fewer than two | Any | Any | Do not offer a scaffold. |
+| Present | Two or more | **no action** or **needs review** | Any | Do not offer a scaffold. |
+| Present | Two or more | **needs fix** | Present | Do not offer a scaffold. |
+| Present | Two or more | **needs fix** | None | Use AskUserQuestion to offer these actions. |
 
 | User choice | Result |
 |---|---|
