@@ -294,8 +294,9 @@ target version. See the linting section in `references/model-migration-approache
    directory.
 4. Fix every WARNING, TASK, REVIEW, and INFO finding, or classify it in the per-category/impact
    verdict table. Each row gives its category, runtime impact, count, Element list,
-   cross-referenced code artifact, and verdict. In an M1 run, every **needs fix** or **needs
-   review** verdict-table row references its matching complete Element list. A converter category names the actual artifact path. See
+   cross-referenced code artifact, impact evidence, and verdict. In an M1 run, every **needs fix**
+   or **needs review** verdict-table row references its matching complete Element list. A converter
+   category names the actual artifact path. See
    `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
@@ -376,7 +377,7 @@ Use AskUserQuestion with these options:
 
 #### Action 1: fix findings and migration TODOs
 
-For model categories, work from the Step 4 verdict-table rows.
+For model categories, work from the verdict table in `model-migration-approaches.md` step 5d.
 For each M1 **needs fix** or **needs review** row, load its complete list from the Element list
 reference. Use the grouped summary only to select a category.
 

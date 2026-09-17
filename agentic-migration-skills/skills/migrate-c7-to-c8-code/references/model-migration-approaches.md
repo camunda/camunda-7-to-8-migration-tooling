@@ -242,17 +242,17 @@ Use the following rules:
 | Category or validation condition | Runtime impact | Derivation |
 |---|---|---|
 | `element-not-supported` | **Blocking** | The target cannot deploy or execute the affected element. |
-| `element-not-supported-hint` with evidence that the target cannot deploy or execute the affected element | **Blocking** | Use the affected element and existing category guidance as evidence. |
-| `element-not-supported-hint` without that evidence | **Advisory** | The hint alone does not establish a deployment or execution blocker. |
+| `element-not-supported-hint` when target-support verification confirms the affected element can deploy and execute | **Advisory** | The hint does not apply to the chosen target. |
+| `element-not-supported-hint` otherwise | **Blocking** | Treat the affected element as blocking until target-support verification confirms it can deploy and execute. |
 | `element-available-in-future-version` when the chosen target is lower than the required version | **Blocking** | Compare the report's required version with the chosen target. Revalidate a report from another target before using this classification. |
 | `element-available-in-future-version` when the chosen target meets or exceeds the required version | n/a | The finding does not apply to the chosen target. Do not add a verdict-table row. |
-| `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
+| An executable task with a blank converted `zeebe:taskDefinition/@type` | **Blocking** | A blank type prevents job worker activation. This includes `delegate-implementation-no-default-job-type` and `delegate-expression-as-job-type-null`. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
 | A `businessKey` or `cam-business-key` marker in a form category | **Advisory** | **Blocking** in the named form procedure means migration-blocking. It does not identify a deployment or execution blocker. |
 | `form-data` and form-reference categories | **Advisory** | They can require a design decision or **needs fix** work. They do not prevent model deployment or execution. |
-| Any other known or unknown category when guidance or verified context identifies a deployment or execution blocker | **Blocking** | Verify the converted model and affected element. Record the evidence and category in the `MIGRATION_REPORT.md` verdict table. |
-| Any other known or unknown category without that evidence | **Advisory** | Record the evidence and category in the `MIGRATION_REPORT.md` verdict table. |
+| Any other known or unknown category when guidance or verified context identifies a deployment or execution blocker | **Blocking** | Verify the converted model and affected element. Record the evidence in the `Impact evidence` column. |
+| Any other known or unknown category without that evidence | **Advisory** | Record the evidence in the `Impact evidence` column. |
 
 Do not promote a category to **Blocking** because its severity is TASK or WARNING. A TASK can be
 **Advisory**, such as `form-data`. A WARNING can be **Blocking**, such
@@ -326,27 +326,28 @@ Verdicts:
 | **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision through AskUserQuestion before any fix. Run the verification gate directly when it is the only pending action. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
-| Category (messageId or source category) | Runtime impact | Count | Element list | Cross-referenced code artifact | Link | Verdict |
-|---|---|---|---|---|---|---|
-| `element-not-supported` | Blocking | 12 | `.camunda-migration/findings-by-category.json`: `element-not-supported` | none yet — replace or remove the unsupported element | `<finding link>` | needs fix |
-| `delegate-expression-as-job-type` (uncovered mappings) | Blocking | `<uncovered count>` | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` — `<uncovered element IDs>` | `DelegateDispatcher` (routes 38/42 pairs) | `<finding link>` | needs fix |
-| `delegate-expression-as-job-type` (covered mappings) | Advisory | `<covered count>` | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` — `<covered element IDs>` | `DelegateDispatcher` (covers every listed mapping) | `<finding link>` | no action |
-| `form-data` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-data` | one `.form` per C7 Generated Task Form (see 5f) | `<finding link>` | needs fix |
-| `form-key-embedded` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-key-embedded` | none yet — keep/rebuild decision pending (see 5g) | `<finding link>` | needs review |
-| `form-key-external` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-key-external` | `LoanFormsController` custom app — integration owner confirmed (see 5g) | `<finding link>` | needs fix |
-| `c7-generic-task-form` | Advisory | 8 | `MIGRATION_REPORT.md` source inventory: `c7-generic-task-form` | n/a — no finding, source-derived inventory (see 5g) | n/a | needs review |
+| Category (messageId or source category) | Runtime impact | Count | Element list | Cross-referenced code artifact | Impact evidence | Link | Verdict |
+|---|---|---|---|---|---|---|---|
+| `element-not-supported` | Blocking | 12 | `.camunda-migration/findings-by-category.json`: `element-not-supported` | none yet — replace or remove the unsupported element | `element-not-supported` rule | `<finding link>` | needs fix |
+| `delegate-expression-as-job-type` (uncovered mappings) | Blocking | `<uncovered count>` | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` — `<uncovered element IDs>` | `DelegateDispatcher` (routes 38/42 pairs) | Cross-check: four listed pairs lack a route | `<finding link>` | needs fix |
+| `delegate-expression-as-job-type` (covered mappings) | Advisory | `<covered count>` | `.camunda-migration/findings-by-category.json`: `delegate-expression-as-job-type` — `<covered element IDs>` | `DelegateDispatcher` (covers every listed mapping) | Cross-check: every listed pair has a route | `<finding link>` | no action |
+| `form-data` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-data` | one `.form` per C7 Generated Task Form (see 5f) | Form procedure: migration gap only | `<finding link>` | needs fix |
+| `form-key-embedded` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-key-embedded` | none yet — keep/rebuild decision pending (see 5g) | Form procedure: migration gap only | `<finding link>` | needs review |
+| `form-key-external` | Advisory | `<count>` | `.camunda-migration/findings-by-category.json`: `form-key-external` | `LoanFormsController` custom app — integration owner confirmed (see 5g) | Integration check: migration gap only | `<finding link>` | needs fix |
+| `c7-generic-task-form` | Advisory | 8 | `MIGRATION_REPORT.md` source inventory: `c7-generic-task-form` | n/a — no finding, source-derived inventory (see 5g) | Source inventory: no form metadata | n/a | needs review |
 
 Rules:
 
 - Use one row per category and runtime impact. Each split row lists its matching element IDs in the
   Element list.
 - Sort the grouped summary as in 5b. Sort verdict-table rows by runtime impact, then highest
-  severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending.
+  severity when present (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending.
 - Add the `Runtime impact` value before assigning the verdict. Runtime impact does not replace the
   verdict.
 - For an M1 converter category, Element list names the actual artifact path and the category key.
 - For an M1 source-derived category, Element list names its category in the source inventory in `MIGRATION_REPORT.md`.
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other matched code element.
+- Impact evidence names the rule, target-support check, or cross-check that determined the runtime impact.
 - Write `none yet` when no remediation exists.
 - For models-only scope, write `n/a`.
 - For a fallback category, write `no dedicated cross-check`.
