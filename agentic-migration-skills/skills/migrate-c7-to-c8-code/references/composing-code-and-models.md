@@ -72,6 +72,11 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 #### Dispatcher scaffold
 
+For each candidate job-type group, check every converted task definition with that job type maps to
+a normalized route pair.
+If a task lacks a route pair, then keep the group **needs fix**.
+While any task lacks a route pair, do not offer a scaffold.
+
 Use this table to decide whether to offer a scaffold:
 
 | Converter findings cover all route pairs | Retained headers cover all route pairs | Distinct route pairs | Verdict | Dispatcher | Action |
@@ -88,7 +93,8 @@ Use this table to decide whether to offer a scaffold:
 | **Generate a dispatcher scaffold** | Create a draft for review. |
 | **I will implement the dispatcher manually** | Keep the category **needs fix**. |
 
-Generate the scaffold only after the user selects it. Never overwrite an existing file.
+Generate the scaffold only after the user selects it.
+Never overwrite an existing file.
 Create the draft outside every configured Java source root. Use the target project's conventional
 package, license header, naming, and formatting.
 The source contains one `@JobWorker(type = "<shared job type>")`.
