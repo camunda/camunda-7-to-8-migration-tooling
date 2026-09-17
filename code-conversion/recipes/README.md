@@ -17,6 +17,15 @@ The recipes help automatically refactor:
 
 Transformation examples can be found in the [code conversion patterns](../patterns/).
 
+### RepositoryService deployments
+
+`AllClientRecipes` converts complete, standalone `RepositoryService.createDeployment()` chains
+to `CamundaClient` deployment commands. It supports classpath resources, tenant IDs that can be
+safely moved after resources, simple deployment names, and input-stream or string resources whose
+arguments can be safely reordered. Deployment names have no Camunda 8 command equivalent and are
+removed. Unsupported deployment chains and RepositoryService queries are kept with a TODO for
+manual migration.
+
 ## Extending recipes
 
 For many scenarios you might want to extend the recipes. For example, your Java Delegates might not implement `org.camunda.bpm.engine.delegate.JavaDelegate` but extend your own superclass `org.acme.MyJavaDelegate`. This would not be picked up by the out-of-the-box recipes.

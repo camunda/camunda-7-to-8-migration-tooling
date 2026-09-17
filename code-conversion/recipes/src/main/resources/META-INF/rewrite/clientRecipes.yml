@@ -21,6 +21,7 @@ recipeList:
   - io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateUserTaskMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe
+  - io.camunda.migration.code.recipes.client.MigrateRepositoryServiceRecipe
   - io.camunda.migration.code.recipes.client.DetectHistoryServiceUsageRecipe
   - io.camunda.migration.code.recipes.client.DetectIdentityAndManagementServiceUsageRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.WarnSpringProfileNegationRecipe
