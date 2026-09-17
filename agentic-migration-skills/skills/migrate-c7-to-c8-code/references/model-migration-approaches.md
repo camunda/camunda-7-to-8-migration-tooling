@@ -260,7 +260,7 @@ Verdicts:
 |---|---|---|
 | **no action** | The converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage. | Nothing to do. |
 | **needs review** | A human decision is required before any fix can start. For example, choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result. | Surface it in the AI follow-up step only to collect the pending user decision through AskUserQuestion before any fix. |
-| **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
+| **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Link | Verdict |
 |---|---|---|---|---|

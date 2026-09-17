@@ -35,7 +35,7 @@ Group the normalized rows by `jobType`:
 - **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
 - **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
 
-Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
+For `delegate-implementation`, use the same distinct-expression count. One expression is 1:1.
 
 ### 2a. 1:1 mapping - simple job-type match
 
@@ -64,6 +64,9 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 Locate the converted BPMN element for each finding. Read its retained header key before
 building routes.
 
+If a job-type group has fewer than two distinct retained header key and original expression pairs,
+then do not offer a scaffold.
+
 When a many-to-one job-type group has findings, a **needs fix** verdict, and no dispatcher, use
 AskUserQuestion to offer these actions:
 
@@ -87,7 +90,7 @@ After review, use AskUserQuestion to ask the user to revise, accept, or decline 
 Do not treat the generation choice as acceptance.
 Keep the draft outside every configured Java source root until the user completes its TODOs, accepts
 it, and resolves any other subscriber.
-If the user declines the draft, remove it.
+When the user declines the draft, remove it.
 After acceptance, move the draft beside migrated workers.
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
 Keep the category **needs fix** until that check passes.
@@ -142,8 +145,8 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
-- Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
+- 1:1 job-type match confirmed, dispatcher covering every retained header key and original expression pair, or every invoked method covered by a remediation: **no action** (the category is fully covered).
+- Mismatched job types, uncovered retained header key and original expression pairs, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
