@@ -216,8 +216,6 @@ See `references/model-migration-approaches.md` for all four.
 - **M1. Diagram Converter CLI + AI** (recommended) — download and run the CLI, then handle the
   findings.
 - **M2. Agentic AI** — rewrite the XML directly, without the CLI.
-  Before rewriting, collect the M2 `scriptJobType` input. Use `script` when the user accepts
-  the default, and record the selected value in `MIGRATION_REPORT.md`.
 - **M3. Online Converter** — the user uploads the diagrams at the hosted service.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
   model exists.
@@ -281,12 +279,9 @@ target version. See the linting section in `references/model-migration-approache
    `.json`, `.md`, or `.xlsx`. Keep findings reports under `.camunda-migration/reports/` only when
    the build does not package that directory. Otherwise, use another explicitly non-packaged
    directory.
-4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict
-   table with its category, converter and effective severity, runtime impact, count,
-   cross-referenced code artifact, and verdict. Classify every INFO finding with Blocking or Pending
-   runtime impact in the same table. Classify every source-derived finding with `n/a`
-   converter severity in the same table. See `references/model-migration-approaches.md` step 5d.
-   A flat "fixed or recorded" note is not enough.
+4. Every WARNING, TASK, and REVIEW finding is fixed, or classified in the per-category verdict table
+   with its category, runtime impact, count, cross-referenced code artifact, and verdict. See
+   `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not enough.
 5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
    form-property-only definition. None is silently omitted.
 6. Every accepted form is a standard Camunda 8 `.form`.
@@ -310,67 +305,13 @@ target version. See the linting section in `references/model-migration-approache
 15. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
    `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
    definitions-level XPath `expressionLanguage` attribute.
-16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`,
-    `zeebe:executionListener/@type`, and `zeebe:taskListener/@type`. Derive the expected type from
-    the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`,
-    `camunda:topic`, `camunda:connectorId`, non-internal `scriptTask`, or listener implementation
-    using the binding rules in `references/model-migration-approaches.md`.
-    Read the `camunda:connectorId` child element's text, not an attribute, when deriving a connector
-    binding. For a non-internal `scriptTask`, derive the expected type from the configured M2 script
-    job type and preserve the source `scriptFormat` as binding evidence. For a listener
-    `camunda:class`, keep the fully qualified implementation unchanged. Do not apply the task
-    class decapitalization rule to listener classes.
-    Use this listener support matrix:
-
-    | Listener | Target | Supported source events | Emitted event |
-    |---|---|---|---|
-    | Execution listener | 8.6 or later | `start`, `end` | The same event |
-    | Task listener | 8.8 or later | `create`, `assignment`, `complete`, `delete`, `update` | `creating`, `assigning`, `completing`, `canceling`, `updating` |
-    | Either listener | Any target | `timeout` or an unknown event | Omitted |
-
-    Classify each source listener as target-emittable only when the target and event match this
-    matrix. Record every non-emittable source listener as an unsupported source-derived
-    `execution-listener` or `task-listener` finding before pairing. Pair raw source and emitted
-    candidates by a stable source identity when available. When no stable identity exists, filter
-    omitted source declarations before ordinal pairing only when the filtered lists have an
-    unambiguous one-to-one shape. If an omitted declaration creates a gap or an extra emitted
-    listener makes the pairing ambiguous, record the omitted source and unaccounted emitted
-    listener and require a decision-log mapping. Do not force an ordinal pairing. If a
-    target-emittable source
-    listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
-    finding with the source implementation and no emitted job type. For every emitted pair, verify
-    target-version and event support before adding a source-derived
-    `execution-listener-supported` or `task-listener-supported` row. Record an unsupported
-    execution-listener pair under the source-derived `execution-listener` category, or an
-    unsupported task-listener pair under the source-derived `task-listener` category, with
-    Blocking runtime impact instead of marking it supported.
-    If a paired source listener has any `camunda:script` child, record a source-derived
-    `camunda-script` finding with Blocking runtime impact and do not add a supported-listener row.
-    If an emitted listener has a missing or blank `@type`, record a source-derived
-    `blank-listener-job-type` finding with Blocking runtime impact and do not add a
-    supported-listener row.
-    After pairing, record any emitted execution listener without a source pair as a synthetic
-    `execution-listener` validation finding. Record any emitted task listener without a source pair
-    as a synthetic `task-listener` validation finding. Before recording either finding, inspect
-    `MIGRATION_REPORT.md` for an explicit target-only listener decision with the listener host,
-    normalized event, emitted declaration ordinal, emitted type, and rationale. Record an intentional
-    target-only listener under
-    `target-only-listener` and exclude it from the missing-source category.
-    Include the listener host, normalized event, emitted type, and missing source implementation in
-    each unaccounted-listener finding.
-    Record the supported row with `n/a` converter severity before the worker cross-check. Include
-    these pairing rows in the grouped summary and verdict table, including for models-only M2 runs.
-    Add a source-derived `m2-task-binding` row for every emitted task mapping to the grouped
-    summary and verdict table. Record `n/a` for the code artifact in a models-only run.
-    If the emitted type differs, require a confirmed decision-log entry in
-    `MIGRATION_REPORT.md` with the source file and element, original implementation, emitted type,
-    and rationale. Treat a mismatch without that entry as a validation failure. When code migration
-    is in scope, apply the worker coverage check in `references/composing-code-and-models.md` to
-    every normalized binding, including target-only listener rows. When code migration is in scope,
-    For a models-only M2 run, record `n/a` for the code artifact. Assign `needs review` only to
-    paired, supported listener, target-only listener, or task mapping rows whose worker coverage is
-    unverified. Keep missing, unsupported, blank-type, or unaccounted listener rows as `needs fix`
-    under their Blocking lifecycle.
+16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
+    from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
+    `camunda:topic` attribute using the binding rules in
+    `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
+    decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
+    implementation, emitted type, and rationale. Treat a mismatch without that entry as a
+    validation failure.
 
 #### Summary
 
@@ -398,28 +339,15 @@ Use AskUserQuestion with these options:
 For model findings, work from the Step 4 verdict table. Never present model findings as one
 undifferentiated list.
 
-For follow-up categories, sequence the work by runtime impact:
-
-Before applying this order, assign severity with this table:
-
-| Finding row | Converter severity | Effective severity |
-|---|---|---|
-| Converter-derived category | Reported severity | Reported severity |
-| Source-derived category without converter severity, including `c7-*`, `generated-form-property-source`, `blank-executable-task-job-type`, `blank-dmn-decision-id`, `unexpected-dmn-decision`, `blank-listener-job-type`, `m2-task-binding`, `target-only-listener`, M2 source-derived `execution-listener-supported` and `task-listener-supported`, source-derived `camunda-script`, and synthetic M2 listener rows | `n/a` | `TASK` |
-| Converter-emitted `execution-listener`, `execution-listener-supported`, `task-listener`, or `task-listener-supported` finding | Reported severity | Reported severity |
-
-Effective severity only orders follow-up and does not change the finding severity.
+For `needs fix` categories, sequence the follow-up work by runtime impact:
 
 | Order | Runtime impact | Secondary order |
 |---|---|---|
-| 1 | **Blocking** | Effective severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
-| 2 | **Advisory** | Effective severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
-| 3 | **Pending** | Effective severity, then count descending |
+| 1 | **Blocking** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
+| 2 | **Advisory** | Severity (`TASK` > `WARNING` > `REVIEW` > `INFO`), then count descending |
 
 Present the runtime impact with every category. Resolve all **Blocking** categories before
 **Advisory** categories. Do not use severity as a substitute for runtime impact.
-List **Pending** categories after **Advisory** categories. Keep them at **needs review** until the
-required evidence is complete.
 
 | Verdict | Action |
 |---|---|

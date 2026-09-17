@@ -4,8 +4,6 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 
 Use this when the scope is Code + models.
 
-In this reference, a listener host is the BPMN element that carries an execution or task listener.
-
 ## Execution Order
 
 The two paths are independent.
@@ -16,110 +14,33 @@ Follow the user's preference.
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
 
-When M2 is in scope without a Diagram Converter report, enumerate every source
-`camunda:executionListener` and `camunda:taskListener` declaration and every emitted
-`zeebe:taskDefinition/@type`, `zeebe:executionListener/@type`, and `zeebe:taskListener/@type` in
-each converted BPMN file. Normalize source and emitted listener events before pairing. For task
-listeners, map `create` to `creating`, `assignment` to `assigning`, `complete` to `completing`,
-`delete` to `canceling`, and `update` to `updating`. Keep execution events and already normalized
-events unchanged. Use the listener support matrix in `SKILL.md` to classify source listeners as
-target-emittable or omitted. Treat `timeout` and unknown task events as omitted and record each
-omitted source listener under the corresponding Blocking listener category before pairing. First
-collect raw source and emitted
-candidates by listener host and normalized event. Pair by a stable source identity when the
-converted data preserves one. When no stable identity exists, filter omitted source declarations
-before ordinal pairing only when the filtered lists have an unambiguous one-to-one shape. If an
-omitted declaration creates a gap or an extra emitted listener makes the pairing ambiguous, record
-the omitted source and unaccounted emitted listener and require a decision-log mapping. Do not force
-an ordinal pairing. Use the listener host, normalized event, and ordinal as the evidence key. Keep
-the source implementation as the source binding.
-
-If a target-emittable source listener has no emitted pair, record a synthetic `execution-listener` or `task-listener`
-finding with the source implementation and no emitted job type. Apply the Blocking rule for that
-category in `model-migration-approaches.md`. For every emitted pair, verify target-version and
-event support before adding a source-derived `execution-listener-supported` or
-`task-listener-supported` category row. Record an unsupported execution-listener pair under the
-source-derived `execution-listener` category, or an unsupported task-listener pair under the
-source-derived `task-listener` category, with Blocking runtime impact instead of marking it
-supported. If a paired source listener has any `camunda:script` child, record a source-derived
-`camunda-script` finding with Blocking runtime impact and do not add a supported-listener row. If
-an emitted listener has a missing or blank `@type`, record a source-derived
-`blank-listener-job-type` finding with Blocking runtime impact and do not add a supported-listener
-row. Record each supported row with its listener host, normalized event, ordinal, source
-implementation, emitted type, and `n/a` converter severity. Add every row to the grouped summary
-and verdict table. In a models-only run, record `n/a` for the code artifact. Assign `needs review`
-only to paired, supported listener rows whose worker coverage is unverified. Keep missing or
-unsupported listener rows as `needs fix` under their Blocking lifecycle.
-
-After pairing, inspect every emitted listener without a source pair against
-`MIGRATION_REPORT.md`. When the decision log records an intentional target-only listener with its
-listener host, normalized event, emitted ordinal, emitted type, and rationale, record a source-derived
-`target-only-listener` row and exclude it from the missing-source category. Require its emitted
-ordinal and type to pass the worker or handler coverage cross-check before assigning no action. Otherwise record an
-execution listener under the synthetic `execution-listener` category or a task listener under the
-synthetic `task-listener` category with Blocking runtime impact. Include the listener host,
-normalized event, emitted ordinal, emitted type, and missing source implementation in each
-unaccounted-listener finding. Add every row to the grouped summary and verdict table. Include
-target-only rows in the normalized binding input and the worker or handler coverage cross-check.
-
-For every emitted `zeebe:taskDefinition/@type`, pair the converted service, send, non-DMN business
-rule, or non-internal script task with its source element by model ID. Exclude DMN business-rule
-tasks and internal FEEL script tasks as specified in `model-migration-approaches.md` step 5b.1.
-Read the source delegate, expression, class, topic, connector binding, or script format. Derive the
-expected type from the M2 binding rules and compare it with the non-blank emitted type. Add each
-task mapping to the normalized input and to a source-derived `m2-task-binding` row in the grouped
-summary and verdict table. Record `n/a` for the code artifact in a models-only run. Handle missing
-or blank task-definition types in step 5b.1. Do not limit this comparison to listener rows.
-
-When an emitted listener pair exists, compare its normalized type with the expected type and report
-a mismatch through the corresponding supported-listener worker cross-check. Read the corresponding
-original Camunda 7 implementation attribute or listener implementation. Derive the expected type
-from the M2 binding rules in `model-migration-approaches.md`. Create one normalized input row with
-the columns `original` and `jobType` for each
-original-binding-to-emitted-type pair. Apply the same 1:1 or many-to-one check.
-Do not wait for converter findings, because M2-only runs do not produce them.
+When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
+each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
+derive the expected type from the M2 binding rules in `model-migration-approaches.md`. Create one
+normalized input row with the columns `original` and `jobType` for each
+original-implementation-to-emitted-type pair. Apply the same 1:1 or many-to-one check. Do not wait
+for `delegate-expression-as-job-type` findings, because M2-only runs do not produce them.
 
 ### 1. Detect many-to-one job-type collapse
 
-Build the normalized input rows from the `delegate-expression-as-job-type`,
-`delegate-implementation`, `expression-method-as-job-type`, `execution-listener-supported`,
-`task-listener-supported`, `script-job-type`, `topic`, and `connector-id` findings and the M2 scan.
-For a converter finding, parse the original binding from the `message` when the message contains
-it. For `execution-listener-supported` and `task-listener-supported` findings, match the source
-listener by listener host, normalized event, and declaration ordinal. Then read the paired converted
-listener's `@type`. For
-`script-job-type`, `topic`, and `connector-id` findings without a binding in the message, read the
-paired source model and use the converted model for the emitted type. If neither source model nor
-message provides the binding, record the row as unresolved and do not mark the mapping as a
-covered 1:1 mapping. For an M2 row, use the `original` and `jobType` columns created above.
-Treat listener host, normalized event, and declaration ordinal as evidence fields. Use the source
-implementation and behaviorally relevant event as the coverage identity. Repeated listeners with
-the same implementation and event can share one worker mapping. Each normalized row has the shape:
+Build the normalized input rows from the `delegate-expression-as-job-type` findings and the M2 scan.
+For a converter finding, parse the original expression and job type from its `message`. For an M2
+row, use the `original` and `jobType` columns created above. Each normalized row has the shape:
 
 > `original`: Delegate class or expression '\<original\>'
 > `jobType`: '\<jobType\>'
 
-For source-paired listener rows, set `original` to '<implementation>' and retain the listener host,
-normalized event, and ordinal as evidence fields. For target-only listener rows, set `original` to
-'<listener-host>:<normalized-event>#<ordinal>:<emitted-type>' and use the emitted type as the
-coverage identity. Use
-the emitted `zeebe:executionListener/@type` or `zeebe:taskListener/@type`. For script and topic
-rows, use the original script binding or topic and the emitted
-`zeebe:taskDefinition/@type`. For connector rows, use the source connector ID and verify the
-emitted type against a deployed connector registration or explicit connector handler.
-
 Group the normalized rows by `jobType`:
 
-- **1:1**: every job type maps to exactly one original binding. Apply the simple check in 2a.
-- **Many-to-one**: one job type maps to multiple distinct original bindings, so the converter collapsed several bindings onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project. Apply the same dispatcher check to listener, script, and topic rows.
+- **1:1**: every job type maps to exactly one original expression. Apply the simple check in 2a.
+- **Many-to-one**: one job type maps to multiple distinct original expressions, so the converter collapsed several delegates onto a shared job type. Apply the dispatcher check in 2b. This shape is common at scale: one generic job type can cover thousands of expression-based service tasks in a real project.
 
 Also treat the `delegate-implementation` category (emitted when the converter ran with a configured default job type) as inherently many-to-one: every row shares the same job type.
 
 ### 2a. 1:1 mapping - simple job-type match
 
 Job types in the converted model should match the `@JobWorker(type = ...)` values produced by the
-code migration. For connector rows, match the type to a deployed connector registration or
-explicit connector handler. Use the Diagram Converter output for M1 and the binding rules in
+code migration. Use the Diagram Converter output for M1 and the binding rules in
 `model-migration-approaches.md` for M2. Flag mismatches for the user.
 
 ### 2b. Many-to-one mapping - dispatcher/adapter worker needed
@@ -129,26 +50,10 @@ Do NOT generate one `@JobWorker` per BPMN element for a collapsed job type. They
 Instead, flag for the user that the shared job type needs a single dispatcher/adapter job worker:
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
-- For delegate and expression rows, it reads the retained original expression from the job's task
-  headers. The converter preserves it as a `zeebe:header` inside `zeebe:taskHeaders`. Its key is
-  the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is
-  the original expression string (e.g. `${myBean.myMethod(execution)}`).
-- For delegate and expression rows, it routes on that header value to the correct legacy bean or
-  method. A Spring bean lookup by name or an explicit mapping table can provide the routing.
-- For `script-job-type`, `topic`, and `connector-id` rows, do not use the generic task-header rule.
-  Require distinct job types, a binding-specific handler, or an explicitly preserved routing
-  discriminator before declaring a many-to-one group covered. For `m2-task-binding` rows, use the
-  generic task-header rule for delegate and expression bindings. Apply the stricter discriminator
-  rule to script, topic, connector, and other bindings without preserved headers.
+- It reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` (inside `zeebe:taskHeaders`). Its key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`). Its value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
+- It routes on that header value to the correct legacy bean or method (e.g. a Spring bean lookup by name, or an explicit mapping table).
 
-Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers
-every distinct original binding in the normalized rows for that job type. For listener rows, require
-distinct listener types or an explicit routing key preserved in the converted model. Do not use the
-generic task-header rule for listener rows. Task listeners have no headers. Execution-listener
-headers only provide static fields on Camunda 8.10 and later. Include the listener event, ordinal,
-and implementation in the routing check. List a listener mapping as uncovered when no preserved
-routing discriminator exists. List script, topic, connector, or task-binding mappings as uncovered
-when no binding-specific handler or preserved discriminator exists.
+Cross-check for this shape: exactly one worker subscribes to the shared job type. Its routing covers every distinct original expression in the findings rows for that job type. List uncovered expressions for the user.
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
@@ -202,23 +107,19 @@ A candidate is safe to delete only once the converted copy actually uses the nat
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d). The table's cross-reference column names the matched code artifact:
 
-- 1:1 job-type match confirmed, dispatcher covering every original binding, or every invoked method covered by a remediation: **no action** (the category is fully covered).
+- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix**, which become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review**, because removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 - Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
-Apply the runtime-impact override from `model-migration-approaches.md` step 5d.1 before the fallback
-when a category has no dedicated cross-check in step 5d and no named form procedure:
+Apply the fallback when a category has no dedicated cross-check in step 5d and no named form procedure:
 
-| Finding severity | Runtime impact or condition | Fallback verdict | Cross-reference |
-|---|---|---|---|
-| INFO | Blocking with concrete work defined | needs fix | no dedicated cross-check |
-| INFO | Blocking with pending decision or neither concrete work nor pending decision defined | needs review | no dedicated cross-check |
-| Any severity | Pending | needs review | no dedicated cross-check |
-| INFO | Advisory | no action | no dedicated cross-check |
-| REVIEW | Any assigned runtime impact | needs review | no dedicated cross-check |
-| WARNING or TASK | Blocking or Advisory | needs fix | no dedicated cross-check |
+| Finding severity | Fallback verdict | Cross-reference |
+|---|---|---|
+| INFO | no action | no dedicated cross-check |
+| REVIEW | needs review | no dedicated cross-check |
+| WARNING or TASK | needs fix | no dedicated cross-check |
 
 Copy the finding's `link` into the verdict table's `Link` column. Surface that link as the
 remediation starting point. Do not infer a category-specific cross-check from an unknown
