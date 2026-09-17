@@ -207,14 +207,9 @@ Treat every other category as a fallback category.
 #### 5d.1. Classify runtime impact
 
 Assign one `Runtime impact` value to every verdict-table row before assigning its verdict. Runtime
-impact is independent of severity. Use severity only to sort categories with the same runtime
-impact. Runtime impact describes whether the finding blocks deployment or execution on the chosen
-target.
-
-Before assigning runtime impact, inspect each converted job-backed task. When no non-blank
-`zeebe:taskDefinition/@type` exists, add a `blank-executable-task-job-type` row to the verdict
-table. Its count includes every affected task. Use **Blocking** impact, `no dedicated cross-check`,
-`n/a` link, and a **needs fix** verdict.
+impact is independent of severity. Step 5 uses runtime impact before severity when it orders
+follow-up work. Runtime impact describes whether the finding blocks deployment or execution on the
+chosen target.
 
 Use the following rules:
 
@@ -223,11 +218,8 @@ Use the following rules:
 | `element-not-supported`, `element-not-supported-hint` | **Blocking** | The target cannot deploy or execute the affected element. |
 | `element-available-in-future-version` | **Blocking** when the chosen target is lower than the required version | Compare the report's required version with the chosen target. A report generated for another target must be revalidated before this classification is used. |
 | `delegate-implementation-no-default-job-type`, `delegate-expression-as-job-type-null` | **Blocking** | The converter left the executable task's job type blank. No job worker can activate that task until a type is defined. |
-| `blank-executable-task-job-type` | **Blocking** | A job-backed task has no non-blank `zeebe:taskDefinition/@type`. The converted executable task has no routable job type. |
-| `expression-execution-not-available`, `expression-method-not-possible` | **Blocking** | The affected expression cannot execute in the converted model. |
 | `conditional-flow`, `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, `script-on-conditional-event` | **Blocking** | The affected conditional flow or event cannot evaluate its condition. |
-| `timer-expression-not-supported`, `inclusive-gateway-join` | **Blocking** | The affected element cannot execute with the chosen target semantics. |
-| `only-feel-supported` when source inspection finds a non-FEEL expression language | **Blocking** | The source language cannot execute in Camunda 8. |
+| `timer-expression-not-supported`, `inclusive-gateway-join`, `loop-cardinality` | **Blocking** | The affected element cannot retain the required execution semantics. |
 | Every other known category, including form references, `form-data`, listener findings, mapping findings, and review-only mappings | **Advisory** | The finding can require migration work or a decision, but it does not prove that the model cannot deploy or that the affected element cannot execute. |
 
 If a new or unknown `messageId` appears, verify the converted model and the affected element before
