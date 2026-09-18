@@ -19,7 +19,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs without activating them. Note that
-				external tasks in Camunda 7 correspond to jobs in Camunda 8.
+				external tasks in Camunda 7 correspond to BPMN element jobs
+				in Camunda 8. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can still
+				include other BPMN element jobs.
 			</div>
 		),
 	},
@@ -36,7 +41,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs without activating them. Note that
-				external tasks in Camunda 7 correspond to jobs in Camunda 8.
+				external tasks in Camunda 7 correspond to BPMN element jobs
+				in Camunda 8. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can still
+				include other BPMN element jobs.
 			</div>
 		),
 	},
@@ -53,8 +63,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs. The response includes a{" "}
-				<code>page.totalItems</code> field that provides the total count
-				of matching jobs.
+				<code>page.totalItems</code> field. When{" "}
+				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
+				value is a lower bound rather than an exact count. Set{" "}
+				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
+				listener and ad-hoc-subprocess jobs. When a source query contains
+				a topic, map it to <code>filter.type</code>.
 			</div>
 		),
 	},
@@ -71,8 +85,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs. The response includes a{" "}
-				<code>page.totalItems</code> field that provides the total count
-				of matching jobs.
+				<code>page.totalItems</code> field. When{" "}
+				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
+				value is a lower bound rather than an exact count. Set{" "}
+				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
+				listener and ad-hoc-subprocess jobs. When a source query contains
+				a topic, map it to <code>filter.type</code>.
 			</div>
 		),
 	},
@@ -351,8 +369,6 @@ export const external_task = [
 							<br />
 							(dateTime) externalTaskQuery.lockExpirationBefore
 							<br />
-							(boolean) externalTaskQuery.withRetriesLeft
-							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
 							<br />
 							(int64) externalTaskQuery.priorityHigherThanOrEquals
@@ -366,8 +382,6 @@ export const external_task = [
 								(dateTime) filter.deadline.$gt
 								<br />
 								(dateTime) filter.deadline.$lt
-								<br />
-								(int32) filter.retries.$gt
 								<br />
 								(int32) filter.retries.$eq
 								<br />
@@ -447,10 +461,16 @@ export const external_task = [
 						track progress.
 					</p>
 					<p>
+						Set <code>filter.kind</code> to{" "}
+						<code>BPMN_ELEMENT</code> in every request. This excludes
+						listener and ad-hoc-subprocess jobs. When a source selector
+						includes a topic, map it to <code>filter.type</code>.
+					</p>
+					<p>
 						Do not pass either Camunda 7 query object directly as a
 						Camunda 8 <code>filter</code>. Translate only the
-						supported fields listed above and omit unsupported
-						criteria.
+						supported fields listed above and handle unsupported
+						criteria separately.
 					</p>
 					<p>
 						Camunda 7 unions <code>externalTaskIds</code>,{" "}
@@ -476,6 +496,8 @@ export const external_task = [
 							(boolean) externalTaskQuery.active
 							<br />
 							(boolean) externalTaskQuery.suspended
+							<br />
+							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(string) externalTaskQuery.executionId
 							<br />
@@ -627,8 +649,6 @@ export const external_task = [
 							<br />
 							(dateTime) externalTaskQuery.lockExpirationBefore
 							<br />
-							(boolean) externalTaskQuery.withRetriesLeft
-							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
 							<br />
 							(int64) externalTaskQuery.priorityHigherThanOrEquals
@@ -642,8 +662,6 @@ export const external_task = [
 								(dateTime) filter.deadline.$gt
 								<br />
 								(dateTime) filter.deadline.$lt
-								<br />
-								(int32) filter.retries.$gt
 								<br />
 								(int32) filter.retries.$eq
 								<br />
@@ -723,10 +741,16 @@ export const external_task = [
 						track progress.
 					</p>
 					<p>
+						Set <code>filter.kind</code> to{" "}
+						<code>BPMN_ELEMENT</code> in every request. This excludes
+						listener and ad-hoc-subprocess jobs. When a source selector
+						includes a topic, map it to <code>filter.type</code>.
+					</p>
+					<p>
 						Do not pass either Camunda 7 query object directly as a
 						Camunda 8 <code>filter</code>. Translate only the
-						supported fields listed above and omit unsupported
-						criteria.
+						supported fields listed above and handle unsupported
+						criteria separately.
 					</p>
 					<p>
 						Camunda 7 unions <code>externalTaskIds</code>,{" "}
@@ -752,6 +776,8 @@ export const external_task = [
 							(boolean) externalTaskQuery.active
 							<br />
 							(boolean) externalTaskQuery.suspended
+							<br />
+							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(string) externalTaskQuery.executionId
 							<br />
@@ -814,15 +840,11 @@ export const external_task = [
 			<div>
 				The Camunda 8.10 Search jobs endpoint can search by the
 				<code>type</code> field. External task topic names correspond to
-				job types in Camunda 8, but the endpoint is paginated and can
-				return terminal jobs. Page through all results, retain only
-				current jobs, and collect unique <code>type</code> values.
-				Translate <code>withLockedTasks</code>,{" "}
-				<code>withUnlockedTasks</code>, and{" "}
-				<code>withRetriesLeft</code> using the job's worker, deadline,
-				and retries fields. There is no exact single-request
-				equivalent, so unsupported filter combinations require
-				client-side handling.
+				BPMN element job types. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> before collecting unique{" "}
+				<code>type</code> values so listener and ad-hoc-subprocess jobs
+				are excluded. Use a known topic-to-type mapping when exact
+				external-task selection is required.
 			</div>
 		),
 	},
@@ -839,7 +861,10 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to retrieve a specific job by filtering on{" "}
-				<code>jobKey</code>.
+				<code>jobKey</code>. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> so listener and ad-hoc-subprocess jobs
+				are excluded. Resolve the Camunda 7 external-task ID to the
+				corresponding Camunda 8 job key before making the request.
 			</div>
 		),
 	},
