@@ -14,6 +14,14 @@
       "enabled": true
     },
     {
+      "description": "Disable updates for unavailable Camunda 7 starter artifacts",
+      "enabled": false,
+      "matchPackageNames": [
+        "org.camunda.bpm.springboot:camunda-bpm-spring-boot-starter-4-external-task-client",
+        "org.camunda.bpm.springboot:camunda-bpm-spring-boot-starter-4-test"
+      ]
+    },
+    {
       "description": "Pin internal modules to current version",
       "enabled": false,
       "matchPackageNames": [
