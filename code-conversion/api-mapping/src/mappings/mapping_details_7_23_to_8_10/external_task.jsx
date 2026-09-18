@@ -21,34 +21,10 @@ export const external_task = [
 				be used to search for jobs without activating them. Note that
 				external tasks in Camunda 7 correspond to BPMN element jobs
 				in Camunda 8. Set <code>filter.kind</code> to{" "}
-				<code>BPMN_ELEMENT</code> and, when the C7 query identifies a
-				topic, set <code>filter.type</code> to the corresponding C8
-				job type. <code>filter.kind</code> alone also includes other
-				BPMN element job types, so a search without a known topic/type
-				restriction is not an exact C7 external-task mapping.
-				Unlike Camunda 7's current external tasks, C8 search results can
-				include completed and canceled jobs. Follow{" "}
-				<code>page.endCursor</code> through all pages and use{" "}
-				<code>endTime == null</code> as the C8 current-job candidate
-				check before applying C7 pagination. C7 and C8 lifecycle and
-				exhausted-retry semantics are not fully equivalent; preserve
-				source correlation for exact parity or mark the case
-				unsupported. C7 <code>withRetriesLeft=true</code> includes
-				tasks with{" "}
-				<code>retries &gt; 0</code> or a null retry value. Because C8
-				exposes a non-null <code>retries</code> field,{" "}
-				<code>filter.retries.$gt</code> is not an exact mapping; treat
-				this selector as unsupported unless migration metadata preserves
-				the C7 null case. For{" "}
-				<code>noRetriesLeft=true</code>, retain only jobs with{" "}
-				<code>retries == 0</code> before applying C7 pagination.
-				Camunda 7's <code>active</code> and{" "}
-				<code>suspended</code> query flags are valid filters, but C8's{" "}
-				<code>JobFilter</code> has no equivalent fields. If either is{" "}
-				<code>true</code>, apply the predicate in a separate
-				post-filter before applying C7 pagination, or mark the mapping
-				unsupported. A false value is a no-op in C7; do not silently
-				omit a true filter.
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can still
+				include other BPMN element jobs.
 			</div>
 		),
 	},
@@ -67,34 +43,10 @@ export const external_task = [
 				be used to search for jobs without activating them. Note that
 				external tasks in Camunda 7 correspond to BPMN element jobs
 				in Camunda 8. Set <code>filter.kind</code> to{" "}
-				<code>BPMN_ELEMENT</code> and, when the C7 query identifies a
-				topic, set <code>filter.type</code> to the corresponding C8
-				job type. <code>filter.kind</code> alone also includes other
-				BPMN element job types, so a search without a known topic/type
-				restriction is not an exact C7 external-task mapping.
-				Unlike Camunda 7's current external tasks, C8 search results can
-				include completed and canceled jobs. Follow{" "}
-				<code>page.endCursor</code> through all pages and use{" "}
-				<code>endTime == null</code> as the C8 current-job candidate
-				check before applying C7 pagination. C7 and C8 lifecycle and
-				exhausted-retry semantics are not fully equivalent; preserve
-				source correlation for exact parity or mark the case
-				unsupported. C7 <code>withRetriesLeft=true</code> includes
-				tasks with{" "}
-				<code>retries &gt; 0</code> or a null retry value. Because C8
-				exposes a non-null <code>retries</code> field,{" "}
-				<code>filter.retries.$gt</code> is not an exact mapping; treat
-				this selector as unsupported unless migration metadata preserves
-				the C7 null case. For{" "}
-				<code>noRetriesLeft=true</code>, retain only jobs with{" "}
-				<code>retries == 0</code> before applying C7 pagination.
-				Camunda 7's <code>active</code> and{" "}
-				<code>suspended</code> query flags are valid filters, but C8's{" "}
-				<code>JobFilter</code> has no equivalent fields. If either is{" "}
-				<code>true</code>, apply the predicate in a separate
-				post-filter before applying C7 pagination, or mark the mapping
-				unsupported. A false value is a no-op in C7; do not silently
-				omit a true filter.
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can still
+				include other BPMN element jobs.
 			</div>
 		),
 	},
@@ -111,38 +63,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs. The response includes a{" "}
-				<code>page.totalItems</code> field, but it can be capped. If{" "}
-				<code>page.hasMoreTotalItems</code> is{" "}
-				<code>true</code>, <code>page.totalItems</code> is only a
-				lower bound, not the exact count. Set{" "}
-				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> and
-				<code>filter.type</code> to the known external-task topic
-				type. <code>filter.kind</code> alone also includes unrelated
-				BPMN element job types, so an unqualified count is not exact
-				and can overcount C7 external tasks.
-				The C7 count includes only current external tasks. Follow{" "}
-				<code>page.endCursor</code> through all result pages and use{" "}
-				<code>endTime == null</code> as the C8 current-job candidate
-				check before counting instead of using{" "}
-				<code>page.totalItems</code>. C7 exhausted-retry lifecycle
-				semantics require source correlation for exact parity; mark
-				that case unsupported when the correlation is unavailable.
-				After fetching all pages, apply the requested retry predicate
-				before counting. <code>noRetriesLeft=true</code> maps to{" "}
-				<code>retries == 0</code>. C7{" "}
-				<code>withRetriesLeft=true</code> also includes null retry
-				values, which C8 cannot represent; treat that selector as
-				unsupported unless migration metadata preserves the source
-				value.
-				Camunda 7's <code>active</code> and{" "}
-				<code>suspended</code> query flags are valid filters, but C8's{" "}
-				<code>JobFilter</code> has no equivalent fields. If either is{" "}
-				<code>true</code>, apply the predicate in a separate
-				post-filter before counting, or mark the mapping unsupported.
-				A false value is a no-op in C7; do not silently omit a true
-				filter.
-				The C8 search is eventually consistent, so even a fully paged
-				count describes the current C8 index and may lag Camunda 7.
+				<code>page.totalItems</code> field. When{" "}
+				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
+				value is a lower bound rather than an exact count. Set{" "}
+				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
+				listener and ad-hoc-subprocess jobs. When a source query contains
+				a topic, map it to <code>filter.type</code>.
 			</div>
 		),
 	},
@@ -159,38 +85,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs. The response includes a{" "}
-				<code>page.totalItems</code> field, but it can be capped. If{" "}
-				<code>page.hasMoreTotalItems</code> is{" "}
-				<code>true</code>, <code>page.totalItems</code> is only a
-				lower bound, not the exact count. Set{" "}
-				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> and
-				<code>filter.type</code> to the known external-task topic
-				type. <code>filter.kind</code> alone also includes unrelated
-				BPMN element job types, so an unqualified count is not exact
-				and can overcount C7 external tasks.
-				The C7 count includes only current external tasks. Follow{" "}
-				<code>page.endCursor</code> through all result pages and use{" "}
-				<code>endTime == null</code> as the C8 current-job candidate
-				check before counting instead of using{" "}
-				<code>page.totalItems</code>. C7 exhausted-retry lifecycle
-				semantics require source correlation for exact parity; mark
-				that case unsupported when the correlation is unavailable.
-				After fetching all pages, apply the requested retry predicate
-				before counting. <code>noRetriesLeft=true</code> maps to{" "}
-				<code>retries == 0</code>. C7{" "}
-				<code>withRetriesLeft=true</code> also includes null retry
-				values, which C8 cannot represent; treat that selector as
-				unsupported unless migration metadata preserves the source
-				value.
-				Camunda 7's <code>active</code> and{" "}
-				<code>suspended</code> query flags are valid filters, but C8's{" "}
-				<code>JobFilter</code> has no equivalent fields. If either is{" "}
-				<code>true</code>, apply the predicate in a separate
-				post-filter before counting, or mark the mapping unsupported.
-				A false value is a no-op in C7; do not silently omit a true
-				filter.
-				The C8 search is eventually consistent, so even a fully paged
-				count describes the current C8 index and may lag Camunda 7.
+				<code>page.totalItems</code> field. When{" "}
+				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
+				value is a lower bound rather than an exact count. Set{" "}
+				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
+				listener and ad-hoc-subprocess jobs. When a source query contains
+				a topic, map it to <code>filter.type</code>.
 			</div>
 		),
 	},
@@ -385,23 +285,29 @@ export const external_task = [
 				{
 					leftEntry: <pre>(string[]) externalTaskIds</pre>,
 					rightEntry: (
-						<p>
-							Resolve these identifiers to current, deduplicated
-							Camunda 8 job keys through the candidate-search
-							flow below. Do not pass them directly as a batch
-							update filter.
-						</p>
+						<>
+							<pre>(string[]) filter.jobKey.$in</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
 					),
 				},
 				{
 					leftEntry: <pre>(string[]) processInstanceIds</pre>,
 					rightEntry: (
-						<p>
-							Resolve the matching current, deduplicated Camunda
-							8 job keys through the candidate-search flow below.
-							Do not pass process-instance keys directly as a
-							batch update filter.
-						</p>
+						<>
+							<pre>(string[]) filter.processInstanceKey.$in</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
 					),
 				},
 				{
@@ -485,12 +391,8 @@ export const external_task = [
 							</pre>
 							<p>
 								Use the advanced comparison operators shown
-								above only when searching candidates. Validate
-								each C7 priority bound against the signed
-								32-bit C8 range. Jobs created before Camunda
-								8.10 may have no stored priority and are
-								excluded by priority filters; preserve source
-								correlation or mark that selector unsupported.
+								above; these criteria must not be copied as
+								top-level fields.
 							</p>
 						</>
 					),
@@ -521,13 +423,11 @@ export const external_task = [
 								(string[]) filter.tenantId.$in
 							</pre>
 							<p>
-								Use these fields only to search candidate
-								<code>BPMN_ELEMENT</code> jobs. A C7 process
+								Translate each supported field into the nested{" "}
+								<code>filter</code> object. A C7 process
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
-								interchangeable with it. Do not pass this
-								selector directly to the batch update; submit
-								only the deduplicated current job keys.
+								interchangeable with it.
 							</p>
 						</>
 					),
@@ -544,12 +444,10 @@ export const external_task = [
 						<>
 							<pre>(string) filter.processDefinitionKey</pre>
 							<p>
-								Use this only to search candidates. Translate
-								each version-specific Camunda 7 process
-								definition ID to the corresponding Camunda 8
-								process definition key, then submit only the
-								deduplicated current job keys to the batch
-								update.
+								Translate each version-specific Camunda 7
+								process definition ID to the corresponding
+								Camunda 8 process definition key before
+								applying this filter.
 							</p>
 						</>
 					),
@@ -563,39 +461,16 @@ export const external_task = [
 						track progress.
 					</p>
 					<p>
-						For exact <code>jobKey</code> or{" "}
-						<code>jobKey.$in</code> selectors, set{" "}
-						<code>filter.kind</code> to{" "}
-						<code>BPMN_ELEMENT</code>. For a selector with a C7
-						topic, also set its corresponding{" "}
-						<code>filter.type</code>. A selector without a topic
-						requires a complete allowlist of all external-task job
-						types and one search per type; a single arbitrary type
-						under-selects, while <code>filter.kind</code> alone
-						over-selects. If that allowlist is unavailable, mark the
-						selector unsupported and do not run the batch update.
-					</p>
-					<p>
-						For retry updates, a kind/type filter can still match
-						terminal job records. Search each translated selector
-						first, follow all cursor pages, and use{" "}
-						<code>endTime == null</code> as the C8 current-job
-						candidate check. C7 and C8 lifecycle and nullable-retry
-						semantics are not fully equivalent; preserve source
-						correlation for exact exhausted/nullable cases and mark
-						the selector unsupported when it is unavailable. Submit
-						only the resulting deduplicated{" "}
-						<code>jobKey.$in</code>. An exact job key must pass the
-						same check; never send a broad kind/type filter directly
-						when C7 current-task semantics are required.
+						Set <code>filter.kind</code> to{" "}
+						<code>BPMN_ELEMENT</code> in every request. This excludes
+						listener and ad-hoc-subprocess jobs. When a source selector
+						includes a topic, map it to <code>filter.type</code>.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
-						Camunda 8 <code>filter</code>. Reject or mark the
-						selector unsupported when it contains a C7 criterion
-						that cannot be mapped or post-filtered. Do not omit an
-						unsupported criterion from a mutating request because
-						that would broaden the set of jobs being updated.
+						Camunda 8 <code>filter</code>. Translate only the
+						supported fields listed above and handle unsupported
+						criteria separately.
 					</p>
 					<p>
 						Camunda 7 unions <code>externalTaskIds</code>,{" "}
@@ -690,23 +565,29 @@ export const external_task = [
 				{
 					leftEntry: <pre>(string[]) externalTaskIds</pre>,
 					rightEntry: (
-						<p>
-							Resolve these identifiers to current, deduplicated
-							Camunda 8 job keys through the candidate-search
-							flow below. Do not pass them directly as a batch
-							update filter.
-						</p>
+						<>
+							<pre>(string[]) filter.jobKey.$in</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
 					),
 				},
 				{
 					leftEntry: <pre>(string[]) processInstanceIds</pre>,
 					rightEntry: (
-						<p>
-							Resolve the matching current, deduplicated Camunda
-							8 job keys through the candidate-search flow below.
-							Do not pass process-instance keys directly as a
-							batch update filter.
-						</p>
+						<>
+							<pre>(string[]) filter.processInstanceKey.$in</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
 					),
 				},
 				{
@@ -790,12 +671,8 @@ export const external_task = [
 							</pre>
 							<p>
 								Use the advanced comparison operators shown
-								above only when searching candidates. Validate
-								each C7 priority bound against the signed
-								32-bit C8 range. Jobs created before Camunda
-								8.10 may have no stored priority and are
-								excluded by priority filters; preserve source
-								correlation or mark that selector unsupported.
+								above; these criteria must not be copied as
+								top-level fields.
 							</p>
 						</>
 					),
@@ -826,13 +703,11 @@ export const external_task = [
 								(string[]) filter.tenantId.$in
 							</pre>
 							<p>
-								Use these fields only to search candidate
-								<code>BPMN_ELEMENT</code> jobs. A C7 process
+								Translate each supported field into the nested{" "}
+								<code>filter</code> object. A C7 process
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
-								interchangeable with it. Do not pass this
-								selector directly to the batch update; submit
-								only the deduplicated current job keys.
+								interchangeable with it.
 							</p>
 						</>
 					),
@@ -849,12 +724,10 @@ export const external_task = [
 						<>
 							<pre>(string) filter.processDefinitionKey</pre>
 							<p>
-								Use this only to search candidates. Translate
-								each version-specific Camunda 7 process
-								definition ID to the corresponding Camunda 8
-								process definition key, then submit only the
-								deduplicated current job keys to the batch
-								update.
+								Translate each version-specific Camunda 7
+								process definition ID to the corresponding
+								Camunda 8 process definition key before
+								applying this filter.
 							</p>
 						</>
 					),
@@ -868,39 +741,16 @@ export const external_task = [
 						track progress.
 					</p>
 					<p>
-						For exact <code>jobKey</code> or{" "}
-						<code>jobKey.$in</code> selectors, set{" "}
-						<code>filter.kind</code> to{" "}
-						<code>BPMN_ELEMENT</code>. For a selector with a C7
-						topic, also set its corresponding{" "}
-						<code>filter.type</code>. A selector without a topic
-						requires a complete allowlist of all external-task job
-						types and one search per type; a single arbitrary type
-						under-selects, while <code>filter.kind</code> alone
-						over-selects. If that allowlist is unavailable, mark the
-						selector unsupported and do not run the batch update.
-					</p>
-					<p>
-						Apply the same current-task restriction to this
-						asynchronous mapping: do not submit a broad kind/type
-						filter directly. Search each translated selector,
-						follow all cursor pages, and use{" "}
-						<code>endTime == null</code> as the C8 current-job
-						candidate check. C7 and C8 lifecycle and nullable-retry
-						semantics are not fully equivalent; preserve source
-						correlation for exact exhausted/nullable cases and mark
-						the selector unsupported when it is unavailable.
-						Deduplicate the resulting job keys and submit the
-						update with <code>filter.jobKey.$in</code>. Check exact
-						job keys with the same check before updating.
+						Set <code>filter.kind</code> to{" "}
+						<code>BPMN_ELEMENT</code> in every request. This excludes
+						listener and ad-hoc-subprocess jobs. When a source selector
+						includes a topic, map it to <code>filter.type</code>.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
-						Camunda 8 <code>filter</code>. Reject or mark the
-						selector unsupported when it contains a C7 criterion
-						that cannot be mapped or post-filtered. Do not omit an
-						unsupported criterion from a mutating request because
-						that would broaden the set of jobs being updated.
+						Camunda 8 <code>filter</code>. Translate only the
+						supported fields listed above and handle unsupported
+						criteria separately.
 					</p>
 					<p>
 						Camunda 7 unions <code>externalTaskIds</code>,{" "}
@@ -989,31 +839,12 @@ export const external_task = [
 		mappedExplanation: (
 			<div>
 				The Camunda 8.10 Search jobs endpoint can search by the
-				<code>type</code> field, but <code>BPMN_ELEMENT</code> includes
-				job types that are not C7 external-task topics. There is no
-				exact mapping from <code>/external-task/topic-names</code> using
-				only this endpoint. Use external-task definition metadata or a
-				known C7-topic-to-C8-type allowlist, then search each allowed
-				type with <code>filter.kind=BPMN_ELEMENT</code> and collect the
-				unique types. Without that allowlist, mark this mapping as
-				non-equivalent rather than treating every returned type as a
-				topic name. The endpoint is paginated and can return terminal
-				jobs, so page through all results and use{" "}
-				<code>endTime == null</code> as the C8 current-job candidate
-				check. C7 and C8 lifecycle and nullable-retry semantics are not
-				fully equivalent; preserve source correlation for exact
-				exhausted/nullable cases or mark those cases unsupported.
-				C7 exposes <code>withRetriesLeft</code>, but its null branch
-				cannot be represented by the non-null C8{" "}
-				<code>retries</code> field. Do not add a retry predicate when
-				the flag is absent; retain all current candidates. C7 has no{" "}
-				<code>noRetriesLeft</code> parameter for this endpoint.
-				<code>withLockedTasks</code> and{" "}
-				<code>withUnlockedTasks</code> are mutually exclusive; when
-				both are true, return an empty result. A false value is a
-				no-op. C8 worker and deadline fields are not an exact current
-				lock test, so use client-side/source correlation or mark the
-				combination unsupported.
+				<code>type</code> field. External task topic names correspond to
+				BPMN element job types. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> before collecting unique{" "}
+				<code>type</code> values so listener and ad-hoc-subprocess jobs
+				are excluded. Use a known topic-to-type mapping when exact
+				external-task selection is required.
 			</div>
 		),
 	},
@@ -1032,13 +863,8 @@ export const external_task = [
 				be used to retrieve a specific job by filtering on{" "}
 				<code>jobKey</code>. Set <code>filter.kind</code> to{" "}
 				<code>BPMN_ELEMENT</code> so listener and ad-hoc-subprocess jobs
-				are excluded. Resolve the C7 external-task ID to the
-				corresponding C8 job key before making the request.
-				After the search, use <code>endTime == null</code> as the C8
-				current-job candidate check. C7 exhausted/nullable retry
-				semantics require source correlation for exact parity; mark
-				that case unsupported when the correlation is unavailable.
-				Report a job with a non-null <code>endTime</code> as not found.
+				are excluded. Resolve the Camunda 7 external-task ID to the
+				corresponding Camunda 8 job key before making the request.
 			</div>
 		),
 	},
