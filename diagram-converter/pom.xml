@@ -172,7 +172,7 @@
       </dependency>
       <dependency>
         <groupId>io.camunda</groupId>
-        <artifactId>camunda-spring-boot-starter</artifactId>
+        <artifactId>camunda-spring-boot-4-starter</artifactId>
         <version>${version.camunda-8}</version>
       </dependency>
       <dependency>
@@ -192,7 +192,7 @@
       </dependency>
       <dependency>
         <groupId>io.camunda</groupId>
-        <artifactId>camunda-process-test-spring</artifactId>
+        <artifactId>camunda-process-test-spring-boot-4</artifactId>
         <version>${version.camunda-8}</version>
       </dependency>
       <dependency>
