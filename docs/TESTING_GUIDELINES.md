@@ -138,7 +138,7 @@ void migrateUserTask() { ... }
 
 **Rule:** Concrete migration behavior test classes in the `..qa..` package must extend an
 appropriate abstract test class. Architecture, persistence, distribution, and utility tests are
-exempt because they provide their own infrastructure or exercise isolated helpers.
+exempt because they provide their own infrastructure.
 
 **Rationale:** Extending abstract test classes ensures proper test setup, dependency injection, and access to required services.
 
