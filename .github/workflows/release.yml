@@ -382,7 +382,7 @@ jobs:
           remote_assets=$(gh release view "${RELEASE_VERSION}" \
             --repo "${GITHUB_REPOSITORY}" \
             --json assets \
-            --jq '.[] | [.name, .digest] | @tsv')
+            --jq '.assets[] | [.name, .digest] | @tsv')
           while IFS=$'\t' read -r asset_name asset_digest; do
             [[ -z "${asset_name}" ]] && continue
             remote_digests["${asset_name}"]="${asset_digest}"
@@ -431,7 +431,7 @@ jobs:
             remote_assets=$(gh release view "${RELEASE_VERSION}" \
               --repo "${GITHUB_REPOSITORY}" \
               --json assets \
-              --jq '.[] | [.name, .digest] | @tsv')
+              --jq '.assets[] | [.name, .digest] | @tsv')
             while IFS=$'\t' read -r asset_name asset_digest; do
               [[ -z "${asset_name}" ]] && continue
               remote_digests["${asset_name}"]="${asset_digest}"
