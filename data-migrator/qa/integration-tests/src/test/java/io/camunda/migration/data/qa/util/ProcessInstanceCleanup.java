@@ -40,15 +40,20 @@ public class ProcessInstanceCleanup {
   }
 
   protected boolean cleanupPoll(AtomicInteger consecutiveEmptySearches) {
-    List<ProcessInstance> items = findAllProcessInstances();
-    deleteProcessInstances(items);
+    try {
+      List<ProcessInstance> items = findAllProcessInstances();
+      deleteProcessInstances(items);
 
-    if (items.isEmpty()) {
-      return consecutiveEmptySearches.incrementAndGet() >= REQUIRED_CONSECUTIVE_EMPTY_SEARCHES;
+      if (items.isEmpty()) {
+        return consecutiveEmptySearches.incrementAndGet() >= REQUIRED_CONSECUTIVE_EMPTY_SEARCHES;
+      }
+
+      consecutiveEmptySearches.set(0);
+      return false;
+    } catch (ClientException e) {
+      consecutiveEmptySearches.set(0);
+      throw e;
     }
-
-    consecutiveEmptySearches.set(0);
-    return false;
   }
 
   protected void deleteProcessInstances(List<ProcessInstance> items) {
