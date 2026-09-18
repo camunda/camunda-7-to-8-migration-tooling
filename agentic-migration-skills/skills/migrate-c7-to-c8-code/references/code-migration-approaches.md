@@ -2,17 +2,41 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-## Approach A - OpenRewrite + AI (recommended)
+## Select a code approach
 
-### 1. Run OpenRewrite
+When a representative comparison is practical, compare both approaches on representative classes.
+One class does not predict the rest of the project.
 
-RECIPES_VERSION by Camunda target (use latest from these minor versions):
-- 8.8: 0.2.x
-- 8.9 and 8.10: 0.3.x
+| When | Choose | What to expect |
+|---|---|---|
+| Semantic, mixed delegate/client, or complex code with a capable model | AI only | The skill applies patterns directly. Model capability affects the result. |
+| Repeated, supported, primarily syntactic code | OpenRewrite + AI | Expect scaffolding, TODOs, cleanup, and behavioral validation. |
+| A deterministic first diff helps review | OpenRewrite + AI | Validate behavior after cleanup. |
+| OpenRewrite cannot run | AI only | The skill migrates from source and patterns. Review every change. |
 
-REWRITE_VERSION: resolve the latest released version via WebFetch:
-- rewrite-maven-plugin: https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml
-- Select the highest stable version, excluding snapshots and pre-releases.
+| Recipe role | Scope |
+|---|---|
+| Helps | Repeated, supported, primarily syntactic Java transformations. |
+| Pair with AI review | Semantic or mixed delegate/client code needs API and business-behavior context. |
+| Still needs a team decision | Domain behavior, eventual consistency, transaction boundaries, architectural separation, and validation. |
+
+## Approach A - OpenRewrite + AI
+
+Use this approach for repeated, supported, primarily syntactic transformations or a deterministic
+first diff.
+
+### Run OpenRewrite
+
+Use the latest recipe version in the target minor:
+
+| Camunda target | Recipe version |
+|---|---|
+| 8.8 | 0.2.x |
+| 8.9 or 8.10 | 0.3.x |
+
+Resolve the latest stable `rewrite-maven-plugin` version from
+https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml.
+Exclude snapshots and pre-releases.
 
 If the OpenRewrite plugin is not already in the build file, add it:
 
@@ -54,24 +78,36 @@ rewrite {
 }
 ```
 
-Run the platform-appropriate command:
-- macOS/Linux: `./gradlew rewriteRun`
-- Windows PowerShell: `.\gradlew.bat rewriteRun`
-- Windows cmd: `gradlew.bat rewriteRun`
+Set `REWRITE_COMMAND` to the matching build command:
 
-### Java Compatibility for OpenRewrite
+| Build tool | `REWRITE_COMMAND` |
+|---|---|
+| Maven | `mvn rewrite:run` |
+| Gradle on macOS/Linux | `./gradlew rewriteRun` |
+| Gradle in Windows PowerShell | `.\gradlew.bat rewriteRun` |
+| Gradle in Windows cmd | `gradlew.bat rewriteRun` |
 
-1. Run `java -version` from `PATH` (capture stderr) and record the actual major version. Show which executable runs: `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java` in Windows Command Prompt.
-   - The recipe module supports Java 21-25 (`[21,26)`). Check the selected project's OpenRewrite configuration for a stricter requirement first.
-   - If `java` is missing or outside that window, ask via AskUserQuestion for an alternate JDK home (the directory containing `bin/java`). Never install Java or change the user's system configuration automatically.
-   - Validate the supplied home: run its `bin/java` (Windows: `bin/java.exe`) with `-version`, capture stderr, and check the actual major version. Reject a missing `bin/javac` (Windows: `bin/javac.exe`), a stale path, a JRE-only directory, or an incompatible version.
-   - If multiple validated compatible homes exist, choose the lowest compatible major version to keep runs reproducible. Prefer 21, then 22, 23, 24, or 25 when several choices remain. (SHOULD)
-   - Use the validated home only for this rewrite invocation: set `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never use an unvalidated `java` on `PATH`.
+### Java compatibility and Spotless
+
+1. Run `java -version` from `PATH`, capture stderr, and record the major version. Show the executable:
+   `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java` in Windows
+   Command Prompt.
+   - The recipe module supports Java 21-25 (`[21,26)`). Check the project's OpenRewrite
+     configuration first for a narrower range.
+   - If Java is missing or outside that range, then ask for a JDK home that contains `bin/java`.
+     Never install Java or change the user's system configuration.
+   - Validate the supplied home with its `bin/java` (Windows: `bin/java.exe`) and `-version`.
+     Reject a stale path, JRE-only directory, missing `bin/javac` (Windows: `bin/javac.exe`), or
+     incompatible version.
+   - When several compatible homes exist, use the lowest version. Prefer 21, then 22, 23, 24, or
+     25. (SHOULD)
+   - Set `JAVA_HOME` and prepend its `bin` directory to `PATH` for this invocation only. Never use
+     an unvalidated Java executable.
 
 2. Check the build files for a Spotless configuration.
 
-3. If Spotless is present AND the selected Java major version >= 17:
-   - Run the OpenRewrite goal with the JVM flags Spotless needs on Java 17+:
+3. Where Spotless is present and the selected Java major version is at least 17, run OpenRewrite
+   with these JVM flags:
      - `--add-opens=java.base/java.lang=ALL-UNNAMED`
      - `--add-opens=java.base/java.util=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED`
@@ -79,47 +115,58 @@ Run the platform-appropriate command:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - Apply the flags via a portable Maven JVM option mechanism:
-     - If a `.mvn` directory exists, append to `.mvn/jvm.config` temporarily and preserve existing content (SHOULD).
-     - Otherwise use `JAVA_TOOL_OPTIONS`, not new repository configuration for this temporary step.
-     - Arrange cleanup to run whether `mvn rewrite:run` succeeds or fails: restore the previous `.mvn/jvm.config` content, or remove it if this step created it.
-     - Do not stage or commit the temporary changes.
-   - If this still fails with a Spotless error, ask: "Spotless is incompatible with your current Java version. Would you like to skip it (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK within the compatibility window?"
+   - Where the build uses Maven and `.mvn` exists, append the flags temporarily to
+     `.mvn/jvm.config` and preserve its content. (SHOULD)
+   - Where a Maven build has no `.mvn` directory, use `JAVA_TOOL_OPTIONS` for the
+     `REWRITE_COMMAND` invocation.
+   - Where the build uses Gradle, use `JAVA_TOOL_OPTIONS` for the `REWRITE_COMMAND` invocation.
+     Do not add repository configuration for this temporary step.
+   - Where the skill used a temporary `.mvn/jvm.config`, restore its previous content, or remove it when
+     this step created it, whether `REWRITE_COMMAND` succeeds or fails.
+   - Do not stage or commit the temporary changes.
+   - If Spotless still fails in a Maven project, then ask whether to skip it or switch to another
+     compatible JDK. Offer `mvn rewrite:run -Dspotless.skip=true` as the skip command.
+   - If Spotless still fails in a Gradle project, then ask the user to choose another compatible JDK
+     or the project's documented Spotless bypass. Never use a Maven command in a Gradle project.
 
-4. If Spotless is not present, or the selected Java major version < 17, run `mvn rewrite:run` directly.
+4. Otherwise, run `REWRITE_COMMAND` directly.
 
-### 2. AI Cleanup After OpenRewrite
+### AI cleanup after OpenRewrite
 
-Ask the user whether to run AI cleanup. Proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then work the Transform checklist for what OpenRewrite left:
+Before AI cleanup, compare each generated `@JobWorker` with its source. Confirm its business logic,
+inputs, outputs, exception behavior, and job type. Do not delete or rename source logic until this
+comparison passes. Successful compilation does not confirm behavior.
+
+Ask whether to commit the OpenRewrite result before cleanup. Then ask whether to run AI cleanup.
+Proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then:
 
 - Apply the **OpenRewrite output: de-recipe cleanup** section to every generated `@JobWorker`
   method. Use the concrete examples in `30-glue-code/idiomatic-job-worker-cleanup.md`.
 - Resolve all `// TODO` comments it inserted, and fix compile errors.
-- Apply checklist items 1 (deps/config), 5 (listeners), 6 (tests), 7 (JUEL), 8 (generated-form dependencies), and any 2 (client code) the recipes did not cover.
-
-Before AI cleanup, ask whether to commit the OpenRewrite result.
+- Apply checklist items 1 (dependencies/configuration), 5 (listeners), 6 (tests), 7 (JUEL), and 8
+  (generated-form dependencies). Apply uncovered parts of item 2 (client code).
 
 ---
 
-## Approach B - AI Only
+## Approach B - AI Only (AI-first)
 
-Load the pattern catalog (see references/pattern-catalog-sources.md), then work the full Transform checklist (items 1-8) in order, confirming each before the next.
+Use this approach for the AI-only cases in the selection table. It avoids recipe artifacts, but model
+capability affects the result. Apply the same behavior and semantic validation as the recipe-assisted
+path.
 
-Use this when:
-- Non-Maven/Gradle builds
-- Restricted environments where OpenRewrite cannot run
-- User wants to review every change individually
+Load the pattern catalog (see references/pattern-catalog-sources.md). Work Transform checklist items
+1-8 in order. Confirm each item before the next.
 
 ---
 
 ## Approach C - Assessment Only
 
-Present the code assessment table with extra detail:
-- Per-file effort estimate (hours)
-- Total estimated effort
-- Which files OpenRewrite can handle automatically vs. require manual AI work
-- Recommended approach (A or B) based on codebase size and complexity
-- Known risks or blockers (multi-instance listener pattern, custom batches, IdentityService/FormService usage)
-- Data migration scope note (Data Migrator: runtime / history / identity)
+Write a code assessment table that includes:
+- Per-file and total effort estimates
+- Recipe coverage and remaining AI/manual work
+- Recommended approach based on code shape, model capability, and review needs
+- Where recipes help, pair with AI review, or still need a team decision
+- Known risks: multi-instance listeners, custom batches, or IdentityService/FormService usage
+- The Data Migrator scope: runtime, history, and identity data
 
 Write the full report to `MIGRATION_REPORT.md` in the confirmed project root. Make no code changes.

@@ -1,7 +1,8 @@
 # Idiomatic Job Worker Cleanup
 
-OpenRewrite creates a reliable Camunda 8 worker shape. AI cleanup removes generated names and
-redundant code without changing the worker contract.
+OpenRewrite can create a preliminary Camunda 8 worker shape for supported patterns. Compare each
+generated worker with its source before cleanup. AI cleanup removes generated names and redundant
+code only after the comparison confirms the worker contract.
 
 ## Preserve the job type
 

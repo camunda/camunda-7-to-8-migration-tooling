@@ -2,13 +2,19 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-This checklist defines every code transformation item. Approach A runs OpenRewrite first (it covers items 3, 4, and partially item 2), then uses this checklist for the rest. Approach B works the full checklist by hand.
+This checklist defines every code transformation item. Approach A runs OpenRewrite first (it covers
+items 3, 4, and partially item 2), then uses this checklist for the rest. Approach B works the full
+checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
 
 ---
 
 ## OpenRewrite output: de-recipe cleanup
+
+Before cleanup, compare every generated `@JobWorker` with its original source. Confirm the business
+logic, job type, inputs, outputs, and exception behavior. Do not delete or rename source logic until
+this comparison passes.
 
 Approach A runs this section after OpenRewrite. The cleanup removes recipe artifacts while preserving
 the worker's job type, inputs, outputs, and behavior. Load

@@ -62,13 +62,20 @@ gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code 
 /camunda-migration:migrate-c7-to-c8-code
 ```
 
-After checking model suitability, the skill will ask for your project path and walk you through three options:
+After checking model suitability, the skill will ask for your project path and walk you through three
+code paths:
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves TODOs, config, and test code |
-| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **AI only (AI-first)** *(recommended with a capable coding model)* | Applies migration patterns directly to the source. Use it for semantic, mixed, or complex Java code. Review every change. |
+| **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
 | **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no changes made |
+
+Compare the code paths on representative classes when practical. Recipes help with repeated,
+well-supported syntactic changes. They can hurt by adding cleanup for semantic or mixed
+delegate/client code.
+They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+Both migration paths need review and validation.
 
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
 
