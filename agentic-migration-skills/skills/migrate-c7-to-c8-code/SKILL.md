@@ -75,11 +75,11 @@ These rules apply to every later step.
 - Never hand-edit BPMN or DMN in the code flow.
 - Use project-local models first. While local models exist, never offer or request Camunda 7 engine
   access.
-- Prefer an AI-first, pattern-guided code migration when a capable model can examine the source.
+- When a capable model can examine the source, prefer an AI-first, pattern-guided code migration.
   (SHOULD)
-- Use OpenRewrite plus AI for repeated, supported, syntactic transformations or a deterministic
-  first diff.
-- For semantic or mixed delegate/client code, recipes can add cleanup.
+- When code repeats supported syntactic transformations, use OpenRewrite plus AI.
+- When the team needs a deterministic first diff, use OpenRewrite plus AI.
+- Where a recipe run includes semantic or mixed delegate/client code, review its output with AI.
 - Compare recipe output with the original source before accepting it.
 - Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or
   architecture.

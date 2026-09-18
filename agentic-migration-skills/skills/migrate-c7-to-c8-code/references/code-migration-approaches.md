@@ -4,8 +4,8 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 
 ## Select a code approach
 
-Compare both approaches on representative classes when practical. One class does not predict the
-rest of the project.
+When a representative comparison is practical, compare both approaches on representative classes.
+One class does not predict the rest of the project.
 
 | When | Choose | What to expect |
 |---|---|---|
