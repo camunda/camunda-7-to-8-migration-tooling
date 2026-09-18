@@ -44,7 +44,7 @@ model in `MIGRATION_REPORT.md`.
    ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
    `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
-4. Select OpenRewrite only when Maven or Gradle is available.
+4. Where the user selects OpenRewrite, require Maven or Gradle.
 5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
    Alternatives exist when it is not.
 

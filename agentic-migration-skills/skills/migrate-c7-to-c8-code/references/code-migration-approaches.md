@@ -91,8 +91,8 @@ Run the matching build command:
    Command Prompt.
    - The recipe module supports Java 21-25 (`[21,26)`). Check the project's OpenRewrite
      configuration first for a narrower range.
-   - If Java is missing or outside that range, ask for a JDK home that contains `bin/java`. Never
-     install Java or change the user's system configuration.
+   - If Java is missing or outside that range, then ask for a JDK home that contains `bin/java`.
+     Never install Java or change the user's system configuration.
    - Validate the supplied home with its `bin/java` (Windows: `bin/java.exe`) and `-version`.
      Reject a stale path, JRE-only directory, missing `bin/javac` (Windows: `bin/javac.exe`), or
      incompatible version.
@@ -103,8 +103,8 @@ Run the matching build command:
 
 2. Check the build files for a Spotless configuration.
 
-3. If Spotless is present and the selected Java major version is at least 17:
-   - Run OpenRewrite with these JVM flags:
+3. Where Spotless is present and the selected Java major version is at least 17, run OpenRewrite
+   with these JVM flags:
      - `--add-opens=java.base/java.lang=ALL-UNNAMED`
      - `--add-opens=java.base/java.util=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED`
@@ -112,15 +112,16 @@ Run the matching build command:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - If `.mvn` exists, append the flags temporarily to `.mvn/jvm.config` and preserve its content.
-     (SHOULD) Otherwise use `JAVA_TOOL_OPTIONS`. Do not add repository configuration for this
-     temporary step.
+   - Where `.mvn` exists, append the flags temporarily to `.mvn/jvm.config` and preserve its
+     content. (SHOULD)
+   - Otherwise, use `JAVA_TOOL_OPTIONS`. Do not add repository configuration for this temporary
+     step.
    - Restore the previous `.mvn/jvm.config`, or remove it when this step created it, whether
      `mvn rewrite:run` succeeds or fails.
    - Do not stage or commit the temporary changes.
-   - If Spotless still fails, ask: "Spotless is incompatible with your current Java version. Would
-     you like to skip it (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK within
-     the compatibility window?"
+   - If Spotless still fails, then ask: "Spotless is incompatible with your current Java version.
+     Would you like to skip it (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK
+     within the compatibility window?"
 
 4. Otherwise, run `mvn rewrite:run` directly.
 
