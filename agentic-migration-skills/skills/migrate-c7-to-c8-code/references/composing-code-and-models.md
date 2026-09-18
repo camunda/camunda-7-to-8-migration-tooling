@@ -186,7 +186,7 @@ similar category.
 
 After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Include accepted generated forms when present, for example: `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn", "classpath*:**/converted-c8-*.form"})`. Never target original diagrams, draft forms, or declined forms.
+- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - build a deployment inventory from this run's recorded converted-file paths and accepted generated forms. Add or update `@Deployment(resources = ...)` with explicit recursive classpath patterns for that inventory. Use a recursive pattern only when its packaged matches are a non-empty subset of that inventory. Otherwise, use explicit resource paths. Add a BPMN, DMN, or form pattern only when the inventory contains that resource type. Never target original diagrams, draft forms, or declined forms.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
 
 ## Report Keeping
