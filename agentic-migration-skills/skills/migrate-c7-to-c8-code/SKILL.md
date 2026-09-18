@@ -280,8 +280,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
 12. **Deployment resources** — when the migration adds or updates `@Deployment`, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
-    Each `@Deployment` pattern must match a packaged resource. Each inventory item must match a
-    deployment pattern.
+    Each migration-added or migration-updated pattern must match a non-empty subset of the packaged
+    deployment inventory. Each inventory item must match a deployment pattern.
 
 Check these pitfalls as well:
 
