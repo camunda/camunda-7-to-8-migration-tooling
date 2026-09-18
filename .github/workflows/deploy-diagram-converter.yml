@@ -47,6 +47,9 @@ env:
 
 jobs:
   deploy:
+    permissions:
+      id-token: write
+      contents: read
     name: Build, Push & Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -55,12 +58,13 @@ jobs:
     steps:
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc  # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN;
             secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_ACCOUNT_ID;

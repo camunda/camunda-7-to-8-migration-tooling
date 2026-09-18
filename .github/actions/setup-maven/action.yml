@@ -35,11 +35,14 @@ inputs:
   vault-address:
     description: Vault URL to retrieve secrets from
     required: false
-  vault-role-id:
-    description: Vault Role ID to use
+  vault-jwt-role:
+    description: Vault JWT role to use
     required: false
-  vault-secret-id:
-    description: Vault Secret ID to use
+  vault-jwt-path:
+    description: Vault JWT auth mount path to use
+    required: false
+  vault-jwt-audience:
+    description: Vault JWT audience to use
     required: false
 outputs:
   maven-cache-hit:
@@ -50,12 +53,13 @@ runs:
   steps:
   - name: Import secrets
     id: secrets
-    uses: hashicorp/vault-action@79632e33d6953d190b940ffa440bf97821cabd80
+    uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc  # v4.0.0
     with:
       url: ${{ inputs.vault-address }}
-      method: approle
-      roleId: ${{ inputs.vault-role-id }}
-      secretId: ${{ inputs.vault-secret-id }}
+      method: jwt
+      role: ${{ inputs.vault-jwt-role }}
+      path: ${{ inputs.vault-jwt-path }}
+      jwtGithubAudience: ${{ inputs.vault-jwt-audience }}
       secrets: |
         secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
         secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
