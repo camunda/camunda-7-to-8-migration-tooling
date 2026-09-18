@@ -278,9 +278,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
-12. **Deployment resources** — when the migration adds or updates `@Deployment`, build the
+12. **Deployment resources** — when `@Deployment` is present after migration, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
-    Each migration-added or migration-updated pattern must match a non-empty subset of the packaged
+    Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
 
 Check these pitfalls as well:
