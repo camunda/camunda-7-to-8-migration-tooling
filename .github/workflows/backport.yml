@@ -8,5 +8,10 @@ on:
 
 jobs:
   call-reusable-flow:
+    permissions:
+      contents: write  # so it can comment
+      pull-requests: write  # so it can create pull requests
+      actions: write
+      id-token: write  # mint GitHub OIDC token for Vault JWT auth (required by the called reusable workflow)
     uses: camunda/automation-platform-github-actions/.github/workflows/backport.yml@main
     secrets: inherit
