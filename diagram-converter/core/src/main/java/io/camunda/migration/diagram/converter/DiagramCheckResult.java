@@ -60,8 +60,8 @@ public class DiagramCheckResult {
 
   public static class ElementCheckResult {
     private List<ElementCheckMessage> messages = new ArrayList<>();
-    private List<String> references = new ArrayList<>();
-    private List<String> referencedBy = new ArrayList<>();
+    private final List<String> references = new ArrayList<>();
+    private final List<String> referencedBy = new ArrayList<>();
     private String elementId;
     private String elementName;
     private String elementType;
@@ -102,16 +102,8 @@ public class DiagramCheckResult {
       return references;
     }
 
-    public void setReferences(List<String> references) {
-      this.references = references;
-    }
-
     public List<String> getReferencedBy() {
       return referencedBy;
-    }
-
-    public void setReferencedBy(List<String> referencedBy) {
-      this.referencedBy = referencedBy;
     }
 
     @Override

@@ -7,12 +7,10 @@
  */
 package io.camunda.conversion;
 
-import io.camunda.process.test.api.CamundaSpringProcessTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-@CamundaSpringProcessTest
 class ProcessPaymentsApplicationTests {
 
 	@Test

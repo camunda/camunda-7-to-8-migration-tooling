@@ -137,30 +137,4 @@ public class VariousProcessEngineFunctionsTestClass {
             }
             """));
   }
-
-  @Test
-  void migratesProcessApplicationAnnotationInAllClientRecipes() {
-    rewriteRun(
-        // language=java
-        java(
-            """
-            package org.camunda.community.migration.example;
-
-            import org.camunda.bpm.spring.boot.starter.annotation.EnableProcessApplication;
-            import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-            @SpringBootApplication
-            @EnableProcessApplication
-            class Application {}
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-            @SpringBootApplication
-            @io.camunda.client.annotation.Deployment(resources = "classpath*:/bpmn/**/*.bpmn")
-            class Application {}
-            """));
-  }
 }

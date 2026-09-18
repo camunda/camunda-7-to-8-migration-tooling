@@ -33,14 +33,14 @@ public class HandleUserTasks {
     }
 
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
-        return camundaClient.newAssignUserTaskCommand(userTaskKey)
+        return camundaClient.newUserTaskAssignCommand(userTaskKey)
                 .assignee(assignee)
                 .send()
                 .join();
     }
 
     public CompleteUserTaskResponse completeUserTask(Long userTaskKey, Map<String, Object> variableMap) {
-        return camundaClient.newCompleteUserTaskCommand(userTaskKey)
+        return camundaClient.newUserTaskCompleteCommand(userTaskKey)
                 .variables(variableMap)
                 .send()
                 .join();
