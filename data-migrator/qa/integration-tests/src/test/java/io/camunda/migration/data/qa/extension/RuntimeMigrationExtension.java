@@ -14,6 +14,7 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.command.ProblemException;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
@@ -111,7 +112,11 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
       List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
       for (ProcessInstance i : items) {
         try {
-          camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
+          if (i.getState() == ProcessInstanceState.ACTIVE || i.getState() == ProcessInstanceState.SUSPENDED) {
+            camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
+          } else {
+            camundaClient.newDeleteProcessInstanceCommand(i.getProcessInstanceKey()).execute();
+          }
         } catch (ClientStatusException | ProblemException e) {
           if (!e.getMessage().contains("NOT_FOUND")) {
             throw e;
