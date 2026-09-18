@@ -52,8 +52,10 @@ When no local model files found: keep Code only as default recommendation. Offer
 ## Question 4 - Code Migration Approach
 
 Include only if code files present and user selected code migration. Options:
-- A. OpenRewrite (deterministic) + AI (recommended) - runs recipes first, then AI resolves remaining TODOs
-- B. AI only - AI migrates everything directly. Use when OpenRewrite cannot run.
+- A. OpenRewrite (recipe-assisted) + AI - use for repeated, supported, syntactic transformations or a
+  deterministic first diff. Expect scaffolding, TODOs, and cleanup.
+- B. AI only (AI-first, recommended with a capable coding model) - use for semantic, mixed, or
+  complex code. Use it when OpenRewrite cannot run. Model quality affects the result.
 - C. Assessment only - scan codebase and produce report, no code changes
 
 ---

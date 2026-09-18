@@ -2,7 +2,28 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-## Approach A - OpenRewrite + AI (recommended)
+## Select a code approach
+
+Compare both approaches on representative classes when the project allows it. A result from one class
+does not predict every class.
+
+| Code characteristic | Prefer | Expect |
+|---|---|---|
+| A capable model can inspect semantic, mixed delegate/client, or complex code | AI only | The skill applies patterns directly. Model capability affects the result. |
+| Code repeats a supported, primarily syntactic transformation | OpenRewrite + AI | Recipes create a deterministic first diff. Expect scaffolding, TODOs, and cleanup. |
+| The team needs a deterministic first diff for review | OpenRewrite + AI | The diff is mechanical. Validate behavior after cleanup. |
+| OpenRewrite cannot run | AI only | The skill migrates from source and patterns. Review every change. |
+
+| Recipe effect | Where it applies |
+|---|---|
+| Helps | Repeated, supported, primarily syntactic Java transformations. |
+| Can hurt | Semantic or mixed delegate/client code that needs context across APIs or business behavior. It can add rework. |
+| Neutral | Domain behavior, eventual consistency, transaction boundaries, architectural separation, and validation. |
+
+## Approach A - OpenRewrite + AI
+
+Use this approach for repeated, supported, primarily syntactic transformations or when a deterministic
+first diff helps review. Expect generated scaffolding, generated method names, TODOs, and cleanup.
 
 ### 1. Run OpenRewrite
 
@@ -90,6 +111,10 @@ Run the platform-appropriate command:
 
 ### 2. AI Cleanup After OpenRewrite
 
+Before AI cleanup, compare each generated `@JobWorker` with its source. Confirm its business logic,
+inputs, outputs, exception behavior, and job type. Do not delete or rename source logic until this
+comparison passes. Successful compilation does not confirm behavior.
+
 Ask the user whether to run AI cleanup. Proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then work the Transform checklist for what OpenRewrite left:
 
 - Apply the **OpenRewrite output: de-recipe cleanup** section to every generated `@JobWorker`
@@ -101,11 +126,16 @@ Before AI cleanup, ask whether to commit the OpenRewrite result.
 
 ---
 
-## Approach B - AI Only
+## Approach B - AI Only (AI-first)
+
+Use this approach for semantic, mixed delegate/client, or complex code when a capable model is
+available. Direct migration avoids recipe artifacts. Model capability affects the result. Validate the
+same behavior and semantics as the recipe-assisted path.
 
 Load the pattern catalog (see references/pattern-catalog-sources.md), then work the full Transform checklist (items 1-8) in order, confirming each before the next.
 
 Use this when:
+- A capable model is available for semantic, mixed delegate/client, or complex code
 - Non-Maven/Gradle builds
 - Restricted environments where OpenRewrite cannot run
 - User wants to review every change individually
@@ -118,7 +148,8 @@ Present the code assessment table with extra detail:
 - Per-file effort estimate (hours)
 - Total estimated effort
 - Which files OpenRewrite can handle automatically vs. require manual AI work
-- Recommended approach (A or B) based on codebase size and complexity
+- Recommended approach (A or B), based on code shape, model capability, and review needs
+- Whether recipes help, hurt, or are neutral
 - Known risks or blockers (multi-instance listener pattern, custom batches, IdentityService/FormService usage)
 - Data migration scope note (Data Migrator: runtime / history / identity)
 

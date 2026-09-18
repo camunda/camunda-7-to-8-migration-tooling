@@ -56,7 +56,7 @@ The skill separates assessment, model analysis, model conversion, and complete m
 | Inventory a Camunda 7 project | **Assessment only** | The skill inventories code and models. It writes `MIGRATION_REPORT.md`, but does not edit source code or models. |
 | Analyze BPMN/DMN models | **Models only**, **Diagram Converter CLI** or **Agentic AI**, then **Analyze-only** | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
 | Convert BPMN/DMN models | **Models only** | Select the Diagram Converter CLI (recommended), Agentic AI, or Online Converter. Each path preserves source models and produces reviewable converted copies. |
-| Migrate Java/Spring code | **Code only** | The skill runs OpenRewrite with AI cleanup, or uses an AI-only approach. |
+| Migrate Java/Spring code | **Code only** | The skill uses a pattern-guided AI-first approach, or a recipe-assisted OpenRewrite + AI approach. |
 | Migrate code and models | **Code + models** | The skill converts models, migrates code, then cross-checks their integration. |
 
 Analyze-only is available only with **Models only** and the Diagram Converter CLI or Agentic AI.
@@ -72,11 +72,12 @@ skill's scope.
 Use this workflow to move a Camunda 7 project with Java code and BPMN/DMN models toward Camunda 8:
 
 1. Start the skill in the project directory. Choose **Code + models** and select the target Camunda 8 version.
-2. Review the code and model inventory. Select **OpenRewrite + AI** for code.
+2. Review the code and model inventory. Select a code path based on the code shape and model capability.
 3. Select **Diagram Converter CLI + AI** for models when Java 21+ is available. Otherwise, select **Agentic AI** or **Online Converter**.
 4. The selected local model path writes converted copies. The CLI path checks Java and downloads the converter first.
 5. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
-6. After converted model copies are available, the skill runs OpenRewrite, resolves remaining code work, and cross-checks the code with the models.
+6. After converted model copies are available, the skill applies the selected code path, resolves
+   remaining code work, and cross-checks the code with the models.
 7. Review `MIGRATION_REPORT.md`, resolve findings that need a decision, and run the recorded validation checks.
 
 ### Model recommendation
@@ -87,9 +88,15 @@ The skill recommends a model built for complex reasoning. Example identifiers ar
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for the bulk transforms, then AI resolves the remaining TODOs, config, and test code |
-| **AI only** | AI migrates everything directly. Use it for a non-Maven/Gradle build, or when you want to review every change |
+| **AI only (AI-first)** *(recommended with a capable coding model)* | The skill applies the pattern catalog directly to the source. Use it for semantic, mixed, or complex Java code. Model quality affects the result. |
+| **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
 | **Assessment only** | Scans the codebase and reports the files, the complexity, and an effort estimate. No code changes |
+
+Compare the code paths on representative classes when practical. Recipes help with repeated,
+well-supported syntactic changes. They can hurt by adding cleanup for semantic or mixed
+delegate/client code.
+They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+Review and validation remain mandatory for both paths.
 
 **Model migration (BPMN/DMN):**
 

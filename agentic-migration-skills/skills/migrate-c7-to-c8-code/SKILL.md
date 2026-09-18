@@ -9,8 +9,8 @@ license: Camunda License 1.0
 
 Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds of assets:
 
-- **Code** — Java/Spring glue and client code, config, tests. Migrated with OpenRewrite recipes
-  (deterministic) plus AI cleanup.
+- **Code** — Java/Spring glue and client code, config, tests. Migrated with a pattern-guided
+  AI-first approach or OpenRewrite recipes plus AI cleanup.
 - **Models** — BPMN/DMN diagrams in the `camunda:` namespace. Migrated with the Diagram Converter
   (deterministic) or agentically.
 
@@ -44,7 +44,7 @@ model in `MIGRATION_REPORT.md`.
    ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
    `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
-4. Where OpenRewrite is selected (recommended), Maven or Gradle is available.
+4. Select OpenRewrite only when Maven or Gradle is available.
 5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
    Alternatives exist when it is not.
 
@@ -75,8 +75,16 @@ These rules apply to every later step.
 - Never hand-edit BPMN or DMN in the code flow.
 - Use project-local models first. While local models exist, never offer or request Camunda 7 engine
   access.
-- Prefer the deterministic path: OpenRewrite plus AI over AI-only for code, the CLI over an agentic
-  rewrite for models. (SHOULD)
+- Prefer an AI-first, pattern-guided code migration when a capable model can examine the source.
+  (SHOULD)
+- Use OpenRewrite plus AI for repeated, supported, syntactic transformations or a deterministic
+  first diff.
+- For semantic or mixed delegate/client code, recipes can add cleanup.
+- Compare recipe output with the original source before accepting it.
+- Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or
+  architecture.
+- Review these decisions in both code paths.
+- Prefer the CLI over an agentic rewrite for models. (SHOULD)
 - Use invocations that suit the current platform. Never assume one shell dialect.
 
 **Safety**
@@ -186,10 +194,10 @@ model was found and that E1 was offered.
 
 #### Summary
 
-Present the code file count, the model file count, the overall complexity, whether OpenRewrite would
-help, the blockers that need a manual decision, and the Step 0 preflight result including any user
-acknowledgment. State that running instances, history, and audit data are out of scope, and point the
-user to the Data Migrator.
+Present the code and model file counts. Present the overall complexity and the recommended code path.
+State whether recipes help, hurt, or are neutral. Present blockers that need a manual decision.
+Include the Step 0 preflight result and any user acknowledgment. State that running instances, history,
+and audit data are out of scope. Point the user to the Data Migrator.
 
 Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3, using
 AskUserQuestion.
@@ -209,8 +217,10 @@ For Code + models, see `references/composing-code-and-models.md`.
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
 
-- **A. OpenRewrite + AI** (recommended) — run the recipes, then clean up what they left.
-- **B. AI only** — work checklist items 1 to 8 in order, confirming each one.
+- **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
+  source-to-output review.
+- **B. AI only** — use a pattern-guided, AI-first migration for semantic, mixed, or complex code
+  when a capable model is available.
 - **C. Assessment only** — report with effort estimates, no code changes.
 
 #### Part B - Model Migration

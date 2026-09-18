@@ -1,6 +1,6 @@
 {
   "name": "camunda-migration",
-  "description": "Agent skill for migrating Camunda 7 projects to Camunda 8 — Java code (OpenRewrite + AI) and BPMN/DMN models.",
+  "description": "Agent skill for migrating Camunda 7 projects to Camunda 8 — AI-first or OpenRewrite-assisted Java code and BPMN/DMN models.",
   "version": "0.1.0",
   "author": {
     "name": "camunda",
