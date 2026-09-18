@@ -96,7 +96,7 @@ Compare the code paths on representative classes when practical. Recipes help wi
 well-supported syntactic changes. They can hurt by adding cleanup for semantic or mixed
 delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
-Review and validation remain mandatory for both paths.
+Review and validation remain mandatory for both migration paths.
 
 **Model migration (BPMN/DMN):**
 

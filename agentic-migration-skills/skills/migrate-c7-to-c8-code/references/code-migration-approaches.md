@@ -78,11 +78,14 @@ rewrite {
 }
 ```
 
-Run the matching build command:
-- Maven: `mvn rewrite:run`
-- macOS/Linux: `./gradlew rewriteRun`
-- Windows PowerShell: `.\gradlew.bat rewriteRun`
-- Windows cmd: `gradlew.bat rewriteRun`
+Set `REWRITE_COMMAND` to the matching build command:
+
+| Build tool | `REWRITE_COMMAND` |
+|---|---|
+| Maven | `mvn rewrite:run` |
+| Gradle on macOS/Linux | `./gradlew rewriteRun` |
+| Gradle in Windows PowerShell | `.\gradlew.bat rewriteRun` |
+| Gradle in Windows cmd | `gradlew.bat rewriteRun` |
 
 ### Java compatibility and Spotless
 
@@ -112,18 +115,21 @@ Run the matching build command:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - Where `.mvn` exists, append the flags temporarily to `.mvn/jvm.config` and preserve its
-     content. (SHOULD)
-   - Otherwise, use `JAVA_TOOL_OPTIONS`. Do not add repository configuration for this temporary
-     step.
-   - Restore the previous `.mvn/jvm.config`, or remove it when this step created it, whether
-     `mvn rewrite:run` succeeds or fails.
+   - Where the build uses Maven and `.mvn` exists, append the flags temporarily to
+     `.mvn/jvm.config` and preserve its content. (SHOULD)
+   - Where a Maven build has no `.mvn` directory, use `JAVA_TOOL_OPTIONS` for the
+     `REWRITE_COMMAND` invocation.
+   - Where the build uses Gradle, use `JAVA_TOOL_OPTIONS` for the `REWRITE_COMMAND` invocation.
+     Do not add repository configuration for this temporary step.
+   - Where the skill used a temporary `.mvn/jvm.config`, restore its previous content, or remove it when
+     this step created it, whether `REWRITE_COMMAND` succeeds or fails.
    - Do not stage or commit the temporary changes.
-   - If Spotless still fails, then ask: "Spotless is incompatible with your current Java version.
-     Would you like to skip it (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK
-     within the compatibility window?"
+   - If Spotless still fails in a Maven project, then ask whether to skip it or switch to another
+     compatible JDK. Offer `mvn rewrite:run -Dspotless.skip=true` as the skip command.
+   - If Spotless still fails in a Gradle project, then ask the user to choose another compatible JDK
+     or the project's documented Spotless bypass. Never use a Maven command in a Gradle project.
 
-4. Otherwise, run `mvn rewrite:run` directly.
+4. Otherwise, run `REWRITE_COMMAND` directly.
 
 ### AI cleanup after OpenRewrite
 

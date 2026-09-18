@@ -75,7 +75,7 @@ Compare the code paths on representative classes when practical. Recipes help wi
 well-supported syntactic changes. They can hurt by adding cleanup for semantic or mixed
 delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
-Both paths need review and validation.
+Both migration paths need review and validation.
 
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
 
