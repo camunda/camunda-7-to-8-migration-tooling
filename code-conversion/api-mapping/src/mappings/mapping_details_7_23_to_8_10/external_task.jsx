@@ -71,14 +71,14 @@ export const external_task = [
 				be used to search for jobs. The response includes a{" "}
 				<code>page.totalItems</code> field. When{" "}
 				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
-				value is a lower bound rather than an exact count. Set{" "}
-				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
-				listener and ad-hoc-subprocess jobs. When a source query contains
-				a topic, map it to <code>filter.type</code>. A kind-only filter
-				can include other BPMN element and terminal jobs, so it is not an
-				exact external-task count. Use a known topic type and retain only
-				current records (<code>endTime == null</code>) when exact Camunda
-				7 semantics are required.
+				value is a lower bound rather than an exact count. It also
+				includes terminal jobs. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can include
+				other BPMN element jobs. For exact Camunda 7 semantics, page
+				through all matching results, retain only current records{" "}
+				(<code>endTime == null</code>), and count them locally.
 			</div>
 		),
 	},
@@ -97,14 +97,14 @@ export const external_task = [
 				be used to search for jobs. The response includes a{" "}
 				<code>page.totalItems</code> field. When{" "}
 				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
-				value is a lower bound rather than an exact count. Set{" "}
-				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
-				listener and ad-hoc-subprocess jobs. When a source query contains
-				a topic, map it to <code>filter.type</code>. A kind-only filter
-				can include other BPMN element and terminal jobs, so it is not an
-				exact external-task count. Use a known topic type and retain only
-				current records (<code>endTime == null</code>) when exact Camunda
-				7 semantics are required.
+				value is a lower bound rather than an exact count. It also
+				includes terminal jobs. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can include
+				other BPMN element jobs. For exact Camunda 7 semantics, page
+				through all matching results, retain only current records{" "}
+				(<code>endTime == null</code>), and count them locally.
 			</div>
 		),
 	},
@@ -401,7 +401,7 @@ export const external_task = [
 							<pre>
 								(int32) filter.retries.$gt
 								<br />
-								(int32) filter.retries.$eq
+								(int32) filter.retries.$eq=0
 								<br />
 								(int32) filter.priority.$gte
 								<br />
@@ -413,7 +413,9 @@ export const external_task = [
 								top-level fields.
 							</p>
 							<p>
-								This is a partial mapping:
+								Map <code>noRetriesLeft=true</code> to{" "}
+								<code>filter.retries.$eq=0</code>. This is a
+								partial mapping:{" "}
 								<code>withRetriesLeft=true</code> maps non-null
 								Camunda 7 retry counts greater than zero to{" "}
 								<code>filter.retries.$gt=0</code>, but Camunda 7
@@ -433,6 +435,8 @@ export const external_task = [
 							<br />
 							(string[]) processInstanceQuery.processDefinitionKeyIn
 							<br />
+							(string[]) processInstanceQuery.processDefinitionKeyNotIn
+							<br />
 							(string[]) processInstanceQuery.tenantIdIn
 						</pre>
 					),
@@ -446,6 +450,8 @@ export const external_task = [
 								(string) filter.processDefinitionId
 								<br />
 								(string[]) filter.processDefinitionId.$in
+								<br />
+								(string[]) filter.processDefinitionId.$notIn
 								<br />
 								(string[]) filter.tenantId.$in
 							</pre>
@@ -491,10 +497,13 @@ export const external_task = [
 						Set <code>filter.kind</code> to{" "}
 						<code>BPMN_ELEMENT</code> in every request. This excludes
 						listener and ad-hoc-subprocess jobs. Do not use a
-						kind-only filter for a batch update: use a known
-						external-task <code>filter.type</code> or a pre-resolved
-						job-key set. Without either, there is no safe generic
-						one-request mapping.
+						kind-only filter for a batch update. Before updating,
+						resolve an active job-key set by searching with a known
+						external-task <code>filter.type</code> or correlated job
+						keys, retaining only current records{" "}
+						(<code>endTime == null</code>), and then passing those
+						keys in <code>filter.jobKey.$in</code>. A known type alone
+						can include terminal jobs.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
@@ -573,7 +582,6 @@ export const external_task = [
 							<p>
 								Reject every <code>processInstanceQuery</code>{" "}
 								selector not listed in Direct, including{" "}
-								<code>processDefinitionKeyNotIn</code>,{" "}
 								<code>withoutTenantId</code>,{" "}
 								<code>processDefinitionWithoutTenantId</code>,{" "}
 								<code>activityIdIn</code>,{" "}
@@ -725,7 +733,7 @@ export const external_task = [
 							<pre>
 								(int32) filter.retries.$gt
 								<br />
-								(int32) filter.retries.$eq
+								(int32) filter.retries.$eq=0
 								<br />
 								(int32) filter.priority.$gte
 								<br />
@@ -737,7 +745,9 @@ export const external_task = [
 								top-level fields.
 							</p>
 							<p>
-								This is a partial mapping:
+								Map <code>noRetriesLeft=true</code> to{" "}
+								<code>filter.retries.$eq=0</code>. This is a
+								partial mapping:{" "}
 								<code>withRetriesLeft=true</code> maps non-null
 								Camunda 7 retry counts greater than zero to{" "}
 								<code>filter.retries.$gt=0</code>, but Camunda 7
@@ -757,6 +767,8 @@ export const external_task = [
 							<br />
 							(string[]) processInstanceQuery.processDefinitionKeyIn
 							<br />
+							(string[]) processInstanceQuery.processDefinitionKeyNotIn
+							<br />
 							(string[]) processInstanceQuery.tenantIdIn
 						</pre>
 					),
@@ -770,6 +782,8 @@ export const external_task = [
 								(string) filter.processDefinitionId
 								<br />
 								(string[]) filter.processDefinitionId.$in
+								<br />
+								(string[]) filter.processDefinitionId.$notIn
 								<br />
 								(string[]) filter.tenantId.$in
 							</pre>
@@ -815,10 +829,13 @@ export const external_task = [
 						Set <code>filter.kind</code> to{" "}
 						<code>BPMN_ELEMENT</code> in every request. This excludes
 						listener and ad-hoc-subprocess jobs. Do not use a
-						kind-only filter for a batch update: use a known
-						external-task <code>filter.type</code> or a pre-resolved
-						job-key set. Without either, there is no safe generic
-						one-request mapping.
+						kind-only filter for a batch update. Before updating,
+						resolve an active job-key set by searching with a known
+						external-task <code>filter.type</code> or correlated job
+						keys, retaining only current records{" "}
+						(<code>endTime == null</code>), and then passing those
+						keys in <code>filter.jobKey.$in</code>. A known type alone
+						can include terminal jobs.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
@@ -897,7 +914,6 @@ export const external_task = [
 							<p>
 								Reject every <code>processInstanceQuery</code>{" "}
 								selector not listed in Direct, including{" "}
-								<code>processDefinitionKeyNotIn</code>,{" "}
 								<code>withoutTenantId</code>,{" "}
 								<code>processDefinitionWithoutTenantId</code>,{" "}
 								<code>activityIdIn</code>,{" "}
