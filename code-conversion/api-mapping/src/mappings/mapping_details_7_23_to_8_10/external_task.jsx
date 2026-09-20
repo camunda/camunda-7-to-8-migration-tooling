@@ -982,31 +982,29 @@ export const external_task = [
 			path: "/external-task/topic-names",
 			operation: "get",
 		},
-		target: {
-			path: "/jobs/search",
-			operation: "post",
-		},
-		mappedExplanation: (
+		target: {},
+		discontinuedExplanation: (
 			<div>
 				<p>
-					Use <code>POST /jobs/search</code> as a client-side mapping:{" "}
-					page jobs with <code>filter.kind=BPMN_ELEMENT</code>, retain
-					only current records (<code>endTime == null</code>), and
-					collect distinct <code>type</code> values.
+					Camunda 8.10 has no generic equivalent for listing
+					external-task topic names.{" "}
+					<code>filter.kind=BPMN_ELEMENT</code> also includes
+					unrelated BPMN-element jobs, so their <code>type</code>{" "}
+					values cannot safely identify Camunda 7 external-task
+					topics.
 				</p>
 				<p>
-					This is not an exact server-side topic-name endpoint:{" "}
-					<code>filter.kind</code> can include unrelated BPMN element
-					jobs. Apply application-specific topic/type metadata and the
-					required current, lock, and retry post-filtering before
-					returning the unique types.
+					Migrate this endpoint only with application-specific
+					topic-to-type correlation or an allow-list. Without that
+					correlation, reject the request rather than infer topic names
+					from <code>POST /jobs/search</code>.
 				</p>
 				<p>
-					Apply C7 <code>withLockedTasks</code>,{" "}
+					The C7 <code>withLockedTasks</code>,{" "}
 					<code>withUnlockedTasks</code>, and{" "}
-					<code>withRetriesLeft</code> with source-correlated lock and
-					retry state; they have no direct distinct-topic filter in
-					Camunda 8.
+					<code>withRetriesLeft</code> criteria have no direct
+					distinct-topic filter in Camunda 8 and require
+					application-specific source correlation.
 				</p>
 			</div>
 		),
