@@ -24,7 +24,10 @@ export const external_task = [
 				<code>BPMN_ELEMENT</code> to exclude listener and
 				ad-hoc-subprocess jobs. When a source query contains a topic,
 				map it to <code>filter.type</code>. A kind-only filter can still
-				include other BPMN element jobs.
+				include other BPMN element jobs. Camunda 8 search can also return
+				terminal jobs, so retain only current records{" "}
+				(<code>endTime == null</code>) before treating the result as a
+				Camunda 7 runtime query.
 			</div>
 		),
 	},
@@ -46,7 +49,10 @@ export const external_task = [
 				<code>BPMN_ELEMENT</code> to exclude listener and
 				ad-hoc-subprocess jobs. When a source query contains a topic,
 				map it to <code>filter.type</code>. A kind-only filter can still
-				include other BPMN element jobs.
+				include other BPMN element jobs. Camunda 8 search can also return
+				terminal jobs, so retain only current records{" "}
+				(<code>endTime == null</code>) before treating the result as a
+				Camunda 7 runtime query.
 			</div>
 		),
 	},
@@ -68,7 +74,11 @@ export const external_task = [
 				value is a lower bound rather than an exact count. Set{" "}
 				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
 				listener and ad-hoc-subprocess jobs. When a source query contains
-				a topic, map it to <code>filter.type</code>.
+				a topic, map it to <code>filter.type</code>. A kind-only filter
+				can include other BPMN element and terminal jobs, so it is not an
+				exact external-task count. Use a known topic type and retain only
+				current records (<code>endTime == null</code>) when exact Camunda
+				7 semantics are required.
 			</div>
 		),
 	},
@@ -90,7 +100,11 @@ export const external_task = [
 				value is a lower bound rather than an exact count. Set{" "}
 				<code>filter.kind</code> to <code>BPMN_ELEMENT</code> to exclude
 				listener and ad-hoc-subprocess jobs. When a source query contains
-				a topic, map it to <code>filter.type</code>.
+				a topic, map it to <code>filter.type</code>. A kind-only filter
+				can include other BPMN element and terminal jobs, so it is not an
+				exact external-task count. Use a known topic type and retain only
+				current records (<code>endTime == null</code>) when exact Camunda
+				7 semantics are required.
 			</div>
 		),
 	},
@@ -369,6 +383,8 @@ export const external_task = [
 							<br />
 							(dateTime) externalTaskQuery.lockExpirationBefore
 							<br />
+							(boolean) externalTaskQuery.withRetriesLeft
+							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
 							<br />
 							(int64) externalTaskQuery.priorityHigherThanOrEquals
@@ -383,6 +399,8 @@ export const external_task = [
 								<br />
 								(dateTime) filter.deadline.$lt
 								<br />
+								(int32) filter.retries.$gt
+								<br />
 								(int32) filter.retries.$eq
 								<br />
 								(int32) filter.priority.$gte
@@ -393,6 +411,11 @@ export const external_task = [
 								Use the advanced comparison operators shown
 								above; these criteria must not be copied as
 								top-level fields.
+							</p>
+							<p>
+								Map <code>withRetriesLeft=true</code> to{" "}
+								<code>filter.retries.$gt=0</code>. Camunda 7 null
+								retry values have no direct Camunda 8 equivalent.
 							</p>
 						</>
 					),
@@ -463,8 +486,11 @@ export const external_task = [
 					<p>
 						Set <code>filter.kind</code> to{" "}
 						<code>BPMN_ELEMENT</code> in every request. This excludes
-						listener and ad-hoc-subprocess jobs. When a source selector
-						includes a topic, map it to <code>filter.type</code>.
+						listener and ad-hoc-subprocess jobs. Do not use a
+						kind-only filter for a batch update: use a known
+						external-task <code>filter.type</code> or a pre-resolved
+						job-key set. Without either, there is no safe generic
+						one-request mapping.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
@@ -496,8 +522,6 @@ export const external_task = [
 							(boolean) externalTaskQuery.active
 							<br />
 							(boolean) externalTaskQuery.suspended
-							<br />
-							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(string) externalTaskQuery.executionId
 							<br />
@@ -649,6 +673,8 @@ export const external_task = [
 							<br />
 							(dateTime) externalTaskQuery.lockExpirationBefore
 							<br />
+							(boolean) externalTaskQuery.withRetriesLeft
+							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
 							<br />
 							(int64) externalTaskQuery.priorityHigherThanOrEquals
@@ -663,6 +689,8 @@ export const external_task = [
 								<br />
 								(dateTime) filter.deadline.$lt
 								<br />
+								(int32) filter.retries.$gt
+								<br />
 								(int32) filter.retries.$eq
 								<br />
 								(int32) filter.priority.$gte
@@ -673,6 +701,11 @@ export const external_task = [
 								Use the advanced comparison operators shown
 								above; these criteria must not be copied as
 								top-level fields.
+							</p>
+							<p>
+								Map <code>withRetriesLeft=true</code> to{" "}
+								<code>filter.retries.$gt=0</code>. Camunda 7 null
+								retry values have no direct Camunda 8 equivalent.
 							</p>
 						</>
 					),
@@ -743,8 +776,11 @@ export const external_task = [
 					<p>
 						Set <code>filter.kind</code> to{" "}
 						<code>BPMN_ELEMENT</code> in every request. This excludes
-						listener and ad-hoc-subprocess jobs. When a source selector
-						includes a topic, map it to <code>filter.type</code>.
+						listener and ad-hoc-subprocess jobs. Do not use a
+						kind-only filter for a batch update: use a known
+						external-task <code>filter.type</code> or a pre-resolved
+						job-key set. Without either, there is no safe generic
+						one-request mapping.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
@@ -776,8 +812,6 @@ export const external_task = [
 							(boolean) externalTaskQuery.active
 							<br />
 							(boolean) externalTaskQuery.suspended
-							<br />
-							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(string) externalTaskQuery.executionId
 							<br />
@@ -838,13 +872,12 @@ export const external_task = [
 		},
 		mappedExplanation: (
 			<div>
-				The Camunda 8.10 Search jobs endpoint can search by the
-				<code>type</code> field. External task topic names correspond to
-				BPMN element job types. Set <code>filter.kind</code> to{" "}
-				<code>BPMN_ELEMENT</code> before collecting unique{" "}
-				<code>type</code> values so listener and ad-hoc-subprocess jobs
-				are excluded. Use a known topic-to-type mapping when exact
-				external-task selection is required.
+				Job search alone has no exact Camunda 7 topic-name mapping
+				because it can include other BPMN element and terminal jobs. Use
+				a known Camunda 7 topic-to-Camunda 8 type mapping instead. When
+				searching that type, set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> and retain only current records{" "}
+				(<code>endTime == null</code>).
 			</div>
 		),
 	},

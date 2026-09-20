@@ -48,17 +48,45 @@ export const variable_instance = [
 				{
 					leftEntry: (
 						<pre>
-							(string) sortBy
+							(string) sortBy=variableName
 							<br />
 							(string) sortOrder
 						</pre>
 					),
 					rightEntry: (
+						<>
+							<pre>
+								(string) sort[].field=name
+								<br />
+								(enum) sort[].order
+							</pre>
+							<p>
+								Map <code>asc</code>/<code>desc</code> to{" "}
+								<code>ASC</code>/<code>DESC</code>.
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: (
 						<pre>
-							(string) sort[].field
+							(string) sortBy=tenantId
 							<br />
-							(enum) sort[].order
+							(string) sortOrder
 						</pre>
+					),
+					rightEntry: (
+						<>
+							<pre>
+								(string) sort[].field=tenantId
+								<br />
+								(enum) sort[].order
+							</pre>
+							<p>
+								Map <code>asc</code>/<code>desc</code> to{" "}
+								<code>ASC</code>/<code>DESC</code>.
+							</p>
+						</>
 					),
 				},
 				{
@@ -91,11 +119,6 @@ export const variable_instance = [
 						and <code>filter.value</code>. The value must use its
 						serialized JSON representation, including quotes for
 						strings.
-					</p>
-					<p>
-						Map only sort fields with equivalent semantics and convert
-						Camunda 7 <code>asc</code>/<code>desc</code> values to
-						Camunda 8 <code>ASC</code>/<code>DESC</code>.
 					</p>
 				</>
 			),
@@ -156,10 +179,18 @@ export const variable_instance = [
 							<br />
 							(boolean) deserializeValues
 							<br />
+							(string) sortBy=activityInstanceId
+							<br />
 							(string) sortBy=variableType
 						</pre>
 					),
-					rightEntry: <p>Camunda 8.10 has no equivalent option.</p>,
+					rightEntry: (
+						<p>
+							Camunda 8.10 has no equivalent option. Its{" "}
+							<code>scopeKey</code> sort value is not a direct
+							substitute for a Camunda 7 activity-instance ID.
+						</p>
+					),
 				},
 			],
 		},
@@ -178,11 +209,20 @@ export const variable_instance = [
 				{
 					leftEntry: <pre>(object[]) sorting</pre>,
 					rightEntry: (
-						<pre>
-							(string) sort[].field
-							<br />
-							(enum) sort[].order
-						</pre>
+						<>
+							<pre>
+								(string) sort[].field
+								<br />
+								(enum) sort[].order
+							</pre>
+							<p>
+								Use <code>variableName</code> → <code>name</code>{" "}
+								or <code>tenantId</code> →{" "}
+								<code>tenantId</code>, and map{" "}
+								<code>asc</code>/<code>desc</code> to{" "}
+								<code>ASC</code>/<code>DESC</code>.
+							</p>
+						</>
 					),
 				},
 				{
@@ -234,6 +274,8 @@ export const variable_instance = [
 							(boolean) variableValuesIgnoreCase
 							<br />
 							(boolean) deserializeValues
+							<br />
+							(string) sorting[].sortBy=activityInstanceId
 							<br />
 							(string) sorting[].sortBy=variableType
 						</pre>
