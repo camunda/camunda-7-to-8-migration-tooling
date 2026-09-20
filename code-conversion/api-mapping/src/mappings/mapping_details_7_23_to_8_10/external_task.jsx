@@ -302,10 +302,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.jobKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -316,10 +316,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.processInstanceKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -373,16 +373,20 @@ export const external_task = [
 								advanced string operators for C7{" "}
 								<code>...Like</code> criteria.
 							</p>
+							<p>
+								Camunda 7 process instance IDs are not Camunda 8
+								process instance keys. Resolve them through
+								migration-specific ID-to-key correlation before
+								setting <code>filter.processInstanceKey</code>, and
+								reject the selector when no correlation is
+								available.
+							</p>
 						</>
 					),
 				},
 				{
 					leftEntry: (
 						<pre>
-							(dateTime) externalTaskQuery.lockExpirationAfter
-							<br />
-							(dateTime) externalTaskQuery.lockExpirationBefore
-							<br />
 							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
@@ -395,10 +399,6 @@ export const external_task = [
 					rightEntry: (
 						<>
 							<pre>
-								(dateTime) filter.deadline.$gt
-								<br />
-								(dateTime) filter.deadline.$lt
-								<br />
 								(int32) filter.retries.$gt
 								<br />
 								(int32) filter.retries.$eq
@@ -413,9 +413,13 @@ export const external_task = [
 								top-level fields.
 							</p>
 							<p>
-								Map <code>withRetriesLeft=true</code> to{" "}
-								<code>filter.retries.$gt=0</code>. Camunda 7 null
-								retry values have no direct Camunda 8 equivalent.
+								This is a partial mapping:
+								<code>withRetriesLeft=true</code> maps non-null
+								Camunda 7 retry counts greater than zero to{" "}
+								<code>filter.retries.$gt=0</code>, but Camunda 7
+								also includes tasks with null retry counts. Handle
+								that null-retry case separately because Camunda 8
+								has no equivalent retry state.
 							</p>
 						</>
 					),
@@ -517,6 +521,10 @@ export const external_task = [
 						<pre>
 							(boolean) externalTaskQuery.locked
 							<br />
+							(dateTime) externalTaskQuery.lockExpirationAfter
+							<br />
+							(dateTime) externalTaskQuery.lockExpirationBefore
+							<br />
 							(boolean) externalTaskQuery.notLocked
 							<br />
 							(boolean) externalTaskQuery.active
@@ -549,12 +557,38 @@ export const external_task = [
 						</pre>
 					),
 					rightEntry: (
-						<p>
-							These Camunda 7 criteria have no equivalent in the
-							Camunda 8 active job filter. Do not include them in
-							the batch update request; apply any required
-							filtering in a separate migration step.
-						</p>
+						<>
+							<p>
+								These Camunda 7 criteria have no equivalent in the
+								Camunda 8 active job filter. Do not include them in
+								the batch update request; apply any required
+								filtering in a separate migration step.
+							</p>
+							<p>
+								<code>filter.deadline</code> is the next activation
+								time rather than a lock expiration. Do not use it as
+								a batch selection criterion without source-correlated
+								lock-state validation.
+							</p>
+							<p>
+								Reject every <code>processInstanceQuery</code>{" "}
+								selector not listed in Direct, including{" "}
+								<code>processDefinitionKeyNotIn</code>,{" "}
+								<code>withoutTenantId</code>,{" "}
+								<code>processDefinitionWithoutTenantId</code>,{" "}
+								<code>activityIdIn</code>,{" "}
+								<code>superCaseInstance</code>,{" "}
+								<code>subCaseInstance</code>,{" "}
+								<code>rootProcessInstances</code>,{" "}
+								<code>leafProcessInstances</code>,{" "}
+								<code>incidentId</code>, <code>incidentType</code>,{" "}
+								<code>incidentMessage</code>,{" "}
+								<code>incidentMessageLike</code>,{" "}
+								<code>variableNamesIgnoreCase</code>,{" "}
+								<code>variableValuesIgnoreCase</code>,{" "}
+								<code>orQueries</code>, and <code>sorting</code>.
+							</p>
+						</>
 					),
 				},
 				{
@@ -592,10 +626,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.jobKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -606,10 +640,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.processInstanceKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -663,16 +697,20 @@ export const external_task = [
 								advanced string operators for C7{" "}
 								<code>...Like</code> criteria.
 							</p>
+							<p>
+								Camunda 7 process instance IDs are not Camunda 8
+								process instance keys. Resolve them through
+								migration-specific ID-to-key correlation before
+								setting <code>filter.processInstanceKey</code>, and
+								reject the selector when no correlation is
+								available.
+							</p>
 						</>
 					),
 				},
 				{
 					leftEntry: (
 						<pre>
-							(dateTime) externalTaskQuery.lockExpirationAfter
-							<br />
-							(dateTime) externalTaskQuery.lockExpirationBefore
-							<br />
 							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
@@ -685,10 +723,6 @@ export const external_task = [
 					rightEntry: (
 						<>
 							<pre>
-								(dateTime) filter.deadline.$gt
-								<br />
-								(dateTime) filter.deadline.$lt
-								<br />
 								(int32) filter.retries.$gt
 								<br />
 								(int32) filter.retries.$eq
@@ -703,9 +737,13 @@ export const external_task = [
 								top-level fields.
 							</p>
 							<p>
-								Map <code>withRetriesLeft=true</code> to{" "}
-								<code>filter.retries.$gt=0</code>. Camunda 7 null
-								retry values have no direct Camunda 8 equivalent.
+								This is a partial mapping:
+								<code>withRetriesLeft=true</code> maps non-null
+								Camunda 7 retry counts greater than zero to{" "}
+								<code>filter.retries.$gt=0</code>, but Camunda 7
+								also includes tasks with null retry counts. Handle
+								that null-retry case separately because Camunda 8
+								has no equivalent retry state.
 							</p>
 						</>
 					),
@@ -807,6 +845,10 @@ export const external_task = [
 						<pre>
 							(boolean) externalTaskQuery.locked
 							<br />
+							(dateTime) externalTaskQuery.lockExpirationAfter
+							<br />
+							(dateTime) externalTaskQuery.lockExpirationBefore
+							<br />
 							(boolean) externalTaskQuery.notLocked
 							<br />
 							(boolean) externalTaskQuery.active
@@ -839,12 +881,38 @@ export const external_task = [
 						</pre>
 					),
 					rightEntry: (
-						<p>
-							These Camunda 7 criteria have no equivalent in the
-							Camunda 8 active job filter. Do not include them in
-							the batch update request; apply any required
-							filtering in a separate migration step.
-						</p>
+						<>
+							<p>
+								These Camunda 7 criteria have no equivalent in the
+								Camunda 8 active job filter. Do not include them in
+								the batch update request; apply any required
+								filtering in a separate migration step.
+							</p>
+							<p>
+								<code>filter.deadline</code> is the next activation
+								time rather than a lock expiration. Do not use it as
+								a batch selection criterion without source-correlated
+								lock-state validation.
+							</p>
+							<p>
+								Reject every <code>processInstanceQuery</code>{" "}
+								selector not listed in Direct, including{" "}
+								<code>processDefinitionKeyNotIn</code>,{" "}
+								<code>withoutTenantId</code>,{" "}
+								<code>processDefinitionWithoutTenantId</code>,{" "}
+								<code>activityIdIn</code>,{" "}
+								<code>superCaseInstance</code>,{" "}
+								<code>subCaseInstance</code>,{" "}
+								<code>rootProcessInstances</code>,{" "}
+								<code>leafProcessInstances</code>,{" "}
+								<code>incidentId</code>, <code>incidentType</code>,{" "}
+								<code>incidentMessage</code>,{" "}
+								<code>incidentMessageLike</code>,{" "}
+								<code>variableNamesIgnoreCase</code>,{" "}
+								<code>variableValuesIgnoreCase</code>,{" "}
+								<code>orQueries</code>, and <code>sorting</code>.
+							</p>
+						</>
 					),
 				},
 				{
@@ -896,8 +964,9 @@ export const external_task = [
 				be used to retrieve a specific job by filtering on{" "}
 				<code>jobKey</code>. Set <code>filter.kind</code> to{" "}
 				<code>BPMN_ELEMENT</code> so listener and ad-hoc-subprocess jobs
-				are excluded. Resolve the Camunda 7 external-task ID to the
-				corresponding Camunda 8 job key before making the request.
+				are excluded. Resolve the Camunda 7 external-task ID through
+				migration-specific ID-to-key correlation before making the
+				request, and reject the lookup when no correlation is available.
 			</div>
 		),
 	},

@@ -368,9 +368,11 @@ export const variable_instance = [
 		target: {},
 		discontinuedExplanation: (
 			<p>
-				Camunda 8.10 has no generic binary variable download endpoint.
-				Use <code>GET /variables/{"{variableKey}"}</code> to retrieve a
-				JSON-compatible value after resolving its variable key.
+				Camunda 8.10 has no direct equivalent for binary or file variable
+				data. <code>GET /variables/{"{variableKey}"}</code> returns a
+				serialized JSON value rather than an octet stream, so migrate
+				binary and file payloads with application-specific storage and
+				retrieval logic.
 			</p>
 		),
 	},
