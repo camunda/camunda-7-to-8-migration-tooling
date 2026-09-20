@@ -380,6 +380,16 @@ export const external_task = [
 								<code>...Like</code> criteria.
 							</p>
 							<p>
+								Camunda 7 external-task IDs are not Camunda 8 job
+								keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.externalTaskId</code> and{" "}
+								<code>externalTaskQuery.externalTaskIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.jobKey</code> or{" "}
+								<code>filter.jobKey.$in</code>. Reject these
+								selectors when no correlation is available.
+							</p>
+							<p>
 								Camunda 7 process instance IDs are not Camunda 8
 								process instance keys. Resolve IDs from{" "}
 								<code>externalTaskQuery.processInstanceId</code>,{" "}
@@ -723,6 +733,16 @@ export const external_task = [
 								array-valued criteria and the corresponding
 								advanced string operators for C7{" "}
 								<code>...Like</code> criteria.
+							</p>
+							<p>
+								Camunda 7 external-task IDs are not Camunda 8 job
+								keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.externalTaskId</code> and{" "}
+								<code>externalTaskQuery.externalTaskIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.jobKey</code> or{" "}
+								<code>filter.jobKey.$in</code>. Reject these
+								selectors when no correlation is available.
 							</p>
 							<p>
 								Camunda 7 process instance IDs are not Camunda 8
