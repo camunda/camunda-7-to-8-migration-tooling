@@ -956,18 +956,23 @@ export const external_task = [
 			path: "/external-task/topic-names",
 			operation: "get",
 		},
-		target: {
-			path: "/jobs/search",
-			operation: "post",
-		},
-		mappedExplanation: (
+		target: {},
+		discontinuedExplanation: (
 			<div>
-				Job search alone has no exact Camunda 7 topic-name mapping
-				because it can include other BPMN element and terminal jobs. Use
-				a known Camunda 7 topic-to-Camunda 8 type mapping instead. When
-				searching that type, set <code>filter.kind</code> to{" "}
-				<code>BPMN_ELEMENT</code> and retain only current records{" "}
-				(<code>endTime == null</code>).
+				<p>
+					Camunda 8.10 has no endpoint that returns distinct external
+					task topic names. <code>POST /jobs/search</code> returns jobs,
+					not topic names, so it cannot discover a Camunda 7
+					topic-to-Camunda 8 type mapping.
+				</p>
+				<p>
+					The C7 <code>withLockedTasks</code>,{" "}
+					<code>withUnlockedTasks</code>, and{" "}
+					<code>withRetriesLeft</code> filters have no direct
+					equivalent for distinct topic names. Recreate this behavior
+					with application-specific topic/type metadata and source
+					state.
+				</p>
 			</div>
 		),
 	},

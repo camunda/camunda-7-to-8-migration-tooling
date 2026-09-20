@@ -27,8 +27,9 @@ export const variable_instance = [
 						<>
 							<pre>(string) filter.name.$like</pre>
 							<p>
-								Use the pattern syntax accepted by the Camunda 8
-								filter; do not copy a Camunda 7 pattern unchanged.
+								Convert C7 <code>%</code>/<code>_</code> wildcards
+								to C8 <code>*</code>/<code>?</code> wildcards
+								before applying the filter.
 							</p>
 						</>
 					),
