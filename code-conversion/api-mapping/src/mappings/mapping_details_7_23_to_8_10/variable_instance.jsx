@@ -27,9 +27,10 @@ export const variable_instance = [
 						<>
 							<pre>(string) filter.name.$like</pre>
 							<p>
-								Convert C7 <code>%</code>/<code>_</code> wildcards
-								to C8 <code>*</code>/<code>?</code> wildcards
-								before applying the filter.
+								Escape literal C7 <code>*</code>, <code>?</code>,
+								and backslashes for the C8 pattern before converting
+								C7 <code>%</code>/<code>_</code> wildcards to C8{" "}
+								<code>*</code>/<code>?</code> wildcards.
 							</p>
 						</>
 					),

@@ -1026,7 +1026,8 @@ export const external_task = [
 				<code>BPMN_ELEMENT</code> so listener and ad-hoc-subprocess jobs
 				are excluded. Resolve the Camunda 7 external-task ID through
 				migration-specific ID-to-key correlation before making the
-				request, and reject the lookup when no correlation is available.
+				request, and reject the lookup when no correlation is available
+				or its <code>endTime</code> is non-null.
 			</div>
 		),
 	},
