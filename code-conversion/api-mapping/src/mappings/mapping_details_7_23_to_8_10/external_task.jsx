@@ -381,10 +381,14 @@ export const external_task = [
 							</p>
 							<p>
 								Camunda 7 process instance IDs are not Camunda 8
-								process instance keys. Resolve them through
-								migration-specific ID-to-key correlation before
-								setting <code>filter.processInstanceKey</code>, and
-								reject the selector when no correlation is
+								process instance keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.processInstanceId</code>,{" "}
+								and{" "}
+								<code>externalTaskQuery.processInstanceIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.processInstanceKey</code>{" "}
+								or <code>filter.processInstanceKey.$in</code>.
+								Reject these selectors when no correlation is
 								available.
 							</p>
 						</>
@@ -467,6 +471,15 @@ export const external_task = [
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
 								interchangeable with it.
+							</p>
+							<p>
+								<code>processInstanceQuery.processInstanceIds</code>{" "}
+								contains Camunda 7 IDs, not Camunda 8 keys. Resolve
+								each ID through migration-specific ID-to-key
+								correlation before setting{" "}
+								<code>filter.processInstanceKey.$in</code>, and
+								reject this selector when no correlation is
+								available.
 							</p>
 						</>
 					),
@@ -713,10 +726,14 @@ export const external_task = [
 							</p>
 							<p>
 								Camunda 7 process instance IDs are not Camunda 8
-								process instance keys. Resolve them through
-								migration-specific ID-to-key correlation before
-								setting <code>filter.processInstanceKey</code>, and
-								reject the selector when no correlation is
+								process instance keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.processInstanceId</code>,{" "}
+								and{" "}
+								<code>externalTaskQuery.processInstanceIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.processInstanceKey</code>{" "}
+								or <code>filter.processInstanceKey.$in</code>.
+								Reject these selectors when no correlation is
 								available.
 							</p>
 						</>
@@ -799,6 +816,15 @@ export const external_task = [
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
 								interchangeable with it.
+							</p>
+							<p>
+								<code>processInstanceQuery.processInstanceIds</code>{" "}
+								contains Camunda 7 IDs, not Camunda 8 keys. Resolve
+								each ID through migration-specific ID-to-key
+								correlation before setting{" "}
+								<code>filter.processInstanceKey.$in</code>, and
+								reject this selector when no correlation is
+								available.
 							</p>
 						</>
 					),
@@ -956,22 +982,31 @@ export const external_task = [
 			path: "/external-task/topic-names",
 			operation: "get",
 		},
-		target: {},
-		discontinuedExplanation: (
+		target: {
+			path: "/jobs/search",
+			operation: "post",
+		},
+		mappedExplanation: (
 			<div>
 				<p>
-					Camunda 8.10 has no endpoint that returns distinct external
-					task topic names. <code>POST /jobs/search</code> returns jobs,
-					not topic names, so it cannot discover a Camunda 7
-					topic-to-Camunda 8 type mapping.
+					Use <code>POST /jobs/search</code> as a client-side mapping:{" "}
+					page jobs with <code>filter.kind=BPMN_ELEMENT</code>, retain
+					only current records (<code>endTime == null</code>), and
+					collect distinct <code>type</code> values.
 				</p>
 				<p>
-					The C7 <code>withLockedTasks</code>,{" "}
+					This is not an exact server-side topic-name endpoint:{" "}
+					<code>filter.kind</code> can include unrelated BPMN element
+					jobs. Apply application-specific topic/type metadata and the
+					required current, lock, and retry post-filtering before
+					returning the unique types.
+				</p>
+				<p>
+					Apply C7 <code>withLockedTasks</code>,{" "}
 					<code>withUnlockedTasks</code>, and{" "}
-					<code>withRetriesLeft</code> filters have no direct
-					equivalent for distinct topic names. Recreate this behavior
-					with application-specific topic/type metadata and source
-					state.
+					<code>withRetriesLeft</code> with source-correlated lock and
+					retry state; they have no direct distinct-topic filter in
+					Camunda 8.
 				</p>
 			</div>
 		),
