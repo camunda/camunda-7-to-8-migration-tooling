@@ -527,12 +527,15 @@ export const external_task = [
 						<code>BPMN_ELEMENT</code> in every request. This excludes
 						listener and ad-hoc-subprocess jobs. Do not use a
 						kind-only filter for a batch update. Before updating,
-						resolve an active job-key set by searching with a known
-						external-task <code>filter.type</code> or correlated job
-						keys, retaining only current records{" "}
-						(<code>endTime == null</code>), and then passing those
-						keys in <code>filter.jobKey.$in</code>. A known type alone
-						can include terminal jobs.
+						resolve an active, correlated job-key set. A known
+						external-task <code>filter.type</code> may narrow candidate
+						searches only when an application-specific allow-list
+						identifies the intended C7 task set; otherwise reject the
+						selector. Retain only current records{" "}
+						(<code>endTime == null</code>) and then pass those keys in{" "}
+						<code>filter.jobKey.$in</code>. Do not use a type-only
+						filter for a batch update: it can include terminal or
+						unrelated BPMN jobs.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
@@ -882,12 +885,15 @@ export const external_task = [
 						<code>BPMN_ELEMENT</code> in every request. This excludes
 						listener and ad-hoc-subprocess jobs. Do not use a
 						kind-only filter for a batch update. Before updating,
-						resolve an active job-key set by searching with a known
-						external-task <code>filter.type</code> or correlated job
-						keys, retaining only current records{" "}
-						(<code>endTime == null</code>), and then passing those
-						keys in <code>filter.jobKey.$in</code>. A known type alone
-						can include terminal jobs.
+						resolve an active, correlated job-key set. A known
+						external-task <code>filter.type</code> may narrow candidate
+						searches only when an application-specific allow-list
+						identifies the intended C7 task set; otherwise reject the
+						selector. Retain only current records{" "}
+						(<code>endTime == null</code>) and then pass those keys in{" "}
+						<code>filter.jobKey.$in</code>. Do not use a type-only
+						filter for a batch update: it can include terminal or
+						unrelated BPMN jobs.
 					</p>
 					<p>
 						Do not pass either Camunda 7 query object directly as a
