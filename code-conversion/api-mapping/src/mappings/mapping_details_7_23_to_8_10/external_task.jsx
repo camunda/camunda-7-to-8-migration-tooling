@@ -23,11 +23,12 @@ export const external_task = [
 				in Camunda 8. Set <code>filter.kind</code> to{" "}
 				<code>BPMN_ELEMENT</code> to exclude listener and
 				ad-hoc-subprocess jobs. When a source query contains a topic,
-				map it to <code>filter.type</code>. A kind-only filter can still
-				include other BPMN element jobs. Camunda 8 search can also return
-				terminal jobs, so retain only current records{" "}
-				(<code>endTime == null</code>) before treating the result as a
-				Camunda 7 runtime query.
+				map it to <code>filter.type</code>. Without a known
+				external-task type or type set, a kind-only filter is
+				approximate because it can include unrelated BPMN element jobs.
+				Camunda 8 search can also return terminal jobs. For exact
+				Camunda 7 runtime-query semantics, use a known type or type set
+				and retain only current records (<code>endTime == null</code>).
 			</div>
 		),
 	},
@@ -48,11 +49,12 @@ export const external_task = [
 				in Camunda 8. Set <code>filter.kind</code> to{" "}
 				<code>BPMN_ELEMENT</code> to exclude listener and
 				ad-hoc-subprocess jobs. When a source query contains a topic,
-				map it to <code>filter.type</code>. A kind-only filter can still
-				include other BPMN element jobs. Camunda 8 search can also return
-				terminal jobs, so retain only current records{" "}
-				(<code>endTime == null</code>) before treating the result as a
-				Camunda 7 runtime query.
+				map it to <code>filter.type</code>. Without a known
+				external-task type or type set, a kind-only filter is
+				approximate because it can include unrelated BPMN element jobs.
+				Camunda 8 search can also return terminal jobs. For exact
+				Camunda 7 runtime-query semantics, use a known type or type set
+				and retain only current records (<code>endTime == null</code>).
 			</div>
 		),
 	},
@@ -76,9 +78,11 @@ export const external_task = [
 				<code>BPMN_ELEMENT</code> to exclude listener and
 				ad-hoc-subprocess jobs. When a source query contains a topic,
 				map it to <code>filter.type</code>. A kind-only filter can include
-				other BPMN element jobs. For exact Camunda 7 semantics, page
-				through all matching results, retain only current records{" "}
-				(<code>endTime == null</code>), and count them locally.
+				other BPMN element jobs. For exact Camunda 7 semantics, use a
+				known external-task type or type set, page through all matching
+				results, retain only current records{" "}
+				(<code>endTime == null</code>), and count them locally. Without a
+				known type or type set, label the count approximate.
 			</div>
 		),
 	},
@@ -102,9 +106,11 @@ export const external_task = [
 				<code>BPMN_ELEMENT</code> to exclude listener and
 				ad-hoc-subprocess jobs. When a source query contains a topic,
 				map it to <code>filter.type</code>. A kind-only filter can include
-				other BPMN element jobs. For exact Camunda 7 semantics, page
-				through all matching results, retain only current records{" "}
-				(<code>endTime == null</code>), and count them locally.
+				other BPMN element jobs. For exact Camunda 7 semantics, use a
+				known external-task type or type set, page through all matching
+				results, retain only current records{" "}
+				(<code>endTime == null</code>), and count them locally. Without a
+				known type or type set, label the count approximate.
 			</div>
 		),
 	},
