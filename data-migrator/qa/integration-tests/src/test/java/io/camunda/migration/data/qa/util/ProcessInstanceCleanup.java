@@ -62,7 +62,7 @@ public class ProcessInstanceCleanup {
         if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
           camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
-          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
+          camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         }
       } catch (ClientStatusException | ProblemException e) {
         if (e.getMessage() == null || !e.getMessage().contains("NOT_FOUND")) {
@@ -79,7 +79,6 @@ public class ProcessInstanceCleanup {
 
     while (true) {
       final var request = camundaClient.newProcessInstanceSearchRequest();
-      request.filter(filter -> filter.state(ProcessInstanceState.ACTIVE));
       if (cursor != null) {
         final String pageCursor = cursor;
         request.page(page -> page.after(pageCursor));
