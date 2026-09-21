@@ -532,6 +532,7 @@ jobs:
           name: release-artifacts-${{ env.RELEASE_VERSION }}
           path: ./artifacts
           run-id: ${{ inputs.SOURCE_RELEASE_RUN_ID || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
