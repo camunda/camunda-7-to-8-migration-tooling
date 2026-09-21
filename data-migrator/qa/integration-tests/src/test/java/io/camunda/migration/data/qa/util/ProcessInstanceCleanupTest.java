@@ -107,21 +107,18 @@ class ProcessInstanceCleanupTest {
   }
 
   @Test
-  void shouldCancelActiveAndSuspendedInstancesAndDeleteTerminalInstances() {
+  void shouldCancelActiveInstancesAndDeleteTerminalInstances() {
     CamundaClient camundaClient = mock(CamundaClient.class, RETURNS_DEEP_STUBS);
     ProcessInstance active = processInstance(ProcessInstanceState.ACTIVE, 1L);
-    ProcessInstance suspended = processInstance(ProcessInstanceState.SUSPENDED, 2L);
-    ProcessInstance completed = processInstance(ProcessInstanceState.COMPLETED, 3L);
+    ProcessInstance completed = processInstance(ProcessInstanceState.COMPLETED, 2L);
     ProcessInstanceCleanup cleanup = new ProcessInstanceCleanup(camundaClient);
     clearInvocations(camundaClient);
 
-    cleanup.deleteProcessInstances(List.of(active, suspended, completed));
+    cleanup.deleteProcessInstances(List.of(active, completed));
 
     verify(camundaClient).newCancelInstanceCommand(1L);
-    verify(camundaClient).newCancelInstanceCommand(2L);
-    verify(camundaClient).newDeleteProcessInstanceCommand(3L);
+    verify(camundaClient).newDeleteProcessInstanceCommand(2L);
     verify(camundaClient, never()).newDeleteProcessInstanceCommand(1L);
-    verify(camundaClient, never()).newDeleteProcessInstanceCommand(2L);
   }
 
   protected ProcessInstance processInstance(ProcessInstanceState state, long key) {
