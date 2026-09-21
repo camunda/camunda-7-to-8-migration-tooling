@@ -683,6 +683,8 @@ jobs:
       fail-fast: false
       matrix:
         database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
+        # Keep every runtime test fork below Surefire's 65-minute timeout.
+        suite: [core, element, jobtype, variables]
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -708,9 +710,9 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with ${{ matrix.database }}
+      - name: Run ${{ matrix.suite }} runtime tests with ${{ matrix.database }}
         working-directory: data-migrator
-        run: mvn verify -P${{ matrix.database }},integration,runtime-only
+        run: mvn verify -P${{ matrix.database }},integration,runtime-${{ matrix.suite }}
 
   # History integration tests for non-H2 databases (label-gated on PRs)
   it-history-db:
