@@ -112,7 +112,7 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
       List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
       for (ProcessInstance i : items) {
         try {
-          if (i.getState() == ProcessInstanceState.ACTIVE || i.getState() == ProcessInstanceState.SUSPENDED) {
+          if (i.getState() == ProcessInstanceState.ACTIVE) {
             camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
           } else {
             camundaClient.newDeleteProcessInstanceCommand(i.getProcessInstanceKey()).execute();

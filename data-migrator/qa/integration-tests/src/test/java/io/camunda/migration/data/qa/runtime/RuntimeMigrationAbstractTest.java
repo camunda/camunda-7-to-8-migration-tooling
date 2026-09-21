@@ -109,7 +109,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     boolean allProcessInstancesCleared = true;
     for (ProcessInstance i : items) {
       try {
-        if (i.getState() == ProcessInstanceState.ACTIVE || i.getState() == ProcessInstanceState.SUSPENDED) {
+        if (i.getState() == ProcessInstanceState.ACTIVE) {
           camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
           allProcessInstancesCleared = false;
         } else {
