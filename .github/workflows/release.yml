@@ -317,11 +317,11 @@ jobs:
               fi
 
               gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
-                -f "tag_name=${RELEASE_VERSION}" \
-                -f "name=${RELEASE_VERSION}" \
-                -F draft=true \
-                -F "prerelease=${expected_prerelease}" \
-                -F generate_release_notes=true > "${release_json}"
+                --raw-field "tag_name=${RELEASE_VERSION}" \
+                --raw-field "name=${RELEASE_VERSION}" \
+                --field draft=true \
+                --field "prerelease=${expected_prerelease}" \
+                --field generate_release_notes=true > "${release_json}"
               ;;
             1)
               jq --arg tag "${RELEASE_VERSION}" \
@@ -481,7 +481,7 @@ jobs:
           set -euo pipefail
 
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            -F draft=false --silent
+            --field draft=false --silent
           if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')" != false ]]; then
             echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
             exit 1
