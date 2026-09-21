@@ -59,7 +59,7 @@ public class ProcessInstanceCleanup {
   protected void deleteProcessInstances(List<ProcessInstance> items) {
     for (ProcessInstance processInstance : items) {
       try {
-        if (isActiveOrSuspended(processInstance)) {
+        if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
           camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
           camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
@@ -71,11 +71,6 @@ public class ProcessInstanceCleanup {
         // The search result is stale; the instance is already gone.
       }
     }
-  }
-
-  protected boolean isActiveOrSuspended(ProcessInstance processInstance) {
-    return processInstance.getState() == ProcessInstanceState.ACTIVE
-        || processInstance.getState() == ProcessInstanceState.SUSPENDED;
   }
 
   protected List<ProcessInstance> findAllProcessInstances() {
