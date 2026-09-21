@@ -18,6 +18,7 @@ import io.camunda.client.api.search.response.TenantUser;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.util.ProcessInstanceCleanup;
@@ -132,7 +133,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
             .execute();
         runtimeMigrator.start();
         return true;
-      } catch (RuntimeException e) {
+      } catch (ClientException | RuntimeMigratorException e) {
         if (isAuthorizationPropagationFailure(e)) {
           return false;
         }
