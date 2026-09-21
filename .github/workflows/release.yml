@@ -286,7 +286,7 @@ jobs:
     needs:
       - release
       - docker-image
-    if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL && !inputs.ONLY_PUBLISH_DOCKER_IMAGE }}
+    if: ${{ always() && needs.release.result == 'success' && !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL && !inputs.ONLY_PUBLISH_DOCKER_IMAGE }}
     timeout-minutes: 15
     concurrency:
       group: github-release-assets-${{ inputs.RELEASE_VERSION }}
