@@ -22,6 +22,16 @@ on:
         required: true
         type: boolean
         default: false
+      ONLY_PUBLISH_DOCKER_IMAGE:
+        description: "ONLY_PUBLISH_DOCKER_IMAGE"
+        required: true
+        type: boolean
+        default: false
+      SOURCE_RELEASE_RUN_ID:
+        description: "Source workflow run ID when ONLY_PUBLISH_DOCKER_IMAGE is true"
+        required: false
+        type: string
+        default: ""
 defaults:
   run:
     shell: bash
@@ -38,6 +48,7 @@ jobs:
   release:
     name: Maven Release
     runs-on: ubuntu-latest
+    if: ${{ !inputs.ONLY_PUBLISH_DOCKER_IMAGE }}
     timeout-minutes: 60
 
     steps:
@@ -262,8 +273,10 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release Assets
     runs-on: ubuntu-latest
-    needs: release
-    if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
+    needs:
+      - release
+      - docker-image
+    if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL && !inputs.ONLY_PUBLISH_DOCKER_IMAGE }}
     timeout-minutes: 15
     concurrency:
       group: github-release-assets-${{ inputs.RELEASE_VERSION }}
@@ -287,50 +300,66 @@ jobs:
           set -euo pipefail
 
           release_json=$(mktemp)
-          release_error=$(mktemp)
-          trap 'rm -f "${release_json}" "${release_error}"' EXIT
+          releases_json=$(mktemp)
+          tag_error=$(mktemp)
+          trap 'rm -f "${release_json}" "${releases_json}" "${tag_error}"' EXIT
 
           expected_prerelease=false
           if [[ "${RELEASE_VERSION}" == *-* ]]; then
             expected_prerelease=true
           fi
 
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}" \
-            > "${release_json}" 2> "${release_error}"; then
-            release_draft=$(jq --raw-output '.draft' "${release_json}")
-            release_prerelease=$(jq --raw-output '.prerelease' "${release_json}")
+          # GitHub does not return draft releases from the tag lookup endpoint.
+          # List releases to locate an existing draft and use its ID throughout this job.
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > "${releases_json}"
+          release_count=$(jq --arg tag "${RELEASE_VERSION}" \
+            '[.[][] | select(.tag_name == $tag)] | length' "${releases_json}")
+          created_release=false
 
-            if [[ "${release_prerelease}" != "${expected_prerelease}" ]]; then
-              echo "::error::Release '${RELEASE_VERSION}' has prerelease=${release_prerelease}, expected ${expected_prerelease}."
-              exit 1
-            fi
-          else
-            if [[ "$(jq --raw-output '.status // empty' "${release_json}")" != 404 ]]; then
-              cat "${release_error}" >&2
-              cat "${release_json}" >&2
-              echo "::error::Could not determine whether GitHub release '${RELEASE_VERSION}' exists."
-              exit 1
-            fi
+          case "${release_count}" in
+            0)
+              if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_VERSION}" \
+                >/dev/null 2> "${tag_error}"; then
+                if grep -q 'HTTP 404' "${tag_error}"; then
+                  echo "::error::Cannot create GitHub release '${RELEASE_VERSION}' because its tag does not exist."
+                else
+                  cat "${tag_error}" >&2
+                  echo "::error::Could not validate the tag for GitHub release '${RELEASE_VERSION}'."
+                fi
+                exit 1
+              fi
 
-            release_flags=(
-              --repo "${GITHUB_REPOSITORY}"
-              --title "${RELEASE_VERSION}"
-              --draft
-              --generate-notes
-              --verify-tag
-            )
-            if [[ "${expected_prerelease}" == true ]]; then
-              release_flags+=(--prerelease)
-            fi
-
-            gh release create "${RELEASE_VERSION}" "${release_flags[@]}"
-            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}" > "${release_json}"
-            release_draft=$(jq --raw-output '.draft' "${release_json}")
-            release_prerelease=$(jq --raw-output '.prerelease' "${release_json}")
-            if [[ "${release_draft}" != true || "${release_prerelease}" != "${expected_prerelease}" ]]; then
-              echo "::error::New GitHub release '${RELEASE_VERSION}' has an unexpected state."
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
+                --raw-field "tag_name=${RELEASE_VERSION}" \
+                --raw-field "name=${RELEASE_VERSION}" \
+                --field draft=true \
+                --field "prerelease=${expected_prerelease}" \
+                --field generate_release_notes=true > "${release_json}"
+              created_release=true
+              ;;
+            1)
+              jq --arg tag "${RELEASE_VERSION}" \
+                '[.[][] | select(.tag_name == $tag)] | .[0]' \
+                "${releases_json}" > "${release_json}"
+              ;;
+            *)
+              echo "::error::Found ${release_count} GitHub releases for tag '${RELEASE_VERSION}'."
               exit 1
-            fi
+              ;;
+          esac
+
+          release_id=$(jq --raw-output '.id' "${release_json}")
+          release_draft=$(jq --raw-output '.draft' "${release_json}")
+          release_prerelease=$(jq --raw-output '.prerelease' "${release_json}")
+          if [[ ! "${release_id}" =~ ^[0-9]+$ ]]; then
+            echo "::error::GitHub release '${RELEASE_VERSION}' returned an invalid release ID '${release_id}'."
+            exit 1
+          fi
+
+          if [[ "${release_prerelease}" != "${expected_prerelease}" ]]; then
+            echo "::error::Release '${RELEASE_VERSION}' has prerelease=${release_prerelease}, expected ${expected_prerelease}."
+            exit 1
           fi
 
           if [[ "${release_draft}" != true && "${release_draft}" != false ]]; then
@@ -338,12 +367,19 @@ jobs:
             exit 1
           fi
 
+          if [[ "${created_release}" == true && "${release_draft}" != true ]]; then
+            echo "::error::New GitHub release '${RELEASE_VERSION}' is not a draft."
+            exit 1
+          fi
+
           echo "draft=${release_draft}" >> "${GITHUB_OUTPUT}"
+          echo "release_id=${release_id}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload GitHub release assets
         if: ${{ steps.github-release.outputs.draft == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.github-release.outputs.release_id }}
         run: |
           set -euo pipefail
 
@@ -369,9 +405,7 @@ jobs:
 
           declare -A local_digests
           declare -A remote_digests
-          remote_assets=$(gh release view "${RELEASE_VERSION}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --json assets \
+          remote_assets=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --jq '.assets[] | [.name, .digest] | @tsv')
           while IFS=$'\t' read -r asset_name asset_digest; do
             [[ -z "${asset_name}" ]] && continue
@@ -397,14 +431,19 @@ jobs:
 
           for asset in "${assets[@]}"; do
             if [[ -z "${remote_digests[${asset}]+present}" ]]; then
-              gh release upload "${RELEASE_VERSION}" "${asset_directory}/${asset}" \
-                --repo "${GITHUB_REPOSITORY}"
+              encoded_asset=$(jq --null-input --raw-output --arg asset "${asset}" '$asset | @uri')
+              gh api --method POST \
+                -H 'Content-Type: application/octet-stream' \
+                --input "${asset_directory}/${asset}" \
+                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${encoded_asset}" \
+                > /dev/null
             fi
           done
 
       - name: Verify GitHub release assets
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.github-release.outputs.release_id }}
         run: |
           set -euo pipefail
 
@@ -418,9 +457,7 @@ jobs:
 
           for attempt in {1..5}; do
             declare -A remote_digests=()
-            remote_assets=$(gh release view "${RELEASE_VERSION}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --json assets \
+            remote_assets=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
               --jq '.assets[] | [.name, .digest] | @tsv')
             while IFS=$'\t' read -r asset_name asset_digest; do
               [[ -z "${asset_name}" ]] && continue
@@ -459,11 +496,13 @@ jobs:
         if: ${{ steps.github-release.outputs.draft == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.github-release.outputs.release_id }}
         run: |
           set -euo pipefail
 
-          gh release edit "${RELEASE_VERSION}" --repo "${GITHUB_REPOSITORY}" --draft=false
-          if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}" --jq '.draft')" != false ]]; then
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --field draft=false > /dev/null
+          if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')" != false ]]; then
             echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
             exit 1
           fi
@@ -471,18 +510,26 @@ jobs:
   docker-image:
     name: Build and Publish Docker Image
     runs-on: ubuntu-latest
-    needs:
-      - release
-      - publish-github-release
-    if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
+    needs: release
+    if: ${{ always() && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL && (inputs.ONLY_PUBLISH_DOCKER_IMAGE || (!inputs.IS_DRY_RUN && needs.release.result == 'success')) }}
     timeout-minutes: 30
+    permissions:
+      actions: read
 
     steps:
+      - name: Validate Docker-only source run
+        if: ${{ inputs.ONLY_PUBLISH_DOCKER_IMAGE && inputs.SOURCE_RELEASE_RUN_ID == '' }}
+        run: |
+          echo "::error::SOURCE_RELEASE_RUN_ID is required when ONLY_PUBLISH_DOCKER_IMAGE is true."
+          exit 1
+
       - name: Download Release Artifacts
         uses: actions/download-artifact@v8
         with:
           name: release-artifacts-${{ env.RELEASE_VERSION }}
           path: ./artifacts
+          run-id: ${{ inputs.ONLY_PUBLISH_DOCKER_IMAGE && inputs.SOURCE_RELEASE_RUN_ID || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
