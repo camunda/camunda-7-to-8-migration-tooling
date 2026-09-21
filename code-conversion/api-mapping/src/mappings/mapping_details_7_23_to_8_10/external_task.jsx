@@ -19,7 +19,16 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs without activating them. Note that
-				external tasks in Camunda 7 correspond to jobs in Camunda 8.
+				external tasks in Camunda 7 correspond to BPMN element jobs
+				in Camunda 8. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. Without a known
+				external-task type or type set, a kind-only filter is
+				approximate because it can include unrelated BPMN element jobs.
+				Camunda 8 search can also return terminal jobs. For exact
+				Camunda 7 runtime-query semantics, use a known type or type set
+				and retain only current records (<code>endTime == null</code>).
 			</div>
 		),
 	},
@@ -36,7 +45,16 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs without activating them. Note that
-				external tasks in Camunda 7 correspond to jobs in Camunda 8.
+				external tasks in Camunda 7 correspond to BPMN element jobs
+				in Camunda 8. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. Without a known
+				external-task type or type set, a kind-only filter is
+				approximate because it can include unrelated BPMN element jobs.
+				Camunda 8 search can also return terminal jobs. For exact
+				Camunda 7 runtime-query semantics, use a known type or type set
+				and retain only current records (<code>endTime == null</code>).
 			</div>
 		),
 	},
@@ -53,8 +71,18 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs. The response includes a{" "}
-				<code>page.totalItems</code> field that provides the total count
-				of matching jobs.
+				<code>page.totalItems</code> field. When{" "}
+				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
+				value is a lower bound rather than an exact count. It also
+				includes terminal jobs. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can include
+				other BPMN element jobs. For exact Camunda 7 semantics, use a
+				known external-task type or type set, page through all matching
+				results, retain only current records{" "}
+				(<code>endTime == null</code>), and count them locally. Without a
+				known type or type set, label the count approximate.
 			</div>
 		),
 	},
@@ -71,8 +99,18 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to search for jobs. The response includes a{" "}
-				<code>page.totalItems</code> field that provides the total count
-				of matching jobs.
+				<code>page.totalItems</code> field. When{" "}
+				<code>page.hasMoreTotalItems</code> is <code>true</code>, this
+				value is a lower bound rather than an exact count. It also
+				includes terminal jobs. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> to exclude listener and
+				ad-hoc-subprocess jobs. When a source query contains a topic,
+				map it to <code>filter.type</code>. A kind-only filter can include
+				other BPMN element jobs. For exact Camunda 7 semantics, use a
+				known external-task type or type set, page through all matching
+				results, retain only current records{" "}
+				(<code>endTime == null</code>), and count them locally. Without a
+				known type or type set, label the count approximate.
 			</div>
 		),
 	},
@@ -270,10 +308,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.jobKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -284,10 +322,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.processInstanceKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -341,16 +379,34 @@ export const external_task = [
 								advanced string operators for C7{" "}
 								<code>...Like</code> criteria.
 							</p>
+							<p>
+								Camunda 7 external-task IDs are not Camunda 8 job
+								keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.externalTaskId</code> and{" "}
+								<code>externalTaskQuery.externalTaskIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.jobKey</code> or{" "}
+								<code>filter.jobKey.$in</code>. Reject these
+								selectors when no correlation is available.
+							</p>
+							<p>
+								Camunda 7 process instance IDs are not Camunda 8
+								process instance keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.processInstanceId</code>,{" "}
+								and{" "}
+								<code>externalTaskQuery.processInstanceIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.processInstanceKey</code>{" "}
+								or <code>filter.processInstanceKey.$in</code>.
+								Reject these selectors when no correlation is
+								available.
+							</p>
 						</>
 					),
 				},
 				{
 					leftEntry: (
 						<pre>
-							(dateTime) externalTaskQuery.lockExpirationAfter
-							<br />
-							(dateTime) externalTaskQuery.lockExpirationBefore
-							<br />
 							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
@@ -363,13 +419,9 @@ export const external_task = [
 					rightEntry: (
 						<>
 							<pre>
-								(dateTime) filter.deadline.$gt
-								<br />
-								(dateTime) filter.deadline.$lt
-								<br />
 								(int32) filter.retries.$gt
 								<br />
-								(int32) filter.retries.$eq
+								(int32) filter.retries.$eq=0
 								<br />
 								(int32) filter.priority.$gte
 								<br />
@@ -379,6 +431,17 @@ export const external_task = [
 								Use the advanced comparison operators shown
 								above; these criteria must not be copied as
 								top-level fields.
+							</p>
+							<p>
+								Map <code>noRetriesLeft=true</code> to{" "}
+								<code>filter.retries.$eq=0</code>. This is a
+								partial mapping:{" "}
+								<code>withRetriesLeft=true</code> maps non-null
+								Camunda 7 retry counts greater than zero to{" "}
+								<code>filter.retries.$gt=0</code>, but Camunda 7
+								also includes tasks with null retry counts. Handle
+								that null-retry case separately because Camunda 8
+								has no equivalent retry state.
 							</p>
 						</>
 					),
@@ -391,6 +454,8 @@ export const external_task = [
 							(string) processInstanceQuery.processDefinitionKey
 							<br />
 							(string[]) processInstanceQuery.processDefinitionKeyIn
+							<br />
+							(string[]) processInstanceQuery.processDefinitionKeyNotIn
 							<br />
 							(string[]) processInstanceQuery.tenantIdIn
 						</pre>
@@ -406,6 +471,8 @@ export const external_task = [
 								<br />
 								(string[]) filter.processDefinitionId.$in
 								<br />
+								(string[]) filter.processDefinitionId.$notIn
+								<br />
 								(string[]) filter.tenantId.$in
 							</pre>
 							<p>
@@ -414,6 +481,15 @@ export const external_task = [
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
 								interchangeable with it.
+							</p>
+							<p>
+								<code>processInstanceQuery.processInstanceIds</code>{" "}
+								contains Camunda 7 IDs, not Camunda 8 keys. Resolve
+								each ID through migration-specific ID-to-key
+								correlation before setting{" "}
+								<code>filter.processInstanceKey.$in</code>, and
+								reject this selector when no correlation is
+								available.
 							</p>
 						</>
 					),
@@ -447,10 +523,25 @@ export const external_task = [
 						track progress.
 					</p>
 					<p>
+						Set <code>filter.kind</code> to{" "}
+						<code>BPMN_ELEMENT</code> in every request. This excludes
+						listener and ad-hoc-subprocess jobs. Do not use a
+						kind-only filter for a batch update. Before updating,
+						resolve an active, correlated job-key set. A known
+						external-task <code>filter.type</code> may narrow candidate
+						searches only when an application-specific allow-list
+						identifies the intended C7 task set; otherwise reject the
+						selector. Retain only current records{" "}
+						(<code>endTime == null</code>) and then pass those keys in{" "}
+						<code>filter.jobKey.$in</code>. Do not use a type-only
+						filter for a batch update: it can include terminal or
+						unrelated BPMN jobs.
+					</p>
+					<p>
 						Do not pass either Camunda 7 query object directly as a
 						Camunda 8 <code>filter</code>. Translate only the
-						supported fields listed above and omit unsupported
-						criteria.
+						supported fields listed above and handle unsupported
+						criteria separately.
 					</p>
 					<p>
 						Camunda 7 unions <code>externalTaskIds</code>,{" "}
@@ -470,6 +561,10 @@ export const external_task = [
 					leftEntry: (
 						<pre>
 							(boolean) externalTaskQuery.locked
+							<br />
+							(dateTime) externalTaskQuery.lockExpirationAfter
+							<br />
+							(dateTime) externalTaskQuery.lockExpirationBefore
 							<br />
 							(boolean) externalTaskQuery.notLocked
 							<br />
@@ -503,12 +598,37 @@ export const external_task = [
 						</pre>
 					),
 					rightEntry: (
-						<p>
-							These Camunda 7 criteria have no equivalent in the
-							Camunda 8 active job filter. Do not include them in
-							the batch update request; apply any required
-							filtering in a separate migration step.
-						</p>
+						<>
+							<p>
+								These Camunda 7 criteria have no equivalent in the
+								Camunda 8 active job filter. Do not include them in
+								the batch update request; apply any required
+								filtering in a separate migration step.
+							</p>
+							<p>
+								<code>filter.deadline</code> is the next activation
+								time rather than a lock expiration. Do not use it as
+								a batch selection criterion without source-correlated
+								lock-state validation.
+							</p>
+							<p>
+								Reject every <code>processInstanceQuery</code>{" "}
+								selector not listed in Direct, including{" "}
+								<code>withoutTenantId</code>,{" "}
+								<code>processDefinitionWithoutTenantId</code>,{" "}
+								<code>activityIdIn</code>,{" "}
+								<code>superCaseInstance</code>,{" "}
+								<code>subCaseInstance</code>,{" "}
+								<code>rootProcessInstances</code>,{" "}
+								<code>leafProcessInstances</code>,{" "}
+								<code>incidentId</code>, <code>incidentType</code>,{" "}
+								<code>incidentMessage</code>,{" "}
+								<code>incidentMessageLike</code>,{" "}
+								<code>variableNamesIgnoreCase</code>,{" "}
+								<code>variableValuesIgnoreCase</code>,{" "}
+								<code>orQueries</code>, and <code>sorting</code>.
+							</p>
+						</>
 					),
 				},
 				{
@@ -546,10 +666,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.jobKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -560,10 +680,10 @@ export const external_task = [
 						<>
 							<pre>(string[]) filter.processInstanceKey.$in</pre>
 							<p>
-								See{" "}
-								<a href="#key-to-id">
-									Camunda 7 key → Camunda 8 id
-								</a>
+								Camunda 7 IDs are not Camunda 8 keys. Resolve them
+								through migration-specific ID-to-key correlation
+								before applying this selector, and reject it when
+								no correlation is available.
 							</p>
 						</>
 					),
@@ -617,16 +737,34 @@ export const external_task = [
 								advanced string operators for C7{" "}
 								<code>...Like</code> criteria.
 							</p>
+							<p>
+								Camunda 7 external-task IDs are not Camunda 8 job
+								keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.externalTaskId</code> and{" "}
+								<code>externalTaskQuery.externalTaskIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.jobKey</code> or{" "}
+								<code>filter.jobKey.$in</code>. Reject these
+								selectors when no correlation is available.
+							</p>
+							<p>
+								Camunda 7 process instance IDs are not Camunda 8
+								process instance keys. Resolve IDs from{" "}
+								<code>externalTaskQuery.processInstanceId</code>,{" "}
+								and{" "}
+								<code>externalTaskQuery.processInstanceIdIn</code>{" "}
+								through migration-specific ID-to-key correlation
+								before setting <code>filter.processInstanceKey</code>{" "}
+								or <code>filter.processInstanceKey.$in</code>.
+								Reject these selectors when no correlation is
+								available.
+							</p>
 						</>
 					),
 				},
 				{
 					leftEntry: (
 						<pre>
-							(dateTime) externalTaskQuery.lockExpirationAfter
-							<br />
-							(dateTime) externalTaskQuery.lockExpirationBefore
-							<br />
 							(boolean) externalTaskQuery.withRetriesLeft
 							<br />
 							(boolean) externalTaskQuery.noRetriesLeft
@@ -639,13 +777,9 @@ export const external_task = [
 					rightEntry: (
 						<>
 							<pre>
-								(dateTime) filter.deadline.$gt
-								<br />
-								(dateTime) filter.deadline.$lt
-								<br />
 								(int32) filter.retries.$gt
 								<br />
-								(int32) filter.retries.$eq
+								(int32) filter.retries.$eq=0
 								<br />
 								(int32) filter.priority.$gte
 								<br />
@@ -655,6 +789,17 @@ export const external_task = [
 								Use the advanced comparison operators shown
 								above; these criteria must not be copied as
 								top-level fields.
+							</p>
+							<p>
+								Map <code>noRetriesLeft=true</code> to{" "}
+								<code>filter.retries.$eq=0</code>. This is a
+								partial mapping:{" "}
+								<code>withRetriesLeft=true</code> maps non-null
+								Camunda 7 retry counts greater than zero to{" "}
+								<code>filter.retries.$gt=0</code>, but Camunda 7
+								also includes tasks with null retry counts. Handle
+								that null-retry case separately because Camunda 8
+								has no equivalent retry state.
 							</p>
 						</>
 					),
@@ -667,6 +812,8 @@ export const external_task = [
 							(string) processInstanceQuery.processDefinitionKey
 							<br />
 							(string[]) processInstanceQuery.processDefinitionKeyIn
+							<br />
+							(string[]) processInstanceQuery.processDefinitionKeyNotIn
 							<br />
 							(string[]) processInstanceQuery.tenantIdIn
 						</pre>
@@ -682,6 +829,8 @@ export const external_task = [
 								<br />
 								(string[]) filter.processDefinitionId.$in
 								<br />
+								(string[]) filter.processDefinitionId.$notIn
+								<br />
 								(string[]) filter.tenantId.$in
 							</pre>
 							<p>
@@ -690,6 +839,15 @@ export const external_task = [
 								definition key maps to the C8 process definition
 								ID; a versioned C7 definition ID is not
 								interchangeable with it.
+							</p>
+							<p>
+								<code>processInstanceQuery.processInstanceIds</code>{" "}
+								contains Camunda 7 IDs, not Camunda 8 keys. Resolve
+								each ID through migration-specific ID-to-key
+								correlation before setting{" "}
+								<code>filter.processInstanceKey.$in</code>, and
+								reject this selector when no correlation is
+								available.
 							</p>
 						</>
 					),
@@ -723,10 +881,25 @@ export const external_task = [
 						track progress.
 					</p>
 					<p>
+						Set <code>filter.kind</code> to{" "}
+						<code>BPMN_ELEMENT</code> in every request. This excludes
+						listener and ad-hoc-subprocess jobs. Do not use a
+						kind-only filter for a batch update. Before updating,
+						resolve an active, correlated job-key set. A known
+						external-task <code>filter.type</code> may narrow candidate
+						searches only when an application-specific allow-list
+						identifies the intended C7 task set; otherwise reject the
+						selector. Retain only current records{" "}
+						(<code>endTime == null</code>) and then pass those keys in{" "}
+						<code>filter.jobKey.$in</code>. Do not use a type-only
+						filter for a batch update: it can include terminal or
+						unrelated BPMN jobs.
+					</p>
+					<p>
 						Do not pass either Camunda 7 query object directly as a
 						Camunda 8 <code>filter</code>. Translate only the
-						supported fields listed above and omit unsupported
-						criteria.
+						supported fields listed above and handle unsupported
+						criteria separately.
 					</p>
 					<p>
 						Camunda 7 unions <code>externalTaskIds</code>,{" "}
@@ -746,6 +919,10 @@ export const external_task = [
 					leftEntry: (
 						<pre>
 							(boolean) externalTaskQuery.locked
+							<br />
+							(dateTime) externalTaskQuery.lockExpirationAfter
+							<br />
+							(dateTime) externalTaskQuery.lockExpirationBefore
 							<br />
 							(boolean) externalTaskQuery.notLocked
 							<br />
@@ -779,12 +956,37 @@ export const external_task = [
 						</pre>
 					),
 					rightEntry: (
-						<p>
-							These Camunda 7 criteria have no equivalent in the
-							Camunda 8 active job filter. Do not include them in
-							the batch update request; apply any required
-							filtering in a separate migration step.
-						</p>
+						<>
+							<p>
+								These Camunda 7 criteria have no equivalent in the
+								Camunda 8 active job filter. Do not include them in
+								the batch update request; apply any required
+								filtering in a separate migration step.
+							</p>
+							<p>
+								<code>filter.deadline</code> is the next activation
+								time rather than a lock expiration. Do not use it as
+								a batch selection criterion without source-correlated
+								lock-state validation.
+							</p>
+							<p>
+								Reject every <code>processInstanceQuery</code>{" "}
+								selector not listed in Direct, including{" "}
+								<code>withoutTenantId</code>,{" "}
+								<code>processDefinitionWithoutTenantId</code>,{" "}
+								<code>activityIdIn</code>,{" "}
+								<code>superCaseInstance</code>,{" "}
+								<code>subCaseInstance</code>,{" "}
+								<code>rootProcessInstances</code>,{" "}
+								<code>leafProcessInstances</code>,{" "}
+								<code>incidentId</code>, <code>incidentType</code>,{" "}
+								<code>incidentMessage</code>,{" "}
+								<code>incidentMessageLike</code>,{" "}
+								<code>variableNamesIgnoreCase</code>,{" "}
+								<code>variableValuesIgnoreCase</code>,{" "}
+								<code>orQueries</code>, and <code>sorting</code>.
+							</p>
+						</>
 					),
 				},
 				{
@@ -806,23 +1008,30 @@ export const external_task = [
 			path: "/external-task/topic-names",
 			operation: "get",
 		},
-		target: {
-			path: "/jobs/search",
-			operation: "post",
-		},
-		mappedExplanation: (
+		target: {},
+		discontinuedExplanation: (
 			<div>
-				The Camunda 8.10 Search jobs endpoint can search by the
-				<code>type</code> field. External task topic names correspond to
-				job types in Camunda 8, but the endpoint is paginated and can
-				return terminal jobs. Page through all results, retain only
-				current jobs, and collect unique <code>type</code> values.
-				Translate <code>withLockedTasks</code>,{" "}
-				<code>withUnlockedTasks</code>, and{" "}
-				<code>withRetriesLeft</code> using the job's worker, deadline,
-				and retries fields. There is no exact single-request
-				equivalent, so unsupported filter combinations require
-				client-side handling.
+				<p>
+					Camunda 8.10 has no generic equivalent for listing
+					external-task topic names.{" "}
+					<code>filter.kind=BPMN_ELEMENT</code> also includes
+					unrelated BPMN-element jobs, so their <code>type</code>{" "}
+					values cannot safely identify Camunda 7 external-task
+					topics.
+				</p>
+				<p>
+					Migrate this endpoint only with application-specific
+					topic-to-type correlation or an allow-list. Without that
+					correlation, reject the request rather than infer topic names
+					from <code>POST /jobs/search</code>.
+				</p>
+				<p>
+					The C7 <code>withLockedTasks</code>,{" "}
+					<code>withUnlockedTasks</code>, and{" "}
+					<code>withRetriesLeft</code> criteria have no direct
+					distinct-topic filter in Camunda 8 and require
+					application-specific source correlation.
+				</p>
 			</div>
 		),
 	},
@@ -839,7 +1048,12 @@ export const external_task = [
 			<div>
 				In Camunda 8.10, the <code>POST Search jobs</code> endpoint can
 				be used to retrieve a specific job by filtering on{" "}
-				<code>jobKey</code>.
+				<code>jobKey</code>. Set <code>filter.kind</code> to{" "}
+				<code>BPMN_ELEMENT</code> so listener and ad-hoc-subprocess jobs
+				are excluded. Resolve the Camunda 7 external-task ID through
+				migration-specific ID-to-key correlation before making the
+				request, and reject the lookup when no correlation is available
+				or its <code>endTime</code> is non-null.
 			</div>
 		),
 	},
