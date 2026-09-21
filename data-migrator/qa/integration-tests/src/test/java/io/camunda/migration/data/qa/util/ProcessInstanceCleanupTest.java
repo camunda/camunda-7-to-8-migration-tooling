@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.enums.ProcessInstanceState;
+import io.camunda.client.api.search.filter.ProcessInstanceFilter;
 import io.camunda.client.api.search.page.AnyPage;
 import io.camunda.client.api.search.request.ProcessInstanceSearchRequest;
 import io.camunda.client.api.search.response.ProcessInstance;
@@ -86,11 +87,11 @@ class ProcessInstanceCleanupTest {
   }
 
   @Test
-  void shouldFindProcessInstancesAcrossAllPages() {
+  void shouldFindProcessInstancesAcrossAllStatesAndPages() {
     CamundaClient camundaClient = mock(CamundaClient.class);
     ProcessInstanceSearchRequest searchRequest = mock(ProcessInstanceSearchRequest.class);
-    ProcessInstance firstPageInstance = processInstance(ProcessInstanceState.COMPLETED, 1L);
-    ProcessInstance secondPageInstance = processInstance(ProcessInstanceState.COMPLETED, 2L);
+    ProcessInstance firstPageInstance = processInstance(ProcessInstanceState.ACTIVE, 1L);
+    ProcessInstance secondPageInstance = processInstance(ProcessInstanceState.TERMINATED, 2L);
     SearchResponse<ProcessInstance> firstResponse =
         searchResponse(List.of(firstPageInstance), "first-page");
     SearchResponse<ProcessInstance> secondResponse =
@@ -104,17 +105,19 @@ class ProcessInstanceCleanupTest {
 
     verify(camundaClient, times(2)).newProcessInstanceSearchRequest();
     verify(searchRequest).page(org.mockito.ArgumentMatchers.<Consumer<AnyPage>>any());
+    verify(searchRequest, never())
+        .filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any());
   }
 
   @Test
   void shouldCancelActiveAndDeleteTerminalProcessInstances() {
     CamundaClient camundaClient = mock(CamundaClient.class, RETURNS_DEEP_STUBS);
     ProcessInstance active = processInstance(ProcessInstanceState.ACTIVE, 1L);
-    ProcessInstance completed = processInstance(ProcessInstanceState.COMPLETED, 2L);
+    ProcessInstance terminated = processInstance(ProcessInstanceState.TERMINATED, 2L);
     ProcessInstanceCleanup cleanup = new ProcessInstanceCleanup(camundaClient);
     clearInvocations(camundaClient);
 
-    cleanup.deleteProcessInstances(List.of(active, completed));
+    cleanup.deleteProcessInstances(List.of(active, terminated));
 
     verify(camundaClient).newCancelInstanceCommand(1L);
     verify(camundaClient, never()).newDeleteProcessInstanceCommand(1L);
