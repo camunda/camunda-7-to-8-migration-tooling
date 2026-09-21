@@ -12,10 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
-import io.camunda.client.api.command.ClientStatusException;
-import io.camunda.client.api.command.ProblemException;
-import io.camunda.client.api.search.enums.ProcessInstanceState;
-import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Tenant;
 import io.camunda.client.api.search.response.TenantUser;
 import io.camunda.client.api.search.response.Variable;
@@ -23,12 +19,11 @@ import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.util.ProcessInstanceCleanup;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -93,58 +88,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected void awaitProcessInstanceCleanup() {
-    AtomicInteger consecutiveEmptySearches = new AtomicInteger();
-    Awaitility.await().ignoreException(ClientException.class).until(() -> {
-      List<ProcessInstance> items = findAllProcessInstances();
-      boolean allProcessInstancesCleared = deleteProcessInstances(items);
-      if (items.isEmpty() || allProcessInstancesCleared) {
-        return consecutiveEmptySearches.incrementAndGet() >= 3;
-      }
-      consecutiveEmptySearches.set(0);
-      return false;
-    });
-  }
-
-  protected boolean deleteProcessInstances(List<ProcessInstance> items) {
-    boolean allProcessInstancesCleared = true;
-    for (ProcessInstance i : items) {
-      try {
-        if (i.getState() == ProcessInstanceState.ACTIVE) {
-          camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
-          allProcessInstancesCleared = false;
-        } else {
-          camundaClient.newDeleteProcessInstanceCommand(i.getProcessInstanceKey()).execute();
-        }
-      } catch (ClientStatusException | ProblemException e) {
-        if (!e.getMessage().contains("NOT_FOUND")) {
-          throw e;
-        }
-        // The search result is stale; the instance is already gone.
-      }
-    }
-    return allProcessInstancesCleared;
-  }
-
-  protected List<ProcessInstance> findAllProcessInstances() {
-    final List<ProcessInstance> items = new ArrayList<>();
-    String cursor = null;
-
-    while (true) {
-      final var request = camundaClient.newProcessInstanceSearchRequest();
-      if (cursor != null) {
-        final String pageCursor = cursor;
-        request.page(page -> page.after(pageCursor));
-      }
-
-      final var response = request.execute();
-      items.addAll(response.items());
-
-      final String nextCursor = response.page().endCursor();
-      if (response.items().isEmpty() || nextCursor == null || nextCursor.equals(cursor)) {
-        return items;
-      }
-      cursor = nextCursor;
-    }
+    new ProcessInstanceCleanup(camundaClient).awaitCompletion();
   }
 
   protected void awaitTenantVisible(String tenantId) {
