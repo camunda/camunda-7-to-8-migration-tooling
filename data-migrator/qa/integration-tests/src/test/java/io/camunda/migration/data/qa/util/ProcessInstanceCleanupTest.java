@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.enums.ProcessInstanceState;
-import io.camunda.client.api.search.filter.ProcessInstanceFilter;
 import io.camunda.client.api.search.page.AnyPage;
 import io.camunda.client.api.search.request.ProcessInstanceSearchRequest;
 import io.camunda.client.api.search.response.ProcessInstance;
@@ -90,7 +89,6 @@ class ProcessInstanceCleanupTest {
   void shouldFindProcessInstancesAcrossAllPages() {
     CamundaClient camundaClient = mock(CamundaClient.class);
     ProcessInstanceSearchRequest searchRequest = mock(ProcessInstanceSearchRequest.class);
-    ProcessInstanceFilter processInstanceFilter = mock(ProcessInstanceFilter.class);
     ProcessInstance firstPageInstance = processInstance(ProcessInstanceState.COMPLETED, 1L);
     ProcessInstance secondPageInstance = processInstance(ProcessInstanceState.COMPLETED, 2L);
     SearchResponse<ProcessInstance> firstResponse =
@@ -98,12 +96,6 @@ class ProcessInstanceCleanupTest {
     SearchResponse<ProcessInstance> secondResponse =
         searchResponse(List.of(secondPageInstance), null);
     when(camundaClient.newProcessInstanceSearchRequest()).thenReturn(searchRequest);
-    when(searchRequest.filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any()))
-        .thenAnswer(invocation -> {
-          final Consumer<ProcessInstanceFilter> filter = invocation.getArgument(0);
-          filter.accept(processInstanceFilter);
-          return searchRequest;
-        });
     var responses = List.of(firstResponse, secondResponse).iterator();
     when(searchRequest.execute()).thenAnswer(invocation -> responses.next());
 
@@ -111,7 +103,6 @@ class ProcessInstanceCleanupTest {
         .containsExactly(firstPageInstance, secondPageInstance);
 
     verify(camundaClient, times(2)).newProcessInstanceSearchRequest();
-    verify(processInstanceFilter, times(2)).state(ProcessInstanceState.ACTIVE);
     verify(searchRequest).page(org.mockito.ArgumentMatchers.<Consumer<AnyPage>>any());
   }
 
@@ -126,9 +117,10 @@ class ProcessInstanceCleanupTest {
     cleanup.deleteProcessInstances(List.of(active, completed));
 
     verify(camundaClient).newCancelInstanceCommand(1L);
-    verify(camundaClient, never()).newDeleteResourceCommand(1L);
-    verify(camundaClient).newDeleteResourceCommand(2L);
     verify(camundaClient, never()).newDeleteProcessInstanceCommand(1L);
+    verify(camundaClient).newDeleteProcessInstanceCommand(2L);
+    verify(camundaClient, never()).newDeleteResourceCommand(1L);
+    verify(camundaClient, never()).newDeleteResourceCommand(2L);
   }
 
   protected ProcessInstance processInstance(ProcessInstanceState state, long key) {
