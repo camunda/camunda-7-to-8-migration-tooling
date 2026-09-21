@@ -325,6 +325,7 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > "${releases_json}"
           release_count=$(jq --arg tag "${RELEASE_VERSION}" \
             '[.[][] | select(.tag_name == $tag)] | length' "${releases_json}")
+          created_release=false
 
           case "${release_count}" in
             0)
@@ -345,6 +346,7 @@ jobs:
                 --field draft=true \
                 --field "prerelease=${expected_prerelease}" \
                 --field generate_release_notes=true > "${release_json}"
+              created_release=true
               ;;
             1)
               jq --arg tag "${RELEASE_VERSION}" \
@@ -372,6 +374,11 @@ jobs:
 
           if [[ "${release_draft}" != true && "${release_draft}" != false ]]; then
             echo "::error::GitHub release '${RELEASE_VERSION}' returned an invalid draft state '${release_draft}'."
+            exit 1
+          fi
+
+          if [[ "${created_release}" == true && "${release_draft}" != true ]]; then
+            echo "::error::New GitHub release '${RELEASE_VERSION}' is not a draft."
             exit 1
           fi
 
@@ -439,7 +446,7 @@ jobs:
                 -H 'Content-Type: application/octet-stream' \
                 --input "${asset_directory}/${asset}" \
                 "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${encoded_asset}" \
-                --silent
+                > /dev/null
             fi
           done
 
@@ -504,7 +511,7 @@ jobs:
           set -euo pipefail
 
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            --field draft=false --silent
+            --field draft=false > /dev/null
           if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')" != false ]]; then
             echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
             exit 1
