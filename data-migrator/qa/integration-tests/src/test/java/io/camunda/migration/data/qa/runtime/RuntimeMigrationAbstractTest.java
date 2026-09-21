@@ -114,11 +114,6 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected void awaitRuntimeMigratorStart() {
-    awaitTenantAuthorization();
-    runtimeMigrator.start();
-  }
-
-  protected void awaitTenantAuthorization() {
     Set<String> tenantIds = new HashSet<>();
     if (migratorProperties.getTenantIds() != null) {
       tenantIds.addAll(migratorProperties.getTenantIds());
@@ -135,8 +130,9 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
             .tenantIds(List.copyOf(tenantIds))
             .requestTimeout(AUTHORIZATION_PROBE_TIMEOUT)
             .execute();
+        runtimeMigrator.start();
         return true;
-      } catch (ClientException e) {
+      } catch (RuntimeException e) {
         if (isAuthorizationPropagationFailure(e)) {
           return false;
         }
