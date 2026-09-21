@@ -11,8 +11,8 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.command.ProblemException;
-import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.migration.data.qa.c8compat.C8ProcessInstanceStateCompat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +59,7 @@ public class ProcessInstanceCleanup {
   protected void deleteProcessInstances(List<ProcessInstance> items) {
     for (ProcessInstance processInstance : items) {
       try {
-        if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
+        if (C8ProcessInstanceStateCompat.isActiveOrSuspended(processInstance.getState())) {
           camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
           camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
