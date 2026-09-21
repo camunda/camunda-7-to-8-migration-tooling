@@ -288,7 +288,8 @@ jobs:
 
           release_json=$(mktemp)
           releases_json=$(mktemp)
-          trap 'rm -f "${release_json}" "${releases_json}"' EXIT
+          tag_error=$(mktemp)
+          trap 'rm -f "${release_json}" "${releases_json}" "${tag_error}"' EXIT
 
           expected_prerelease=false
           if [[ "${RELEASE_VERSION}" == *-* ]]; then
@@ -305,8 +306,13 @@ jobs:
           case "${release_count}" in
             0)
               if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_VERSION}" \
-                >/dev/null; then
-                echo "::error::Cannot create GitHub release '${RELEASE_VERSION}' because its tag does not exist."
+                >/dev/null 2> "${tag_error}"; then
+                if grep -q 'HTTP 404' "${tag_error}"; then
+                  echo "::error::Cannot create GitHub release '${RELEASE_VERSION}' because its tag does not exist."
+                else
+                  cat "${tag_error}" >&2
+                  echo "::error::Could not validate the tag for GitHub release '${RELEASE_VERSION}'."
+                fi
                 exit 1
               fi
 
