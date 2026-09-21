@@ -12,12 +12,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
-import io.camunda.client.api.command.ClientStatusException;
-import io.camunda.client.api.command.ProblemException;
-import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.qa.util.ProcessInstanceCleanup;
 import java.util.List;
 import java.util.Optional;
 import org.awaitility.Awaitility;
@@ -108,17 +106,7 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     CamundaClient camundaClient = getCamundaClientBean();
     if (camundaClient != null) {
       // C8
-      List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-      for (ProcessInstance i : items) {
-        try {
-          camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-        } catch (ClientStatusException | ProblemException e) {
-          if (!e.getMessage().contains("NOT_FOUND")) {
-            throw e;
-          }
-          // Ignore NOT_FOUND errors as the instance might have been deleted already
-        }
-      }
+      new ProcessInstanceCleanup(camundaClient).awaitCompletion();
     }
 
     DbClient dbClient = getDbClientBean();
