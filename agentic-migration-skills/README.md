@@ -98,11 +98,6 @@ delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
 Review and validation remain mandatory for both migration paths.
 
-For migrated Spring applications, dependency validation includes the complete Apache HttpClient
-family. The skill compares `httpclient5`, `httpcore5`, and `httpcore5-h2` with the versions declared
-by the selected client POM, records the decision in `MIGRATION_REPORT.md`, and boots a minimal
-Camunda Spring application before reporting success.
-
 **Model migration (BPMN/DMN):**
 
 | Approach | What it does |
@@ -148,9 +143,6 @@ skills/
     └── references/                        ← procedures loaded on demand
 fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
-
-The fixtures include generated task forms, referenced forms, and Apache HttpClient dependency
-compatibility. Each fixture README describes its expected migration decisions and validation.
 
 ## License
 

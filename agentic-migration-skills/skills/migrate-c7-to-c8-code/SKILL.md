@@ -259,18 +259,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
    `application.properties` or `.yaml`.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
-9. **Dependency compatibility** — inspect the resolved `httpclient5`, `httpcore5`, and `httpcore5-h2`
-   versions. Confirm that they match the compatible family declared by the selected `httpclient5`
-   POM. Record the command, selected versions, and decision in `MIGRATION_REPORT.md`. Boot a
-   minimal Spring application and confirm that its `CamundaClient` bean is created. Compilation
-   alone does not pass this check. Keep an incompatible graph or an unknown family as a blocking
-   finding until the compatible family is resolved and the graph is aligned.
-10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
+9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
    missing entry fails the check. See the mandatory open items in
    `references/code-transform-checklist.md`.
-11. **Query counts and pagination**
+10. **Query counts and pagination**
     - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.size()`.
     - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.stream()` and `.count()`.
     - Trace search results assigned to variables before checking later `.size()` or `.stream().count()` uses.
@@ -278,13 +272,13 @@ Each item below is a check to run and a condition that must hold at exit. Record
     - Confirm that each migrated C7 `list().size()`, `list().stream().count()`, or `count()` uses
       `.page().totalItems()`.
     - If a search can exceed cluster result limits, then review `.page().hasMoreTotalItems()`.
-12. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
+11. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
-13. **Deployment resources** — when `@Deployment` is present after migration, build the
+12. **Deployment resources** — when `@Deployment` is present after migration, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
