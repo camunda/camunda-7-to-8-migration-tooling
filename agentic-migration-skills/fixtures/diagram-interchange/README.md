@@ -38,7 +38,10 @@ skill must not invent a layout for that source.
 
    ```sh
    npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat
-   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | tee bpmn-di-lint.log
+   if ! npx bpmnlint converted-c8-bpmn-di-c7.bpmn > bpmn-di-lint.log 2>&1; then
+     cat bpmn-di-lint.log
+     exit 1
+   fi
    ! grep -F "no-bpmndi" bpmn-di-lint.log
    ```
 
@@ -48,15 +51,16 @@ skill must not invent a layout for that source.
 7. Lint the no-DI control with the same ruleset. Record any `no-bpmndi`
    finding as inherited source quality only when the converted copy still has no
    DI. Do not add a layout to silence that finding.
-8. Record the source and converted DI counts, reference checks, lint output, and
-   the no-DI provenance in `MIGRATION_REPORT.md`. Include the control filename and
-   an explicit statement that its source BPMN DI is absent.
+8. Record the source and converted DI counts, reference checks, complete
+   per-element DI comparisons, namespace bindings, lint output, and the no-DI
+   provenance in `MIGRATION_REPORT.md`. Include the control filename and an
+   explicit statement that its source BPMN DI is absent.
 
 ## Expected checks
 
 | Source | Expected converted copy | Expected result |
 |---|---|---|
-| `bpmn-di-c7.bpmn` | Diagram and DI retained | The script passes. Shape and edge references still target the same IDs. |
+| `bpmn-di-c7.bpmn` | Diagram and DI retained | The script passes. DI attributes, child geometry, namespace bindings, and references remain unchanged. |
 | `no-di-c7.bpmn` | No DI added | The script passes with `MIGRATION_REPORT.md`. The report records absent source DI and inherited lint findings. |
 
 The original Camunda 7 files must remain byte-for-byte unchanged. A missing,

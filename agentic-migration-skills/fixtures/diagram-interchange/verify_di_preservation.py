@@ -3,6 +3,7 @@
 
 import argparse
 from pathlib import Path
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -11,15 +12,11 @@ BPMN = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 BPMN_DI = "http://www.omg.org/spec/BPMN/20100524/DI"
 DC = "http://www.omg.org/spec/DD/20100524/DC"
 DI = "http://www.omg.org/spec/DD/20100524/DI"
+DI_NAMESPACE_URIS = frozenset((BPMN_DI, DC, DI))
 
 
 def descendants(root, namespace, local_name):
     return root.findall(f".//{{{namespace}}}{local_name}")
-
-
-def values(element, child_namespace, local_name, attributes):
-    children = element.findall(f"./{{{child_namespace}}}{local_name}")
-    return [tuple(child.get(attribute) for attribute in attributes) for child in children]
 
 
 def semantic_ids(root):
@@ -31,11 +28,72 @@ def semantic_ids(root):
     }
 
 
-def label_geometry(element):
-    return [
-        values(label, DC, "Bounds", ("x", "y", "width", "height"))
-        for label in element.findall(f"./{{{BPMN_DI}}}BPMNLabel")
-    ]
+def canonical_element(element):
+    return (
+        element.tag,
+        tuple(sorted(element.attrib.items())),
+        tuple(canonical_element(child) for child in element),
+    )
+
+
+def namespace_bindings(path):
+    bindings = []
+    pending = []
+    for event, item in ET.iterparse(path, events=("start-ns", "start")):
+        if event == "start-ns":
+            pending.append(item)
+            continue
+        element_key = (item.tag, item.get("id"))
+        bindings.extend(
+            (element_key, prefix, uri)
+            for prefix, uri in pending
+            if uri in DI_NAMESPACE_URIS
+        )
+        pending.clear()
+    return tuple(sorted(bindings, key=repr))
+
+
+def report_has_absent_di_entry(report, source_name):
+    markers = (
+        "source bpmn di: absent",
+        "source bpmn di is absent",
+        "source has no bpmn di",
+        "without source bpmn di",
+        "absent source di",
+    )
+    lines = report.splitlines()
+    for index, line in enumerate(lines):
+        if source_name not in line:
+            continue
+        if any(marker in line.lower() for marker in markers):
+            return True
+
+        if re.match(r"^\s*#{1,6}\s", line):
+            heading_level = len(line) - len(line.lstrip("#"))
+            section = []
+            for section_line in lines[index + 1 :]:
+                next_heading = re.match(r"^\s*(#{1,6})\s", section_line)
+                if next_heading and len(next_heading.group(1)) <= heading_level:
+                    break
+                section.append(section_line)
+            if any(
+                marker in "\n".join(section).lower() for marker in markers
+            ):
+                return True
+            continue
+
+        indentation = len(line) - len(line.lstrip())
+        for continuation in lines[index + 1 :]:
+            if not continuation.strip():
+                continue
+            continuation_indentation = len(continuation) - len(
+                continuation.lstrip()
+            )
+            if continuation_indentation <= indentation:
+                break
+            if any(marker in continuation.lower() for marker in markers):
+                return True
+    return False
 
 
 def di_snapshot(root):
@@ -71,20 +129,15 @@ def check(source_path, converted_path, expect_no_source_di, report_path):
                 failures.append(
                     f"the migration report does not mention {source_name}"
                 )
-            if not any(
-                marker in report.lower()
-                for marker in (
-                    "source bpmn di: absent",
-                    "source bpmn di is absent",
-                    "source has no bpmn di",
-                    "without source bpmn di",
-                    "absent source di",
-                )
-            ):
+            elif not report_has_absent_di_entry(report, source_name):
                 failures.append(
-                    "the migration report does not record absent source BPMN DI"
+                    "the migration report does not record absent source BPMN DI "
+                    f"for {source_name}"
                 )
         return failures
+
+    if namespace_bindings(source_path) != namespace_bindings(converted_path):
+        failures.append("BPMN DI namespace bindings changed")
 
     source_semantic_ids = semantic_ids(source_root)
     converted_semantic_ids = semantic_ids(converted_root)
@@ -119,43 +172,24 @@ def check(source_path, converted_path, expect_no_source_di, report_path):
                 f"found {len(converted[category])}"
             )
 
-    converted_by_id = {
-        element.get("id"): element
-        for category in ("diagrams", "planes", "shapes", "edges")
-        for element in converted[category]
-        if element.get("id") is not None
-    }
     for category in ("diagrams", "planes", "shapes", "edges"):
-        for source_element in source[category]:
-            element_id = source_element.get("id")
-            converted_element = converted_by_id.get(element_id)
-            if converted_element is None:
-                failures.append(f"{category}: missing element {element_id}")
-            elif source_element.get("bpmnElement") != converted_element.get("bpmnElement"):
-                failures.append(
-                    f"{category} {element_id}: bpmnElement reference changed"
-                )
-
-    for category in ("shapes", "edges"):
+        converted_by_id = {
+            element.get("id"): element
+            for element in converted[category]
+            if element.get("id") is not None
+        }
         for source_element in source[category]:
             element_id = source_element.get("id")
             converted_element = converted_by_id.get(element_id)
             if converted_element is None:
                 failures.append(f"{category}: missing element {element_id}")
                 continue
-            child_namespace = DC if category == "shapes" else DI
-            child_name = "Bounds" if category == "shapes" else "waypoint"
-            attributes = (
-                ("x", "y", "width", "height")
-                if category == "shapes"
-                else ("x", "y")
-            )
-            if values(source_element, child_namespace, child_name, attributes) != values(
-                converted_element, child_namespace, child_name, attributes
+            if canonical_element(source_element) != canonical_element(
+                converted_element
             ):
-                failures.append(f"{category} {element_id}: geometry changed")
-            if label_geometry(source_element) != label_geometry(converted_element):
-                failures.append(f"{category} {element_id}: label geometry changed")
+                failures.append(
+                    f"{category} {element_id}: attributes or children changed"
+                )
 
     return failures
 
