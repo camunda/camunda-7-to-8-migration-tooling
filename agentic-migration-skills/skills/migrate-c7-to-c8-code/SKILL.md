@@ -287,6 +287,9 @@ For Gradle — add to `build.gradle`:
 plugins {
     id("org.openrewrite.rewrite") version "REWRITE_VERSION"
 }
+dependencies {
+    rewrite("io.camunda:camunda-7-to-8-code-conversion-recipes:RECIPES_VERSION")
+}
 rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllClientRecipes")
     activeRecipe("io.camunda.migration.code.recipes.AllDelegateRecipes")
@@ -487,13 +490,14 @@ When the scope is **Code + models**:
 3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
 4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Run tests**: `mvn test` or `./gradlew test` — fix failures
-7. **Check query counts and pagination**:
+6. **Configuration binding**: Confirm that configuration validation ran. For Approach B, run the recipe in `references/code-transform-checklist.md`.
+7. **Run tests**: `mvn test` or `./gradlew test` — fix failures
+8. **Check query counts and pagination**:
   - Search for `.items().size()` and `.items().stream().count()` after migrated query calls.
   - Trace query results assigned to variables before checking later count uses.
   - Replace complete counts with `.page().totalItems()`, using `.intValue()` for `int` or `Integer` results.
   - Review `.page().hasMoreTotalItems()` when a search can exceed cluster result limits.
-8. **Check common pitfalls**:
+9. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling
   - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
@@ -511,6 +515,7 @@ Present a summary:
 Validation Summary
 ------------------
 ✅ Compilation: OK
+✅ Configuration binding: OK
 ⚠️  Remaining org.camunda.bpm imports: 3 → [list files]
 ⚠️  Remaining TODOs: 5 → [list them]
 ⚠️  Remaining businessKey usages: 2 → [list them]
