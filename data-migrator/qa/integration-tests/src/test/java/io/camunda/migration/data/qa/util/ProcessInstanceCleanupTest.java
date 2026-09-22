@@ -121,6 +121,8 @@ class ProcessInstanceCleanupTest {
         .containsExactly(firstActiveInstance, secondActiveInstance);
 
     verify(camundaClient, times(2)).newProcessInstanceSearchRequest();
+    verify(searchRequest, times(2))
+        .filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any());
     verify(searchRequest).page(org.mockito.ArgumentMatchers.<Consumer<SearchRequestPage>>any());
     ProcessInstanceFilter filter = mock(ProcessInstanceFilter.class);
     filterConsumer.get().accept(filter);

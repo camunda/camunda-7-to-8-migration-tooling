@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
@@ -168,7 +169,13 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
       throw new IllegalStateException("CamundaClient is not available in the Spring context");
     }
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items().size()).isEqualTo(expected);
+      assertThat(
+              camundaClient.newProcessInstanceSearchRequest()
+                  .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                  .execute()
+                  .items()
+                  .size())
+          .isEqualTo(expected);
     });
   }
 }

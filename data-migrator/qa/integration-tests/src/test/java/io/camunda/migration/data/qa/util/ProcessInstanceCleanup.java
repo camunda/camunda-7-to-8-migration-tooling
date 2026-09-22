@@ -87,7 +87,6 @@ public class ProcessInstanceCleanup {
       final var request = camundaClient.newProcessInstanceSearchRequest();
       // Camunda 8.8 has no supported client command for deleting terminal instances.
       request.filter(filter -> filter.state(ProcessInstanceState.ACTIVE));
-      request.filter(filter -> filter.state(ProcessInstanceState.ACTIVE));
       if (cursor != null) {
         final String pageCursor = cursor;
         request.page(page -> page.after(pageCursor));
