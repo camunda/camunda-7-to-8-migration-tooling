@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_NoDi"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="noDiProcess" name="No DI process" isExecutable="true">
+    <bpmn:startEvent id="Start_NoDi" name="Request received">
+      <bpmn:outgoing>Flow_NoDiToTask</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_NoDi" name="Send notification"
+                      camunda:class="com.example.SendNotificationDelegate">
+      <bpmn:incoming>Flow_NoDiToTask</bpmn:incoming>
+      <bpmn:outgoing>Flow_NoDiToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_NoDi" name="Request completed">
+      <bpmn:incoming>Flow_NoDiToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_NoDiToTask" sourceRef="Start_NoDi" targetRef="Task_NoDi" />
+    <bpmn:sequenceFlow id="Flow_NoDiToEnd" sourceRef="Task_NoDi" targetRef="End_NoDi" />
+  </bpmn:process>
+</bpmn:definitions>
