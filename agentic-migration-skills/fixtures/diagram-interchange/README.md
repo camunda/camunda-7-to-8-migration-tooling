@@ -58,18 +58,33 @@ skill must not invent a layout for that source.
    }
    ```
 
-8. Run `npx bpmnlint converted-c8-bpmn-di-c7.bpmn`.
-9. Capture the lint output in `bpmn-di-lint.log`.
-10. Fail the evaluation if `bpmnlint` returns a non-zero exit code.
-11. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
+8. Capture the DI-copy lint output in `bpmn-di-lint.log` and keep the
+   `bpmnlint` exit code.
+
+   On macOS or Linux, run:
+
+   ```sh
+   set -o pipefail
+   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | tee bpmn-di-lint.log
+   ```
+
+   On Windows PowerShell, run:
+
+   ```powershell
+   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | Tee-Object -FilePath bpmn-di-lint.log
+   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+   ```
+
+9. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
 
    Use the target-compatible Camunda compatibility ruleset described in the
    skill reference. The DI copy must introduce no `no-bpmndi` finding.
 
-12. Lint the no-DI control with the same ruleset. Record any `no-bpmndi`
+10. Lint the no-DI control with the same ruleset. Use the same command pattern
+   to capture output and keep the exit code. Record any `no-bpmndi`
    finding as inherited source quality only when the converted copy still has no
    DI. Do not add a layout to silence that finding.
-13. Record the source and converted DI counts, reference checks, complete
+11. Record the source and converted DI counts, reference checks, complete
    per-element DI comparisons, namespace bindings, lint output, and the no-DI
    provenance in `MIGRATION_REPORT.md`. Include the control filename and an
    explicit statement that its source BPMN DI is absent.
