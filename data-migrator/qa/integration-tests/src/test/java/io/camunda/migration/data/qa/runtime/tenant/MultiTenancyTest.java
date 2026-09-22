@@ -90,12 +90,11 @@ public class MultiTenancyTest {
           .join()
           .items()
           .getFirst();
-      var c8VariableTenant = client.newVariableSearchRequest()
-          .filter(f -> f.name("myVar"))
-          .send()
-          .join()
-          .items()
-          .getFirst()
+      var c8VariableTenant = getVariableByScope(
+              c8ProcessInstanceTenant.getProcessInstanceKey(),
+              c8ProcessInstanceTenant.getProcessInstanceKey(),
+              "myVar")
+          .orElseThrow()
           .getTenantId();
       assertThat(c8ProcessInstanceTenant.getTenantId()).isEqualTo(TENANT_ID_1);
       assertThat(c8VariableTenant).isEqualTo(TENANT_ID_1);
@@ -119,13 +118,12 @@ public class MultiTenancyTest {
       // then
       assertThatProcessInstanceCountIsEqualTo(1);
 
-      assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
-      var c8VariableTenant = client.newVariableSearchRequest()
-          .filter(f -> f.name("myVar"))
-          .send()
-          .join()
-          .items()
-          .getFirst()
+      var c8ProcessInstance = assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
+      var c8VariableTenant = getVariableByScope(
+              c8ProcessInstance.getProcessInstanceKey(),
+              c8ProcessInstance.getProcessInstanceKey(),
+              "myVar")
+          .orElseThrow()
           .getTenantId();
       assertThat(c8VariableTenant).isEqualTo(C8_DEFAULT_TENANT);
     }
@@ -220,7 +218,8 @@ public class MultiTenancyTest {
               String.format(TENANT_ID_ERROR, TENANT_ID_3)));
     }
 
-    protected void assertProcessInstanceState(String tenantId, String c7instance, int variableValue) {
+    protected io.camunda.client.api.search.response.ProcessInstance assertProcessInstanceState(
+        String tenantId, String c7instance, int variableValue) {
       var c8ProcessInstance = client.newProcessInstanceSearchRequest()
           .filter(f -> {
             f.tenantId(tenantId);
@@ -235,6 +234,7 @@ public class MultiTenancyTest {
           .hasActiveElements("userTask1")
           .hasVariable(LEGACY_ID_VAR_NAME, c7instance)
           .hasVariable("myVar", variableValue);
+      return c8ProcessInstance;
     }
   }
 
