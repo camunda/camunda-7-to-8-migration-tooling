@@ -9,6 +9,7 @@ package io.camunda.migration.code.recipes.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.camunda.client.spring.properties.CamundaClientAuthProperties;
 import io.camunda.client.spring.properties.CamundaClientProperties;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,6 +25,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Stream;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 
 /**
@@ -34,6 +36,8 @@ final class CamundaClientConfigurationValidation {
 
   private static final ConfigurationPropertyName AUTH_PREFIX =
       propertyName("camunda.client.auth");
+  private static final ConfigurationPropertyName AUTH_METHOD =
+      propertyName("camunda.client.auth.method");
   private static final String LEGACY_MAPPINGS_RESOURCE =
       "camunda-client-legacy-property-mappings.properties";
   private static final String METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
@@ -61,6 +65,14 @@ final class CamundaClientConfigurationValidation {
           "Unsupported Camunda client configuration shape for '"
               + key
               + "'. Use nested authentication properties.");
+    }
+    if (propertyName.equals(AUTH_METHOD) && isUnsupportedAuthMethod(value)) {
+      return Optional.of(
+          "Invalid Camunda client authentication method '"
+              + value
+              + "'. Use 'none', 'basic', or 'oidc' for "
+              + AUTH_METHOD
+              + ".");
     }
     String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
     if (replacement != null) {
@@ -95,20 +107,48 @@ final class CamundaClientConfigurationValidation {
               + key
               + "'. Use a scalar value.");
     }
+    if (AUTH_PREFIX.isAncestorOf(propertyName)) {
+      return Optional.of(
+          "Unsupported Camunda client authentication property '"
+              + key
+              + "'. Configure authentication directly under camunda.client.auth.");
+    }
     return Optional.empty();
   }
 
-  static boolean isAuthenticationRoot(String key) {
-    return propertyName(key).equals(AUTH_PREFIX);
+  static boolean isAuthenticationContainer(String key) {
+    return isAuthenticationContainer(propertyName(key));
+  }
+
+  static boolean isUnknownAuthenticationDescendant(String key) {
+    ConfigurationPropertyName propertyName = propertyName(key);
+    return AUTH_PREFIX.isAncestorOf(propertyName)
+        && !SUPPORTED_AUTH_PROPERTIES.contains(propertyName)
+        && !isAuthenticationContainer(propertyName);
+  }
+
+  private static boolean isAuthenticationContainer(ConfigurationPropertyName propertyName) {
+    return propertyName.equals(AUTH_PREFIX)
+        || SUPPORTED_AUTH_PROPERTIES.stream().anyMatch(propertyName::isAncestorOf);
   }
 
   private static boolean isUnsupportedMode(String value) {
+    return isUnsupportedEnumValue(
+        value, Arrays.stream(CamundaClientProperties.ClientMode.values()).map(Enum::name));
+  }
+
+  private static boolean isUnsupportedAuthMethod(String value) {
+    return isUnsupportedEnumValue(
+        value, Arrays.stream(CamundaClientAuthProperties.AuthMethod.values()).map(Enum::name));
+  }
+
+  private static boolean isUnsupportedEnumValue(String value, Stream<String> supportedValues) {
     if (value.contains("${")) {
       return false;
     }
     String normalized = normalize(value);
-    return Arrays.stream(CamundaClientProperties.ClientMode.values())
-        .map(mode -> normalize(mode.name()))
+    return supportedValues
+        .map(CamundaClientConfigurationValidation::normalize)
         .noneMatch(normalized::equals);
   }
 

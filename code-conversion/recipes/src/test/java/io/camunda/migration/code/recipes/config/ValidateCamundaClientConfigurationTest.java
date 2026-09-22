@@ -137,6 +137,19 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void detectsInvalidAuthenticationMethod() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.auth.method=bogus
+            """,
+            """
+            ~~(Invalid Camunda client authentication method 'bogus'. Use 'none', 'basic', or 'oidc' for camunda.client.auth.method.)~~>camunda.client.auth.method=bogus
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void marksLegacyZeebeAliasesAsDeprecated() {
     rewriteRun(
         properties(
@@ -207,6 +220,27 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void detectsUnknownNonScalarAuthenticationProperty() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                auth:
+                  simple: {}
+                  unknown: [value]
+            """,
+            """
+            camunda:
+              client:
+                auth:
+                  ~~(Unsupported Camunda client authentication property 'camunda.client.auth.simple'. Configure authentication directly under camunda.client.auth.)~~>simple: {}
+                  ~~(Unsupported Camunda client authentication property 'camunda.client.auth.unknown'. Configure authentication directly under camunda.client.auth.)~~>unknown: [value]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
   void bindsValidSelfManagedConfigurationWithoutStartingSpring() {
     CamundaClientProperties properties =
         bind(
@@ -221,6 +255,12 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   @Test
   void rejectsUnsupportedModeWithoutStartingSpring() {
     assertThatThrownBy(() -> bind(Map.of("camunda.client.mode", "simple")))
+        .isInstanceOf(BindException.class);
+  }
+
+  @Test
+  void rejectsUnsupportedAuthenticationMethodWithoutStartingSpring() {
+    assertThatThrownBy(() -> bind(Map.of("camunda.client.auth.method", "bogus")))
         .isInstanceOf(BindException.class);
   }
 
