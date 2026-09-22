@@ -272,11 +272,16 @@ public class TestDelegate {
         final Object jsonVariableTyped = job.getVariablesAsMap().get("jsonVariable");
         // please check type
         final Object fileVariableTyped = job.getVariablesAsMap().get("fileVariable");
-        final var stringVariableLocal = job.getVariablesAsMap().get("stringVariableLocal");
-        final var integerVariableLocal = job.getVariablesAsMap().get("integerVariableLocal");
-        final var doubleVariableLocal = job.getVariablesAsMap().get("doubleVariableLocal");
-        final var boolVariableLocal = job.getVariablesAsMap().get("boolVariableLocal");
-        final var jsonVariableLocal = job.getVariablesAsMap().get("jsonVariableLocal");
+        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+        final var stringVariableLocal = execution.getVariableLocal("stringVariableLocal");
+        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+        final var integerVariableLocal = execution.getVariableLocal("integerVariableLocal");
+        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+        final var doubleVariableLocal = execution.getVariableLocal("doubleVariableLocal");
+        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+        final var boolVariableLocal = execution.getVariableLocal("boolVariableLocal");
+        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+        final var jsonVariableLocal = execution.getVariableLocal("jsonVariableLocal");
 
         final String procInstanceId = String.valueOf(job.getProcessInstanceKey());
         final String procDefId = String.valueOf(job.getProcessDefinitionKey());

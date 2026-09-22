@@ -61,7 +61,9 @@ available. Use the variables map when the migrated code must preserve that behav
 
 Do not replace this access with `job.getVariable("comment")`: the job worker API raises an
 exception when the requested variable is unavailable. The OpenRewrite delegate migration recipe
-uses `job.getVariablesAsMap().get(...)` for migrated `getVariable` and `getVariableLocal` calls.
+uses `job.getVariablesAsMap().get(...)` for migrated `getVariable` calls. It leaves
+`getVariableLocal` calls unchanged and adds a manual-migration TODO because the job worker API
+does not expose the Camunda 7 execution scope.
 When using Spring variable injection instead, mark an optional input explicitly:
 
 ```java

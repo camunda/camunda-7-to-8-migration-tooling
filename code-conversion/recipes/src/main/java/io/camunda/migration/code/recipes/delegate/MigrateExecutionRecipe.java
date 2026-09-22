@@ -23,6 +23,9 @@ import org.openrewrite.marker.Markers;
 
 public class MigrateExecutionRecipe extends Recipe {
 
+  private static final String LOCAL_VARIABLE_LOOKUP_TODO =
+      " TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.";
+
   /**
    * Sentinel shared with cleanup recipes so that warning comments about lost delegate business
    * logic can be detected reliably.
@@ -49,6 +52,7 @@ public class MigrateExecutionRecipe extends Recipe {
         new CopyDelegateToJobWorkerRecipe(),
         new CopyExecutionListenerToJobWorkerRecipe(),
         new MigrateDelegateExecutionMethodsInJobWorker(),
+        new FlagLocalVariableLookupsInJobWorker(),
         new MigrateDelegateBPMNErrorAndExceptionInJobWorker());
   }
 
@@ -344,20 +348,6 @@ public class MigrateExecutionRecipe extends Recipe {
               Collections.emptyList()),
           new ReplacementUtils.SimpleReplacementSpec(
               new MethodMatcher(
-                  // "getVariableLocal(String variableName)"
-                  "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)"),
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariablesAsMap().get(#{any(java.lang.String)})"),
-              RecipeUtils.createSimpleIdentifier(
-                  "job", "io.camunda.client.api.response.ActivatedJob"),
-              null,
-              ReplacementUtils.ReturnTypeStrategy.INFER_FROM_CONTEXT,
-              List.of(
-                  new ReplacementUtils.SimpleReplacementSpec.NamedArg(
-                      "variableName", 0)),
-              Collections.emptyList()),
-          new ReplacementUtils.SimpleReplacementSpec(
-              new MethodMatcher(
                   // "setVariable(String variableName, Object value)"
                   "org.camunda.bpm.engine.delegate.VariableScope setVariable(java.lang.String, java.lang.Object)"),
               RecipeUtils.createSimpleJavaTemplate(
@@ -446,6 +436,102 @@ public class MigrateExecutionRecipe extends Recipe {
     @Override
     protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
       return Collections.emptyList();
+    }
+  }
+
+  private static class FlagLocalVariableLookupsInJobWorker extends Recipe {
+
+    private static final MethodMatcher GET_VARIABLE_LOCAL =
+        new MethodMatcher(
+            "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)");
+
+    @Override
+    public String getDisplayName() {
+      return "Flags local variable lookups for manual migration";
+    }
+
+    @Override
+    public String getDescription() {
+      return "Adds a TODO when a copied delegate uses getVariableLocal because job workers do not expose the Camunda 7 execution scope.";
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
+      TreeVisitor<?, ExecutionContext> precondition =
+          Preconditions.and(
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
+              Preconditions.or(
+                  new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true),
+                  new UsesType<>("org.camunda.bpm.engine.delegate.ExecutionListener", true)));
+
+      return Preconditions.check(
+          precondition,
+          new JavaIsoVisitor<>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+              J.MethodDeclaration method = getCursor().firstEnclosing(J.MethodDeclaration.class);
+              if (method == null
+                  || method.getBody() == null
+                  || !method.getBody().getId().equals(block.getId())
+                  || isOriginalDelegateMethod(method)) {
+                return super.visitBlock(block, ctx);
+              }
+
+              J.Block visited = super.visitBlock(block, ctx);
+              List<Statement> updatedStatements =
+                  visited.getStatements().stream()
+                      .map(statement -> addManualMigrationFinding(statement, ctx))
+                      .toList();
+              return visited.withStatements(updatedStatements);
+            }
+
+            private Statement addManualMigrationFinding(
+                Statement statement, ExecutionContext ctx) {
+              if (!containsLocalVariableLookup(statement, ctx)
+                  || hasManualMigrationFinding(statement)) {
+                return statement;
+              }
+
+              return statement.withComments(
+                  Stream.concat(
+                          statement.getComments().stream(),
+                          Stream.of(
+                              RecipeUtils.createSimpleComment(
+                                  statement, LOCAL_VARIABLE_LOOKUP_TODO)))
+                      .toList());
+            }
+
+            private boolean containsLocalVariableLookup(
+                Statement statement, ExecutionContext ctx) {
+              boolean[] found = {false};
+              new JavaIsoVisitor<ExecutionContext>() {
+                @Override
+                public J.MethodInvocation visitMethodInvocation(
+                    J.MethodInvocation invocation, ExecutionContext nestedCtx) {
+                  if (GET_VARIABLE_LOCAL.matches(invocation)) {
+                    found[0] = true;
+                  }
+                  return found[0] ? invocation : super.visitMethodInvocation(invocation, nestedCtx);
+                }
+              }.visit(statement, ctx);
+              return found[0];
+            }
+
+            private boolean hasManualMigrationFinding(Statement statement) {
+              return statement.getComments().stream()
+                  .anyMatch(
+                      comment ->
+                          comment instanceof TextComment textComment
+                              && textComment
+                                  .getText()
+                                  .contains(LOCAL_VARIABLE_LOOKUP_TODO.trim()));
+            }
+
+            private boolean isOriginalDelegateMethod(J.MethodDeclaration method) {
+              return "execute".equals(method.getSimpleName())
+                  || "notify".equals(method.getSimpleName());
+            }
+          });
     }
   }
 
