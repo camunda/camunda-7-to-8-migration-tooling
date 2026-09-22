@@ -143,6 +143,7 @@ class ProcessInstanceCleanupTest {
         .deleteProcessInstances(List.of(active, completed, terminated));
 
     verify(camundaClient).newCancelInstanceCommand(1L);
+    verify(camundaClient.newCancelInstanceCommand(1L)).execute();
     verify(camundaClient, never()).newCancelInstanceCommand(2L);
     verify(camundaClient, never()).newCancelInstanceCommand(3L);
   }
