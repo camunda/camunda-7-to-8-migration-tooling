@@ -150,6 +150,19 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void detectsInvalidAuthenticationMethodPlaceholderDefault() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.auth.method=${CAMUNDA_AUTH_METHOD:bogus}
+            """,
+            """
+            ~~(Invalid Camunda client authentication method '${CAMUNDA_AUTH_METHOD:bogus}'. Use 'none', 'basic', or 'oidc' for camunda.client.auth.method.)~~>camunda.client.auth.method=${CAMUNDA_AUTH_METHOD:bogus}
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void marksLegacyZeebeAliasesAsDeprecated() {
     rewriteRun(
         properties(
