@@ -171,6 +171,9 @@ Record the original Java source baseline used for migration with the Code Invent
 class by its fully qualified class name, including its package and class name. Include every domain
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
+Record the build-wiring inventory from `references/build-wiring.md`. Include every existing Spring
+Boot entry point, Maven or Gradle application plugin, plugin-management declaration, packaging type,
+and runtime launch command.
 
 #### Model Inventory
 
@@ -215,7 +218,9 @@ For Code + models, see `references/composing-code-and-models.md`.
 #### Part A - Code Migration
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
-in Question 4. See `references/code-migration-approaches.md` for all three.
+in Question 4. See `references/code-migration-approaches.md` for all three. Apply the build-wiring
+procedure in `references/build-wiring.md` whenever the migration creates or retains a Spring Boot
+entry point.
 
 - **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
   source-to-output review.
@@ -282,6 +287,13 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
+13. **Build wiring** — when a migrated module has a runtime Spring Boot entry point, verify that its
+    build exposes a supported run command and packages an executable artifact. For Maven, the
+    `spring-boot-maven-plugin` must be declared in the effective module build, not only in
+    `pluginManagement`, and its existing configuration must remain intact. When no runtime entry
+    point exists, do not add an application plugin. Record the selected launch commands, plugin
+    source, package check, and any test-only or externally managed execution path in
+    `MIGRATION_REPORT.md`. See `references/build-wiring.md`.
 
 Check these pitfalls as well:
 

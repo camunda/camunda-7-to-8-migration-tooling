@@ -144,6 +144,11 @@ skills/
 fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
 
+The `spring-boot-maven-wiring` fixture covers the migration of a non-Boot Maven
+module into a runnable Spring Boot deployment application. The
+`migrate-c7-to-c8-code` skill reference describes the build inventory, plugin
+decision table, and launch validation for this fixture.
+
 ## License
 
 [Camunda License 1.0](../CAMUNDA-LICENSE-1.0.txt)

@@ -184,10 +184,18 @@ similar category.
 
 ## Deployment Wiring
 
-After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application code:
+After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application
+code. When the selected application is a Spring Boot runtime, apply
+`references/build-wiring.md` in the same decision. Deployment annotation wiring and Maven executable
+packaging are separate checks.
 
 - **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - build a deployment inventory from this run's recorded converted-file paths and accepted generated forms. Add or update `@Deployment(resources = ...)` with explicit recursive classpath patterns for that inventory. Use a recursive pattern only when its packaged matches are a non-empty subset of that inventory. Otherwise, use explicit resource paths. Add a BPMN, DMN, or form pattern only when the inventory contains that resource type. Never target original diagrams, draft forms, or declined forms.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+
+When the application entry point is retained or generated, record the effective application plugin,
+the supported `spring-boot:run` command, the package command, and the executable artifact check.
+When the user selects external deployment, record that launch path instead of adding a plugin solely
+for `@Deployment`.
 
 ## Report Keeping
 
