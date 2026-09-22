@@ -71,6 +71,9 @@ If the OpenRewrite plugin is not already in the build file, add it:
 plugins {
     id("org.openrewrite.rewrite") version "REWRITE_VERSION"
 }
+dependencies {
+    rewrite("io.camunda:camunda-7-to-8-code-conversion-recipes:RECIPES_VERSION")
+}
 rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllClientRecipes")
     activeRecipe("io.camunda.migration.code.recipes.AllDelegateRecipes")

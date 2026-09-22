@@ -209,6 +209,23 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             spec -> spec.path("src/main/resources/application.yml")));
   }
 
+  /** Existing Camunda 8 client values remain untouched and are validated after the migration. */
+  @Test
+  void marksExistingInvalidCamundaClientMode() {
+    rewriteRun(
+        properties(
+            """
+            camunda.bpm.history-level=full
+            camunda.client.mode=simple
+            """,
+            """
+            camunda.client.grpc-address=http://localhost:26500
+            ~~(Invalid Camunda client mode 'simple'. Use 'self-managed' or 'saas' for camunda.client.mode.)~~>camunda.client.mode=simple
+            camunda.client.rest-address=http://localhost:8080
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
   /** Files that are not Spring Boot application config must be left untouched. */
   @Test
   void leavesNonApplicationPropertiesFilesUntouched() {
