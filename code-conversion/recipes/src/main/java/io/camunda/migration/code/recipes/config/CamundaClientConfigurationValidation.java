@@ -13,12 +13,12 @@ import io.camunda.client.spring.properties.CamundaClientAuthProperties;
 import io.camunda.client.spring.properties.CamundaClientProperties;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -26,14 +26,15 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.springframework.beans.BeanUtils;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.BindException;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
-import org.springframework.core.ResolvableType;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -52,7 +53,7 @@ final class CamundaClientConfigurationValidation {
   private static final String METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
   private static final ConfigurationPropertyName MODE = propertyName("camunda.client.mode");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final Pattern INDEXED_PROPERTY_PATTERN = Pattern.compile("\\[[^\\]]+\\]");
+  private static final Pattern COLLECTION_INDEX_PATTERN = Pattern.compile("\\[\\d+\\]");
   private static final ClientPropertyMetadata CLIENT_PROPERTY_METADATA = clientPropertyMetadata();
   private static final Set<ConfigurationPropertyName> SUPPORTED_AUTH_PROPERTIES =
       CLIENT_PROPERTY_METADATA.authProperties();
@@ -99,17 +100,24 @@ final class CamundaClientConfigurationValidation {
               + "'. Configure authentication directly under camunda.client.auth.");
     }
     Optional<PropertyMetadata> propertyMetadata = CLIENT_PROPERTY_METADATA.property(propertyName);
-    if (propertyMetadata.isEmpty()) {
+    boolean dynamicMapProperty =
+        CLIENT_PROPERTY_METADATA.mapProperty(propertyName).isPresent();
+    if (propertyMetadata.isEmpty() && !dynamicMapProperty) {
       return Optional.empty();
     }
-    if (indexed && !propertyMetadata.get().collection()) {
+    if (propertyMetadata.filter(PropertyMetadata::map).isPresent()) {
+      return Optional.of(unsupportedMappingShapeFinding(key));
+    }
+    if (indexed
+        && !dynamicMapProperty
+        && propertyMetadata.filter(metadata -> !metadata.collection()).isPresent()) {
       return Optional.of(unsupportedScalarShapeFinding(key));
     }
     Optional<String> candidate = bindingCandidate(value);
     if (candidate.isEmpty()) {
       return enumFinding(propertyName, value);
     }
-    return !isBindable(propertyMetadata.get(), candidate.get(), indexed)
+    return !isBindable(propertyName, candidate.get(), indexed)
         ? Optional.of(invalidValueFinding(key, propertyName, value))
         : Optional.empty();
   }
@@ -122,18 +130,52 @@ final class CamundaClientConfigurationValidation {
         replacement == null ? propertyName : propertyName(replacement);
     Optional<PropertyMetadata> propertyMetadata =
         CLIENT_PROPERTY_METADATA.property(effectivePropertyName);
-    if (propertyMetadata.isEmpty() || !propertyMetadata.get().collection()) {
+    boolean dynamicMapProperty =
+        CLIENT_PROPERTY_METADATA.mapProperty(effectivePropertyName).isPresent();
+    boolean map = propertyMetadata.map(PropertyMetadata::map).orElse(false);
+    boolean collection = propertyMetadata.map(PropertyMetadata::collection).orElse(false);
+    if (map || (!collection && !dynamicMapProperty)) {
       return withDeprecation(
           shapeFinding(key, effectivePropertyName, ValueShape.SEQUENCE), key, replacement);
     }
     for (String value : values) {
       Optional<String> candidate = bindingCandidate(value);
-      if (candidate.isPresent() && !isBindable(propertyMetadata.get(), candidate.get(), true)) {
+      if (candidate.isPresent()
+          && !isBindable(effectivePropertyName, candidate.get(), true)) {
         return withDeprecation(
             Optional.of(invalidValueFinding(key, effectivePropertyName, value)), key, replacement);
       }
     }
     return withDeprecation(Optional.empty(), key, replacement);
+  }
+
+  static Optional<String> sequenceElementFinding(String key, ValueShape elementShape) {
+    PropertyReference propertyReference = propertyReference(key);
+    ConfigurationPropertyName propertyName = propertyReference.propertyName();
+    String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
+    ConfigurationPropertyName effectivePropertyName =
+        replacement == null ? propertyName : propertyName(replacement);
+    Optional<PropertyMetadata> propertyMetadata =
+        CLIENT_PROPERTY_METADATA.property(effectivePropertyName);
+    boolean dynamicMapProperty =
+        CLIENT_PROPERTY_METADATA.mapProperty(effectivePropertyName).isPresent();
+    boolean collection = propertyMetadata.map(PropertyMetadata::collection).orElse(false);
+    if (!collection && !dynamicMapProperty) {
+      return withDeprecation(
+          shapeFinding(key, effectivePropertyName, ValueShape.SEQUENCE), key, replacement);
+    }
+    if (propertyMetadata.filter(PropertyMetadata::simpleCollection).isPresent()) {
+      return withDeprecation(
+          Optional.of(unsupportedSequenceElementShapeFinding(key)), key, replacement);
+    }
+    Object value =
+        elementShape == ValueShape.MAPPING ? Map.of("value", "example") : List.of("example");
+    return withDeprecation(
+        isBindable(effectivePropertyName, value, true)
+            ? Optional.empty()
+            : Optional.of(unsupportedSequenceElementShapeFinding(key)),
+        key,
+        replacement);
   }
 
   private static Optional<String> shapeFinding(
@@ -149,6 +191,11 @@ final class CamundaClientConfigurationValidation {
     }
     Optional<PropertyMetadata> propertyMetadata = CLIENT_PROPERTY_METADATA.property(propertyName);
     if (propertyMetadata.isPresent()) {
+      if (propertyMetadata.get().map()) {
+        return valueShape == ValueShape.MAPPING
+            ? Optional.empty()
+            : Optional.of(unsupportedMappingShapeFinding(key));
+      }
       if (valueShape == ValueShape.SEQUENCE && propertyMetadata.get().collection()) {
         return Optional.empty();
       }
@@ -156,6 +203,10 @@ final class CamundaClientConfigurationValidation {
           propertyMetadata.get().collection()
               ? unsupportedSequenceShapeFinding(key)
               : unsupportedScalarShapeFinding(key));
+    }
+    if (valueShape == ValueShape.MAPPING
+        && CLIENT_PROPERTY_METADATA.mapProperty(propertyName).isPresent()) {
+      return Optional.empty();
     }
     if (AUTH_PREFIX.isAncestorOf(propertyName)) {
       return Optional.of(
@@ -272,7 +323,8 @@ final class CamundaClientConfigurationValidation {
 
   private static PropertyMetadata propertyMetadata(String type) {
     boolean collection = isCollectionType(type);
-    return new PropertyMetadata(type, collection, collection ? collectionElementType(type) : type);
+    return new PropertyMetadata(
+        collection, isMapType(type), collection && isSimpleType(collectionElementType(type)));
   }
 
   private static JarFile targetStarterJar() {
@@ -296,8 +348,31 @@ final class CamundaClientConfigurationValidation {
   }
 
   private static PropertyReference propertyReference(String key) {
-    String normalizedKey = INDEXED_PROPERTY_PATTERN.matcher(key).replaceAll("");
-    return new PropertyReference(propertyName(normalizedKey), !normalizedKey.equals(key));
+    Matcher matcher = COLLECTION_INDEX_PATTERN.matcher(key);
+    StringBuilder normalizedKey = new StringBuilder();
+    int previousEnd = 0;
+    boolean indexed = false;
+    while (matcher.find()) {
+      if (isMapPropertyPrefix(key.substring(0, matcher.start()))) {
+        normalizedKey.append(key, previousEnd, matcher.end());
+      } else {
+        normalizedKey.append(key, previousEnd, matcher.start());
+        indexed = true;
+      }
+      previousEnd = matcher.end();
+    }
+    normalizedKey.append(key, previousEnd, key.length());
+    return new PropertyReference(propertyName(normalizedKey.toString()), indexed);
+  }
+
+  private static boolean isMapPropertyPrefix(String prefix) {
+    String propertyPrefix =
+        prefix.endsWith(".") ? prefix.substring(0, prefix.length() - 1) : prefix;
+    return !propertyPrefix.isEmpty()
+        && CLIENT_PROPERTY_METADATA
+            .property(propertyName(propertyPrefix))
+            .map(PropertyMetadata::map)
+            .orElse(false);
   }
 
   private static boolean isCollectionType(String type) {
@@ -308,24 +383,48 @@ final class CamundaClientConfigurationValidation {
         || type.startsWith("java.util.Set");
   }
 
+  private static boolean isMapType(String type) {
+    return type.equals("java.util.Map") || type.startsWith("java.util.Map<");
+  }
+
   private static String collectionElementType(String type) {
     if (type.endsWith("[]")) {
       return type.substring(0, type.length() - 2);
     }
     int genericStart = type.indexOf('<');
     int genericEnd = type.lastIndexOf('>');
-    if (genericStart > -1 && genericEnd > genericStart + 1) {
-      return type.substring(genericStart + 1, genericEnd).trim();
-    }
-    return "java.lang.String";
+    return genericStart > -1 && genericEnd > genericStart + 1
+        ? type.substring(genericStart + 1, genericEnd).trim()
+        : "";
   }
 
-  private static boolean isBindable(PropertyMetadata propertyMetadata, String value, boolean indexed) {
+  private static boolean isSimpleType(String type) {
+    if (type.isEmpty() || isCollectionType(type) || isMapType(type)) {
+      return false;
+    }
+    int genericStart = type.indexOf('<');
+    String rawType = genericStart < 0 ? type : type.substring(0, genericStart);
+    Class<?> resolvedType = ClassUtils.resolvePrimitiveClassName(rawType);
     try {
-      String key = indexed && propertyMetadata.collection() ? "config[0]" : "config";
-      Binder binder =
-          new Binder(new MapConfigurationPropertySource(Map.of(key, value)));
-      return binder.bind("config", propertyMetadata.bindable()).isBound();
+      if (resolvedType == null) {
+        resolvedType =
+            ClassUtils.forName(
+                rawType, CamundaClientConfigurationValidation.class.getClassLoader());
+      }
+      return BeanUtils.isSimpleProperty(resolvedType);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalStateException("Cannot resolve Spring configuration type " + type, e);
+    }
+  }
+
+  private static boolean isBindable(
+      ConfigurationPropertyName propertyName, Object value, boolean indexed) {
+    try {
+      String key = propertyName + (indexed ? "[0]" : "");
+      Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(key, value)));
+      // Bind the owning type so validation performed by its property setters is preserved.
+      return binder.bind(CLIENT_PREFIX.toString(), Bindable.of(CamundaClientProperties.class))
+          .isBound();
     } catch (BindException e) {
       return false;
     }
@@ -411,22 +510,20 @@ final class CamundaClientConfigurationValidation {
     return "Unsupported Camunda client configuration shape for '" + key + "'. Use a scalar value.";
   }
 
+  private static String unsupportedMappingShapeFinding(String key) {
+    return "Unsupported Camunda client configuration shape for '" + key + "'. Use a mapping value.";
+  }
+
   private static String unsupportedSequenceShapeFinding(String key) {
     return "Unsupported Camunda client configuration shape for '"
         + key
         + "'. Use a sequence value.";
   }
 
-  private static Class<?> resolveClass(String typeName) throws ClassNotFoundException {
-    Class<?> primitiveType = ClassUtils.resolvePrimitiveClassName(typeName);
-    if (primitiveType != null) {
-      return primitiveType;
-    }
-    if (typeName.endsWith("[]")) {
-      return Array.newInstance(resolveClass(typeName.substring(0, typeName.length() - 2)), 0)
-          .getClass();
-    }
-    return ClassUtils.forName(typeName, CamundaClientConfigurationValidation.class.getClassLoader());
+  private static String unsupportedSequenceElementShapeFinding(String key) {
+    return "Unsupported Camunda client configuration shape for '"
+        + key
+        + "'. Sequence elements must match the target collection element type.";
   }
 
   private static String normalize(String value) {
@@ -440,27 +537,16 @@ final class CamundaClientConfigurationValidation {
     private Optional<PropertyMetadata> property(ConfigurationPropertyName propertyName) {
       return Optional.ofNullable(properties.get(propertyName));
     }
-  }
 
-  private record PropertyMetadata(String typeName, boolean collection, String itemTypeName) {
-
-    private Bindable<?> bindable() {
-      try {
-        if (!collection || typeName.endsWith("[]")) {
-          return Bindable.of(resolveClass(typeName));
-        }
-        int genericStart = typeName.indexOf('<');
-        if (genericStart < 0) {
-          return Bindable.of(resolveClass(typeName));
-        }
-        Class<?> rawType = resolveClass(typeName.substring(0, genericStart));
-        return Bindable.of(
-            ResolvableType.forClassWithGenerics(rawType, resolveClass(itemTypeName)));
-      } catch (ClassNotFoundException e) {
-        throw new IllegalStateException("Cannot resolve Spring configuration type " + typeName, e);
-      }
+    private Optional<PropertyMetadata> mapProperty(ConfigurationPropertyName propertyName) {
+      return properties.entrySet().stream()
+          .filter(entry -> entry.getValue().map() && entry.getKey().isAncestorOf(propertyName))
+          .map(Map.Entry::getValue)
+          .findFirst();
     }
   }
+
+  private record PropertyMetadata(boolean collection, boolean map, boolean simpleCollection) {}
 
   private record PropertyReference(ConfigurationPropertyName propertyName, boolean isIndexed) {}
 

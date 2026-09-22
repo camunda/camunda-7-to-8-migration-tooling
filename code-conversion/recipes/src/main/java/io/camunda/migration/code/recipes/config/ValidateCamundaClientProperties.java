@@ -28,8 +28,8 @@ public class ValidateCamundaClientProperties extends Recipe {
 
   @Override
   public @NonNull String getDescription() {
-    return "Marks unsupported Camunda client modes and authentication property shapes, and marks"
-        + " legacy Zeebe property aliases as deprecated.";
+    return "Validates Camunda client configuration values and shapes against the target starter,"
+        + " and marks legacy Zeebe property aliases as deprecated.";
   }
 
   @Override

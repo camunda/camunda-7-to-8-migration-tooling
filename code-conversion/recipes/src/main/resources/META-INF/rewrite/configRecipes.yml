@@ -45,8 +45,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe
 displayName: Validate Camunda client configuration
 description: >-
-  Marks unsupported Camunda client modes and authentication property shapes in
-  application.properties and application.yml/application.yaml files. It also marks legacy
+  Validates Camunda client configuration values and shapes against the target Spring Boot
+  starter in application.properties and application.yml/application.yaml files. It marks legacy
   camunda.client.zeebe.* aliases as deprecated without contacting a Camunda cluster.
 preconditions:
   - org.openrewrite.FindSourceFiles:
