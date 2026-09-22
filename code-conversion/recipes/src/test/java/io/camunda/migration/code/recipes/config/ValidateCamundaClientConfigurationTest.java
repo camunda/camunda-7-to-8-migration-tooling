@@ -254,6 +254,64 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void acceptsSequenceAuthenticationCollectionProperty() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                auth:
+                  token-fetch-retryable-status-codes: [500, 502, 503]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
+  void acceptsIndexedAuthenticationCollectionProperty() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.auth.token-fetch-retryable-status-codes[0]=500
+            camunda.client.auth.token-fetch-retryable-status-codes[1]=502
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsIndexedScalarAuthenticationProperty() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.auth.client-id[0]=example
+            """,
+            """
+            ~~(Unsupported Camunda client configuration shape for 'camunda.client.auth.client-id[0]'. Use a scalar value.)~~>camunda.client.auth.client-id[0]=example
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void marksLegacyZeebeAliasSequenceAsDeprecated() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                zeebe:
+                  defaults:
+                    fetch-variables: [foo, bar]
+            """,
+            """
+            camunda:
+              client:
+                zeebe:
+                  defaults:
+                    ~~(Deprecated Camunda client property 'camunda.client.zeebe.defaults.fetch-variables'. Use 'camunda.client.worker.defaults.fetch-variables'.)~~>fetch-variables: [foo, bar]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
   void bindsValidSelfManagedConfigurationWithoutStartingSpring() {
     CamundaClientProperties properties =
         bind(

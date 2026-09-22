@@ -43,39 +43,55 @@ final class CamundaClientConfigurationValidation {
   private static final String METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
   private static final ConfigurationPropertyName MODE = propertyName("camunda.client.mode");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final AuthPropertyMetadata AUTH_PROPERTY_METADATA = authPropertyMetadata();
   private static final Set<ConfigurationPropertyName> SUPPORTED_AUTH_PROPERTIES =
-      supportedAuthProperties();
+      AUTH_PROPERTY_METADATA.supportedProperties();
+  private static final Set<ConfigurationPropertyName> COLLECTION_AUTH_PROPERTIES =
+      AUTH_PROPERTY_METADATA.collectionProperties();
   private static final Map<ConfigurationPropertyName, String> LEGACY_PROPERTY_MAPPINGS =
       legacyPropertyMappings();
 
   private CamundaClientConfigurationValidation() {}
 
   static Optional<String> finding(String key, String value) {
-    ConfigurationPropertyName propertyName = propertyName(key);
+    PropertyReference propertyReference = propertyReference(key);
+    ConfigurationPropertyName propertyName = propertyReference.propertyName();
     String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
     ConfigurationPropertyName effectivePropertyName =
         replacement == null ? propertyName : propertyName(replacement);
     return withDeprecation(
-        semanticFinding(key, effectivePropertyName, value), key, replacement);
+        semanticFinding(key, effectivePropertyName, value, propertyReference.isIndexed()),
+        key,
+        replacement);
   }
 
-  static Optional<String> shapeFinding(String key) {
-    ConfigurationPropertyName propertyName = propertyName(key);
+  static Optional<String> shapeFinding(String key, ValueShape valueShape) {
+    PropertyReference propertyReference = propertyReference(key);
+    ConfigurationPropertyName propertyName = propertyReference.propertyName();
     String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
     ConfigurationPropertyName effectivePropertyName =
         replacement == null ? propertyName : propertyName(replacement);
-    return withDeprecation(shapeFinding(key, effectivePropertyName), key, replacement);
+    return withDeprecation(
+        shapeFinding(key, effectivePropertyName, valueShape), key, replacement);
   }
 
   private static Optional<String> semanticFinding(
-      String key, ConfigurationPropertyName propertyName, String value) {
-    if (propertyName.equals(MODE) && isUnsupportedMode(value)) {
-      return Optional.of(
-          "Invalid Camunda client mode '"
-              + value
-              + "'. Use 'self-managed' or 'saas' for "
-              + MODE.toString()
-              + ".");
+      String key, ConfigurationPropertyName propertyName, String value, boolean indexed) {
+    if (propertyName.equals(MODE)) {
+      if (indexed) {
+        return Optional.of(
+            "Unsupported Camunda client configuration shape for '"
+                + key
+                + "'. Use a scalar value.");
+      }
+      if (isUnsupportedMode(value)) {
+        return Optional.of(
+            "Invalid Camunda client mode '"
+                + value
+                + "'. Use 'self-managed' or 'saas' for "
+                + MODE.toString()
+                + ".");
+      }
     }
     if (propertyName.equals(AUTH_PREFIX)) {
       return Optional.of(
@@ -83,13 +99,21 @@ final class CamundaClientConfigurationValidation {
               + key
               + "'. Use nested authentication properties.");
     }
-    if (propertyName.equals(AUTH_METHOD) && isUnsupportedAuthMethod(value)) {
-      return Optional.of(
-          "Invalid Camunda client authentication method '"
-              + value
-              + "'. Use 'none', 'basic', or 'oidc' for "
-              + AUTH_METHOD
-              + ".");
+    if (propertyName.equals(AUTH_METHOD)) {
+      if (indexed) {
+        return Optional.of(
+            "Unsupported Camunda client configuration shape for '"
+                + key
+                + "'. Use a scalar value.");
+      }
+      if (isUnsupportedAuthMethod(value)) {
+        return Optional.of(
+            "Invalid Camunda client authentication method '"
+                + value
+                + "'. Use 'none', 'basic', or 'oidc' for "
+                + AUTH_METHOD
+                + ".");
+      }
     }
     if (AUTH_PREFIX.isAncestorOf(propertyName)
         && !SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
@@ -98,17 +122,36 @@ final class CamundaClientConfigurationValidation {
               + key
               + "'. Configure authentication directly under camunda.client.auth.");
     }
+    if (indexed
+        && SUPPORTED_AUTH_PROPERTIES.contains(propertyName)
+        && !COLLECTION_AUTH_PROPERTIES.contains(propertyName)) {
+      return Optional.of(
+          "Unsupported Camunda client configuration shape for '"
+              + key
+              + "'. Use a scalar value.");
+    }
     return Optional.empty();
   }
 
-  private static Optional<String> shapeFinding(String key, ConfigurationPropertyName propertyName) {
+  private static Optional<String> shapeFinding(
+      String key, ConfigurationPropertyName propertyName, ValueShape valueShape) {
     if (propertyName.equals(AUTH_PREFIX)) {
       return Optional.of(
           "Unsupported Camunda client configuration shape for '"
               + key
               + "'. Use nested authentication properties.");
     }
-    if (propertyName.equals(MODE) || SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
+    if (propertyName.equals(MODE)) {
+      return Optional.of(
+          "Unsupported Camunda client configuration shape for '"
+              + key
+              + "'. Use a scalar value.");
+    }
+    if (SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
+      if (valueShape == ValueShape.SEQUENCE
+          && COLLECTION_AUTH_PROPERTIES.contains(propertyName)) {
+        return Optional.empty();
+      }
       return Optional.of(
           "Unsupported Camunda client configuration shape for '"
               + key
@@ -142,7 +185,7 @@ final class CamundaClientConfigurationValidation {
   }
 
   static boolean isUnknownAuthenticationDescendant(String key) {
-    ConfigurationPropertyName propertyName = propertyName(key);
+    ConfigurationPropertyName propertyName = propertyReference(key).propertyName();
     return AUTH_PREFIX.isAncestorOf(propertyName)
         && !SUPPORTED_AUTH_PROPERTIES.contains(propertyName)
         && !isAuthenticationContainer(propertyName);
@@ -203,19 +246,24 @@ final class CamundaClientConfigurationValidation {
     return jarFile.getInputStream(entry);
   }
 
-  private static Set<ConfigurationPropertyName> supportedAuthProperties() {
+  private static AuthPropertyMetadata authPropertyMetadata() {
     try (JarFile jarFile = targetStarterJar();
         InputStream stream = resource(jarFile, METADATA_RESOURCE)) {
       JsonNode properties = OBJECT_MAPPER.readTree(stream).path("properties");
       Set<ConfigurationPropertyName> authProperties = new HashSet<>();
+      Set<ConfigurationPropertyName> collectionAuthProperties = new HashSet<>();
       for (JsonNode property : properties) {
         String name = property.path("name").asText();
         ConfigurationPropertyName propertyName = propertyName(name);
         if (AUTH_PREFIX.isAncestorOf(propertyName)) {
           authProperties.add(propertyName);
+          if (isCollectionType(property.path("type").asText(""))) {
+            collectionAuthProperties.add(propertyName);
+          }
         }
       }
-      return Set.copyOf(authProperties);
+      return new AuthPropertyMetadata(
+          Set.copyOf(authProperties), Set.copyOf(collectionAuthProperties));
     } catch (IOException e) {
       throw new IllegalStateException(
           "Cannot load Camunda client configuration metadata from the target starter.", e);
@@ -242,7 +290,31 @@ final class CamundaClientConfigurationValidation {
     return ConfigurationPropertyName.adapt(name, '.');
   }
 
+  private static PropertyReference propertyReference(String key) {
+    String normalizedKey = key.replaceAll("\\[[^\\]]+\\]", "");
+    return new PropertyReference(propertyName(normalizedKey), !normalizedKey.equals(key));
+  }
+
+  private static boolean isCollectionType(String type) {
+    return type.endsWith("[]")
+        || type.startsWith("java.lang.Iterable")
+        || type.startsWith("java.util.Collection")
+        || type.startsWith("java.util.List")
+        || type.startsWith("java.util.Set");
+  }
+
   private static String normalize(String value) {
     return value.trim().replace("-", "").replace("_", "").toLowerCase(Locale.ROOT);
+  }
+
+  private record AuthPropertyMetadata(
+      Set<ConfigurationPropertyName> supportedProperties,
+      Set<ConfigurationPropertyName> collectionProperties) {}
+
+  private record PropertyReference(ConfigurationPropertyName propertyName, boolean isIndexed) {}
+
+  enum ValueShape {
+    MAPPING,
+    SEQUENCE
   }
 }

@@ -57,7 +57,11 @@ public class ValidateCamundaClientYaml extends Recipe {
                         return entry;
                       }
                     }
-                    return CamundaClientConfigurationValidation.shapeFinding(key)
+                    CamundaClientConfigurationValidation.ValueShape valueShape =
+                        entry.getValue() instanceof Yaml.Sequence
+                            ? CamundaClientConfigurationValidation.ValueShape.SEQUENCE
+                            : CamundaClientConfigurationValidation.ValueShape.MAPPING;
+                    return CamundaClientConfigurationValidation.shapeFinding(key, valueShape)
                         .map(message -> SearchResult.found(entry, message))
                         .orElse(entry);
                   }
