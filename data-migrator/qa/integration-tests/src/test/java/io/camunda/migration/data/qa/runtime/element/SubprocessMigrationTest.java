@@ -17,6 +17,7 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.CALL_ACTIVITY_LEGACY_ID_ERROR;
 
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.client.api.search.response.Variable;
@@ -48,6 +49,7 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
     io.camunda.client.api.search.response.ProcessInstance c8ParentInstance =
         camundaClient.newProcessInstanceSearchRequest().filter(processInstanceFilter -> {
           processInstanceFilter.processDefinitionId("callingProcessId");
+          processInstanceFilter.state(ProcessInstanceState.ACTIVE);
         }).execute().items().getFirst();
 
     Long c8ParentInstanceKey = c8ParentInstance.getProcessInstanceKey();

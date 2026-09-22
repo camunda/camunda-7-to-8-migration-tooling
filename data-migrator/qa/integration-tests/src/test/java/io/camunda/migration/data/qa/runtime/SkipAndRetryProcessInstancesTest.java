@@ -15,6 +15,7 @@ import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.MULTI_
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.migration.data.HistoryMigrator;
@@ -178,7 +179,11 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then the instance was migrated
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances =
+        camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .items();
     assertThat(processInstances.size()).isEqualTo(1);
     ProcessInstance processInstance = processInstances.getFirst();
     assertThat(processInstance.getProcessDefinitionId()).isEqualTo(process.getProcessDefinitionKey());
@@ -276,7 +281,11 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then verify runtime process instance was migrated successfully
-    List<ProcessInstance> c8ProcessInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> c8ProcessInstances =
+        camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .items();
     assertThat(c8ProcessInstances.size()).isEqualTo(1);
 
     // and verify historic process instance exists in RDBMS

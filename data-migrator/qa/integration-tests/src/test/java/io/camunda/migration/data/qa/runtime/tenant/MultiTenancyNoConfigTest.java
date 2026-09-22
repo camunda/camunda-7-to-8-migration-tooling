@@ -17,6 +17,7 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -176,7 +177,10 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
 
   protected void assertProcessInstanceState(String tenantId, String c7instance, int variableValue) {
     var c8ProcessInstance = client.newProcessInstanceSearchRequest()
-        .filter(f -> f.tenantId(tenantId))
+        .filter(f -> {
+          f.tenantId(tenantId);
+          f.state(ProcessInstanceState.ACTIVE);
+        })
         .send()
         .join()
         .items()

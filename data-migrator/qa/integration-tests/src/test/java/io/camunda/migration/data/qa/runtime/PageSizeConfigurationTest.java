@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.runtime;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
@@ -45,7 +46,11 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances =
+        camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .items();
     assertThat(processInstances.size()).isEqualTo(5);
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 0, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 2, page size: 2");
@@ -68,7 +73,12 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(5);
+    assertThat(
+            camundaClient.newProcessInstanceSearchRequest()
+                .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                .execute()
+                .items())
+        .hasSize(5);
 
     Matcher matcher = Pattern.compile(MIGRATOR_JOBS_FOUND + "2").matcher(output.getOut());
     assertThat(matcher.results().count()).isEqualTo(2);
