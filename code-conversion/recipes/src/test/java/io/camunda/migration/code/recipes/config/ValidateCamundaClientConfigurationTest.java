@@ -176,6 +176,19 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void detectsInvalidLegacyModePlaceholderDefault() {
+    rewriteRun(
+        properties(
+            """
+            zeebe.client.connection-mode=${CAMUNDA_MODE:simple}
+            """,
+            """
+            ~~(Invalid Camunda client mode '${CAMUNDA_MODE:simple}'. Use 'self-managed' or 'saas' for camunda.client.mode. Deprecated Camunda client property 'zeebe.client.connection-mode'. Use 'camunda.client.mode'.)~~>zeebe.client.connection-mode=${CAMUNDA_MODE:simple}
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void ignoresNonApplicationFiles() {
     rewriteRun(
         properties(
@@ -267,6 +280,41 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void acceptsSequenceClientCollectionProperty() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    fetch-variables: [foo, bar]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
+  void detectsSequenceScalarClientProperty() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    max-jobs-active: [8]
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    ~~(Unsupported Camunda client configuration shape for 'camunda.client.worker.defaults.max-jobs-active'. Use a scalar value.)~~>max-jobs-active: [8]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
   void acceptsIndexedAuthenticationCollectionProperty() {
     rewriteRun(
         properties(
@@ -286,6 +334,32 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
             """,
             """
             ~~(Unsupported Camunda client configuration shape for 'camunda.client.auth.client-id[0]'. Use a scalar value.)~~>camunda.client.auth.client-id[0]=example
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsInvalidScalarClientBinding() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.worker.defaults.max-jobs-active=bogus
+            """,
+            """
+            ~~(Invalid Camunda client configuration value 'bogus' for 'camunda.client.worker.defaults.max-jobs-active'. Review it against the target Camunda Spring Boot starter type.)~~>camunda.client.worker.defaults.max-jobs-active=bogus
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsInvalidScalarClientPlaceholderDefault() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.worker.defaults.max-jobs-active=${CAMUNDA_MAX_JOBS_ACTIVE:bogus}
+            """,
+            """
+            ~~(Invalid Camunda client configuration value '${CAMUNDA_MAX_JOBS_ACTIVE:bogus}' for 'camunda.client.worker.defaults.max-jobs-active'. Review it against the target Camunda Spring Boot starter type.)~~>camunda.client.worker.defaults.max-jobs-active=${CAMUNDA_MAX_JOBS_ACTIVE:bogus}
             """,
             spec -> spec.path("src/main/resources/application.properties")));
   }
@@ -332,6 +406,12 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   @Test
   void rejectsUnsupportedAuthenticationMethodWithoutStartingSpring() {
     assertThatThrownBy(() -> bind(Map.of("camunda.client.auth.method", "bogus")))
+        .isInstanceOf(BindException.class);
+  }
+
+  @Test
+  void rejectsInvalidScalarClientBindingWithoutStartingSpring() {
+    assertThatThrownBy(() -> bind(Map.of("camunda.client.worker.defaults.max-jobs-active", "bogus")))
         .isInstanceOf(BindException.class);
   }
 
