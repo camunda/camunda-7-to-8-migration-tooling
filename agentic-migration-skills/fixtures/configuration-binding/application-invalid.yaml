@@ -1,7 +1,0 @@
-camunda:
-  client:
-    mode: simple
-    auth:
-      simple:
-        username: example
-        password: example

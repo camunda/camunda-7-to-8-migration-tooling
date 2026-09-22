@@ -1,5 +1,0 @@
-camunda:
-  client:
-    mode: self-managed
-    grpc-address: http://localhost:26500
-    rest-address: http://localhost:8080

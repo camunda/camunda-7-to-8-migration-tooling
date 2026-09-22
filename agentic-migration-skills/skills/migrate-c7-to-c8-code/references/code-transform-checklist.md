@@ -106,33 +106,16 @@ These items are not in the catalog:
 
 ### Configuration binding validation
 
-When a target Camunda Spring Boot starter is present, validate the target configuration against
-the selected starter. Run this check for approaches A and B. Run it for approach C when the
-project already contains Camunda 8-shaped configuration.
+Run `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` after approaches A
+and B. Where approach C finds Camunda 8 client configuration, run the recipe without changing source
+files.
 
-1. Inspect every `application*.properties`, `application*.yml`, and `application*.yaml` file.
-2. Identify the selected `camunda-spring-boot-*-starter` and its version from the Maven or Gradle
-   build files.
-3. Read the starter's `spring-configuration-metadata.json` and use it to validate property names,
-   nested paths, and enum values. Do not maintain a second hand-written list of starter properties.
-4. Bind the effective configuration with a minimal Spring context when the starter provides the
-   required binding classes. The context must not start a worker or connect to a cluster.
-5. Report a binding failure for an unknown nested shape, such as `camunda.client.auth.simple.*`,
-   or an invalid enum value, such as `camunda.client.mode: simple`.
-6. Normalize a `camunda.client.zeebe.*` alias before validation when the selected starter accepts
-   that alias. Report the alias as deprecated and validate its mapped current property.
-7. For an unauthenticated local self-managed cluster, use `mode: self-managed` with gRPC and REST
-   addresses. Accept that configuration without authentication credentials. Never invent Basic or
-   OIDC credentials.
-8. Validate supplied Basic or OIDC values without changing the source configuration. Redact
-   passwords, client secrets, tokens, and other credential values before recording effective
-   properties in `MIGRATION_REPORT.md`. Do not infer production authentication from a local
-   unauthenticated configuration.
-9. Run the same check after the deterministic configuration recipe and after AI-only migration.
-10. Record the files, report-safe effective properties, aliases, binding failures, and unresolved
-    findings in `MIGRATION_REPORT.md`.
-11. If the selected starter or its metadata cannot be resolved, mark the check unverified and
-    record the command and reason. Do not mark configuration validation as passed.
+The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
+It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
+does not start an application or connect to a Camunda cluster.
+
+Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
+record credential values.
 
 ---
 

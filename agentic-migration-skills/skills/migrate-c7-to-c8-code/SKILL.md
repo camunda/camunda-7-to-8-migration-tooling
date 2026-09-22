@@ -223,11 +223,6 @@ in Question 4. See `references/code-migration-approaches.md` for all three.
   when a capable model is available.
 - **C. Assessment only** — report with effort estimates, no code changes.
 
-Run the configuration inventory and binding validation for approaches A and B. Approach A may use
-the deterministic configuration recipe, but it still runs the binding validation after recipe
-cleanup. Approach B runs the same validation without requiring a recipe. For approach C, inspect
-existing target configuration and report binding findings without changing source files.
-
 #### Part B - Model Migration
 
 Convert BPMN/DMN from the `camunda:` namespace to `zeebe:` with the approach chosen in Question 5.
@@ -260,27 +255,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
    Use `CamundaClient`.
 6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
-7. **Configuration** — apply the binding procedure in
-   `references/code-transform-checklist.md` to every `application*.properties`,
-   `application*.yml`, and `application*.yaml` file. Do not mark this check as passing from a
-   key-prefix match alone.
-   - Identify the selected `camunda-spring-boot-*-starter` and its version from the build files.
-   - Validate property names and enum values against that starter's configuration metadata.
-   - Bind the effective values with a minimal Spring context when the starter provides the required
-     binding classes. Do not connect to a Camunda cluster.
-   - Flag unknown nested shapes, including `camunda.client.auth.simple.*`, and invalid enum values,
-     including `camunda.client.mode: simple`.
-   - Normalize accepted `camunda.client.zeebe.*` aliases before validation. Report each alias as
-     deprecated instead of rejecting it when the selected starter maps it to a current property.
-   - Accept an unauthenticated self-managed configuration when it has valid addresses. Do not
-     invent Basic or OIDC credentials. Validate supplied authentication values without changing the
-     source configuration. Redact passwords, client secrets, tokens, and other credential values
-     before recording effective properties in `MIGRATION_REPORT.md`.
-   - Validate migrated and pre-existing Camunda 8-shaped configuration. Record scanned files,
-     report-safe effective properties, remaining legacy keys, deprecated aliases, binding findings,
-     and unresolved configuration TODOs in `MIGRATION_REPORT.md`.
-   - If the selected starter or its metadata cannot be resolved, report the check as unverified with
-     the command and reason. Do not report configuration validation as passed.
+7. **Configuration** — run the configuration validation in
+   `references/code-transform-checklist.md`.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
 9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
