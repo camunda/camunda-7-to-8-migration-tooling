@@ -1,8 +1,8 @@
 # Camunda user-task fixture
 
-This fixture checks the model-side migration of a plain Camunda 7 user task.
-It uses a message start event and a second user task with assignment and form
-metadata.
+This fixture checks the model-side migration of two Camunda 7 user tasks.
+It uses a message start event, a bare user task, and a second user task with
+assignment and form metadata.
 
 ```text
 user-tasks-c7.bpmn
