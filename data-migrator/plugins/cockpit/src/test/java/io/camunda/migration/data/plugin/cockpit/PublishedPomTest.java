@@ -9,16 +9,13 @@ package io.camunda.migration.data.plugin.cockpit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 public class PublishedPomTest {
 
@@ -26,16 +23,24 @@ public class PublishedPomTest {
   private static final String FIXED_JACKSON_DATABIND_VERSION = "2.22.2";
 
   @Test
-  public void publishesFixedJacksonDatabindAsProvidedDependency()
-      throws ParserConfigurationException, IOException, SAXException {
+  public void publishesFixedJacksonDatabindAsProvidedDependency() throws Exception {
     DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
     documentBuilderFactory.setNamespaceAware(true);
     Document document =
         documentBuilderFactory.newDocumentBuilder().parse(Path.of(".flattened-pom.xml").toFile());
 
     Element dependencies = childElement(document.getDocumentElement(), "dependencies");
+    Element camundaWebapp =
+        dependency(dependencies, "org.camunda.bpm.webapp", "camunda-webapp");
     Element jacksonDatabind =
         dependency(dependencies, "com.fasterxml.jackson.core", "jackson-databind");
+
+    assertThat(camundaWebapp).isNotNull();
+    Element exclusions = childElement(camundaWebapp, "exclusions");
+    assertThat(exclusions).isNotNull();
+    assertThat(exclusion(exclusions, "com.fasterxml.jackson.core", "jackson-databind"))
+        .as("Camunda webapp must exclude transitive Jackson databind")
+        .isNotNull();
 
     assertThat(jacksonDatabind).isNotNull();
     assertThat(childText(jacksonDatabind, "version"))
@@ -44,22 +49,31 @@ public class PublishedPomTest {
   }
 
   private static Element dependency(Element dependencies, String groupId, String artifactId) {
-    if (dependencies == null) {
+    return coordinate(dependencies, "dependency", groupId, artifactId);
+  }
+
+  private static Element exclusion(Element exclusions, String groupId, String artifactId) {
+    return coordinate(exclusions, "exclusion", groupId, artifactId);
+  }
+
+  private static Element coordinate(
+      Element parent, String elementName, String groupId, String artifactId) {
+    if (parent == null) {
       return null;
     }
 
-    NodeList dependencyNodes = dependencies.getChildNodes();
-    for (int i = 0; i < dependencyNodes.getLength(); i++) {
-      Node node = dependencyNodes.item(i);
+    NodeList children = parent.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      Node node = children.item(i);
       if (node.getNodeType() != Node.ELEMENT_NODE
-          || !"dependency".equals(node.getLocalName())) {
+          || !elementName.equals(node.getLocalName())) {
         continue;
       }
 
-      Element dependency = (Element) node;
-      if (groupId.equals(childText(dependency, "groupId"))
-          && artifactId.equals(childText(dependency, "artifactId"))) {
-        return dependency;
+      Element element = (Element) node;
+      if (groupId.equals(childText(element, "groupId"))
+          && artifactId.equals(childText(element, "artifactId"))) {
+        return element;
       }
     }
     return null;
