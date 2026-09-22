@@ -193,8 +193,8 @@ categories:
         expectedBpmn: |
           <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
         expectedMessages: |
-          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. Move it to the containing process or subprocess start listener after reviewing its execution scope.</conversion:message>
-          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. Move it to the containing process or subprocess start listener after reviewing its execution scope.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
       - name: Execution Listener Without Implementation
         givenBpmn: |
           <bpmn:task id="ListenerWithoutImplTask" name="Listener Without Impl">
