@@ -25,6 +25,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 
@@ -43,6 +44,7 @@ final class CamundaClientConfigurationValidation {
   private static final String METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
   private static final ConfigurationPropertyName MODE = propertyName("camunda.client.mode");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Pattern INDEXED_PROPERTY_PATTERN = Pattern.compile("\\[[^\\]]+\\]");
   private static final AuthPropertyMetadata AUTH_PROPERTY_METADATA = authPropertyMetadata();
   private static final Set<ConfigurationPropertyName> SUPPORTED_AUTH_PROPERTIES =
       AUTH_PROPERTY_METADATA.supportedProperties();
@@ -291,7 +293,7 @@ final class CamundaClientConfigurationValidation {
   }
 
   private static PropertyReference propertyReference(String key) {
-    String normalizedKey = key.replaceAll("\\[[^\\]]+\\]", "");
+    String normalizedKey = INDEXED_PROPERTY_PATTERN.matcher(key).replaceAll("");
     return new PropertyReference(propertyName(normalizedKey), !normalizedKey.equals(key));
   }
 
