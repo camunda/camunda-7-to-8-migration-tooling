@@ -31,7 +31,7 @@ inputs:
   maven-version:
     description: Maven version to be used
     required: false
-    default: '3.8.6'
+    default: '3.9.16'
   vault-address:
     description: Vault URL to retrieve secrets from
     required: false
