@@ -104,14 +104,15 @@ These items are not in the catalog:
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties or .yaml.
 
-### Build wiring
+### Maven build wiring
 
-When the migration creates or retains a Spring Boot entry point, load
+When the migration creates or retains a Spring Boot entry point in a Maven module, load
 `references/build-wiring.md`. Detect the effective Maven plugin configuration before editing the
 POM. Add `spring-boot-maven-plugin` under `build/plugins` only for a runtime application. Preserve
 existing plugin configuration and parent-managed versions. Verify both `mvn spring-boot:run` and
 the executable packaged artifact, or record the exact test-only or externally managed launch path.
 Do not add the plugin to modules without a runtime Spring Boot entry point.
+Do not apply these Maven rules to Gradle modules.
 
 ---
 

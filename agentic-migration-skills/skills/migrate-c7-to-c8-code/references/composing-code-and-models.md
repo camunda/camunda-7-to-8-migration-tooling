@@ -185,7 +185,7 @@ similar category.
 ## Deployment Wiring
 
 After both complete, ask via AskUserQuestion whether to wire deployment of converted files in application
-code. When the selected application is a Spring Boot runtime, apply
+code. When the selected application is a Spring Boot Maven runtime, apply
 `references/build-wiring.md` in the same decision. Deployment annotation wiring and Maven executable
 packaging are separate checks.
 

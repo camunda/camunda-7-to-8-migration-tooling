@@ -31,9 +31,11 @@ When a Maven module has a runtime Spring Boot entry point, apply the following d
 |---|---|
 | `spring-boot-maven-plugin` is already declared under `build/plugins` | Keep its version, executions, and configuration. Add only missing run or packaging configuration. |
 | The plugin exists only under `build/pluginManagement` or a parent manages only its version | Add the plugin under the module's `build/plugins` and inherit the managed version. |
-| No plugin declaration exists, but Spring Boot dependency management supplies the version | Add `org.springframework.boot:spring-boot-maven-plugin` under `build/plugins` without duplicating a managed version. |
 | No plugin declaration or managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
 | The module has no runtime Spring Boot entry point | Do not add the plugin. Record the supported non-application execution path. |
+
+Do not infer a Maven plugin version from a dependency BOM. Dependency management supplies dependency
+versions, not build-plugin versions.
 
 Preserve existing plugin executions and configuration. Merge only the minimum required properties.
 Declare the plugin so `mvn spring-boot:run` resolves without a fully qualified temporary plugin
@@ -64,10 +66,10 @@ Run the module's supported commands after the build wiring change:
 1. Run `mvn spring-boot:run` from the module directory. Confirm that Maven resolves the plugin and
    that the selected application entry point starts. A missing Camunda cluster is a runtime
    environment failure, not evidence that plugin resolution is correct.
-2. Run `mvn package` and inspect the produced JAR. Confirm that it contains the Spring Boot loader
-   and the application classes.
-3. Start the packaged JAR with `java -jar <artifact>`. Confirm the same entry point starts, or record
-   the external dependency that prevents startup.
+2. Run `mvn package` and inspect the produced executable artifact, such as a JAR or executable WAR.
+   Confirm that it contains the Spring Boot loader and the application classes.
+3. Start the packaged executable artifact with `java -jar <artifact>`. Confirm the same entry point
+   starts, or record the external dependency that prevents startup.
 4. Run the module test command. Confirm that modules without a runtime entry point did not acquire
    an application plugin.
 
