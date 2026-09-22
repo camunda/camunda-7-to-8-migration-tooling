@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.runtime;
 
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
@@ -15,14 +16,17 @@ import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.Tenant;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.util.ProcessInstanceCleanup;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -33,6 +37,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
+
+  protected static final String AUTHORIZATION_PROBE_JOB_TYPE = "__migrator_authorization_probe__";
+  protected static final Duration AUTHORIZATION_PROBE_TIMEOUT = Duration.ofSeconds(1);
 
   /**
     * Set generous Awaitility defaults so that this module's own {@code await()} calls without
@@ -54,6 +61,9 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected DbClient dbClient;
+
+  @Autowired
+  protected MigratorProperties migratorProperties;
 
 
   // C7 ---------------------------------------
@@ -98,11 +108,25 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected void awaitRuntimeMigratorStart() {
+    Set<String> tenantIds = new HashSet<>();
+    if (migratorProperties.getTenantIds() != null) {
+      tenantIds.addAll(migratorProperties.getTenantIds());
+    }
+    tenantIds.add(C8_DEFAULT_TENANT);
+
     Awaitility.await().atMost(Duration.ofSeconds(30)).until(() -> {
       try {
+        camundaClient.newActivateJobsCommand()
+            .jobType(AUTHORIZATION_PROBE_JOB_TYPE)
+            .maxJobsToActivate(1)
+            .timeout(AUTHORIZATION_PROBE_TIMEOUT)
+            .workerName(AUTHORIZATION_PROBE_JOB_TYPE)
+            .tenantIds(List.copyOf(tenantIds))
+            .requestTimeout(AUTHORIZATION_PROBE_TIMEOUT)
+            .execute();
         runtimeMigrator.start();
         return true;
-      } catch (RuntimeMigratorException e) {
+      } catch (ClientException | RuntimeMigratorException e) {
         if (isAuthorizationPropagationFailure(e)) {
           return false;
         }
@@ -111,7 +135,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     });
   }
 
-  protected boolean isAuthorizationPropagationFailure(RuntimeMigratorException exception) {
+  protected boolean isAuthorizationPropagationFailure(Throwable exception) {
     Throwable cause = exception;
     while (cause != null) {
       if (cause.getMessage() != null && cause.getMessage().contains("user is not authorized")) {

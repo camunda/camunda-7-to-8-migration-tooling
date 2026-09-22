@@ -13,6 +13,11 @@ import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +28,9 @@ public class ProcessInstanceCleanup {
 
   protected static final Duration CLEANUP_TIMEOUT = Duration.ofSeconds(120);
   protected static final Duration CLEANUP_POLL_INTERVAL = Duration.ofSeconds(2);
+  protected static final Duration CLEANUP_CONFIRMATION_POLL_INTERVAL = Duration.ofMillis(100);
   protected static final int REQUIRED_CONSECUTIVE_EMPTY_SEARCHES = 3;
+  protected static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
   protected final CamundaClient camundaClient;
 
   public ProcessInstanceCleanup(CamundaClient camundaClient) {
@@ -34,9 +41,16 @@ public class ProcessInstanceCleanup {
     AtomicInteger consecutiveEmptySearches = new AtomicInteger();
     Awaitility.await()
         .atMost(CLEANUP_TIMEOUT)
-        .pollInterval(CLEANUP_POLL_INTERVAL)
+        .pollInterval((pollCount, previousPollInterval) -> cleanupPollInterval(consecutiveEmptySearches))
+        .pollDelay(Duration.ZERO)
         .ignoreException(ClientException.class)
         .until(() -> cleanupPoll(consecutiveEmptySearches));
+  }
+
+  protected Duration cleanupPollInterval(AtomicInteger consecutiveEmptySearches) {
+    return consecutiveEmptySearches.get() == 0
+        ? CLEANUP_POLL_INTERVAL
+        : CLEANUP_CONFIRMATION_POLL_INTERVAL;
   }
 
   protected boolean cleanupPoll(AtomicInteger consecutiveEmptySearches) {
@@ -62,7 +76,7 @@ public class ProcessInstanceCleanup {
         if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
           camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
-          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
+          deleteTerminalProcessInstance(processInstance.getProcessInstanceKey());
         }
       } catch (ClientStatusException | ProblemException e) {
         if (e.getMessage() == null || !e.getMessage().contains("NOT_FOUND")) {
@@ -73,13 +87,54 @@ public class ProcessInstanceCleanup {
     }
   }
 
+  protected void deleteTerminalProcessInstance(long processInstanceKey) {
+    // The Camunda 8.8 Java client has no command for deleting terminal process instances.
+    final var configuration = camundaClient.getConfiguration();
+    final String restAddress = configuration.getRestAddress().toString();
+    final URI endpoint =
+        URI.create(
+            restAddress
+                + (restAddress.endsWith("/") ? "" : "/")
+                + "v1/process-instances/"
+                + processInstanceKey);
+    final HttpRequest.Builder requestBuilder =
+        HttpRequest.newBuilder(endpoint).timeout(configuration.getDefaultRequestTimeout()).DELETE();
+
+    try {
+      configuration.getCredentialsProvider().applyCredentials(requestBuilder::header);
+      final HttpResponse<Void> response = executeDelete(requestBuilder.build());
+      if (response.statusCode() == 404) {
+        return;
+      }
+      if (response.statusCode() >= 400) {
+        throw new ClientException(
+            "Failed to delete process instance "
+                + processInstanceKey
+                + " via Operate API: HTTP "
+                + response.statusCode());
+      }
+    } catch (IOException e) {
+      throw new ClientException(
+          "Failed to delete process instance " + processInstanceKey + " via Operate API", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ClientException(
+          "Interrupted while deleting process instance " + processInstanceKey + " via Operate API",
+          e);
+    }
+  }
+
+  protected HttpResponse<Void> executeDelete(HttpRequest request)
+      throws IOException, InterruptedException {
+    return HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.discarding());
+  }
+
   protected List<ProcessInstance> findAllProcessInstances() {
     List<ProcessInstance> items = new ArrayList<>();
     String cursor = null;
 
     while (true) {
       final var request = camundaClient.newProcessInstanceSearchRequest();
-      request.filter(filter -> filter.state(ProcessInstanceState.ACTIVE));
       if (cursor != null) {
         final String pageCursor = cursor;
         request.page(page -> page.after(pageCursor));
