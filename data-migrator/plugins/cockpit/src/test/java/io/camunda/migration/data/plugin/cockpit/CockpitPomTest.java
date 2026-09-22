@@ -16,6 +16,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 public class CockpitPomTest {
@@ -32,15 +33,46 @@ public class CockpitPomTest {
 
     Document document = createDocumentBuilderFactory().newDocumentBuilder().parse(flattenedPom.toFile());
     NodeList dependencies = document.getElementsByTagNameNS("*", "dependency");
+    Element camundaWebapp = null;
     List<Element> jacksonDependencies = new ArrayList<>();
 
     for (int i = 0; i < dependencies.getLength(); i++) {
       Element dependency = (Element) dependencies.item(i);
-      if ("com.fasterxml.jackson.core".equals(childText(dependency, "groupId"))
+      if ("org.camunda.bpm.webapp".equals(childText(dependency, "groupId"))
+          && "camunda-webapp".equals(childText(dependency, "artifactId"))) {
+        camundaWebapp = dependency;
+      } else if ("com.fasterxml.jackson.core".equals(childText(dependency, "groupId"))
           && "jackson-databind".equals(childText(dependency, "artifactId"))) {
         jacksonDependencies.add(dependency);
       }
     }
+
+    assertThat(camundaWebapp)
+        .as("The flattened Cockpit POM must declare camunda-webapp directly")
+        .isNotNull();
+    Element exclusions = childElement(camundaWebapp, "exclusions");
+    assertThat(exclusions)
+        .as("The flattened Cockpit POM must declare camunda-webapp exclusions")
+        .isNotNull();
+    boolean excludesJacksonDatabind = false;
+    NodeList exclusionNodes = exclusions.getChildNodes();
+    for (int i = 0; i < exclusionNodes.getLength(); i++) {
+      Node node = exclusionNodes.item(i);
+      if (node.getNodeType() != Node.ELEMENT_NODE
+          || !"exclusion".equals(node.getLocalName())) {
+        continue;
+      }
+
+      Element exclusion = (Element) node;
+      if ("com.fasterxml.jackson.core".equals(childText(exclusion, "groupId"))
+          && "jackson-databind".equals(childText(exclusion, "artifactId"))) {
+        excludesJacksonDatabind = true;
+        break;
+      }
+    }
+    assertThat(excludesJacksonDatabind)
+        .as("Camunda webapp must exclude transitive Jackson databind")
+        .isTrue();
 
     assertThat(jacksonDependencies)
         .as("The flattened Cockpit POM must publish one direct Jackson databind dependency")
@@ -71,8 +103,19 @@ public class CockpitPomTest {
   }
 
   protected static String childText(Element element, String name) {
-    NodeList elements = element.getElementsByTagNameNS("*", name);
-    assertThat(elements.getLength()).as("Dependency must contain %s", name).isGreaterThan(0);
-    return elements.item(0).getTextContent().trim();
+    Element child = childElement(element, name);
+    assertThat(child).as("Element must contain %s", name).isNotNull();
+    return child.getTextContent().trim();
+  }
+
+  protected static Element childElement(Element element, String name) {
+    NodeList children = element.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      Node node = children.item(i);
+      if (node.getNodeType() == Node.ELEMENT_NODE && name.equals(node.getLocalName())) {
+        return (Element) node;
+      }
+    }
+    return null;
   }
 }
