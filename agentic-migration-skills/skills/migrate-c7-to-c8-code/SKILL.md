@@ -287,13 +287,17 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
-13. **Build wiring** — when a migrated module has a runtime Spring Boot entry point, verify that its
-    build exposes a supported run command and packages an executable artifact. For Maven, the
-    `spring-boot-maven-plugin` must be declared in the effective module build, not only in
-    `pluginManagement`, and its existing configuration must remain intact. When no runtime entry
-    point exists, do not add an application plugin. Record the selected launch commands, plugin
-    source, package check, and any test-only or externally managed execution path in
-    `MIGRATION_REPORT.md`. See `references/build-wiring.md`.
+13. **Build wiring** — apply the validation branch in `references/build-wiring.md`:
+    - For a runtime Maven application, verify a supported run command and an executable artifact.
+      Declare the `spring-boot-maven-plugin` in the effective module build, not only in
+      `pluginManagement`. Preserve its existing configuration.
+    - For an externally managed Maven application, apply the same checks only when the external
+      launcher requires an executable artifact. Otherwise, record the external launch command and
+      mark Maven launch, plugin, and artifact checks as not applicable.
+    - For a test-only module or a module without a runtime entry point, record its supported test or
+      non-application path and do not add an application plugin.
+    Record the selected launch commands, plugin source, package check, and any test-only or
+    externally managed execution path in `MIGRATION_REPORT.md`.
 
 Check these pitfalls as well:
 

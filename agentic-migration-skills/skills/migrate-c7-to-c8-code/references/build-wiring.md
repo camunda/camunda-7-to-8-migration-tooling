@@ -29,7 +29,7 @@ When a Maven module has a runtime Spring Boot entry point, apply the following d
 
 | Effective Maven state | Required action |
 |---|---|
-| `spring-boot-maven-plugin` is declared under `build/plugins` with a direct or effective managed version | Keep its version, executions, and configuration. Add only missing run or packaging configuration. |
+| `spring-boot-maven-plugin` is declared under `build/plugins` with a direct or effective managed version | Keep a compatible version, executions, and configuration. If the version is stale for the selected Spring Boot major, update only the version. Add only missing run or packaging configuration. |
 | `spring-boot-maven-plugin` is declared under `build/plugins` without a direct or effective managed version | Add the selected Spring Boot version. Record its source and compatibility check. Keep existing executions and configuration. |
 | The plugin is absent from `build/plugins`, and a direct or effective managed version exists in `build/pluginManagement` or a parent | Add the plugin under the module's `build/plugins` and inherit the managed version. |
 | No plugin declaration or direct/effective managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
@@ -46,6 +46,9 @@ management, import a compatible `spring-boot-dependencies` BOM and manage the Ma
 Preserve existing plugin executions and configuration. Merge only the minimum required properties.
 Declare the plugin so `mvn spring-boot:run` resolves without a fully qualified temporary plugin
 invocation.
+
+Compare every existing plugin version with the selected Spring Boot major. Record the compatibility
+check and its result. Update only a stale version to a compatible version.
 
 Ensure the effective build invokes `repackage` during `package`, either through an existing
 execution or through a minimal execution added to the plugin. Do not add a second `repackage`
