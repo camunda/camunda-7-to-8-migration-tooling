@@ -181,7 +181,7 @@ categories:
           <bpmn:startEvent id="startEvent"/>
         expectedBpmn: |
           <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
-        expectedMessages: |
+        expectedMessages: ""
       - name: Execution Listener on BPMN start event
         givenBpmn: |
           <bpmn:startEvent id="startEvent">
