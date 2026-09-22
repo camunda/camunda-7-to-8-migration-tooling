@@ -127,6 +127,10 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     return variableName;
                 }
 
+                private Object retainedHelper(DelegateExecution execution) {
+                    return execution.getVariableLocal("retainedValue");
+                }
+
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public Map<String, Object> executeJob(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();
@@ -157,6 +161,10 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 private String getVariableLocal(String variableName) {
                     return variableName;
+                }
+
+                private Object retainedHelper(DelegateExecution execution) {
+                    return execution.getVariableLocal("retainedValue");
                 }
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)

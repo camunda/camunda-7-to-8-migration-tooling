@@ -261,7 +261,7 @@ public class MigrateExecutionRecipe extends Recipe {
             if (method == null
                 || method.getBody() == null
                 || !method.getBody().getId().equals(block.getId())
-                || isOriginalDelegateMethod(method)) {
+                || !isCopiedJobWorkerMethod(method)) {
               return super.visitBlock(block, ctx);
             }
 
@@ -283,7 +283,7 @@ public class MigrateExecutionRecipe extends Recipe {
           @Override
           public J.MethodInvocation visitMethodInvocation(
               J.MethodInvocation invocation, ExecutionContext ctx) {
-            if (isOriginalDelegateMethod()) {
+            if (!isCopiedJobWorkerMethod()) {
               return super.visitMethodInvocation(invocation, ctx);
             }
 
@@ -367,15 +367,14 @@ public class MigrateExecutionRecipe extends Recipe {
                                 .contains(LOCAL_VARIABLE_LOOKUP_TODO.trim()));
           }
 
-          private boolean isOriginalDelegateMethod() {
+          private boolean isCopiedJobWorkerMethod() {
             J.MethodDeclaration method =
                 getCursor().firstEnclosing(J.MethodDeclaration.class);
-            return method != null && isOriginalDelegateMethod(method);
+            return method != null && isCopiedJobWorkerMethod(method);
           }
 
-          private boolean isOriginalDelegateMethod(J.MethodDeclaration method) {
-            return "execute".equals(method.getSimpleName())
-                || "notify".equals(method.getSimpleName());
+          private boolean isCopiedJobWorkerMethod(J.MethodDeclaration method) {
+            return "executeJobMigrated".equals(method.getSimpleName());
           }
         }
             .visit(classDeclaration, ctx, parentCursor);
