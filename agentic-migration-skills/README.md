@@ -90,13 +90,15 @@ The skill recommends a model built for complex reasoning. Example identifiers ar
 |----------|-------------|
 | **AI only (AI-first)** *(recommended with a capable coding model)* | The skill applies the pattern catalog directly to the source. Use it for semantic, mixed, or complex Java code. Model quality affects the result. |
 | **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
-| **Assessment only** | Scans the codebase and reports the files, the complexity, and an effort estimate. No code changes |
+| **Assessment only** | Scans the codebase, reports the files, complexity, and effort estimate, and validates existing target configuration without changing source files. |
 
 Compare the code paths on representative classes when practical. Recipes help with repeated,
 well-supported syntactic changes. They can hurt by adding cleanup for semantic or mixed
 delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
-Review and validation remain mandatory for both migration paths.
+Configuration binding validation is mandatory for both migration paths. The skill checks the
+selected Camunda Spring Boot starter without connecting to a cluster. Review and other validation
+remain mandatory.
 
 **Model migration (BPMN/DMN):**
 
