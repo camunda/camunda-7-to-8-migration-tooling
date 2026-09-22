@@ -26,6 +26,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.beans.BeanUtils;
@@ -347,8 +348,31 @@ final class CamundaClientConfigurationValidation {
   }
 
   private static PropertyReference propertyReference(String key) {
-    String normalizedKey = COLLECTION_INDEX_PATTERN.matcher(key).replaceAll("");
-    return new PropertyReference(propertyName(normalizedKey), !normalizedKey.equals(key));
+    Matcher matcher = COLLECTION_INDEX_PATTERN.matcher(key);
+    StringBuilder normalizedKey = new StringBuilder();
+    int previousEnd = 0;
+    boolean indexed = false;
+    while (matcher.find()) {
+      if (isMapPropertyPrefix(key.substring(0, matcher.start()))) {
+        normalizedKey.append(key, previousEnd, matcher.end());
+      } else {
+        normalizedKey.append(key, previousEnd, matcher.start());
+        indexed = true;
+      }
+      previousEnd = matcher.end();
+    }
+    normalizedKey.append(key, previousEnd, key.length());
+    return new PropertyReference(propertyName(normalizedKey.toString()), indexed);
+  }
+
+  private static boolean isMapPropertyPrefix(String prefix) {
+    String propertyPrefix =
+        prefix.endsWith(".") ? prefix.substring(0, prefix.length() - 1) : prefix;
+    return !propertyPrefix.isEmpty()
+        && CLIENT_PROPERTY_METADATA
+            .property(propertyName(propertyPrefix))
+            .map(PropertyMetadata::map)
+            .orElse(false);
   }
 
   private static boolean isCollectionType(String type) {
