@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.runtime;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.SearchResponsePage;
 import java.util.Date;
 import java.util.function.Supplier;
@@ -27,7 +28,11 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
 
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response =
+        () -> camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -61,7 +66,11 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     // when
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response =
+        () -> camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .page();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(5);
@@ -79,7 +88,11 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
 
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response =
+        () -> camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -106,7 +119,11 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
 
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response =
+        () -> camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(0);
@@ -131,7 +148,11 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
 
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response =
+        () -> camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -157,7 +178,11 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
 
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response =
+        () -> camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(0);

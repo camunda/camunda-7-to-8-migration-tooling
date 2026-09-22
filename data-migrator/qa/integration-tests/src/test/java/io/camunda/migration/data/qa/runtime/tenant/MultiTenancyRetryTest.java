@@ -12,7 +12,9 @@ import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_C8_
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
+
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
@@ -88,7 +90,10 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
     var c8ProcessInstance = client.newProcessInstanceSearchRequest()
-        .filter(f -> f.tenantId(TENANT_ID_2))
+        .filter(f -> {
+          f.tenantId(TENANT_ID_2);
+          f.state(ProcessInstanceState.ACTIVE);
+        })
         .send()
         .join()
         .items()

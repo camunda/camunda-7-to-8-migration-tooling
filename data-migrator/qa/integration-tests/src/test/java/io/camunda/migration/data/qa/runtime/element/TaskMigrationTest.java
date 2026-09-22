@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.process.test.api.CamundaAssert;
 
@@ -68,7 +69,11 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
     runtimeMigrator.start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances =
+        camundaClient.newProcessInstanceSearchRequest()
+            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+            .execute()
+            .items();
     assertEquals(1, processInstances.size());
     ProcessInstance processInstance = processInstances.getFirst();
     assertEquals(simpleProcess.getProcessDefinitionKey(), processInstance.getProcessDefinitionId());

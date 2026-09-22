@@ -17,6 +17,7 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -87,13 +88,12 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
 
-    assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
-    var c8VariableTenant = client.newVariableSearchRequest()
-        .filter(f -> f.name("myVar"))
-        .send()
-        .join()
-        .items()
-        .getFirst()
+    var c8ProcessInstance = assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
+    var c8VariableTenant = getVariableByScope(
+            c8ProcessInstance.getProcessInstanceKey(),
+            c8ProcessInstance.getProcessInstanceKey(),
+            "myVar")
+        .orElseThrow()
         .getTenantId();
     assertThat(c8VariableTenant).isEqualTo(C8_DEFAULT_TENANT);
   }
@@ -174,9 +174,13 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
             formatMessage(TENANT_ID_ERROR, TENANT_ID_2)));
   }
 
-  protected void assertProcessInstanceState(String tenantId, String c7instance, int variableValue) {
+  protected io.camunda.client.api.search.response.ProcessInstance assertProcessInstanceState(
+      String tenantId, String c7instance, int variableValue) {
     var c8ProcessInstance = client.newProcessInstanceSearchRequest()
-        .filter(f -> f.tenantId(tenantId))
+        .filter(f -> {
+          f.tenantId(tenantId);
+          f.state(ProcessInstanceState.ACTIVE);
+        })
         .send()
         .join()
         .items()
@@ -186,5 +190,6 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         .hasActiveElements("userTask1")
         .hasVariable(LEGACY_ID_VAR_NAME, c7instance)
         .hasVariable("myVar", variableValue);
+    return c8ProcessInstance;
   }
 }

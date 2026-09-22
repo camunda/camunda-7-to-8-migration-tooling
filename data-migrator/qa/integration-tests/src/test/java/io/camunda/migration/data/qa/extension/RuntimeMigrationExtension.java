@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
@@ -153,13 +154,31 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     if (camundaClient == null) {
       return Optional.empty();
     }
-    List<Variable> variables = camundaClient.newVariableSearchRequest().execute().items();
+    String cursor = null;
 
-    return variables.stream()
-        .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
-        .filter(v -> v.getScopeKey().equals(scopeKey))
-        .filter(v -> v.getName().equals(variableName))
-        .findFirst();
+    while (true) {
+      final var request = camundaClient.newVariableSearchRequest();
+      if (cursor != null) {
+        final String pageCursor = cursor;
+        request.page(page -> page.after(pageCursor));
+      }
+
+      final var response = request.execute();
+      Optional<Variable> variable = response.items().stream()
+          .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
+          .filter(v -> v.getScopeKey().equals(scopeKey))
+          .filter(v -> v.getName().equals(variableName))
+          .findFirst();
+      if (variable.isPresent()) {
+        return variable;
+      }
+
+      final String nextCursor = response.page().endCursor();
+      if (response.items().isEmpty() || nextCursor == null || nextCursor.equals(cursor)) {
+        return Optional.empty();
+      }
+      cursor = nextCursor;
+    }
   }
 
   public void assertThatProcessInstanceCountIsEqualTo(int expected) {
@@ -168,7 +187,13 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
       throw new IllegalStateException("CamundaClient is not available in the Spring context");
     }
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items().size()).isEqualTo(expected);
+      assertThat(
+              camundaClient.newProcessInstanceSearchRequest()
+                  .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                  .execute()
+                  .items()
+                  .size())
+          .isEqualTo(expected);
     });
   }
 }
