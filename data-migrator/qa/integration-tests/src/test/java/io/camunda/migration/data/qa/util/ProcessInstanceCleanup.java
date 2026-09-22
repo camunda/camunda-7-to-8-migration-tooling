@@ -28,7 +28,6 @@ public class ProcessInstanceCleanup {
 
   protected static final Duration CLEANUP_TIMEOUT = Duration.ofSeconds(120);
   protected static final Duration CLEANUP_POLL_INTERVAL = Duration.ofSeconds(2);
-  protected static final Duration CLEANUP_CONFIRMATION_POLL_INTERVAL = Duration.ofMillis(100);
   protected static final int REQUIRED_CONSECUTIVE_EMPTY_SEARCHES = 3;
   protected static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
   protected final CamundaClient camundaClient;
@@ -48,9 +47,7 @@ public class ProcessInstanceCleanup {
   }
 
   protected Duration cleanupPollInterval(AtomicInteger consecutiveEmptySearches) {
-    return consecutiveEmptySearches.get() == 0
-        ? CLEANUP_POLL_INTERVAL
-        : CLEANUP_CONFIRMATION_POLL_INTERVAL;
+    return CLEANUP_POLL_INTERVAL;
   }
 
   protected boolean cleanupPoll(AtomicInteger consecutiveEmptySearches) {
