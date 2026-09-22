@@ -23,6 +23,10 @@ Use `excluded` only when the process is not a valid standalone entry point. Reco
 required parent or trigger, and the alternative scenario that covers the process in the report.
 Treat a missing exclusion reason as a validation failure.
 
+Use `blocked` when a valid standalone entry point cannot run because a required prerequisite is
+unavailable. Record the blocker, its owner, and the next action in a blocked scenario row. A blocked
+verdict records incomplete coverage.
+
 ## Generate scenarios
 
 Create at least these scenarios for every tested executable definition:
@@ -105,9 +109,9 @@ Add this section to `MIGRATION_REPORT.md`:
 ```markdown
 ## Executable entry-point validation
 
-| Process ID | Scenario ID | Input set | Verdict | Failing element | Job type | Incident | Retry state | Expected after fix |
+| Process ID | Scenario ID | Input set | Verdict | Failing element | Job type | Incident or blocker | Retry state | Expected after fix |
 |---|---|---|---|---|---|---|---|---|
-| `<process-id>` | `<scenario-id>` | `<inputs or omitted>` | `tested` or `excluded` | `<element or n/a>` | `<type or n/a>` | `<message or none>` | `<retries or n/a>` | `<completion and variables>` |
+| `<process-id>` | `<scenario-id>` | `<inputs or omitted>` | `tested`, `excluded`, or `blocked` | `<element or n/a>` | `<type or n/a>` | `<message, or blocker with owner and next action>` | `<retries or n/a>` | `<completion and variables>` |
 
 ### Exclusions
 
@@ -116,5 +120,10 @@ Add this section to `MIGRATION_REPORT.md`:
 | `<process-id>` | `<why direct start is invalid>` | `<parent or trigger>` | `<scenario-id>` |
 ```
 
+For a blocked scenario, use `n/a` for unavailable failure fields. Record the blocker, its owner, and
+the next action in the `Incident or blocker` field.
+
 Do not mark an excluded process as tested. Do not close the validation section while any executable
-definition lacks a scenario or a justified exclusion.
+definition lacks a scenario or a justified exclusion. A blocked verdict records an open prerequisite
+and does not close the validation requirement. Resolve the blocker before closing the section or
+record a justified exclusion.
