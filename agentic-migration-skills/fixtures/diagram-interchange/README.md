@@ -26,29 +26,39 @@ skill must not invent a layout for that source.
 3. Require the skill to parse and inventory source DI before rewriting.
 4. Require the skill to write converted copies named
    `converted-c8-bpmn-di-c7.bpmn` and `converted-c8-no-di-c7.bpmn`.
-5. Run the structural checks with a Python 3 command that matches your platform:
+5. Run the structural checks with Python 3.
 
-   ```text
-   <python3-command> verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
-   <python3-command> verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
+   On macOS or Linux, run:
+
+   ```sh
+   python3 verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
+   python3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
+   ```
+
+   On Windows PowerShell, run:
+
+   ```powershell
+   py -3 verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
+   py -3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
    ```
 
 6. Install the BPMN lint dependencies once.
+   Run `npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat`.
 7. Create a `.bpmnlintrc` file with this JSON content:
 
    ```json
    {
-    "extends": [
-      "bpmnlint:recommended",
-      "plugin:camunda-compat/camunda-cloud-8-9"
-    ],
-    "moddleExtensions": {
-      "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
-    }
+     "extends": [
+       "bpmnlint:recommended",
+       "plugin:camunda-compat/camunda-cloud-8-9"
+     ],
+     "moddleExtensions": {
+       "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
+     }
    }
    ```
 
-8. Run `bpmnlint` for `converted-c8-bpmn-di-c7.bpmn`.
+8. Run `npx bpmnlint converted-c8-bpmn-di-c7.bpmn`.
 9. Capture the lint output in `bpmn-di-lint.log`.
 10. Fail the evaluation if `bpmnlint` returns a non-zero exit code.
 11. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
