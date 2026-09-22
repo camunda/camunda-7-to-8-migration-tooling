@@ -39,8 +39,14 @@
       <classifier>classes</classifier>
       <version>${version.camunda-7}</version>
       <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
-    <!-- Keep the fixed Jackson version in the published POM without bundling it. -->
+    <!-- Keep Jackson host-provided while publishing a fixed version for dependency mediation. -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
