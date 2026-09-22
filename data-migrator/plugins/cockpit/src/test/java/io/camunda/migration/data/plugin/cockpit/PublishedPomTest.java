@@ -23,7 +23,7 @@ public class PublishedPomTest {
   private static final String FIXED_JACKSON_DATABIND_VERSION = "2.22.2";
 
   @Test
-  public void publishesFixedJacksonDatabindAndExcludesCamundaWebappDependency()
+  public void publishesFixedJacksonDatabindDependencyAndCamundaWebappExclusion()
       throws Exception {
     DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
     documentBuilderFactory.setNamespaceAware(true);
