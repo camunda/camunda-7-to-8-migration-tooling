@@ -10,6 +10,7 @@ package io.camunda.migration.code.recipes.config;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
@@ -33,8 +34,8 @@ public class ValidateCamundaClientYaml extends Recipe {
 
   @Override
   public @NonNull String getDescription() {
-    return "Marks unsupported Camunda client modes and authentication property shapes, and marks"
-        + " legacy Zeebe property aliases as deprecated.";
+    return "Validates Camunda client configuration values and shapes against the target starter,"
+        + " and marks legacy Zeebe property aliases as deprecated.";
   }
 
   @Override
@@ -42,6 +43,9 @@ public class ValidateCamundaClientYaml extends Recipe {
     return new YamlIsoVisitor<>() {
       @Override
       public Yaml.Mapping visitMapping(Yaml.Mapping mapping, ExecutionContext ctx) {
+        if (isSequenceElement(getCursor())) {
+          return mapping;
+        }
         Yaml.Mapping m = super.visitMapping(mapping, ctx);
         String parentPath = ancestorPath(getCursor());
         return m.withEntries(
@@ -53,16 +57,33 @@ public class ValidateCamundaClientYaml extends Recipe {
                     if (entry.getValue() instanceof Yaml.Sequence sequence) {
                       List<String> scalarValues =
                           sequence.getEntries().stream()
+                              .map(Yaml.Sequence.Entry::getBlock)
                               .filter(Yaml.Scalar.class::isInstance)
                               .map(Yaml.Scalar.class::cast)
                               .map(Yaml.Scalar::getValue)
                               .toList();
-                      if (scalarValues.size() == sequence.getEntries().size()) {
-                        return CamundaClientConfigurationValidation.sequenceFinding(
-                                key, scalarValues)
-                            .map(message -> SearchResult.found(entry, message))
-                            .orElse(entry);
+                      Optional<String> sequenceFinding =
+                          CamundaClientConfigurationValidation.sequenceFinding(key, scalarValues);
+                      if (sequenceFinding.isPresent()) {
+                        return SearchResult.found(entry, sequenceFinding.get());
                       }
+                      for (Yaml.Sequence.Entry sequenceEntry : sequence.getEntries()) {
+                        Yaml.Block element = sequenceEntry.getBlock();
+                        if (element instanceof Yaml.Scalar) {
+                          continue;
+                        }
+                        CamundaClientConfigurationValidation.ValueShape elementShape =
+                            element instanceof Yaml.Sequence
+                                ? CamundaClientConfigurationValidation.ValueShape.SEQUENCE
+                                : CamundaClientConfigurationValidation.ValueShape.MAPPING;
+                        Optional<String> elementFinding =
+                            CamundaClientConfigurationValidation.sequenceElementFinding(
+                                key, elementShape);
+                        if (elementFinding.isPresent()) {
+                          return SearchResult.found(entry, elementFinding.get());
+                        }
+                      }
+                      return entry;
                     }
                     if (entry.getValue() instanceof Yaml.Mapping nestedMapping) {
                       if (CamundaClientConfigurationValidation.isAuthenticationContainer(key)
@@ -72,11 +93,8 @@ public class ValidateCamundaClientYaml extends Recipe {
                         return entry;
                       }
                     }
-                    CamundaClientConfigurationValidation.ValueShape valueShape =
-                        entry.getValue() instanceof Yaml.Sequence
-                            ? CamundaClientConfigurationValidation.ValueShape.SEQUENCE
-                            : CamundaClientConfigurationValidation.ValueShape.MAPPING;
-                    return CamundaClientConfigurationValidation.shapeFinding(key, valueShape)
+                    return CamundaClientConfigurationValidation.shapeFinding(
+                            key, CamundaClientConfigurationValidation.ValueShape.MAPPING)
                         .map(message -> SearchResult.found(entry, message))
                         .orElse(entry);
                   }
@@ -98,6 +116,17 @@ public class ValidateCamundaClientYaml extends Recipe {
       cursor = cursor.getParent();
     }
     return String.join(".", parts);
+  }
+
+  private static boolean isSequenceElement(Cursor cursor) {
+    Cursor parent = cursor.getParent();
+    while (parent != null) {
+      if (parent.getValue() instanceof Yaml.Sequence.Entry) {
+        return true;
+      }
+      parent = parent.getParent();
+    }
+    return false;
   }
 
   private static String join(String parentPath, String key) {
