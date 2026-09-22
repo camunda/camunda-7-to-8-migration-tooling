@@ -104,9 +104,13 @@ final class CamundaClientConfigurationValidation {
     if (indexed && !propertyMetadata.get().collection()) {
       return Optional.of(unsupportedScalarShapeFinding(key));
     }
-    return bindingCandidate(value)
-        .filter(candidate -> !isBindable(propertyMetadata.get(), candidate, indexed))
-        .map(ignored -> invalidValueFinding(key, propertyName, value));
+    Optional<String> candidate = bindingCandidate(value);
+    if (candidate.isEmpty()) {
+      return enumFinding(propertyName, value);
+    }
+    return !isBindable(propertyMetadata.get(), candidate.get(), indexed)
+        ? Optional.of(invalidValueFinding(key, propertyName, value))
+        : Optional.empty();
   }
 
   static Optional<String> sequenceFinding(String key, Iterable<String> values) {
@@ -202,6 +206,9 @@ final class CamundaClientConfigurationValidation {
   }
 
   private static boolean isUnsupportedEnumValue(String value, Stream<String> supportedValues) {
+    if (value.contains("${")) {
+      return false;
+    }
     String normalized = normalize(value);
     return supportedValues
         .map(CamundaClientConfigurationValidation::normalize)
@@ -363,25 +370,36 @@ final class CamundaClientConfigurationValidation {
 
   private static String invalidValueFinding(
       String key, ConfigurationPropertyName propertyName, String value) {
-    if (propertyName.equals(MODE) && isUnsupportedMode(value)) {
-      return "Invalid Camunda client mode '"
-          + value
-          + "'. Use 'self-managed' or 'saas' for "
-          + MODE
-          + ".";
-    }
-    if (propertyName.equals(AUTH_METHOD) && isUnsupportedAuthMethod(value)) {
-      return "Invalid Camunda client authentication method '"
-          + value
-          + "'. Use 'none', 'basic', or 'oidc' for "
-          + AUTH_METHOD
-          + ".";
+    Optional<String> enumFinding = enumFinding(propertyName, value);
+    if (enumFinding.isPresent()) {
+      return enumFinding.get();
     }
     return "Invalid Camunda client configuration value '"
         + value
         + "' for '"
         + key
         + "'. Review it against the target Camunda Spring Boot starter type.";
+  }
+
+  private static Optional<String> enumFinding(
+      ConfigurationPropertyName propertyName, String value) {
+    if (propertyName.equals(MODE) && isUnsupportedMode(value)) {
+      return Optional.of(
+          "Invalid Camunda client mode '"
+              + value
+              + "'. Use 'self-managed' or 'saas' for "
+              + MODE
+              + ".");
+    }
+    if (propertyName.equals(AUTH_METHOD) && isUnsupportedAuthMethod(value)) {
+      return Optional.of(
+          "Invalid Camunda client authentication method '"
+              + value
+              + "'. Use 'none', 'basic', or 'oidc' for "
+              + AUTH_METHOD
+              + ".");
+    }
+    return Optional.empty();
   }
 
   private static String unsupportedScalarShapeFinding(String key) {
