@@ -403,6 +403,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
+              <forkedProcessTimeoutInSeconds>4500</forkedProcessTimeoutInSeconds>
               <includes>
                 <include>**/distribution/**</include>
                 <include>**/persistence/**</include>

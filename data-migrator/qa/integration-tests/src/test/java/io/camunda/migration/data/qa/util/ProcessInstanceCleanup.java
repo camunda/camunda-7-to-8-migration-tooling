@@ -23,6 +23,7 @@ public class ProcessInstanceCleanup {
 
   protected static final Duration CLEANUP_TIMEOUT = Duration.ofSeconds(120);
   protected static final Duration CLEANUP_POLL_INTERVAL = Duration.ofSeconds(2);
+  protected static final Duration CLEANUP_CONFIRMATION_POLL_INTERVAL = Duration.ofMillis(100);
   protected static final int REQUIRED_CONSECUTIVE_EMPTY_SEARCHES = 3;
   protected final CamundaClient camundaClient;
 
@@ -34,9 +35,16 @@ public class ProcessInstanceCleanup {
     AtomicInteger consecutiveEmptySearches = new AtomicInteger();
     Awaitility.await()
         .atMost(CLEANUP_TIMEOUT)
-        .pollInterval(CLEANUP_POLL_INTERVAL)
+        .pollInterval((pollCount, previousPollInterval) -> cleanupPollInterval(consecutiveEmptySearches))
+        .pollDelay(Duration.ZERO)
         .ignoreException(ClientException.class)
         .until(() -> cleanupPoll(consecutiveEmptySearches));
+  }
+
+  protected Duration cleanupPollInterval(AtomicInteger consecutiveEmptySearches) {
+    return consecutiveEmptySearches.get() == 0
+        ? CLEANUP_POLL_INTERVAL
+        : CLEANUP_CONFIRMATION_POLL_INTERVAL;
   }
 
   protected boolean cleanupPoll(AtomicInteger consecutiveEmptySearches) {
@@ -62,7 +70,7 @@ public class ProcessInstanceCleanup {
         if (processInstance.getState() == ProcessInstanceState.ACTIVE) {
           camundaClient.newCancelInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         } else {
-          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
+          camundaClient.newDeleteProcessInstanceCommand(processInstance.getProcessInstanceKey()).execute();
         }
       } catch (ClientStatusException | ProblemException e) {
         if (e.getMessage() == null || !e.getMessage().contains("NOT_FOUND")) {
@@ -79,7 +87,6 @@ public class ProcessInstanceCleanup {
 
     while (true) {
       final var request = camundaClient.newProcessInstanceSearchRequest();
-      request.filter(filter -> filter.state(ProcessInstanceState.ACTIVE));
       if (cursor != null) {
         final String pageCursor = cursor;
         request.page(page -> page.after(pageCursor));

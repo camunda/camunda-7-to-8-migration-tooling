@@ -87,32 +87,39 @@ class ProcessInstanceCleanupTest {
   }
 
   @Test
-  void shouldFindProcessInstancesAcrossAllPages() {
+  void shouldUseTheLongIntervalUntilTheFirstEmptySearch() {
+    ProcessInstanceCleanup cleanup = new ProcessInstanceCleanup(null);
+
+    assertThat(cleanup.cleanupPollInterval(new AtomicInteger()))
+        .isEqualTo(ProcessInstanceCleanup.CLEANUP_POLL_INTERVAL);
+    assertThat(cleanup.cleanupPollInterval(new AtomicInteger(1)))
+        .isEqualTo(ProcessInstanceCleanup.CLEANUP_CONFIRMATION_POLL_INTERVAL);
+  }
+
+  @Test
+  void shouldFindProcessInstancesAcrossAllStatesAndPages() {
     CamundaClient camundaClient = mock(CamundaClient.class);
     ProcessInstanceSearchRequest searchRequest = mock(ProcessInstanceSearchRequest.class);
-    ProcessInstanceFilter processInstanceFilter = mock(ProcessInstanceFilter.class);
-    ProcessInstance firstPageInstance = processInstance(ProcessInstanceState.COMPLETED, 1L);
-    ProcessInstance secondPageInstance = processInstance(ProcessInstanceState.COMPLETED, 2L);
+    ProcessInstance activeInstance = processInstance(ProcessInstanceState.ACTIVE, 1L);
+    ProcessInstance completedInstance = processInstance(ProcessInstanceState.COMPLETED, 2L);
+    ProcessInstance terminatedInstance = processInstance(ProcessInstanceState.TERMINATED, 3L);
     SearchResponse<ProcessInstance> firstResponse =
-        searchResponse(List.of(firstPageInstance), "first-page");
+        searchResponse(List.of(activeInstance, completedInstance), "first-page");
     SearchResponse<ProcessInstance> secondResponse =
-        searchResponse(List.of(secondPageInstance), null);
+        searchResponse(List.of(terminatedInstance), null);
     when(camundaClient.newProcessInstanceSearchRequest()).thenReturn(searchRequest);
     when(searchRequest.filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any()))
-        .thenAnswer(invocation -> {
-          final Consumer<ProcessInstanceFilter> filter = invocation.getArgument(0);
-          filter.accept(processInstanceFilter);
-          return searchRequest;
-        });
+        .thenThrow(new AssertionError("cleanup must not filter process instances by state"));
     var responses = List.of(firstResponse, secondResponse).iterator();
     when(searchRequest.execute()).thenAnswer(invocation -> responses.next());
 
     assertThat(new ProcessInstanceCleanup(camundaClient).findAllProcessInstances())
-        .containsExactly(firstPageInstance, secondPageInstance);
+        .containsExactly(activeInstance, completedInstance, terminatedInstance);
 
     verify(camundaClient, times(2)).newProcessInstanceSearchRequest();
-    verify(processInstanceFilter, times(2)).state(ProcessInstanceState.ACTIVE);
     verify(searchRequest).page(org.mockito.ArgumentMatchers.<Consumer<AnyPage>>any());
+    verify(searchRequest, never())
+        .filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any());
   }
 
   @Test
@@ -120,15 +127,19 @@ class ProcessInstanceCleanupTest {
     CamundaClient camundaClient = mock(CamundaClient.class, RETURNS_DEEP_STUBS);
     ProcessInstance active = processInstance(ProcessInstanceState.ACTIVE, 1L);
     ProcessInstance completed = processInstance(ProcessInstanceState.COMPLETED, 2L);
+    ProcessInstance terminated = processInstance(ProcessInstanceState.TERMINATED, 3L);
     ProcessInstanceCleanup cleanup = new ProcessInstanceCleanup(camundaClient);
     clearInvocations(camundaClient);
 
-    cleanup.deleteProcessInstances(List.of(active, completed));
+    cleanup.deleteProcessInstances(List.of(active, completed, terminated));
 
     verify(camundaClient).newCancelInstanceCommand(1L);
-    verify(camundaClient, never()).newDeleteResourceCommand(1L);
-    verify(camundaClient).newDeleteResourceCommand(2L);
     verify(camundaClient, never()).newDeleteProcessInstanceCommand(1L);
+    verify(camundaClient).newDeleteProcessInstanceCommand(2L);
+    verify(camundaClient).newDeleteProcessInstanceCommand(3L);
+    verify(camundaClient, never()).newDeleteResourceCommand(1L);
+    verify(camundaClient, never()).newDeleteResourceCommand(2L);
+    verify(camundaClient, never()).newDeleteResourceCommand(3L);
   }
 
   protected ProcessInstance processInstance(ProcessInstanceState state, long key) {
