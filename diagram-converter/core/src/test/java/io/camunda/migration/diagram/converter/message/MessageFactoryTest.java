@@ -312,7 +312,7 @@ public class MessageFactoryTest {
     assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
     assertThat(message.getMessage())
         .isEqualTo(
-            "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess execution listener for the 'start' event. For earlier targets, use a manual migration.");
+            "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.");
     assertThat(message.getLink())
         .isEqualTo(
             "https://docs.camunda.io/docs/components/concepts/execution-listeners/#limitations");
