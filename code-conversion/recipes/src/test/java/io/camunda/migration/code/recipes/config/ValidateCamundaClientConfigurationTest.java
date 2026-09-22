@@ -378,6 +378,29 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void acceptsDottedBracketedWorkerMapKeyWithPeriods() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.worker.override.[worker.name].max-jobs-active=8
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsInvalidDottedBracketedWorkerMapKeyWithPeriods() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.worker.override.[worker.name].max-jobs-active=bogus
+            """,
+            """
+            ~~(Invalid Camunda client configuration value 'bogus' for 'camunda.client.worker.override.[worker.name].max-jobs-active'. Review it against the target Camunda Spring Boot starter type.)~~>camunda.client.worker.override.[worker.name].max-jobs-active=bogus
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void detectsInvalidDynamicWorkerOverrideYaml() {
     rewriteRun(
         yaml(
