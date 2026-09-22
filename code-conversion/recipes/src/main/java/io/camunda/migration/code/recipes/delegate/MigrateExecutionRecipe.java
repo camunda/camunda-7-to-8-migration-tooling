@@ -333,7 +333,7 @@ public class MigrateExecutionRecipe extends Recipe {
                   // "getVariable(String variableName)"
                   "org.camunda.bpm.engine.delegate.VariableScope getVariable(java.lang.String)"),
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariable(#{any(java.lang.String)})"),
+                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariablesAsMap().get(#{any(java.lang.String)})"),
               RecipeUtils.createSimpleIdentifier(
                   "job", "io.camunda.client.api.response.ActivatedJob"),
               null,
@@ -347,7 +347,7 @@ public class MigrateExecutionRecipe extends Recipe {
                   // "getVariableLocal(String variableName)"
                   "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)"),
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariable(#{any(java.lang.String)})"),
+                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariablesAsMap().get(#{any(java.lang.String)})"),
               RecipeUtils.createSimpleIdentifier(
                   "job", "io.camunda.client.api.response.ActivatedJob"),
               null,

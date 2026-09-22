@@ -48,6 +48,10 @@ public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 }
 ```
 
+For code that reads variables from `ActivatedJob`, use
+`job.getVariablesAsMap().get("comment")` when a missing variable must remain `null`.
+`job.getVariable("comment")` is strict and fails when the variable is unavailable.
+
 Remove `throws Exception` when the cleaned method no longer throws a checked exception. Keep a
 specific checked exception when the worker still requires it.
 

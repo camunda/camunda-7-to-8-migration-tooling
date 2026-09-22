@@ -69,7 +69,7 @@ public class RetrievePaymentAdapter {
 
 
     @Test
-    void logTest() {
+    void nullableVariableRead() {
     rewriteRun(
         java(
             """
@@ -105,7 +105,7 @@ public class RetrievePaymentAdapter {
             @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
             public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                 Map<String, Object> resultMap = new HashMap<>();
-                System.out.println("SampleJavaDelegate " + job.getVariable("x"));
+                System.out.println("SampleJavaDelegate " + job.getVariablesAsMap().get("x"));
                 resultMap.put("y", "hello world");
                 return resultMap;
             }
@@ -162,7 +162,7 @@ public class RetrievePaymentAdapter {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        Integer amount = (Integer) job.getVariable("AMOUNT");
+        Integer amount = (Integer) job.getVariablesAsMap().get("AMOUNT");
     
         String response = rest.postForObject("endpoint", amount, String.class);
 
@@ -254,29 +254,29 @@ public class TestDelegate {
         Map<String, Object> resultMap = new HashMap<>();
 
         System.out.println("C7 delegate called");
-        final var stringVariable = job.getVariable("stringVariable");
-        final var integerVariable = job.getVariable("integerVariable");
-        final var doubleVariable = job.getVariable("doubleVariable");
-        final var boolVariable = job.getVariable("boolVariable");
-        final var jsonVariable = job.getVariable("jsonVariable");
-        final var fileVariable = job.getVariable("fileVariable");
+        final var stringVariable = job.getVariablesAsMap().get("stringVariable");
+        final var integerVariable = job.getVariablesAsMap().get("integerVariable");
+        final var doubleVariable = job.getVariablesAsMap().get("doubleVariable");
+        final var boolVariable = job.getVariablesAsMap().get("boolVariable");
+        final var jsonVariable = job.getVariablesAsMap().get("jsonVariable");
+        final var fileVariable = job.getVariablesAsMap().get("fileVariable");
         // please check type
-        final Object stringVariableTyped = job.getVariable("stringVariable");
+        final Object stringVariableTyped = job.getVariablesAsMap().get("stringVariable");
         // please check type
-        final Object integerVariableTyped = job.getVariable("integerVariable");
+        final Object integerVariableTyped = job.getVariablesAsMap().get("integerVariable");
         // please check type
-        final Object doubleVariableTyped = job.getVariable("doubleVariable");
+        final Object doubleVariableTyped = job.getVariablesAsMap().get("doubleVariable");
         // please check type
-        final Object boolVariableTyped = job.getVariable("boolVariable");
+        final Object boolVariableTyped = job.getVariablesAsMap().get("boolVariable");
         // please check type
-        final Object jsonVariableTyped = job.getVariable("jsonVariable");
+        final Object jsonVariableTyped = job.getVariablesAsMap().get("jsonVariable");
         // please check type
-        final Object fileVariableTyped = job.getVariable("fileVariable");
-        final var stringVariableLocal = job.getVariable("stringVariableLocal");
-        final var integerVariableLocal = job.getVariable("integerVariableLocal");
-        final var doubleVariableLocal = job.getVariable("doubleVariableLocal");
-        final var boolVariableLocal = job.getVariable("boolVariableLocal");
-        final var jsonVariableLocal = job.getVariable("jsonVariableLocal");
+        final Object fileVariableTyped = job.getVariablesAsMap().get("fileVariable");
+        final var stringVariableLocal = job.getVariablesAsMap().get("stringVariableLocal");
+        final var integerVariableLocal = job.getVariablesAsMap().get("integerVariableLocal");
+        final var doubleVariableLocal = job.getVariablesAsMap().get("doubleVariableLocal");
+        final var boolVariableLocal = job.getVariablesAsMap().get("boolVariableLocal");
+        final var jsonVariableLocal = job.getVariablesAsMap().get("jsonVariableLocal");
 
         final String procInstanceId = String.valueOf(job.getProcessInstanceKey());
         final String procDefId = String.valueOf(job.getProcessDefinitionKey());

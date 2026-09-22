@@ -45,6 +45,32 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+### Preserve nullable variable reads
+
+Camunda 7 returns `null` when `DelegateExecution#getVariable` reads a variable that is not
+available. Use the variables map when the migrated code must preserve that behavior:
+
+```java
+    @JobWorker(type = "sampleJavaDelegate")
+    public Map<String, Object> handleJob(ActivatedJob job) {
+        Object comment = job.getVariablesAsMap().get("comment");
+        // continue when comment is null...
+        return Map.of("status", "processed");
+    }
+```
+
+Do not replace this access with `job.getVariable("comment")`: the job worker API raises an
+exception when the requested variable is unavailable. The OpenRewrite delegate migration recipe
+uses `job.getVariablesAsMap().get(...)` for migrated `getVariable` and `getVariableLocal` calls.
+When using Spring variable injection instead, mark an optional input explicitly:
+
+```java
+    @JobWorker(type = "sampleJavaDelegate")
+    public void handleJob(@Variable(name = "comment", optional = true) String comment) {
+        // comment is null when the process variable is unavailable
+    }
+```
+
 ### autoComplete = false (blocking)
 
 ```java
