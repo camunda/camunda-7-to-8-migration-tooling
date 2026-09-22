@@ -79,7 +79,7 @@ public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 ## 1. Dependencies and Configuration
 
 Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the `httpclient5` override, the SLF4J binding, the
+the starter choice by Spring Boot version, the startup validation, the SLF4J binding, the
 `@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
@@ -89,8 +89,8 @@ These items are not in the catalog:
 
 - If the project already pins a released GA Camunda 8 version in the selected target minor, keep it
   unless the user explicitly opts into a patch upgrade.
-- Check Spring Boot compatibility from the selected starter or BOM POM on Maven Central. Do not
-  assume a pairing works because both versions are "latest".
+- Check Spring Boot compatibility against the selected starter's version compatibility matrix. Do
+  not assume a pairing works because both versions are "latest".
 - Ensure Spring Boot dependency management is set through a parent or BOM before adding a Camunda
   starter.
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
@@ -103,7 +103,6 @@ These items are not in the catalog:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties or .yaml.
-
 ---
 
 ## 2. Client Code (ProcessEngine to CamundaClient)
