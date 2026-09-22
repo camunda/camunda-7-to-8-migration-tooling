@@ -49,11 +49,34 @@ metadata. The copy must not add a `zeebe:taskDefinition` for either user task.
 ## Runtime regression
 
 Deploy the converted BPMN to a Camunda 8.9 test target. Publish
-`instantiationMessage`, then query the user-task API. The process must expose
-both user tasks instead of a job with type `io.camunda.zeebe:userTask`.
+`instantiationMessage` with a `reviewer` variable, then query the user-task API.
+The assignment expression requires this variable. The process must expose both
+user tasks instead of a job with type `io.camunda.zeebe:userTask`.
 
 Complete `BareUserTask` and `AssignedUserTask` through the user-task API. The
 process must complete. A created legacy user-task job is a failed regression.
+
+Example c8ctl commands:
+
+```sh
+c8ctl deploy converted-c8-user-tasks-c7.bpmn --profile=local
+c8ctl publish msg instantiationMessage \
+  --variables='{"reviewer":"reviewer"}' \
+  --profile=local
+c8ctl list ut --profile=local --json
+c8ctl complete ut <bare-task-key> --variables='{}' --profile=local
+c8ctl list ut --profile=local --json
+c8ctl complete ut <assigned-task-key> --variables='{}' --profile=local
+c8ctl search jobs \
+  --type=io.camunda.zeebe:userTask \
+  --state=CREATED \
+  --profile=local \
+  --json
+c8ctl get pi <process-instance-key> --profile=local --json
+```
+
+If the `reviewer` variable is missing, Camunda 8.9 raises an
+`EXTRACT_VALUE_ERROR` incident when it creates `AssignedUserTask`.
 
 ## Review checklist
 
