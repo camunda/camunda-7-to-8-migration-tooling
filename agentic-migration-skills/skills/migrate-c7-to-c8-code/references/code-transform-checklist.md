@@ -79,7 +79,7 @@ public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 ## 1. Dependencies and Configuration
 
 Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the `httpclient5` override, the SLF4J binding, the
+the starter choice by Spring Boot version, the Apache HttpClient family check, the SLF4J binding, the
 `@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
@@ -103,6 +103,16 @@ These items are not in the catalog:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties or .yaml.
+- Before adding an Apache HttpClient override, resolve `httpclient5`, `httpcore5`, and `httpcore5-h2`
+  from the active dependency management. Compare the graph with the compatible family declared by
+  the selected `httpclient5` POM.
+- If the graph is compatible, add no override. If it is incompatible, manage all three artifacts
+  with the compatible family versions. Never copy an `httpclient5` version without its matching
+  HttpCore versions.
+- Treat an incompatible graph as a blocking finding in `MIGRATION_REPORT.md` until the family is
+  aligned. Record the compatible family and the resolved versions when the finding is closed.
+- If the compatible family cannot be determined, stop dependency validation and record a blocking
+  finding in `MIGRATION_REPORT.md`.
 
 ---
 

@@ -41,7 +41,35 @@ For Spring Boot applications, use `camunda-process-test-spring` with the Spring 
 
 If the project uses the temporary `camunda-process-test-spring-4` or `camunda-process-test-spring-boot-4` artifact names from Camunda 8.8, replace them with `camunda-process-test-spring`.
 
-**Spring Boot 3.5.x and Apache HttpClient**: Spring Boot 3.5.x may manage `org.apache.httpcomponents.client5:httpclient5` to `5.5.2`, while `io.camunda:camunda-client-java` 8.9.13 requires `5.6.1` or later for API compatibility. This mismatch can prevent the `CamundaClient` bean from starting with a `NoSuchMethodError`; `5.6.3` is the minimum version that also addresses CVE-2026-64607. Until the upstream dependency alignment is fixed, override the managed version in the application:
+**Apache HttpClient compatibility**: Resolve the selected `httpclient5` version from the Camunda client release and the active Spring Boot dependency management before adding an override. Inspect the selected `httpclient5` POM to identify its managed `httpcore5` and `httpcore5-h2` versions. Compare all three resolved artifacts with the expected family:
+
+```
+org.apache.httpcomponents.client5:httpclient5
+org.apache.httpcomponents.core5:httpcore5
+org.apache.httpcomponents.core5:httpcore5-h2
+```
+
+Use the following decision table:
+
+| Resolved graph | Action |
+|---|---|
+| `httpclient5`, `httpcore5`, and `httpcore5-h2` match the selected client's compatible family | Keep the graph and add no override. |
+| Any artifact differs from the compatible family | Manage all three artifacts with the versions declared by the selected client's POM. |
+| The compatible family cannot be determined | Stop dependency validation and record a blocking finding in `MIGRATION_REPORT.md`. |
+
+Treat an incompatible graph as a blocking finding in `MIGRATION_REPORT.md` until the complete family
+is aligned. Record the compatible family and the resolved versions when the finding is closed.
+
+For Maven, inspect the graph with:
+
+```
+mvn dependency:tree -Dverbose \
+	-Dincludes=org.apache.httpcomponents.client5:httpclient5,org.apache.httpcomponents.core5:httpcore5,org.apache.httpcomponents.core5:httpcore5-h2
+```
+
+For Gradle, inspect the graph with `dependencies` and `dependencyInsight` for each coordinate. Record the selected versions, the compatible family, and the commands in `MIGRATION_REPORT.md`.
+
+When the active dependency management selects an incompatible family, manage the complete family. Do not copy a version from another Spring Boot line:
 
 ```
 <dependencyManagement>
@@ -51,11 +79,21 @@ If the project uses the temporary `camunda-process-test-spring-4` or `camunda-pr
 			<artifactId>httpclient5</artifactId>
 			<version>5.6.3</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents.core5</groupId>
+			<artifactId>httpcore5</artifactId>
+			<version>5.4.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents.core5</groupId>
+			<artifactId>httpcore5-h2</artifactId>
+			<version>5.4.3</version>
+		</dependency>
 	</dependencies>
 </dependencyManagement>
 ```
 
-Verify the version required by the selected Camunda client release with `mvn dependency:tree -Dincludes=org.apache.httpcomponents.client5:httpclient5` before choosing the override.
+After the change, assert that the dependency tree contains one compatible version for each family member. Then boot a minimal Spring application that creates a `CamundaClient`; compilation alone does not validate binary compatibility.
 
 **Logging backend**: When removing Camunda 7 webapp/rest starters, keep an SLF4J binding. If those starters were your only logging source, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
 
