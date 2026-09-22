@@ -154,13 +154,31 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     if (camundaClient == null) {
       return Optional.empty();
     }
-    List<Variable> variables = camundaClient.newVariableSearchRequest().execute().items();
+    String cursor = null;
 
-    return variables.stream()
-        .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
-        .filter(v -> v.getScopeKey().equals(scopeKey))
-        .filter(v -> v.getName().equals(variableName))
-        .findFirst();
+    while (true) {
+      final var request = camundaClient.newVariableSearchRequest();
+      if (cursor != null) {
+        final String pageCursor = cursor;
+        request.page(page -> page.after(pageCursor));
+      }
+
+      final var response = request.execute();
+      Optional<Variable> variable = response.items().stream()
+          .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
+          .filter(v -> v.getScopeKey().equals(scopeKey))
+          .filter(v -> v.getName().equals(variableName))
+          .findFirst();
+      if (variable.isPresent()) {
+        return variable;
+      }
+
+      final String nextCursor = response.page().endCursor();
+      if (response.items().isEmpty() || nextCursor == null || nextCursor.equals(cursor)) {
+        return Optional.empty();
+      }
+      cursor = nextCursor;
+    }
   }
 
   public void assertThatProcessInstanceCountIsEqualTo(int expected) {
