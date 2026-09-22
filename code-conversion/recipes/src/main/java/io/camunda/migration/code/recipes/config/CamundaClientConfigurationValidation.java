@@ -56,6 +56,12 @@ final class CamundaClientConfigurationValidation {
               + MODE.toString()
               + ".");
     }
+    if (propertyName.equals(AUTH_PREFIX)) {
+      return Optional.of(
+          "Unsupported Camunda client configuration shape for '"
+              + key
+              + "'. Use nested authentication properties.");
+    }
     String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
     if (replacement != null) {
       return Optional.of(
@@ -77,6 +83,12 @@ final class CamundaClientConfigurationValidation {
 
   static Optional<String> shapeFinding(String key) {
     ConfigurationPropertyName propertyName = propertyName(key);
+    if (propertyName.equals(AUTH_PREFIX)) {
+      return Optional.of(
+          "Unsupported Camunda client configuration shape for '"
+              + key
+              + "'. Use nested authentication properties.");
+    }
     if (propertyName.equals(MODE) || SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
       return Optional.of(
           "Unsupported Camunda client configuration shape for '"
@@ -84,6 +96,10 @@ final class CamundaClientConfigurationValidation {
               + "'. Use a scalar value.");
     }
     return Optional.empty();
+  }
+
+  static boolean isAuthenticationRoot(String key) {
+    return propertyName(key).equals(AUTH_PREFIX);
   }
 
   private static boolean isUnsupportedMode(String value) {

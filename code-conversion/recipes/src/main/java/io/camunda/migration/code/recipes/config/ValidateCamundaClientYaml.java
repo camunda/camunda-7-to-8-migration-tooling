@@ -49,6 +49,10 @@ public class ValidateCamundaClientYaml extends Recipe {
                 entry -> {
                   String key = join(parentPath, entry.getKey().getValue());
                   if (!(entry.getValue() instanceof Yaml.Scalar value)) {
+                    if (entry.getValue() instanceof Yaml.Mapping
+                        && CamundaClientConfigurationValidation.isAuthenticationRoot(key)) {
+                      return entry;
+                    }
                     return CamundaClientConfigurationValidation.shapeFinding(key)
                         .map(message -> SearchResult.found(entry, message))
                         .orElse(entry);

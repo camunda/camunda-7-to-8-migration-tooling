@@ -177,6 +177,36 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void detectsScalarAuthenticationRoot() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.auth=basic
+            """,
+            """
+            ~~(Unsupported Camunda client configuration shape for 'camunda.client.auth'. Use nested authentication properties.)~~>camunda.client.auth=basic
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsSequenceAuthenticationRoot() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                auth: [basic]
+            """,
+            """
+            camunda:
+              client:
+                ~~(Unsupported Camunda client configuration shape for 'camunda.client.auth'. Use nested authentication properties.)~~>auth: [basic]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
   void bindsValidSelfManagedConfigurationWithoutStartingSpring() {
     CamundaClientProperties properties =
         bind(
