@@ -26,11 +26,11 @@ import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.SearchResponse;
 import io.camunda.client.api.search.response.SearchResponsePage;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
@@ -106,12 +106,12 @@ class ProcessInstanceCleanupTest {
         searchResponse(List.of(firstActiveInstance), "first-page");
     SearchResponse<ProcessInstance> secondResponse =
         searchResponse(List.of(secondActiveInstance), null);
-    AtomicReference<Consumer<ProcessInstanceFilter>> filterConsumer = new AtomicReference<>();
+    List<Consumer<ProcessInstanceFilter>> filterConsumers = new ArrayList<>();
     when(camundaClient.newProcessInstanceSearchRequest()).thenReturn(searchRequest);
     when(searchRequest.filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any()))
         .thenAnswer(
             invocation -> {
-              filterConsumer.set(invocation.getArgument(0));
+              filterConsumers.add(invocation.getArgument(0));
               return searchRequest;
             });
     var responses = List.of(firstResponse, secondResponse).iterator();
@@ -124,9 +124,12 @@ class ProcessInstanceCleanupTest {
     verify(searchRequest, times(2))
         .filter(org.mockito.ArgumentMatchers.<Consumer<ProcessInstanceFilter>>any());
     verify(searchRequest).page(org.mockito.ArgumentMatchers.<Consumer<SearchRequestPage>>any());
-    ProcessInstanceFilter filter = mock(ProcessInstanceFilter.class);
-    filterConsumer.get().accept(filter);
-    verify(filter).state(ProcessInstanceState.ACTIVE);
+    assertThat(filterConsumers).hasSize(2);
+    filterConsumers.forEach(filterConsumer -> {
+      ProcessInstanceFilter filter = mock(ProcessInstanceFilter.class);
+      filterConsumer.accept(filter);
+      verify(filter).state(ProcessInstanceState.ACTIVE);
+    });
   }
 
   @Test
