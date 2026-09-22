@@ -34,10 +34,21 @@ skill must not invent a layout for that source.
      no-di-c7.bpmn converted-c8-no-di-c7.bpmn
    ```
 
-6. Install the BPMN lint dependencies once, then lint the converted DI copy:
+6. Install the BPMN lint dependencies once, configure the target ruleset, then lint the converted DI copy:
 
    ```sh
    npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat
+   cat > .bpmnlintrc <<'EOF'
+   {
+     "extends": [
+       "bpmnlint:recommended",
+       "plugin:camunda-compat/camunda-cloud-8-9"
+     ],
+     "moddleExtensions": {
+       "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
+     }
+   }
+   EOF
    if ! npx bpmnlint converted-c8-bpmn-di-c7.bpmn > bpmn-di-lint.log 2>&1; then
      cat bpmn-di-lint.log
      exit 1
