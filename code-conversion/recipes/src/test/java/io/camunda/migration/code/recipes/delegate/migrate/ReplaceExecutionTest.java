@@ -131,6 +131,10 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     return execution.getVariableLocal("retainedValue");
                 }
 
+                private String getVariableLocalRequiresManualMigration(String variableName) {
+                    return variableName;
+                }
+
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public Map<String, Object> executeJob(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();
@@ -167,16 +171,20 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     return execution.getVariableLocal("retainedValue");
                 }
 
+                private String getVariableLocalRequiresManualMigration(String variableName) {
+                    return variableName;
+                }
+
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();
                     // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-                    Object localValue = getVariableLocalRequiresManualMigration("localValue");
+                    Object localValue = getVariableLocalRequiresManualMigration1("localValue");
                     String helperValue = getVariableLocal("helperValue");
                     return resultMap;
                 }
 
-                private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+                private static <T> T getVariableLocalRequiresManualMigration1(String variableName) {
                     throw new UnsupportedOperationException(
                             "Manual migration required for getVariableLocal: " + variableName);
                 }
@@ -225,6 +233,20 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 private void consume(String value) {
                 }
+
+                private String readConditional(
+                    boolean condition, ActivatedJob job, DelegateExecution execution) {
+                    return condition ? execution.getVariable("conditional") : "fallback";
+                }
+
+                private void consumeStrings(
+                    ActivatedJob job, DelegateExecution execution, java.util.List<String> values) {
+                    consumeValues(java.util.List.of(execution.getVariable("generic")));
+                }
+
+                private void consumeValues(java.util.List<String> values) {
+                }
+
             }
             """,
             """
@@ -261,6 +283,20 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 private void consume(String value) {
                 }
+
+                private String readConditional(
+                    boolean condition, ActivatedJob job, DelegateExecution execution) {
+                    return condition ? (String) job.getVariablesAsMap().get("conditional") : "fallback";
+                }
+
+                private void consumeStrings(
+                    ActivatedJob job, DelegateExecution execution, java.util.List<String> values) {
+                    consumeValues(java.util.List.of((String) job.getVariablesAsMap().get("generic")));
+                }
+
+                private void consumeValues(java.util.List<String> values) {
+                }
+
             }
             """));
   }
