@@ -135,9 +135,9 @@ The code conversion examples cover both Camunda 7 approaches to handle process v
 
 See the detailed patterns:
 
-* [Process variables in client code](../20-client-code/10-process-engine/handle-process-variables.md)
-* [Process variables in glue code (Java Delegate)](../30-glue-code/10-java-spring-delegate/handling-process-variables.md)
-* [Process variables in glue code (External Task Worker)](../30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
+* [Process variables in client code](20-client-code/10-process-engine/handle-process-variables.md)
+* [Process variables in glue code (Java Delegate)](30-glue-code/10-java-spring-delegate/handling-process-variables.md)
+* [Process variables in glue code (External Task Worker)](30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
 
 ---
 
@@ -165,8 +165,8 @@ The different methods of these services are grouped into separated .md files by 
 
 ###### OpenRewrite recipe (WIP)
 
--   [Recipe "AllClientRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/clientRecipes.yml)
--   [Learn how to apply recipes](../../../recipes/README.md)
+-   [Recipe "AllClientRecipes"](../recipes/src/main/resources/META-INF/rewrite/clientRecipes.yml)
+-   [Learn how to apply recipes](../recipes/README.md)
 
 
 #### Class-level Changes
@@ -1191,7 +1191,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
+-   incidents should be raised in the context of a [JavaDelegate](30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ###### CamundaClient (Camunda 8)
 
@@ -1206,7 +1206,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
+-   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ---
 
@@ -1306,7 +1306,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
 -   `businessId` is immutable after creation and propagates to child instances created through call activities
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
--   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](20-client-code/10-process-engine/business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 -   if your app also uses `@Deployment`, do not start instances from `@PostConstruct`; use `@EventListener(CamundaPostDeploymentEvent.class)` so startup runs after deployment completes
 
@@ -1358,7 +1358,7 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 -   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
--   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](20-client-code/10-process-engine/business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 
 ###### By Message (And ProcessDefinitionId)
@@ -1396,7 +1396,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
 -   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
--   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](20-client-code/10-process-engine/business-key-and-tags.md)
 -   it is also possible to publish a message with a time to live
 
 ---
@@ -1413,9 +1413,9 @@ The glue code patterns look into the different scenarios and proposes code conve
 
 | Camunda 7 Implementation           | Example                                         | Camunda 8 Job Type        | Notes                                                                 | Link |
 |-----------------------------------|-------------------------------------------------|----------------------------|-----------------------------------------------------------------------|------|
-| `camunda:class`                   | `camunda:class="com.example.MyDelegate"`        | `myDelegate`               | Class name is converted to camelCase; assumes a `@JobWorker` Spring bean | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
-| `camunda:delegateExpression`      | `camunda:delegateExpression="${myBean}"`        | `myBean`                   | Bean name is used directly; assumes a `@JobWorker`-annotated method   | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
-| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [Java Expression](15-java-expression/README.md) |
+| `camunda:class`                   | `camunda:class="com.example.MyDelegate"`        | `myDelegate`               | Class name is converted to camelCase; assumes a `@JobWorker` Spring bean | [JavaDelegate &#8594; Job Worker (Spring)](30-glue-code/10-java-spring-delegate) |
+| `camunda:delegateExpression`      | `camunda:delegateExpression="${myBean}"`        | `myBean`                   | Bean name is used directly; assumes a `@JobWorker`-annotated method   | [JavaDelegate &#8594; Job Worker (Spring)](30-glue-code/10-java-spring-delegate) |
+| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [Java Expression](30-glue-code/15-java-expression/README.md) |
 | No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | — |
 
 
@@ -1618,7 +1618,7 @@ For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/c
 
 This example focuses on throwing a BPMN error from a JavaDelegate and job worker. A BPMN error is thrown for a task or listener and caught by a BPMN catch event in the BPMN model. The BPMN error is used for business errors that require a change in the process flow, not for technical errors.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/10-java-spring-delegate/README.md) for more details on class-level changes.
 
 ###### JavaDelegate (Spring) - (Camunda 7)
 
@@ -1684,7 +1684,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 Execution code can fail, promting the engine to try again or raise an incident if no retries are left. This example focuses on throwing an exception from a JavaDelegate vs. throwing an exception from a job worker.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/10-java-spring-delegate/README.md) for more details on class-level changes.
 
 ###### JavaDelegate (Spring) - (Camunda 7)
 
@@ -1780,7 +1780,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 If an execution code failure cannot be solved via retries, or if all retries are exhausted, an incident can be raised. This incident is visible in Cockpit (Camunda 7) and Operate (Camunda 8). It can be retried once the underlying cause of failure is solved.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/10-java-spring-delegate/README.md) for more details on class-level changes.
 
 ###### JavaDelegate (Spring) - (Camunda 7)
 
@@ -1862,7 +1862,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 The basic interaction of execution code and a running process instance is getting and setting process variables.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/10-java-spring-delegate/README.md) for more details on class-level changes.
 
 ###### JavaDelegate (Spring) - (Camunda 7)
 
@@ -2014,8 +2014,8 @@ There are often multiple methods that achieve the same result. The patterns try 
 
 ###### OpenRewrite recipe (WIP)
 
--   [Recipe "AllExternalWorkerRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/externalWorkerRecipes.yml)
--   [Learn how to apply recipes](../../../recipes/README.md)
+-   [Recipe "AllExternalWorkerRecipes"](../recipes/src/main/resources/META-INF/rewrite/externalWorkerRecipes.yml)
+-   [Learn how to apply recipes](../recipes/README.md)
 
 
 #### Class-level Changes
@@ -2080,7 +2080,7 @@ The code conversion patterns will not cover the above class-level changes betwee
 
 This example focuses on throwing a BPMN error from a JavaDelegate and job worker. A BPMN error is thrown for a task or listener and caught by a BPMN catch event in the BPMN model. The BPMN error is used for business errors that require a change in the process flow, not for technical errors.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/20-java-spring-external-task-worker/README.md) for more details on class-level changes.
 
 ###### External Task Worker (Spring) - (Camunda 7)
 
@@ -2161,7 +2161,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 Execution code can fail, promting the engine to try again or raise an incident if no retries are left. This example focuses on throwing an exception from an external task worker vs. throwing an exception from a job worker.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/20-java-spring-external-task-worker/README.md) for more details on class-level changes.
 
 ###### External Task Worker (Spring) - (Camunda 7)
 
@@ -2255,7 +2255,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 If an execution code failure cannot be solved via retries, or if all retries are exhausted, an incident can be raised. This incident is visible in Cockpit (Camunda 7) and Operate (Camunda 8). It can be retried once the underlying cause of failure is solved.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/20-java-spring-external-task-worker/README.md) for more details on class-level changes.
 
 ###### JavaDelegate (Spring) - (Camunda 7)
 
@@ -2343,7 +2343,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 The basic interaction of execution code and a running process instance is getting and setting process variables.
 
-Check the [README](./README.md) for more details on class-level changes.
+Check the [README](30-glue-code/20-java-spring-external-task-worker/README.md) for more details on class-level changes.
 
 ###### JavaDelegate (Spring) - (Camunda 7)
 
@@ -2613,7 +2613,7 @@ Code written to test your solution, e.g. using JUnit.
 
 Most tests for Camunda 7 use [Camunda Platform Assert](https://github.com/camunda/camunda-bpm-platform/tree/master/test-utils/assert) combined with JUnit for automated unit tests, whereas in Camunda 8 you will use [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) (starting from version 8.8).
 The test plan must cover every valid executable process entry point independently. See
-[Executable Entry-Point Coverage](70-executable-entry-points.md).
+[Executable Entry-Point Coverage](40-test-assertions/10-assertions/70-executable-entry-points.md).
 
 
 #### Complete Test Case
@@ -2628,11 +2628,11 @@ A typical test case includes:
   - Validating variable values
   - Simulating timers
 
-Note: Distinguish between tests that rely on job workers and those that do not. See our [testing best practices](https://docs.camunda.io/docs/next/components/best-practices/development/testing-process-definitions/) for more context and [Job Execution in Test Cases](./60-job.md) for details.
+Note: Distinguish between tests that rely on job workers and those that do not. See our [testing best practices](https://docs.camunda.io/docs/next/components/best-practices/development/testing-process-definitions/) for more context and [Job Execution in Test Cases](40-test-assertions/10-assertions/60-job.md) for details.
 
 In this pattern you see a full sample test case for the following process for Camunda 7 and 8:
 
-![Sample process](sample-process.png)
+![Sample process](40-test-assertions/10-assertions/sample-process.png)
 
 The test cases starts a process instance and either wait for a user task or a timer to complete, and validate the result. See the various other patterns for details.
 
