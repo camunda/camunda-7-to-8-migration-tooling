@@ -32,7 +32,7 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
   protected Message visitListener(
       DomElementVisitorContext context, String event, ListenerImplementation implementation) {
-    if (isStartListenerOnStartEvent(context, event)) {
+    if (isExecutionListenerOnStartEvent(context, event)) {
       return MessageFactory.executionListenerOnStartEventNotSupported(
           event, ListenerImplementation.type(implementation), implementation.implementation());
     }
@@ -79,8 +79,8 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
     return version.ordinal() >= SemanticVersion._8_6.ordinal() && isKnownEventType(event);
   }
 
-  private boolean isStartListenerOnStartEvent(DomElementVisitorContext context, String event) {
-    return "start".equals(event) && isOnBpmnElement(context, BPMN, "startEvent");
+  private boolean isExecutionListenerOnStartEvent(DomElementVisitorContext context, String event) {
+    return isOnBpmnElement(context, BPMN, "startEvent") && isKnownEventType(event);
   }
 
   private boolean isKnownEventType(String event) {
@@ -97,6 +97,6 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
     String event = findEventName(context);
     return isExecutionListenerSupported(
             SemanticVersion.parse(context.getProperties().getPlatformVersion()), event)
-        && !isStartListenerOnStartEvent(context, event);
+        && !isExecutionListenerOnStartEvent(context, event);
   }
 }

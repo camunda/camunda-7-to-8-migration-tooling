@@ -377,7 +377,7 @@ Rules:
   Use source-derived `c7-*` rows for a legacy generic `form-key` finding. Add
   `c7-generic-task-form` only for form-free owners.
 
-#### 5d.3. Relocate unsupported start-event listeners
+#### 5d.3. Relocate unsupported listeners on BPMN start events
 
 Treat `execution-listener-on-start-event` as **Blocking** and **needs review** until the user accepts
 relocation and the relocation checks pass.
@@ -415,7 +415,7 @@ When the user accepts the move, edit only the fresh converted copy.
 Use a namespace-aware XML parser or XML tooling, never regular expressions.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
 Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
-Set `eventType="start"`.
+Set `eventType` to the same event type as the source listener.
 Use the converter's existing implementation-to-type mapping.
 
 | Camunda 7 source | Camunda 8 listener |
@@ -423,6 +423,7 @@ Use the converter's existing implementation-to-type mapping.
 | `delegateExpression="${name}"` | `type="name"` |
 | `class="name"` or `expression="name"` | `type="name"` |
 | `event="start"` | `eventType="start"` |
+| `event="end"` | `eventType="end"` |
 | Static listener fields supported by the converter | `zeebe:taskHeaders` entries |
 
 Preserve every listener field and attribute that the converter maps to the Camunda 8 listener.
@@ -438,7 +439,7 @@ Run the target-support deployment and execution checks from 5d.1 for the affecte
 Record the deployment identifier and execution result.
 Keep the category **needs review** when deployment or execution cannot run.
 Confirm that the converted copy parses.
-Confirm that the start event has no unsupported start listener.
+Confirm that the start event has no unsupported execution listener.
 Confirm that the target scope has the recreated listener.
 Confirm that the listener's worker or connector route remains covered.
 Keep the category **needs review** until every applicable check passes.
