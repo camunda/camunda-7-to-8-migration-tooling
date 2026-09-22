@@ -537,9 +537,14 @@ describe("target platform version", () => {
       name: "8.11 Next version",
     });
 
+    const olderSupported = within(versionGroup).getByRole("radio", {
+      name: "8.8",
+    });
+
     expect(within(versionGroup).getByText("Latest stable")).toBeTruthy();
     expect(latestStable.getAttribute("aria-checked")).toBe("true");
     expect(latestStable.getAttribute("tabindex")).toBe("0");
+    expect(olderSupported.getAttribute("aria-checked")).toBe("false");
     expect(previousStable.getAttribute("aria-checked")).toBe("false");
     expect(nextVersion.getAttribute("aria-checked")).toBe("false");
   });
