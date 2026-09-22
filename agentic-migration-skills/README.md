@@ -120,10 +120,10 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
-For agentic model migration, every Camunda 7 user task becomes a Camunda 8 user task by default.
-This includes form-free tasks. The skill preserves compatible assignments, schedules, forms, and
-listeners, records unsupported semantics, and does not create a legacy user-task job. A job-based
-replacement requires an explicit user decision.
+For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
+Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible
+assignments, schedules, forms, and listeners, records unsupported semantics, and does not create a
+legacy user-task job. A job-based replacement requires an explicit user decision.
 This model rule complements the code-side user-task migration tracked in #1556.
 
 If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
