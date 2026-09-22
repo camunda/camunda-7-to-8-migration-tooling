@@ -84,8 +84,14 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 ```
 
 **Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
-that creates `CamundaClient`. If startup fails, record a blocking finding. Do not override individual
-transitive dependencies to force startup.
+that creates `CamundaClient`. If startup fails, inspect the resolved dependency family before closing
+validation. Do not override one transitive dependency to force startup.
+
+**Apache HttpClient compatibility**: If the resolved graph contains `httpclient5`, `httpcore5`, and
+`httpcore5-h2`, compare their versions with the family declared by the selected `httpclient5` POM.
+If the family matches, add no override. If the family differs, manage all three artifacts with the
+compatible family versions and rerun startup. If startup still fails after the family is aligned,
+record a blocking finding.
 
 **Version resolution**: Resolve the latest released GA version from Maven Central's direct artifact metadata, for example `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available). From `<versions>`, select the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release. Do not use `search.maven.org`'s search API or the Camunda public repository metadata for this lookup.
 
