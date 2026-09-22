@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_BpmnDiPreservation"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="bpmnDiPreservation" name="BPMN DI preservation" isExecutable="true">
+    <bpmn:startEvent id="Start_RequestReceived" name="Request received">
+      <bpmn:outgoing>Flow_ToNotification</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_SendNotification" name="Send notification"
+                      camunda:class="com.example.SendNotificationDelegate">
+      <bpmn:incoming>Flow_ToNotification</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToCompleted</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_RequestCompleted" name="Request completed">
+      <bpmn:incoming>Flow_ToCompleted</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_ToNotification" sourceRef="Start_RequestReceived"
+                       targetRef="Task_SendNotification" />
+    <bpmn:sequenceFlow id="Flow_ToCompleted" sourceRef="Task_SendNotification"
+                       targetRef="End_RequestCompleted" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_BpmnDiPreservation">
+    <bpmndi:BPMNPlane id="BPMNPlane_BpmnDiPreservation"
+                      bpmnElement="bpmnDiPreservation">
+      <bpmndi:BPMNShape id="Start_RequestReceived_di"
+                         bpmnElement="Start_RequestReceived">
+        <dc:Bounds x="120" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="99" y="145" width="78" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SendNotification_di"
+                         bpmnElement="Task_SendNotification">
+        <dc:Bounds x="240" y="80" width="120" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="260" y="110" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_RequestCompleted_di"
+                         bpmnElement="End_RequestCompleted">
+        <dc:Bounds x="444" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="421" y="145" width="82" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_ToNotification_di"
+                       bpmnElement="Flow_ToNotification">
+        <di:waypoint x="156" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToCompleted_di"
+                       bpmnElement="Flow_ToCompleted">
+        <di:waypoint x="360" y="120" />
+        <di:waypoint x="444" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
