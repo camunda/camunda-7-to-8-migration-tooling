@@ -134,6 +134,34 @@ categories:
           </bpmn:userTask>
         expectedMessages: |
           <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form ' embedded:app:forms/loan.html' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+  - category: user tasks
+    cases:
+      - name: Bare Camunda 7 user task becomes a Camunda user task
+        givenBpmn: |
+          <bpmn:userTask id="BareUserTask" name="Wait for approval"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="BareUserTask" implementation="##unspecified" isForCompensation="false" name="Wait for approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: ""
+        properties:
+          platformVersion: "8.9"
+      - name: User task assignments remain on a Camunda user task
+        givenBpmn: |
+          <bpmn:userTask id="AssignedUserTask" name="Review approval" camunda:assignee="${reviewer}" camunda:candidateGroups="approvers"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="AssignedUserTask" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:assignmentDefinition assignee="=reviewer" candidateGroups="approvers" candidateUsers=""/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Assignee: Please review transformed expression: '${reviewer}' -&gt; '=reviewer'.</conversion:message>
+        properties:
+          platformVersion: "8.9"
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output

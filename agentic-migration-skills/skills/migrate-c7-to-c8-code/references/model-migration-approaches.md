@@ -477,6 +477,10 @@ has no source binding in the table. Do not replace a method-specific type with t
 For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
+- Every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. For target versions 8.5 and later, add exactly one `<zeebe:userTask />` inside the task's existing `bpmn:extensionElements`.
+- A form-free user task still receives `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
+- Preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions. Preserve the task as a Camunda user task when any of that metadata is unsupported.
+- Record each unsupported user-task semantic as a finding with the source element and required manual action. Never silently replace that task with a legacy `io.camunda.zeebe:userTask` job.
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)
@@ -486,6 +490,17 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - DMN: update decision/definition namespaces and expression language as needed
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+
+Before resolving the model findings, validate every converted `bpmn:userTask`:
+
+| Check | Required result |
+|---|---|
+| User-task marker | Exactly one `zeebe:userTask` child exists in the task's `bpmn:extensionElements` |
+| Assignment, schedule, form, and listener metadata | Each supported value is present in its matching Zeebe extension |
+| Unsupported semantics | A finding names the source task and the manual action |
+| Job-worker fallback | No `zeebe:taskDefinition` exists unless the user explicitly selected a job-based replacement and the decision is recorded in `MIGRATION_REPORT.md` |
+
+The user may explicitly request a job-based replacement for a user task. Record the request, the source task id, and the resulting job type before removing the Camunda user-task marker. A bare Camunda 7 user task has no such request and remains a Camunda 8 user task.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
