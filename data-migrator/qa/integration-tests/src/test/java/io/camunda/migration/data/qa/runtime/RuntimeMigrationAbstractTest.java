@@ -109,22 +109,21 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected void awaitRuntimeMigratorStart() {
-    Set<String> tenantIds = new HashSet<>();
-    if (migratorProperties.getTenantIds() != null) {
-      tenantIds.addAll(migratorProperties.getTenantIds());
-    }
-    tenantIds.add(C8_DEFAULT_TENANT);
-
     Awaitility.await().atMost(Duration.ofSeconds(30)).until(() -> {
       try {
-        camundaClient.newActivateJobsCommand()
+        var activateJobsCommand = camundaClient.newActivateJobsCommand()
             .jobType(AUTHORIZATION_PROBE_JOB_TYPE)
             .maxJobsToActivate(1)
             .timeout(AUTHORIZATION_PROBE_TIMEOUT)
             .workerName(AUTHORIZATION_PROBE_JOB_TYPE)
-            .tenantIds(List.copyOf(tenantIds))
-            .requestTimeout(AUTHORIZATION_PROBE_TIMEOUT)
-            .execute();
+            .requestTimeout(AUTHORIZATION_PROBE_TIMEOUT);
+        Set<String> tenantIds = migratorProperties.getTenantIds();
+        if (tenantIds != null && !tenantIds.isEmpty()) {
+          Set<String> tenantIdsWithDefault = new HashSet<>(tenantIds);
+          tenantIdsWithDefault.add(C8_DEFAULT_TENANT);
+          activateJobsCommand = activateJobsCommand.tenantIds(List.copyOf(tenantIdsWithDefault));
+        }
+        activateJobsCommand.execute();
         runtimeMigrator.start();
         return true;
       } catch (ClientException | RuntimeMigratorException e) {
