@@ -98,13 +98,13 @@ class ProcessInstanceCleanupTest {
   }
 
   @Test
-  void shouldKeepUsingTheCleanupPollIntervalDuringConfirmationSearches() {
+  void shouldUseTheLongIntervalUntilTheFirstEmptySearch() {
     ProcessInstanceCleanup cleanup = new ProcessInstanceCleanup(null);
 
     assertThat(cleanup.cleanupPollInterval(new AtomicInteger()))
         .isEqualTo(ProcessInstanceCleanup.CLEANUP_POLL_INTERVAL);
     assertThat(cleanup.cleanupPollInterval(new AtomicInteger(1)))
-        .isEqualTo(ProcessInstanceCleanup.CLEANUP_POLL_INTERVAL);
+        .isEqualTo(ProcessInstanceCleanup.CLEANUP_CONFIRMATION_POLL_INTERVAL);
   }
 
   @Test
