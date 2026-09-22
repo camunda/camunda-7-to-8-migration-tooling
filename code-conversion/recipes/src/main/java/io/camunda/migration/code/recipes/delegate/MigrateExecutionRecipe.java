@@ -30,6 +30,8 @@ public class MigrateExecutionRecipe extends Recipe {
           "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)");
   private static final String MANUAL_MIGRATION_METHOD =
       "getVariableLocalRequiresManualMigration";
+  private static final String VARIABLE_SCOPE =
+      "org.camunda.bpm.engine.delegate.VariableScope";
 
   /**
    * Sentinel shared with cleanup recipes so that warning comments about lost delegate business
@@ -57,6 +59,7 @@ public class MigrateExecutionRecipe extends Recipe {
         new CopyDelegateToJobWorkerRecipe(),
         new CopyExecutionListenerToJobWorkerRecipe(),
         new MigrateDelegateExecutionMethodsInJobWorker(),
+        new AddCastsToTypedVariableLookupsInJobWorker(),
         new FlagLocalVariableLookupsInJobWorker(),
         new MigrateDelegateBPMNErrorAndExceptionInJobWorker());
   }
@@ -336,8 +339,14 @@ public class MigrateExecutionRecipe extends Recipe {
           }
 
           private boolean isLocalVariableLookup(J.MethodInvocation invocation) {
-            return GET_VARIABLE_LOCAL.matches(invocation)
-                || "getVariableLocal".equals(invocation.getSimpleName());
+            if (GET_VARIABLE_LOCAL.matches(invocation)) {
+              return true;
+            }
+
+            Expression receiver = invocation.getSelect();
+            return "getVariableLocal".equals(invocation.getSimpleName())
+                && receiver != null
+                && RecipeUtils.isAssignableTo(receiver.getType(), VARIABLE_SCOPE);
           }
 
           private boolean hasManualMigrationMethod(J.ClassDeclaration classDeclaration) {
@@ -618,6 +627,110 @@ public class MigrateExecutionRecipe extends Recipe {
                 J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
               return ensureCompilableLocalVariableLookups(
                   classDeclaration, getCursor().getParentOrThrow(), ctx);
+            }
+          });
+    }
+  }
+
+  private static class AddCastsToTypedVariableLookupsInJobWorker extends Recipe {
+
+    @Override
+    public String getDisplayName() {
+      return "Preserves typed variable lookup assignments in job workers";
+    }
+
+    @Override
+    public String getDescription() {
+      return "Adds casts when map-based variable lookups are assigned to a typed local variable.";
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
+      TreeVisitor<?, ExecutionContext> preconditions =
+          Preconditions.and(
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
+              Preconditions.or(
+                  new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true),
+                  new UsesType<>("org.camunda.bpm.engine.delegate.ExecutionListener", true)));
+
+      return Preconditions.check(
+          preconditions,
+          new JavaIsoVisitor<>() {
+            @Override
+            public J.VariableDeclarations visitVariableDeclarations(
+                J.VariableDeclarations declarations, ExecutionContext ctx) {
+              if (isOriginalDelegateMethod()) {
+                return super.visitVariableDeclarations(declarations, ctx);
+              }
+
+              J.VariableDeclarations visited = super.visitVariableDeclarations(declarations, ctx);
+              String declaredType = declaredType(visited);
+              if (declaredType == null) {
+                return visited;
+              }
+
+              List<J.VariableDeclarations.NamedVariable> updatedVariables =
+                  visited.getVariables().stream()
+                      .map(
+                          variable ->
+                              variable.withInitializer(
+                                  addCastIfNeeded(variable, declaredType)))
+                      .toList();
+
+              return maybeAutoFormat(
+                  declarations, visited.withVariables(updatedVariables), ctx);
+            }
+
+            private Expression addCastIfNeeded(
+                J.VariableDeclarations.NamedVariable variable, String declaredType) {
+              Expression initializer = variable.getInitializer();
+              if (!isEffectiveVariableLookup(initializer)
+                  || initializer instanceof J.TypeCast) {
+                return initializer;
+              }
+
+              Cursor variableCursor =
+                  new Cursor(new Cursor(getCursor(), variable), initializer);
+              return RecipeUtils.createSimpleJavaTemplate(
+                      "(" + declaredType + ") #{any(java.lang.Object)}")
+                  .apply(
+                      variableCursor,
+                      initializer.getCoordinates().replace(),
+                      initializer);
+            }
+
+            private String declaredType(J.VariableDeclarations declarations) {
+              J typeExpression = declarations.getTypeExpression();
+              if (typeExpression == null || "var".equals(typeExpression.toString())) {
+                return null;
+              }
+
+              JavaType type = declarations.getType();
+              if (TypeUtils.isOfClassType(type, "java.lang.Object")) {
+                return null;
+              }
+
+              return typeExpression.toString();
+            }
+
+            private boolean isEffectiveVariableLookup(Expression expression) {
+              if (!(expression instanceof J.MethodInvocation invocation)
+                  || !"get".equals(invocation.getSimpleName())
+                  || !(invocation.getSelect() instanceof J.MethodInvocation variablesAsMap)
+                  || !"getVariablesAsMap".equals(variablesAsMap.getSimpleName())) {
+                return false;
+              }
+
+              return variablesAsMap.getSelect() instanceof J.Identifier identifier
+                  && "job".equals(identifier.getSimpleName());
+            }
+
+            private boolean isOriginalDelegateMethod() {
+              J.MethodDeclaration method =
+                  getCursor().firstEnclosing(J.MethodDeclaration.class);
+              return method != null
+                  && ("execute".equals(method.getSimpleName())
+                      || "notify".equals(method.getSimpleName()));
             }
           });
     }

@@ -119,6 +119,11 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @Override
                 public void execute(DelegateExecution execution) {
                     Object localValue = execution.getVariableLocal("localValue");
+                    String helperValue = getVariableLocal("helperValue");
+                }
+
+                private String getVariableLocal(String variableName) {
+                    return variableName;
                 }
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
@@ -146,6 +151,11 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @Override
                 public void execute(DelegateExecution execution) {
                     Object localValue = execution.getVariableLocal("localValue");
+                    String helperValue = getVariableLocal("helperValue");
+                }
+
+                private String getVariableLocal(String variableName) {
+                    return variableName;
                 }
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
@@ -153,6 +163,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     Map<String, Object> resultMap = new HashMap<>();
                     // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
                     Object localValue = getVariableLocalRequiresManualMigration("localValue");
+                    String helperValue = getVariableLocal("helperValue");
                     return resultMap;
                 }
 
