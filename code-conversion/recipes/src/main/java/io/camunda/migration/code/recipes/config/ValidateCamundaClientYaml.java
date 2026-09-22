@@ -9,6 +9,7 @@ package io.camunda.migration.code.recipes.config;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
@@ -49,6 +50,20 @@ public class ValidateCamundaClientYaml extends Recipe {
                 entry -> {
                   String key = join(parentPath, entry.getKey().getValue());
                   if (!(entry.getValue() instanceof Yaml.Scalar value)) {
+                    if (entry.getValue() instanceof Yaml.Sequence sequence) {
+                      List<String> scalarValues =
+                          sequence.getEntries().stream()
+                              .filter(Yaml.Scalar.class::isInstance)
+                              .map(Yaml.Scalar.class::cast)
+                              .map(Yaml.Scalar::getValue)
+                              .toList();
+                      if (scalarValues.size() == sequence.getEntries().size()) {
+                        return CamundaClientConfigurationValidation.sequenceFinding(
+                                key, scalarValues)
+                            .map(message -> SearchResult.found(entry, message))
+                            .orElse(entry);
+                      }
+                    }
                     if (entry.getValue() instanceof Yaml.Mapping nestedMapping) {
                       if (CamundaClientConfigurationValidation.isAuthenticationContainer(key)
                           || (!nestedMapping.getEntries().isEmpty()
