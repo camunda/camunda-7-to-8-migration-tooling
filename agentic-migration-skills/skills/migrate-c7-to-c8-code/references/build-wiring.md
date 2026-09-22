@@ -31,12 +31,17 @@ When a Maven module has a runtime Spring Boot entry point, apply the following d
 |---|---|
 | `spring-boot-maven-plugin` is declared under `build/plugins` with a direct or effective managed version | Keep its version, executions, and configuration. Add only missing run or packaging configuration. |
 | `spring-boot-maven-plugin` is declared under `build/plugins` without a direct or effective managed version | Add the selected Spring Boot version. Record its source and compatibility check. Keep existing executions and configuration. |
-| The plugin exists only under `build/pluginManagement` or a parent manages only its version | Add the plugin under the module's `build/plugins` and inherit the managed version. |
-| No plugin declaration or managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
+| The plugin is absent from `build/plugins`, and a direct or effective managed version exists in `build/pluginManagement` or a parent | Add the plugin under the module's `build/plugins` and inherit the managed version. |
+| No plugin declaration or direct/effective managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
 | The module has no runtime Spring Boot entry point | Do not add the plugin. Record the supported non-application execution path. |
 
 Do not infer a Maven plugin version from a dependency BOM. Dependency management supplies dependency
 versions, not build-plugin versions.
+
+Preserve an existing Maven `<parent>`. Do not replace it with `spring-boot-starter-parent` to obtain
+Spring Boot management. If the existing parent does not provide compatible Spring Boot dependency
+management, import a compatible `spring-boot-dependencies` BOM and manage the Maven plugin through
+`pluginManagement` or an explicit compatible version.
 
 Preserve existing plugin executions and configuration. Merge only the minimum required properties.
 Declare the plugin so `mvn spring-boot:run` resolves without a fully qualified temporary plugin
@@ -44,8 +49,10 @@ invocation.
 
 Ensure the effective build invokes `repackage` during `package`, either through an existing
 execution or through a minimal execution added to the plugin. Do not add a second `repackage`
-execution when a parent already supplies one. If more than one main class is discoverable, set the
-generated application's fully qualified class name as the plugin `mainClass`.
+execution when a parent already supplies one. Before preserving plugin configuration, compare any
+existing `mainClass` with the selected entry point. If the values differ, replace `mainClass` with
+the selected entry point. If more than one main class is discoverable, set `mainClass` to the
+generated application's fully qualified class name.
 
 Keep the module's existing packaging type unless the migration explicitly changes it. Do not add
 `spring-boot-starter-web` or another runtime dependency only to make the plugin run. The application
