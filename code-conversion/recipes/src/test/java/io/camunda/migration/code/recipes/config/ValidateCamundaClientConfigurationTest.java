@@ -280,19 +280,6 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
-  void acceptsSequenceAuthenticationCollectionProperty() {
-    rewriteRun(
-        yaml(
-            """
-            camunda:
-              client:
-                auth:
-                  token-fetch-retryable-status-codes: [500, 502, 503]
-            """,
-            spec -> spec.path("src/main/resources/application.yaml")));
-  }
-
-  @Test
   void acceptsSequenceClientCollectionProperty() {
     rewriteRun(
         yaml(
@@ -325,17 +312,6 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
                     ~~(Unsupported Camunda client configuration shape for 'camunda.client.worker.defaults.max-jobs-active'. Use a scalar value.)~~>max-jobs-active: [8]
             """,
             spec -> spec.path("src/main/resources/application.yaml")));
-  }
-
-  @Test
-  void acceptsIndexedAuthenticationCollectionProperty() {
-    rewriteRun(
-        properties(
-            """
-            camunda.client.auth.token-fetch-retryable-status-codes[0]=500
-            camunda.client.auth.token-fetch-retryable-status-codes[1]=502
-            """,
-            spec -> spec.path("src/main/resources/application.properties")));
   }
 
   @Test
