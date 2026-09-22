@@ -163,6 +163,19 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void detectsInvalidLegacyMode() {
+    rewriteRun(
+        properties(
+            """
+            zeebe.client.connection-mode=simple
+            """,
+            """
+            ~~(Invalid Camunda client mode 'simple'. Use 'self-managed' or 'saas' for camunda.client.mode. Deprecated Camunda client property 'zeebe.client.connection-mode'. Use 'camunda.client.mode'.)~~>zeebe.client.connection-mode=simple
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void ignoresNonApplicationFiles() {
     rewriteRun(
         properties(

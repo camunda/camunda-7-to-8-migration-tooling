@@ -52,6 +52,23 @@ final class CamundaClientConfigurationValidation {
 
   static Optional<String> finding(String key, String value) {
     ConfigurationPropertyName propertyName = propertyName(key);
+    String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
+    ConfigurationPropertyName effectivePropertyName =
+        replacement == null ? propertyName : propertyName(replacement);
+    return withDeprecation(
+        semanticFinding(key, effectivePropertyName, value), key, replacement);
+  }
+
+  static Optional<String> shapeFinding(String key) {
+    ConfigurationPropertyName propertyName = propertyName(key);
+    String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
+    ConfigurationPropertyName effectivePropertyName =
+        replacement == null ? propertyName : propertyName(replacement);
+    return withDeprecation(shapeFinding(key, effectivePropertyName), key, replacement);
+  }
+
+  private static Optional<String> semanticFinding(
+      String key, ConfigurationPropertyName propertyName, String value) {
     if (propertyName.equals(MODE) && isUnsupportedMode(value)) {
       return Optional.of(
           "Invalid Camunda client mode '"
@@ -74,15 +91,6 @@ final class CamundaClientConfigurationValidation {
               + AUTH_METHOD
               + ".");
     }
-    String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
-    if (replacement != null) {
-      return Optional.of(
-          "Deprecated Camunda client property '"
-              + key
-              + "'. Use '"
-              + replacement
-              + "'.");
-    }
     if (AUTH_PREFIX.isAncestorOf(propertyName)
         && !SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
       return Optional.of(
@@ -93,8 +101,7 @@ final class CamundaClientConfigurationValidation {
     return Optional.empty();
   }
 
-  static Optional<String> shapeFinding(String key) {
-    ConfigurationPropertyName propertyName = propertyName(key);
+  private static Optional<String> shapeFinding(String key, ConfigurationPropertyName propertyName) {
     if (propertyName.equals(AUTH_PREFIX)) {
       return Optional.of(
           "Unsupported Camunda client configuration shape for '"
@@ -114,6 +121,20 @@ final class CamundaClientConfigurationValidation {
               + "'. Configure authentication directly under camunda.client.auth.");
     }
     return Optional.empty();
+  }
+
+  private static Optional<String> withDeprecation(
+      Optional<String> finding, String key, String replacement) {
+    if (replacement == null) {
+      return finding;
+    }
+    String deprecation =
+        "Deprecated Camunda client property '"
+            + key
+            + "'. Use '"
+            + replacement
+            + "'.";
+    return Optional.of(finding.map(message -> message + " " + deprecation).orElse(deprecation));
   }
 
   static boolean isAuthenticationContainer(String key) {
