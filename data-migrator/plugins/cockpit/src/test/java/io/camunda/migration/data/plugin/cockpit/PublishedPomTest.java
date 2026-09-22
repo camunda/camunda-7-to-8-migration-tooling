@@ -14,7 +14,6 @@ import java.util.Arrays;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.Test;
 import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
 
 public class PublishedPomTest {
 
@@ -72,7 +71,15 @@ public class PublishedPomTest {
   }
 
   protected static String childText(Element parent, String name) {
-    NodeList elements = parent.getElementsByTagName(name);
-    return elements.item(0).getTextContent().trim();
+    var children = parent.getChildNodes();
+    Element child = null;
+    for (int i = 0; i < children.getLength(); i++) {
+      if (children.item(i) instanceof Element element && name.equals(element.getTagName())) {
+        child = element;
+        break;
+      }
+    }
+    assertThat(child).as("Element must contain direct child %s", name).isNotNull();
+    return child.getTextContent().trim();
   }
 }
