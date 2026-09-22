@@ -117,7 +117,7 @@ For approach B, run only the validation recipe after migration:
 | Build tool | Validation command |
 |---|---|
 | Maven | `mvn rewrite:run -Drewrite.activeRecipes=io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` |
-| Gradle | Set `activeRecipe("io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe")` in the `rewrite {}` block. Run the `REWRITE_COMMAND` from `code-migration-approaches.md`. Restore the original recipe configuration. |
+| Gradle | Replace every `activeRecipe(...)` entry in the `rewrite {}` block with `activeRecipe("io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe")`. Run the `REWRITE_COMMAND` from `code-migration-approaches.md`. Restore the original recipe configuration. |
 
 Where the OpenRewrite plugin is absent, add the setup from `code-migration-approaches.md` temporarily.
 Restore the build file after validation.
