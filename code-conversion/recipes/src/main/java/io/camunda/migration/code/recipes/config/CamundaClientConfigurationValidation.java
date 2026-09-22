@@ -244,7 +244,6 @@ final class CamundaClientConfigurationValidation {
       JsonNode properties = OBJECT_MAPPER.readTree(stream).path("properties");
       Map<ConfigurationPropertyName, PropertyMetadata> clientProperties = new HashMap<>();
       Set<ConfigurationPropertyName> authProperties = new HashSet<>();
-      Set<ConfigurationPropertyName> collectionAuthProperties = new HashSet<>();
       for (JsonNode property : properties) {
         String name = property.path("name").asText();
         ConfigurationPropertyName propertyName = propertyName(name);
@@ -253,14 +252,10 @@ final class CamundaClientConfigurationValidation {
           clientProperties.put(propertyName, metadata);
           if (AUTH_PREFIX.isAncestorOf(propertyName)) {
             authProperties.add(propertyName);
-            if (metadata.collection()) {
-              collectionAuthProperties.add(propertyName);
-            }
           }
         }
       }
-      return new ClientPropertyMetadata(
-          Map.copyOf(clientProperties), Set.copyOf(authProperties), Set.copyOf(collectionAuthProperties));
+      return new ClientPropertyMetadata(Map.copyOf(clientProperties), Set.copyOf(authProperties));
     } catch (IOException e) {
       throw new IllegalStateException(
           "Cannot load Camunda client configuration metadata from the target starter.", e);
@@ -417,8 +412,7 @@ final class CamundaClientConfigurationValidation {
 
   private record ClientPropertyMetadata(
       Map<ConfigurationPropertyName, PropertyMetadata> properties,
-      Set<ConfigurationPropertyName> authProperties,
-      Set<ConfigurationPropertyName> authCollectionProperties) {
+      Set<ConfigurationPropertyName> authProperties) {
 
     private Optional<PropertyMetadata> property(ConfigurationPropertyName propertyName) {
       return Optional.ofNullable(properties.get(propertyName));
