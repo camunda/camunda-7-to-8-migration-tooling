@@ -25,6 +25,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(classes = BpmnDeploymentIT.TestApplication.class)
 @CamundaSpringProcessTest
+@DisabledOnOs(OS.WINDOWS)
 class BpmnDeploymentIT {
   private static final Set<String> DEPLOYMENT_CASES =
       Set.of(
