@@ -477,7 +477,7 @@ has no source binding in the table. Do not replace a method-specific type with t
 For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
-- Every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. For target versions 8.5 and later, add exactly one `<zeebe:userTask />` inside the task's existing `bpmn:extensionElements`.
+- Every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. For target versions 8.5 and later, ensure that the task has a `bpmn:extensionElements` container. Create the container when it is missing, then add exactly one `<zeebe:userTask />` child.
 - A form-free user task still receives `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
 - Preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions. Preserve the task as a Camunda user task when any of that metadata is unsupported.
 - Record each unsupported user-task semantic as a finding with the source element and required manual action. Never silently replace that task with a legacy `io.camunda.zeebe:userTask` job.
