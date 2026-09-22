@@ -265,7 +265,7 @@ or blocked by another failure, use **Blocking** and **needs review**.
 | `script` or `script-job-type` without worker-route evidence | **Blocking** | The task cannot execute. |
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, or `script-on-conditional-event` | **Blocking** | The condition cannot execute. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, or `loop-cardinality` | **Blocking** | The element cannot retain its execution semantics. |
-| `execution-listener-on-start-event` | **Blocking** | The target rejects the listener placement until the user accepts a relocation and verification passes. |
+| `execution-listener-on-start-event` | **Blocking** | The target rejects the listener placement until the user accepts a relocation and the relocation checks pass. |
 | `in-out-business-key` | **Advisory** | The converter maps a supported process business key. |
 | `in-out-business-key-not-supported` | **Advisory** | The call activity loses business-id propagation. |
 | A form category, including `form-data`, `generated-form-property-source`, or form references | **Advisory** | Form work is not a deployment or execution blocker. |
@@ -434,6 +434,9 @@ Move only listeners belonging to the selected start event.
 After an accepted move, run the relocation checks below on the affected converted copy.
 Do not block this category on an unrelated project test failure.
 Run the Step 4 test suite only when the same batch changed code.
+Run the target-support deployment and execution checks from 5d.1 for the affected converted copy.
+Record the deployment identifier and execution result.
+Keep the category **needs review** when deployment or execution cannot run.
 Confirm that the converted copy parses.
 Confirm that the start event has no unsupported start listener.
 Confirm that the target scope has the recreated listener.
