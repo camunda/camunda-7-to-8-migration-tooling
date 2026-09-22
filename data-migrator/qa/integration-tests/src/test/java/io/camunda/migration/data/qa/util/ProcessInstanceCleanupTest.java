@@ -9,7 +9,6 @@ package io.camunda.migration.data.qa.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -17,6 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.CancelProcessInstanceCommandStep1;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.client.api.search.filter.ProcessInstanceFilter;
@@ -134,15 +134,18 @@ class ProcessInstanceCleanupTest {
 
   @Test
   void shouldCancelActiveProcessInstancesOnly() {
-    CamundaClient camundaClient = mock(CamundaClient.class, RETURNS_DEEP_STUBS);
+    CamundaClient camundaClient = mock(CamundaClient.class);
+    CancelProcessInstanceCommandStep1 cancelCommand =
+        mock(CancelProcessInstanceCommandStep1.class);
     ProcessInstance active = processInstance(ProcessInstanceState.ACTIVE, 1L);
     ProcessInstance completed = processInstance(ProcessInstanceState.COMPLETED, 2L);
     ProcessInstance terminated = processInstance(ProcessInstanceState.TERMINATED, 3L);
+    when(camundaClient.newCancelInstanceCommand(1L)).thenReturn(cancelCommand);
 
     new ProcessInstanceCleanup(camundaClient)
         .deleteProcessInstances(List.of(active, completed, terminated));
 
-    var cancelCommand = verify(camundaClient).newCancelInstanceCommand(1L);
+    verify(camundaClient).newCancelInstanceCommand(1L);
     verify(cancelCommand).execute();
     verify(camundaClient, never()).newCancelInstanceCommand(2L);
     verify(camundaClient, never()).newCancelInstanceCommand(3L);

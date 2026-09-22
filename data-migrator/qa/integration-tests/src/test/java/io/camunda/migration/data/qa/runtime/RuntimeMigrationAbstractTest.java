@@ -115,15 +115,14 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
             .jobType(AUTHORIZATION_PROBE_JOB_TYPE)
             .maxJobsToActivate(1)
             .timeout(AUTHORIZATION_PROBE_TIMEOUT)
-            .workerName(AUTHORIZATION_PROBE_JOB_TYPE)
-            .requestTimeout(AUTHORIZATION_PROBE_TIMEOUT);
+            .workerName(AUTHORIZATION_PROBE_JOB_TYPE);
         Set<String> tenantIds = migratorProperties.getTenantIds();
         if (tenantIds != null && !tenantIds.isEmpty()) {
           Set<String> tenantIdsWithDefault = new HashSet<>(tenantIds);
           tenantIdsWithDefault.add(C8_DEFAULT_TENANT);
           activateJobsCommand = activateJobsCommand.tenantIds(List.copyOf(tenantIdsWithDefault));
         }
-        activateJobsCommand.execute();
+        activateJobsCommand.requestTimeout(AUTHORIZATION_PROBE_TIMEOUT).execute();
         runtimeMigrator.start();
         return true;
       } catch (ClientException | RuntimeMigratorException e) {
