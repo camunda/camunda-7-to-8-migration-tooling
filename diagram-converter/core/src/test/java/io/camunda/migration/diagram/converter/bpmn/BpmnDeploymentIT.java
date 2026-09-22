@@ -31,9 +31,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest(classes = BpmnDeploymentTest.TestApplication.class)
+@SpringBootTest(classes = BpmnDeploymentIT.TestApplication.class)
 @CamundaSpringProcessTest
-class BpmnDeploymentTest {
+class BpmnDeploymentIT {
   private static final Set<String> DEPLOYMENT_CASES =
       Set.of(
           "BPMN start event without execution listener", "Execution Listener on BPMN start event");

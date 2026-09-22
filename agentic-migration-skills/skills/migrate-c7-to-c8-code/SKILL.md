@@ -430,6 +430,8 @@ Within each impact, process rows with a severity before source-derived rows with
 - When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
   `references/model-migration-approaches.md`.
 - Never relocate this listener automatically.
+- Confirm that the chosen target still supports execution listeners on the enclosing process or
+  subprocess before you offer relocation.
 - Ask the user before editing an affected converted copy.
 - Offer to move each affected listener to the nearest enclosing process or subprocess.
 - Keep the category **needs review** when the user declines or verification fails.
@@ -439,6 +441,8 @@ Within each impact, process rows with a severity before source-derived rows with
 - After each batch, ask whether to commit.
 - For a model-finding batch, run the verification gate before updating the verdict table in
   `MIGRATION_REPORT.md`.
+- For a start-listener relocation, use the dedicated deployment and route checks in the relocation
+  procedure. Run the Step 4 test suite only when the same batch changed code.
 
 #### Action 2: delete now-redundant code
 

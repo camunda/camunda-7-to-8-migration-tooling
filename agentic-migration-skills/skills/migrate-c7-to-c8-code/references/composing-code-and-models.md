@@ -122,10 +122,13 @@ Keep the existing needs-fix evidence until that check passes.
 
 When a model finding has messageId `execution-listener-on-start-event`, use the relocation procedure
 in `model-migration-approaches.md` before completing the code cross-check.
+Confirm that the chosen target supports execution listeners on the enclosing process or subprocess
+before you offer relocation.
 Resolve the original listener implementation.
 Resolve its recreated Camunda 8 listener type.
 Check that the migrated worker or connector route covers the recreated listener type.
-Keep the model category **needs review** when the user declines relocation or the route is uncovered.
+Keep the model category **needs review** when the target support is unconfirmed, the user declines
+relocation, or the route is uncovered.
 Record the target process or subprocess and the worker or connector evidence in `MIGRATION_REPORT.md`.
 
 ### 3. FEEL method-invocation category

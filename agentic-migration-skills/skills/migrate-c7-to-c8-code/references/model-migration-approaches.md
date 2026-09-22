@@ -380,7 +380,7 @@ Rules:
 #### 5d.3. Relocate unsupported start-event listeners
 
 Treat `execution-listener-on-start-event` as **Blocking** and **needs review** until the user accepts
-relocation and the verification gate passes.
+relocation and the relocation checks pass.
 
 Use the finding's `filename` and `elementId` to resolve the affected `bpmn:startEvent` in the original
 C7 source. Read the original source because the converter omits this unsupported listener from the
@@ -431,7 +431,9 @@ Keep the category **needs review** when a field or attribute is unmapped.
 If the original listener has no implementation that the converter maps, then keep the category **needs review**.
 Move only listeners belonging to the selected start event.
 
-After an accepted move, run the shared verification gate.
+After an accepted move, run the relocation checks below on the affected converted copy.
+Do not block this category on an unrelated project test failure.
+Run the Step 4 test suite only when the same batch changed code.
 Confirm that the converted copy parses.
 Confirm that the start event has no unsupported start listener.
 Confirm that the target scope has the recreated listener.
@@ -440,7 +442,8 @@ Keep the category **needs review** until every applicable check passes.
 
 Record the source path, start-event ID, target process or subprocess ID and name, listener
 implementations, user decision, converted-copy path, and verification evidence in
-`MIGRATION_REPORT.md`. Set the verdict to **no action** only after the verification gate passes.
+`MIGRATION_REPORT.md`. Set the verdict to **no action** only after the relocation checks and any
+applicable verification gate pass.
 
 #### 5e. Strip converter annotations from converted models
 
