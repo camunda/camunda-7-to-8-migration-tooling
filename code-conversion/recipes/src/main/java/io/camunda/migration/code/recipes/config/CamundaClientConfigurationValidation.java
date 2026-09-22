@@ -28,12 +28,12 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.springframework.beans.BeanUtils;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.BindException;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
-import org.springframework.beans.BeanUtils;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -52,7 +52,7 @@ final class CamundaClientConfigurationValidation {
   private static final String METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
   private static final ConfigurationPropertyName MODE = propertyName("camunda.client.mode");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final Pattern INDEXED_PROPERTY_PATTERN = Pattern.compile("\\[[^\\]]+\\]");
+  private static final Pattern COLLECTION_INDEX_PATTERN = Pattern.compile("\\[\\d+\\]");
   private static final ClientPropertyMetadata CLIENT_PROPERTY_METADATA = clientPropertyMetadata();
   private static final Set<ConfigurationPropertyName> SUPPORTED_AUTH_PROPERTIES =
       CLIENT_PROPERTY_METADATA.authProperties();
@@ -347,7 +347,7 @@ final class CamundaClientConfigurationValidation {
   }
 
   private static PropertyReference propertyReference(String key) {
-    String normalizedKey = INDEXED_PROPERTY_PATTERN.matcher(key).replaceAll("");
+    String normalizedKey = COLLECTION_INDEX_PATTERN.matcher(key).replaceAll("");
     return new PropertyReference(propertyName(normalizedKey), !normalizedKey.equals(key));
   }
 
