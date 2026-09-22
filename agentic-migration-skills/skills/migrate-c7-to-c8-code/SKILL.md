@@ -273,10 +273,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
    - Normalize accepted `camunda.client.zeebe.*` aliases before validation. Report each alias as
      deprecated instead of rejecting it when the selected starter maps it to a current property.
    - Accept an unauthenticated self-managed configuration when it has valid addresses. Do not
-     invent Basic or OIDC credentials. Validate supplied authentication values without changing them.
+     invent Basic or OIDC credentials. Validate supplied authentication values without changing the
+     source configuration. Redact passwords, client secrets, tokens, and other credential values
+     before recording effective properties in `MIGRATION_REPORT.md`.
    - Validate migrated and pre-existing Camunda 8-shaped configuration. Record scanned files,
-     effective properties, remaining legacy keys, deprecated aliases, binding findings, and
-     unresolved configuration TODOs in `MIGRATION_REPORT.md`.
+     report-safe effective properties, remaining legacy keys, deprecated aliases, binding findings,
+     and unresolved configuration TODOs in `MIGRATION_REPORT.md`.
    - If the selected starter or its metadata cannot be resolved, report the check as unverified with
      the command and reason. Do not report configuration validation as passed.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is

@@ -124,11 +124,13 @@ project already contains Camunda 8-shaped configuration.
 7. For an unauthenticated local self-managed cluster, use `mode: self-managed` with gRPC and REST
    addresses. Accept that configuration without authentication credentials. Never invent Basic or
    OIDC credentials.
-8. Validate supplied Basic or OIDC values without changing them. Do not infer production
-   authentication from a local unauthenticated configuration.
+8. Validate supplied Basic or OIDC values without changing the source configuration. Redact
+   passwords, client secrets, tokens, and other credential values before recording effective
+   properties in `MIGRATION_REPORT.md`. Do not infer production authentication from a local
+   unauthenticated configuration.
 9. Run the same check after the deterministic configuration recipe and after AI-only migration.
-10. Record the files, effective properties, aliases, binding failures, and unresolved findings in
-    `MIGRATION_REPORT.md`.
+10. Record the files, report-safe effective properties, aliases, binding failures, and unresolved
+    findings in `MIGRATION_REPORT.md`.
 11. If the selected starter or its metadata cannot be resolved, mark the check unverified and
     record the command and reason. Do not mark configuration validation as passed.
 

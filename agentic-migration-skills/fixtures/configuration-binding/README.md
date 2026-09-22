@@ -20,14 +20,14 @@ Validate `application-valid.yaml`, `application-valid.yml`, and `application-val
 against the same starter. The configuration must pass without authentication credentials because it
 targets an unauthenticated local self-managed cluster.
 
-The validation must not add Basic or OIDC credentials. It must report supplied credentials without
-changing them when an authenticated configuration is tested.
+The validation must not add Basic or OIDC credentials. If authentication values are supplied, record
+only redacted values in `MIGRATION_REPORT.md` and leave the source unchanged.
 
 ## Path coverage
 
 Run the fixture after the deterministic configuration recipe. Run it again after an AI-only
 migration. Both paths must report the same invalid findings and accept the valid configuration.
 
-Record the selected starter, version, metadata source, binding command, and findings in
-`MIGRATION_REPORT.md`. Do not report the check as passed when the starter or its metadata is
-unavailable.
+Record the selected starter, version, metadata source, binding command, redacted effective
+properties, and findings in `MIGRATION_REPORT.md`. Do not report the check as passed when the starter
+or its metadata is unavailable.
