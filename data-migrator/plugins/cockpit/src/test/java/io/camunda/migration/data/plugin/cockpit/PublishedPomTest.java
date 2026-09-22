@@ -23,7 +23,8 @@ public class PublishedPomTest {
   private static final String FIXED_JACKSON_DATABIND_VERSION = "2.22.2";
 
   @Test
-  public void publishesFixedJacksonDatabindAsProvidedDependency() throws Exception {
+  public void publishesFixedJacksonDatabindAndExcludesCamundaWebappDependency()
+      throws Exception {
     DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
     documentBuilderFactory.setNamespaceAware(true);
     Document document =
@@ -66,7 +67,8 @@ public class PublishedPomTest {
     for (int i = 0; i < children.getLength(); i++) {
       Node node = children.item(i);
       if (node.getNodeType() != Node.ELEMENT_NODE
-          || !elementName.equals(node.getLocalName())) {
+          || !elementName.equals(node.getLocalName())
+          || !MAVEN_POM_NAMESPACE.equals(node.getNamespaceURI())) {
         continue;
       }
 
