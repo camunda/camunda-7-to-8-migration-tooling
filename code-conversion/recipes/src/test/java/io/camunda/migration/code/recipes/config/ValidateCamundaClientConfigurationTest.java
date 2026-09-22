@@ -294,6 +294,119 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void acceptsValidYamlWorkerOverrides() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  override:
+                    invoice:
+                      max-jobs-active: 8
+                      fetch-variables: [status]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
+  void detectsInvalidDynamicWorkerOverrideProperties() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.worker.override.invoice.max-jobs-active=8
+            camunda.client.worker.override.payment.max-jobs-active=bogus
+            """,
+            """
+            camunda.client.worker.override.invoice.max-jobs-active=8
+            ~~(Invalid Camunda client configuration value 'bogus' for 'camunda.client.worker.override.payment.max-jobs-active'. Review it against the target Camunda Spring Boot starter type.)~~>camunda.client.worker.override.payment.max-jobs-active=bogus
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsInvalidDynamicWorkerOverrideYaml() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  override:
+                    invoice:
+                      max-jobs-active: bogus
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  override:
+                    invoice:
+                      ~~(Invalid Camunda client configuration value 'bogus' for 'camunda.client.worker.override.invoice.max-jobs-active'. Review it against the target Camunda Spring Boot starter type.)~~>max-jobs-active: bogus
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
+  void detectsRelativeGrpcAndRestAddresses() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.grpc-address=localhost
+            camunda.client.rest-address=/api
+            """,
+            """
+            ~~(Invalid Camunda client configuration value 'localhost' for 'camunda.client.grpc-address'. Review it against the target Camunda Spring Boot starter type.)~~>camunda.client.grpc-address=localhost
+            ~~(Invalid Camunda client configuration value '/api' for 'camunda.client.rest-address'. Review it against the target Camunda Spring Boot starter type.)~~>camunda.client.rest-address=/api
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void detectsMappingClientCollectionElements() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    fetch-variables:
+                      - foo: bar
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    ~~(Unsupported Camunda client configuration shape for 'camunda.client.worker.defaults.fetch-variables'. Sequence elements must match the target collection element type.)~~>fetch-variables:
+                      - foo: bar
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
+  void detectsNestedSequenceClientCollectionElements() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    fetch-variables: [[foo]]
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    ~~(Unsupported Camunda client configuration shape for 'camunda.client.worker.defaults.fetch-variables'. Sequence elements must match the target collection element type.)~~>fetch-variables: [[foo]]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  @Test
   void detectsSequenceScalarClientProperty() {
     rewriteRun(
         yaml(
