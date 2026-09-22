@@ -25,6 +25,11 @@ public class MigrateExecutionRecipe extends Recipe {
 
   private static final String LOCAL_VARIABLE_LOOKUP_TODO =
       " TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.";
+  private static final MethodMatcher GET_VARIABLE_LOCAL =
+      new MethodMatcher(
+          "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)");
+  private static final String MANUAL_MIGRATION_METHOD =
+      "getVariableLocalRequiresManualMigration";
 
   /**
    * Sentinel shared with cleanup recipes so that warning comments about lost delegate business
@@ -219,6 +224,151 @@ public class MigrateExecutionRecipe extends Recipe {
   private static boolean isJavaDelegateAssignable(J.ClassDeclaration classDeclaration) {
     return RecipeUtils.isAssignableTo(
         classDeclaration.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate");
+  }
+
+  static J.ClassDeclaration ensureCompilableLocalVariableLookups(
+      J.ClassDeclaration classDeclaration, Cursor parentCursor, ExecutionContext ctx) {
+    return (J.ClassDeclaration)
+        new JavaIsoVisitor<ExecutionContext>() {
+          private final boolean[] replacedLookup = {false};
+
+          @Override
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            J.ClassDeclaration visited = super.visitClassDeclaration(classDeclaration, ctx);
+            if (replacedLookup[0] && !hasManualMigrationMethod(visited)) {
+              return RecipeUtils.createSimpleJavaTemplate(
+                      """
+                      private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+                          throw new UnsupportedOperationException(
+                              "Manual migration required for getVariableLocal: " + variableName);
+                      }
+                      """)
+                  .apply(
+                      getCursor(),
+                      visited.getBody().getCoordinates().lastStatement());
+            }
+            return visited;
+          }
+
+          @Override
+          public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+            J.MethodDeclaration method = getCursor().firstEnclosing(J.MethodDeclaration.class);
+            if (method == null
+                || method.getBody() == null
+                || !method.getBody().getId().equals(block.getId())
+                || isOriginalDelegateMethod(method)) {
+              return super.visitBlock(block, ctx);
+            }
+
+            List<Statement> originalStatements = block.getStatements();
+            J.Block visited = super.visitBlock(block, ctx);
+            List<Statement> updatedStatements = new ArrayList<>();
+            List<Statement> visitedStatements = visited.getStatements();
+            for (int i = 0; i < visitedStatements.size(); i++) {
+              Statement statement = visitedStatements.get(i);
+              if (i < originalStatements.size()
+                  && containsLocalVariableLookup(originalStatements.get(i), ctx)) {
+                statement = addManualMigrationFinding(statement);
+              }
+              updatedStatements.add(statement);
+            }
+            return visited.withStatements(updatedStatements);
+          }
+
+          @Override
+          public J.MethodInvocation visitMethodInvocation(
+              J.MethodInvocation invocation, ExecutionContext ctx) {
+            if (isOriginalDelegateMethod()) {
+              return super.visitMethodInvocation(invocation, ctx);
+            }
+
+            J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
+            if (MANUAL_MIGRATION_METHOD.equals(visited.getSimpleName())
+                || !isLocalVariableLookup(visited)) {
+              return visited;
+            }
+
+            replacedLookup[0] = true;
+            J.MethodInvocation replacement =
+                RecipeUtils.createSimpleJavaTemplate(
+                        MANUAL_MIGRATION_METHOD + "(#{any(java.lang.String)})")
+                    .apply(
+                        getCursor(),
+                        visited.getCoordinates().replace(),
+                        visited.getArguments().get(0));
+            if (visited.getMethodType() == null) {
+              return replacement;
+            }
+            return replacement.withMethodType(
+                visited.getMethodType().withName(MANUAL_MIGRATION_METHOD));
+          }
+
+          private Statement addManualMigrationFinding(Statement statement) {
+            if (hasManualMigrationFinding(statement)) {
+              return statement;
+            }
+
+            return statement.withComments(
+                Stream.concat(
+                        statement.getComments().stream(),
+                        Stream.of(
+                            RecipeUtils.createSimpleComment(
+                                statement, LOCAL_VARIABLE_LOOKUP_TODO)))
+                    .toList());
+          }
+
+          private boolean containsLocalVariableLookup(
+              Statement statement, ExecutionContext ctx) {
+            boolean[] found = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.MethodInvocation visitMethodInvocation(
+                  J.MethodInvocation invocation, ExecutionContext nestedCtx) {
+                if (!MANUAL_MIGRATION_METHOD.equals(invocation.getSimpleName())
+                    && isLocalVariableLookup(invocation)) {
+                  found[0] = true;
+                }
+                return found[0] ? invocation : super.visitMethodInvocation(invocation, nestedCtx);
+              }
+            }.visit(statement, ctx);
+            return found[0];
+          }
+
+          private boolean isLocalVariableLookup(J.MethodInvocation invocation) {
+            return GET_VARIABLE_LOCAL.matches(invocation)
+                || "getVariableLocal".equals(invocation.getSimpleName());
+          }
+
+          private boolean hasManualMigrationMethod(J.ClassDeclaration classDeclaration) {
+            return classDeclaration.getBody().getStatements().stream()
+                .filter(J.MethodDeclaration.class::isInstance)
+                .map(J.MethodDeclaration.class::cast)
+                .anyMatch(method -> MANUAL_MIGRATION_METHOD.equals(method.getSimpleName()));
+          }
+
+          private boolean hasManualMigrationFinding(Statement statement) {
+            return statement.getComments().stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment
+                                .getText()
+                                .contains(LOCAL_VARIABLE_LOOKUP_TODO.trim()));
+          }
+
+          private boolean isOriginalDelegateMethod() {
+            J.MethodDeclaration method =
+                getCursor().firstEnclosing(J.MethodDeclaration.class);
+            return method != null && isOriginalDelegateMethod(method);
+          }
+
+          private boolean isOriginalDelegateMethod(J.MethodDeclaration method) {
+            return "execute".equals(method.getSimpleName())
+                || "notify".equals(method.getSimpleName());
+          }
+        }
+            .visit(classDeclaration, ctx, parentCursor);
   }
 
   private static class CopyExecutionListenerToJobWorkerRecipe extends Recipe {
@@ -441,10 +591,6 @@ public class MigrateExecutionRecipe extends Recipe {
 
   private static class FlagLocalVariableLookupsInJobWorker extends Recipe {
 
-    private static final MethodMatcher GET_VARIABLE_LOCAL =
-        new MethodMatcher(
-            "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)");
-
     @Override
     public String getDisplayName() {
       return "Flags local variable lookups for manual migration";
@@ -468,68 +614,10 @@ public class MigrateExecutionRecipe extends Recipe {
           precondition,
           new JavaIsoVisitor<>() {
             @Override
-            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
-              J.MethodDeclaration method = getCursor().firstEnclosing(J.MethodDeclaration.class);
-              if (method == null
-                  || method.getBody() == null
-                  || !method.getBody().getId().equals(block.getId())
-                  || isOriginalDelegateMethod(method)) {
-                return super.visitBlock(block, ctx);
-              }
-
-              J.Block visited = super.visitBlock(block, ctx);
-              List<Statement> updatedStatements =
-                  visited.getStatements().stream()
-                      .map(statement -> addManualMigrationFinding(statement, ctx))
-                      .toList();
-              return visited.withStatements(updatedStatements);
-            }
-
-            private Statement addManualMigrationFinding(
-                Statement statement, ExecutionContext ctx) {
-              if (!containsLocalVariableLookup(statement, ctx)
-                  || hasManualMigrationFinding(statement)) {
-                return statement;
-              }
-
-              return statement.withComments(
-                  Stream.concat(
-                          statement.getComments().stream(),
-                          Stream.of(
-                              RecipeUtils.createSimpleComment(
-                                  statement, LOCAL_VARIABLE_LOOKUP_TODO)))
-                      .toList());
-            }
-
-            private boolean containsLocalVariableLookup(
-                Statement statement, ExecutionContext ctx) {
-              boolean[] found = {false};
-              new JavaIsoVisitor<ExecutionContext>() {
-                @Override
-                public J.MethodInvocation visitMethodInvocation(
-                    J.MethodInvocation invocation, ExecutionContext nestedCtx) {
-                  if (GET_VARIABLE_LOCAL.matches(invocation)) {
-                    found[0] = true;
-                  }
-                  return found[0] ? invocation : super.visitMethodInvocation(invocation, nestedCtx);
-                }
-              }.visit(statement, ctx);
-              return found[0];
-            }
-
-            private boolean hasManualMigrationFinding(Statement statement) {
-              return statement.getComments().stream()
-                  .anyMatch(
-                      comment ->
-                          comment instanceof TextComment textComment
-                              && textComment
-                                  .getText()
-                                  .contains(LOCAL_VARIABLE_LOOKUP_TODO.trim()));
-            }
-
-            private boolean isOriginalDelegateMethod(J.MethodDeclaration method) {
-              return "execute".equals(method.getSimpleName())
-                  || "notify".equals(method.getSimpleName());
+            public J.ClassDeclaration visitClassDeclaration(
+                J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+              return ensureCompilableLocalVariableLookups(
+                  classDeclaration, getCursor().getParentOrThrow(), ctx);
             }
           });
     }

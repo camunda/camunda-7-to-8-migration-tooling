@@ -46,24 +46,30 @@ public class CleanupExecutionListenerRecipe extends Recipe {
           @NonNull
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
-
             // Skip interfaces
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
               return classDecl;
             }
 
+            J.ClassDeclaration migratedClass =
+                MigrateExecutionRecipe.ensureCompilableLocalVariableLookups(
+                    classDecl, getCursor().getParentOrThrow(), ctx);
+
             // Filter out the ExecutionListener interface
-            List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
-                classDecl.getImplements().stream()
-                    .filter(
-                        id ->
-                            !TypeUtils.isOfClassType(
-                                id.getType(), "org.camunda.bpm.engine.delegate.ExecutionListener"))
-                    .collect(Collectors.toList());
+            List<TypeTree> updatedImplements =
+                migratedClass.getImplements() == null
+                    ? Collections.emptyList()
+                    : migratedClass.getImplements().stream()
+                        .filter(
+                            id ->
+                                !TypeUtils.isOfClassType(
+                                    id.getType(),
+                                    "org.camunda.bpm.engine.delegate.ExecutionListener"))
+                        .collect(Collectors.toList());
 
             // Filter out the notify method
             List<Statement> filteredStatements =
-                classDecl.getBody().getStatements().stream()
+                migratedClass.getBody().getStatements().stream()
                     .filter(
                         (statement ->
                             !(statement instanceof J.MethodDeclaration methDecl
@@ -73,11 +79,10 @@ public class CleanupExecutionListenerRecipe extends Recipe {
             maybeRemoveImport("org.camunda.bpm.engine.delegate.ExecutionListener");
             maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
 
-            return classDecl
-                .withBody(classDecl.getBody().withStatements(filteredStatements))
+            return migratedClass
+                .withBody(migratedClass.getBody().withStatements(filteredStatements))
                 .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
           }
         });
   }
 }
-

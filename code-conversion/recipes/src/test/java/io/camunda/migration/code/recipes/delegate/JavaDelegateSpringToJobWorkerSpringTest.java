@@ -273,15 +273,15 @@ public class TestDelegate {
         // please check type
         final Object fileVariableTyped = job.getVariablesAsMap().get("fileVariable");
         // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var stringVariableLocal = execution.getVariableLocal("stringVariableLocal");
+        final var stringVariableLocal = getVariableLocalRequiresManualMigration("stringVariableLocal");
         // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var integerVariableLocal = execution.getVariableLocal("integerVariableLocal");
+        final var integerVariableLocal = getVariableLocalRequiresManualMigration("integerVariableLocal");
         // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var doubleVariableLocal = execution.getVariableLocal("doubleVariableLocal");
+        final var doubleVariableLocal = getVariableLocalRequiresManualMigration("doubleVariableLocal");
         // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var boolVariableLocal = execution.getVariableLocal("boolVariableLocal");
+        final var boolVariableLocal = getVariableLocalRequiresManualMigration("boolVariableLocal");
         // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var jsonVariableLocal = execution.getVariableLocal("jsonVariableLocal");
+        final var jsonVariableLocal = getVariableLocalRequiresManualMigration("jsonVariableLocal");
 
         final String procInstanceId = String.valueOf(job.getProcessInstanceKey());
         final String procDefId = String.valueOf(job.getProcessDefinitionKey());
@@ -302,6 +302,11 @@ public class TestDelegate {
         resultMap.put("newObjectVariable", new DummyClass(215, 9.81, "Ein Beispielstring zum testen"));
         System.out.println("C7 finished");
         return resultMap;
+    }
+
+    private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+        throw new UnsupportedOperationException(
+                "Manual migration required for getVariableLocal: " + variableName);
     }
 }
 """));

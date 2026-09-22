@@ -47,26 +47,31 @@ public class CleanupDelegateRecipe extends Recipe {
           @NonNull
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
-
             // Skip interfaces, but keep traversing so nested types are still visited.
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
               return super.visitClassDeclaration(classDecl, ctx);
             }
 
+            J.ClassDeclaration migratedClass =
+                MigrateExecutionRecipe.ensureCompilableLocalVariableLookups(
+                    classDecl, getCursor().getParentOrThrow(), ctx);
+
             // Preserve delegate code when migration already warned that the body could not be
             // copied automatically, so users can still migrate it manually.
-            if (hasDelegateBodyWarning(classDecl)) {
-              return super.visitClassDeclaration(classDecl, ctx);
+            if (hasDelegateBodyWarning(migratedClass)) {
+              return super.visitClassDeclaration(migratedClass, ctx);
             }
 
             // Filter out the JavaDelegate interface and any subinterfaces of it
-            List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
-                classDecl.getImplements().stream()
-                    .filter(id -> !isJavaDelegateAssignable(id.getType()))
-                    .collect(Collectors.toList());
+            List<TypeTree> updatedImplements =
+                migratedClass.getImplements() == null
+                    ? Collections.emptyList()
+                    : migratedClass.getImplements().stream()
+                        .filter(id -> !isJavaDelegateAssignable(id.getType()))
+                        .collect(Collectors.toList());
 
             List<Statement> filteredStatements =
-                classDecl.getBody().getStatements().stream()
+                migratedClass.getBody().getStatements().stream()
                     .filter(
                         (statement ->
                             !(statement instanceof J.MethodDeclaration methDecl
@@ -76,8 +81,8 @@ public class CleanupDelegateRecipe extends Recipe {
             maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
             maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
 
-            return classDecl
-                .withBody(classDecl.getBody().withStatements(filteredStatements))
+            return migratedClass
+                .withBody(migratedClass.getBody().withStatements(filteredStatements))
                 .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
           }
 

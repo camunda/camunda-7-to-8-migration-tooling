@@ -99,6 +99,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   @Test
   void flagsLocalVariableLookupForManualMigration() {
     rewriteRun(
+        spec -> spec.expectedCyclesThatMakeChanges(2),
         java(
     """
             package org.camunda.conversion.java_delegates.handling_process_variables;
@@ -151,8 +152,13 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();
                     // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-                    Object localValue = execution.getVariableLocal("localValue");
+                    Object localValue = getVariableLocalRequiresManualMigration("localValue");
                     return resultMap;
+                }
+
+                private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+                    throw new UnsupportedOperationException(
+                            "Manual migration required for getVariableLocal: " + variableName);
                 }
             }
             """));
