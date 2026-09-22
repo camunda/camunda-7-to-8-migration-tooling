@@ -296,6 +296,8 @@ Check these pitfalls as well:
 
 After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
 target version. See the linting section in `references/model-migration-approaches.md`.
+Use `references/process-validation.md` to generate the executable-entry-point inventory and
+acceptance scenarios.
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.
@@ -342,6 +344,13 @@ target version. See the linting section in `references/model-migration-approache
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
+17. Inventory every executable process definition. Start every valid standalone entry point
+    independently and test normal, omitted-input, and relevant boundary inputs.
+18. Record the process ID, input set, failing element, job type, incident message, retry state, and
+    expected post-fix behavior for each scenario.
+19. Record an explicit exclusion reason, required parent or trigger, and alternative coverage for
+    every executable definition that is not a valid standalone entry point. A missing exclusion
+    record fails validation.
 
 #### Summary
 
