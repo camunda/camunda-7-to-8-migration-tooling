@@ -304,6 +304,75 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
+  void migratesLookupsInNestedWorkerMethods() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Runnable nested = new Runnable() {
+                        @Override
+                        public void run() {
+                            String nestedValue = execution.getVariable("nested");
+                        }
+                    };
+                    nested.run();
+                    return "done";
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Runnable nested = new Runnable() {
+                        @Override
+                        public void run() {
+                            String nestedValue = (String) job.getVariablesAsMap().get("nested");
+                        }
+                    };
+                    nested.run();
+                    return "done";
+                }
+            }
+            """));
+  }
+
+  @Test
   void ThrowBPMNAndExceptionTest() {
     rewriteRun(
         java(

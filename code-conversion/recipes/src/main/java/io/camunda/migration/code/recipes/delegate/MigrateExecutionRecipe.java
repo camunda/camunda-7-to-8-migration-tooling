@@ -79,6 +79,16 @@ public class MigrateExecutionRecipe extends Recipe {
     return method != null && MIGRATED_WORKER_METHOD.equals(method.getSimpleName());
   }
 
+  private static boolean isCopiedJobWorkerMethod(Cursor cursor) {
+    for (Cursor current = cursor; current != null; current = current.getParent()) {
+      if (current.getValue() instanceof J.MethodDeclaration method
+          && isCopiedJobWorkerMethod(method)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static class CopyDelegateToJobWorkerRecipe extends Recipe {
 
     /** Instantiates a new instance. */
@@ -436,9 +446,7 @@ public class MigrateExecutionRecipe extends Recipe {
           }
 
           private boolean isMigratedMethod() {
-            J.MethodDeclaration method =
-                getCursor().firstEnclosing(J.MethodDeclaration.class);
-            return method != null && isCopiedJobWorkerMethod(method);
+            return MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor());
           }
 
           private boolean isCopiedJobWorkerMethod(J.MethodDeclaration method) {
@@ -548,10 +556,7 @@ public class MigrateExecutionRecipe extends Recipe {
 
     @Override
     protected Predicate<Cursor> visitorSkipCondition() {
-      return cursor -> {
-        J.MethodDeclaration m = cursor.firstEnclosing(J.MethodDeclaration.class);
-        return !isCopiedJobWorkerMethod(m);
-      };
+      return cursor -> !MigrateExecutionRecipe.isCopiedJobWorkerMethod(cursor);
     }
 
     @Override
@@ -758,9 +763,7 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             private boolean isCopiedJobWorkerMethod() {
-              J.MethodDeclaration method =
-                  getCursor().firstEnclosing(J.MethodDeclaration.class);
-              return MigrateExecutionRecipe.isCopiedJobWorkerMethod(method);
+              return MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor());
             }
           });
     }
@@ -1233,9 +1236,7 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             private boolean isCopiedJobWorkerMethod() {
-              J.MethodDeclaration method =
-                  getCursor().firstEnclosing(J.MethodDeclaration.class);
-              return MigrateExecutionRecipe.isCopiedJobWorkerMethod(method);
+              return MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor());
             }
           });
     }
