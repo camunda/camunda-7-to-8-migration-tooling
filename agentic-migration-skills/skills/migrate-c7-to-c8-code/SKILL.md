@@ -337,7 +337,14 @@ acceptance scenarios.
 15. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
    `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
    definitions-level XPath `expressionLanguage` attribute.
-16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
+16. For every converted BPMN with source BPMN DI, the converted copy preserves the source diagram,
+    plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged
+    semantic IDs.
+17. For every converted BPMN without source BPMN DI, the skill does not create layout data and
+    records the absent source DI as provenance in `MIGRATION_REPORT.md`.
+18. When a semantic rewrite changes an ID referenced by BPMN DI, the skill updates the reference or
+    records a blocking or review finding when it cannot reconcile the reference.
+19. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
     from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
     `camunda:topic` attribute using the binding rules in
     `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
@@ -374,6 +381,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
 | Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
 | Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
+| BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
 
