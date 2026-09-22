@@ -176,6 +176,25 @@ categories:
           </bpmn:serviceTask>
         expectedMessages: |
           <conversion:message severity="TASK">Execution Listener at 'start' with implementation '${myNewJobType}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+      - name: BPMN start event without execution listener
+        givenBpmn: |
+          <bpmn:startEvent id="startEvent"/>
+        expectedBpmn: |
+          <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: |
+      - name: Execution Listener on BPMN start event
+        givenBpmn: |
+          <bpmn:startEvent id="startEvent">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${startEventListener}" event="start" />
+              <camunda:executionListener class="com.example.StartListener" event="start" />
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. Move it to the containing process or subprocess start listener after reviewing its execution scope.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. Move it to the containing process or subprocess start listener after reviewing its execution scope.</conversion:message>
       - name: Execution Listener Without Implementation
         givenBpmn: |
           <bpmn:task id="ListenerWithoutImplTask" name="Listener Without Impl">

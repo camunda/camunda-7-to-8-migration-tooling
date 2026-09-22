@@ -305,6 +305,20 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildExecutionListenerOnStartEvent() {
+    Message message =
+        MessageFactory.executionListenerOnStartEventNotSupported(
+            "start", "delegateExpression", "${myExecutionListener}");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' on a BPMN start event cannot be transformed. Move it to the containing process or subprocess start listener after reviewing its execution scope.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/concepts/execution-listeners/#limitations");
+  }
+
+  @Test
   void shouldBuildExecutionListenerSupported() {
     Message message = MessageFactory.executionListenerSupported("start", "${myExecutionListener}");
     assertNotNull(message);
