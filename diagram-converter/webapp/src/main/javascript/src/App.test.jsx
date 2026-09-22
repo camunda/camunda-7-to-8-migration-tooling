@@ -534,11 +534,13 @@ describe("target platform version", () => {
     const options = within(versionGroup).getAllByRole("radio");
 
     expect(options.map((option) => option.getAttribute("aria-label"))).toEqual([
+      "8.8",
       "8.9 Previous stable",
       "8.10 Latest stable",
       "8.11 Next version",
     ]);
     expect(options.map((option) => option.getAttribute("aria-checked"))).toEqual([
+      "false",
       "false",
       "true",
       "false",
