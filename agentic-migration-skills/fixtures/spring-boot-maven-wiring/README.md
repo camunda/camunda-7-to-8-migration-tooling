@@ -7,6 +7,8 @@ becomes a Camunda 8 Spring Boot deployment application during migration.
 c7-source/
   pom.xml
   src/main/resources/message-start.bpmn
+expected-negative/
+  pom.xml
 expected-c8/
   pom.xml
   src/main/java/org/camunda/bpm/example/event/message/MessageStartApplication.java
@@ -23,15 +25,19 @@ converted BPMN, and `spring-boot-maven-plugin`.
 
 1. Copy `c7-source` to a temporary project and confirm that it has no
    `spring-boot-maven-plugin` and no Spring Boot entry point.
-2. Migrate the temporary project with the `migrate-c7-to-c8-code` skill.
-3. Compare the migrated project with `expected-c8`. Keep the original BPMN
+2. Copy `c7-source` to a separate temporary project with a test-only or
+   non-application runtime intent. Migrate it with the
+   `migrate-c7-to-c8-code` skill and compare it with `expected-negative`.
+   Confirm that it has no Spring Boot entry point or application plugin.
+3. Migrate the first temporary project with the `migrate-c7-to-c8-code` skill.
+4. Compare the migrated project with `expected-c8`. Keep the original BPMN
    unchanged and use a `converted-c8-*` copy for deployment.
-4. Configure the Camunda 8 connection required by the selected starter.
-5. Run `mvn spring-boot:run` from the migrated project. Confirm that Maven
+5. Configure the Camunda 8 connection required by the selected starter.
+6. Run `mvn spring-boot:run` from the migrated project. Confirm that Maven
    resolves the plugin and starts `MessageStartApplication`.
-6. Run `mvn package` and inspect the JAR under `target/`. Confirm that it
+7. Run `mvn package` and inspect the JAR under `target/`. Confirm that it
    contains the Spring Boot loader and `MessageStartApplication`.
-7. Run `java -jar target/message-start-1.0-SNAPSHOT.jar`. Confirm that the
+8. Run `java -jar target/message-start-1.0-SNAPSHOT.jar`. Confirm that the
    packaged application selects the same entry point and deploys the converted
    resource.
 
@@ -40,6 +46,6 @@ executes during application startup. A cluster connection failure does not
 replace the Maven plugin and executable-JAR checks. Record the exact
 environment blocker in `MIGRATION_REPORT.md` when the cluster is unavailable.
 
-The source copy is also the negative case. A module that remains test-only or
-has no runtime Spring Boot entry point must not receive the application class
-or `spring-boot-maven-plugin`.
+The `expected-negative` copy is the negative case. A module that remains
+test-only or has no runtime Spring Boot entry point must not receive the
+application class or `spring-boot-maven-plugin`.

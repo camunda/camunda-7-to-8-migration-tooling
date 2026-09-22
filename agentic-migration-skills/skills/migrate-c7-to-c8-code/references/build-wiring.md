@@ -29,7 +29,8 @@ When a Maven module has a runtime Spring Boot entry point, apply the following d
 
 | Effective Maven state | Required action |
 |---|---|
-| `spring-boot-maven-plugin` is already declared under `build/plugins` | Keep its version, executions, and configuration. Add only missing run or packaging configuration. |
+| `spring-boot-maven-plugin` is declared under `build/plugins` with a direct or effective managed version | Keep its version, executions, and configuration. Add only missing run or packaging configuration. |
+| `spring-boot-maven-plugin` is declared under `build/plugins` without a direct or effective managed version | Add the selected Spring Boot version. Record its source and compatibility check. Keep existing executions and configuration. |
 | The plugin exists only under `build/pluginManagement` or a parent manages only its version | Add the plugin under the module's `build/plugins` and inherit the managed version. |
 | No plugin declaration or managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
 | The module has no runtime Spring Boot entry point | Do not add the plugin. Record the supported non-application execution path. |
@@ -61,17 +62,17 @@ configuration unchanged unless the external launcher requires the executable art
 
 ## Validation
 
-Run the module's supported commands after the build wiring change:
+Run the validation for the intended runtime recorded in the inventory:
 
-1. Run `mvn spring-boot:run` from the module directory. Confirm that Maven resolves the plugin and
-   that the selected application entry point starts. A missing Camunda cluster is a runtime
-   environment failure, not evidence that plugin resolution is correct.
-2. Run `mvn package` and inspect the produced executable artifact, such as a JAR or executable WAR.
-   Confirm that it contains the Spring Boot loader and the application classes.
-3. Start the packaged executable artifact with `java -jar <artifact>`. Confirm the same entry point
-   starts, or record the external dependency that prevents startup.
-4. Run the module test command. Confirm that modules without a runtime entry point did not acquire
-   an application plugin.
+| Intended runtime | Required validation |
+|---|---|
+| Runtime Spring Boot application | Run `mvn spring-boot:run` from the module directory. Confirm that Maven resolves the plugin and that the selected entry point starts. Run `mvn package` and inspect the produced executable artifact, such as a JAR or executable WAR. Confirm that it contains the Spring Boot loader and application classes. Start the artifact with `java -jar <artifact>`. Confirm the same entry point starts. |
+| Test-only module | Run the module test command. Confirm that the module has no runtime entry point and did not acquire an application plugin. Do not run Spring Boot launch or executable-artifact checks. |
+| Externally managed application | Run the recorded external launch command. If the launcher requires an executable artifact, run the package and artifact checks for the runtime application. Otherwise, record the Maven launch and artifact checks as not applicable. |
+
+A missing Camunda cluster is a runtime environment failure. It does not show that plugin resolution
+failed. Record the external dependency that prevents startup when a launch check cannot start the
+application.
 
 Record each command, exit code, artifact path, and any environment prerequisite in
 `MIGRATION_REPORT.md`. When a command cannot run, keep the build-wiring finding open and record the
@@ -81,5 +82,5 @@ exact blocker. Do not report a plugin as validated from a successful compile alo
 
 Use `agentic-migration-skills/fixtures/spring-boot-maven-wiring` for a non-Boot Camunda 7 Maven
 module that becomes a Camunda 8 Spring Boot deployment application. The fixture contains the source
-build without an application plugin, the expected entry point, and the expected plugin wiring.
-Repeat the validation commands against a temporary copy and keep the source build unchanged.
+build without an application plugin, an expected runtime copy, and an expected negative copy.
+Repeat the validation commands against temporary copies and keep the source build unchanged.
