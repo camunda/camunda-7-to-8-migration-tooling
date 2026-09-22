@@ -47,10 +47,12 @@ public class ValidateCamundaClientYaml extends Recipe {
             ListUtils.map(
                 m.getEntries(),
                 entry -> {
-                  if (!(entry.getValue() instanceof Yaml.Scalar value)) {
-                    return entry;
-                  }
                   String key = join(parentPath, entry.getKey().getValue());
+                  if (!(entry.getValue() instanceof Yaml.Scalar value)) {
+                    return CamundaClientConfigurationValidation.shapeFinding(key)
+                        .map(message -> SearchResult.found(entry, message))
+                        .orElse(entry);
+                  }
                   return CamundaClientConfigurationValidation.finding(key, value.getValue())
                       .map(message -> SearchResult.found(entry, message))
                       .orElse(entry);

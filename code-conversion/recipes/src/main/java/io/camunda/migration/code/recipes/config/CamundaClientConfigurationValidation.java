@@ -24,31 +24,39 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 
-/** Validates Camunda client settings that are known to prevent Spring Boot configuration binding. */
+/**
+ * Validates Camunda client settings against the starter metadata bundled with the selected recipe
+ * version.
+ */
 final class CamundaClientConfigurationValidation {
 
-  private static final String AUTH_PREFIX = "camunda.client.auth.";
+  private static final ConfigurationPropertyName AUTH_PREFIX =
+      propertyName("camunda.client.auth");
   private static final String LEGACY_MAPPINGS_RESOURCE =
       "camunda-client-legacy-property-mappings.properties";
   private static final String METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
-  private static final String MODE = "camunda.client.mode";
+  private static final ConfigurationPropertyName MODE = propertyName("camunda.client.mode");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final Set<String> SUPPORTED_AUTH_PROPERTIES = supportedAuthProperties();
-  private static final Map<String, String> LEGACY_PROPERTY_MAPPINGS = legacyPropertyMappings();
+  private static final Set<ConfigurationPropertyName> SUPPORTED_AUTH_PROPERTIES =
+      supportedAuthProperties();
+  private static final Map<ConfigurationPropertyName, String> LEGACY_PROPERTY_MAPPINGS =
+      legacyPropertyMappings();
 
   private CamundaClientConfigurationValidation() {}
 
   static Optional<String> finding(String key, String value) {
-    if (key.equals(MODE) && isUnsupportedMode(value)) {
+    ConfigurationPropertyName propertyName = propertyName(key);
+    if (propertyName.equals(MODE) && isUnsupportedMode(value)) {
       return Optional.of(
           "Invalid Camunda client mode '"
               + value
               + "'. Use 'self-managed' or 'saas' for "
-              + MODE
+              + MODE.toString()
               + ".");
     }
-    String replacement = LEGACY_PROPERTY_MAPPINGS.get(key);
+    String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyName);
     if (replacement != null) {
       return Optional.of(
           "Deprecated Camunda client property '"
@@ -57,11 +65,23 @@ final class CamundaClientConfigurationValidation {
               + replacement
               + "'.");
     }
-    if (key.startsWith(AUTH_PREFIX) && !SUPPORTED_AUTH_PROPERTIES.contains(key)) {
+    if (AUTH_PREFIX.isAncestorOf(propertyName)
+        && !SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
       return Optional.of(
           "Unsupported Camunda client authentication property '"
               + key
               + "'. Configure authentication directly under camunda.client.auth.");
+    }
+    return Optional.empty();
+  }
+
+  static Optional<String> shapeFinding(String key) {
+    ConfigurationPropertyName propertyName = propertyName(key);
+    if (propertyName.equals(MODE) || SUPPORTED_AUTH_PROPERTIES.contains(propertyName)) {
+      return Optional.of(
+          "Unsupported Camunda client configuration shape for '"
+              + key
+              + "'. Use a scalar value.");
     }
     return Optional.empty();
   }
@@ -76,7 +96,7 @@ final class CamundaClientConfigurationValidation {
         .noneMatch(normalized::equals);
   }
 
-  private static Map<String, String> legacyPropertyMappings() {
+  private static Map<ConfigurationPropertyName, String> legacyPropertyMappings() {
     Properties mappings = new Properties();
     try (JarFile jarFile = targetStarterJar();
         InputStream stream = resource(jarFile, LEGACY_MAPPINGS_RESOURCE)) {
@@ -86,11 +106,12 @@ final class CamundaClientConfigurationValidation {
           "Cannot load Camunda client legacy property mappings from the target starter.", e);
     }
 
-    Map<String, String> legacyProperties = new HashMap<>();
+    Map<ConfigurationPropertyName, String> legacyProperties = new HashMap<>();
     mappings.forEach(
-        (propertyName, legacyPropertyNames) -> {
+        (currentPropertyName, legacyPropertyNames) -> {
           for (String legacyPropertyName : legacyPropertyNames.toString().split(",")) {
-            legacyProperties.put(legacyPropertyName.trim(), propertyName.toString());
+            legacyProperties.put(
+                propertyName(legacyPropertyName.trim()), currentPropertyName.toString());
           }
         });
     return Map.copyOf(legacyProperties);
@@ -105,15 +126,16 @@ final class CamundaClientConfigurationValidation {
     return jarFile.getInputStream(entry);
   }
 
-  private static Set<String> supportedAuthProperties() {
+  private static Set<ConfigurationPropertyName> supportedAuthProperties() {
     try (JarFile jarFile = targetStarterJar();
         InputStream stream = resource(jarFile, METADATA_RESOURCE)) {
       JsonNode properties = OBJECT_MAPPER.readTree(stream).path("properties");
-      Set<String> authProperties = new HashSet<>();
+      Set<ConfigurationPropertyName> authProperties = new HashSet<>();
       for (JsonNode property : properties) {
         String name = property.path("name").asText();
-        if (name.startsWith(AUTH_PREFIX)) {
-          authProperties.add(name);
+        ConfigurationPropertyName propertyName = propertyName(name);
+        if (AUTH_PREFIX.isAncestorOf(propertyName)) {
+          authProperties.add(propertyName);
         }
       }
       return Set.copyOf(authProperties);
@@ -137,6 +159,10 @@ final class CamundaClientConfigurationValidation {
       throw new IllegalStateException(
           "Cannot locate the target Camunda Spring Boot starter for configuration validation.", e);
     }
+  }
+
+  private static ConfigurationPropertyName propertyName(String name) {
+    return ConfigurationPropertyName.adapt(name, '.');
   }
 
   private static String normalize(String value) {

@@ -126,6 +126,17 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void acceptsRelaxedAuthenticationPropertyNames() {
+    rewriteRun(
+        properties(
+            """
+            camunda.client.auth.clientId=example
+            camunda.client.auth.client_id=example
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void marksLegacyZeebeAliasesAsDeprecated() {
     rewriteRun(
         properties(
@@ -146,6 +157,23 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
             camunda.client.mode=simple
             """,
             spec -> spec.path("src/main/resources/camunda.properties")));
+  }
+
+  @Test
+  void detectsNonScalarModeConfiguration() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              client:
+                mode: [simple]
+            """,
+            """
+            camunda:
+              client:
+                ~~(Unsupported Camunda client configuration shape for 'camunda.client.mode'. Use a scalar value.)~~>mode: [simple]
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
   }
 
   @Test

@@ -106,9 +106,21 @@ These items are not in the catalog:
 
 ### Configuration binding validation
 
-Run `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` after approaches A
-and B. Where approach C finds Camunda 8 client configuration, run the recipe without changing source
-files.
+Approach A runs `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` through
+`AllClientRecipes`. Do not run it again.
+
+Select the recipe version for the target minor. The validator reads its bundled starter metadata and
+legacy mappings.
+
+For approaches B and C, run only the validation recipe after migration:
+
+| Build tool | Validation command |
+|---|---|
+| Maven | `mvn rewrite:run -Drewrite.activeRecipes=io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` |
+| Gradle | Set `activeRecipe("io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe")` in the `rewrite {}` block. Run the `REWRITE_COMMAND` from `code-migration-approaches.md`. Restore the original recipe configuration. |
+
+Where the OpenRewrite plugin is absent, add the setup from `code-migration-approaches.md` temporarily.
+Restore the build file after validation.
 
 The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
 It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
