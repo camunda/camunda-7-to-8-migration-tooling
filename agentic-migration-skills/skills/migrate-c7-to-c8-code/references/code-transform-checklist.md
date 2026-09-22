@@ -79,9 +79,8 @@ public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 ## 1. Dependencies and Configuration
 
 Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the startup validation, the Apache HttpClient family
-check, the SLF4J binding, the `@PostConstruct` to
-`@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
+the starter choice by Spring Boot version, the startup validation, the SLF4J binding, the
+`@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
 Never restate a version number from memory.
@@ -94,13 +93,6 @@ These items are not in the catalog:
   not assume a pairing works because both versions are "latest".
 - Ensure Spring Boot dependency management is set through a parent or BOM before adding a Camunda
   starter.
-- Before closing a failed starter startup validation, compare the resolved `httpclient5`,
-  `httpcore5`, and `httpcore5-h2` graph with the family declared by the selected `httpclient5`
-  POM.
-- If the family differs, manage all three artifacts with the compatible family versions and rerun
-  startup. Never override one Apache artifact without its matching family.
-- If startup still fails after the Apache family is aligned, record a blocking finding in
-  `MIGRATION_REPORT.md`.
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
