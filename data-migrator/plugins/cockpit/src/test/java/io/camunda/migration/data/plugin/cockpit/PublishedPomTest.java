@@ -25,16 +25,36 @@ public class PublishedPomTest {
             .newDocumentBuilder()
             .parse(Path.of(System.getProperty("basedir"), ".flattened-pom.xml").toFile());
     var dependencies = flattenedPom.getElementsByTagName("dependency");
+    Element camundaWebapp = null;
     Element jacksonDatabind = null;
 
     for (int i = 0; i < dependencies.getLength(); i++) {
       var dependency = (Element) dependencies.item(i);
-      if ("com.fasterxml.jackson.core".equals(childText(dependency, "groupId"))
+      if ("org.camunda.bpm.webapp".equals(childText(dependency, "groupId"))
+          && "camunda-webapp".equals(childText(dependency, "artifactId"))) {
+        camundaWebapp = dependency;
+      } else if ("com.fasterxml.jackson.core".equals(childText(dependency, "groupId"))
           && "jackson-databind".equals(childText(dependency, "artifactId"))) {
         jacksonDatabind = dependency;
+      }
+    }
+
+    assertThat(camundaWebapp)
+        .as("the flattened Cockpit POM must declare camunda-webapp directly")
+        .isNotNull();
+    var exclusions = camundaWebapp.getElementsByTagName("exclusion");
+    var excludesJacksonDatabind = false;
+    for (int i = 0; i < exclusions.getLength(); i++) {
+      var exclusion = (Element) exclusions.item(i);
+      if ("com.fasterxml.jackson.core".equals(childText(exclusion, "groupId"))
+          && "jackson-databind".equals(childText(exclusion, "artifactId"))) {
+        excludesJacksonDatabind = true;
         break;
       }
     }
+    assertThat(excludesJacksonDatabind)
+        .as("camunda-webapp must exclude transitive Jackson databind")
+        .isTrue();
 
     assertThat(jacksonDatabind)
         .as("the flattened Cockpit POM must declare Jackson databind directly")
