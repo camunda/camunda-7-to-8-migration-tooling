@@ -119,8 +119,8 @@ For approach B, run only the validation recipe after migration:
 | Maven | `mvn rewrite:run -Drewrite.activeRecipes=io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` |
 | Gradle | Replace every `activeRecipe(...)` entry in the `rewrite {}` block with `activeRecipe("io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe")`. Run the `REWRITE_COMMAND` from `code-migration-approaches.md`. Restore the original recipe configuration. |
 
-Where the OpenRewrite plugin is absent, add the setup from `code-migration-approaches.md` temporarily.
-Restore the build file after validation.
+Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
+`code-migration-approaches.md` temporarily. Restore the build file after validation.
 
 The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
 It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
