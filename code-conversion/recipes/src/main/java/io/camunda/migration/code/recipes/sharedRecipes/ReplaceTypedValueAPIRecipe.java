@@ -710,8 +710,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (invocation.getSimpleName().equals("getVariableTyped")
                 || invocation.getSimpleName().equals("getVariableLocalTyped")) {
+              String replacementName =
+                  invocation.getSimpleName().equals("getVariableLocalTyped")
+                      ? "getVariableLocal"
+                      : "getVariable";
               J.Identifier newIdent =
-                  RecipeUtils.createSimpleIdentifier("getVariable", "java.lang.String");
+                  RecipeUtils.createSimpleIdentifier(replacementName, "java.lang.String");
               return invocation.withName(newIdent);
             }
 

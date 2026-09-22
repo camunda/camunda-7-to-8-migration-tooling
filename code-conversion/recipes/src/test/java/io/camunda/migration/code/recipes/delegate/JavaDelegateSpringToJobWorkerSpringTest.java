@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -40,7 +41,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   @Override
   public void execute(DelegateExecution ctx) throws Exception {    
   }
-  
+
 }
 """,
 """
@@ -350,6 +351,63 @@ public class TestDelegate {
     }
 
     private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+        throw new UnsupportedOperationException(
+                "Manual migration required for getVariableLocal: " + variableName);
+    }
+}
+"""));
+    }
+
+    @Test
+    void typedLocalVariableReadRetainsLocalScopeForManualMigration() {
+    rewriteRun(
+        spec -> spec.typeValidationOptions(TypeValidation.none()),
+        java(
+"""
+package org.camunda.community.migration.example;
+
+import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.camunda.bpm.engine.delegate.JavaDelegate;
+import org.camunda.bpm.engine.variable.value.StringValue;
+import org.springframework.stereotype.Component;
+
+@Component
+public class RetrievePaymentAdapter implements JavaDelegate {
+
+    @Override
+    public void execute(DelegateExecution execution) throws Exception {
+        StringValue local = execution.getVariableLocalTyped("local", false);
+    }
+}
+""",
+"""
+package org.camunda.community.migration.example;
+
+import io.camunda.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Component
+public class RetrievePaymentAdapter {
+
+    @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+        Map<String, Object> resultMap = new HashMap<>();
+        // please check type
+        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+        String local = getVariableLocalRequiresManualMigration("local", false);
+        return resultMap;
+    }
+
+    private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+        throw new UnsupportedOperationException(
+                "Manual migration required for getVariableLocal: " + variableName);
+    }
+
+    private static <T> T getVariableLocalRequiresManualMigration(String variableName, Object... ignored) {
         throw new UnsupportedOperationException(
                 "Manual migration required for getVariableLocal: " + variableName);
     }
