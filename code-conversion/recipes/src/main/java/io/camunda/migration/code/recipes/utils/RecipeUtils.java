@@ -8,6 +8,7 @@
 package io.camunda.migration.code.recipes.utils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.openrewrite.Cursor;
 import org.openrewrite.Tree;
@@ -120,23 +121,67 @@ public class RecipeUtils {
       return fqn;
     }
 
-    int genericStart = fqn.indexOf('<');
+    String type = fqn.trim();
+    int genericStart = type.indexOf('<');
     if (genericStart == -1) {
-      // No generics, return the simple class name
-      return fqn.substring(fqn.lastIndexOf('.') + 1);
+      return shortenSimpleType(type);
     }
 
-    String rawType = fqn.substring(0, genericStart);
-    String genericPart = fqn.substring(genericStart + 1, fqn.length() - 1); // remove < and >
-
-    String rawShort = rawType.substring(rawType.lastIndexOf('.') + 1);
-    String[] genericTypes = genericPart.split("\\s*,\\s*");
-    StringJoiner joiner = new StringJoiner(", ");
-    for (String g : genericTypes) {
-      joiner.add(g.substring(g.lastIndexOf('.') + 1));
+    int genericEnd = matchingGenericEnd(type, genericStart);
+    if (genericEnd == -1) {
+      return shortenSimpleType(type);
     }
 
-    return rawShort + "<" + joiner + ">";
+    StringBuilder result = new StringBuilder(shortenSimpleType(type.substring(0, genericStart)));
+    result.append('<');
+    result.append(
+        splitTopLevelGenericArguments(type.substring(genericStart + 1, genericEnd)).stream()
+            .map(RecipeUtils::getShortName)
+            .collect(Collectors.joining(", ")));
+    result.append('>');
+    result.append(type.substring(genericEnd + 1));
+    return result.toString();
+  }
+
+  private static String shortenSimpleType(String type) {
+    int lastSpace = type.lastIndexOf(' ');
+    if (lastSpace < 0) {
+      return type.substring(type.lastIndexOf('.') + 1);
+    }
+
+    return type.substring(0, lastSpace + 1) + shortenSimpleType(type.substring(lastSpace + 1));
+  }
+
+  private static int matchingGenericEnd(String type, int genericStart) {
+    int depth = 0;
+    for (int i = genericStart; i < type.length(); i++) {
+      char current = type.charAt(i);
+      if (current == '<') {
+        depth++;
+      } else if (current == '>' && --depth == 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private static List<String> splitTopLevelGenericArguments(String genericPart) {
+    List<String> arguments = new ArrayList<>();
+    int depth = 0;
+    int argumentStart = 0;
+    for (int i = 0; i < genericPart.length(); i++) {
+      char current = genericPart.charAt(i);
+      if (current == '<') {
+        depth++;
+      } else if (current == '>') {
+        depth--;
+      } else if (current == ',' && depth == 0) {
+        arguments.add(genericPart.substring(argumentStart, i).trim());
+        argumentStart = i + 1;
+      }
+    }
+    arguments.add(genericPart.substring(argumentStart).trim());
+    return arguments;
   }
 
   public static String getGenericShortName(String fqn) {

@@ -208,7 +208,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             import org.camunda.bpm.engine.delegate.JavaDelegate;
             import org.springframework.stereotype.Component;
 
-            import java.util.HashMap;
+            import java.util.List;
             import java.util.Map;
 
             @Component
@@ -219,32 +219,33 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 }
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
-                public Map<String, Object> executeJob(ActivatedJob job) throws Exception {
-                    Map<String, Object> resultMap = new HashMap<>();
-                    return resultMap;
-                }
-
-                private String read(ActivatedJob job, DelegateExecution execution) {
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
                     String existing = null;
                     existing = execution.getVariable("assignment");
                     consume(execution.getVariable("argument"));
-                    return execution.getVariable("return");
+                    consumeValues(List.of(execution.getVariable("generic")));
+                    consumeNested(execution.getVariable("nested"));
+                    new Box(execution.getVariable("constructor"));
+                    return true ? execution.getVariable("conditional") : "fallback";
                 }
 
                 private void consume(String value) {
                 }
 
-                private String readConditional(
-                    boolean condition, ActivatedJob job, DelegateExecution execution) {
-                    return condition ? execution.getVariable("conditional") : "fallback";
+                private void consumeValues(List<String> values) {
                 }
 
-                private void consumeStrings(
-                    ActivatedJob job, DelegateExecution execution, java.util.List<String> values) {
-                    consumeValues(java.util.List.of(execution.getVariable("generic")));
+                private void consumeNested(Map<String, List<Integer>> value) {
                 }
 
-                private void consumeValues(java.util.List<String> values) {
+                public static class Box {
+                    public Box(String value) {
+                    }
+                }
+
+                private String retainedHelper(DelegateExecution execution) {
+                    return execution.getVariable("retained");
                 }
 
             }
@@ -258,7 +259,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             import org.camunda.bpm.engine.delegate.JavaDelegate;
             import org.springframework.stereotype.Component;
 
-            import java.util.HashMap;
+            import java.util.List;
             import java.util.Map;
 
             @Component
@@ -269,32 +270,33 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 }
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
-                public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
-                    Map<String, Object> resultMap = new HashMap<>();
-                    return resultMap;
-                }
-
-                private String read(ActivatedJob job, DelegateExecution execution) {
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
                     String existing = null;
                     existing = (String) job.getVariablesAsMap().get("assignment");
                     consume((String) job.getVariablesAsMap().get("argument"));
-                    return (String) job.getVariablesAsMap().get("return");
+                    consumeValues(List.of((String) job.getVariablesAsMap().get("generic")));
+                    consumeNested((Map<String, List<Integer>>) job.getVariablesAsMap().get("nested"));
+                    new Box((String) job.getVariablesAsMap().get("constructor"));
+                    return true ? (String) job.getVariablesAsMap().get("conditional") : "fallback";
                 }
 
                 private void consume(String value) {
                 }
 
-                private String readConditional(
-                    boolean condition, ActivatedJob job, DelegateExecution execution) {
-                    return condition ? (String) job.getVariablesAsMap().get("conditional") : "fallback";
+                private void consumeValues(List<String> values) {
                 }
 
-                private void consumeStrings(
-                    ActivatedJob job, DelegateExecution execution, java.util.List<String> values) {
-                    consumeValues(java.util.List.of((String) job.getVariablesAsMap().get("generic")));
+                private void consumeNested(Map<String, List<Integer>> value) {
                 }
 
-                private void consumeValues(java.util.List<String> values) {
+                public static class Box {
+                    public Box(String value) {
+                    }
+                }
+
+                private String retainedHelper(DelegateExecution execution) {
+                    return execution.getVariable("retained");
                 }
 
             }

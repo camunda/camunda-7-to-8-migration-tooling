@@ -29,6 +29,7 @@ import org.openrewrite.marker.Markers;
 
 public class MigrateExecutionRecipe extends Recipe {
 
+  private static final String MIGRATED_WORKER_METHOD = "executeJobMigrated";
   private static final String LOCAL_VARIABLE_LOOKUP_TODO =
       " TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.";
   private static final MethodMatcher GET_VARIABLE_LOCAL =
@@ -72,6 +73,10 @@ public class MigrateExecutionRecipe extends Recipe {
         new AddCastsToTypedVariableLookupsInJobWorker(),
         new FlagLocalVariableLookupsInJobWorker(),
         new MigrateDelegateBPMNErrorAndExceptionInJobWorker());
+  }
+
+  private static boolean isCopiedJobWorkerMethod(J.MethodDeclaration method) {
+    return method != null && MIGRATED_WORKER_METHOD.equals(method.getSimpleName());
   }
 
   private static class CopyDelegateToJobWorkerRecipe extends Recipe {
@@ -545,9 +550,7 @@ public class MigrateExecutionRecipe extends Recipe {
     protected Predicate<Cursor> visitorSkipCondition() {
       return cursor -> {
         J.MethodDeclaration m = cursor.firstEnclosing(J.MethodDeclaration.class);
-        return m != null
-            && ("execute".equals(m.getSimpleName())
-                || "notify".equals(m.getSimpleName()));
+        return !isCopiedJobWorkerMethod(m);
       };
     }
 
@@ -757,9 +760,7 @@ public class MigrateExecutionRecipe extends Recipe {
             private boolean isCopiedJobWorkerMethod() {
               J.MethodDeclaration method =
                   getCursor().firstEnclosing(J.MethodDeclaration.class);
-              return method != null
-                  && !"execute".equals(method.getSimpleName())
-                  && !"notify".equals(method.getSimpleName());
+              return MigrateExecutionRecipe.isCopiedJobWorkerMethod(method);
             }
           });
     }
@@ -826,7 +827,7 @@ public class MigrateExecutionRecipe extends Recipe {
             @Override
             public J.VariableDeclarations visitVariableDeclarations(
                 J.VariableDeclarations declarations, ExecutionContext ctx) {
-              if (isOriginalDelegateMethod()) {
+              if (!isCopiedJobWorkerMethod()) {
                 return super.visitVariableDeclarations(declarations, ctx);
               }
 
@@ -851,6 +852,10 @@ public class MigrateExecutionRecipe extends Recipe {
             @Override
             public J.Return visitReturn(J.Return returnStatement, ExecutionContext ctx) {
               J.Return visited = super.visitReturn(returnStatement, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
               String expectedType = methodReturnType();
               if (expectedType == null) {
                 return visited;
@@ -869,6 +874,10 @@ public class MigrateExecutionRecipe extends Recipe {
             public J.Assignment visitAssignment(
                 J.Assignment assignment, ExecutionContext ctx) {
               J.Assignment visited = super.visitAssignment(assignment, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
               String expectedType = typeName(visited.getVariable().getType());
               if (expectedType == null) {
                 return visited;
@@ -887,6 +896,10 @@ public class MigrateExecutionRecipe extends Recipe {
             public J.MethodInvocation visitMethodInvocation(
                 J.MethodInvocation invocation, ExecutionContext ctx) {
               J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
               if (visited.getArguments().isEmpty()) {
                 return visited;
               }
@@ -912,7 +925,7 @@ public class MigrateExecutionRecipe extends Recipe {
             @Override
             public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
               J.NewClass visited = super.visitNewClass(newClass, ctx);
-              if (isOriginalDelegateMethod() || visited.getArguments().isEmpty()) {
+              if (!isCopiedJobWorkerMethod() || visited.getArguments().isEmpty()) {
                 return visited;
               }
 
@@ -1076,7 +1089,57 @@ public class MigrateExecutionRecipe extends Recipe {
               JavaType.Method constructorType = newClass.getConstructorType();
               if (constructorType != null
                   && index < constructorType.getParameterTypes().size()) {
-                return typeName(constructorType.getParameterTypes().get(index));
+                String type = typeName(constructorType.getParameterTypes().get(index));
+                if (type != null) {
+                  return type;
+                }
+              }
+
+              J.ClassDeclaration enclosingClass =
+                  getCursor().firstEnclosing(J.ClassDeclaration.class);
+              if (enclosingClass == null) {
+                return null;
+              }
+
+              String className = newClass.getClazz().toString();
+              int genericStart = className.indexOf('<');
+              if (genericStart >= 0) {
+                className = className.substring(0, genericStart);
+              }
+              className = className.substring(className.lastIndexOf('.') + 1);
+              return findConstructorArgumentType(enclosingClass, className, index);
+            }
+
+            private String findConstructorArgumentType(
+                J.ClassDeclaration classDeclaration, String className, int index) {
+              if (className.equals(classDeclaration.getSimpleName())) {
+                String constructorArgumentType =
+                    classDeclaration.getBody().getStatements().stream()
+                        .filter(J.MethodDeclaration.class::isInstance)
+                        .map(J.MethodDeclaration.class::cast)
+                        .filter(method -> className.equals(method.getSimpleName()))
+                        .filter(method -> method.getParameters().size() > index)
+                        .map(method -> method.getParameters().get(index))
+                        .filter(J.VariableDeclarations.class::isInstance)
+                        .map(J.VariableDeclarations.class::cast)
+                        .map(J.VariableDeclarations::getTypeExpression)
+                        .filter(Objects::nonNull)
+                        .map(Object::toString)
+                        .findFirst()
+                        .orElse(null);
+                if (constructorArgumentType != null) {
+                  return constructorArgumentType;
+                }
+              }
+
+              for (Statement statement : classDeclaration.getBody().getStatements()) {
+                if (statement instanceof J.ClassDeclaration nestedClass) {
+                  String constructorArgumentType =
+                      findConstructorArgumentType(nestedClass, className, index);
+                  if (constructorArgumentType != null) {
+                    return constructorArgumentType;
+                  }
+                }
               }
               return null;
             }
@@ -1169,12 +1232,10 @@ public class MigrateExecutionRecipe extends Recipe {
                   && "job".equals(identifier.getSimpleName());
             }
 
-            private boolean isOriginalDelegateMethod() {
+            private boolean isCopiedJobWorkerMethod() {
               J.MethodDeclaration method =
                   getCursor().firstEnclosing(J.MethodDeclaration.class);
-              return method != null
-                  && ("execute".equals(method.getSimpleName())
-                      || "notify".equals(method.getSimpleName()));
+              return MigrateExecutionRecipe.isCopiedJobWorkerMethod(method);
             }
           });
     }
