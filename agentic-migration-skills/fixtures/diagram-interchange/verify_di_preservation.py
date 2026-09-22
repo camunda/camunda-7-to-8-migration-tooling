@@ -2,10 +2,12 @@
 """Check BPMN DI preservation for the diagram-interchange fixture."""
 
 import argparse
+from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 
 
+BPMN = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 BPMN_DI = "http://www.omg.org/spec/BPMN/20100524/DI"
 DC = "http://www.omg.org/spec/DD/20100524/DC"
 DI = "http://www.omg.org/spec/DD/20100524/DI"
@@ -20,6 +22,22 @@ def values(element, child_namespace, local_name, attributes):
     return [tuple(child.get(attribute) for attribute in attributes) for child in children]
 
 
+def semantic_ids(root):
+    return {
+        element_id
+        for element in root.iter()
+        if element.tag.startswith(f"{{{BPMN}}}")
+        and (element_id := element.get("id")) is not None
+    }
+
+
+def label_geometry(element):
+    return [
+        values(label, DC, "Bounds", ("x", "y", "width", "height"))
+        for label in element.findall(f"./{{{BPMN_DI}}}BPMNLabel")
+    ]
+
+
 def di_snapshot(root):
     return {
         "diagrams": descendants(root, BPMN_DI, "BPMNDiagram"),
@@ -32,7 +50,7 @@ def di_snapshot(root):
     }
 
 
-def check(source_path, converted_path, expect_no_source_di):
+def check(source_path, converted_path, expect_no_source_di, report_path):
     source_root = ET.parse(source_path).getroot()
     converted_root = ET.parse(converted_path).getroot()
     source = di_snapshot(source_root)
@@ -44,7 +62,47 @@ def check(source_path, converted_path, expect_no_source_di):
             failures.append("the control source contains BPMN DI")
         if any(converted.values()):
             failures.append("the converted control contains manufactured BPMN DI")
+        if report_path is None:
+            failures.append("the no-DI check requires --report MIGRATION_REPORT.md")
+        else:
+            report = Path(report_path).read_text(encoding="utf-8")
+            source_name = Path(source_path).name
+            if source_name not in report:
+                failures.append(
+                    f"the migration report does not mention {source_name}"
+                )
+            if not any(
+                marker in report.lower()
+                for marker in (
+                    "source bpmn di: absent",
+                    "source bpmn di is absent",
+                    "source has no bpmn di",
+                    "without source bpmn di",
+                    "absent source di",
+                )
+            ):
+                failures.append(
+                    "the migration report does not record absent source BPMN DI"
+                )
         return failures
+
+    source_semantic_ids = semantic_ids(source_root)
+    converted_semantic_ids = semantic_ids(converted_root)
+    for category in ("planes", "shapes", "edges"):
+        for element in source[category]:
+            reference = element.get("bpmnElement")
+            if reference not in source_semantic_ids:
+                failures.append(
+                    f"{category} {element.get('id')}: "
+                    f"source bpmnElement {reference} is not a semantic ID"
+                )
+        for element in converted[category]:
+            reference = element.get("bpmnElement")
+            if reference not in converted_semantic_ids:
+                failures.append(
+                    f"{category} {element.get('id')}: "
+                    f"converted bpmnElement {reference} is not a semantic ID"
+                )
 
     for category in (
         "diagrams",
@@ -96,6 +154,8 @@ def check(source_path, converted_path, expect_no_source_di):
                 converted_element, child_namespace, child_name, attributes
             ):
                 failures.append(f"{category} {element_id}: geometry changed")
+            if label_geometry(source_element) != label_geometry(converted_element):
+                failures.append(f"{category} {element_id}: label geometry changed")
 
     return failures
 
@@ -103,12 +163,15 @@ def check(source_path, converted_path, expect_no_source_di):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-source-di", action="store_true")
+    parser.add_argument("--report", help="path to the migration report")
     parser.add_argument("source")
     parser.add_argument("converted")
     args = parser.parse_args()
 
     try:
-        failures = check(args.source, args.converted, args.no_source_di)
+        failures = check(
+            args.source, args.converted, args.no_source_di, args.report
+        )
     except (ET.ParseError, OSError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1

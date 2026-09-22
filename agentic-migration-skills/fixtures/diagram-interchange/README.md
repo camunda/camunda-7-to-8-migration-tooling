@@ -30,7 +30,8 @@ skill must not invent a layout for that source.
 
    ```sh
    python3 verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
-   python3 verify_di_preservation.py --no-source-di no-di-c7.bpmn converted-c8-no-di-c7.bpmn
+   python3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md \
+     no-di-c7.bpmn converted-c8-no-di-c7.bpmn
    ```
 
 6. Install the BPMN lint dependencies once, then lint the converted DI copy:
@@ -48,14 +49,15 @@ skill must not invent a layout for that source.
    finding as inherited source quality only when the converted copy still has no
    DI. Do not add a layout to silence that finding.
 8. Record the source and converted DI counts, reference checks, lint output, and
-   the no-DI provenance in `MIGRATION_REPORT.md`.
+   the no-DI provenance in `MIGRATION_REPORT.md`. Include the control filename and
+   an explicit statement that its source BPMN DI is absent.
 
 ## Expected checks
 
 | Source | Expected converted copy | Expected result |
 |---|---|---|
 | `bpmn-di-c7.bpmn` | Diagram and DI retained | The script passes. Shape and edge references still target the same IDs. |
-| `no-di-c7.bpmn` | No DI added | The script passes. The report records absent source DI and inherited lint findings. |
+| `no-di-c7.bpmn` | No DI added | The script passes with `MIGRATION_REPORT.md`. The report records absent source DI and inherited lint findings. |
 
 The original Camunda 7 files must remain byte-for-byte unchanged. A missing,
 unmapped, or newly invented DI reference is a failed evaluation.

@@ -486,7 +486,7 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - DMN: update decision/definition namespaces and expression language as needed
 - Preserve existing BPMN DI instead of reconstructing it from the rewritten semantic tree.
 - Before rewriting, parse the source with a namespace-aware XML parser and record counts for diagrams, planes, shapes, edges, labels, bounds, and waypoints.
-- Preserve every BPMN DI node, attribute, child geometry, namespace declaration, and `bpmnElement` reference for unchanged semantic IDs.
+- Preserve every BPMN DI node, attribute, child geometry, BPMN DI namespace binding, and `bpmnElement` reference for unchanged semantic IDs.
 - When a semantic ID changes, update each matching DI reference and record the source ID, target ID, and mapping in `MIGRATION_REPORT.md`.
 - If a semantic ID has no safe DI mapping, record a blocking or review finding before continuing.
 - When the source has no BPMN DI, leave the converted copy without BPMN DI and record that provenance in `MIGRATION_REPORT.md`. Do not manufacture a layout.
