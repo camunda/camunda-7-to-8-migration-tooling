@@ -105,9 +105,9 @@ Add this section to `MIGRATION_REPORT.md`:
 ```markdown
 ## Executable entry-point validation
 
-| Process ID | Scenario ID | Input set | Verdict | Failing element | Job type | Incident | Expected after fix |
-|---|---|---|---|---|---|---|---|
-| `<process-id>` | `<scenario-id>` | `<inputs or omitted>` | `tested` or `excluded` | `<element or n/a>` | `<type or n/a>` | `<message or none>` | `<completion and variables>` |
+| Process ID | Scenario ID | Input set | Verdict | Failing element | Job type | Incident | Retry state | Expected after fix |
+|---|---|---|---|---|---|---|---|---|
+| `<process-id>` | `<scenario-id>` | `<inputs or omitted>` | `tested` or `excluded` | `<element or n/a>` | `<type or n/a>` | `<message or none>` | `<retries or n/a>` | `<completion and variables>` |
 
 ### Exclusions
 
