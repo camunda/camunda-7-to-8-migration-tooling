@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 class ReplaceExecutionTest implements RewriteTest {
 
@@ -170,6 +171,87 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
                     throw new UnsupportedOperationException(
                             "Manual migration required for getVariableLocal: " + variableName);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesTypedVariableLookupsInNonDeclarationContexts() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.HashMap;
+            import java.util.Map;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public Map<String, Object> executeJob(ActivatedJob job) throws Exception {
+                    Map<String, Object> resultMap = new HashMap<>();
+                    return resultMap;
+                }
+
+                private String read(ActivatedJob job, DelegateExecution execution) {
+                    String existing = null;
+                    existing = execution.getVariable("assignment");
+                    consume(execution.getVariable("argument"));
+                    return execution.getVariable("return");
+                }
+
+                private void consume(String value) {
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.HashMap;
+            import java.util.Map;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+                    Map<String, Object> resultMap = new HashMap<>();
+                    return resultMap;
+                }
+
+                private String read(ActivatedJob job, DelegateExecution execution) {
+                    String existing = null;
+                    existing = (String) job.getVariablesAsMap().get("assignment");
+                    consume((String) job.getVariablesAsMap().get("argument"));
+                    return (String) job.getVariablesAsMap().get("return");
+                }
+
+                private void consume(String value) {
                 }
             }
             """));

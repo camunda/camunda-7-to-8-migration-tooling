@@ -10,6 +10,7 @@ package io.camunda.migration.code.recipes.delegate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import io.camunda.migration.code.recipes.sharedRecipes.AbstractMigrationRecipe;
@@ -641,7 +642,7 @@ public class MigrateExecutionRecipe extends Recipe {
 
     @Override
     public String getDescription() {
-      return "Adds casts when map-based variable lookups are assigned to a typed local variable.";
+      return "Adds casts when map-based variable lookups are used in typed contexts.";
     }
 
     @Override
@@ -681,22 +682,154 @@ public class MigrateExecutionRecipe extends Recipe {
                   declarations, visited.withVariables(updatedVariables), ctx);
             }
 
+            @Override
+            public J.Return visitReturn(J.Return returnStatement, ExecutionContext ctx) {
+              J.Return visited = super.visitReturn(returnStatement, ctx);
+              String expectedType = methodReturnType();
+              if (expectedType == null) {
+                return visited;
+              }
+
+              Expression expression = visited.getExpression();
+              Expression castExpression = addCastIfNeeded(expression, expectedType);
+              if (castExpression == expression) {
+                return visited;
+              }
+
+              return visited.withExpression(castExpression);
+            }
+
+            @Override
+            public J.Assignment visitAssignment(
+                J.Assignment assignment, ExecutionContext ctx) {
+              J.Assignment visited = super.visitAssignment(assignment, ctx);
+              String expectedType = typeName(visited.getVariable().getType());
+              if (expectedType == null) {
+                return visited;
+              }
+
+              Expression castAssignment = addCastIfNeeded(visited.getAssignment(), expectedType);
+              if (castAssignment == visited.getAssignment()) {
+                return visited;
+              }
+
+              return maybeAutoFormat(
+                  assignment, visited.withAssignment(castAssignment), ctx);
+            }
+
+            @Override
+            public J.MethodInvocation visitMethodInvocation(
+                J.MethodInvocation invocation, ExecutionContext ctx) {
+              J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
+              if (visited.getArguments().isEmpty()) {
+                return visited;
+              }
+
+              List<Expression> arguments = visited.getArguments();
+              List<Expression> updatedArguments = new ArrayList<>(arguments);
+              boolean changed = false;
+
+              for (int i = 0; i < arguments.size(); i++) {
+                Expression castArgument =
+                    addCastIfNeeded(arguments.get(i), expectedArgumentType(visited, i));
+                if (castArgument != arguments.get(i)) {
+                  updatedArguments.set(i, castArgument);
+                  changed = true;
+                }
+              }
+
+              return changed
+                  ? maybeAutoFormat(invocation, visited.withArguments(updatedArguments), ctx)
+                  : visited;
+            }
+
             private Expression addCastIfNeeded(
                 J.VariableDeclarations.NamedVariable variable, String declaredType) {
               Expression initializer = variable.getInitializer();
-              if (!isEffectiveVariableLookup(initializer)
-                  || initializer instanceof J.TypeCast) {
+              Expression castInitializer = addCastIfNeeded(initializer, declaredType);
+              if (castInitializer == initializer) {
                 return initializer;
               }
 
-              Cursor variableCursor =
-                  new Cursor(new Cursor(getCursor(), variable), initializer);
+              return castInitializer;
+            }
+
+            private Expression addCastIfNeeded(Expression expression, String expectedType) {
+              if (!isEffectiveVariableLookup(expression)
+                  || expectedType == null
+                  || isObjectType(expectedType)
+                  || isAlreadyCast(expression)) {
+                return expression;
+              }
+
               return RecipeUtils.createSimpleJavaTemplate(
-                      "(" + declaredType + ") #{any(java.lang.Object)}")
+                      "(" + expectedType + ") #{any(java.lang.Object)}")
                   .apply(
-                      variableCursor,
-                      initializer.getCoordinates().replace(),
-                      initializer);
+                      new Cursor(getCursor(), expression),
+                      expression.getCoordinates().replace(),
+                      expression);
+            }
+
+            private boolean isAlreadyCast(Expression expression) {
+              return expression instanceof J.TypeCast;
+            }
+
+            private String methodReturnType() {
+              J.MethodDeclaration method =
+                  getCursor().firstEnclosing(J.MethodDeclaration.class);
+              if (method == null || method.getReturnTypeExpression() == null) {
+                return null;
+              }
+
+              String returnType = method.getReturnTypeExpression().toString();
+              return "void".equals(returnType) ? null : returnType;
+            }
+
+            private String typeName(JavaType type) {
+              if (type == null
+                  || type instanceof JavaType.Unknown
+                  || TypeUtils.isOfClassType(type, "java.lang.Object")) {
+                return null;
+              }
+              return RecipeUtils.getShortName(type.toString());
+            }
+
+            private String expectedArgumentType(J.MethodInvocation invocation, int index) {
+              JavaType.Method methodType = invocation.getMethodType();
+              if (methodType != null && index < methodType.getParameterTypes().size()) {
+                String type = typeName(methodType.getParameterTypes().get(index));
+                if (type != null) {
+                  return type;
+                }
+              }
+
+              if (invocation.getSelect() != null) {
+                return null;
+              }
+
+              J.ClassDeclaration classDeclaration =
+                  getCursor().firstEnclosing(J.ClassDeclaration.class);
+              if (classDeclaration == null) {
+                return null;
+              }
+
+              return classDeclaration.getBody().getStatements().stream()
+                  .filter(J.MethodDeclaration.class::isInstance)
+                  .map(J.MethodDeclaration.class::cast)
+                  .filter(method -> method.getSimpleName().equals(invocation.getSimpleName()))
+                  .filter(method -> method.getParameters().size() > index)
+                  .map(method -> method.getParameters().get(index))
+                  .filter(J.VariableDeclarations.class::isInstance)
+                  .map(J.VariableDeclarations.class::cast)
+                  .map(J.VariableDeclarations::getTypeExpression)
+                  .filter(Objects::nonNull)
+                  .map(Object::toString)
+                  .findFirst()
+                  .orElse(null);
+            }
+
+            private boolean isObjectType(String type) {
+              return "Object".equals(type) || "java.lang.Object".equals(type);
             }
 
             private String declaredType(J.VariableDeclarations declarations) {
