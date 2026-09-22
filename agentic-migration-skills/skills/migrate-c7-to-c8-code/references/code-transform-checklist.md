@@ -106,7 +106,7 @@ Approach A runs `io.camunda.migration.code.recipes.ValidateCamundaClientConfigur
 Select the recipe version for the target minor. The validator reads its bundled starter metadata and
 legacy mappings.
 
-For approach B, run only the validation recipe after migration:
+When the user selects Approach B, run only the validation recipe after migration:
 
 | Build tool | Validation command |
 |---|---|

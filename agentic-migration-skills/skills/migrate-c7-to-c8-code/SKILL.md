@@ -490,7 +490,7 @@ When the scope is **Code + models**:
 3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
 4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Configuration binding**: Confirm that configuration validation ran. For Approach B, run the recipe in `references/code-transform-checklist.md`.
+6. **Configuration binding**: Confirm that configuration validation ran. When the user selects Approach B, run the recipe in `references/code-transform-checklist.md`.
 7. **Run tests**: `mvn test` or `./gradlew test` — fix failures
 8. **Check query counts and pagination**:
   - Search for `.items().size()` and `.items().stream().count()` after migrated query calls.
