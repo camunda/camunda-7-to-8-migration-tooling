@@ -26,43 +26,40 @@ skill must not invent a layout for that source.
 3. Require the skill to parse and inventory source DI before rewriting.
 4. Require the skill to write converted copies named
    `converted-c8-bpmn-di-c7.bpmn` and `converted-c8-no-di-c7.bpmn`.
-5. Run the structural checks:
+5. Run the structural checks with a Python 3 command that matches your platform:
 
-   ```sh
-   python3 verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
-   python3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md \
-     no-di-c7.bpmn converted-c8-no-di-c7.bpmn
+   ```text
+   <python3-command> verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
+   <python3-command> verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
    ```
 
-6. Install the BPMN lint dependencies once, configure the target ruleset, then lint the converted DI copy:
+6. Install the BPMN lint dependencies once.
+7. Create a `.bpmnlintrc` file with this JSON content:
 
-   ```sh
-   npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat
-   cat > .bpmnlintrc <<'EOF'
+   ```json
    {
-     "extends": [
-       "bpmnlint:recommended",
-       "plugin:camunda-compat/camunda-cloud-8-9"
-     ],
-     "moddleExtensions": {
-       "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
-     }
+    "extends": [
+      "bpmnlint:recommended",
+      "plugin:camunda-compat/camunda-cloud-8-9"
+    ],
+    "moddleExtensions": {
+      "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
+    }
    }
-   EOF
-   if ! npx bpmnlint converted-c8-bpmn-di-c7.bpmn > bpmn-di-lint.log 2>&1; then
-     cat bpmn-di-lint.log
-     exit 1
-   fi
-   ! grep -F "no-bpmndi" bpmn-di-lint.log
    ```
+
+8. Run `bpmnlint` for `converted-c8-bpmn-di-c7.bpmn`.
+9. Capture the lint output in `bpmn-di-lint.log`.
+10. Fail the evaluation if `bpmnlint` returns a non-zero exit code.
+11. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
 
    Use the target-compatible Camunda compatibility ruleset described in the
    skill reference. The DI copy must introduce no `no-bpmndi` finding.
 
-7. Lint the no-DI control with the same ruleset. Record any `no-bpmndi`
+12. Lint the no-DI control with the same ruleset. Record any `no-bpmndi`
    finding as inherited source quality only when the converted copy still has no
    DI. Do not add a layout to silence that finding.
-8. Record the source and converted DI counts, reference checks, complete
+13. Record the source and converted DI counts, reference checks, complete
    per-element DI comparisons, namespace bindings, lint output, and the no-DI
    provenance in `MIGRATION_REPORT.md`. Include the control filename and an
    explicit statement that its source BPMN DI is absent.

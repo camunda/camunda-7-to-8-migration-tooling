@@ -432,6 +432,8 @@ Within each impact, process rows with a severity before source-derived rows with
 - Never relocate this listener automatically.
 - Confirm that the chosen target still supports execution listeners on the enclosing process or
   subprocess before you offer relocation.
+- If the chosen target is earlier than Camunda 8.6, do not offer relocation.
+- Keep the category **needs review** and offer manual migration for a target earlier than Camunda 8.6.
 - Ask the user before editing an affected converted copy.
 - Offer to move each affected listener to the nearest enclosing process or subprocess.
 - Keep the category **needs review** when the user declines or verification fails.

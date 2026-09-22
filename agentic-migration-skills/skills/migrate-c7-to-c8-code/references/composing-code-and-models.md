@@ -124,6 +124,9 @@ When a model finding has messageId `execution-listener-on-start-event`, use the 
 in `model-migration-approaches.md` before completing the code cross-check.
 Confirm that the chosen target supports execution listeners on the enclosing process or subprocess
 before you offer relocation.
+If the chosen target is earlier than Camunda 8.6, do not offer relocation.
+Keep the model category **needs review** and offer manual migration for a target earlier than
+Camunda 8.6.
 Resolve the original listener implementation.
 Resolve its recreated Camunda 8 listener type.
 Check that the migrated worker or connector route covers the recreated listener type.
