@@ -427,6 +427,11 @@ Within each impact, process rows with a severity before source-derived rows with
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
+- When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
+  `references/model-migration-approaches.md`.
+- Ask the user before editing an affected converted copy.
+- Offer to move each affected listener to the nearest enclosing process or subprocess.
+- Keep the category **needs review** when the user declines or verification fails.
 - When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
   job-type group with a **needs review** verdict and no dispatcher. Use the procedure in
   `references/composing-code-and-models.md`.

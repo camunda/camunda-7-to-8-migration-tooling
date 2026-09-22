@@ -118,6 +118,16 @@ When the project requires an existing registration source, update it after accep
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
 Keep the existing needs-fix evidence until that check passes.
 
+### 2c. Unsupported start-event listener scope
+
+When a model finding has messageId `execution-listener-on-start-event`, use the relocation procedure
+in `model-migration-approaches.md` before completing the code cross-check.
+Resolve the original listener implementation.
+Resolve its recreated Camunda 8 listener type.
+Check that the migrated worker or connector route covers the recreated listener type.
+Keep the model category **needs review** when the user declines relocation or the route is uncovered.
+Record the target process or subprocess and the worker or connector evidence in `MIGRATION_REPORT.md`.
+
 ### 3. FEEL method-invocation category
 
 Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). These are the model-side occurrences of FEEL method-invocation (`code-transform-checklist.md` item 7): a JUEL expression invoked a Java method, on a bean or a plain variable (e.g. `${execution.getVariable("a").size()}`). The category applies regardless of element type: sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...). The remediation is the same in every case: a preceding job worker, execution listener, or DMN business rule table computes the value into a plain variable that FEEL can read.
