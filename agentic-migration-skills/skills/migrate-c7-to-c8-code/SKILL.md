@@ -429,6 +429,7 @@ Within each impact, process rows with a severity before source-derived rows with
   that share an integration.
 - When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
   `references/model-migration-approaches.md`.
+- Never relocate this listener automatically.
 - Ask the user before editing an affected converted copy.
 - Offer to move each affected listener to the nearest enclosing process or subprocess.
 - Keep the category **needs review** when the user declines or verification fails.

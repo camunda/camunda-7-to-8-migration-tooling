@@ -394,6 +394,14 @@ Find the nearest enclosing target in the original source:
 | Embedded or event-subprocess start event | The nearest enclosing `bpmn:subProcess` |
 | Multiple start events share the target | Tell the user that the moved listener runs for every start in that target scope |
 
+Resolve the target platform version before offering relocation:
+
+| Target version | Action |
+|---|---|
+| `8.6` or later | Offer the process or subprocess relocation |
+| Earlier than `8.6` | Do not create a `zeebe:executionListener`; keep the finding **needs review** and offer manual migration |
+| Missing or invalid | Ask for a target version; keep the finding **needs review** until the version is confirmed |
+
 Present one AskUserQuestion decision for each affected start event or group with the same target:
 
 | User choice | Action |
@@ -409,9 +417,18 @@ Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListen
 Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
 Set `eventType="start"`.
 Use the converter's existing implementation-to-type mapping.
+
+| Camunda 7 source | Camunda 8 listener |
+|---|---|
+| `delegateExpression="${name}"` | `type="name"` |
+| `class="name"` or `expression="name"` | `type="name"` |
+| `event="start"` | `eventType="start"` |
+| Static listener fields supported by the converter | `zeebe:taskHeaders` entries |
+
 Preserve every listener field and attribute that the converter maps to the Camunda 8 listener.
 Record each unmapped field or attribute as a migration TODO.
 Keep the category **needs review** when a field or attribute is unmapped.
+If the original listener has no implementation that the converter maps, then keep the category **needs review**.
 Move only listeners belonging to the selected start event.
 
 After an accepted move, run the shared verification gate.
