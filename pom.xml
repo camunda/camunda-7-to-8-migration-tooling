@@ -35,8 +35,8 @@
     <version.spring-boot>4.1.1</version.spring-boot>
     <version.spring-framework>7.0.9</version.spring-framework>
     <version.micrometer-core>1.17.1</version.micrometer-core>
-    <version.jackson-bom>2.22.2</version.jackson-bom>
-    <version.jackson-3-bom>3.2.2</version.jackson-3-bom>
+    <version.jackson-bom>2.22.3</version.jackson-bom>
+    <version.jackson-3-bom>3.2.3</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
     <logback.version>1.6.3</logback.version>
     <tomcat.version>11.0.26</tomcat.version>
