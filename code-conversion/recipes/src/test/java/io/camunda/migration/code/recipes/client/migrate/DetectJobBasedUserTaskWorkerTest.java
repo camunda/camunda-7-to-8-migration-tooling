@@ -51,6 +51,49 @@ public class UserTaskWorker {
   }
 
   @Test
+  void flagsLegacySpringJobBasedUserTaskWorker() {
+    rewriteRun(
+        spec -> spec.recipe(new DetectJobBasedUserTaskWorkerRecipe()),
+        // language=java
+        java(
+"""
+package io.camunda.zeebe.spring.client.annotation;
+
+public @interface JobWorker {
+    String type();
+}
+"""),
+        java(
+"""
+package org.camunda.community.migration.example;
+
+import io.camunda.zeebe.spring.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+
+public class LegacySpringUserTaskWorker {
+
+    @JobWorker(type = "io.camunda.zeebe:userTask")
+    public void handleUserTask(ActivatedJob job) {
+    }
+}
+""",
+"""
+package org.camunda.community.migration.example;
+
+import io.camunda.zeebe.spring.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+
+public class LegacySpringUserTaskWorker {
+
+    // TODO: job-based user tasks are deprecated (removed in Camunda 8.10). This @JobWorker handles the built-in "io.camunda.zeebe:userTask" job type. Migrate to Camunda user tasks: remove this worker and manage the task via the User Task API / Tasklist. See https://docs.camunda.io/docs/apis-tools/migration-manuals/migrate-to-camunda-user-tasks/
+    @JobWorker(type = "io.camunda.zeebe:userTask")
+    public void handleUserTask(ActivatedJob job) {
+    }
+}
+"""));
+  }
+
+  @Test
   void doesNotFlagOtherJobWorkers() {
     rewriteRun(
         spec -> spec.recipe(new DetectJobBasedUserTaskWorkerRecipe()),

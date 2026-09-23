@@ -196,7 +196,7 @@ public class HandleAssign {
 
     public void assignTask(String taskId, String userId) {
         // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
-        // TODO: if the original assignee was null (unclaim), use camundaClient.newUnassignUserTaskCommand(taskKey) instead.
+        // TODO: if the original assignee was null (unclaim), use camundaClient.newUnassignUserTaskCommand(Long.valueOf(taskId)) instead.
         camundaClient
                 .newAssignUserTaskCommand(Long.valueOf(taskId))
                 .assignee(userId)

@@ -36,7 +36,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
    */
   private static final String NULL_ASSIGNEE_UNCLAIM_HINT =
       " TODO: if the original assignee was null (unclaim), use"
-          + " camundaClient.newUnassignUserTaskCommand(taskKey) instead.";
+          + " camundaClient.newUnassignUserTaskCommand(Long.valueOf(taskId)) instead.";
 
   /**
    * Camunda 8 has no task-scoped variables. {@code newSetVariablesCommand} expects an element

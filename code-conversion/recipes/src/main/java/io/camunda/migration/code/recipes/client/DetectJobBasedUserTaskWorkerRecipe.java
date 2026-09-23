@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.code.recipes.client;
 
+import java.util.Set;
 import java.util.stream.Stream;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import org.openrewrite.ExecutionContext;
@@ -34,6 +35,10 @@ import org.openrewrite.java.tree.TypeUtils;
 public class DetectJobBasedUserTaskWorkerRecipe extends Recipe {
 
   static final String USER_TASK_JOB_TYPE = "io.camunda.zeebe:userTask";
+  private static final Set<String> JOB_WORKER_ANNOTATION_TYPES =
+      Set.of(
+          "io.camunda.client.annotation.JobWorker",
+          "io.camunda.zeebe.spring.client.annotation.JobWorker");
 
   static final String MIGRATION_HINT =
       " TODO: job-based user tasks are deprecated (removed in Camunda 8.10). This @JobWorker handles"
@@ -62,7 +67,7 @@ public class DetectJobBasedUserTaskWorkerRecipe extends Recipe {
     return Preconditions.check(
         Preconditions.or(
             new UsesType<>("io.camunda.client.annotation.JobWorker", true),
-            new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true)),
+            new UsesType<>("io.camunda.zeebe.spring.client.annotation.JobWorker", true)),
         new JavaIsoVisitor<ExecutionContext>() {
           @Override
           public J.MethodDeclaration visitMethodDeclaration(
@@ -94,11 +99,7 @@ public class DetectJobBasedUserTaskWorkerRecipe extends Recipe {
 
   private static boolean isJobWorkerAnnotation(J.Annotation annotation) {
     JavaType.FullyQualified type = TypeUtils.asFullyQualified(annotation.getType());
-    if (type != null) {
-      return type.getFullyQualifiedName().endsWith(".JobWorker");
-    }
-    // fall back to the simple name when the annotation type could not be attributed
-    return "JobWorker".equals(annotation.getSimpleName());
+    return type != null && JOB_WORKER_ANNOTATION_TYPES.contains(type.getFullyQualifiedName());
   }
 
   private static boolean targetsUserTaskJobType(J.Annotation annotation) {
