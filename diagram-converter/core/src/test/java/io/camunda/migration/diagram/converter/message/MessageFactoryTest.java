@@ -309,6 +309,7 @@ public class MessageFactoryTest {
     Message message =
         MessageFactory.executionListenerOnStartEventNotSupported(
             "start", "delegateExpression", "${myExecutionListener}");
+    assertThat(message.getId()).isEqualTo("execution-listener-on-start-event");
     assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
     assertThat(message.getMessage())
         .isEqualTo(

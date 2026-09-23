@@ -450,7 +450,7 @@ Use the nearest enclosing target:
 | Source shape | Listener target |
 |---|---|
 | Process-level start event | Enclosing process |
-| Start event inside an embedded or event subprocess | Nearest enclosing subprocess |
+| Start event inside an embedded or event subprocess | Innermost enclosing subprocess |
 
 If multiple start events share the target, then tell the user that the listener will run for each start event in that scope.
 
