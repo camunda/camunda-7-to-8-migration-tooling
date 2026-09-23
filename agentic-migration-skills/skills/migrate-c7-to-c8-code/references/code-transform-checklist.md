@@ -114,8 +114,8 @@ matching row.
 | Module after migration | Action |
 |---|---|
 | Test-only module | Never create a `@SpringBootApplication` class. Never add the plugin. Record the test command. |
-| No `@SpringBootApplication` entry point after migration | Never add the plugin. |
 | External launcher that needs no executable artifact | Keep the build plugins unchanged. Record the launch command. |
+| No `@SpringBootApplication` entry point after migration | Never add the plugin. |
 | Created or kept runtime `@SpringBootApplication` entry point | Declare `org.springframework.boot:spring-boot-maven-plugin` under `build/plugins`. |
 
 When the skill declares the plugin, apply these rules:
