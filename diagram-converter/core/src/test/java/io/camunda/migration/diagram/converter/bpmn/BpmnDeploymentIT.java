@@ -50,6 +50,7 @@ class BpmnDeploymentIT {
     BpmnModelInstance modelInstance = wrapSnippetInProcess(testCase.givenBpmn());
     DefaultConverterProperties defaultProperties = new DefaultConverterProperties();
     defaultProperties.setAppendDocumentation(false);
+    defaultProperties.setPlatformVersion("8.9");
     ConverterProperties properties =
         ConverterPropertiesFactory.getInstance().merge(defaultProperties);
 
