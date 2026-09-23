@@ -89,9 +89,16 @@ repository arguments. Do not substitute the draft test command for a campaign ru
 Use the draft command above to test a definition. Do not assume that a draft test run is linked to
 a campaign.
 
-The AWS Transform custom guides linked above describe a result report after execution but do not
-specify a JSON result schema for custom skill content. Keep `MIGRATION_REPORT.md` as the project's
-migration record. Use the AWS-generated campaign command for dashboard reporting.
+When a migration finishes, the skill reports code, model, form, and other-file counts. It also
+reports line additions and deletions. It records the same Git-based summary and validation results in
+`MIGRATION_REPORT.md`. In AWS Transform CLI, the skill presents this summary in the `atx`
+conversation. It uses the clean starting commit as the baseline. When it cannot isolate changes
+from that baseline, it marks the counts unavailable instead of estimating.
+
+The AWS guides describe a CLI result report after execution. They state that the web-app-generated
+campaign command logs execution results to the dashboard. They do not define a custom result JSON
+schema or a CLI option for submitting custom line counts. Use the generated command for campaign
+reporting. Treat the skill's Git counts as local run data, not an AWS dashboard metric.
 
 To load the skill as a client-side skill instead of publishing a transformation definition, install
 it under `.aws/atx/skills/migrate-c7-to-c8-code/` or `.agents/skills/migrate-c7-to-c8-code/` in the

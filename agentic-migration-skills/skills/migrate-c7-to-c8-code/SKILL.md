@@ -181,6 +181,9 @@ at all.
 
 Scan the project and produce the inventories that the chosen scope needs.
 
+Where the confirmed root is a Git repository, record an empty `git status --porcelain` result and
+`git rev-parse HEAD` in `MIGRATION_REPORT.md` before writing the assessment.
+
 #### Code Inventory
 
 Classify every Camunda 7 related Java file and config file into a table with the columns File, Type,
@@ -495,3 +498,4 @@ issue, or deletion candidate remains and no item has `deferred` or `blocked` sta
 An open item is a team decision, so an `open` status does not block completion, but the summary
 always lists every open item.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
+Before the final response, follow `references/final-change-summary.md`.
