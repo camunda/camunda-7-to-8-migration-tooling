@@ -146,6 +146,61 @@ public class DiagramConverterTest {
     assertThat(documentation(modelInstance)).contains("- WARNING:", "- REVIEW:");
   }
 
+  @Test
+  void shouldKeepStartEventExecutionListenerFindingIdsStableAcrossImplementations() {
+    DefaultConverterProperties converterProperties = new DefaultConverterProperties();
+    converterProperties.setAppendDocumentation(false);
+    converterProperties.setPlatformVersion("8.9");
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(converterProperties);
+    BpmnModelInstance modelInstance =
+        wrapSnippetInProcess(
+            """
+            <bpmn:startEvent id="startEvent">
+              <bpmn:extensionElements>
+                <camunda:executionListener delegateExpression="${startDelegate}" event="start" />
+                <camunda:executionListener class="com.example.StartListener" event="start" />
+                <camunda:executionListener expression="${startExpression.execute()}" event="start" />
+                <camunda:executionListener event="start">
+                  <camunda:script scriptFormat="groovy">print("start");</camunda:script>
+                </camunda:executionListener>
+                <camunda:executionListener class="com.example.EndListener" event="end" />
+              </bpmn:extensionElements>
+            </bpmn:startEvent>
+            """);
+
+    DiagramCheckResult result =
+        DiagramConverterFactory.getInstance()
+            .get()
+            .check("start-event-listeners.bpmn", modelInstance, properties);
+
+    assertThat(result.getResult("startEvent").getMessages())
+        .extracting(ElementCheckMessage::getId)
+        .containsExactly(
+            "execution-listener-on-start-event",
+            "execution-listener-on-start-event",
+            "execution-listener-on-start-event",
+            "execution-listener-on-start-event",
+            "execution-listener-supported");
+    assertThat(result.getResult("startEvent").getMessages())
+        .filteredOn(message -> "execution-listener-on-start-event".equals(message.getId()))
+        .extracting(ElementCheckMessage::getMessage)
+        .containsExactly(
+            "Execution Listener at 'start' with implementation 'delegateExpression' '${startDelegate}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.",
+            "Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.",
+            "Execution Listener at 'start' with implementation 'expression' '${startExpression.execute()}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.",
+            "Execution Listener at 'start' with implementation 'script' 'groovy' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.");
+    assertThat(result.getResults().stream()
+            .flatMap(element -> element.getMessages().stream())
+            .filter(message -> "camunda-script".equals(message.getId())))
+        .singleElement()
+        .satisfies(
+            message ->
+                assertThat(message.getMessage())
+                    .isEqualTo(
+                        "Element 'script' cannot be transformed. Script 'print(\"start\");' with format 'groovy' on 'executionListener'."));
+  }
+
   private BpmnModelInstance mixedSeverityModel() {
     return wrapSnippetInProcess(
         """

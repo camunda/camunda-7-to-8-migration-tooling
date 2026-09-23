@@ -188,6 +188,10 @@ categories:
             <bpmn:extensionElements>
               <camunda:executionListener delegateExpression="${startEventListener}" event="start" />
               <camunda:executionListener class="com.example.StartListener" event="start" />
+              <camunda:executionListener expression="${startExpression.execute()}" event="start" />
+              <camunda:executionListener event="start">
+                <camunda:script scriptFormat="groovy">print("start");</camunda:script>
+              </camunda:executionListener>
               <camunda:executionListener class="com.example.EndListener" event="end" />
             </bpmn:extensionElements>
           </bpmn:startEvent>
@@ -200,8 +204,11 @@ categories:
             </bpmn:extensionElements>
           </bpmn:startEvent>
         expectedMessages: |
+          <conversion:message severity="WARNING">Element 'script' cannot be transformed. Script 'print("start");' with format 'groovy' on 'executionListener'.</conversion:message>
           <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
           <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'expression' '${startExpression.execute()}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'script' 'groovy' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
           <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'com.example.EndListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
       - name: Execution Listener Without Implementation
         givenBpmn: |
