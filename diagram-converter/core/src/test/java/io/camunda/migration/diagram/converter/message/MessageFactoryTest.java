@@ -11,6 +11,7 @@ import static io.camunda.migration.diagram.converter.message.MessageFactory.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 
@@ -301,6 +302,20 @@ public class MessageFactoryTest {
     assertThat(message.getMessage())
         .isEqualTo(
             "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' cannot be transformed.");
+  }
+
+  @Test
+  void shouldBuildExecutionListenerOnStartEvent() {
+    Message message =
+        MessageFactory.executionListenerOnStartEventNotSupported(
+            "start", "delegateExpression", "${myExecutionListener}");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/concepts/execution-listeners/#limitations");
   }
 
   @Test
