@@ -47,8 +47,7 @@ public class TaskPriorityVisitor extends AbstractSupportedAttributeVisitor {
 
     if (StringUtils.isNotBlank(siblingJobPriority)) {
       context.addMessage(
-          MessageFactory.jobPriorityCollision(
-              elementLocalName, siblingJobPriority, attribute));
+          MessageFactory.jobPriorityCollision(elementLocalName, siblingJobPriority, attribute));
     }
     return primary;
   }
