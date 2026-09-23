@@ -31,7 +31,8 @@ this run's reports.
 
 If a findings report exists under a packaged resource directory, stop before conversion and ask the user to move or remove it. Do not offer **OK, proceed** while it remains there.
 
-If anything else is found, warn through AskUserQuestion before converting:
+If anything else is found, then the skill warns the user before converting.
+The skill presents the warning in the current conversation:
 
 > Found outputs from a previous migration attempt: `<list>`. This run will not overwrite them. Fresh findings reports are written beside the source. The CLI adds a ` (n)` suffix only when the unsuffixed name already exists. Relocate fresh findings reports to `.camunda-migration/reports/` when that directory is not packaged, or to another explicitly non-packaged directory, before validation. Only this run's own outputs are used — stale files are never consumed. Diagrams whose `converted-c8-*` target already exists are skipped with an error, so for a full re-conversion, cancel and delete or move the old files first.
 
@@ -44,7 +45,16 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Run `java -version` from `PATH`, capture stderr, and record the actual major version. The Diagram Converter CLI requires major version `21` or higher. Do not apply the OpenRewrite upper bound. If `java` is missing or below 21, request an alternate JDK home through AskUserQuestion. Validate its `bin/java` (Windows: `bin/java.exe`) and check its actual version first. If several validated compatible homes exist, choose the lowest. Prefer 21 for reproducible runs. (SHOULD) Use the validated executable and home only for the converter invocation.
+The skill runs `java -version` from `PATH`.
+The skill captures stderr and records the actual major version.
+The Diagram Converter CLI requires major version `21` or higher.
+The skill does not apply the OpenRewrite upper bound.
+If `java` is missing or below 21, then the skill asks the user for an alternate JDK home in the
+current conversation.
+The skill validates the alternate JDK's `bin/java` (Windows: `bin/java.exe`) and checks its version first.
+If several validated compatible homes exist, then the skill chooses the lowest.
+The skill prefers Java 21 for reproducible runs. (SHOULD)
+The skill uses the validated executable and home only for the converter invocation.
 
 > The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
@@ -60,7 +70,10 @@ The CLI is published as a self-contained executable JAR named `camunda-7-to-8-di
 4. If that JAR exists, reuse it.
 5. Otherwise download from `https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
 
-The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migration/` to `.gitignore`. Modify `.gitignore` only after the user confirms through AskUserQuestion.
+The JAR is ~30 MB.
+If the target project is a Git repository, then the skill recommends adding `.camunda-migration/` to
+`.gitignore`.
+The skill modifies `.gitignore` only after the user confirms in the current conversation.
 
 ### 3. Run the Converter
 
@@ -150,14 +163,16 @@ Determine the report's target version:
 1. Findings with `messageId` `element-available-in-future-version` name it. The message reads `Element '<name>' is not supported in Zeebe version '<report-target>'. It is available in version '<x.y>'.` — `<report-target>` is the version the report was generated against.
 2. Otherwise the version cannot be determined from the content. Ask the user which `--platform-version` generated the report.
 
-If the report's version does not match the chosen target, or cannot be determined, warn the user and offer through AskUserQuestion before grouping (5b) or any cross-checks:
+If the report version differs from the chosen target or is unknown, then the skill warns the user
+before grouping (5b) or cross-checking.
+The skill presents these options in the current conversation:
 
 - **Re-run the converter at the chosen target** (recommended) — run the step 2 CLI with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast and produces fresh JSON and XLSX reports for 5a.
 - **Keep the imported report** (MAY) — use it only for non-runtime grouping. Record the target
   mismatch or unknown target in `MIGRATION_REPORT.md`. If the original input is available, re-run
   the converter at the chosen target without `--check`. Use its JSON report for runtime impact and
-  the verdict table. Use its converted copy for target-support tests. Otherwise, request the input
-  through AskUserQuestion and stop.
+  the verdict table. Use its converted copy for target-support tests. Otherwise, the skill asks the
+  user for the input in the current conversation and stops.
 
 #### 5a. Parse the JSON report
 
@@ -340,7 +355,7 @@ Verdicts:
 | Verdict | Meaning | Required action |
 |---|---|---|
 | **no action** | The converter handled the category deterministically or a cross-check shows full coverage. The shared verification gate passed. | Nothing to do. |
-| **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision through AskUserQuestion before any fix. Run the verification gate directly when it is the only pending action. |
+| **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision in the current conversation before any fix. Run the verification gate directly when it is the only pending action. |
 | **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
 
 | Category (messageId or source category) | Runtime impact | Count | Element list | Code artifact | Impact evidence | Link | Verdict |
@@ -402,7 +417,8 @@ Resolve the target platform version before offering relocation:
 | Earlier than `8.6` | Do not create a `zeebe:executionListener`; keep the finding **needs review** and offer manual migration |
 | Missing or invalid | Ask for a target version; keep the finding **needs review** until the version is confirmed |
 
-Present one AskUserQuestion decision for each affected start event or group with the same target:
+The skill presents one decision in the current conversation for each affected start event or
+same-target group:
 
 | User choice | Action |
 |---|---|
@@ -581,7 +597,7 @@ Generated-form follow-up also requires the exact original BPMN and an unambiguou
 
 ### 1. Ask for C7 Access
 
-Use AskUserQuestion to request:
+The skill asks the user in the current conversation for:
 
 - The C7 engine REST base URL, including the `/engine-rest` context path when applicable.
 - Authentication: no authentication, or Basic authentication username/password.
