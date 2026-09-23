@@ -34,6 +34,9 @@ public class MigrateExecutionRecipe extends Recipe {
       " TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.";
   private static final String TYPED_VARIABLE_LOOKUP_TODO =
       " TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.";
+  private static final String UNBOUND_VARIABLE_LOOKUP_TODO =
+      " TODO: unbound getVariable method reference requires manual migration because "
+          + "job workers do not expose an arbitrary Camunda 7 execution scope.";
   private static final MethodMatcher GET_VARIABLE_LOCAL =
       new MethodMatcher(
           "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)");
@@ -136,11 +139,11 @@ public class MigrateExecutionRecipe extends Recipe {
   }
 
   private record ManualMigrationFindings(
-      boolean localVariableLookup, boolean typedVariableLookup) {}
+      boolean localVariableLookup, boolean typedVariableLookup, boolean unboundVariableLookup) {}
 
   private static ManualMigrationFindings findManualMigrationFindings(
       Statement statement, Cursor parentCursor, ExecutionContext ctx) {
-    boolean[] findings = {false, false};
+    boolean[] findings = {false, false, false};
     new JavaIsoVisitor<ExecutionContext>() {
       @Override
       public J.MethodInvocation visitMethodInvocation(
@@ -157,12 +160,16 @@ public class MigrateExecutionRecipe extends Recipe {
           J.MemberReference reference, ExecutionContext nestedCtx) {
         if (MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor())) {
           findings[0] |= isLocalVariableLookup(reference);
-          findings[1] |= isUnsupportedVariableLookup(reference, getCursor());
+          boolean unboundVariableLookup =
+              isUnboundVariableLookup(reference, getCursor(), nestedCtx);
+          findings[1] |=
+              !unboundVariableLookup && isUnsupportedVariableLookup(reference, getCursor());
+          findings[2] |= unboundVariableLookup;
         }
         return super.visitMemberReference(reference, nestedCtx);
       }
     }.visit(statement, ctx, parentCursor);
-    return new ManualMigrationFindings(findings[0], findings[1]);
+    return new ManualMigrationFindings(findings[0], findings[1], findings[2]);
   }
 
   private static Statement addManualMigrationFinding(Statement statement, String todo) {
@@ -214,8 +221,25 @@ public class MigrateExecutionRecipe extends Recipe {
     }
     JavaType.Method methodType = reference.getMethodType();
     return "getVariableTyped".equals(methodName)
+        || isUnboundVariableScopeMethodReference(reference)
         || methodType == null
         || methodType.getParameterTypes().size() != 1;
+  }
+
+  private static boolean isUnboundVariableLookup(
+      J.MemberReference reference, Cursor cursor, ExecutionContext ctx) {
+    JavaType.Method methodType = reference.getMethodType();
+    if (!"getVariable".equals(reference.getReference().getSimpleName())
+        || !isUnboundVariableScopeMethodReference(reference)
+        || !isVariableScopeReceiver(reference.getContaining(), cursor)) {
+      return false;
+    }
+
+    int methodParameterCount =
+        methodType == null || methodType.getParameterTypes().isEmpty()
+            ? functionalInterfaceMethodParameterCount(cursor, ctx) - 1
+            : methodType.getParameterTypes().size();
+    return methodParameterCount == 1;
   }
 
   private static boolean isUnboundVariableScopeMethodReference(J.MemberReference reference) {
@@ -823,13 +847,19 @@ public class MigrateExecutionRecipe extends Recipe {
             J.Block visited = (J.Block) super.visitBlock(block, ctx);
             List<Statement> updatedStatements = new ArrayList<>(visited.getStatements());
             for (int i = 0; i < originalStatements.size(); i++) {
-              if (findManualMigrationFindings(
-                      originalStatements.get(i), blockCursor, ctx)
-                  .typedVariableLookup()) {
+              ManualMigrationFindings findings =
+                  findManualMigrationFindings(originalStatements.get(i), blockCursor, ctx);
+              if (findings.typedVariableLookup()) {
                 updatedStatements.set(
                     i,
                     addManualMigrationFinding(
                         updatedStatements.get(i), TYPED_VARIABLE_LOOKUP_TODO));
+              }
+              if (findings.unboundVariableLookup()) {
+                updatedStatements.set(
+                    i,
+                    addManualMigrationFinding(
+                        updatedStatements.get(i), UNBOUND_VARIABLE_LOOKUP_TODO));
               }
             }
             return visited.withStatements(updatedStatements);
@@ -920,12 +950,16 @@ public class MigrateExecutionRecipe extends Recipe {
                     getCursor(), ctx, methodParameterCount, includeReceiver);
             List<String> methodArgumentNames =
                 lambdaParameterNames.subList(includeReceiver ? 1 : 0, lambdaParameterNames.size());
+            List<String> manualMigrationArgumentNames = new ArrayList<>(methodArgumentNames);
+            if (includeReceiver) {
+              manualMigrationArgumentNames.add(lambdaParameterNames.get(0));
+            }
             String lambda =
                 lambdaParameterList(lambdaParameterNames)
                     + " -> "
                     + methodName
                     + "("
-                    + String.join(", ", methodArgumentNames)
+                    + String.join(", ", manualMigrationArgumentNames)
                     + ")";
             return JavaTemplate.builder(lambda)
                 .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
@@ -1251,35 +1285,22 @@ public class MigrateExecutionRecipe extends Recipe {
 
               J.MemberReference visited =
                   (J.MemberReference) super.visitMemberReference(memberReference, ctx);
-              if (!isVariableLookup(visited)) {
+              if (!isVariableLookup(visited)
+                  || MigrateExecutionRecipe.isUnboundVariableScopeMethodReference(visited)) {
                 return visited;
               }
 
-              if (MigrateExecutionRecipe.isUnboundVariableScopeMethodReference(visited)) {
-                List<String> lambdaParameterNames =
-                    MigrateExecutionRecipe.methodReferenceLambdaParameterNames(
-                        getCursor(), ctx, 1, true);
-                String variableName = lambdaParameterNames.get(1);
-                String lambda =
-                    MigrateExecutionRecipe.lambdaParameterList(lambdaParameterNames)
-                        + " -> #{job:any(io.camunda.client.api.response.ActivatedJob)}"
-                        + ".getVariablesAsMap().get("
-                        + variableName
-                        + ")";
-                return JavaTemplate.builder(lambda)
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .contextSensitive()
-                    .build()
-                    .apply(
-                        getCursor(),
-                        visited.getCoordinates().replace(),
-                        RecipeUtils.createSimpleIdentifier(
-                            "job", "io.camunda.client.api.response.ActivatedJob"));
-              }
-
-              return JavaTemplate.builder(
-                      "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariablesAsMap()::get")
+              List<String> lambdaParameterNames =
+                  MigrateExecutionRecipe.methodReferenceLambdaParameterNames(
+                      getCursor(), ctx, 1, false);
+              String variableName = lambdaParameterNames.get(0);
+              String lambda =
+                  MigrateExecutionRecipe.lambdaParameterList(lambdaParameterNames)
+                      + " -> #{job:any(io.camunda.client.api.response.ActivatedJob)}"
+                      + ".getVariablesAsMap().get("
+                      + variableName
+                      + ")";
+              return JavaTemplate.builder(lambda)
                   .javaParser(
                       JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                   .contextSensitive()

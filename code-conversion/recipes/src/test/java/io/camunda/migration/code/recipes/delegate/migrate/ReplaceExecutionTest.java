@@ -401,6 +401,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
                     Function<String, Object> lookup = execution::getVariable;
+                    Function<String, String> typedLookup = execution::getVariable;
                     return "done";
                 }
             }
@@ -426,7 +427,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
-                    Function<String, Object> lookup = job.getVariablesAsMap()::get;
+                    Function<String, Object> lookup = variableName -> job.getVariablesAsMap().get(variableName);
+                    Function<String, String> typedLookup = variableName -> (String) job.getVariablesAsMap().get(variableName);
                     return "done";
                 }
             }
@@ -1072,7 +1074,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             public String executeJobMigrated(ActivatedJob job) {
                 DelegateExecution execution = null;
                 // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
-                TriFunction<DelegateExecution, String, Class<String>, Object> lookup = (execution1, variableName, argument1) -> getVariableRequiresManualMigration(variableName, argument1);
+                TriFunction<DelegateExecution, String, Class<String>, Object> lookup = (execution1, variableName, argument1) -> getVariableRequiresManualMigration(variableName, argument1, execution1);
                 return "done";
             }
 
@@ -1085,7 +1087,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void preservesReceiverWhenAdaptingUnboundVariableMethodReference() {
+  void flagsUnboundVariableMethodReferencesForManualMigration() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -1138,9 +1140,15 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
             public String executeJobMigrated(ActivatedJob job) {
                 DelegateExecution execution = null;
-                BiFunction<DelegateExecution, String, Object> lookup = (execution1, variableName) -> job.getVariablesAsMap().get(variableName);
+                // TODO: unbound getVariable method reference requires manual migration because job workers do not expose an arbitrary Camunda 7 execution scope.
+                BiFunction<DelegateExecution, String, Object> lookup = (execution1, variableName) -> getVariableRequiresManualMigration(variableName, execution1);
                 return "done";
             }
+
+                private static <T> T getVariableRequiresManualMigration(String variableName, Object... ignored) {
+                    throw new UnsupportedOperationException(
+                            "Manual migration required for getVariable: " + variableName);
+                }
             }
             """));
   }
@@ -1209,7 +1217,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 Function<String, TypedValue> lookup = variableName -> getVariableRequiresManualMigration(variableName);
                 // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
                 BiFunction<DelegateExecution, String, TypedValue> unboundLookup =
-                        (execution1, variableName) -> getVariableRequiresManualMigration(variableName);
+                        (execution1, variableName) -> getVariableRequiresManualMigration(variableName, execution1);
                 return "done";
             }
 
