@@ -181,8 +181,7 @@ at all.
 
 Scan the project and produce the inventories that the chosen scope needs.
 
-Where the confirmed root is a Git repository, record an empty `git status --porcelain` result and
-`git rev-parse HEAD` in `MIGRATION_REPORT.md` before writing the assessment.
+Where the confirmed root is a Git repository, record the complete `git status --porcelain` result and `git rev-parse HEAD` in `MIGRATION_REPORT.md` before writing the assessment. If the status is not empty, mark the starting tree dirty so `final-change-summary.md` reports exact counts as unavailable.
 
 #### Code Inventory
 
