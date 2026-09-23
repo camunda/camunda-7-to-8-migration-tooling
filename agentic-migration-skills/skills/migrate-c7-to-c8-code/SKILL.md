@@ -516,6 +516,10 @@ Then, for each in-scope diagram, produce a **new** `converted-c8-<name>.bpmn`/`.
 - Conditional events natively only on 8.9+; otherwise flag
 - DMN: update decision/definition namespaces and expression language as needed
 
+For a start-event execution listener, apply the relocation, target-version, and approval rules in Approach M1.
+Never add the listener to the C8 start event.
+Keep the finding **needs review** when those rules do not allow relocation.
+
 Emit a findings summary mirroring the CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review. This path is slower and non-deterministic — recommend M1 whenever Java 21 is available.
 
 ### Approach M3 — Online Diagram Converter (hosted)
