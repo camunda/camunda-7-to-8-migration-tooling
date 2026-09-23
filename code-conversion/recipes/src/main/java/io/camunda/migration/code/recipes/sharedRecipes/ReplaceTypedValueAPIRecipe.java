@@ -297,9 +297,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
               }
 
-              if (new MethodMatcher(
+              boolean delegateTypedVariable =
+                  new MethodMatcher(
                           "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
-                      .matches(invocation)
+                      .matches(invocation);
+              if (delegateTypedVariable
                   || new MethodMatcher(
                           "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
                       .matches(invocation)
@@ -333,7 +335,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 + newFqn.substring(newFqn.lastIndexOf('.') + 1)
                                 + " "
                                 + originalName.getSimpleName()
-                                + " = #{any()}",
+                                + " = "
+                                + (delegateTypedVariable && !newFqn.equals("java.lang.Object")
+                                    ? "(" + RecipeUtils.getShortName(newFqn) + ") "
+                                    : "")
+                                + "#{any()}",
                             "java.lang.Object")
                         .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 

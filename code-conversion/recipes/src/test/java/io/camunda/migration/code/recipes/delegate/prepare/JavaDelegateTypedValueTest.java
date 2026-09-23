@@ -65,7 +65,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
     @Override
     public void execute(DelegateExecution execution) {
         // please check type
-        Integer typedAmount = execution.getVariable("amount");
+        Integer typedAmount = (Integer) execution.getVariable("amount");
         // please check type
         Object stringVariableTyped = execution.getVariable("stringVariable");
         int amount = typedAmount;
@@ -111,7 +111,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                         @Override
                         public void execute(DelegateExecution execution) {
                             // please check type
-                            Integer typedAmount = execution.getVariable("amount");
+                            Integer typedAmount = (Integer) execution.getVariable("amount");
                         }
                     }
                     """));

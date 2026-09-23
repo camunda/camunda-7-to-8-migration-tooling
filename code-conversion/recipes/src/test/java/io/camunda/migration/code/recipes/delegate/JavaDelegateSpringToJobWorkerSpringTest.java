@@ -116,6 +116,52 @@ public class RetrievePaymentAdapter {
         }"""));
     }
 
+    @Test
+    void typedValueReadRemainsAssignable() {
+        rewriteRun(
+            java(
+                """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.delegate.JavaDelegate;
+                import org.camunda.bpm.engine.variable.value.IntegerValue;
+                import org.springframework.stereotype.Component;
+
+                @Component
+                public class RetrievePaymentAdapter implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {
+                        IntegerValue typedAmount = execution.getVariableTyped("amount");
+                        System.out.println(typedAmount);
+                    }
+                }
+                """,
+                """
+                package org.camunda.community.migration.example;
+
+                import io.camunda.client.annotation.JobWorker;
+                import io.camunda.client.api.response.ActivatedJob;
+                import org.springframework.stereotype.Component;
+
+                import java.util.HashMap;
+                import java.util.Map;
+
+                @Component
+                public class RetrievePaymentAdapter {
+
+                    @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+                        Map<String, Object> resultMap = new HashMap<>();
+                        // please check type
+                        Integer typedAmount = (Integer) job.getVariablesAsMap().get("amount");
+                        System.out.println(typedAmount);
+                        return resultMap;
+                    }
+                }
+                """));
+    }
+
 
     @Test
     void rewriteExecuteMethodWithVariables() {
