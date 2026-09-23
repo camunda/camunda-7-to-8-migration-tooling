@@ -316,7 +316,8 @@ potential-starter, priority-invalid, priority-not-migrated, priority-scales-merg
 resource, resource-on-conditional-event, resource-on-conditional-flow, result-variable-business-rule,
 result-variable-internal-script, result-variable-rest, script, script-format, script-job-type,
 script-on-conditional-event, script-on-conditional-flow, task-listener, task-listener-supported,
-timer-expression-not-supported, topic, variable-name-filter-not-supported, version-tag
+timer-expression-not-supported, topic, user-task-priority-not-migrated,
+variable-name-filter-not-supported, version-tag
 ```
 
 When the referenced converter version changes, re-sync this inventory from

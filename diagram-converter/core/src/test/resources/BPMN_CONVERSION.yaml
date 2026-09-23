@@ -162,6 +162,122 @@ categories:
           <conversion:message severity="REVIEW">Assignee: Please review transformed expression: '${reviewer}' -&gt; '=reviewer'.</conversion:message>
         properties:
           platformVersion: "8.9"
+      - name: C7 user task receives the modern C8 user-task marker
+        properties:
+          platformVersion: "8.5"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+      - name: User task assignments and schedule are mapped
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"
+              camunda:assignee="${assignee}"
+              camunda:candidateUsers="${candidateUsers}"
+              camunda:candidateGroups="approvers"
+              camunda:dueDate="${deadline}"
+              camunda:followUpDate="2026-01-01T00:00:00Z"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:assignmentDefinition assignee="=assignee" candidateGroups="approvers" candidateUsers="=candidateUsers"/>
+              <zeebe:taskSchedule dueDate="=deadline" followUpDate="2026-01-01T00:00:00Z"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Assignee: Please review transformed expression: '${assignee}' -&gt; '=assignee'.</conversion:message>
+          <conversion:message severity="REVIEW">Candidate users: Please review transformed expression: '${candidateUsers}' -&gt; '=candidateUsers'.</conversion:message>
+          <conversion:message severity="REVIEW">Due date: Please review transformed expression: '${deadline}' -&gt; '=deadline'.</conversion:message>
+      - name: User task form reference and deployment binding are mapped
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"
+              camunda:formRef="approval-form"
+              camunda:formRefBinding="deployment"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition bindingType="deployment" formId="approval-form"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Form reference binding has been mapped.</conversion:message>
+      - name: User task priority literal is mapped to the bounded user-task priority
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="80"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+      - name: User task priority expression is transformed to FEEL
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${priority}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="=priority"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">User task priority: Please review transformed expression: '${priority}' -&gt; '=priority'.</conversion:message>
+      - name: User task priority method invocation is left for manual migration
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${order.getPriority()}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">User task priority: Transformed expression: '${order.getPriority()}' -&gt; '${order.getPriority()}'. Method invocation is not possible in FEEL.</conversion:message>
+      - name: Invalid user task priority is reported and not emitted
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="101"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '101' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: User task priority on an older target remains unsupported
+        properties:
+          platformVersion: "8.5"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Attribute 'priority' with value '80' on 'userTask' is not supported.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output
@@ -1460,7 +1576,7 @@ categories:
           </bpmn:businessRuleTask>
         expectedMessages: |
           <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'businessRuleTask' is removed.</conversion:message>
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'businessRuleTask' 'rules' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'businessRuleTask'. Priority '40' on 'businessRuleTask' 'rules' was not migrated. Handle the priority manually.</conversion:message>
       - name: Job priority literal on external script task
         description: A non-FEEL script task is converted to a service-task-style job worker, so the priority applies. Locks in the eligible branch of JobPriorityScope#scriptTask.
         properties:
@@ -1501,9 +1617,9 @@ categories:
           </bpmn:scriptTask>
         expectedMessages: |
           <conversion:message severity="INFO">Script is transformed to Zeebe script.</conversion:message>
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'scriptTask' 'calc' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'scriptTask'. Priority '40' on 'scriptTask' 'calc' was not migrated. Handle the priority manually.</conversion:message>
       - name: Priority on user task is not migrated
-        description: User tasks are out of scope for this conversion; the C8 user task priority is a separate, bounded concept. The C7 attribute is stripped and a REVIEW message surfaces the dropped priority.
+        description: C7 job priority has no direct equivalent on a modern C8 user task. The user-task implementation remains unchanged and a TASK finding surfaces the dropped priority.
         properties:
           platformVersion: "8.10"
         givenBpmn: |
@@ -1515,7 +1631,7 @@ categories:
             </bpmn:extensionElements>
           </bpmn:userTask>
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '30' on 'userTask' 'review' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="TASK">Camunda 7 'jobPriority' value '30' on user task 'review' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
       - name: Task priority on external message throw event is not migrated
         description: The realistic C7 carrier for camunda:taskPriority on a messageEventDefinition is the external-task throw pattern (camunda:type="external" + camunda:topic). The topic still maps to a zeebe:taskDefinition on the throw event, but C8 has no priority slot for messageEventDefinition (it doesn't implement ZeebeJobPriorityConvertible). The priority attribute is dropped and a WARNING surfaces the lost value. Locks in the realistic edge case the eligibility guard in TaskPriorityVisitor protects against.
         properties:
@@ -1532,7 +1648,7 @@ categories:
             <bpmn:messageEventDefinition />
           </bpmn:intermediateThrowEvent>
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'messageEventDefinition'. Priority '23' on 'messageEventDefinition' with null id was not migrated. Handle the priority manually.</conversion:message>
           <conversion:message severity="REVIEW">Attribute 'topic' on 'messageEventDefinition' was mapped. Is set as job type.</conversion:message>
           <conversion:message severity="INFO">Unused attribute 'type' on 'messageEventDefinition' is removed.</conversion:message>
       - name: Job priority on async-before gateway is not migrated
@@ -1544,7 +1660,7 @@ categories:
         expectedBpmn: |
           <bpmn:exclusiveGateway id="gw" name="Decide" gatewayDirection="Unspecified" />
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'exclusiveGateway' 'gw' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'exclusiveGateway'. Priority '40' on 'exclusiveGateway' 'gw' was not migrated. Handle the priority manually.</conversion:message>
           <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'exclusiveGateway' is removed.</conversion:message>
       - name: Job priority JUEL expression on service task is transformed to FEEL
         description: JUEL expressions are transformed the same way as other expression-carrying attributes (dueDate, followUpDate, …), with the standard "review transformed expression" message.

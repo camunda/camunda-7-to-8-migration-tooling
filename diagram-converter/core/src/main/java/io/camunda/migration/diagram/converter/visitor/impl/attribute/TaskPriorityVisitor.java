@@ -25,6 +25,10 @@ public class TaskPriorityVisitor extends AbstractSupportedAttributeVisitor {
     // Some elements support taskPriority in Camunda 7 where the equivalent Camunda 8
     // element does not (e.g. messageEventDefinition).
     if (!JobPriorityScope.isEligible(context)) {
+      if ("userTask".equals(context.getElement().getLocalName())) {
+        return MessageFactory.userTaskPriorityNotMigrated(
+            attributeLocalName(), context.getElement().getAttribute("id"), attribute);
+      }
       return MessageFactory.priorityNotMigrated(
           context.getElement().getLocalName(), context.getElement().getAttribute("id"), attribute);
     }
