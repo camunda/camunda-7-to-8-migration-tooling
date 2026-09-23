@@ -8,9 +8,15 @@ the clean starting commit recorded in `MIGRATION_REPORT.md`.
 1. Read the baseline commit from `MIGRATION_REPORT.md`.
 2. Count tracked-file changes with `git diff --numstat --no-ext-diff <baseline> --`.
 3. List untracked, non-ignored files with `git ls-files --others --exclude-standard -z`.
-4. For each untracked file, count lines with `git diff --no-index --numstat --no-ext-diff /dev/null -- "<path>"`.
+4. For each untracked file, use the platform's empty-file path with
+   `git diff --no-index --numstat --no-ext-diff <empty-file> -- "<path>"`.
    Exit code 1 means the command found differences.
 5. Do not stage or commit files to calculate counts.
+
+| Host OS | Empty-file path |
+|---|---|
+| Linux or macOS | `/dev/null` |
+| Windows | `NUL` |
 
 Count changed file paths. Classify files with the Step 2 inventories. Include each new file in the
 matching category. Treat code, tests, application configuration, and scripts as **Code**. Treat
