@@ -117,6 +117,9 @@ public class MigrateExecutionRecipe extends Recipe {
   }
 
   private static boolean isCopiedJobWorkerMethod(Cursor cursor) {
+    if (isVariableScopeLambdaReceiver(cursor)) {
+      return false;
+    }
     for (Cursor current = cursor; current != null; current = current.getParent()) {
       if (current.getValue() instanceof J.MethodDeclaration method) {
         return isCopiedJobWorkerMethod(method);
@@ -136,11 +139,63 @@ public class MigrateExecutionRecipe extends Recipe {
           return nestedScope;
         }
         nestedScope = true;
+      } else if (current.getValue() instanceof J.Lambda
+          && isVariableScopeLambdaReceiver(cursor)) {
+        nestedScope = true;
       } else if (current.getValue() instanceof J.ClassDeclaration) {
         nestedScope = true;
       }
     }
     return false;
+  }
+
+  private static boolean isVariableScopeLambdaReceiver(Cursor cursor) {
+    Expression receiver =
+        cursor.getValue() instanceof J.MethodInvocation invocation
+            ? invocation.getSelect()
+            : cursor.getValue() instanceof J.MemberReference reference
+                ? reference.getContaining()
+                : null;
+    if (!(receiver instanceof J.Identifier identifier)) {
+      return false;
+    }
+
+    boolean receiverIsVariableScope =
+        RecipeUtils.isAssignableTo(receiver.getType(), VARIABLE_SCOPE);
+    for (Cursor current = cursor; current != null; current = current.getParent()) {
+      if (current.getValue() instanceof J.Lambda lambda) {
+        return lambda.getParameters().getParameters().stream()
+            .anyMatch(
+                parameter ->
+                    isVariableScopeLambdaParameter(
+                        parameter, identifier.getSimpleName(), receiverIsVariableScope));
+      }
+      if (current.getValue() instanceof J.MethodDeclaration
+          || current.getValue() instanceof J.ClassDeclaration) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isVariableScopeLambdaParameter(
+      J parameter, String receiverName, boolean receiverIsVariableScope) {
+    if (parameter instanceof J.VariableDeclarations declarations) {
+      return declarations.getVariables().stream()
+              .anyMatch(variable -> receiverName.equals(variable.getName().getSimpleName()))
+          && (receiverIsVariableScope
+              || RecipeUtils.isAssignableTo(declarations.getType(), VARIABLE_SCOPE)
+              || (declarations.getTypeExpression() != null
+                  && (declarations.getTypeExpression().toString().endsWith("VariableScope")
+                      || declarations
+                          .getTypeExpression()
+                          .toString()
+                          .endsWith("DelegateExecution"))));
+    }
+    return parameter instanceof J.Identifier identifier
+        && receiverName.equals(identifier.getSimpleName())
+        && (receiverIsVariableScope
+            || RecipeUtils.isAssignableTo(identifier.getType(), VARIABLE_SCOPE));
   }
 
   private static boolean isVariableScopeReceiver(Expression receiver, Cursor cursor) {
@@ -202,6 +257,15 @@ public class MigrateExecutionRecipe extends Recipe {
     }
     return variablesAsMap.getSelect() instanceof J.Identifier identifier
         && "job".equals(identifier.getSimpleName());
+  }
+
+  private static Expression unwrapParentheses(Expression expression) {
+    Expression unwrapped = expression;
+    while (unwrapped instanceof J.Parentheses<?> parentheses
+        && parentheses.getTree() instanceof Expression inner) {
+      unwrapped = inner;
+    }
+    return unwrapped;
   }
 
   private static boolean hasKnownMethodReceiverType(J.MethodInvocation invocation) {
@@ -895,11 +959,19 @@ public class MigrateExecutionRecipe extends Recipe {
               if (classId != null && methodParameterCount > 1) {
                 classesWithTypedReplacedLookups.add(classId);
               }
+              if (classId != null && includeReceiver) {
+                classesWithTypedReplacedLookups.add(classId);
+              }
               List<String> lambdaParameterNames =
                   methodReferenceLambdaParameterNames(
                       getCursor(), ctx, methodParameterCount, includeReceiver);
               List<String> methodArgumentNames =
-                  lambdaParameterNames.subList(includeReceiver ? 1 : 0, lambdaParameterNames.size());
+                  new ArrayList<>(
+                      lambdaParameterNames.subList(
+                          includeReceiver ? 1 : 0, lambdaParameterNames.size()));
+              if (includeReceiver) {
+                methodArgumentNames.add(lambdaParameterNames.get(0));
+              }
               return JavaTemplate.builder(
                       lambdaParameterList(lambdaParameterNames)
                           + " -> "
@@ -1496,7 +1568,10 @@ public class MigrateExecutionRecipe extends Recipe {
               String returnType =
                   methodType == null ? null : typeName(methodType.getReturnType());
               if (returnType != null
-                  && (isBinaryOperand() || returnType.endsWith("[]"))) {
+                  && (isBinaryOperand()
+                      || isThrowOperand()
+                      || isVarDeclarationInitializer(invocation)
+                      || returnType.endsWith("[]"))) {
                 lookupReturnTypesById.put(visited.getId(), returnType);
               }
 
@@ -1563,11 +1638,41 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             private boolean isBinaryOperand() {
-              Cursor cursor = getCursor().getParent();
-              while (cursor != null && cursor.getValue() instanceof J.Parentheses) {
-                cursor = cursor.getParent();
+              Cursor expression = parenthesizedExpressionCursor();
+              Cursor parent = expression == null ? null : expression.getParent();
+              return parent != null && parent.getValue() instanceof J.Binary;
+            }
+
+            private boolean isThrowOperand() {
+              Cursor expression = parenthesizedExpressionCursor();
+              Cursor parent = expression == null ? null : expression.getParent();
+              return parent != null && parent.getValue() instanceof J.Throw;
+            }
+
+            private boolean isVarDeclarationInitializer(J.MethodInvocation invocation) {
+              J.VariableDeclarations declarations =
+                  getCursor().firstEnclosing(J.VariableDeclarations.class);
+              if (declarations == null
+                  || (declarations.getTypeExpression() != null
+                      && !"var".equals(declarations.getTypeExpression().toString()))) {
+                return false;
               }
-              return cursor != null && cursor.getValue() instanceof J.Binary;
+
+              return declarations.getVariables().stream()
+                  .map(J.VariableDeclarations.NamedVariable::getInitializer)
+                  .anyMatch(
+                      initializer ->
+                          initializer != null
+                              && unwrapParentheses(initializer).getId().equals(invocation.getId()));
+            }
+
+            private Cursor parenthesizedExpressionCursor() {
+              Cursor expression = getCursor();
+              while (expression.getParent() != null
+                  && expression.getParent().getValue() instanceof J.Parentheses) {
+                expression = expression.getParent();
+              }
+              return expression;
             }
 
             private boolean isVariableLookup(J.MemberReference memberReference) {
@@ -2017,10 +2122,11 @@ public class MigrateExecutionRecipe extends Recipe {
                 return adaptArrayInitializer(newArray, expectedType, scope);
               }
 
-              if (isEffectiveVariableLookup(expression)) {
+              Expression unwrappedExpression = unwrapParentheses(expression);
+              if (isEffectiveVariableLookup(unwrappedExpression)) {
                 if (expectedType == null
                     || isObjectType(expectedType)
-                    || isAlreadyCast(expression)) {
+                    || isAlreadyCast(unwrappedExpression)) {
                   return expression;
                 }
 
@@ -2110,16 +2216,40 @@ public class MigrateExecutionRecipe extends Recipe {
 
             private String functionalResultType(String type) {
               List<String> typeArguments = genericTypeArguments(type);
-              if (typeArguments.isEmpty()) {
-                return null;
-              }
-
-              String rawType = type.substring(0, type.indexOf('<')).trim();
+              int genericStart = type.indexOf('<');
+              String rawType =
+                  genericStart < 0 ? type.trim() : type.substring(0, genericStart).trim();
               String simpleName = rawType.substring(rawType.lastIndexOf('.') + 1);
               return switch (simpleName) {
-                case "Function", "BiFunction" -> typeArguments.get(typeArguments.size() - 1);
-                case "Supplier", "Callable", "UnaryOperator", "BinaryOperator" ->
-                    typeArguments.get(0);
+                case "Function", "BiFunction" ->
+                    typeArguments.isEmpty() ? null : typeArguments.get(typeArguments.size() - 1);
+                case "Supplier",
+                        "Callable",
+                        "UnaryOperator",
+                        "BinaryOperator",
+                        "IntFunction",
+                        "LongFunction",
+                        "DoubleFunction" ->
+                    typeArguments.isEmpty() ? null : typeArguments.get(0);
+                case "Predicate", "BiPredicate", "BooleanSupplier" -> "boolean";
+                case "ToIntFunction",
+                        "ToIntBiFunction",
+                        "IntSupplier",
+                        "IntUnaryOperator",
+                        "IntBinaryOperator" ->
+                    "int";
+                case "ToLongFunction",
+                        "ToLongBiFunction",
+                        "LongSupplier",
+                        "LongUnaryOperator",
+                        "LongBinaryOperator" ->
+                    "long";
+                case "ToDoubleFunction",
+                        "ToDoubleBiFunction",
+                        "DoubleSupplier",
+                        "DoubleUnaryOperator",
+                        "DoubleBinaryOperator" ->
+                    "double";
                 default -> null;
               };
             }
