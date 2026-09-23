@@ -23,42 +23,6 @@ function normalizeHeadingLevels(content, levelOffset = 0) {
   });
 }
 
-function isExternalLink(target) {
-  return (
-    target.startsWith('#') ||
-    target.startsWith('/') ||
-    target.startsWith('//') ||
-    /^[a-z][a-z\d+.-]*:/i.test(target)
-  );
-}
-
-function rewriteRelativeLinks(content, sourceDir) {
-  return content.replace(/(\]\()([^)]+)(\))/g, (match, prefix, destination, suffix) => {
-    const leadingWhitespace = destination.match(/^\s*/)[0];
-    const trailingWhitespace = destination.match(/\s*$/)[0];
-    const trimmedDestination = destination.trim();
-    const destinationMatch = /^(\S+)([\s\S]*)$/.exec(trimmedDestination);
-
-    if (!destinationMatch || isExternalLink(destinationMatch[1])) {
-      return match;
-    }
-
-    const linkTarget = destinationMatch[1];
-    const suffixStart = linkTarget.search(/[?#]/);
-    const relativePath = suffixStart === -1 ? linkTarget : linkTarget.slice(0, suffixStart);
-
-    if (!relativePath) {
-      return match;
-    }
-
-    const targetPath = path.resolve(sourceDir, relativePath);
-    const generatedPath = path.relative(PATTERN_ROOT, targetPath).split(path.sep).join('/');
-    const targetSuffix = suffixStart === -1 ? '' : linkTarget.slice(suffixStart);
-
-    return `${prefix}${leadingWhitespace}${generatedPath}${targetSuffix}${destinationMatch[2]}${trailingWhitespace}${suffix}`;
-  });
-}
-
 function extractTitleFromFile(content, fallbackFilename) {
   const match = content.match(/^#\s+(.+)/m);
   if (match) return match[1].trim();
@@ -111,8 +75,7 @@ function collectAllContent(dir, depth = 1) {
   if (!isTopLevel) {
     content += `\n${'#'.repeat(depth)} ${sectionTitle}\n\n`;
     if (readmeBody) {
-      const rewrittenReadme = rewriteRelativeLinks(readmeBody, dir);
-      content += normalizeHeadingLevels(rewrittenReadme, depth).trim() + '\n\n';
+      content += normalizeHeadingLevels(readmeBody, depth).trim() + '\n\n';
     }
   }
 
@@ -125,7 +88,7 @@ function collectAllContent(dir, depth = 1) {
     const match = raw.match(/^#\s+(.*)/m);
     const title = match ? match[1].trim() : filename;
 
-    const cleanedContent = rewriteRelativeLinks(raw.replace(/^#\s+.*\n?/, '').trim(), dir);
+    const cleanedContent = raw.replace(/^#\s+.*\n?/, '').trim();
 
     content += `\n${'#'.repeat(depth + 1)} ${title}\n\n`;
     content += normalizeHeadingLevels(cleanedContent, depth + 1).trim() + '\n\n---\n';
