@@ -122,9 +122,10 @@ When the skill declares the plugin, apply these rules:
 
 - Preserve an existing `<parent>`. Never replace it with `spring-boot-starter-parent`.
 - Preserve existing plugin executions and configuration.
-- If no parent or `pluginManagement` supplies a plugin version, then set the selected Spring Boot
-  version. A dependency BOM supplies no plugin version.
-- If the plugin version does not match the selected Spring Boot major, then update only the version.
+- Where a parent or `pluginManagement` supplies a plugin version with the selected Spring Boot major,
+  inherit that version.
+- Otherwise, set the selected Spring Boot version in the module's plugin declaration. A dependency
+  BOM supplies no plugin version.
 - Ensure exactly one `repackage` execution runs during `package`.
 - Set `mainClass` to the selected entry point when several main classes exist or when an existing
   `mainClass` differs.
