@@ -583,7 +583,8 @@ When the scope is **Code + models**:
    - The skill starts every executable process directly with its normal inputs.
    - The skill repeats the direct-start test once for each worker input that may be absent, with that input omitted.
    - The skill does not count call-activity coverage as direct-start coverage.
-   - The parent process can supply variables that a direct start lacks.
+   - When a call activity invokes a process, the skill verifies that its parent supplies each required worker input.
+   - While no call activity invokes a process, the skill verifies only its direct-start inputs.
 5. **Excluded processes**: If a process is not a valid standalone entry point, then the skill records the exclusion in `MIGRATION_REPORT.md`. The exclusion lists the process ID, reason, and covering test.
 6. **Completeness**: If a process has neither required direct-start coverage nor a documented exclusion, then the skill fails validation.
 7. **Failing scenarios**: For each failing scenario, the skill records the process ID, inputs, failing element, job type, and incident message.
