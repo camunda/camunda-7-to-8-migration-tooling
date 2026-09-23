@@ -9,11 +9,13 @@ Spring Boot deployment application. It adds the Camunda 8 starter,
 ## Running the evaluation
 
 1. Copy `c7-source` to a temporary project and migrate it with the
-   `migrate-c7-to-c8-code` skill. Accept `@Deployment` wiring.
+   `migrate-c7-to-c8-code` skill. Ask for a runnable Spring Boot deployment
+   application, so the skill creates `MessageStartApplication`. Accept
+   `@Deployment` wiring.
 2. Compare the result with `expected-c8`.
-3. Configure a Camunda 8 connection. Run `mvn spring-boot:run`, then
-   `mvn package` and `java -jar target/message-start-1.0-SNAPSHOT.jar`. Both
-   commands start `MessageStartApplication`.
+3. Configure a Camunda 8 connection. Confirm that `mvn spring-boot:run` starts
+   `MessageStartApplication`. Run `mvn package`. Confirm that
+   `java -jar target/message-start-1.0-SNAPSHOT.jar` starts the same class.
 4. Negative case: migrate a second copy as a test-only module. Confirm that it
    has no `@SpringBootApplication` class and no `spring-boot-maven-plugin`.
 
