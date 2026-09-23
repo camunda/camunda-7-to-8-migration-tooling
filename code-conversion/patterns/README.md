@@ -96,5 +96,6 @@ Patterns:
 - [User Task Assertions](40-test-assertions/10-assertions/40-user-task.md)
 - [Message Correlation](40-test-assertions/10-assertions/50-message.md)
 - [Job Execution in Test Cases](40-test-assertions/10-assertions/60-job.md)
+- [Executable Entry-Point Coverage](40-test-assertions/10-assertions/70-executable-entry-points.md)
 
 <!-- END-CATALOG -->
