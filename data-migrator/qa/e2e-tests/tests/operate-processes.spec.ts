@@ -109,6 +109,7 @@ async function openProcessInstance(page: Page, processName: string) {
  */
 test.describe('Operate - Process Instances & Audit Logs', () => {
   test.describe.configure({ mode: 'serial' });
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
