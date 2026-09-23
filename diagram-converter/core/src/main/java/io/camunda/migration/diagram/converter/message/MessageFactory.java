@@ -201,6 +201,17 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message executionListenerOnStartEventNotSupported(
+      String event, String type, String implementation) {
+    return INSTANCE.composeMessage(
+        "execution-listener-on-start-event",
+        ContextBuilder.builder()
+            .entry("event", event)
+            .entry("type", type)
+            .entry("implementation", implementation)
+            .build());
+  }
+
   public static Message executionListenerSupported(String event, String implementation) {
     return INSTANCE.composeMessage(
         "execution-listener-supported",

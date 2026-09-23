@@ -437,6 +437,68 @@ After the run, report back:
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial — resolve them in Step 5, working on the `converted-c8-*` copies (never the originals).
 
+When a conversion finding has messageId `execution-listener-on-start-event`, use this procedure.
+
+### Relocate unsupported start-event listeners
+
+Treat this finding as **Blocking** and **needs review** until the user accepts relocation and every check passes.
+
+Resolve the finding's `filename` and `elementId` in the original C7 source. The converter omits this unsupported listener from the converted copy.
+
+Use the nearest enclosing target:
+
+| Source shape | Listener target |
+|---|---|
+| Process-level start event | Enclosing process |
+| Start event inside an embedded or event subprocess | Nearest enclosing subprocess |
+
+If multiple start events share the target, then tell the user that the listener will run for each start event in that scope.
+
+Check the target version before offering relocation:
+
+| Target version | Action |
+|---|---|
+| `8.6` or later | Offer relocation to the process or subprocess |
+| Earlier than `8.6` | Do not offer relocation. Keep the finding **needs review** and offer manual migration |
+| Missing or invalid | Ask the user to provide the target version. Keep the finding **needs review** |
+
+Ask the user before editing the converted copy. Present one choice for each affected start event or group with the same target:
+
+| User choice | Action |
+|---|---|
+| Move the listener to the enclosing process or subprocess | Recreate the listener on that target |
+| Keep the listener as a manual migration task | Do not edit the converted copy. Keep the finding **needs review** |
+
+Do not edit the original C7 source.
+When the user accepts relocation, edit only the fresh converted copy.
+Use a namespace-aware XML parser. Never use regular expressions.
+Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
+Set `eventType` to the source listener's event type.
+Use the converter's implementation-to-type mapping.
+
+| C7 source | C8 listener |
+|---|---|
+| `delegateExpression="${name}"` | `type="name"` |
+| `class="name"` or `expression="name"` | `type="name"` |
+| `event="start"` | `eventType="start"` |
+
+Map static listener fields to `zeebe:taskHeaders` only when the selected target version supports that conversion.
+Preserve each listener field or attribute that the converter maps for the selected target version.
+Record every unmapped field or attribute as a migration TODO.
+Keep the finding **needs review** when the source listener has no supported implementation.
+
+After an accepted relocation, run these checks on the converted copy:
+
+- Check that the converted BPMN parses.
+- Check that the start event has no unsupported start listener.
+- Check that the target scope contains the recreated listener.
+- Deploy and execute the converted BPMN against the selected target version.
+- Check that the worker or connector route covers the recreated listener type.
+
+If a check fails or cannot run, then keep the finding **needs review**.
+Record the source path, start-event ID, target scope, listener implementation, user choice, converted-copy path, and verification evidence in `MIGRATION_REPORT.md`.
+Set the finding to **no action** only after every check passes.
+
 ### Approach M2 — Agentic AI (direct XML rewrite)
 
 Use when Java 21 is unavailable, the user wants to review every change, or the CLI can't handle a case. Fetch the current diagram-conversion guidance rather than relying on training knowledge:
