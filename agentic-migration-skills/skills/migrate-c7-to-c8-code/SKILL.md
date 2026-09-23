@@ -282,6 +282,14 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
+13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
+    `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
+    launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
+    class. Stop each started process after the launch. The migration adds no
+    `@SpringBootApplication` class and no `spring-boot-maven-plugin` declaration to a test-only
+    module. A successful compile does not validate the plugin. If startup fails after the launch
+    only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
+    and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
 
 Check these pitfalls as well:
 
@@ -433,12 +441,24 @@ Within each impact, process rows with a severity before source-derived rows with
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
+- When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
+  `references/model-migration-approaches.md`.
+- Never relocate this listener automatically.
+- Confirm that the chosen target still supports execution listeners on the enclosing process or
+  subprocess before you offer relocation.
+- If the chosen target is earlier than Camunda 8.6, do not offer relocation.
+- Keep the category **needs review** and offer manual migration for a target earlier than Camunda 8.6.
+- Ask the user before editing an affected converted copy.
+- Offer to move each affected listener to the nearest enclosing process or subprocess.
+- Keep the category **needs review** when the user declines or verification fails.
 - When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
   job-type group with a **needs review** verdict and no dispatcher. Use the procedure in
   `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
 - For a model-finding batch, run the verification gate before updating the verdict table in
   `MIGRATION_REPORT.md`.
+- For a start-listener relocation, use the dedicated deployment and route checks in the relocation
+  procedure. Run the Step 4 test suite only when the same batch changed code.
 
 #### Action 2: delete now-redundant code
 

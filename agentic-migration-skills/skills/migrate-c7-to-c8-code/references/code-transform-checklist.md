@@ -104,6 +104,33 @@ These items are not in the catalog:
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
 
+### Maven build wiring
+
+Apply this section to each migrated Maven module. Do not apply it to Gradle modules. Inspect
+`mvn help:effective-pom` before editing the POM. Record the plugin state, parent, and packaging in
+`MIGRATION_REPORT.md`. Never copy effective-POM output into `MIGRATION_REPORT.md`. Classify the
+module from its source launch path and the runtime that the user requests. If the classification is
+unclear, then ask the user. Use the first matching row.
+
+| Module after migration | Action |
+|---|---|
+| Test-only module | Never create a `@SpringBootApplication` class. Never add the plugin. Record the test command. |
+| External launcher that needs no executable artifact | Keep the build plugins unchanged. Record the launch command. |
+| No `@SpringBootApplication` entry point after migration | Never add the plugin. |
+| Created or kept runtime `@SpringBootApplication` entry point | Declare `org.springframework.boot:spring-boot-maven-plugin` under `build/plugins`. |
+
+When the skill declares the plugin, apply these rules:
+
+- Preserve an existing `<parent>`. Never replace it with `spring-boot-starter-parent`.
+- Preserve existing plugin executions and configuration.
+- Where the module, its parent, or `pluginManagement` supplies a plugin version with the selected
+  Spring Boot major, keep that version.
+- Otherwise, set the plugin version to the Spring Boot version that the selected Camunda starter
+  supports. A dependency BOM supplies no plugin version.
+- Ensure exactly one `repackage` execution runs during `package`.
+- Set `mainClass` to the selected entry point when several main classes exist or when an existing
+  `mainClass` differs.
+
 ### Configuration binding validation
 
 Approach A runs `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` through

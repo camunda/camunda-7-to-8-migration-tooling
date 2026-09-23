@@ -26,19 +26,27 @@ skill must not invent a layout for that source.
 3. Require the skill to parse and inventory source DI before rewriting.
 4. Require the skill to write converted copies named
    `converted-c8-bpmn-di-c7.bpmn` and `converted-c8-no-di-c7.bpmn`.
-5. Run the structural checks:
+5. Run the structural checks with Python 3.
+
+   On macOS or Linux, run:
 
    ```sh
    python3 verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
-   python3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md \
-     no-di-c7.bpmn converted-c8-no-di-c7.bpmn
+   python3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
    ```
 
-6. Install the BPMN lint dependencies once, configure the target ruleset, then lint the converted DI copy:
+   On Windows PowerShell, run:
 
-   ```sh
-   npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat
-   cat > .bpmnlintrc <<'EOF'
+   ```powershell
+   py -3 verify_di_preservation.py bpmn-di-c7.bpmn converted-c8-bpmn-di-c7.bpmn
+   py -3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
+   ```
+
+6. Install the BPMN lint dependencies once.
+   Run `npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat`.
+7. Create a `.bpmnlintrc` file with this JSON content:
+
+   ```json
    {
      "extends": [
        "bpmnlint:recommended",
@@ -48,21 +56,35 @@ skill must not invent a layout for that source.
        "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
      }
    }
-   EOF
-   if ! npx bpmnlint converted-c8-bpmn-di-c7.bpmn > bpmn-di-lint.log 2>&1; then
-     cat bpmn-di-lint.log
-     exit 1
-   fi
-   ! grep -F "no-bpmndi" bpmn-di-lint.log
    ```
+
+8. Capture the DI-copy lint output in `bpmn-di-lint.log` and keep the
+   `bpmnlint` exit code.
+
+   On macOS or Linux, run:
+
+   ```sh
+   set -o pipefail
+   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | tee bpmn-di-lint.log
+   ```
+
+   On Windows PowerShell, run:
+
+   ```powershell
+   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | Tee-Object -FilePath bpmn-di-lint.log
+   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+   ```
+
+9. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
 
    Use the target-compatible Camunda compatibility ruleset described in the
    skill reference. The DI copy must introduce no `no-bpmndi` finding.
 
-7. Lint the no-DI control with the same ruleset. Record any `no-bpmndi`
+10. Lint the no-DI control with the same ruleset. Use the same command pattern
+   to capture output and keep the exit code. Record any `no-bpmndi`
    finding as inherited source quality only when the converted copy still has no
    DI. Do not add a layout to silence that finding.
-8. Record the source and converted DI counts, reference checks, complete
+11. Record the source and converted DI counts, reference checks, complete
    per-element DI comparisons, namespace bindings, lint output, and the no-DI
    provenance in `MIGRATION_REPORT.md`. Include the control filename and an
    explicit statement that its source BPMN DI is absent.
