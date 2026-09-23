@@ -479,7 +479,8 @@ Use the converter's implementation-to-type mapping.
 | C7 source | C8 listener |
 |---|---|
 | `delegateExpression="${name}"` | `type="name"` |
-| `class="name"` or `expression="name"` | `type="name"` |
+| `class="name"` | `type="name"` |
+| `expression="<value>"` | `type="<value>"`, including any `${...}` or `#{...}` wrapper |
 | `event="start"` | `eventType="start"` |
 
 Map static listener fields to `zeebe:taskHeaders` only when the selected target version supports that conversion.
