@@ -179,8 +179,12 @@ categories:
       - name: BPMN start event without execution listener
         givenBpmn: |
           <bpmn:startEvent id="startEvent"/>
+          <bpmn:sequenceFlow id="startToEnd" sourceRef="startEvent" targetRef="endEvent"/>
+          <bpmn:endEvent id="endEvent"/>
         expectedBpmn: |
           <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
+          <bpmn:sequenceFlow id="startToEnd" sourceRef="startEvent" targetRef="endEvent"/>
+          <bpmn:endEvent id="endEvent"/>
         expectedMessages: ""
       - name: Execution Listener on BPMN start event
         givenBpmn: |
@@ -195,6 +199,8 @@ categories:
               <camunda:executionListener class="com.example.EndListener" event="end" />
             </bpmn:extensionElements>
           </bpmn:startEvent>
+          <bpmn:sequenceFlow id="startToEnd" sourceRef="startEvent" targetRef="endEvent"/>
+          <bpmn:endEvent id="endEvent"/>
         expectedBpmn: |
           <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false">
             <bpmn:extensionElements>
@@ -203,6 +209,8 @@ categories:
               </zeebe:executionListeners>
             </bpmn:extensionElements>
           </bpmn:startEvent>
+          <bpmn:sequenceFlow id="startToEnd" sourceRef="startEvent" targetRef="endEvent"/>
+          <bpmn:endEvent id="endEvent"/>
         expectedMessages: |
           <conversion:message severity="WARNING">Element 'script' cannot be transformed. Script 'print("start");' with format 'groovy' on 'executionListener'.</conversion:message>
           <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
