@@ -11,9 +11,16 @@ import static org.openrewrite.java.Assertions.java;
 
 import io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe;
 import org.junit.jupiter.api.Test;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 class ReplaceTypedValueAPITest implements RewriteTest {
+
+  @Override
+  public void defaults(RecipeSpec spec) {
+    spec.parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+  }
 
   @Test
   void replaceTypedValueAPITest() {
@@ -115,5 +122,34 @@ public class TypeValueTestClass {
     }
 }
 """));
+  }
+
+  @Test
+  void keepsTaskServiceTypedLocalLookupOnVariableMigrationPath() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+        """
+        package org.camunda.community.migration.example;
+
+        import org.camunda.bpm.engine.TaskService;
+
+        public class TaskServiceTypedLocalLookup {
+            public Object getLocalVariable(TaskService taskService) {
+                return taskService.getVariableLocalTyped("taskId", "localName");
+            }
+        }
+        """,
+        """
+        package org.camunda.community.migration.example;
+
+        import org.camunda.bpm.engine.TaskService;
+
+        public class TaskServiceTypedLocalLookup {
+            public Object getLocalVariable(TaskService taskService) {
+                return taskService.getVariable("taskId", "localName");
+            }
+        }
+        """));
   }
 }

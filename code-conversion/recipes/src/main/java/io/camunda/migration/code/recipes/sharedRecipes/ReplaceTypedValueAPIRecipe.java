@@ -710,10 +710,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (invocation.getSimpleName().equals("getVariableTyped")
                 || invocation.getSimpleName().equals("getVariableLocalTyped")) {
-              String replacementName =
+              boolean isVariableScopeLocalLookup =
                   invocation.getSimpleName().equals("getVariableLocalTyped")
-                      ? "getVariableLocal"
-                      : "getVariable";
+                      && new MethodMatcher(
+                              "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
+                          .matches(invocation);
+              String replacementName =
+                  isVariableScopeLocalLookup ? "getVariableLocal" : "getVariable";
               J.Identifier newIdent =
                   RecipeUtils.createSimpleIdentifier(replacementName, "java.lang.String");
               return invocation.withName(newIdent);

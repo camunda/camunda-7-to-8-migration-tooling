@@ -421,8 +421,30 @@ public class MigrateExecutionRecipe extends Recipe {
             if (classId != null) {
               classesWithReplacedLookups.add(classId);
             }
+            JavaType.Method methodType = visited.getMethodType();
+            int parameterCount =
+                Math.max(
+                    1,
+                    methodType == null ? 1 : methodType.getParameterTypes().size());
+            if (classId != null && parameterCount > 1) {
+              classesWithTypedReplacedLookups.add(classId);
+            }
+            List<String> parameterNames = new ArrayList<>();
+            for (int i = 0; i < parameterCount; i++) {
+              parameterNames.add(i == 0 ? "variableName" : "argument" + i);
+            }
+            String lambdaParameters =
+                parameterCount == 1
+                    ? parameterNames.get(0)
+                    : "(" + String.join(", ", parameterNames) + ")";
 
-            return JavaTemplate.builder("variableName -> " + methodName + "(variableName)")
+            return JavaTemplate.builder(
+                    lambdaParameters
+                        + " -> "
+                        + methodName
+                        + "("
+                        + String.join(", ", parameterNames)
+                        + ")")
                 .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                 .contextSensitive()
                 .build()
