@@ -255,8 +255,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
    Use `CamundaClient`.
 6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
-7. **Configuration** — `camunda.client.*` keys replace the `camunda.*` keys in
-   `application.properties` or `.yaml`.
+7. **Configuration** — run the configuration validation in
+   `references/code-transform-checklist.md`.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
 9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
@@ -357,9 +357,9 @@ target version. See the linting section in `references/model-migration-approache
 
 #### Summary
 
-Present a validation summary that states the status of compilation, remaining Camunda 7 imports,
-remaining migration TODOs, `businessKey` uses, the open items, tests, converted models, and the
-findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
+Present a validation summary that states the status of compilation, configuration binding,
+remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the open items, tests,
+converted models, and the findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
