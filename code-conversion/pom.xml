@@ -15,6 +15,7 @@
 
   <modules>
     <module>recipes</module>
+    <module>patterns/code-examples/camunda-8</module>
   </modules>
 
   <build>
