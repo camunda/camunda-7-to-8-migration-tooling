@@ -71,7 +71,7 @@ final class JobPriorityWriter {
       return false;
     }
 
-    String literal = extractLiteral(priority);
+    String literal = PriorityLiteralExtractor.extract(priority);
     if (literal == null) {
       return false;
     }
@@ -83,24 +83,4 @@ final class JobPriorityWriter {
     }
   }
 
-  private static String extractLiteral(ExpressionTransformationResult priority) {
-    String result = StringUtils.trimToNull(priority.result());
-    if (result == null) {
-      return null;
-    }
-
-    if (result.equals(StringUtils.trimToEmpty(priority.juelExpression()))) {
-      return result;
-    }
-
-    if (!result.startsWith("=")) {
-      return null;
-    }
-
-    String feelLiteral = StringUtils.trimToNull(result.substring(1));
-    if (feelLiteral == null || !feelLiteral.matches("[+-]?\\d+")) {
-      return null;
-    }
-    return feelLiteral;
-  }
 }
