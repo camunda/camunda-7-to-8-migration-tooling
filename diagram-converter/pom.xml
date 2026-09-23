@@ -61,6 +61,13 @@
         <scope>import</scope>
       </dependency>
       <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-bom</artifactId>
         <version>${version.camunda-7}</version>
@@ -99,6 +106,11 @@
         <version>${version.protobuf}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${version.protobuf}</version>
       </dependency>
       <dependency>
         <groupId>com.google.guava</groupId>
