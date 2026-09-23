@@ -39,3 +39,18 @@ recipeList:
             mode: self-managed
             grpc-address: http://localhost:26500
             rest-address: http://localhost:8080
+  - io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe
+displayName: Validate Camunda client configuration
+description: >-
+  Validates Camunda client configuration values and shapes against the target Spring Boot
+  starter in application.properties and application.yml/application.yaml files. It marks legacy
+  camunda.client.zeebe.* aliases as deprecated without contacting a Camunda cluster.
+preconditions:
+  - org.openrewrite.FindSourceFiles:
+      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
+recipeList:
+  - io.camunda.migration.code.recipes.config.ValidateCamundaClientProperties
+  - io.camunda.migration.code.recipes.config.ValidateCamundaClientYaml

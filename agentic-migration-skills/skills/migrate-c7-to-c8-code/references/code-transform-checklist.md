@@ -96,7 +96,33 @@ These items are not in the catalog:
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
-- Replace `camunda.*` keys with `camunda.client.*` in application.properties or .yaml.
+- Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
+
+### Configuration binding validation
+
+Approach A runs `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` through
+`AllClientRecipes`. Do not run it again.
+
+Select the recipe version for the target minor. The validator reads its bundled starter metadata and
+legacy mappings.
+
+When the user selects Approach B, run only the validation recipe after migration:
+
+| Build tool | Validation command |
+|---|---|
+| Maven | `mvn rewrite:run -Drewrite.activeRecipes=io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` |
+| Gradle | Replace every `activeRecipe(...)` entry in the `rewrite {}` block with `activeRecipe("io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe")`. Run `./gradlew rewriteRun`. Restore the original recipe configuration. |
+
+Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
+the Approach A section in `SKILL.md` temporarily. Restore the build file after validation.
+
+The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
+It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
+does not start an application or connect to a Camunda cluster.
+
+Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
+record credential values.
+
 ---
 
 ## 2. Client Code (ProcessEngine to CamundaClient)
