@@ -113,4 +113,41 @@ public class PaymentWorker {
 }
 """));
   }
+
+  @Test
+  void doesNotTreatUnrelatedJobTypeCommentAsMigrationHint() {
+    rewriteRun(
+        spec -> spec.recipe(new DetectJobBasedUserTaskWorkerRecipe()),
+        // language=java
+        java(
+"""
+package org.camunda.community.migration.example;
+
+import io.camunda.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+
+public class UserTaskWorker {
+
+    // Compatibility note: io.camunda.zeebe:userTask is handled by this worker.
+    @JobWorker(type = "io.camunda.zeebe:userTask")
+    public void handleUserTask(ActivatedJob job) {
+    }
+}
+""",
+"""
+package org.camunda.community.migration.example;
+
+import io.camunda.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+
+public class UserTaskWorker {
+
+    // Compatibility note: io.camunda.zeebe:userTask is handled by this worker.
+    // TODO: job-based user tasks are deprecated (removed in Camunda 8.10). This @JobWorker handles the built-in "io.camunda.zeebe:userTask" job type. Migrate to Camunda user tasks: remove this worker and manage the task via the User Task API / Tasklist. See https://docs.camunda.io/docs/apis-tools/migration-manuals/migrate-to-camunda-user-tasks/
+    @JobWorker(type = "io.camunda.zeebe:userTask")
+    public void handleUserTask(ActivatedJob job) {
+    }
+}
+"""));
+  }
 }

@@ -85,7 +85,9 @@ public class DetectJobBasedUserTaskWorkerRecipe extends Recipe {
             boolean alreadyFlagged =
                 m.getComments().stream()
                     .anyMatch(
-                        c -> c instanceof TextComment tc && tc.getText().contains(USER_TASK_JOB_TYPE));
+                        c ->
+                            c instanceof TextComment tc
+                                && tc.getText().contains(MIGRATION_HINT.trim()));
             if (alreadyFlagged) {
               return m;
             }

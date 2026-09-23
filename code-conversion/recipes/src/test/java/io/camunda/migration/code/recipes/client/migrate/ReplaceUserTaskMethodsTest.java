@@ -338,7 +338,6 @@ public class HandleSetVariable {
     private TaskService taskService;
 
     public void setVariable(String taskId, String variableName, Object value) {
-        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
         // TODO: Camunda 8 has no task-scoped variables. newSetVariablesCommand expects the element instance key (not the task key); set the variable on the process/element instance scope instead.
         camundaClient
                 .newSetVariablesCommand(Long.valueOf(taskId))

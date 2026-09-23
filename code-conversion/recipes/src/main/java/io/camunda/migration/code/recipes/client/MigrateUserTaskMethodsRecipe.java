@@ -169,7 +169,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableName", 1),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("value", 2)),
-            List.of(TASK_KEY_CONVERSION_HINT, NO_TASK_SCOPED_VARIABLES_HINT)),
+            List.of(NO_TASK_SCOPED_VARIABLES_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "getVariable(String taskId, String variableName)"
             new MethodMatcher(
