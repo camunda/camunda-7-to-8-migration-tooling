@@ -226,6 +226,7 @@ The current dedicated cross-check categories are:
 | `element-not-supported-hint` | Verify target support for the affected element |
 | `conditional-flow` | Verify target support for the converted flow and condition |
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
+| `execution-listener-on-start-event` | Ask for confirmed relocation to the nearest enclosing process or subprocess, then verify the converted listener |
 
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
@@ -264,6 +265,7 @@ or blocked by another failure, use **Blocking** and **needs review**.
 | `script` or `script-job-type` without worker-route evidence | **Blocking** | The task cannot execute. |
 | `resource-on-conditional-flow`, `script-on-conditional-flow`, `resource-on-conditional-event`, or `script-on-conditional-event` | **Blocking** | The condition cannot execute. |
 | `timer-expression-not-supported`, `inclusive-gateway-join`, or `loop-cardinality` | **Blocking** | The element cannot retain its execution semantics. |
+| `execution-listener-on-start-event` | **Blocking** | The target rejects the listener placement until the user accepts a relocation and the relocation checks pass. |
 | `in-out-business-key` | **Advisory** | The converter maps a supported process business key. |
 | `in-out-business-key-not-supported` | **Advisory** | The call activity loses business-id propagation. |
 | A form category, including `form-data`, `generated-form-property-source`, or form references | **Advisory** | Form work is not a deployment or execution blocker. |
@@ -299,7 +301,8 @@ delegate-expression-as-job-type, delegate-expression-as-job-type-null, delegate-
 delegate-implementation-no-default-job-type, delete-variable-event-not-supported,
 element-available-in-future-version, element-not-supported, element-not-supported-hint, element-variable,
 error-code-no-expression, error-event-definition, escalation-code-no-expression, execution-listener,
-execution-listener-field, execution-listener-supported, expression, expression-execution-not-available,
+execution-listener-field, execution-listener-on-start-event, execution-listener-supported, expression,
+expression-execution-not-available,
 expression-method-as-job-type, expression-method-not-possible, failed-job-retry-time-cycle,
 failed-job-retry-time-cycle-error, failed-job-retry-time-cycle-removed, field-content,
 form-already-camunda-8, form-component-unknown, form-data, form-juel-expression,
@@ -373,6 +376,77 @@ Rules:
 - Use one or more rows for each category in this run. Keep specific form-key categories separate.
   Use source-derived `c7-*` rows for a legacy generic `form-key` finding. Add
   `c7-generic-task-form` only for form-free owners.
+
+#### 5d.3. Relocate unsupported start-event listeners
+
+Treat `execution-listener-on-start-event` as **Blocking** and **needs review** until the user accepts
+relocation and the relocation checks pass.
+
+Use the finding's `filename` and `elementId` to resolve the affected `bpmn:startEvent` in the original
+C7 source. Read the original source because the converter omits this unsupported listener from the
+fresh converted copy.
+
+Find the nearest enclosing target in the original source:
+
+| Source shape | Target |
+|---|---|
+| Process-level start event | The enclosing `bpmn:process` |
+| Embedded or event-subprocess start event | The nearest enclosing `bpmn:subProcess` |
+| Multiple start events share the target | Tell the user that the moved listener runs for every start in that target scope |
+
+Resolve the target platform version before offering relocation:
+
+| Target version | Action |
+|---|---|
+| `8.6` or later | Offer the process or subprocess relocation |
+| Earlier than `8.6` | Do not create a `zeebe:executionListener`; keep the finding **needs review** and offer manual migration |
+| Missing or invalid | Ask for a target version; keep the finding **needs review** until the version is confirmed |
+
+Present one AskUserQuestion decision for each affected start event or group with the same target:
+
+| User choice | Action |
+|---|---|
+| **Move the listener to the enclosing process or subprocess** | Recreate the equivalent Camunda 8 listener on the target scope |
+| **Keep it as a manual migration task** | Do not edit the converted copy and keep the finding **needs review** |
+
+Do not edit the original C7 source.
+Do not edit a converted copy before the user accepts the move.
+When the user accepts the move, edit only the fresh converted copy.
+Use a namespace-aware XML parser or XML tooling, never regular expressions.
+Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
+Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
+Set `eventType="start"`.
+Use the converter's existing implementation-to-type mapping.
+
+| Camunda 7 source | Camunda 8 listener |
+|---|---|
+| `delegateExpression="${name}"` | `type="name"` |
+| `class="name"` or `expression="name"` | `type="name"` |
+| `event="start"` | `eventType="start"` |
+| Static listener fields supported by the converter | `zeebe:taskHeaders` entries |
+
+Preserve every listener field and attribute that the converter maps to the Camunda 8 listener.
+Record each unmapped field or attribute as a migration TODO.
+Keep the category **needs review** when a field or attribute is unmapped.
+If the original listener has no implementation that the converter maps, then keep the category **needs review**.
+Move only listeners belonging to the selected start event.
+
+After an accepted move, run the relocation checks below on the affected converted copy.
+Do not block this category on an unrelated project test failure.
+Run the Step 4 test suite only when the same batch changed code.
+Run the target-support deployment and execution checks from 5d.1 for the affected converted copy.
+Record the deployment identifier and execution result.
+Keep the category **needs review** when deployment or execution cannot run.
+Confirm that the converted copy parses.
+Confirm that the start event has no unsupported start listener.
+Confirm that the target scope has the recreated listener.
+Confirm that the listener's worker or connector route remains covered.
+Keep the category **needs review** until every applicable check passes.
+
+Record the source path, start-event ID, target process or subprocess ID and name, listener
+implementations, user decision, converted-copy path, and verification evidence in
+`MIGRATION_REPORT.md`. Set the verdict to **no action** only after the relocation checks and any
+applicable verification gate pass.
 
 #### 5e. Strip converter annotations from converted models
 
@@ -484,6 +558,12 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - DMN: update decision/definition namespaces and expression language as needed
+- Preserve existing BPMN DI instead of reconstructing it from the rewritten semantic tree.
+- Before rewriting, parse the source with a namespace-aware XML parser and record counts for diagrams, planes, shapes, edges, labels, bounds, and waypoints.
+- Preserve every BPMN DI node, attribute, child geometry, BPMN DI namespace binding, and `bpmnElement` reference for unchanged semantic IDs.
+- When a semantic ID changes, update each matching DI reference and record the source ID, target ID, and mapping in `MIGRATION_REPORT.md`.
+- If a semantic ID has no safe DI mapping, record a blocking or review finding before continuing.
+- When the source has no BPMN DI, leave the converted copy without BPMN DI and record that provenance in `MIGRATION_REPORT.md`. Do not manufacture a layout.
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
 

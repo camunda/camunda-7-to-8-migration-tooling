@@ -120,6 +120,12 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
+The agentic model-rewrite path preserves existing BPMN DI for unchanged semantic
+IDs. When a source has no BPMN DI, the skill does not create a layout and records
+that source provenance in `MIGRATION_REPORT.md`. The
+[`fixtures/diagram-interchange`](fixtures/diagram-interchange) fixture checks
+both cases.
+
 If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
 source. It asks for a reachable Camunda 7 REST URL and the required authentication, saves the original
 definitions, then runs the Diagram Converter locally. While local models exist, it does not offer or

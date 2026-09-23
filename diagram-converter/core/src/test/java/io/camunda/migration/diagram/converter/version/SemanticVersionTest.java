@@ -14,7 +14,9 @@ import org.junit.jupiter.api.Test;
 class SemanticVersionTest {
 
   @Test
-  void shouldParseLatestAndNextTargetVersions() {
+  void shouldParseSupportedTargetVersions() {
+    assertThat(SemanticVersion.parse("8.8")).isEqualTo(SemanticVersion._8_8);
+    assertThat(SemanticVersion.parse("8.9")).isEqualTo(SemanticVersion._8_9);
     assertThat(SemanticVersion.parse("8.10")).isEqualTo(SemanticVersion._8_10);
     assertThat(SemanticVersion.parse("8.11")).isEqualTo(SemanticVersion._8_11);
   }
