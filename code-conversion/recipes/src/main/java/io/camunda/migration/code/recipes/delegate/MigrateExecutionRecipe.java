@@ -32,6 +32,8 @@ public class MigrateExecutionRecipe extends Recipe {
   private static final String MIGRATED_WORKER_METHOD = "executeJobMigrated";
   private static final String LOCAL_VARIABLE_LOOKUP_TODO =
       " TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.";
+  private static final String TYPED_VARIABLE_LOOKUP_TODO =
+      " TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.";
   private static final MethodMatcher GET_VARIABLE_LOCAL =
       new MethodMatcher(
           "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)");
@@ -43,6 +45,8 @@ public class MigrateExecutionRecipe extends Recipe {
           "org.camunda.bpm.engine.delegate.VariableScope getVariable(java.lang.String)");
   private static final String MANUAL_MIGRATION_METHOD =
       "getVariableLocalRequiresManualMigration";
+  private static final String MANUAL_TYPED_VARIABLE_MIGRATION_METHOD =
+      "getVariableRequiresManualMigration";
   private static final String VARIABLE_SCOPE =
       "org.camunda.bpm.engine.delegate.VariableScope";
 
@@ -73,23 +77,142 @@ public class MigrateExecutionRecipe extends Recipe {
         new CopyExecutionListenerToJobWorkerRecipe(),
         new MigrateDelegateExecutionMethodsInJobWorker(),
         new MigrateNestedVariableLookupsInJobWorker(),
+        new FlagUnsupportedVariableLookupsInJobWorker(),
         new AddCastsToTypedVariableLookupsInJobWorker(),
         new FlagLocalVariableLookupsInJobWorker(),
         new MigrateDelegateBPMNErrorAndExceptionInJobWorker());
   }
 
   private static boolean isCopiedJobWorkerMethod(J.MethodDeclaration method) {
-    return method != null && MIGRATED_WORKER_METHOD.equals(method.getSimpleName());
+    return method != null
+        && MIGRATED_WORKER_METHOD.equals(method.getSimpleName())
+        && method.getLeadingAnnotations().stream()
+            .anyMatch(
+                annotation ->
+                    RecipeUtils.isAssignableTo(
+                        annotation.getAnnotationType().getType(),
+                        "io.camunda.client.annotation.JobWorker"));
   }
 
   private static boolean isCopiedJobWorkerMethod(Cursor cursor) {
     for (Cursor current = cursor; current != null; current = current.getParent()) {
       if (current.getValue() instanceof J.MethodDeclaration method
-          && isCopiedJobWorkerMethod(method)) {
-        return true;
+          && MIGRATED_WORKER_METHOD.equals(method.getSimpleName())) {
+        return isCopiedJobWorkerMethod(method);
       }
     }
     return false;
+  }
+
+  private static boolean isVariableScopeReceiver(Expression receiver, Cursor cursor) {
+    if (RecipeUtils.isAssignableTo(receiver.getType(), VARIABLE_SCOPE)) {
+      return true;
+    }
+    if (!(receiver instanceof J.Identifier identifier)) {
+      return false;
+    }
+
+    J.MethodDeclaration method = cursor.firstEnclosing(J.MethodDeclaration.class);
+    if (method == null) {
+      return false;
+    }
+    return method.getParameters().stream()
+        .filter(J.VariableDeclarations.class::isInstance)
+        .map(J.VariableDeclarations.class::cast)
+        .anyMatch(
+            parameter ->
+                parameter.getVariables().stream()
+                    .anyMatch(
+                        variable ->
+                            identifier.getSimpleName()
+                                .equals(variable.getName().getSimpleName())
+                                && (RecipeUtils.isAssignableTo(
+                                        parameter.getType(), VARIABLE_SCOPE)
+                                    || (parameter.getTypeExpression() != null
+                                        && parameter
+                                            .getTypeExpression()
+                                            .toString()
+                                            .endsWith("DelegateExecution")))));
+  }
+
+  private record ManualMigrationFindings(
+      boolean localVariableLookup, boolean typedVariableLookup) {}
+
+  private static ManualMigrationFindings findManualMigrationFindings(
+      Statement statement, Cursor parentCursor, ExecutionContext ctx) {
+    boolean[] findings = {false, false};
+    new JavaIsoVisitor<ExecutionContext>() {
+      @Override
+      public J.MethodInvocation visitMethodInvocation(
+          J.MethodInvocation invocation, ExecutionContext nestedCtx) {
+        if (MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor())) {
+          findings[0] |= isLocalVariableLookup(invocation);
+          findings[1] |= isUnsupportedVariableLookup(invocation, getCursor());
+        }
+        return super.visitMethodInvocation(invocation, nestedCtx);
+      }
+
+      @Override
+      public J.MemberReference visitMemberReference(
+          J.MemberReference reference, ExecutionContext nestedCtx) {
+        if (MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor())) {
+          findings[0] |= isLocalVariableLookup(reference);
+          findings[1] |= isUnsupportedVariableLookup(reference, getCursor());
+        }
+        return super.visitMemberReference(reference, nestedCtx);
+      }
+    }.visit(statement, ctx, parentCursor);
+    return new ManualMigrationFindings(findings[0], findings[1]);
+  }
+
+  private static Statement addManualMigrationFinding(Statement statement, String todo) {
+    if (statement.getComments().stream()
+        .anyMatch(
+            comment ->
+                comment instanceof TextComment textComment
+                    && textComment.getText().contains(todo.trim()))) {
+      return statement;
+    }
+    return statement.withComments(
+        Stream.concat(
+                statement.getComments().stream(),
+                Stream.of(RecipeUtils.createSimpleComment(statement, todo)))
+            .toList());
+  }
+
+  private static boolean isLocalVariableLookup(J.MethodInvocation invocation) {
+    if (GET_VARIABLE_LOCAL.matches(invocation)
+        || GET_VARIABLE_LOCAL_TYPED.matches(invocation)) {
+      return true;
+    }
+
+    Expression receiver = invocation.getSelect();
+    return ("getVariableLocal".equals(invocation.getSimpleName())
+            || "getVariableLocalTyped".equals(invocation.getSimpleName()))
+        && receiver != null
+        && RecipeUtils.isAssignableTo(receiver.getType(), VARIABLE_SCOPE);
+  }
+
+  private static boolean isLocalVariableLookup(J.MemberReference reference) {
+    return GET_VARIABLE_LOCAL.matches(reference) || GET_VARIABLE_LOCAL_TYPED.matches(reference);
+  }
+
+  private static boolean isUnsupportedVariableLookup(
+      J.MethodInvocation invocation, Cursor cursor) {
+    Expression receiver = invocation.getSelect();
+    return "getVariable".equals(invocation.getSimpleName())
+        && invocation.getArguments().size() > 1
+        && receiver != null
+        && isVariableScopeReceiver(receiver, cursor);
+  }
+
+  private static boolean isUnsupportedVariableLookup(J.MemberReference reference, Cursor cursor) {
+    if (!"getVariable".equals(reference.getReference().getSimpleName())
+        || !isVariableScopeReceiver(reference.getContaining(), cursor)) {
+      return false;
+    }
+    JavaType.Method methodType = reference.getMethodType();
+    return methodType == null || methodType.getParameterTypes().size() != 1;
   }
 
   private static class CopyDelegateToJobWorkerRecipe extends Recipe {
@@ -299,9 +422,9 @@ public class MigrateExecutionRecipe extends Recipe {
               }
               J.ClassDeclaration withManualMigrationMethod =
                   RecipeUtils.createSimpleJavaTemplate(helperMethods)
-                  .apply(
-                      getCursor(),
-                      visited.getBody().getCoordinates().lastStatement());
+                      .apply(
+                          getCursor(),
+                          visited.getBody().getCoordinates().lastStatement());
               return withManualMigrationMethod;
             }
             if (hasTypedReplacedLookups
@@ -331,19 +454,23 @@ public class MigrateExecutionRecipe extends Recipe {
             if (method == null
                 || method.getBody() == null
                 || !method.getBody().getId().equals(block.getId())
-                || !isCopiedJobWorkerMethod(method)) {
+                || !MigrateExecutionRecipe.isCopiedJobWorkerMethod(method)) {
               return (J.Block) super.visitBlock(block, ctx);
             }
 
+            Cursor blockCursor = getCursor();
             List<Statement> originalStatements = block.getStatements();
             J.Block visited = (J.Block) super.visitBlock(block, ctx);
             List<Statement> updatedStatements = new ArrayList<>();
             List<Statement> visitedStatements = visited.getStatements();
             for (int i = 0; i < visitedStatements.size(); i++) {
               Statement statement = visitedStatements.get(i);
-              if (i < originalStatements.size()
-                  && containsLocalVariableLookup(originalStatements.get(i), ctx)) {
-                statement = addManualMigrationFinding(statement);
+              if (i < originalStatements.size()) {
+                ManualMigrationFindings findings =
+                    findManualMigrationFindings(originalStatements.get(i), blockCursor, ctx);
+                if (findings.localVariableLookup()) {
+                  statement = addManualMigrationFinding(statement, LOCAL_VARIABLE_LOOKUP_TODO);
+                }
               }
               updatedStatements.add(statement);
             }
@@ -359,42 +486,40 @@ public class MigrateExecutionRecipe extends Recipe {
 
             J.MethodInvocation visited =
                 (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
-            if (!isLocalVariableLookup(visited)) {
-              return visited;
-            }
-
-            J.ClassDeclaration classDeclaration =
-                getCursor().firstEnclosing(J.ClassDeclaration.class);
-            UUID classId = classDeclaration == null ? null : classDeclaration.getId();
-            String methodName =
-                classId == null
-                    ? MANUAL_MIGRATION_METHOD
-                    : methodNamesByClass.getOrDefault(
-                        classId, manualMigrationMethodName(classDeclaration));
-            if (classId != null) {
-              classesWithReplacedLookups.add(classId);
-              if (visited.getArguments().size() > 1) {
-                classesWithTypedReplacedLookups.add(classId);
+            if (isLocalVariableLookup(visited)) {
+              J.ClassDeclaration classDeclaration =
+                  getCursor().firstEnclosing(J.ClassDeclaration.class);
+              UUID classId = classDeclaration == null ? null : classDeclaration.getId();
+              String methodName =
+                  classId == null
+                      ? MANUAL_MIGRATION_METHOD
+                      : methodNamesByClass.getOrDefault(
+                          classId, manualMigrationMethodName(classDeclaration));
+              if (classId != null) {
+                classesWithReplacedLookups.add(classId);
+                if (visited.getArguments().size() > 1) {
+                  classesWithTypedReplacedLookups.add(classId);
+                }
               }
+              if (visited.getArguments().isEmpty()) {
+                return visited;
+              }
+              String arguments =
+                  String.join(
+                      ", ", Collections.nCopies(visited.getArguments().size(), "#{any()}"));
+              J.MethodInvocation replacement =
+                  RecipeUtils.createSimpleJavaTemplate(methodName + "(" + arguments + ")")
+                      .apply(
+                          getCursor(),
+                          visited.getCoordinates().replace(),
+                          visited.getArguments().toArray());
+              if (visited.getMethodType() == null) {
+                return replacement;
+              }
+              return replacement.withMethodType(
+                  visited.getMethodType().withName(methodName));
             }
-            if (visited.getArguments().isEmpty()) {
-              return visited;
-            }
-            String arguments =
-                String.join(
-                    ", ", Collections.nCopies(visited.getArguments().size(), "#{any()}"));
-            J.MethodInvocation replacement =
-                RecipeUtils.createSimpleJavaTemplate(
-                        methodName + "(" + arguments + ")")
-                    .apply(
-                        getCursor(),
-                        visited.getCoordinates().replace(),
-                        visited.getArguments().toArray());
-            if (visited.getMethodType() == null) {
-              return replacement;
-            }
-            return replacement.withMethodType(
-                visited.getMethodType().withName(methodName));
+            return visited;
           }
 
           @Override
@@ -406,108 +531,49 @@ public class MigrateExecutionRecipe extends Recipe {
 
             J.MemberReference visited =
                 (J.MemberReference) super.visitMemberReference(reference, ctx);
-            if (!isLocalVariableLookup(visited)) {
-              return visited;
-            }
-
-            J.ClassDeclaration classDeclaration =
-                getCursor().firstEnclosing(J.ClassDeclaration.class);
-            UUID classId = classDeclaration == null ? null : classDeclaration.getId();
-            String methodName =
-                classId == null
-                    ? MANUAL_MIGRATION_METHOD
-                    : methodNamesByClass.getOrDefault(
-                        classId, manualMigrationMethodName(classDeclaration));
-            if (classId != null) {
-              classesWithReplacedLookups.add(classId);
-            }
-            JavaType.Method methodType = visited.getMethodType();
-            int parameterCount =
-                Math.max(
-                    1,
-                    methodType == null ? 1 : methodType.getParameterTypes().size());
-            if (classId != null && parameterCount > 1) {
-              classesWithTypedReplacedLookups.add(classId);
-            }
-            List<String> parameterNames = new ArrayList<>();
-            for (int i = 0; i < parameterCount; i++) {
-              parameterNames.add(i == 0 ? "variableName" : "argument" + i);
-            }
-            String lambdaParameters =
-                parameterCount == 1
-                    ? parameterNames.get(0)
-                    : "(" + String.join(", ", parameterNames) + ")";
-
-            return JavaTemplate.builder(
-                    lambdaParameters
-                        + " -> "
-                        + methodName
-                        + "("
-                        + String.join(", ", parameterNames)
-                        + ")")
-                .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                .contextSensitive()
-                .build()
-                .apply(getCursor(), visited.getCoordinates().replace());
-          }
-
-          private Statement addManualMigrationFinding(Statement statement) {
-            if (hasManualMigrationFinding(statement)) {
-              return statement;
-            }
-
-            return statement.withComments(
-                Stream.concat(
-                        statement.getComments().stream(),
-                        Stream.of(
-                            RecipeUtils.createSimpleComment(
-                                statement, LOCAL_VARIABLE_LOOKUP_TODO)))
-                    .toList());
-          }
-
-          private boolean containsLocalVariableLookup(
-              Statement statement, ExecutionContext ctx) {
-            boolean[] found = {false};
-            new JavaIsoVisitor<ExecutionContext>() {
-              @Override
-              public J.MethodInvocation visitMethodInvocation(
-                  J.MethodInvocation invocation, ExecutionContext nestedCtx) {
-                if (isLocalVariableLookup(invocation)) {
-                  found[0] = true;
-                }
-                return found[0] ? invocation : super.visitMethodInvocation(invocation, nestedCtx);
+            if (isLocalVariableLookup(visited)) {
+              J.ClassDeclaration classDeclaration =
+                  getCursor().firstEnclosing(J.ClassDeclaration.class);
+              UUID classId = classDeclaration == null ? null : classDeclaration.getId();
+              String methodName =
+                  classId == null
+                      ? MANUAL_MIGRATION_METHOD
+                      : methodNamesByClass.getOrDefault(
+                          classId, manualMigrationMethodName(classDeclaration));
+              if (classId != null) {
+                classesWithReplacedLookups.add(classId);
               }
-
-              @Override
-              public J.MemberReference visitMemberReference(
-                J.MemberReference reference, ExecutionContext nestedCtx) {
-              if (isLocalVariableLookup(reference)) {
-                found[0] = true;
+              JavaType.Method methodType = visited.getMethodType();
+              int parameterCount =
+                  Math.max(
+                      1,
+                      methodType == null ? 1 : methodType.getParameterTypes().size());
+              if (classId != null && parameterCount > 1) {
+                classesWithTypedReplacedLookups.add(classId);
               }
-              return found[0]
-                  ? reference
-                  : super.visitMemberReference(reference, nestedCtx);
+              List<String> parameterNames = new ArrayList<>();
+              for (int i = 0; i < parameterCount; i++) {
+                parameterNames.add(i == 0 ? "variableName" : "argument" + i);
               }
-            }.visit(statement, ctx);
-            return found[0];
-          }
+              String lambdaParameters =
+                  parameterCount == 1
+                      ? parameterNames.get(0)
+                      : "(" + String.join(", ", parameterNames) + ")";
 
-          private boolean isLocalVariableLookup(J.MethodInvocation invocation) {
-            if (GET_VARIABLE_LOCAL.matches(invocation)
-              || GET_VARIABLE_LOCAL_TYPED.matches(invocation)) {
-              return true;
+              return JavaTemplate.builder(
+                      lambdaParameters
+                          + " -> "
+                          + methodName
+                          + "("
+                          + String.join(", ", parameterNames)
+                          + ")")
+                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                  .contextSensitive()
+                  .build()
+                  .apply(getCursor(), visited.getCoordinates().replace());
             }
 
-            Expression receiver = invocation.getSelect();
-            return ("getVariableLocal".equals(invocation.getSimpleName())
-                  || "getVariableLocalTyped".equals(invocation.getSimpleName()))
-              && receiver != null
-              && RecipeUtils.isAssignableTo(receiver.getType(), VARIABLE_SCOPE);
-          }
-
-          private boolean isLocalVariableLookup(J.MemberReference reference) {
-            return GET_VARIABLE_LOCAL.matches(reference)
-              || GET_VARIABLE_LOCAL_TYPED.matches(reference);
+            return visited;
           }
 
           private String manualMigrationMethodName(J.ClassDeclaration classDeclaration) {
@@ -564,17 +630,250 @@ public class MigrateExecutionRecipe extends Recipe {
                 .anyMatch(method -> method.getParameters().size() > 1);
           }
 
-          private boolean hasManualMigrationFinding(Statement statement) {
-            return statement.getComments().stream()
-                .anyMatch(
-                    comment ->
-                        comment instanceof TextComment textComment
-                            && textComment
-                                .getText()
-                                .contains(LOCAL_VARIABLE_LOOKUP_TODO.trim()));
+          private boolean isMigratedMethod() {
+            return MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor());
+          }
+        }
+            .visit(classDeclaration, ctx, parentCursor);
+  }
+
+  static J.ClassDeclaration ensureCompilableTypedVariableLookups(
+      J.ClassDeclaration classDeclaration, Cursor parentCursor, ExecutionContext ctx) {
+    return (J.ClassDeclaration)
+        new JavaVisitor<ExecutionContext>() {
+          private final Map<UUID, String> methodNamesByClass = new HashMap<>();
+          private final Set<UUID> classesWithMultiArgumentLookups = new HashSet<>();
+          private final Set<UUID> classesWithUnknownArityReferences = new HashSet<>();
+
+          @Override
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+            UUID classId = classDeclaration.getId();
+            String methodName =
+                methodNamesByClass.computeIfAbsent(
+                    classId, ignored -> manualMigrationMethodName(classDeclaration));
+            J.ClassDeclaration visited =
+                (J.ClassDeclaration) super.visitClassDeclaration(classDeclaration, ctx);
+            boolean hasMultiArgumentLookups =
+                classesWithMultiArgumentLookups.remove(classId);
+            boolean hasUnknownArityReferences =
+                classesWithUnknownArityReferences.remove(classId);
+
+            String helperMethods = "";
+            if (hasMultiArgumentLookups
+                && !hasGeneratedHelper(classDeclaration, methodName, 2)) {
+              helperMethods +=
+                  """
+
+                  private static <T> T %s(String variableName, Object... ignored) {
+                      throw new UnsupportedOperationException(
+                          "Manual migration required for getVariable: " + variableName);
+                  }
+                  """
+                      .formatted(methodName);
+            }
+            if (hasUnknownArityReferences
+                && !hasGeneratedHelper(classDeclaration, methodName, 0)) {
+              helperMethods +=
+                  """
+
+                  private static <T> T %s() {
+                      throw new UnsupportedOperationException(
+                          "Manual migration required for getVariable method reference.");
+                  }
+                  """
+                      .formatted(methodName);
+            }
+            if (helperMethods.isEmpty()) {
+              return visited;
+            }
+
+            Cursor visitedCursor = new Cursor(getCursor().getParentOrThrow(), visited);
+            return RecipeUtils.createSimpleJavaTemplate(helperMethods)
+                .apply(visitedCursor, visited.getBody().getCoordinates().lastStatement());
           }
 
-          private boolean isMigratedMethod() {
+          @Override
+          public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+            J.MethodDeclaration method = getCursor().firstEnclosing(J.MethodDeclaration.class);
+            if (method == null
+                || method.getBody() == null
+                || !method.getBody().getId().equals(block.getId())
+                || !MigrateExecutionRecipe.isCopiedJobWorkerMethod(method)) {
+              return (J.Block) super.visitBlock(block, ctx);
+            }
+
+            Cursor blockCursor = getCursor();
+            List<Statement> originalStatements = block.getStatements();
+            J.Block visited = (J.Block) super.visitBlock(block, ctx);
+            List<Statement> updatedStatements = new ArrayList<>(visited.getStatements());
+            for (int i = 0; i < originalStatements.size(); i++) {
+              if (findManualMigrationFindings(
+                      originalStatements.get(i), blockCursor, ctx)
+                  .typedVariableLookup()) {
+                updatedStatements.set(
+                    i,
+                    addManualMigrationFinding(
+                        updatedStatements.get(i), TYPED_VARIABLE_LOOKUP_TODO));
+              }
+            }
+            return visited.withStatements(updatedStatements);
+          }
+
+          @Override
+          public J.MethodInvocation visitMethodInvocation(
+              J.MethodInvocation invocation, ExecutionContext ctx) {
+            if (!isCopiedJobWorkerMethod()) {
+              return (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+            }
+
+            J.MethodInvocation visited =
+                (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+            if (!isUnsupportedVariableLookup(visited, getCursor())) {
+              return visited;
+            }
+
+            J.ClassDeclaration classDeclaration =
+                getCursor().firstEnclosing(J.ClassDeclaration.class);
+            UUID classId = classDeclaration == null ? null : classDeclaration.getId();
+            String methodName =
+                classId == null
+                    ? MANUAL_TYPED_VARIABLE_MIGRATION_METHOD
+                    : methodNamesByClass.getOrDefault(
+                        classId, manualMigrationMethodName(classDeclaration));
+            if (classId != null) {
+              classesWithMultiArgumentLookups.add(classId);
+            }
+
+            String arguments =
+                String.join(
+                    ", ", Collections.nCopies(visited.getArguments().size(), "#{any()}"));
+            J.MethodInvocation replacement =
+                RecipeUtils.createSimpleJavaTemplate(methodName + "(" + arguments + ")")
+                    .apply(
+                        getCursor(),
+                        visited.getCoordinates().replace(),
+                        visited.getArguments().toArray());
+            if (visited.getMethodType() == null) {
+              return replacement;
+            }
+            return replacement.withMethodType(
+                visited.getMethodType().withName(methodName));
+          }
+
+          @Override
+          public J visitMemberReference(
+              J.MemberReference reference, ExecutionContext ctx) {
+            if (!isCopiedJobWorkerMethod()) {
+              return super.visitMemberReference(reference, ctx);
+            }
+
+            J.MemberReference visited =
+                (J.MemberReference) super.visitMemberReference(reference, ctx);
+            if (!isUnsupportedVariableLookup(visited, getCursor())) {
+              return visited;
+            }
+
+            J.ClassDeclaration classDeclaration =
+                getCursor().firstEnclosing(J.ClassDeclaration.class);
+            UUID classId = classDeclaration == null ? null : classDeclaration.getId();
+            String methodName =
+                classId == null
+                    ? MANUAL_TYPED_VARIABLE_MIGRATION_METHOD
+                    : methodNamesByClass.getOrDefault(
+                        classId, manualMigrationMethodName(classDeclaration));
+            JavaType.Method methodType = visited.getMethodType();
+            if (classId != null) {
+              if (methodType == null || methodType.getParameterTypes().isEmpty()) {
+                classesWithUnknownArityReferences.add(classId);
+              } else {
+                classesWithMultiArgumentLookups.add(classId);
+              }
+            }
+
+            if (methodType == null || methodType.getParameterTypes().isEmpty()) {
+              return JavaTemplate.builder(methodName + "()")
+                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                  .contextSensitive()
+                  .build()
+                  .apply(getCursor(), visited.getCoordinates().replace());
+            }
+
+            List<String> parameterNames = new ArrayList<>();
+            for (int i = 0; i < methodType.getParameterTypes().size(); i++) {
+              parameterNames.add(i == 0 ? "variableName" : "argument" + i);
+            }
+            String lambdaParameters = "(" + String.join(", ", parameterNames) + ")";
+            String lambda =
+                lambdaParameters
+                    + " -> "
+                    + methodName
+                    + "("
+                    + String.join(", ", parameterNames)
+                    + ")";
+            return JavaTemplate.builder(lambda)
+                .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                .contextSensitive()
+                .build()
+                .apply(getCursor(), visited.getCoordinates().replace());
+          }
+
+          private String manualMigrationMethodName(J.ClassDeclaration classDeclaration) {
+            if (classDeclaration == null) {
+              return MANUAL_TYPED_VARIABLE_MIGRATION_METHOD;
+            }
+            String generatedMethodName =
+                classDeclaration.getBody().getStatements().stream()
+                    .filter(J.MethodDeclaration.class::isInstance)
+                    .map(J.MethodDeclaration.class::cast)
+                    .filter(this::isGeneratedManualMigrationMethod)
+                    .map(J.MethodDeclaration::getSimpleName)
+                    .findFirst()
+                    .orElse(null);
+            if (generatedMethodName != null) {
+              return generatedMethodName;
+            }
+
+            String methodName = MANUAL_TYPED_VARIABLE_MIGRATION_METHOD;
+            int suffix = 0;
+            while (hasMethodNamed(classDeclaration, methodName)) {
+              suffix++;
+              methodName = MANUAL_TYPED_VARIABLE_MIGRATION_METHOD + suffix;
+            }
+            return methodName;
+          }
+
+          private boolean isGeneratedManualMigrationMethod(J.MethodDeclaration method) {
+            return method.getSimpleName().startsWith(MANUAL_TYPED_VARIABLE_MIGRATION_METHOD)
+                && method.getBody() != null
+                && method.getBody().getStatements().stream()
+                    .anyMatch(
+                        statement ->
+                            statement
+                                .toString()
+                                .contains("Manual migration required for getVariable"));
+          }
+
+          private boolean hasGeneratedHelper(
+              J.ClassDeclaration classDeclaration, String methodName, int parameterCount) {
+            return classDeclaration.getBody().getStatements().stream()
+                .filter(J.MethodDeclaration.class::isInstance)
+                .map(J.MethodDeclaration.class::cast)
+                .filter(method -> methodName.equals(method.getSimpleName()))
+                .anyMatch(
+                    method ->
+                        method.getParameters().size() == parameterCount
+                            && isGeneratedManualMigrationMethod(method));
+          }
+
+          private boolean hasMethodNamed(J.ClassDeclaration classDeclaration, String methodName) {
+            return classDeclaration.getBody().getStatements().stream()
+                .filter(J.MethodDeclaration.class::isInstance)
+                .map(J.MethodDeclaration.class::cast)
+                .anyMatch(method -> methodName.equals(method.getSimpleName()));
+          }
+
+          private boolean isCopiedJobWorkerMethod() {
             return MigrateExecutionRecipe.isCopiedJobWorkerMethod(getCursor());
           }
         }
@@ -864,53 +1163,18 @@ public class MigrateExecutionRecipe extends Recipe {
               Expression receiver = invocation.getSelect();
               return "getVariable".equals(invocation.getSimpleName())
                   && receiver != null
-                  && isVariableScopeReceiver(receiver);
+                  && MigrateExecutionRecipe.isVariableScopeReceiver(receiver, getCursor());
             }
 
             private boolean isVariableLookup(J.MemberReference memberReference) {
               if (!"getVariable".equals(memberReference.getReference().getSimpleName())
-                  || !isVariableScopeReceiver(memberReference.getContaining())) {
+                  || !MigrateExecutionRecipe.isVariableScopeReceiver(
+                      memberReference.getContaining(), getCursor())) {
                 return false;
               }
 
               JavaType.Method methodType = memberReference.getMethodType();
-              return methodType == null || methodType.getParameterTypes().size() == 1;
-            }
-
-            private boolean isVariableScopeReceiver(Expression receiver) {
-              if (RecipeUtils.isAssignableTo(
-                  receiver.getType(), "org.camunda.bpm.engine.delegate.VariableScope")) {
-                return true;
-              }
-
-              if (!(receiver instanceof J.Identifier identifier)) {
-                return false;
-              }
-
-              J.MethodDeclaration method =
-                  getCursor().firstEnclosing(J.MethodDeclaration.class);
-              if (method == null) {
-                return false;
-              }
-
-              return method.getParameters().stream()
-                  .filter(J.VariableDeclarations.class::isInstance)
-                  .map(J.VariableDeclarations.class::cast)
-                  .anyMatch(
-                      parameter ->
-                          parameter.getVariables().stream()
-                              .anyMatch(
-                                  variable ->
-                                      identifier.getSimpleName()
-                                          .equals(variable.getName().getSimpleName())
-                                          && (RecipeUtils.isAssignableTo(
-                                                  parameter.getType(), VARIABLE_SCOPE)
-                                              || isVariableScopeType(parameter))));
-            }
-
-            private boolean isVariableScopeType(J.VariableDeclarations parameter) {
-              return parameter.getTypeExpression() != null
-                  && parameter.getTypeExpression().toString().endsWith("DelegateExecution");
+              return methodType != null && methodType.getParameterTypes().size() == 1;
             }
 
             private boolean isCopiedJobWorkerMethod() {
@@ -948,6 +1212,40 @@ public class MigrateExecutionRecipe extends Recipe {
             public J.ClassDeclaration visitClassDeclaration(
                 J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
               return ensureCompilableLocalVariableLookups(
+                  classDeclaration, getCursor().getParentOrThrow(), ctx);
+            }
+          });
+    }
+  }
+
+  private static class FlagUnsupportedVariableLookupsInJobWorker extends Recipe {
+
+    @Override
+    public String getDisplayName() {
+      return "Flags unsupported variable lookup overloads for manual migration";
+    }
+
+    @Override
+    public String getDescription() {
+      return "Adds actionable TODOs when copied workers use typed or multi-argument variable lookups.";
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
+      TreeVisitor<?, ExecutionContext> precondition =
+          Preconditions.and(
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
+              Preconditions.or(
+                  new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true),
+                  new UsesType<>("org.camunda.bpm.engine.delegate.ExecutionListener", true)));
+
+      return Preconditions.check(
+          precondition,
+          new JavaIsoVisitor<>() {
+            @Override
+            public J.ClassDeclaration visitClassDeclaration(
+                J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+              return ensureCompilableTypedVariableLookups(
                   classDeclaration, getCursor().getParentOrThrow(), ctx);
             }
           });
@@ -1563,7 +1861,10 @@ public class MigrateExecutionRecipe extends Recipe {
                   || type.toString().startsWith("Generic{")) {
                 return null;
               }
-              return RecipeUtils.getShortName(type.toString());
+              String typeName = type.toString();
+              return typeName.startsWith("java.lang.")
+                  ? RecipeUtils.getShortName(typeName)
+                  : typeName;
             }
 
             private String expectedArgumentType(J.MethodInvocation invocation, int index) {
