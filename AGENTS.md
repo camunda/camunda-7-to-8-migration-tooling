@@ -184,7 +184,7 @@ Use this release-line mapping for backports:
 | `maintenance/0.2` | Camunda 8.8 |
 | `maintenance/0.3` | Camunda 8.9 |
 
-For diagram-converter, the target version is an input independent of the libraries used to build a release line. Camunda 8.10 is the current stable/default target; keep the webapp selector, backend default, and regression tests aligned when changing that policy.
+For diagram-converter, the target version is an input independent of the libraries used to build a release line. Camunda 8.9 is the current stable/default target, with 8.10 as the next version; keep the webapp selector, backend default, and regression tests aligned when changing that policy.
 
 ## Documentation
 

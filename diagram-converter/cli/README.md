@@ -11,9 +11,9 @@ java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.j
 ```
 
 The `--platform-version` option accepts Camunda 8.0 through 8.11 targets.
-It defaults to Camunda 8.10, the latest stable target; use 8.9 to target the
-previous stable version, 8.8 for the older supported release, or 8.11 to target
-the next version explicitly.
+It defaults to Camunda 8.9, the latest stable target. Use 8.8 for the previous
+stable version or 8.10 for the next version. The CLI still accepts 8.11 as an
+explicit target, although the webapp does not show it.
 
 The engine mode supports optional Basic authentication with `--username` and `--password`, and writes converted files plus optional analysis reports to the target directory. It does not provide direct database or OIDC acquisition.
 
