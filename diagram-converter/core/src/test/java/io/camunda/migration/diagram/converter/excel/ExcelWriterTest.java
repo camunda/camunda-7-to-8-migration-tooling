@@ -128,6 +128,7 @@ class ExcelWriterTest {
     int cacheDefinitions = 0;
     int cacheRecords = 0;
     int charts = 0;
+    int pivotTables = 0;
     int sharedStringCount = -1;
     Set<Integer> referencedStrings = new HashSet<>();
     try (ZipInputStream entries = new ZipInputStream(new ByteArrayInputStream(report))) {
@@ -165,6 +166,32 @@ class ExcelWriterTest {
           for (int i = 0; i < counts.getLength(); i++) {
             assertThat(((Element) counts.item(i)).getAttribute("val")).as(name).isEqualTo("0");
           }
+        } else if (name.startsWith("xl/pivotTables/pivotTable") && name.endsWith(".xml")) {
+          pivotTables++;
+          Document xml =
+              factory.newDocumentBuilder().parse(new ByteArrayInputStream(entries.readAllBytes()));
+          NodeList rowItems = xml.getElementsByTagNameNS(SPREADSHEET_NS, "rowItems");
+          assertThat(rowItems.getLength()).as(name).isEqualTo(1);
+          Element rowItemList = (Element) rowItems.item(0);
+          assertThat(rowItemList.getAttribute("count")).as(name).isEqualTo("1");
+          NodeList totalRows = rowItemList.getElementsByTagNameNS(SPREADSHEET_NS, "i");
+          assertThat(totalRows.getLength()).as(name).isEqualTo(1);
+          assertThat(((Element) totalRows.item(0)).getAttribute("t")).as(name).isEqualTo("grand");
+          NodeList fields = xml.getElementsByTagNameNS(SPREADSHEET_NS, "pivotField");
+          for (int i = 0; i < fields.getLength(); i++) {
+            Element field = (Element) fields.item(i);
+            if ("axisRow".equals(field.getAttribute("axis"))) {
+              NodeList items = field.getElementsByTagNameNS(SPREADSHEET_NS, "items");
+              assertThat(items.getLength()).as("%s field %d", name, i).isEqualTo(1);
+              Element itemList = (Element) items.item(0);
+              assertThat(itemList.getAttribute("count")).as(name).isEqualTo("1");
+              NodeList defaults = itemList.getElementsByTagNameNS(SPREADSHEET_NS, "item");
+              assertThat(defaults.getLength()).as(name).isEqualTo(1);
+              assertThat(((Element) defaults.item(0)).getAttribute("t"))
+                  .as(name)
+                  .isEqualTo("default");
+            }
+          }
         } else if (name.equals("xl/sharedStrings.xml")) {
           Document xml =
               factory.newDocumentBuilder().parse(new ByteArrayInputStream(entries.readAllBytes()));
@@ -187,6 +214,7 @@ class ExcelWriterTest {
     assertThat(cacheDefinitions).isEqualTo(1);
     assertThat(cacheRecords).isEqualTo(cacheDefinitions);
     assertThat(charts).isEqualTo(3);
+    assertThat(pivotTables).isEqualTo(5);
     assertThat(sharedStringCount).isPositive();
     assertThat(referencedStrings)
         .containsExactlyInAnyOrderElementsOf(
