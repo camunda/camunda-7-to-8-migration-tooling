@@ -25,7 +25,7 @@ configuration from a dependency alone.
 
 ## Maven application modules
 
-When a Maven module has a runtime Spring Boot entry point, apply the following decision table in order:
+When Maven owns the runtime launch or an external launcher requires an executable artifact, apply the following decision table in order.
 
 | Effective Maven state | Required action |
 |---|---|
@@ -84,9 +84,11 @@ A missing Camunda cluster is a runtime environment failure. It does not show tha
 failed. Record the external dependency that prevents startup when a launch check cannot start the
 application.
 
-Record each command, exit code, artifact path, and any environment prerequisite in
-`MIGRATION_REPORT.md`. When a command cannot run, keep the build-wiring finding open and record the
-exact blocker. Do not report a plugin as validated from a successful compile alone.
+The skill records each command, exit code, artifact path, and non-secret environment prerequisites
+in `MIGRATION_REPORT.md`. Before the skill records a command, it replaces secret values in the
+command and output with `<redacted>`. When the skill cannot run a command, it keeps the build-wiring
+finding open and records only non-secret blocker details. The skill does not report a plugin as
+validated from a successful compile alone.
 
 ## Regression fixture
 
