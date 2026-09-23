@@ -286,10 +286,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
     class. Stop each started process after the launch. The migration adds no
-    `spring-boot-maven-plugin` declaration to a test-only module. A successful compile does not
-    validate the plugin. If startup fails after the launch only because no Camunda 8 cluster is
-    reachable, then record that blocker. Record each command and exit code in `MIGRATION_REPORT.md`
-    with secret values replaced by `<redacted>`.
+    `@SpringBootApplication` class and no `spring-boot-maven-plugin` declaration to a test-only
+    module. A successful compile does not validate the plugin. If startup fails after the launch
+    only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
+    and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
 
 Check these pitfalls as well:
 

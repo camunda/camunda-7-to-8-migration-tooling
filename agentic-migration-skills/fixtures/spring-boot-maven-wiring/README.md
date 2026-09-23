@@ -14,8 +14,9 @@ Spring Boot deployment application. It adds the Camunda 8 starter,
    `@Deployment` wiring.
 2. Compare the result with `expected-c8`.
 3. Configure a Camunda 8 connection. Confirm that `mvn spring-boot:run` launches
-   `MessageStartApplication`. Run `mvn package`. Confirm that
-   `java -jar target/message-start-1.0-SNAPSHOT.jar` launches the same class.
+   `MessageStartApplication`, then stop it. Run `mvn package`. Confirm that
+   `java -jar target/message-start-1.0-SNAPSHOT.jar` launches the same class,
+   then stop it.
 4. Negative case: migrate a second copy as a test-only module. Confirm that the
    migration adds no `@SpringBootApplication` class and no
    `spring-boot-maven-plugin` declaration.
