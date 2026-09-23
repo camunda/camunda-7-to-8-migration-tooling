@@ -22,6 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -73,8 +74,14 @@ class BpmnDeploymentIT {
   }
 
   static Stream<BpmnConversionCase> loadDeploymentCases() throws IOException {
-    return BpmnConversionTest.loadConversionCases()
-        .filter(testCase -> DEPLOYMENT_CASES.contains(testCase.name()));
+    List<BpmnConversionCase> deploymentCases =
+        BpmnConversionTest.loadConversionCases()
+            .filter(testCase -> DEPLOYMENT_CASES.contains(testCase.name()))
+            .toList();
+    assertThat(deploymentCases)
+        .extracting(BpmnConversionCase::name)
+        .containsExactlyInAnyOrderElementsOf(DEPLOYMENT_CASES);
+    return deploymentCases.stream();
   }
 
   @SpringBootApplication
