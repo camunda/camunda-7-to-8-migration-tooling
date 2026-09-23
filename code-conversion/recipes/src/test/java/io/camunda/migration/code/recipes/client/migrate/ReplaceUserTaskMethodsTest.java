@@ -151,6 +151,7 @@ public class HandleClaim {
 
     public void claimTask(String taskId, String userId) {
         // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
+        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
         camundaClient
                 .newAssignUserTaskCommand(Long.valueOf(taskId))
                 .assignee(userId)
@@ -196,7 +197,8 @@ public class HandleAssign {
 
     public void assignTask(String taskId, String userId) {
         // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
-        // TODO: if the original assignee was null (unclaim), use camundaClient.newUnassignUserTaskCommand(Long.valueOf(taskId)) instead.
+        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
+        // TODO: if the original assignee was null (unclaim), use camundaClient.newUnassignUserTaskCommand(<C8 user-task key>) instead.
         camundaClient
                 .newAssignUserTaskCommand(Long.valueOf(taskId))
                 .assignee(userId)
@@ -242,6 +244,7 @@ public class HandleComplete {
 
     public void completeTask(String taskId) {
         // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
+        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
         camundaClient
                 .newCompleteUserTaskCommand(Long.valueOf(taskId))
                 .send()
@@ -290,6 +293,7 @@ public class HandleCompleteVariables {
 
     public void completeTask(String taskId, Map<String, Object> variables) {
         // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
+        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
         camundaClient
                 .newCompleteUserTaskCommand(Long.valueOf(taskId))
                 .variables(variables)
@@ -334,6 +338,7 @@ public class HandleSetVariable {
     private TaskService taskService;
 
     public void setVariable(String taskId, String variableName, Object value) {
+        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
         // TODO: Camunda 8 has no task-scoped variables. newSetVariablesCommand expects the element instance key (not the task key); set the variable on the process/element instance scope instead.
         camundaClient
                 .newSetVariablesCommand(Long.valueOf(taskId))

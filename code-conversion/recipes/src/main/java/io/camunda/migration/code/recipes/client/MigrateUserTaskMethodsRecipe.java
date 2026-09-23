@@ -36,7 +36,12 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
    */
   private static final String NULL_ASSIGNEE_UNCLAIM_HINT =
       " TODO: if the original assignee was null (unclaim), use"
-          + " camundaClient.newUnassignUserTaskCommand(Long.valueOf(taskId)) instead.";
+          + " camundaClient.newUnassignUserTaskCommand(<C8 user-task key>) instead.";
+
+  private static final String TASK_KEY_CONVERSION_HINT =
+      " TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed"
+          + " value with the corresponding numeric C8 user-task key before running this call; the"
+          + " recipe cannot derive that mapping.";
 
   /**
    * Camunda 8 has no task-scoped variables. {@code newSetVariablesCommand} expects an element
@@ -90,7 +95,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("userId", 1)),
-            List.of(ENSURE_ZEEBE_USER_TASK_HINT)),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT, TASK_KEY_CONVERSION_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "setAssignee(String taskId, String userId)" - C7 assign; unclaim passes a null userId
             new MethodMatcher(
@@ -109,7 +114,8 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("userId", 1)),
-            List.of(ENSURE_ZEEBE_USER_TASK_HINT, NULL_ASSIGNEE_UNCLAIM_HINT)),
+            List.of(
+                ENSURE_ZEEBE_USER_TASK_HINT, TASK_KEY_CONVERSION_HINT, NULL_ASSIGNEE_UNCLAIM_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "complete(String taskId)"
             new MethodMatcher("org.camunda.bpm.engine.TaskService complete(java.lang.String)"),
@@ -124,7 +130,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             "io.camunda.client.api.response.CompleteUserTaskResponse",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0)),
-            List.of(ENSURE_ZEEBE_USER_TASK_HINT)),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT, TASK_KEY_CONVERSION_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "complete(String taskId, Map<String, Object> variables)"
             new MethodMatcher(
@@ -143,7 +149,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 1)),
-            List.of(ENSURE_ZEEBE_USER_TASK_HINT)),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT, TASK_KEY_CONVERSION_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "setVariable(String taskId, String variableName, Object value)"
             new MethodMatcher(
@@ -163,7 +169,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableName", 1),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("value", 2)),
-            List.of(NO_TASK_SCOPED_VARIABLES_HINT)),
+            List.of(TASK_KEY_CONVERSION_HINT, NO_TASK_SCOPED_VARIABLES_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "getVariable(String taskId, String variableName)"
             new MethodMatcher(
@@ -185,7 +191,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableName", 1)),
-            List.of(" please check type")));
+            List.of(TASK_KEY_CONVERSION_HINT, " please check type")));
   }
 
 

@@ -238,6 +238,7 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                             .processInstanceBusinessKey(businessKey)
                             .singleResult();
                         // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
+                        // TODO: C7 task IDs are strings and are not Camunda 8 user-task keys. Replace the parsed value with the corresponding numeric C8 user-task key before running this call; the recipe cannot derive that mapping.
                         camundaClient
                                 .newCompleteUserTaskCommand(Long.valueOf(//TODO: Manual migration required - could not resolve return type for: task
                                         task.getId()))
