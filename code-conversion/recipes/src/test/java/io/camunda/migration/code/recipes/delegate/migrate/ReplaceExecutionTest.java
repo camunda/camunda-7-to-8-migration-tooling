@@ -822,10 +822,14 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
-                    BooleanVariableScope booleanExecution = null;
-                    StringArrayVariableScope arrayExecution = null;
-                    if (booleanExecution.getVariable("enabled")) {
-                        return arrayExecution.getVariable("values")[0];
+                    {
+                        BooleanVariableScope execution = null;
+                        if (execution.getVariable("enabled")) {
+                            {
+                                StringArrayVariableScope execution = null;
+                                return execution.getVariable("values")[0];
+                            }
+                        }
                     }
                     return "disabled";
                 }
@@ -860,10 +864,14 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
-                    BooleanVariableScope booleanExecution = null;
-                    StringArrayVariableScope arrayExecution = null;
-                    if ((Boolean) job.getVariablesAsMap().get("enabled")) {
-                        return ((String[]) job.getVariablesAsMap().get("values"))[0];
+                    {
+                        BooleanVariableScope execution = null;
+                        if ((Boolean) job.getVariablesAsMap().get("enabled")) {
+                            {
+                                StringArrayVariableScope execution = null;
+                                return ((String[]) job.getVariablesAsMap().get("values"))[0];
+                            }
+                        }
                     }
                     return "disabled";
                 }
@@ -991,16 +999,24 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
-                    BooleanVariableScope booleanExecution = null;
-                    StringArrayVariableScope arrayExecution = null;
-                    StringVariableScope stringExecution = null;
-                    if (booleanExecution.getVariable("enabled")) {
-                        consume("enabled");
+                    String first;
+                    String concatenated;
+                    {
+                        BooleanVariableScope execution = null;
+                        if (execution.getVariable("enabled")) {
+                            consume("enabled");
+                        }
                     }
-                    String first = arrayExecution.getVariable("values")[0];
-                    String concatenated = stringExecution.getVariable("value") + 1;
-                    consume("prefix", stringExecution.getVariable("vararg"));
-                    consume(arrayExecution.getVariable("varargs"));
+                    {
+                        StringArrayVariableScope execution = null;
+                        first = execution.getVariable("values")[0];
+                        consume(execution.getVariable("varargs"));
+                    }
+                    {
+                        StringVariableScope execution = null;
+                        concatenated = execution.getVariable("value") + 1;
+                        consume("prefix", execution.getVariable("vararg"));
+                    }
                     return first + concatenated;
                 }
             }
@@ -1042,16 +1058,24 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
-                    BooleanVariableScope booleanExecution = null;
-                    StringArrayVariableScope arrayExecution = null;
-                    StringVariableScope stringExecution = null;
-                    if ((Boolean) job.getVariablesAsMap().get("enabled")) {
-                        consume("enabled");
+                    String first;
+                    String concatenated;
+                    {
+                        BooleanVariableScope execution = null;
+                        if ((Boolean) job.getVariablesAsMap().get("enabled")) {
+                            consume("enabled");
+                        }
                     }
-                    String first = ((String[]) job.getVariablesAsMap().get("values"))[0];
-                    String concatenated = (String) job.getVariablesAsMap().get("value") + 1;
-                    consume("prefix", (String) job.getVariablesAsMap().get("vararg"));
-                    consume((String[]) job.getVariablesAsMap().get("varargs"));
+                    {
+                        StringArrayVariableScope execution = null;
+                        first = ((String[]) job.getVariablesAsMap().get("values"))[0];
+                        consume((String[]) job.getVariablesAsMap().get("varargs"));
+                    }
+                    {
+                        StringVariableScope execution = null;
+                        concatenated = (String) job.getVariablesAsMap().get("value") + 1;
+                        consume("prefix", (String) job.getVariablesAsMap().get("vararg"));
+                    }
                     return first + concatenated;
                 }
             }
@@ -1869,23 +1893,33 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) throws Throwable {
-                    BooleanVariableScope booleanExecution = null;
-                    DoubleVariableScope doubleExecution = null;
-                    IntegerVariableScope integerExecution = null;
-                    StringVariableScope stringExecution = null;
-                    ThrowableVariableScope throwableExecution = null;
-                    Predicate<String> predicate = booleanExecution::getVariable;
-                    IntPredicate intPredicate =
-                            ignored -> booleanExecution.getVariable("intPredicate");
-                    BiPredicate<String, String> biPredicate =
-                            (name, ignored) -> booleanExecution.getVariable(name);
-                    ToIntFunction<String> intLookup = integerExecution::getVariable;
-                    LongToDoubleFunction doubleLookup =
-                            ignored -> doubleExecution.getVariable("double");
-                    String parenthesized = (stringExecution.getVariable("parenthesized"));
-                    var inferred = stringExecution.getVariable("inferred");
-                    inferred.trim();
-                    throw throwableExecution.getVariable("failure");
+                    {
+                        BooleanVariableScope execution = null;
+                        Predicate<String> predicate = execution::getVariable;
+                        IntPredicate intPredicate =
+                                ignored -> execution.getVariable("intPredicate");
+                        BiPredicate<String, String> biPredicate =
+                                (name, ignored) -> execution.getVariable(name);
+                    }
+                    {
+                        IntegerVariableScope execution = null;
+                        ToIntFunction<String> intLookup = execution::getVariable;
+                    }
+                    {
+                        DoubleVariableScope execution = null;
+                        LongToDoubleFunction doubleLookup =
+                                ignored -> execution.getVariable("double");
+                    }
+                    {
+                        StringVariableScope execution = null;
+                        String parenthesized = (execution.getVariable("parenthesized"));
+                        var inferred = execution.getVariable("inferred");
+                        inferred.trim();
+                    }
+                    {
+                        ThrowableVariableScope execution = null;
+                        throw execution.getVariable("failure");
+                    }
                 }
             }
             """,
@@ -1939,23 +1973,33 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) throws Throwable {
-                    BooleanVariableScope booleanExecution = null;
-                    DoubleVariableScope doubleExecution = null;
-                    IntegerVariableScope integerExecution = null;
-                    StringVariableScope stringExecution = null;
-                    ThrowableVariableScope throwableExecution = null;
-                    Predicate<String> predicate = variableName -> (boolean) job.getVariablesAsMap().get(variableName);
-                    IntPredicate intPredicate =
-                            ignored -> (boolean) job.getVariablesAsMap().get("intPredicate");
-                    BiPredicate<String, String> biPredicate =
-                            (name, ignored) -> (boolean) job.getVariablesAsMap().get(name);
-                    ToIntFunction<String> intLookup = variableName -> (int) job.getVariablesAsMap().get(variableName);
-                    LongToDoubleFunction doubleLookup =
-                            ignored -> (double) job.getVariablesAsMap().get("double");
-                    String parenthesized = (String) (job.getVariablesAsMap().get("parenthesized"));
-                    var inferred = (String) job.getVariablesAsMap().get("inferred");
-                    inferred.trim();
-                    throw (Throwable) job.getVariablesAsMap().get("failure");
+                    {
+                        BooleanVariableScope execution = null;
+                        Predicate<String> predicate = variableName -> (Boolean) job.getVariablesAsMap().get(variableName);
+                        IntPredicate intPredicate =
+                                ignored -> (Boolean) job.getVariablesAsMap().get("intPredicate");
+                        BiPredicate<String, String> biPredicate =
+                                (name, ignored) -> (Boolean) job.getVariablesAsMap().get(name);
+                    }
+                    {
+                        IntegerVariableScope execution = null;
+                        ToIntFunction<String> intLookup = variableName -> (Integer) job.getVariablesAsMap().get(variableName);
+                    }
+                    {
+                        DoubleVariableScope execution = null;
+                        LongToDoubleFunction doubleLookup =
+                                ignored -> (Double) job.getVariablesAsMap().get("double");
+                    }
+                    {
+                        StringVariableScope execution = null;
+                        String parenthesized = ((String) job.getVariablesAsMap().get("parenthesized"));
+                        var inferred = (String) job.getVariablesAsMap().get("inferred");
+                        inferred.trim();
+                    }
+                    {
+                        ThrowableVariableScope execution = null;
+                        throw (Throwable) job.getVariablesAsMap().get("failure");
+                    }
                 }
             }
             """));
@@ -2390,5 +2434,397 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                         }
                     }
                      """));
+  }
+
+  @Test
+  void preservesLookupTypesInAdditionalExpressionContexts() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.delegate.VariableScope;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+            import java.util.Optional;
+            import java.util.function.BiPredicate;
+            import java.util.function.IntPredicate;
+            import java.util.function.LongToDoubleFunction;
+            import java.util.function.Predicate;
+            import java.util.function.ToIntFunction;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                private interface StringVariableScope extends VariableScope {
+                    @Override
+                    String getVariable(String variableName);
+                }
+
+                private interface ListVariableScope extends VariableScope {
+                    @Override
+                    List<String> getVariable(String variableName);
+                }
+
+                private interface BooleanVariableScope extends VariableScope {
+                    @Override
+                    Boolean getVariable(String variableName);
+                }
+
+                private interface IntegerVariableScope extends VariableScope {
+                    @Override
+                    Integer getVariable(String variableName);
+                }
+
+                private interface DoubleVariableScope extends VariableScope {
+                    @Override
+                    Double getVariable(String variableName);
+                }
+
+                private interface ThrowableVariableScope extends VariableScope {
+                    @Override
+                    Throwable getVariable(String variableName);
+                }
+
+                @FunctionalInterface
+                private interface StringLookup {
+                    String lookup(String variableName);
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) throws Throwable {
+                    {
+                        StringVariableScope execution = null;
+                        String parenthesizedReceiver =
+                                (execution.getVariable("receiver")).trim();
+                        var optional =
+                                Optional.<String>ofNullable(execution.getVariable("optional"));
+                        StringLookup customLookup = execution::getVariable;
+                        String yielded =
+                                switch ("value") {
+                                    case "value" -> execution.getVariable("yielded");
+                                    default -> "fallback";
+                                };
+                        switch (execution.getVariable("switchSelector")) {
+                            case "value" -> {
+                            }
+                            default -> {
+                            }
+                        }
+                    }
+                    {
+                        ListVariableScope execution = null;
+                        for (String value : execution.getVariable("iterable")) {
+                        }
+                    }
+                    {
+                        BooleanVariableScope execution = null;
+                        Predicate<String> predicate = execution::getVariable;
+                        IntPredicate intPredicate =
+                                ignored -> execution.getVariable("intPredicate");
+                        BiPredicate<String, String> biPredicate =
+                                (name, ignored) -> execution.getVariable(name);
+                        assert execution.getVariable("condition");
+                    }
+                    {
+                        IntegerVariableScope execution = null;
+                        ToIntFunction<String> intLookup = execution::getVariable;
+                        Integer[] values = {1};
+                        Integer value = values[execution.getVariable("index")];
+                    }
+                    {
+                        DoubleVariableScope execution = null;
+                        LongToDoubleFunction doubleLookup =
+                                ignored -> execution.getVariable("double");
+                    }
+                    {
+                        ThrowableVariableScope execution = null;
+                        try {
+                            throw execution.getVariable("failure");
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                    return "done";
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.delegate.VariableScope;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+            import java.util.Optional;
+            import java.util.function.BiPredicate;
+            import java.util.function.IntPredicate;
+            import java.util.function.LongToDoubleFunction;
+            import java.util.function.Predicate;
+            import java.util.function.ToIntFunction;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                private interface StringVariableScope extends VariableScope {
+                    @Override
+                    String getVariable(String variableName);
+                }
+
+                private interface ListVariableScope extends VariableScope {
+                    @Override
+                    List<String> getVariable(String variableName);
+                }
+
+                private interface BooleanVariableScope extends VariableScope {
+                    @Override
+                    Boolean getVariable(String variableName);
+                }
+
+                private interface IntegerVariableScope extends VariableScope {
+                    @Override
+                    Integer getVariable(String variableName);
+                }
+
+                private interface DoubleVariableScope extends VariableScope {
+                    @Override
+                    Double getVariable(String variableName);
+                }
+
+                private interface ThrowableVariableScope extends VariableScope {
+                    @Override
+                    Throwable getVariable(String variableName);
+                }
+
+                @FunctionalInterface
+                private interface StringLookup {
+                    String lookup(String variableName);
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) throws Throwable {
+                    {
+                        StringVariableScope execution = null;
+                        String parenthesizedReceiver =
+                                ((String) job.getVariablesAsMap().get("receiver")).trim();
+                        var optional =
+                                Optional.<String>ofNullable((String) job.getVariablesAsMap().get("optional"));
+                        StringLookup customLookup = variableName -> (String) job.getVariablesAsMap().get(variableName);
+                        String yielded =
+                                switch ("value") {
+                                    case "value" -> (String) job.getVariablesAsMap().get("yielded");
+                                    default -> "fallback";
+                                };
+                        switch ((String) job.getVariablesAsMap().get("switchSelector")) {
+                            case "value" -> {
+                            }
+                            default -> {
+                            }
+                        }
+                    }
+                    {
+                        ListVariableScope execution = null;
+                        for (String value : (java.util.List<java.lang.String>) job.getVariablesAsMap().get("iterable")) {
+                        }
+                    }
+                    {
+                        BooleanVariableScope execution = null;
+                        Predicate<String> predicate = variableName -> (Boolean) job.getVariablesAsMap().get(variableName);
+                        IntPredicate intPredicate =
+                                ignored -> (Boolean) job.getVariablesAsMap().get("intPredicate");
+                        BiPredicate<String, String> biPredicate =
+                                (name, ignored) -> (Boolean) job.getVariablesAsMap().get(name);
+                        assert (Boolean) job.getVariablesAsMap().get("condition");
+                    }
+                    {
+                        IntegerVariableScope execution = null;
+                        ToIntFunction<String> intLookup = variableName -> (Integer) job.getVariablesAsMap().get(variableName);
+                        Integer[] values = {1};
+                        Integer value = values[(Integer) job.getVariablesAsMap().get("index")];
+                    }
+                    {
+                        DoubleVariableScope execution = null;
+                        LongToDoubleFunction doubleLookup =
+                                ignored -> (Double) job.getVariablesAsMap().get("double");
+                    }
+                    {
+                        ThrowableVariableScope execution = null;
+                        try {
+                            throw (Throwable) job.getVariablesAsMap().get("failure");
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                    return "done";
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesLocalLookupTypeForChainedReceivers() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(2)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.delegate.VariableScope;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                private interface StringLocalVariableScope extends VariableScope {
+                    @Override
+                    String getVariableLocal(String variableName);
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    StringLocalVariableScope execution = null;
+                    return execution.getVariableLocal("value").trim();
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.delegate.VariableScope;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                private interface StringLocalVariableScope extends VariableScope {
+                    @Override
+                    String getVariableLocal(String variableName);
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    StringLocalVariableScope execution = null;
+                    // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+                    return ((String) getVariableLocalRequiresManualMigration("value")).trim();
+                }
+
+                private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+                    throw new UnsupportedOperationException(
+                            "Manual migration required for getVariableLocal: " + variableName);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void flagsAlternateVariableScopesAndPreservesCustomLocalOverloads() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.delegate.VariableScope;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                private interface CustomLocalVariableScope extends VariableScope {
+                    Integer getVariableLocal(Integer key);
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    VariableScope otherExecution = null;
+                    CustomLocalVariableScope customScope = null;
+                    Object current = execution.getVariable("current");
+                    Object other = otherExecution.getVariable("other");
+                    Integer custom = customScope.getVariableLocal(42);
+                    return "done";
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.delegate.VariableScope;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                private interface CustomLocalVariableScope extends VariableScope {
+                    Integer getVariableLocal(Integer key);
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    VariableScope otherExecution = null;
+                    CustomLocalVariableScope customScope = null;
+                    Object current = job.getVariablesAsMap().get("current");
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    Object other = otherExecution.getVariable("other");
+                    Integer custom = customScope.getVariableLocal(42);
+                    return "done";
+                }
+            }
+            """));
   }
 }
