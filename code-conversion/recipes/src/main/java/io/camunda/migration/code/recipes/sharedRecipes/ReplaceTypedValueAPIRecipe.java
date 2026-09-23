@@ -491,6 +491,23 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
+            if (new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
+                .matches(invocation)) {
+              String newFqn = mapTypedValueToNewFqn(originalName.getType());
+              if (!"java.lang.Object".equals(newFqn)) {
+                J.Assignment modifiedAssignment =
+                    RecipeUtils.createSimpleJavaTemplate(
+                            originalName.getSimpleName()
+                                + " = ("
+                                + RecipeUtils.getShortName(newFqn)
+                                + ") #{any()}",
+                            newFqn)
+                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+                return super.visitAssignment(modifiedAssignment, ctx);
+              }
+            }
+
             // run through prepared migration rules
             for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
 

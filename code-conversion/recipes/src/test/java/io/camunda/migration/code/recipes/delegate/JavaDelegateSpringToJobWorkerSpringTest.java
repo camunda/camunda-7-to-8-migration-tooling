@@ -133,7 +133,10 @@ public class RetrievePaymentAdapter {
                     @Override
                     public void execute(DelegateExecution execution) {
                         IntegerValue typedAmount = execution.getVariableTyped("amount");
+                        IntegerValue laterAmount;
+                        laterAmount = execution.getVariableTyped("laterAmount");
                         System.out.println(typedAmount);
+                        System.out.println(laterAmount);
                     }
                 }
                 """,
@@ -155,7 +158,10 @@ public class RetrievePaymentAdapter {
                         Map<String, Object> resultMap = new HashMap<>();
                         // please check type
                         Integer typedAmount = (Integer) job.getVariablesAsMap().get("amount");
+                        Integer laterAmount;
+                        laterAmount = (Integer) job.getVariablesAsMap().get("laterAmount");
                         System.out.println(typedAmount);
+                        System.out.println(laterAmount);
                         return resultMap;
                     }
                 }
