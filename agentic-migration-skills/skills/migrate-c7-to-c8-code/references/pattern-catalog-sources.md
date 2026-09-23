@@ -33,7 +33,7 @@ primary Type.
 | External task worker | Fetch the files for the detected operations: `30-glue-code/20-java-spring-external-task-worker/adjusting-the-java-class.md`, `30-glue-code/20-java-spring-external-task-worker/handling-a-bpmn-error.md`, `30-glue-code/20-java-spring-external-task-worker/handling-a-failure.md`, `30-glue-code/20-java-spring-external-task-worker/handling-an-incident.md`, and `30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md`. When Approach A runs, also fetch `30-glue-code/idiomatic-job-worker-cleanup.md`. |
 | Listener or `Flag: global behavior` | `30-glue-code/30-java-spring-listeners/listeners.md` |
 | HTTP connector code | `30-glue-code/outbound-http-rest-connector.md` |
-| Test code | Fetch the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md` |
+| Test code | Fetch the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md`, `40-test-assertions/10-assertions/70-executable-entry-points.md` |
 
 When Notes identify `FileValue` or `Variables.fileValue(...)`, add
 `10-general/process-variables.md` and `20-client-code/10-process-engine/handle-files-and-documents.md`.
