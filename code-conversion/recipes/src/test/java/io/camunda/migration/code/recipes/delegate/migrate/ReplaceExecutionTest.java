@@ -1774,6 +1774,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     Function<DelegateExecution, Object> read =
                             execution -> execution.getVariable("nested");
+                    Function<DelegateExecution, Function<String, Object>> nestedRead =
+                            execution -> name -> execution.getVariable(name);
                     return "done";
                 }
             }
@@ -1801,6 +1803,9 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     // TODO: nested DelegateExecution calls require manual migration because the copied job worker cannot preserve an arbitrary execution scope.
                     Function<DelegateExecution, Object> read =
                             execution -> execution.getVariable("nested");
+                    // TODO: nested DelegateExecution calls require manual migration because the copied job worker cannot preserve an arbitrary execution scope.
+                    Function<DelegateExecution, Function<String, Object>> nestedRead =
+                            execution -> name -> execution.getVariable(name);
                     return "done";
                 }
             }
@@ -1825,6 +1830,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             import org.springframework.stereotype.Component;
 
             import java.util.function.BiPredicate;
+            import java.util.function.IntPredicate;
+            import java.util.function.LongToDoubleFunction;
             import java.util.function.Predicate;
             import java.util.function.ToIntFunction;
 
@@ -1839,6 +1846,11 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 private interface IntegerVariableScope extends VariableScope {
                     @Override
                     Integer getVariable(String variableName);
+                }
+
+                private interface DoubleVariableScope extends VariableScope {
+                    @Override
+                    Double getVariable(String variableName);
                 }
 
                 private interface StringVariableScope extends VariableScope {
@@ -1858,13 +1870,18 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) throws Throwable {
                     BooleanVariableScope booleanExecution = null;
+                    DoubleVariableScope doubleExecution = null;
                     IntegerVariableScope integerExecution = null;
                     StringVariableScope stringExecution = null;
                     ThrowableVariableScope throwableExecution = null;
                     Predicate<String> predicate = booleanExecution::getVariable;
+                    IntPredicate intPredicate =
+                            ignored -> booleanExecution.getVariable("intPredicate");
                     BiPredicate<String, String> biPredicate =
                             (name, ignored) -> booleanExecution.getVariable(name);
                     ToIntFunction<String> intLookup = integerExecution::getVariable;
+                    LongToDoubleFunction doubleLookup =
+                            ignored -> doubleExecution.getVariable("double");
                     String parenthesized = (stringExecution.getVariable("parenthesized"));
                     var inferred = stringExecution.getVariable("inferred");
                     inferred.trim();
@@ -1883,6 +1900,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             import org.springframework.stereotype.Component;
 
             import java.util.function.BiPredicate;
+            import java.util.function.IntPredicate;
+            import java.util.function.LongToDoubleFunction;
             import java.util.function.Predicate;
             import java.util.function.ToIntFunction;
 
@@ -1897,6 +1916,11 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 private interface IntegerVariableScope extends VariableScope {
                     @Override
                     Integer getVariable(String variableName);
+                }
+
+                private interface DoubleVariableScope extends VariableScope {
+                    @Override
+                    Double getVariable(String variableName);
                 }
 
                 private interface StringVariableScope extends VariableScope {
@@ -1916,13 +1940,18 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) throws Throwable {
                     BooleanVariableScope booleanExecution = null;
+                    DoubleVariableScope doubleExecution = null;
                     IntegerVariableScope integerExecution = null;
                     StringVariableScope stringExecution = null;
                     ThrowableVariableScope throwableExecution = null;
                     Predicate<String> predicate = variableName -> (boolean) job.getVariablesAsMap().get(variableName);
+                    IntPredicate intPredicate =
+                            ignored -> (boolean) job.getVariablesAsMap().get("intPredicate");
                     BiPredicate<String, String> biPredicate =
                             (name, ignored) -> (boolean) job.getVariablesAsMap().get(name);
                     ToIntFunction<String> intLookup = variableName -> (int) job.getVariablesAsMap().get(variableName);
+                    LongToDoubleFunction doubleLookup =
+                            ignored -> (double) job.getVariablesAsMap().get("double");
                     String parenthesized = (String) (job.getVariablesAsMap().get("parenthesized"));
                     var inferred = (String) job.getVariablesAsMap().get("inferred");
                     inferred.trim();

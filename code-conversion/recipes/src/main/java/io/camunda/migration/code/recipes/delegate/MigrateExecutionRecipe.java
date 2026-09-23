@@ -164,11 +164,13 @@ public class MigrateExecutionRecipe extends Recipe {
         RecipeUtils.isAssignableTo(receiver.getType(), VARIABLE_SCOPE);
     for (Cursor current = cursor; current != null; current = current.getParent()) {
       if (current.getValue() instanceof J.Lambda lambda) {
-        return lambda.getParameters().getParameters().stream()
+        if (lambda.getParameters().getParameters().stream()
             .anyMatch(
                 parameter ->
                     isVariableScopeLambdaParameter(
-                        parameter, identifier.getSimpleName(), receiverIsVariableScope));
+                        parameter, identifier.getSimpleName(), receiverIsVariableScope))) {
+          return true;
+        }
       }
       if (current.getValue() instanceof J.MethodDeclaration
           || current.getValue() instanceof J.ClassDeclaration) {
@@ -2231,24 +2233,36 @@ public class MigrateExecutionRecipe extends Recipe {
                         "LongFunction",
                         "DoubleFunction" ->
                     typeArguments.isEmpty() ? null : typeArguments.get(0);
-                case "Predicate", "BiPredicate", "BooleanSupplier" -> "boolean";
+                case "Predicate",
+                        "BiPredicate",
+                        "BooleanSupplier",
+                        "IntPredicate",
+                        "LongPredicate",
+                        "DoublePredicate" ->
+                    "boolean";
                 case "ToIntFunction",
                         "ToIntBiFunction",
                         "IntSupplier",
                         "IntUnaryOperator",
-                        "IntBinaryOperator" ->
+                        "IntBinaryOperator",
+                        "LongToIntFunction",
+                        "DoubleToIntFunction" ->
                     "int";
                 case "ToLongFunction",
                         "ToLongBiFunction",
                         "LongSupplier",
                         "LongUnaryOperator",
-                        "LongBinaryOperator" ->
+                        "LongBinaryOperator",
+                        "IntToLongFunction",
+                        "DoubleToLongFunction" ->
                     "long";
                 case "ToDoubleFunction",
                         "ToDoubleBiFunction",
                         "DoubleSupplier",
                         "DoubleUnaryOperator",
-                        "DoubleBinaryOperator" ->
+                        "DoubleBinaryOperator",
+                        "IntToDoubleFunction",
+                        "LongToDoubleFunction" ->
                     "double";
                 default -> null;
               };
