@@ -474,18 +474,21 @@ When the user accepts relocation, edit only the fresh converted copy.
 Use a namespace-aware XML parser. Never use regular expressions.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
 Set `eventType` to the source listener's event type.
-Use the converter's implementation-to-type mapping.
+Use the converter's implementation-to-type mapping only for listener implementations that the converter preserves as a C8 listener type.
 
 | C7 source | C8 listener |
 |---|---|
 | `delegateExpression="${name}"` | `type="name"` |
 | `class="name"` | `type="name"` |
 | `expression="<value>"` | `type="<value>"`, including any `${...}` or `#{...}` wrapper |
+| Nested `<camunda:script scriptFormat="...">...</camunda:script>` | Do not recreate a C8 listener from `scriptFormat` alone. Keep the finding **needs review**, keep the separate script finding open, and migrate the script body manually |
 | `event="start"` | `eventType="start"` |
 
 Map static listener fields to `zeebe:taskHeaders` only when the selected target version supports that conversion.
 Preserve each listener field or attribute that the converter maps for the selected target version.
 Record every unmapped field or attribute as a migration TODO.
+If the source listener contains a nested `camunda:script`, keep the finding **needs review** after relocation planning.
+In that case, the converter emits a separate finding for the script body.
 Keep the finding **needs review** when the source listener has no supported implementation.
 
 After an accepted relocation, run these checks on the converted copy:
