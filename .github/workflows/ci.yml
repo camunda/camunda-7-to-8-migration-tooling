@@ -366,7 +366,7 @@ jobs:
         # CPT uses Testcontainers and is not supported on Windows runners.
         run: >-
           mvn verify --batch-mode
-          "-Dtest=!ProcessPaymentsApplicationTests,!MyExecutionListenerTest"
+          "-Dtest=!ProcessPaymentsApplicationTests,!MyExecutionListenerTest,!StandaloneProcessTest"
           "-Dsurefire.failIfNoSpecifiedTests=false"
 
   diagram-converter:
