@@ -9,7 +9,8 @@ A delegate can read a variable that may be absent: `execution.getVariable("x")` 
 
 ## Camunda 8
 
-`ActivatedJob.getVariable("x")` fails the job when `x` is absent, and the process gets an incident.
+`ActivatedJob.getVariable("x")` throws `ClientException` ("The variable x is not available") when
+`x` is absent. The worker fails the job, and the process gets an incident once the retries run out.
 Bind the variable as `@Variable(name = "x", optional = true)` to keep the Camunda 7 behavior.
 
 Start every executable process directly, with and without the inputs its workers may not receive:
