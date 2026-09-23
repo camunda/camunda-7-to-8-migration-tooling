@@ -38,8 +38,8 @@
 
 		<dependency>
 			<groupId>io.camunda</groupId>
-			<artifactId>camunda-spring-boot-4-starter</artifactId>
-			<version>8.8.36</version>
+			<artifactId>camunda-spring-boot-starter</artifactId>
+			<version>8.9.21</version>
 		</dependency>
 
 		<dependency>
