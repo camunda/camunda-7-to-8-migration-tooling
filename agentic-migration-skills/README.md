@@ -126,6 +126,12 @@ assignments, schedules, forms, and listeners, records unsupported semantics, and
 legacy user-task job. A job-based replacement requires an explicit user decision.
 This model rule complements the code-side user-task migration tracked in #1556.
 
+The agentic model-rewrite path preserves existing BPMN DI for unchanged semantic
+IDs. When a source has no BPMN DI, the skill does not create a layout and records
+that source provenance in `MIGRATION_REPORT.md`. The
+[`fixtures/diagram-interchange`](fixtures/diagram-interchange) fixture checks
+both cases.
+
 If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
 source. It asks for a reachable Camunda 7 REST URL and the required authentication, saves the original
 definitions, then runs the Diagram Converter locally. While local models exist, it does not offer or

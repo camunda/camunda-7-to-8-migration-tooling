@@ -204,6 +204,33 @@ categories:
           </bpmn:serviceTask>
         expectedMessages: |
           <conversion:message severity="TASK">Execution Listener at 'start' with implementation '${myNewJobType}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+      - name: BPMN start event without execution listener
+        givenBpmn: |
+          <bpmn:startEvent id="startEvent"/>
+        expectedBpmn: |
+          <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: ""
+      - name: Execution Listener on BPMN start event
+        givenBpmn: |
+          <bpmn:startEvent id="startEvent">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${startEventListener}" event="start" />
+              <camunda:executionListener class="com.example.StartListener" event="start" />
+              <camunda:executionListener class="com.example.EndListener" event="end" />
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="end" type="com.example.EndListener"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'com.example.EndListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
       - name: Execution Listener Without Implementation
         givenBpmn: |
           <bpmn:task id="ListenerWithoutImplTask" name="Listener Without Impl">
