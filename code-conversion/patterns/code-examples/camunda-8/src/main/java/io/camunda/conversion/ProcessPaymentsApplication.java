@@ -7,7 +7,7 @@
  */
 package io.camunda.conversion;
 
-import io.camunda.spring.client.annotation.Deployment;
+import io.camunda.client.annotation.Deployment;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
