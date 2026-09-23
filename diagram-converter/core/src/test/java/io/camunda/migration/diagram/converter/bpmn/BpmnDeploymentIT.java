@@ -38,6 +38,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 // Windows runners do not provide a Docker environment for Testcontainers.
 @DisabledOnOs(OS.WINDOWS)
 class BpmnDeploymentIT {
+  private static final String DEPLOYMENT_PLATFORM_VERSION = "8.9";
   private static final Set<String> DEPLOYMENT_CASES =
       Set.of(
           "BPMN start event without execution listener", "Execution Listener on BPMN start event");
@@ -50,6 +51,7 @@ class BpmnDeploymentIT {
     BpmnModelInstance modelInstance = wrapSnippetInProcess(testCase.givenBpmn());
     DefaultConverterProperties defaultProperties = new DefaultConverterProperties();
     defaultProperties.setAppendDocumentation(false);
+    defaultProperties.setPlatformVersion(DEPLOYMENT_PLATFORM_VERSION);
     ConverterProperties properties =
         ConverterPropertiesFactory.getInstance().merge(defaultProperties);
 
