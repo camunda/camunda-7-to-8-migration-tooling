@@ -222,6 +222,60 @@ public class MigrateExecutionRecipe extends Recipe {
         && !type.toString().startsWith("Generic{");
   }
 
+  private static String typeName(JavaType type) {
+    if (type == null
+        || type instanceof JavaType.Unknown
+        || type instanceof JavaType.Variable
+        || TypeUtils.isOfClassType(type, "java.lang.Object")
+        || type.toString().startsWith("Generic{")) {
+      return null;
+    }
+    String typeName = type.toString();
+    return typeName.startsWith("java.lang.")
+        ? RecipeUtils.getShortName(typeName)
+        : typeName;
+  }
+
+  private static Expression createTypeCast(Expression expression, String expectedType) {
+    String source =
+        "class CastTarget { Object value = (" + expectedType + ") null; }";
+    SourceFile parsedSource =
+        JavaParser.fromJavaVersion()
+            .classpath(JavaParser.runtimeClasspath())
+            .build()
+            .parse(source)
+            .findFirst()
+            .orElseThrow();
+    if (!(parsedSource instanceof J.CompilationUnit compilationUnit)) {
+      throw new IllegalStateException(
+          "Could not parse a cast for migrated variable lookup type: "
+              + expectedType
+              + " ("
+              + parsedSource
+              + ")");
+    }
+    J.TypeCast[] parsedTypeCast = new J.TypeCast[1];
+    new JavaIsoVisitor<ExecutionContext>() {
+      @Override
+      public J.TypeCast visitTypeCast(J.TypeCast typeCast, ExecutionContext nestedCtx) {
+        parsedTypeCast[0] = typeCast;
+        return typeCast;
+      }
+    }.visit(compilationUnit, new InMemoryExecutionContext());
+
+    if (parsedTypeCast[0] == null) {
+      throw new IllegalStateException(
+          "Could not create a cast for migrated variable lookup type: " + expectedType);
+    }
+
+    Expression castExpression =
+        (Expression) expression.withPrefix(parsedTypeCast[0].getExpression().getPrefix());
+    return parsedTypeCast[0]
+        .withId(Tree.randomId())
+        .withPrefix(expression.getPrefix())
+        .withExpression(castExpression);
+  }
+
   private record ManualMigrationFindings(
       boolean localVariableLookup,
       boolean typedVariableLookup,
@@ -1411,6 +1465,20 @@ public class MigrateExecutionRecipe extends Recipe {
       return Preconditions.check(
           precondition,
           new JavaVisitor<ExecutionContext>() {
+            private final Map<UUID, String> lookupReturnTypesById = new HashMap<>();
+
+            @Override
+            public J visit(Tree tree, ExecutionContext ctx) {
+              J visited = (J) super.visit(tree, ctx);
+              if (tree instanceof J.MethodInvocation invocation) {
+                String returnType = lookupReturnTypesById.remove(invocation.getId());
+                if (returnType != null && visited instanceof Expression expression) {
+                  return createTypeCast(expression, returnType);
+                }
+              }
+              return visited;
+            }
+
             @Override
             public J.MethodInvocation visitMethodInvocation(
                 J.MethodInvocation invocation, ExecutionContext ctx) {
@@ -1422,6 +1490,14 @@ public class MigrateExecutionRecipe extends Recipe {
                   (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
               if (!isVariableLookup(visited)) {
                 return visited;
+              }
+
+              JavaType.Method methodType = visited.getMethodType();
+              String returnType =
+                  methodType == null ? null : typeName(methodType.getReturnType());
+              if (returnType != null
+                  && (isBinaryOperand() || returnType.endsWith("[]"))) {
+                lookupReturnTypesById.put(visited.getId(), returnType);
               }
 
               return RecipeUtils.createSimpleJavaTemplate(
@@ -1484,6 +1560,14 @@ public class MigrateExecutionRecipe extends Recipe {
               return "getVariable".equals(invocation.getSimpleName())
                   && receiver != null
                   && MigrateExecutionRecipe.isVariableScopeReceiver(receiver, getCursor());
+            }
+
+            private boolean isBinaryOperand() {
+              Cursor cursor = getCursor().getParent();
+              while (cursor != null && cursor.getValue() instanceof J.Parentheses) {
+                cursor = cursor.getParent();
+              }
+              return cursor != null && cursor.getValue() instanceof J.Binary;
             }
 
             private boolean isVariableLookup(J.MemberReference memberReference) {
@@ -1648,6 +1732,135 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             @Override
+            public J.If visitIf(J.If ifStatement, ExecutionContext ctx) {
+              J.If visited = super.visitIf(ifStatement, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
+              J.ControlParentheses<Expression> condition = visited.getIfCondition();
+              J.ControlParentheses<Expression> castCondition =
+                  castBooleanCondition(condition);
+              return castCondition == condition
+                  ? visited
+                  : maybeAutoFormat(
+                      ifStatement, visited.withIfCondition(castCondition), ctx);
+            }
+
+            @Override
+            public J.WhileLoop visitWhileLoop(J.WhileLoop whileLoop, ExecutionContext ctx) {
+              J.WhileLoop visited = super.visitWhileLoop(whileLoop, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
+              J.ControlParentheses<Expression> condition = visited.getCondition();
+              J.ControlParentheses<Expression> castCondition =
+                  castBooleanCondition(condition);
+              return castCondition == condition
+                  ? visited
+                  : maybeAutoFormat(
+                      whileLoop, visited.withCondition(castCondition), ctx);
+            }
+
+            @Override
+            public J.DoWhileLoop visitDoWhileLoop(
+                J.DoWhileLoop doWhileLoop, ExecutionContext ctx) {
+              J.DoWhileLoop visited = super.visitDoWhileLoop(doWhileLoop, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
+              J.ControlParentheses<Expression> condition = visited.getWhileCondition();
+              J.ControlParentheses<Expression> castCondition =
+                  castBooleanCondition(condition);
+              return castCondition == condition
+                  ? visited
+                  : maybeAutoFormat(
+                      doWhileLoop, visited.withWhileCondition(castCondition), ctx);
+            }
+
+            @Override
+            public J.ForLoop visitForLoop(J.ForLoop forLoop, ExecutionContext ctx) {
+              J.ForLoop visited = super.visitForLoop(forLoop, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
+              J.ForLoop.Control control = visited.getControl();
+              Expression condition = control.getCondition();
+              Expression castCondition =
+                  addCastIfNeeded(condition, "Boolean", getCursor());
+              return castCondition == condition
+                  ? visited
+                  : maybeAutoFormat(
+                      forLoop, visited.withControl(control.withCondition(castCondition)), ctx);
+            }
+
+            @Override
+            public J.Unary visitUnary(J.Unary unary, ExecutionContext ctx) {
+              J.Unary visited = super.visitUnary(unary, ctx);
+              if (!isCopiedJobWorkerMethod()
+                  || visited.getOperator() != J.Unary.Type.Not) {
+                return visited;
+              }
+
+              Expression expression = visited.getExpression();
+              Expression castExpression = addCastIfNeeded(expression, "Boolean", getCursor());
+              return castExpression == expression
+                  ? visited
+                  : maybeAutoFormat(unary, visited.withExpression(castExpression), ctx);
+            }
+
+            @Override
+            public J.Ternary visitTernary(J.Ternary ternary, ExecutionContext ctx) {
+              J.Ternary visited = super.visitTernary(ternary, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
+              Expression condition = visited.getCondition();
+              Expression castCondition = addCastIfNeeded(condition, "Boolean", getCursor());
+              return castCondition == condition
+                  ? visited
+                  : maybeAutoFormat(ternary, visited.withCondition(castCondition), ctx);
+            }
+
+            @Override
+            public J.ArrayAccess visitArrayAccess(
+                J.ArrayAccess arrayAccess, ExecutionContext ctx) {
+              J.ArrayAccess visited = super.visitArrayAccess(arrayAccess, ctx);
+              if (!isCopiedJobWorkerMethod()) {
+                return visited;
+              }
+
+              Expression indexed = visited.getIndexed();
+              if (indexed instanceof J.TypeCast typeCast
+                  && isEffectiveVariableLookup(typeCast.getExpression())) {
+                Expression parenthesized = parenthesize(indexed);
+                return maybeAutoFormat(
+                    arrayAccess, visited.withIndexed(parenthesized), ctx);
+              }
+              if (!isEffectiveVariableLookup(indexed)) {
+                return visited;
+              }
+
+              String elementType = typeName(visited.getType());
+              if (elementType == null) {
+                return visited;
+              }
+              Expression castIndexed =
+                  addCastIfNeeded(
+                      visited.getIndexed(), elementType + "[]", getCursor());
+              if (castIndexed == visited.getIndexed()) {
+                return visited;
+              }
+              Expression parenthesized = parenthesize(castIndexed);
+              return maybeAutoFormat(
+                  arrayAccess, visited.withIndexed(parenthesized), ctx);
+            }
+
+            @Override
             public J.Assignment visitAssignment(
                 J.Assignment assignment, ExecutionContext ctx) {
               J.Assignment visited = super.visitAssignment(assignment, ctx);
@@ -1668,6 +1881,24 @@ public class MigrateExecutionRecipe extends Recipe {
 
               return maybeAutoFormat(
                   assignment, visited.withAssignment(castAssignment), ctx);
+            }
+
+            private J.ControlParentheses<Expression> castBooleanCondition(
+                J.ControlParentheses<Expression> condition) {
+              Expression expression = condition.getTree();
+              Expression castExpression =
+                  addCastIfNeeded(expression, "Boolean", getCursor());
+              return castExpression == expression ? condition : condition.withTree(castExpression);
+            }
+
+            private Expression parenthesize(Expression expression) {
+              Cursor expressionCursor = new Cursor(getCursor(), expression);
+              return (Expression)
+                  RecipeUtils.createSimpleJavaTemplate("(#{any()})")
+                      .apply(
+                          expressionCursor,
+                          expression.getCoordinates().replace(),
+                          expression);
             }
 
             @Override
@@ -1694,22 +1925,15 @@ public class MigrateExecutionRecipe extends Recipe {
 
               Expression select = visited.getSelect();
               Expression updatedSelect = select;
-              if (isEffectiveVariableLookup(select)) {
+              if (select instanceof J.TypeCast typeCast
+                  && isEffectiveVariableLookup(typeCast.getExpression())) {
+                updatedSelect = parenthesize(select);
+                changed = true;
+              } else if (isEffectiveVariableLookup(select)) {
                 Expression castReceiver =
                     addCastIfNeeded(select, expectedReceiverType(visited), getCursor());
                 if (castReceiver != select) {
-                  Cursor selectCursor = new Cursor(getCursor(), select);
-                  castReceiver =
-                      JavaTemplate.builder("(#{any()})")
-                          .javaParser(
-                              JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                          .contextSensitive()
-                          .build()
-                          .apply(
-                              selectCursor,
-                              select.getCoordinates().replace(),
-                              castReceiver);
-                  updatedSelect = castReceiver;
+                  updatedSelect = parenthesize(castReceiver);
                   changed = true;
                 }
               }
@@ -1902,47 +2126,6 @@ public class MigrateExecutionRecipe extends Recipe {
 
             private String arrayElementType(String type) {
               return type.endsWith("[]") ? type.substring(0, type.length() - 2).trim() : null;
-            }
-
-            private Expression createTypeCast(Expression expression, String expectedType) {
-              String source =
-                  "class CastTarget { Object value = (" + expectedType + ") null; }";
-              SourceFile parsedSource =
-                  JavaParser.fromJavaVersion()
-                      .classpath(JavaParser.runtimeClasspath())
-                      .build()
-                      .parse(source)
-                      .findFirst()
-                      .orElseThrow();
-              if (!(parsedSource instanceof J.CompilationUnit compilationUnit)) {
-                throw new IllegalStateException(
-                    "Could not parse a cast for migrated variable lookup type: "
-                        + expectedType
-                        + " ("
-                        + parsedSource
-                        + ")");
-              }
-              J.TypeCast[] parsedTypeCast = new J.TypeCast[1];
-              new JavaIsoVisitor<ExecutionContext>() {
-                @Override
-                public J.TypeCast visitTypeCast(
-                    J.TypeCast typeCast, ExecutionContext nestedCtx) {
-                  parsedTypeCast[0] = typeCast;
-                  return typeCast;
-                }
-              }.visit(compilationUnit, new InMemoryExecutionContext());
-
-              if (parsedTypeCast[0] == null) {
-                throw new IllegalStateException(
-                    "Could not create a cast for migrated variable lookup type: " + expectedType);
-              }
-
-              Expression castExpression =
-                  (Expression) expression.withPrefix(parsedTypeCast[0].getExpression().getPrefix());
-              return parsedTypeCast[0]
-                  .withId(Tree.randomId())
-                  .withPrefix(expression.getPrefix())
-                  .withExpression(castExpression);
             }
 
             private Expression adaptConstructorArguments(J.NewClass newClass, Cursor scope) {
@@ -2207,25 +2390,30 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             private String typeName(JavaType type) {
-              if (type == null
-                  || type instanceof JavaType.Unknown
-                  || type instanceof JavaType.Variable
-                  || TypeUtils.isOfClassType(type, "java.lang.Object")
-                  || type.toString().startsWith("Generic{")) {
-                return null;
-              }
-              String typeName = type.toString();
-              return typeName.startsWith("java.lang.")
-                  ? RecipeUtils.getShortName(typeName)
-                  : typeName;
+              return MigrateExecutionRecipe.typeName(type);
             }
 
             private String expectedArgumentType(J.MethodInvocation invocation, int index) {
               JavaType.Method methodType = invocation.getMethodType();
-              if (methodType != null && index < methodType.getParameterTypes().size()) {
-                String type = typeName(methodType.getParameterTypes().get(index));
-                if (type != null) {
-                  return type;
+              if (methodType != null && !methodType.getParameterTypes().isEmpty()) {
+                List<JavaType> parameterTypes = methodType.getParameterTypes();
+                int varargsIndex = parameterTypes.size() - 1;
+                boolean varargs = methodType.hasFlags(Flag.Varargs);
+                int parameterIndex =
+                    varargs && index >= varargsIndex ? varargsIndex : index;
+                if (parameterIndex < parameterTypes.size()) {
+                  String type = typeName(parameterTypes.get(parameterIndex));
+                  if (varargs
+                      && parameterIndex == varargsIndex
+                      && !isExplicitVarargsArrayArgument(invocation, index, varargsIndex)) {
+                    String elementType = type == null ? null : arrayElementType(type);
+                    if (elementType != null) {
+                      return elementType;
+                    }
+                  }
+                  if (type != null) {
+                    return type;
+                  }
                 }
               }
 
@@ -2252,6 +2440,16 @@ public class MigrateExecutionRecipe extends Recipe {
                   .map(Object::toString)
                   .findFirst()
                   .orElse(null);
+            }
+
+            private boolean isExplicitVarargsArrayArgument(
+                J.MethodInvocation invocation, int index, int varargsIndex) {
+              if (index != varargsIndex || invocation.getArguments().size() != varargsIndex + 1) {
+                return false;
+              }
+              Expression argument = invocation.getArguments().get(index);
+              return argument.getType() instanceof JavaType.Array
+                  || argument instanceof J.Literal literal && literal.getValue() == null;
             }
 
             private boolean isObjectType(String type) {
