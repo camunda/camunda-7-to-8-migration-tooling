@@ -142,6 +142,11 @@ class ExcelWriterTest {
           Element definition = xml.getDocumentElement();
           assertThat(definition.getAttribute("recordCount")).as(name).isEqualTo("0");
           assertThat(definition.getAttribute("refreshOnLoad")).as(name).isEqualTo("1");
+          NodeList sources = definition.getElementsByTagNameNS(SPREADSHEET_NS, "worksheetSource");
+          assertThat(sources.getLength()).as(name).isEqualTo(1);
+          Element source = (Element) sources.item(0);
+          assertThat(source.getAttribute("sheet")).as(name).isEqualTo("AnalysisResults");
+          assertThat(source.getAttribute("ref")).as(name).isEqualTo("A1:H1048576");
           NodeList fields = definition.getElementsByTagNameNS(SPREADSHEET_NS, "sharedItems");
           for (int i = 0; i < fields.getLength(); i++) {
             Node items = fields.item(i);
