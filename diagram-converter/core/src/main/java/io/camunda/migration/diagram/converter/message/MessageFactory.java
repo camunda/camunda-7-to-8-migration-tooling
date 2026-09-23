@@ -699,11 +699,35 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message userTaskPriorityCollision(
+      String elementId, String jobPriority, String taskPriority) {
+    String elementIdLabel = StringUtils.isBlank(elementId) ? "with null id" : "'" + elementId + "'";
+    return INSTANCE.composeMessage(
+        "user-task-priority-collision",
+        ContextBuilder.builder()
+            .entry("elementId", elementIdLabel)
+            .entry("jobPriority", jobPriority)
+            .entry("taskPriority", taskPriority)
+            .build());
+  }
+
   public static Message priorityInvalid(String elementLocalName, String value) {
     return INSTANCE.composeMessage(
         "priority-invalid",
         ContextBuilder.builder()
             .entry("elementLocalName", elementLocalName)
+            .entry("value", value)
+            .build());
+  }
+
+  public static Message userTaskPriorityNotMigrated(
+      String attributeName, String elementId, String value) {
+    String elementIdLabel = StringUtils.isBlank(elementId) ? "with null id" : "'" + elementId + "'";
+    return INSTANCE.composeMessage(
+        "user-task-priority-not-migrated",
+        ContextBuilder.builder()
+            .entry("attributeName", attributeName)
+            .entry("elementId", elementIdLabel)
             .entry("value", value)
             .build());
   }

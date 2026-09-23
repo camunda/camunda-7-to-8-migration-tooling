@@ -8,16 +8,22 @@
 package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
-import io.camunda.migration.diagram.converter.visitor.AbstractCurrentlyNotSupportedAttributeVisitor;
+import io.camunda.migration.diagram.converter.message.Message;
+import io.camunda.migration.diagram.converter.visitor.AbstractSupportedAttributeVisitor;
 
-public class PriorityVisitor extends AbstractCurrentlyNotSupportedAttributeVisitor {
+public class UserTaskPriorityVisitor extends AbstractSupportedAttributeVisitor {
   @Override
   public String attributeLocalName() {
     return "priority";
   }
 
   @Override
+  protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
+    return UserTaskPriorityWriter.apply(context, attribute);
+  }
+
+  @Override
   protected boolean canVisit(DomElementVisitorContext context) {
-    return super.canVisit(context) && !"userTask".equals(context.getElement().getLocalName());
+    return super.canVisit(context) && "userTask".equals(context.getElement().getLocalName());
   }
 }

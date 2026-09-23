@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    id="Definitions_UserTasks"
+    targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="Message_Start_Process" isExecutable="true">
+    <bpmn:startEvent id="MessageStart" name="Start with message">
+      <bpmn:outgoing>Flow_StartToBare</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="InstantiationMessage" />
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_StartToBare" sourceRef="MessageStart" targetRef="BareUserTask" />
+    <bpmn:userTask id="BareUserTask" name="Wait for approval">
+      <bpmn:incoming>Flow_StartToBare</bpmn:incoming>
+      <bpmn:outgoing>Flow_BareToAssigned</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_BareToAssigned" sourceRef="BareUserTask" targetRef="AssignedUserTask" />
+    <bpmn:userTask
+        id="AssignedUserTask"
+        name="Review approval"
+        camunda:assignee="${reviewer}"
+        camunda:candidateGroups="approvers"
+        camunda:formKey="camunda-forms:deployment:review.form">
+      <bpmn:incoming>Flow_BareToAssigned</bpmn:incoming>
+      <bpmn:outgoing>Flow_AssignedToEnd</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_AssignedToEnd" sourceRef="AssignedUserTask" targetRef="ProcessEnd" />
+    <bpmn:endEvent id="ProcessEnd">
+      <bpmn:incoming>Flow_AssignedToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:message id="InstantiationMessage" name="instantiationMessage" />
+</bpmn:definitions>

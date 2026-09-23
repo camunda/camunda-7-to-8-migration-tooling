@@ -120,6 +120,14 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
+For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
+Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible
+assignments, schedules, forms, and listeners, records unsupported semantics, and does not create a
+legacy user-task job. A job-based replacement requires an explicit user decision.
+For targets before Camunda 8.5, the skill does not apply this mapping. It preserves the source
+implementation and records that modern user-task support is unavailable.
+This model rule complements the code-side user-task migration tracked in #1556.
+
 The agentic model-rewrite path preserves existing BPMN DI for unchanged semantic
 IDs. When a source has no BPMN DI, the skill does not create a layout and records
 that source provenance in `MIGRATION_REPORT.md`. The
@@ -149,6 +157,9 @@ skills/
     └── references/                        ← procedures loaded on demand
 fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
+
+The `fixtures/user-tasks` walkthrough covers a message-start process with a
+form-free user task and a user task carrying assignment and form metadata.
 
 ## License
 

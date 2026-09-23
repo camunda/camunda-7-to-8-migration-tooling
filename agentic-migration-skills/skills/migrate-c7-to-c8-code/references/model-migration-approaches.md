@@ -316,7 +316,8 @@ potential-starter, priority-invalid, priority-not-migrated, priority-scales-merg
 resource, resource-on-conditional-event, resource-on-conditional-flow, result-variable-business-rule,
 result-variable-internal-script, result-variable-rest, script, script-format, script-job-type,
 script-on-conditional-event, script-on-conditional-flow, task-listener, task-listener-supported,
-timer-expression-not-supported, topic, variable-name-filter-not-supported, version-tag
+timer-expression-not-supported, topic, user-task-priority-collision, user-task-priority-not-migrated,
+variable-name-filter-not-supported, version-tag
 ```
 
 When the referenced converter version changes, re-sync this inventory from
@@ -551,6 +552,12 @@ has no source binding in the table. Do not replace a method-specific type with t
 For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
+- Where the converted BPMN uses a `zeebe:` element or attribute, reuse an existing `zeebe` declaration on `bpmn:definitions` or declare `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` there before writing the converted copy.
+- Where the target version is 8.5 or later, convert every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. Ensure that the task has a `bpmn:extensionElements` container. Create the container when it is missing, then add exactly one `<zeebe:userTask />` child.
+- Where the target version is 8.5 or later and the user task is form-free, still add `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
+- Where the target version is 8.5 or later, preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions.
+- If any user-task semantic is unsupported, then preserve the task as a Camunda user task and record a finding with the source element and required manual action. Never silently replace that task with a legacy `io.camunda.zeebe:userTask` job.
+- Where the target version is before 8.5, do not add `<zeebe:userTask />`. Preserve the source implementation and record that modern user-task support is unavailable.
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)
@@ -566,6 +573,18 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - When the source has no BPMN DI, leave the converted copy without BPMN DI and record that provenance in `MIGRATION_REPORT.md`. Do not manufacture a layout.
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+
+Before resolving the model findings, validate every converted `bpmn:userTask`:
+
+| Check | Required result |
+|---|---|
+| Zeebe namespace | `bpmn:definitions` declares `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` when any Zeebe extension is present |
+| User-task marker | Exactly one `zeebe:userTask` child exists in the task's `bpmn:extensionElements` |
+| Assignment, schedule, form, and listener metadata | Each supported value is present in its matching Zeebe extension |
+| Unsupported semantics | A finding names the source task and the manual action |
+| Job-worker fallback | No `zeebe:taskDefinition` exists unless the user explicitly selected a job-based replacement and the decision is recorded in `MIGRATION_REPORT.md` |
+
+The user may explicitly request a job-based replacement for a user task. Record the request, the source task id, and the resulting job type before removing the Camunda user-task marker. A bare Camunda 7 user task has no such request and remains a Camunda 8 user task.
 
 ## Approach M3 - Online Diagram Converter (hosted)
 
