@@ -10,21 +10,25 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Order(3)
 @Component
 public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -36,7 +40,7 @@ public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityIn
     builder
         .flowNodeId(sanitizeFlowNodeId(entity.getActivityId()))
         .flowNodeName(entity.getActivityName())
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
         .startDate(convertDate(entity.getStartTime()))
         .type(convertType(entity.getActivityType()))
         .tenantId(getTenantId(entity.getTenantId()))

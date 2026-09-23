@@ -7,13 +7,12 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel.Builder;
 import io.camunda.migration.data.impl.clients.C7Client;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -44,6 +43,9 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
   @Autowired
   protected C7Client c7Client;
 
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(DecisionRequirementsDefinition.class);
@@ -62,7 +64,7 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
     var dmnXml = prefixDecisionIdsInDmn(resourceAsStream);
 
     builder.decisionRequirementsKey(getNextKey())
-        .decisionRequirementsId(prefixDefinitionId(entity.getKey()))
+        .decisionRequirementsId(legacyIdPrefix.applyTo(entity.getKey()))
         .name(entity.getName())
         .resourceName(resourceName)
         .version(entity.getVersion())
@@ -106,8 +108,8 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
     // Check if this is a decision element
     if (DECISION.equals(element.getLocalName())) {
       String id = element.getAttribute(ID);
-      if (id != null && !id.isEmpty() && !id.startsWith(C7_LEGACY_PREFIX)) {
-        element.setAttribute(ID, prefixDefinitionId(id));
+      if (id != null && !id.isEmpty() && !id.startsWith(legacyIdPrefix.getPrefix())) {
+        element.setAttribute(ID, legacyIdPrefix.applyTo(id));
       }
     }
 
@@ -126,8 +128,8 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
       String href = element.getAttribute(HREF);
       if (href != null && !href.isEmpty()) {
         // href typically looks like "#decisionId", so we need to preserve the "#" prefix
-        if (href.startsWith(HASH) && !href.startsWith(HASH + C7_LEGACY_PREFIX)) {
-          element.setAttribute(HREF, HASH + prefixDefinitionId(href.substring(1)));
+        if (href.startsWith(HASH) && !href.startsWith(HASH + legacyIdPrefix.getPrefix())) {
+          element.setAttribute(HREF, HASH + legacyIdPrefix.applyTo(href.substring(1)));
         }
       }
     }
@@ -146,9 +148,9 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
     // Only process dmnElementRef for DMNShape elements, not DMNEdge
     if (DI_DMN_SHAPE.equals(element.getLocalName())) {
       String dmnElementRef = element.getAttribute(DI_DMN_ELEMENT_REF);
-      if (dmnElementRef != null && !dmnElementRef.isEmpty() && !dmnElementRef.startsWith(C7_LEGACY_PREFIX)) {
+      if (dmnElementRef != null && !dmnElementRef.isEmpty() && !dmnElementRef.startsWith(legacyIdPrefix.getPrefix())) {
         // dmnElementRef directly references the decision ID without "#" prefix
-        element.setAttribute(DI_DMN_ELEMENT_REF, prefixDefinitionId(dmnElementRef));
+        element.setAttribute(DI_DMN_ELEMENT_REF, legacyIdPrefix.applyTo(dmnElementRef));
       }
     }
 

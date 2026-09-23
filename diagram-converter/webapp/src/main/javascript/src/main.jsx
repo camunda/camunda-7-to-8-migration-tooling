@@ -7,16 +7,27 @@
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "@carbon/react/index.scss";
+import { C4Provider } from "@camunda/design-system";
+import "@camunda/design-system/styles.css";
+import "./c4-ui.css";
 import "./index.css";
 import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css';
 import 'bpmn-js/dist/assets/bpmn-js.css';
+import 'dmn-js/dist/assets/dmn-font/css/dmn.css';
+import 'dmn-js/dist/assets/dmn-js-shared.css';
+import 'dmn-js/dist/assets/dmn-js-drd.css';
+import 'dmn-js/dist/assets/dmn-js-decision-table.css';
+import 'dmn-js/dist/assets/dmn-js-literal-expression.css';
+import 'dmn-js/dist/assets/dmn-js-boxed-expression.css';
+import "@bpmn-io/form-js-viewer/dist/assets/form-js.css";
 
 import App from "./App.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <C4Provider>
+      <App />
+    </C4Provider>
   </StrictMode>
 );

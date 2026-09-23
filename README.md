@@ -43,7 +43,18 @@ claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 claude plugin install camunda-migration
 ```
 
-**Other agents** — the skill follows the [Agent Skills](https://agentskills.io/) open format and works with any compatible agent. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for manual installation.
+**Install with GitHub Copilot CLI:**
+
+```bash
+copilot plugin marketplace add camunda/camunda-7-to-8-migration-tooling
+copilot plugin install camunda-migration@camunda
+```
+
+**Install with any other agent** (Cursor, Codex, Gemini CLI, Cline, Windsurf, and [25+ more](./agentic-migration-skills/README.md)) via [GitHub CLI](https://cli.github.com/) 2.90+:
+
+```bash
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent <your-agent>
+```
 
 **Use** (from your project directory):
 
@@ -51,15 +62,24 @@ claude plugin install camunda-migration
 /camunda-migration:migrate-c7-to-c8-code
 ```
 
-The skill will ask for your project path and walk you through three options:
+After checking model suitability, the skill will ask for your project path and walk you through three
+code paths:
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves TODOs, config, and test code |
-| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **AI only (AI-first)** *(recommended with a capable coding model)* | Applies migration patterns directly to the source. Use it for semantic, mixed, or complex Java code. Review every change. |
+| **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
 | **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no changes made |
 
+Compare the code paths on representative classes when practical. Recipes help with repeated,
+well-supported syntactic changes. They can hurt by adding cleanup for semantic or mixed
+delegate/client code.
+They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+Both migration paths need review and validation.
+
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
+
+When activated, the skill recommends a model intended for complex reasoning (for example `claude-sonnet-*`, `claude-opus-*`, or `gpt-5.6-luna`), and asks before proceeding with a lightweight or unverifiable model. These are routing hints, not a benchmark.
 
 
 ## Documentation
@@ -110,6 +130,40 @@ Every source file must contain the license header. See [license header template]
 4. Ensure all tests pass
 5. Update documentation if needed
 6. Submit a pull request with a clear description
+
+## Releasing
+
+The `Release` GitHub Actions workflow is the supported way to publish release artifacts.
+
+### Standard release
+
+1. Create a `release/<version>` branch from the commit you want to release, or run from the relevant `maintenance/<line>` branch when releasing an existing maintenance line.
+2. Run the `Release` workflow from that `release/<version>` or `maintenance/<line>` branch with:
+   - `RELEASE_VERSION=<version>`
+   - `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT`
+   - `IS_DRY_RUN=false`
+   - `ONLY_PUSH_TO_MAVEN_CENTRAL=false`
+3. The workflow now auto-publishes the validated Sonatype Central deployment, so no manual "Publish" step is required in the Central UI.
+4. The workflow waits until the deployment is published and verifies that all Maven Central artifacts are available before the release succeeds.
+5. After Maven Central verification, the workflow creates a draft GitHub Release with generated notes for the tag when needed, uploads and verifies these release assets, then publishes the release:
+   - Data Migrator `.tar.gz` and `.zip` distributions
+   - Data Migrator Cockpit plugin `.jar`
+   - Code Conversion recipes `.jar`
+   - Diagram Converter core, webapp, and CLI `.jar` files
+
+   If publication fails because an expected asset is missing or differs from the built artifact, the workflow fails and any newly created release remains a draft. Customers therefore never see a published release with an incomplete asset set. A failed job can be rerun safely; it uploads only missing assets and refuses to overwrite a file with a different digest.
+
+### Backfill Maven Central for an existing tag
+
+If a GitHub release/tag already exists but Maven Central is missing the artifacts, rerun the `Release` workflow with:
+
+- `RELEASE_VERSION=<existing-tag>`
+- `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT` (required workflow input; ignored in backfill mode)
+- `IS_DRY_RUN=false`
+- `ONLY_PUSH_TO_MAVEN_CENTRAL=true`
+
+Run the workflow from the current `main` branch so it uses the fixed publication workflow, not the old workflow definition stored in the release tag. This mode skips `release:prepare`, checks out the release tag, rebuilds the artifacts from that source, and publishes them to Maven Central only.
+It performs the same publication verification and fails if any expected artifact is still unavailable after the Central propagation timeout. It does not create, modify, or publish GitHub Release assets.
 
 ## License
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.camunda</groupId>
         <artifactId>camunda-7-to-8-data-migrator-examples</artifactId>
-        <version>0.3.4-SNAPSHOT</version>
+        <version>0.3.6-SNAPSHOT</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -16,8 +16,7 @@
     <description>Example variable interceptor for Camunda 7 to 8 Migration Tooling - Data</description>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>${version.java}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -25,7 +24,7 @@
         <dependency>
             <groupId>io.camunda</groupId>
             <artifactId>camunda-7-to-8-data-migrator-core</artifactId>
-            <version>0.3.4-SNAPSHOT</version>
+            <version>0.3.6-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

@@ -12,17 +12,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
-import io.camunda.client.api.command.ClientStatusException;
-import io.camunda.client.api.command.ProblemException;
-import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.client.api.search.response.Tenant;
+import io.camunda.client.api.search.response.TenantUser;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.util.ProcessInstanceCleanup;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
-
+import java.time.Duration;
 import java.util.List;
-
 import java.util.Optional;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
@@ -34,6 +34,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
+
+  /**
+    * Set generous Awaitility defaults so that this module's own {@code await()} calls without
+    * an explicit {@code .atMost()} inherit a CI-safe timeout after the Spring/CPT context has
+    * started.
+   *
+    * <p>These defaults do not override CPT's explicit cluster readiness timeout, but they keep
+    * post-startup assertions from relying on Awaitility's short default timeout.
+   */
+  static {
+    Awaitility.setDefaultTimeout(Duration.ofSeconds(120));
+    Awaitility.setDefaultPollInterval(Duration.ofSeconds(2));
+  }
 
   // Migrator ---------------------------------------
 
@@ -67,21 +80,54 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
     // C8
-    List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    for (ProcessInstance i : items) {
-      try {
-        camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-      } catch (ClientStatusException | ProblemException e) {
-        if (!e.getMessage().contains("NOT_FOUND")) {
-          throw e;
-        }
-        // Ignore NOT_FOUND errors as the instance might have been deleted already
-      }
-    }
+    awaitProcessInstanceCleanup();
 
     // Migrator
     dbClient.deleteAllMappings();
     runtimeMigrator.setMode(MIGRATE);
+  }
+
+  protected void awaitProcessInstanceCleanup() {
+    new ProcessInstanceCleanup(camundaClient).awaitCompletion();
+  }
+
+  protected void awaitTenantVisible(String tenantId) {
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() ->
+        assertThat(camundaClient.newTenantsSearchRequest().filter(filter -> filter.tenantId(tenantId)).execute().items())
+            .extracting(Tenant::getTenantId)
+            .contains(tenantId));
+  }
+
+  protected void awaitUserTenantMembership(String username, String tenantId) {
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() ->
+        assertThat(camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items())
+            .extracting(TenantUser::getUsername)
+            .contains(username));
+  }
+
+  protected void awaitRuntimeMigratorStart() {
+    Awaitility.await().atMost(Duration.ofSeconds(30)).until(() -> {
+      try {
+        runtimeMigrator.start();
+        return true;
+      } catch (RuntimeMigratorException e) {
+        if (isAuthorizationPropagationFailure(e)) {
+          return false;
+        }
+        throw e;
+      }
+    });
+  }
+
+  protected boolean isAuthorizationPropagationFailure(RuntimeMigratorException exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause.getMessage() != null && cause.getMessage().contains("user is not authorized")) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 
   protected Optional<Variable> getVariableByScope(Long processInstanceKey, Long scopeKey, String variableName) {

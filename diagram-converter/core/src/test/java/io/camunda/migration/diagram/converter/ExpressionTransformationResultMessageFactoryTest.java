@@ -9,10 +9,15 @@ package io.camunda.migration.diagram.converter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ExpressionTransformationResultMessageFactoryTest {
 
@@ -30,6 +35,7 @@ class ExpressionTransformationResultMessageFactoryTest {
         ExpressionTransformationResultMessageFactory.getMessage(result, "https://example.test");
 
     assertThat(message.getId()).isEqualTo("expression-execution-not-available");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
   }
 
   @Test
@@ -42,6 +48,7 @@ class ExpressionTransformationResultMessageFactoryTest {
         ExpressionTransformationResultMessageFactory.getMessage(result, "https://example.test");
 
     assertThat(message.getId()).isEqualTo("expression-method-not-possible");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
   }
 
   @Test
@@ -58,6 +65,7 @@ class ExpressionTransformationResultMessageFactoryTest {
         ExpressionTransformationResultMessageFactory.getMessage(result, "https://example.test");
 
     assertThat(message.getId()).isEqualTo("expression-execution-not-available");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
   }
 
   @Test
@@ -82,5 +90,44 @@ class ExpressionTransformationResultMessageFactoryTest {
         ExpressionTransformationResultMessageFactory.getMessage(result, "https://example.test");
 
     assertThat(message.getId()).isEqualTo("expression");
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+  }
+
+  @ParameterizedTest
+  @MethodSource("failedFeelTransformations")
+  void shouldReportFailedFeelTransformationsAsTasks(
+      ExpressionTransformationResult transformationResult) {
+    Message message =
+        ExpressionTransformationResultMessageFactory.getMessage(
+            transformationResult, "https://example.test");
+
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+  }
+
+  @ParameterizedTest
+  @MethodSource("successfulFeelTransformations")
+  void shouldReportSuccessfulFeelTransformationsAsReviews(
+      ExpressionTransformationResult transformationResult) {
+    Message message =
+        ExpressionTransformationResultMessageFactory.getMessage(
+            transformationResult, "https://example.test");
+
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+  }
+
+  private static Stream<ExpressionTransformationResult> failedFeelTransformations() {
+    return Stream.of(
+        ExpressionTransformer.transformToFeel("BPMN expression", "${order.getPriority()}"),
+        ExpressionTransformer.transformToFeel(
+            "BPMN expression", "${execution.getProcessInstanceId()}"),
+        ExpressionTransformer.transformToFeelDmn("DMN expression", "${order.getPriority()}"),
+        ExpressionTransformer.transformToFeelDmn(
+            "DMN expression", "${execution.getProcessInstanceId()}"));
+  }
+
+  private static Stream<ExpressionTransformationResult> successfulFeelTransformations() {
+    return Stream.of(
+        ExpressionTransformer.transformToFeel("BPMN expression", "${customerName}"),
+        ExpressionTransformer.transformToFeelDmn("DMN expression", "${customerName}"));
   }
 }

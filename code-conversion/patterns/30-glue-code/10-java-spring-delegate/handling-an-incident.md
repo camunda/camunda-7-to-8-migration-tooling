@@ -33,7 +33,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   raising an incident directly uses the same **fail job** API as handling a retryable failure
 -   the number of retries is set to 0 to raise the incident
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ### autoComplete = false (blocking)
 

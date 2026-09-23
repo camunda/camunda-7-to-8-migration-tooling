@@ -9,22 +9,32 @@ package io.camunda.migration.diagram.converter.cli;
 
 import static io.camunda.migration.diagram.converter.cli.ConvertCommand.*;
 
+import io.camunda.migration.diagram.converter.ConverterProperties;
 import io.camunda.migration.diagram.converter.ConverterPropertiesFactory;
 import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
+import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormConversionResult;
+import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 import org.apache.commons.io.FilenameUtils;
 import org.camunda.bpm.model.xml.ModelInstance;
 import picocli.CommandLine.Option;
@@ -39,6 +49,12 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       names = {"-d", "--documentation"},
       description = "If enabled, messages are also appended to documentation")
   boolean documentation;
+
+  @Option(
+      names = "--only-task-and-warning",
+      description =
+          "If enabled, only WARNING and TASK messages are appended to BPMN element documentation. Implies --documentation")
+  boolean onlyTaskAndWarning;
 
   @Option(
       names = {"--default-job-type"},
@@ -67,6 +83,12 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       description =
           "If enabled, a CSV file will be created containing the results for the analysis")
   boolean csv;
+
+  @Option(
+      names = {"--json"},
+      description =
+          "If enabled, a JSON file will be created containing the results for the analysis")
+  boolean json;
 
   @Option(
       names = {"--xlsx"},
@@ -122,26 +144,95 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   public final Integer call() {
     returnCode = 0;
     Map<File, ModelInstance> modelInstances = modelInstances();
-    List<DiagramCheckResult> results = checkModels(modelInstances);
-    writeResults(modelInstances, results);
+    List<File> formFileList = formFiles();
+    Map<File, FormConversionResult> formResults = processFormFiles(formFileList);
+    CheckedModels checkedModels = checkModels(modelInstances);
+    List<DiagramCheckResult> results = new ArrayList<>(checkedModels.results());
+    results.addAll(formResults.values().stream().map(FormConversionResult::checkResult).toList());
+    writeResults(checkedModels.modelInstances(), results);
+    writeConvertedFormFiles(formResults);
     return returnCode;
+  }
+
+  protected List<File> formFiles() {
+    return List.of();
+  }
+
+  private Map<File, FormConversionResult> processFormFiles(List<File> formFileList) {
+    if (formFileList.isEmpty()) {
+      return Map.of();
+    }
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(converterProperties());
+    Map<File, FormConversionResult> results = new LinkedHashMap<>();
+    for (File formFile : formFileList) {
+      try {
+        String content = Files.readString(formFile.toPath(), StandardCharsets.UTF_8);
+        results.put(
+            formFile,
+            FormConverter.convertAndCheck(modelIdentifier(formFile), content, properties));
+      } catch (IOException | RuntimeException e) {
+        LOG_CLI.error(
+            "Error while processing form file {}: {}",
+            formFile.getAbsolutePath(),
+            createMessage(e));
+        returnCode = 1;
+      }
+    }
+    return results;
+  }
+
+  private void writeConvertedFormFiles(Map<File, FormConversionResult> formResults) {
+    if (check || formResults.isEmpty()) {
+      return;
+    }
+    if (!createTargetDirectory()) {
+      return;
+    }
+    for (Entry<File, FormConversionResult> formResult : formResults.entrySet()) {
+      File formFile = formResult.getKey();
+      File outFile = prefixFileName(formFile);
+      if (!override && outFile.exists()) {
+        LOG_CLI.error("File already exists: {}", outFile);
+        returnCode = 1;
+        continue;
+      }
+      try {
+        // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
+        // -Dfile.encoding override can't corrupt the converted form
+        Files.writeString(
+            outFile.toPath(), formResult.getValue().convertedForm(), StandardCharsets.UTF_8);
+        LOG_CLI.info("Created {}", outFile);
+      } catch (IOException | RuntimeException e) {
+        LOG_CLI.error(
+            "Error while converting form file {}: {}",
+            formFile.getAbsolutePath(),
+            createMessage(e));
+        returnCode = 1;
+      }
+    }
   }
 
   private void writeResults(
       Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {
+    if ((!check || csv || xlsx || markdown || json) && !createTargetDirectory()) {
+      return;
+    }
     if (!check) {
       for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
-        File file = determineFileName(prefixFileName(modelInstance.getKey()));
+        File file = prefixFileName(modelInstance.getKey());
         if (!override && file.exists()) {
-          LOG_CLI.error("File does already exist: {}", file);
+          LOG_CLI.error("File already exists: {}", file);
           returnCode = 1;
+          continue;
         }
-        LOG_CLI.info("Created {}", file);
+        file = determineFileName(file);
         try (FileWriter fw = new FileWriter(file)) {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
-        } catch (IOException e) {
-          LOG_CLI.error("Error while creating BPMN file: {}", createMessage(e));
+          LOG_CLI.info("Created {}", file);
+        } catch (IOException | RuntimeException e) {
+          LOG_CLI.error("Error while creating diagram file: {}", createMessage(e));
           returnCode = 1;
         }
       }
@@ -151,7 +242,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(csvFile)) {
         converter.writeCsvFile(results, fw);
         LOG_CLI.info("Created {}", csvFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating csv results: {}", createMessage(e));
         returnCode = 1;
       }
@@ -161,8 +252,20 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileOutputStream fos = new FileOutputStream(xlsxFile)) {
         new ExcelWriter().writeResultsToExcel(converter.createLineItemDTOList(results), fos);
         LOG_CLI.info("Created {}", xlsxFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating xlsx results: {}", createMessage(e));
+        returnCode = 1;
+      }
+    }
+    if (json) {
+      File jsonFile = determineFileName(new File(targetDirectory(), "analysis-results.json"));
+      // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
+      // -Dfile.encoding override can't corrupt the machine-readable report
+      try (Writer fw = Files.newBufferedWriter(jsonFile.toPath(), StandardCharsets.UTF_8)) {
+        converter.writeJsonFile(results, fw);
+        LOG_CLI.info("Created {}", jsonFile);
+      } catch (IOException | RuntimeException e) {
+        LOG_CLI.error("Error while creating json results: {}", createMessage(e));
         returnCode = 1;
       }
     }
@@ -171,20 +274,39 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(markdownFile)) {
         converter.writeMarkdownFile(results, fw);
         LOG_CLI.info("Created {}", markdownFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating markdown results: {}", createMessage(e));
         returnCode = 1;
       }
     }
   }
 
+  private boolean createTargetDirectory() {
+    File directory = targetDirectory();
+    Path path = directory == null ? Path.of(".") : directory.toPath();
+    try {
+      Files.createDirectories(path);
+      return true;
+    } catch (IOException e) {
+      LOG_CLI.error("Error while creating target directory {}: {}", path, createMessage(e));
+      returnCode = 1;
+      return false;
+    }
+  }
+
   protected abstract File targetDirectory();
 
-  private List<DiagramCheckResult> checkModels(Map<File, ModelInstance> modelInstances) {
-    return modelInstances.entrySet().stream()
-        .map(this::checkModel)
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+  private CheckedModels checkModels(Map<File, ModelInstance> modelInstances) {
+    Map<File, ModelInstance> successfullyCheckedModels = new LinkedHashMap<>();
+    List<DiagramCheckResult> results = new ArrayList<>();
+    for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
+      DiagramCheckResult result = checkModel(modelInstance);
+      if (result != null) {
+        successfullyCheckedModels.put(modelInstance.getKey(), modelInstance.getValue());
+        results.add(result);
+      }
+    }
+    return new CheckedModels(successfullyCheckedModels, results);
   }
 
   private DiagramCheckResult checkModel(Entry<File, ModelInstance> modelInstance) {
@@ -211,7 +333,8 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setDefaultJobType(defaultJobType);
     properties.setPlatformVersion(platformVersion);
-    properties.setAppendDocumentation(documentation);
+    properties.setAppendDocumentation(documentation || onlyTaskAndWarning);
+    properties.setAppendDocumentationOnlyTaskAndWarning(onlyTaskAndWarning);
     properties.setAppendElements(!disableAppendElements);
     properties.setKeepJobTypeBlank(keepJobTypeBlank);
     properties.setAlwaysUseDefaultJobType(alwaysUseDefaultJobType);
@@ -230,25 +353,46 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     int counter = 0;
     while (!override && newFile.exists()) {
       counter++;
+      String fileName = file.getName();
+      String fileEnding = fileEnding(fileName);
       newFile =
           new File(
               file.getParentFile(),
-              FilenameUtils.getBaseName(file.getName())
+              fileName.substring(0, fileName.length() - fileEnding.length())
                   + " ("
                   + counter
-                  + ")."
-                  + FilenameUtils.getExtension(file.getName()));
+                  + ")"
+                  + fileEnding);
     }
     return newFile;
   }
 
+  private String fileEnding(String fileName) {
+    return Arrays.stream(DiagramType.values())
+        .flatMap(diagramType -> diagramType.getFileEndings().stream())
+        .filter(fileName::endsWith)
+        .max(Comparator.comparingInt(String::length))
+        .orElseGet(
+            () -> {
+              String extension = FilenameUtils.getExtension(fileName);
+              return extension.isEmpty() ? "" : "." + extension;
+            });
+  }
+
   protected String createMessage(Exception e) {
-    StringBuilder message = new StringBuilder(e.getMessage());
+    StringBuilder message = new StringBuilder(exceptionMessage(e));
     Throwable ex = e.getCause();
     while (ex != null) {
-      message.append(",").append("\n").append("caused by: ").append(ex.getMessage());
+      message.append(",").append("\n").append("caused by: ").append(exceptionMessage(ex));
       ex = ex.getCause();
     }
     return message.toString();
   }
+
+  private String exceptionMessage(Throwable t) {
+    return t.getMessage() != null ? t.getMessage() : t.getClass().getName();
+  }
+
+  private record CheckedModels(
+      Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {}
 }

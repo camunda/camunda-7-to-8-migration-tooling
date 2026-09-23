@@ -7,11 +7,15 @@
  */
 package io.camunda.migration.diagram.converter.message;
 
+import io.camunda.migration.diagram.converter.FormKeyRedactor;
+import io.camunda.migration.diagram.converter.FormKeyType;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 
 public class MessageFactory {
+  private static final String FORM_FEEL_EXPRESSIONS_LINK =
+      "https://docs.camunda.io/docs/components/modeler/feel/what-is-feel/";
   private static final MessageFactory INSTANCE = new MessageFactory();
 
   private final MessageTemplateProvider messageTemplateProvider = new MessageTemplateProvider();
@@ -110,6 +114,11 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message inOutBusinessKey(String businessKey) {
+    return INSTANCE.composeMessage(
+        "in-out-business-key", ContextBuilder.builder().entry("businessKey", businessKey).build());
+  }
+
   public static Message elementNotSupported(String elementLocalName, String semanticVersion) {
     return INSTANCE.composeMessage(
         "element-not-supported",
@@ -193,6 +202,17 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message executionListenerOnStartEventNotSupported(
+      String event, String type, String implementation) {
+    return INSTANCE.composeMessage(
+        "execution-listener-on-start-event",
+        ContextBuilder.builder()
+            .entry("event", event)
+            .entry("type", type)
+            .entry("implementation", implementation)
+            .build());
+  }
+
   public static Message executionListenerSupported(String event, String implementation) {
     return INSTANCE.composeMessage(
         "execution-listener-supported",
@@ -200,6 +220,11 @@ public class MessageFactory {
             .entry("event", event)
             .entry("implementation", implementation)
             .build());
+  }
+
+  public static Message executionListenerField(String fieldName) {
+    return INSTANCE.composeMessage(
+        "execution-listener-field", ContextBuilder.builder().entry("fieldName", fieldName).build());
   }
 
   public static Message taskListenerNotSupported(String event, String type, String implementation) {
@@ -314,12 +339,23 @@ public class MessageFactory {
         ContextBuilder.builder().context(elementNotTransformablePrefix(elementLocalName)).build());
   }
 
-  public static Message formKey(String attributeLocalName, String elementLocalName) {
+  public static Message formKey(
+      String attributeLocalName, String elementLocalName, String formKey, FormKeyType formKeyType) {
     return INSTANCE.composeMessage(
-        "form-key",
+        formKeyMessageId(formKeyType),
         ContextBuilder.builder()
             .context(supportedAttributePrefix(attributeLocalName, elementLocalName))
+            .entry("formKey", FormKeyRedactor.redact(formKey))
             .build());
+  }
+
+  private static String formKeyMessageId(FormKeyType formKeyType) {
+    return switch (formKeyType) {
+      case CAMUNDA_FORM -> "form-key-camunda-form";
+      case EMBEDDED -> "form-key-embedded";
+      case EXPRESSION -> "form-key-expression";
+      case EXTERNAL -> "form-key-external";
+    };
   }
 
   public static Message delegateImplementation(
@@ -663,11 +699,35 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message userTaskPriorityCollision(
+      String elementId, String jobPriority, String taskPriority) {
+    String elementIdLabel = StringUtils.isBlank(elementId) ? "with null id" : "'" + elementId + "'";
+    return INSTANCE.composeMessage(
+        "user-task-priority-collision",
+        ContextBuilder.builder()
+            .entry("elementId", elementIdLabel)
+            .entry("jobPriority", jobPriority)
+            .entry("taskPriority", taskPriority)
+            .build());
+  }
+
   public static Message priorityInvalid(String elementLocalName, String value) {
     return INSTANCE.composeMessage(
         "priority-invalid",
         ContextBuilder.builder()
             .entry("elementLocalName", elementLocalName)
+            .entry("value", value)
+            .build());
+  }
+
+  public static Message userTaskPriorityNotMigrated(
+      String attributeName, String elementId, String value) {
+    String elementIdLabel = StringUtils.isBlank(elementId) ? "with null id" : "'" + elementId + "'";
+    return INSTANCE.composeMessage(
+        "user-task-priority-not-migrated",
+        ContextBuilder.builder()
+            .entry("attributeName", attributeName)
+            .entry("elementId", elementIdLabel)
             .entry("value", value)
             .build());
   }
@@ -689,6 +749,52 @@ public class MessageFactory {
 
   public static Message modelerTemplateVersion() {
     return INSTANCE.staticMessage("modeler-template-version");
+  }
+
+  public static Message formAlreadyCamunda8(String executionPlatform) {
+    return INSTANCE.composeMessage(
+        "form-already-camunda-8",
+        ContextBuilder.builder().entry("executionPlatform", executionPlatform).build());
+  }
+
+  public static Message formSchemaVersionOutdated(
+      String schemaVersion, String latestSchemaVersion) {
+    return INSTANCE.composeMessage(
+        "form-schema-version-outdated",
+        ContextBuilder.builder()
+            .entry("schemaVersion", schemaVersion)
+            .entry("latestSchemaVersion", latestSchemaVersion)
+            .build());
+  }
+
+  public static Message formSchemaVersionMissing(String latestSchemaVersion) {
+    return INSTANCE.composeMessage(
+        "form-schema-version-missing",
+        ContextBuilder.builder().entry("latestSchemaVersion", latestSchemaVersion).build());
+  }
+
+  public static Message formJuelExpression(String expression, String propertyName) {
+    return INSTANCE.composeMessage(
+        "form-juel-expression",
+        ContextBuilder.builder()
+            .entry("expression", expression)
+            .entry("propertyName", propertyName)
+            .build());
+  }
+
+  public static Message formExpressionTransformed(
+      String juelExpression, String feelExpression, String propertyName) {
+    return expression(
+        "Form property '" + propertyName + "'",
+        juelExpression,
+        feelExpression,
+        FORM_FEEL_EXPRESSIONS_LINK);
+  }
+
+  public static Message formComponentUnknown(String componentType) {
+    return INSTANCE.composeMessage(
+        "form-component-unknown",
+        ContextBuilder.builder().entry("componentType", componentType).build());
   }
 
   private ComposedMessage composeMessage(String templateName, Map<String, String> context) {

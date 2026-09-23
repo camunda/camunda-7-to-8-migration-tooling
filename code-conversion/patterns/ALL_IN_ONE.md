@@ -17,7 +17,9 @@ Patterns:
     - [Business Key &#8594; Business ID / Tags](#business-key-8594-business-id-tags)
     - [Cancel Process Instance](#cancel-process-instance)
     - [Correlate Messages](#correlate-messages)
+    - [Count Query Results](#count-query-results)
     - [Evaluate Decisions (DMN)](#evaluate-decisions-dmn)
+    - [File Variables &#8594; Document API](#file-variables-8594-document-api)
     - [Handle Variables](#handle-variables)
     - [Handle Resources](#handle-resources)
     - [Handle User Tasks](#handle-user-tasks)
@@ -26,6 +28,8 @@ Patterns:
     - [Search Process Definitions](#search-process-definitions)
     - [Starting Process Instances](#starting-process-instances)
 - [Glue code](#glue-code)
+  - [Idiomatic Job Worker Cleanup](#idiomatic-job-worker-cleanup)
+  - [Outbound HTTP &#8594; REST Connector](#outbound-http-8594-rest-connector)
   - [JavaDelegate &#8594; Job Worker (Spring)](#javadelegate-8594-job-worker-spring)
     - [Class-level Changes](#class-level-changes)
     - [Handling a BPMN error](#handling-a-bpmn-error)
@@ -69,7 +73,7 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 
 Also, configure your connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
-**Spring Boot version**: `camunda-spring-boot-starter` requires Spring Boot 4.0.x as of Camunda 8.9. If you are not yet on Spring Boot 4.x, use `camunda-spring-boot-3-starter` instead:
+**Spring Boot version**: Select the starter from the [Camunda Spring Boot version compatibility matrix](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/#version-compatibility). For Camunda 8.9, `camunda-spring-boot-3-starter` is for Spring Boot 3.5.x. `camunda-spring-boot-starter` is bundled with Spring Boot 4.0.x and supports Spring Boot 4.1.x from 8.9.12:
 
 ```
 <dependency>
@@ -79,7 +83,32 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 </dependency>
 ```
 
+**Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
+that creates `CamundaClient`. If startup fails, record a blocking finding. Do not override individual
+transitive dependencies to force startup.
+
+**Version resolution**: Resolve the latest released GA version from Maven Central's direct artifact metadata, for example `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available). From `<versions>`, select the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release. Do not use `search.maven.org`'s search API or the Camunda public repository metadata for this lookup.
+
 **Java client artifact**: Use `io.camunda:camunda-client-java`. The legacy `io.camunda:zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
+
+**Process test artifact**: Camunda 8.10 removes Zeebe Process Test. Replace `zeebe-process-test-extension` and `zeebe-process-test-extension-testcontainer` with `io.camunda:camunda-process-test-java`:
+
+```
+<dependency>
+	<groupId>io.camunda</groupId>
+	<artifactId>camunda-process-test-java</artifactId>
+	<version>{version}</version>
+	<scope>test</scope>
+</dependency>
+```
+
+For Spring Boot applications, use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with `camunda-spring-boot-3-starter`. The former `spring-boot-starter-camunda-test` and `spring-boot-starter-camunda-test-testcontainer` artifacts are replaced by these CPT Spring modules.
+
+If the project uses the temporary `camunda-process-test-spring-4` or `camunda-process-test-spring-boot-4` artifact names from Camunda 8.8, replace them with `camunda-process-test-spring`.
+
+**Logging backend**: When removing Camunda 7 webapp/rest starters, keep an SLF4J binding. If those starters were your only logging source, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
+
+**`jakarta.annotation` and process startup**: If `@PostConstruct` remains only to start process instances, migrate that startup to `@EventListener(CamundaPostDeploymentEvent.class)` first. Prefer fixing that lifecycle pattern over adding dependencies (for example `jakarta.annotation-api`) solely to keep `@PostConstruct`.
 
 ---
 
@@ -123,8 +152,8 @@ The different methods of these services are grouped into separated .md files by 
 
 ###### OpenRewrite recipe (WIP)
 
--   [Recipe "ProcessEngineToZeebeClient"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/client/ProcessEngineToZeebeClient.java)
--   [Learn how to apply recipes](../recipes/)
+-   [Recipe "AllClientRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/clientRecipes.yml)
+-   [Learn how to apply recipes](../../../recipes/README.md)
 
 
 #### Class-level Changes
@@ -278,7 +307,7 @@ The following patterns focus on methods how to broadcast signals in Camunda 7 an
 ```
 
 -   in Camunda 8, a signal is always correlated to all suitable signal subscriptions
--   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/modify-process-instance/)
+-   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/specifications/modify-process-instance/)
 
 ---
 
@@ -286,7 +315,7 @@ The following patterns focus on methods how to broadcast signals in Camunda 7 an
 
 In Camunda 7, a process instance can carry a **business key**: a domain identifier (order number, claim ID) that is set on start and used to find instances later.
 
-Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, the direct successor is the **Business ID**. Since **Camunda 8.8**, **process instance tags** are available as a lightweight alternative.
+Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, the direct successor is the **Business ID**. Since **Camunda 8.8**, **process instance tags** are available as a lightweight alternative. Camunda 8.10 also makes business ID searchable on decision instances and user tasks and exposes it to FEEL expressions.
 
 | Camunda 7              | Camunda 8                                                                 |
 | ---------------------- | ------------------------------------------------------------------------- |
@@ -319,11 +348,12 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
--   the Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not)
--   the Business ID is automatically propagated to child instances created via call activities
--   uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts
--   maximum length is 256 characters
--   for more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id)
+-   The Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not).
+-   If the migrated process updates its business key during execution, neither Business ID nor tags fit. Keep it as a plain `businessKey` process variable and filter by variable in searches; note that it loses engine-level correlation identity.
+-   The Business ID is automatically propagated to child instances created via call activities.
+-   Uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts.
+-   Maximum length is 256 characters.
+-   For more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id).
 
 ###### Searching by Business Key
 
@@ -348,6 +378,21 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
                 .items();
     }
 ```
+
+###### Assigning a Business ID after creation (Camunda 8.10+)
+
+If the domain identifier is not available when the process starts, assign it once to a running root process instance:
+
+```http
+POST /v2/process-instances/{processInstanceKey}/business-id-assignment
+Content-Type: application/json
+
+{"businessId": "order-1234"}
+```
+
+The assignment is irreversible and only artifacts created afterwards receive the ID. It is not available when business ID uniqueness enforcement is enabled. Use the dedicated API endpoint rather than trying to update a process variable or re-starting the instance.
+
+In Camunda 8.10, business ID filters also apply to decision instances and user tasks. The value is available in FEEL as `camunda.processInstance.businessId`; use it for model-side routing instead of duplicating the identifier in an untracked variable.
 
 ###### Alternative: Tags (Camunda 8.8+)
 
@@ -496,6 +541,46 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
 
 ---
 
+#### Count Query Results
+
+Camunda 7 query results can be counted with `list().size()`, `list().stream().count()`, or `count()`.
+The first two forms count the complete in-memory list returned by the engine.
+
+###### Camunda 7
+
+```java
+long runningInstances = engine.getRuntimeService()
+        .createProcessInstanceQuery()
+        .processDefinitionKey("order-process")
+        .list()
+        .stream()
+        .count();
+```
+
+###### Camunda 8
+
+```java
+import io.camunda.client.api.search.enums.ProcessInstanceState;
+
+long runningInstances = camundaClient.newProcessInstanceSearchRequest()
+        .filter(filter -> filter
+                .processDefinitionId("order-process")
+                .state(ProcessInstanceState.ACTIVE))
+        .send()
+        .join()
+        .page()
+        .totalItems();
+```
+
+Use `page().totalItems()` when the result drives a count, guard, or business decision.
+Use `page().totalItems().intValue()` when the original `list().size()` result type is `int` or
+`Integer`.
+Do not use `items().size()` or `items().stream().count()` for a complete result count.
+The `items()` list contains only the current page and can be limited by the configured page size.
+Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
+
+---
+
 #### Evaluate Decisions (DMN)
 
 In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 8, use the `newEvaluateDecisionCommand` of the `CamundaClient` (available since 8.6 via the REST API).
@@ -539,6 +624,44 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 -   the result is returned as JSON: `response.getDecisionOutput()` contains the output, `response.getEvaluatedDecisions()` the details of all evaluated (required) decisions
 -   `DmnDecisionTableResult` convenience methods like `getSingleEntry()` have no direct equivalent — parse the JSON output instead
 -   decisions evaluated *inside* a process should be modeled as a BPMN business rule task instead of being evaluated from glue code; the task's binding (`latest`, `deployment`, `versionTag`) controls version selection
+
+---
+
+#### File Variables &#8594; Document API
+
+<a id="file-variables-8594-document-api"></a>
+
+In Camunda 7, files are stored as `FileValue` process variables (Typed Value API) carrying content plus filename and MIME type. Camunda 8 has no typed file variable: files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
+
+###### Creating a File Variable
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public void storeFile(DelegateExecution execution) {
+        FileValue contract = Variables.fileValue("contract.pdf")
+                .file(fileBytes)
+                .mimeType("application/pdf")
+                .create();
+        execution.setVariable("contract", contract);
+    }
+```
+
+###### CamundaClient (Camunda 8)
+
+```java
+    public DocumentReferenceResponse storeDocument(byte[] fileBytes) {
+        return camundaClient.newCreateDocumentCommand()
+                .content(fileBytes)
+                .fileName("contract.pdf")
+                .contentType("application/pdf")
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   store the document reference returned by `DocumentReferenceResponse` in the process variable; forms consuming it (e.g. a `documentPreview` component) expect a FEEL expression over an *array* — do the one-element wrap (`[contract]`) in the form's FEEL, not in the variable
+-   documents have store-specific time-to-live and size limits — check the document handling docs for your storage backend
 
 ---
 
@@ -598,7 +721,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 ```
 
 -   various filter, sorting and pagination options
--   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/search-variables/)
+-   for more information, see [the docs](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/specifications/search-variables/)
 
 ###### Setting Variables
 
@@ -786,7 +909,8 @@ public class ProcessPaymentsApplication {
 ```
 
 -   the annotation `@Deployment` can be used to specify specific files or multiple resources via a wildcard pattern to be deployed to the engine
--   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/getting-started/#deploy-process-models)
+-   Camunda 8 has no implicit classpath auto-deployment equivalent to the Camunda 7 Spring Boot starter defaults. Even if your Camunda 7 app had no `@EnableProcessApplication`, you must still add explicit deployment wiring (`@Deployment` or deploy commands) for BPMN/DMN resources.
+-   for more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/#deploy-process-models)
 
 ###### Deploy BPMN Model
 
@@ -995,8 +1119,8 @@ In Camunda 8, runtime and history data are separated: historic data is exported 
 | `createHistoricActivityInstanceQuery()`            | `newElementInstanceSearchRequest()`                        |
 | `createHistoricVariableInstanceQuery()`            | `newVariableSearchRequest()`                               |
 | `createHistoricIncidentQuery()`                    | `newIncidentSearchRequest()`                               |
-| `createHistoricTaskInstanceQuery()`                | `newUserTaskSearchRequest()`                               |
-| `createHistoricDecisionInstanceQuery()`            | `newDecisionInstanceSearchRequest()`                       |
+| `createHistoricTaskInstanceQuery()`                | `newUserTaskSearchRequest()` (8.10+)                       |
+| `createHistoricDecisionInstanceQuery()`            | `newDecisionInstanceSearchRequest()` (8.10+)               |
 | `createUserOperationLogQuery()`                    | Audit log search (`POST /v2/audit-logs/search`, 8.9+)      |
 
 ###### Searching Finished Process Instances
@@ -1029,6 +1153,7 @@ In Camunda 8, runtime and history data are separated: historic data is exported 
 -   C7 `.finished()` matches every instance with an end time — both `COMPLETED` and `TERMINATED` (cancelled) — so the C8 equivalent filters on both states; drop `TERMINATED` to narrow to successfully-completed instances only
 -   the same search endpoints serve running *and* finished entities — there is no separate "history API"
 -   search results are *eventually consistent*: data becomes visible after export to secondary storage, typically within a second; do not use search requests for read-after-write logic inside a worker
+-   user-task and decision-instance search became available in Camunda 8.10; keep these mappings as explicit TODO-backed API migrations when supporting an older target
 -   history time to live (HTTL) and data retention are configured on the cluster, not per query
 -   element instances are the equivalent of C7 activity instances; filter by `processInstanceKey` to get the execution trace (audit trail) of one instance
 
@@ -1053,7 +1178,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)
+-   incidents should be raised in the context of a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ###### CamundaClient (Camunda 8)
 
@@ -1068,7 +1193,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)
+-   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ---
 
@@ -1170,6 +1295,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
+-   if your app also uses `@Deployment`, do not start instances from `@PostConstruct`; use `@EventListener(CamundaPostDeploymentEvent.class)` so startup runs after deployment completes
 
 ###### By Key Assigned on Deployment (specific version)
 
@@ -1276,9 +1402,112 @@ The glue code patterns look into the different scenarios and proposes code conve
 |-----------------------------------|-------------------------------------------------|----------------------------|-----------------------------------------------------------------------|------|
 | `camunda:class`                   | `camunda:class="com.example.MyDelegate"`        | `myDelegate`               | Class name is converted to camelCase; assumes a `@JobWorker` Spring bean | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
 | `camunda:delegateExpression`      | `camunda:delegateExpression="${myBean}"`        | `myBean`                   | Bean name is used directly; assumes a `@JobWorker`-annotated method   | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
-| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [15-java-expression/]() |
-| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | []() |
+| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [Java Expression](15-java-expression/README.md) |
+| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | — |
 
+
+### Idiomatic Job Worker Cleanup
+
+OpenRewrite can create a preliminary Camunda 8 worker shape for supported patterns. Compare each
+generated worker with its source before cleanup. AI cleanup removes generated names and redundant
+code only after the comparison confirms the worker contract.
+
+###### Preserve the job type
+
+Rename `*Migrated` and `executeJob*` methods to the job type or the original delegate intent.
+Preserve an explicit `@JobWorker(type = "...")` value. If the job type came from the method name,
+set it explicitly before renaming the method.
+
+```java
+// Before
+@JobWorker(type = "sampleJavaDelegate")
+public void executeJobMigrated(ActivatedJob job) {
+  // ...
+}
+
+// After
+@JobWorker(type = "sampleJavaDelegate")
+public void sampleJavaDelegate(ActivatedJob job) {
+  // ...
+}
+```
+
+###### Inject variables
+
+Replace `job.getVariable(...)` and `job.getVariablesAsMap()` with typed `@Variable` parameters.
+Use `@VariablesAsType` when several variables form one input object. Keep `ActivatedJob` when the
+method uses job metadata or the job key (`job.getKey()`).
+
+```java
+// Before
+public void sampleJavaDelegate(ActivatedJob job) {
+  Object x = job.getVariable("x");
+}
+
+// After
+public void sampleJavaDelegate(@Variable Object x) {
+}
+```
+
+Mark an input optional only when the source worker accepts its absence:
+
+```java
+public void sampleJavaDelegate(@Variable(optional = true) String comment) {
+}
+```
+
+Remove `throws Exception` when the cleaned method no longer throws a checked exception. Keep a
+specific checked exception when the worker still requires it.
+
+###### Simplify outputs and defaults
+
+Return `Map.of(...)` for a single-entry output map when its values are non-null and callers do not
+mutate the map. Keep a mutable map when mutation or nullable values are required.
+
+```java
+// Before
+Map<String, Object> resultMap = new HashMap<>();
+resultMap.put("y", "hello world");
+return resultMap;
+
+// After
+return Map.of("y", "hello world");
+```
+
+Remove `autoComplete = true` because `true` is the default. Keep the attribute when the project
+documents the explicit setting as part of its configuration contract.
+
+###### Keep migration provenance
+
+Preserve a short Javadoc that identifies the Camunda 7 source. Add one when the source origin is
+known and the generated worker has no provenance note.
+
+```java
+/**
+ * Migrated from the Camunda 7 SampleJavaDelegate.
+ */
+@JobWorker(type = "sampleJavaDelegate")
+public Map<String, Object> sampleJavaDelegate(@Variable Object x) {
+  return Map.of("y", "hello world");
+}
+```
+
+---
+
+### Outbound HTTP &#8594; REST Connector
+
+<a id="outbound-http-8594-rest-connector"></a>
+
+C7 outbound HTTP uses the `camunda:connector` / **http-connector** extension or hand-rolled HTTP client code inside a delegate/worker. Camunda 8 provides a standard out-of-the-box [REST connector](https://docs.camunda.io/docs/components/connectors/protocol/rest/) — prefer it wherever it covers the need instead of porting HTTP client code into a job worker.
+
+| Camunda 7                                          | Camunda 8                                  |
+| -------------------------------------------------- | ------------------------------------------ |
+| `camunda:connector` with http-connector, HTTP client code in a delegate/worker | Service task with the out-of-the-box REST connector (URL, method, headers, authentication, result expression configured on the element; no Java code) |
+
+-   the connector's result expression maps the HTTP response into process variables — replacing the delegate's `setVariable` calls
+-   keep a custom `@JobWorker` only for what the connector cannot express (complex multi-step logic, non-HTTP protocols)
+
+---
 
 ### JavaDelegate &#8594; Job Worker (Spring)
 
@@ -1368,7 +1597,7 @@ When you convert your diagrams from Camunda 7 to Camunda 8 using the [Migration 
 ```
 
 
-For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/get-started/).
+For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/).
 
 ---
 
@@ -1485,7 +1714,7 @@ Check the [README](./README.md) for more details on class-level changes.
 -   the initial number of retries is set in the BPMN xml
 -   the job worker handles decrementing the number of retries and the retry backoff strategy explicitely
 -   the job can fail with variables to skip work in the next retry that was already done in a previous job run
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -1569,7 +1798,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   raising an incident directly uses the same **fail job** API as handling a retryable failure
 -   the number of retries is set to 0 to raise the incident
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -1676,7 +1905,7 @@ Check the [README](./README.md) for more details on class-level changes.
     }
 ```
 
--   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#using-variable).
+-   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#using-variable-recommended).
 -   _.send().join()_ is blocking and waits for the response from the cluster
 
 ###### autoComplete = false (reactive)
@@ -1772,8 +2001,8 @@ There are often multiple methods that achieve the same result. The patterns try 
 
 ###### OpenRewrite recipe (WIP)
 
--   [Recipe "JavaDelegateSpringToZeebeWorkerSpring"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/glue/JavaDelegateSpringToZeebeWorkerSpring.java)
--   [Learn how to apply recipes](../recipes/)
+-   [Recipe "AllExternalWorkerRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/externalWorkerRecipes.yml)
+-   [Learn how to apply recipes](../../../recipes/README.md)
 
 
 #### Class-level Changes
@@ -1960,7 +2189,7 @@ Check the [README](./README.md) for more details on class-level changes.
 -   the initial number of retries is set in the BPMN xml
 -   the job worker handles decrementing the number of retries and the retry backoff strategy explicitely
 -   the job can fail with variables to skip work in the next retry that was already done in a previous job run
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -2050,7 +2279,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   raising an incident directly uses the same **fail job** API as handling a retryable failure
 -   the number of retries is set to 0 to raise the incident
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -2161,7 +2390,7 @@ Check the [README](./README.md) for more details on class-level changes.
     }
 ```
 
--   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#using-variable).
+-   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#using-variable-recommended).
 -   _.send().join()_ is blocking and waits for the response from the cluster
 
 ###### autoComplete = false (reactive)

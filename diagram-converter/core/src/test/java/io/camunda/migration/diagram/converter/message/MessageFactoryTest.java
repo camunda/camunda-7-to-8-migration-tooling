@@ -108,9 +108,12 @@ public class MessageFactoryTest {
 
   @Test
   void shouldBuildFormKey() {
-    Message message = MessageFactory.formKey(random(), random());
-    assertNotNull(message);
-    assertNotNull(message.getMessage());
+    for (io.camunda.migration.diagram.converter.FormKeyType formKeyType :
+        io.camunda.migration.diagram.converter.FormKeyType.values()) {
+      Message message = MessageFactory.formKey(random(), random(), random(), formKeyType);
+      assertNotNull(message);
+      assertNotNull(message.getMessage());
+    }
   }
 
   @Test
@@ -299,6 +302,20 @@ public class MessageFactoryTest {
     assertThat(message.getMessage())
         .isEqualTo(
             "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' cannot be transformed.");
+  }
+
+  @Test
+  void shouldBuildExecutionListenerOnStartEvent() {
+    Message message =
+        MessageFactory.executionListenerOnStartEventNotSupported(
+            "start", "delegateExpression", "${myExecutionListener}");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Execution Listener at 'start' with implementation 'delegateExpression' '${myExecutionListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/concepts/execution-listeners/#limitations");
   }
 
   @Test
@@ -590,6 +607,19 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildUserTaskPriorityCollision() {
+    Message message = userTaskPriorityCollision("review", "20", "80");
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on user task 'review'. Neither priority maps to the Camunda 8 user-task priority slot. Handle both priorities manually.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#define-user-task-priority");
+  }
+
+  @Test
   void shouldBuildPriorityInvalid() {
     String elementLocalName = "serviceTask";
     String value = "9999999999";
@@ -611,7 +641,7 @@ public class MessageFactoryTest {
     assertThat(message.getSeverity()).isEqualTo(Severity.WARNING);
     assertThat(message.getMessage())
         .isEqualTo(
-            "Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '30' on 'userTask' 'review' was not migrated. If you need priority for this work, model it as a service task instead.");
+            "Camunda 8 has no job-priority slot for 'userTask'. Priority '30' on 'userTask' 'review' was not migrated. Handle the priority manually.");
   }
 
   @Test
@@ -621,7 +651,20 @@ public class MessageFactoryTest {
     assertThat(message.getSeverity()).isEqualTo(Severity.WARNING);
     assertThat(message.getMessage())
         .isEqualTo(
-            "Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.");
+            "Camunda 8 has no job-priority slot for 'messageEventDefinition'. Priority '23' on 'messageEventDefinition' with null id was not migrated. Handle the priority manually.");
+  }
+
+  @Test
+  void shouldBuildUserTaskPriorityNotMigrated() {
+    Message message = userTaskPriorityNotMigrated("jobPriority", "review", "30");
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Camunda 7 'jobPriority' value '30' on user task 'review' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#define-user-task-priority");
   }
 
   @Test

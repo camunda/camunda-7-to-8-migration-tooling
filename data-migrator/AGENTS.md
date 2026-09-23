@@ -46,8 +46,16 @@ The `qa/integration-tests` and `qa/e2e-tests` modules are **not included in the 
 # All integration tests (runtime + history + identity) on H2
 mvn verify -Pintegration
 
-# Runtime integration tests only
+# Runtime integration tests only (full suite, ~53 min)
 mvn verify -Pintegration,runtime-only
+
+# Runtime integration tests — individual CI shards (~20 min each, run in parallel)
+mvn verify -Pintegration,runtime-core       # runtime root + persistence + distribution (catch-all)
+mvn verify -Pintegration,runtime-element    # runtime.element + runtime.datasource
+mvn verify -Pintegration,runtime-jobtype    # runtime.jobtype + runtime.tenant
+mvn verify -Pintegration,runtime-variables  # runtime.variables
+# Note: new sub-packages under runtime/ go to runtime-core automatically (catch-all).
+# Once a new package is large enough, move it to its own shard in pom.xml.
 
 # History integration tests only
 mvn verify -Pintegration,history-only
@@ -61,6 +69,10 @@ mvn verify -Pintegration -Poracle
 mvn verify -Pintegration -Pmysql
 mvn verify -Pintegration -Pmariadb
 mvn verify -Pintegration -Psqlserver
+
+# Cross-vendor history run: Camunda 7 on MS SQL Server, Camunda 8 (RDBMS) on PostgreSQL.
+# Starts both containers; label-gated in CI via `ci:db:cross-vendor`.
+mvn verify -Pintegration,history-only -Psqlserver-to-postgresql
 
 # Combine: e.g. runtime tests on PostgreSQL
 mvn verify -Pintegration,runtime-only -Ppostgresql
@@ -92,7 +104,8 @@ These rules are enforced by ArchUnit tests in `qa/integration-tests` (scans `io.
 - Use SLF4J for logging - no `System.out`/`System.err`
 - Error Prone enabled for compile-time checks
 
-Run architecture validation: `mvn test -Dtest=ArchitectureTest -pl data-migrator/qa`
+Run architecture validation from the repository root:
+`mvn install -DskipTests -pl data-migrator/distro -am && mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=ArchitectureTest`
 
 ## Always-Green Policy
 

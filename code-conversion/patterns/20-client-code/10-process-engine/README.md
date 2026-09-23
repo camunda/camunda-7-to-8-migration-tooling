@@ -17,5 +17,5 @@ The different methods of these services are grouped into separated .md files by 
 
 ## OpenRewrite recipe (WIP)
 
--   [Recipe "ProcessEngineToZeebeClient"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/client/ProcessEngineToZeebeClient.java)
--   [Learn how to apply recipes](../recipes/)
+-   [Recipe "AllClientRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/clientRecipes.yml)
+-   [Learn how to apply recipes](../../../recipes/README.md)

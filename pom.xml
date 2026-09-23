@@ -12,7 +12,7 @@
 
   <groupId>io.camunda</groupId>
   <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-  <version>0.3.4-SNAPSHOT</version>
+  <version>0.3.6-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -25,32 +25,41 @@
   </licenses>
 
   <properties>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
     <version.java>21</version.java>
+    <maven.compiler.release>${version.java}</maven.compiler.release>
 
-    <version.camunda-7>7.24.9-ee</version.camunda-7>
+    <version.camunda-7>7.24.11-ee</version.camunda-7>
     <version.camunda-8>8.10.0-SNAPSHOT</version.camunda-8>
     <version.camunda-8.previous>8.9.0</version.camunda-8.previous>
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
-    <version.spring-boot>4.1.0</version.spring-boot>
-    <logback.version>1.5.37</logback.version>
-    <version.protobuf>4.35.1</version.protobuf>
+    <version.spring-boot>4.1.1</version.spring-boot>
+    <version.spring-framework>7.0.9</version.spring-framework>
+    <version.jackson-bom>2.22.3</version.jackson-bom>
+    <version.jackson-3-bom>3.2.3</version.jackson-3-bom>
+    <version.log4j-bom>2.26.1</version.log4j-bom>
+    <logback.version>1.6.3</logback.version>
+    <tomcat.version>11.0.26</tomcat.version>
+    <version.netty>4.2.18.Final</version.netty>
+    <version.protobuf>4.36.2</version.protobuf>
     <version.assertj>3.27.7</version.assertj>
-    <version.junit.jupiter>6.1.1</version.junit.jupiter>
-    <version.h2>2.4.240</version.h2>
-    <version.guava>33.6.0-jre</version.guava>
+    <version.junit.jupiter>6.1.3</version.junit.jupiter>
+    <version.h2>2.5.250</version.h2>
+    <version.guava>33.7.1-jre</version.guava>
     <version.errorprone>2.50.0</version.errorprone>
-    <version.node>v20.18.1</version.node>
+    <version.node>v24.15.0</version.node>
     <version.npm>10.8.2</version.npm>
-    <plugin.version.compiler>3.15.0</plugin.version.compiler>
+    <version.httpcore5>5.4.3</version.httpcore5>
+    <version.httpclient5>5.6.4</version.httpclient5>
+    <plugin.version.compiler>3.16.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
-    <plugin.version.frontend-maven>2.0.1</plugin.version.frontend-maven>
-    <plugin.version.surefire>3.5.6</plugin.version.surefire>
-    <plugin.version.failsafe>3.5.6</plugin.version.failsafe>
+    <plugin.version.central-publishing>0.11.0</plugin.version.central-publishing>
+    <plugin.version.frontend-maven>2.0.2</plugin.version.frontend-maven>
+    <plugin.version.surefire>3.6.0</plugin.version.surefire>
+    <plugin.version.failsafe>3.6.0</plugin.version.failsafe>
     <plugin.version.resources>3.5.0</plugin.version.resources>
     <plugin.version.dependency>3.11.0</plugin.version.dependency>
+    <plugin.version.enforcer>3.6.3</plugin.version.enforcer>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
@@ -64,6 +73,7 @@
     <nexus.release.repository.id>camunda-artifactory</nexus.release.repository.id>
     <nexus.staging.deploy.id>camunda-artifactory</nexus.staging.deploy.id>
     <central.sonatype.deployment.name>${project.groupId}:${project.artifactId}:${project.version}</central.sonatype.deployment.name>
+    <central.autoPublish>false</central.autoPublish>
   </properties>
 
   <modules>
@@ -100,12 +110,120 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-54515 / CVE-2026-59889 / CVE-2026-68497 / CVE-2026-77310 /
+           CVE-2026-83557 / CVE-2026-19032: make the fixed Jackson BOM
+           inherited by every module, including modules without a local BOM
+           import. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-89044: pin Netty to the version that rejects malformed Transfer-Encoding headers. -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
         <version>${version.junit.jupiter}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-55955: pin tomcat-embed to 11.0.23 -->
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-core</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <!-- CVE-2026-59296: pin micrometer-core to the fixed 1.17.1 version -->
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-core</artifactId>
+        <version>1.17.1</version>
+      </dependency>
+      <!-- CVE-2026-47883 / CVE-2026-47884 / CVE-2026-47885 / CVE-2026-47886 / CVE-2026-47889 / CVE-2026-59281 / CVE-2026-59282 / CVE-2026-59283: pin Spring artifacts explicitly so imported BOMs cannot select affected versions. -->
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-beans</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-expression</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-web</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-webmvc</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-el</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-websocket</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <!-- CVE-2026-54399: pin httpcore5 to 5.4.3 -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${version.httpcore5}</version>
+      </dependency>
+      <!-- CVE-2026-54428: pin httpcore5-h2 to 5.4.3 (separate artifact from httpcore5, not covered by the entry above) -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>${version.httpcore5}</version>
+      </dependency>
+      <!-- CVE-2026-64607 / CVE-2026-71290: pin httpclient5 to 5.6.4 -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5</artifactId>
+        <version>${version.httpclient5}</version>
+      </dependency>
+      <!-- CVE-2026-13006: pin logback to ${logback.version} (a property override alone is a no-op against modules that pull logback in via an imported spring-boot-dependencies BOM) -->
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <!-- CVE-2026-54515 / CVE-2026-59889 / CVE-2026-68497 / CVE-2026-77310 /
+           CVE-2026-83557 / CVE-2026-19032: close residual jackson-databind
+           gaps in modules not covered by the per-module jackson-bom import
+           (plugins/cockpit, examples/*). -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${version.jackson-bom}</version>
+      </dependency>
+      <!-- CVE-2026-59889 / CVE-2026-68497 / CVE-2026-83557 / CVE-2026-19032:
+           close residual Jackson 3 gaps in modules not covered by a per-module
+           tools.jackson BOM import. -->
+      <dependency>
+        <groupId>tools.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${version.jackson-3-bom}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -116,7 +234,7 @@
         <plugin>
           <groupId>com.mycila</groupId>
           <artifactId>license-maven-plugin</artifactId>
-          <version>5.0.0</version>
+          <version>5.1.2</version>
           <configuration>
             <mapping>
               <java>SLASHSTAR_STYLE</java>
@@ -135,6 +253,13 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${plugin.version.compiler}</version>
+          <configuration>
+            <showWarnings>true</showWarnings>
+            <failOnWarning>true</failOnWarning>
+            <compilerArgs>
+              <arg>-Xlint:deprecation,varargs,-options</arg>
+            </compilerArgs>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.sonatype.plugins</groupId>
@@ -143,6 +268,11 @@
           <configuration>
             <stagingProgressTimeoutMinutes>40</stagingProgressTimeoutMinutes>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>${plugin.version.central-publishing}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -185,10 +315,22 @@
           <artifactId>maven-dependency-plugin</artifactId>
           <version>${plugin.version.dependency}</version>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${plugin.version.enforcer}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 
     <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <configuration>
+          <autoPublish>${central.autoPublish}</autoPublish>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -211,7 +353,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>flatten-maven-plugin</artifactId>
-        <version>1.7.3</version>
+        <version>1.8.0</version>
         <configuration combine.children="append">
           <flattenMode>bom</flattenMode>
         </configuration>
@@ -229,6 +371,61 @@
               <goal>clean</goal>
             </goals>
             <phase>clean</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>reject-vulnerable-dependencies</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>org.springframework:spring-web:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-web:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-web:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-web:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-web:[7.0,7.0.9)</exclude>
+                    <exclude>org.springframework:spring-webmvc:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[7.0,7.0.9)</exclude>
+                    <exclude>org.springframework:spring-beans:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-beans:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-beans:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-beans:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-beans:[7.0,7.0.9)</exclude>
+                    <exclude>org.springframework:spring-expression:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-expression:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-expression:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-expression:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-expression:[7.0,7.0.9)</exclude>
+                    <exclude>org.apache.httpcomponents.client5:httpclient5:[5.4,5.6.4)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.18.10)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.6)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.2)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.6)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.2)</exclude>
+                    <exclude>io.netty:netty-codec-http:[4.1,4.1.138)</exclude>
+                    <exclude>io.netty:netty-codec-http:[4.2,4.2.18)</exclude>
+                  </excludes>
+                  <message>
+                    Use a patched Spring Framework line (5.3.50+, 6.0.31+, 6.1.29+, 6.2.20+, or 7.0.9+),
+                    HttpClient5 5.6.4+, jackson-databind 2.18.10+ on 2.18, 2.21.6+ on 2.21, 2.22.2+ on 2.22,
+                    3.1.6+ on 3.1, or 3.2.2+ on 3.2, and Netty 4.1.138+ or 4.2.18+.
+                  </message>
+                  <searchTransitive>true</searchTransitive>
+                </bannedDependencies>
+              </rules>
+            </configuration>
           </execution>
         </executions>
       </plugin>

@@ -1,0 +1,56 @@
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.MigrateApplicationPropertiesRecipe
+displayName: Migrate application.properties/yml from Camunda 7 to Camunda 8
+description: >-
+  Removes the Camunda 7 `camunda.bpm.*` configuration namespace from Spring Boot
+  `application.properties` and `application.yml`/`application.yaml` files and adds a
+  Camunda 8 `camunda.client.*` connection skeleton. The added values target a local
+  c8run / Self-Managed setup and must be reviewed for the actual deployment. Only files
+  named `application*.{properties,yml,yaml}` are touched; other configuration files and
+  unrelated keys (e.g. `server.port`, `spring.datasource.*`) are left untouched.
+preconditions:
+  - org.openrewrite.FindSourceFiles:
+      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
+recipeList:
+  # --- Remove the Camunda 7 namespace ---
+  # camunda.bpm.* has no Camunda 8 equivalent. Both custom recipes delete by flattened key prefix
+  # (the built-in DeleteProperty/DeleteKey only match a single exact/structural key), so the whole
+  # namespace is removed regardless of the nested or dotted form Spring Boot allows.
+  - io.camunda.migration.code.recipes.config.RemoveCamundaBpmProperties
+  - io.camunda.migration.code.recipes.config.RemoveCamundaBpmYaml
+  # --- Add the Camunda 8 connection skeleton to .properties ---
+  - org.openrewrite.properties.AddProperty:
+      property: camunda.client.mode
+      value: self-managed
+      comment: "TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)"
+  - org.openrewrite.properties.AddProperty:
+      property: camunda.client.grpc-address
+      value: http://localhost:26500
+  - org.openrewrite.properties.AddProperty:
+      property: camunda.client.rest-address
+      value: http://localhost:8080
+  # --- Add the Camunda 8 connection skeleton to .yml/.yaml ---
+  - org.openrewrite.yaml.MergeYaml:
+      key: $
+      yaml: |
+        camunda:
+          client:
+            # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+            mode: self-managed
+            grpc-address: http://localhost:26500
+            rest-address: http://localhost:8080
+  - io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe
+displayName: Validate Camunda client configuration
+description: >-
+  Marks unsupported Camunda client modes and authentication property shapes in
+  application.properties and application.yml/application.yaml files. It also marks legacy
+  camunda.client.zeebe.* aliases as deprecated without contacting a Camunda cluster.
+preconditions:
+  - org.openrewrite.FindSourceFiles:
+      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
+recipeList:
+  - io.camunda.migration.code.recipes.config.ValidateCamundaClientProperties
+  - io.camunda.migration.code.recipes.config.ValidateCamundaClientYaml

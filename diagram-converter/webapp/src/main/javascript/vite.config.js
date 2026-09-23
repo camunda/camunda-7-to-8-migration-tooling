@@ -5,16 +5,25 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      "~@ibm/plex": path.resolve(__dirname, "node_modules/@ibm/plex"),
+  server: {
+    proxy: {
+      "/check": "http://localhost:8080",
+      "/convert": "http://localhost:8080",
+      "/convertBatch": "http://localhost:8080",
+      "/version": "http://localhost:8080",
     },
+  },
+  build: {
+    // Design System CSS contains container-query placeholders unsupported by Lightning CSS.
+    cssMinify: "esbuild",
+  },
+  test: {
+    environment: "jsdom",
   },
 });

@@ -30,6 +30,9 @@ public class UserTaskConversion extends AbstractTypedConversion<UserTaskConverti
     if (canAddTaskSchedule(convertible)) {
       extensionElements.appendChild(createTaskSchedule(element.getDocument(), convertible));
     }
+    if (StringUtils.isNotBlank(convertible.getZeebeUserTaskPriority())) {
+      extensionElements.appendChild(createPriorityDefinition(element.getDocument(), convertible));
+    }
     if (hasTaskListeners(convertible)) {
       DomElement listenersRoot = createTaskListeners(extensionElements);
       for (ZeebeTaskListener listener : convertible.getZeebeTaskListeners()) {
@@ -52,6 +55,13 @@ public class UserTaskConversion extends AbstractTypedConversion<UserTaskConverti
     taskSchedule.setAttribute("dueDate", convertible.getZeebeTaskSchedule().getDueDate());
     taskSchedule.setAttribute("followUpDate", convertible.getZeebeTaskSchedule().getFollowUpDate());
     return taskSchedule;
+  }
+
+  private DomElement createPriorityDefinition(
+      DomDocument document, UserTaskConvertible convertible) {
+    DomElement priorityDefinition = document.createElement(ZEEBE, "priorityDefinition");
+    priorityDefinition.setAttribute("priority", convertible.getZeebeUserTaskPriority());
+    return priorityDefinition;
   }
 
   private boolean canAddTaskSchedule(UserTaskConvertible convertible) {

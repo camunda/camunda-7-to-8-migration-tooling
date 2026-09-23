@@ -64,6 +64,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
+-   if your app also uses `@Deployment`, do not start instances from `@PostConstruct`; use `@EventListener(CamundaPostDeploymentEvent.class)` so startup runs after deployment completes
 
 ## By Key Assigned on Deployment (specific version)
 

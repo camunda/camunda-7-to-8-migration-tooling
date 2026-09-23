@@ -28,9 +28,10 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
   @EnabledIf("hasScenarios_activeElementPostMigration")
   @MethodSource("elementScenarios_activeElementPostMigration")
   @ParameterizedTest
-  public void migrateSimpleElementScenarios_expectActiveElement(final String processFile,
-                                                                final String processId,
-                                                                final String elementId) {
+  public void shouldMigrateSimpleElementScenariosWithActiveElement(
+      final String processFile,
+      final String processId,
+      final String elementId) {
     // given
     deployer.deployProcessInC7AndC8(processFile);
     ProcessInstance instance = runtimeService.startProcessInstanceByKey(processId);
@@ -47,9 +48,10 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
   @EnabledIf("hasScenarios_completedElementPostMigration")
   @MethodSource("elementScenarios_completedElementPostMigration")
   @ParameterizedTest
-  public void migrateSimpleElementScenarios_expectCompletedElement(final String processFile,
-                                                                   final String processId,
-                                                                   final String elementId) {
+  public void shouldMigrateSimpleElementScenariosWithCompletedElement(
+      final String processFile,
+      final String processId,
+      final String elementId) {
     // given
     deployer.deployProcessInC7AndC8(processFile);
     ProcessInstance instance = runtimeService.startProcessInstanceByKey(processId);

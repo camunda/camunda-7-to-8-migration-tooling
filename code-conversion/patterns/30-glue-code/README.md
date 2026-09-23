@@ -12,8 +12,8 @@ The glue code patterns look into the different scenarios and proposes code conve
 |-----------------------------------|-------------------------------------------------|----------------------------|-----------------------------------------------------------------------|------|
 | `camunda:class`                   | `camunda:class="com.example.MyDelegate"`        | `myDelegate`               | Class name is converted to camelCase; assumes a `@JobWorker` Spring bean | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
 | `camunda:delegateExpression`      | `camunda:delegateExpression="${myBean}"`        | `myBean`                   | Bean name is used directly; assumes a `@JobWorker`-annotated method   | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
-| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [15-java-expression/]() |
-| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | []() |
+| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [Java Expression](15-java-expression/README.md) |
+| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | — |
 
 
 

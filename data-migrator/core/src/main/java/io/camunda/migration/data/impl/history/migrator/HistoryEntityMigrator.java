@@ -35,6 +35,7 @@ import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
@@ -82,6 +83,9 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
   @Autowired
   protected PartitionSupplier partitionSupplier;
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   protected MigratorMode mode = MIGRATE;
 

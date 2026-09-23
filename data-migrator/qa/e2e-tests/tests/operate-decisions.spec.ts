@@ -6,12 +6,13 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { navigateToOperateLogin } from './operate-navigation';
 
 /**
  * Helper function to navigate to a specific decision instance by decision name
  */
-async function navigateToDecisionByName(page: any, decisionName: string) {
+async function navigateToDecisionByName(page: Page, decisionName: string) {
   // Navigate to decisions page
   const decisionsLink = page.locator('nav a:has-text("Decisions"), a[href*="/decisions"], a[title*="Decisions"]').first();
   await decisionsLink.waitFor({ state: 'visible', timeout: 10000 });
@@ -19,7 +20,10 @@ async function navigateToDecisionByName(page: any, decisionName: string) {
 
   // Wait for the decisions page to load
   await page.waitForURL('**/decisions**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator('[data-testid="data-list"] > div, table tbody tr')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 });
 
   // Find the decision row containing the specified decision name
   // Look for a row that contains the decision name and then find the link within it
@@ -33,7 +37,9 @@ async function navigateToDecisionByName(page: any, decisionName: string) {
 
   // Wait for the decision instance detail page to load
   await page.waitForURL('**/decisions/**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator('[data-testid="instance-header"]')
+    .waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -56,44 +62,44 @@ async function navigateToDecisionByName(page: any, decisionName: string) {
 test.describe('Operate - Decision Instances', () => {
   // Configure this test suite to run in isolation with its own browser context
   test.describe.configure({ mode: 'serial' });
+  // Firefox can take longer to finish navigation on CI runners. Leave enough
+  // time for the login page to load and for the test body to execute.
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page, context }) => {
-    // Clear cookies and storage to ensure clean state between tests
+    // Clear cookies and permissions to ensure clean state between tests
     await context.clearCookies();
     await context.clearPermissions();
 
-    // Navigate directly to Camunda Operate login page
-    // Note: Operate is running on port 8088 as configured in docker-compose.yml
-    await page.goto('http://localhost:8088/operate/login');
+    // Navigate directly to Camunda Operate login page. Waiting for the DOM is
+    // sufficient here; waiting for every resource and network-idle can exceed
+    // the default test timeout on slower Firefox CI runners.
+    await navigateToOperateLogin(page);
 
-    // Wait for the page to load
-    await page.waitForLoadState('networkidle');
+    // Wait for the Angular-rendered login form instead of checking visibility
+    // immediately after navigation. A fresh Playwright context has no session,
+    // so Operate should always present the login form here.
+    const usernameInput = page.locator('input[name="username"]');
+    await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
-    // Check if we need to log in (login form is visible)
-    const isLoginPage = await page.locator('input[name="username"]').isVisible().catch(() => false);
+    // Fill in login credentials - Camunda 8 default demo user
+    const passwordInput = page.locator('input[name="password"]');
+    const submitButton = page.locator('button[type="submit"]');
 
-    if (isLoginPage) {
-      // Fill in login credentials - Camunda 8 default demo user
-      const usernameInput = page.locator('input[name="username"]');
-      const passwordInput = page.locator('input[name="password"]');
-      const submitButton = page.locator('button[type="submit"]');
+    await usernameInput.fill('demo');
+    await passwordInput.fill('demo');
 
-      await usernameInput.waitFor({ state: 'visible', timeout: 10000 });
+    // Take screenshot before login
+    await page.screenshot({ path: 'test-results/operate-before-login.png', fullPage: true });
 
-      await usernameInput.fill('demo');
-      await passwordInput.fill('demo');
+    await submitButton.click();
 
-      // Take screenshot before login
-      await page.screenshot({ path: 'test-results/operate-before-login.png', fullPage: true });
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
+      timeout: 15000,
+    });
 
-      await submitButton.click();
-
-      // Wait for the dashboard to load
-      await page.waitForTimeout(2000);
-
-      // Take screenshot after login
-      await page.screenshot({ path: 'test-results/operate-after-login.png', fullPage: true });
-    }
+    // Take screenshot after login
+    await page.screenshot({ path: 'test-results/operate-after-login.png', fullPage: true });
   });
 
   test.afterEach(async ({ page, context }) => {
@@ -111,7 +117,6 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decisions page to load
     await page.waitForURL('**/decisions**', { timeout: 10000 });
-    await page.waitForTimeout(3000); // Give time for data to load
 
     // Take screenshot of decisions page
     await page.screenshot({ path: 'test-results/operate-decisions-page.png', fullPage: true });
@@ -126,16 +131,10 @@ test.describe('Operate - Decision Instances', () => {
       '[role="row"]'
     );
 
-    // Wait for results to be visible
-    await decisionRows.first().waitFor({ state: 'visible', timeout: 10000 });
+    // Wait until all 12 rows are rendered (toHaveCount retries until stable)
+    await expect(decisionRows).toHaveCount(12, { timeout: 15000 });
 
-    // Count the number of decision instances displayed
-    const count = await decisionRows.count();
-
-    // Verify we have exactly 12 decision instances
-    expect(count).toBe(12);
-
-    console.log(`Found ${count} decision instances on the decisions page`);
+    console.log(`Found 12 decision instances on the decisions page`);
   });
 
   test('should open first decision instance and display details page', async ({ page }) => {
@@ -146,7 +145,10 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decisions page to load
     await page.waitForURL('**/decisions**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page
+      .locator('[data-testid="data-list"] > div, table tbody tr')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Find the first decision instance and click on its key/ID to open details
     const firstDecisionLink = page.locator(
@@ -164,7 +166,9 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decision instance detail page to load
     await page.waitForURL('**/decisions/**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page
+      .locator('[data-testid="instance-header"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take screenshot of decision instance details
     await page.screenshot({ path: 'test-results/operate-decision-details.png', fullPage: true });
@@ -209,9 +213,9 @@ test.describe('Operate - Decision Instances', () => {
     const outputLabel = page.locator('.output-label');
     await expect(outputLabel).toContainText('Approver Group');
 
-    // Verify three rule rows exist
+    // Verify three rule rows exist — toHaveCount retries until all rows are rendered
     const ruleRows = page.locator('.tjs-table tbody tr');
-    expect(await ruleRows.count()).toBe(3);
+    await expect(ruleRows).toHaveCount(3, { timeout: 10000 });
   });
 
   test('should display decision inputs table with entries', async ({ page }) => {
@@ -311,18 +315,14 @@ test.describe('Operate - Decision Instances', () => {
     const assignApproverNode = drdPanel.locator('text:has-text("Assign Approver")');
     await expect(assignApproverNode).toBeVisible();
 
-    // Verify badges indicating evaluated decisions (parent and child execution)
+    // Verify badges for both evaluated decisions — toHaveCount retries until both badges render
     const executionBadges = drdPanel.locator('[data-testid="state-overlay-EVALUATED"]');
-    await executionBadges.first().waitFor({ state: 'visible', timeout: 10000 });
-
-    // Verify we have badges for both decisions
-    const badgeCount = await executionBadges.count();
-    expect(badgeCount).toBe(2); // One for each decision in the DRD
-    console.log(`Found ${badgeCount} evaluation state badges in DRD (Invoice Classification and Assign Approver Group)`);
+    await expect(executionBadges).toHaveCount(2, { timeout: 10000 });
+    console.log('Found 2 evaluation state badges in DRD (Invoice Classification and Assign Approver Group)');
 
     // Verify the badges contain checkmark icons indicating successful evaluation
     const checkmarkIcons = executionBadges.locator('svg');
-    expect(await checkmarkIcons.count()).toBe(2);
+    await expect(checkmarkIcons).toHaveCount(2, { timeout: 10000 });
   });
 
   test('should navigate to different decision when clicking DRD nodes', async ({ page }) => {
@@ -351,7 +351,7 @@ test.describe('Operate - Decision Instances', () => {
     await invoiceClassificationNode.click();
 
     // Wait for navigation to occur
-    await page.waitForTimeout(3000);
+    await expect(page).not.toHaveURL(currentUrl, { timeout: 10000 });
 
     // Take screenshot after clicking decision in DRD
     await page.screenshot({ path: 'test-results/operate-after-drd-navigation.png', fullPage: true });
@@ -384,7 +384,11 @@ test.describe('Operate - Decision Instances', () => {
     await decisionsLink.click();
 
     // Wait for the page to load
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/decisions**', { timeout: 10000 });
+    await page
+      .locator('[data-testid="data-list"] > div, table tbody tr')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Open first decision
     const firstDecisionLink = page.locator(
@@ -396,7 +400,10 @@ test.describe('Operate - Decision Instances', () => {
     await firstDecisionLink.click();
 
     // Wait for details to fully render
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/decisions/**', { timeout: 10000 });
+    await page
+      .locator('[data-testid="instance-header"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take final screenshot
     await page.screenshot({ path: 'test-results/operate-decision-rendered.png', fullPage: true });
@@ -417,4 +424,3 @@ test.describe('Operate - Decision Instances', () => {
     expect(hasCriticalErrors).toBeFalsy();
   });
 });
-

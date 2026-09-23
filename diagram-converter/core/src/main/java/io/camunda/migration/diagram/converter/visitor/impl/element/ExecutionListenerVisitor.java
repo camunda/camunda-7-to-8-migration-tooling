@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.diagram.converter.visitor.impl.element;
 
+import static io.camunda.migration.diagram.converter.NamespaceUri.BPMN;
+import static io.camunda.migration.diagram.converter.NamespaceUri.CAMUNDA;
 import static io.camunda.migration.diagram.converter.visitor.AbstractDelegateImplementationVisitor.*;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
@@ -19,6 +21,7 @@ import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import io.camunda.migration.diagram.converter.visitor.AbstractListenerVisitor;
 import io.camunda.migration.diagram.converter.visitor.AbstractListenerVisitor.ListenerImplementation.DelegateExpressionImplementation;
 import java.util.regex.Matcher;
+import org.camunda.bpm.model.xml.instance.DomElement;
 
 public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
@@ -29,6 +32,11 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
   protected Message visitListener(
       DomElementVisitorContext context, String event, ListenerImplementation implementation) {
+    if (isStartListenerOnStartEvent(context, event)) {
+      return MessageFactory.executionListenerOnStartEventNotSupported(
+          event, ListenerImplementation.type(implementation), implementation.implementation());
+    }
+
     if (isExecutionListenerSupported(
         SemanticVersion.parse(context.getProperties().getPlatformVersion()), event)) {
       ZeebeExecutionListener executionListener = new ZeebeExecutionListener();
@@ -40,6 +48,7 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
       } else {
         executionListener.setListenerType(implementation.implementation());
       }
+      addStaticTaskHeaders(context, executionListener);
       context.addConversion(
           AbstractExecutionListenerConvertible.class,
           c -> c.addZeebeExecutionListener(executionListener));
@@ -49,8 +58,29 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
         event, ListenerImplementation.type(implementation), implementation.implementation());
   }
 
+  private void addStaticTaskHeaders(
+      DomElementVisitorContext context, ZeebeExecutionListener executionListener) {
+    SemanticVersion version = SemanticVersion.parse(context.getProperties().getPlatformVersion());
+    if (version.ordinal() < SemanticVersion._8_10.ordinal()) {
+      return;
+    }
+
+    for (DomElement field : context.getElement().getChildElementsByNameNs(CAMUNDA, "field")) {
+      if (FieldContentVisitor.isStaticExecutionListenerField(field)) {
+        String name = field.getAttribute("name");
+        executionListener.addZeebeTaskHeader(
+            name, FieldContentVisitor.getStaticExecutionListenerFieldValue(field));
+        context.addMessage(MessageFactory.executionListenerField(name));
+      }
+    }
+  }
+
   private boolean isExecutionListenerSupported(SemanticVersion version, String event) {
     return version.ordinal() >= SemanticVersion._8_6.ordinal() && isKnownEventType(event);
+  }
+
+  private boolean isStartListenerOnStartEvent(DomElementVisitorContext context, String event) {
+    return "start".equals(event) && isOnBpmnElement(context, BPMN, "startEvent");
   }
 
   private boolean isKnownEventType(String event) {
@@ -64,8 +94,9 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
 
   @Override
   public boolean canBeTransformed(DomElementVisitorContext context) {
+    String event = findEventName(context);
     return isExecutionListenerSupported(
-        SemanticVersion.parse(context.getProperties().getPlatformVersion()),
-        findEventName(context));
+            SemanticVersion.parse(context.getProperties().getPlatformVersion()), event)
+        && !isStartListenerOnStartEvent(context, event);
   }
 }

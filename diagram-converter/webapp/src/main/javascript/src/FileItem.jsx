@@ -5,15 +5,44 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { Loading, Tooltip } from "@carbon/react";
-
 import {
   Download,
-  TrashCan,
-  View,
-  WarningFilled,
-  CheckmarkFilled,
-} from "@carbon/react/icons";
+  Trash,
+  Eye,
+  AlertTriangle,
+  AlertCircle,
+  MessageCircleWarning,
+  Info,
+  Check,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+
+import { getSeverityStyleKey } from "./findings";
+
+function Spinner() {
+  return (
+    <Loader2
+      aria-hidden="true"
+      className="size-4 animate-spin text-primary-action-default"
+    />
+  );
+}
+
+// Single, unambiguous in-progress indicator for a file row: one spinner plus
+// one status label describing the current phase (analyze, then convert).
+function statusLabel(isChecked) {
+  return isChecked ? "Converting…" : "Analyzing…";
+}
+
+// One icon per severity tier so the badge doesn't rely on color alone to
+// tell a warning-heavy file apart from an informational-only one.
+const SEVERITY_BADGE_ICON = {
+  warning: AlertTriangle,
+  task: AlertCircle,
+  review: MessageCircleWarning,
+  info: Info,
+};
 
 export default function FileItem({
   name,
@@ -23,54 +52,92 @@ export default function FileItem({
   isConverted,
   downloadAction,
   previewAction,
+  previewTitle = "Preview analysis findings",
   onDelete,
+  onRetry,
   findingCount,
+  highestSeverity,
 }) {
+  const severityKey = getSeverityStyleKey(highestSeverity);
+  const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
+  const highestSeverityLabel = highestSeverity || "Unknown";
+  const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
+
   return (
     <div className="FileItem">
-      <div className="left">
-        {status === "success" && (
-          <div className="fileItemCheck">
-            <CheckmarkFilled />
-          </div>
-        )}
-        <span
-          className={isConverted && downloadAction && !error ? "downloadable" : ""}
-          onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
-        >
-          {name}
-        </span>
-      </div>
-      <div className="right">
-        {findingCount > 0 && (
-          <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
-        )}
-
-        {error && (
-          <Tooltip label={error}>
-            <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
+      <div className="FileItemMain">
+        <div className="left">
+          {status === "success" && (
+            <div className="fileItemCheck">
+              <Check />
             </div>
-          </Tooltip>
-        )}
-        {status === "uploading" && !isChecked && <Loading small withOverlay={false} />}
-        {isChecked && previewAction && (
-          <button className="download" onClick={previewAction} title="Preview the analyzer results for this model">
-            <View />
-          </button>
-        )}
-        {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
-        {isConverted && downloadAction && !error && (
-          <button className="download" onClick={downloadAction} title="Download the converted model">
-            <Download />
-          </button>
-        )}
-        {onDelete && (
-          <button onClick={onDelete}>
-            <TrashCan />
-          </button>
-        )}
+          )}
+          <span title={name}>{name}</span>
+        </div>
+        <div className="right">
+          {findingCount > 0 && (
+            <span
+              className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
+              title={`Highest severity: ${highestSeverityLabel}`}
+              aria-label={`${findingCountLabel}, highest severity ${highestSeverityLabel}`}
+            >
+              <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
+              {findingCountLabel}
+            </span>
+          )}
+
+          {status === "uploading" && (
+            <span className="fileItemStatus" role="status">
+              <Spinner />
+              <span className="fileItemStatusLabel">{statusLabel(isChecked)}</span>
+            </span>
+          )}
+          {isChecked && previewAction && (
+            <button
+              type="button"
+              className="download"
+              onClick={previewAction}
+              title={previewTitle}
+              aria-label={previewTitle}
+            >
+              <Eye />
+            </button>
+          )}
+          {isConverted && downloadAction && !error && (
+            <button
+              type="button"
+              className="download"
+              onClick={downloadAction}
+              title={`Download ${name}`}
+              aria-label={`Download ${name}`}
+            >
+              <Download />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              title={`Remove ${name}`}
+              aria-label={`Remove ${name}`}
+            >
+              <Trash />
+            </button>
+          )}
+        </div>
       </div>
+      {error && (
+        <div className="FileItemError" role="alert">
+          <AlertTriangle aria-hidden="true" className="fileItemErrorIcon" />
+          <span className="fileItemErrorText">{error}</span>
+          {onRetry && (
+            <button type="button" className="fileItemRetry" onClick={onRetry}>
+              <RefreshCw aria-hidden="true" />
+              Retry
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

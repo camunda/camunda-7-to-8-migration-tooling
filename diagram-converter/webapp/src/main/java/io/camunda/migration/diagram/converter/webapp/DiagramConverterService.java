@@ -33,6 +33,7 @@ public class DiagramConverterService {
   public void convert(
       ModelInstance modelInstance,
       boolean appendDocumentation,
+      boolean appendDocumentationOnlyTaskAndWarning,
       String defaultJobType,
       String platformVersion,
       Boolean keepJobTypeBlank,
@@ -47,7 +48,10 @@ public class DiagramConverterService {
     adaptedProperties.setAddDataMigrationExecutionListener(addDataMigrationExecutionListener);
     adaptedProperties.setDataMigrationExecutionListenerJobType(
         dataMigrationExecutionListenerJobType);
-    adaptedProperties.setAppendDocumentation(appendDocumentation);
+    adaptedProperties.setAppendDocumentation(
+        appendDocumentation || appendDocumentationOnlyTaskAndWarning);
+    adaptedProperties.setAppendDocumentationOnlyTaskAndWarning(
+        appendDocumentationOnlyTaskAndWarning);
     diagramConverter.convert(
         modelInstance, ConverterPropertiesFactory.getInstance().merge(adaptedProperties));
   }
@@ -84,6 +88,10 @@ public class DiagramConverterService {
 
   public void writeCsvFile(List<DiagramCheckResult> results, Writer writer) {
     diagramConverter.writeCsvFile(results, writer);
+  }
+
+  public void writeJsonFile(List<DiagramCheckResult> results, Writer writer) {
+    diagramConverter.writeJsonFile(results, writer);
   }
 
   public List<DiagramConverterResultDTO> createLineItemDTOList(List<DiagramCheckResult> results) {

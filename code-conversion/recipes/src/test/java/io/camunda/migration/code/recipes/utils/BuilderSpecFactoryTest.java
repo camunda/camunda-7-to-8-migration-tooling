@@ -9,33 +9,39 @@ package io.camunda.migration.code.recipes.utils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guards the comment-generation logic in {@link BuilderSpecFactory#createRemovedComment}.
+ * Guards the comment-generation logic in {@link BuilderSpecFactory#createRemovedComments}.
  *
  * <p>The method has one special case: {@code businessKey} in the createProcessInstance builder
- * should emit a businessId hint, while {@code processInstanceBusinessKey} in the
- * correlateMessage builder must stay neutral (businessId is not a replacement for message
- * correlation keys).
+ * should emit a businessId hint plus a reminder to migrate any BPMN call-activity propagation,
+ * while {@code processInstanceBusinessKey} in the correlateMessage builder must stay neutral
+ * (businessId is not a replacement for message correlation keys).
  */
 class BuilderSpecFactoryTest {
 
   @Test
-  void businessKeyGetsBusinessIdHint() {
-    String comment = BuilderSpecFactory.createRemovedComment("businessKey");
+  void businessKeyGetsBusinessIdHintAndCallActivityReminder() {
+    List<String> comments = BuilderSpecFactory.createRemovedComments("businessKey");
 
-    assertThat(comment)
+    assertThat(comments).hasSize(2);
+    assertThat(comments.get(0))
         .as("businessKey on the create-instance path should point to businessId")
         .contains("businessId")
         .contains("TODO");
+    assertThat(comments.get(1))
+        .as("businessKey should also flag call-activity propagation for the diagram converter")
+        .contains("call activity");
   }
 
   @Test
   void processInstanceBusinessKeyKeepsNeutralComment() {
-    String comment = BuilderSpecFactory.createRemovedComment("processInstanceBusinessKey");
+    List<String> comments = BuilderSpecFactory.createRemovedComments("processInstanceBusinessKey");
 
-    assertThat(comment)
+    assertThat(comments).hasSize(1);
+    assertThat(comments.get(0))
         .as("processInstanceBusinessKey is on the correlate-message path; businessId does not apply")
         .contains("processInstanceBusinessKey")
         .contains("was removed")
@@ -44,8 +50,8 @@ class BuilderSpecFactoryTest {
 
   @Test
   void otherRemovedMethodsGetGenericComment() {
-    String comment = BuilderSpecFactory.createRemovedComment("someOtherMethod");
+    List<String> comments = BuilderSpecFactory.createRemovedComments("someOtherMethod");
 
-    assertThat(comment).isEqualTo(" someOtherMethod was removed");
+    assertThat(comments).containsExactly(" someOtherMethod was removed");
   }
 }

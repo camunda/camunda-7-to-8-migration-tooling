@@ -18,10 +18,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testcontainers.containers.MariaDBContainer;
-import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.mariadb.MariaDBContainer;
+import org.testcontainers.mssqlserver.MSSQLServerContainer;
+import org.testcontainers.mysql.MySQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.oracle.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -36,6 +36,13 @@ public class MultiDbExtension implements BeforeAllCallback {
   public static final int MARIADB_10_PORT = 33063;
   public static final int SQLSERVER_PORT = 14331;
   
+  /**
+   * Cross-vendor profiles that require more than one database container: the profile name is
+   * mapped to the container keys it needs, in the order they are started.
+   */
+  protected static final Map<String, List<String>> CROSS_VENDOR_PROFILES =
+      Map.of("sqlserver-to-postgresql", List.of("sqlserver", "postgresql"));
+
   protected static final Logger LOGGER = LoggerFactory.getLogger(MultiDbExtension.class);
   protected static Map<String, JdbcDatabaseContainer<?>> containers = createContainers();
   
@@ -45,17 +52,35 @@ public class MultiDbExtension implements BeforeAllCallback {
 
   protected static void startContainer() {
     List<String> activeProfiles = SpringProfileResolver.getActiveProfiles();
-    String dbProfile = activeProfiles.stream().filter(containers.keySet()::contains).findFirst().orElse("default");
+    String dbProfile = activeProfiles.stream()
+        .filter(profile -> containers.containsKey(profile) || CROSS_VENDOR_PROFILES.containsKey(profile))
+        .findFirst()
+        .orElse("default");
     LOGGER.info("Running tests with DB profile [{}]", dbProfile);
-    JdbcDatabaseContainer<?> container = containers.get(dbProfile);
-    if (container != null) {
-      LOGGER.info("Starting container [{}]", dbProfile);
-      container.start();
+    List<String> containerKeys = CROSS_VENDOR_PROFILES.get(dbProfile);
+    if (containerKeys == null) {
+      // A single-vendor profile, or "default" for which no container exists.
+      containerKeys = List.of(dbProfile);
+    } else {
+      for (String containerKey : containerKeys) {
+        if (!containers.containsKey(containerKey)) {
+          throw new IllegalStateException("Cross-vendor profile [" + dbProfile
+              + "] requires unknown container [" + containerKey + "], available containers are "
+              + containers.keySet());
+        }
+      }
+    }
+    for (String containerKey : containerKeys) {
+      JdbcDatabaseContainer<?> container = containers.get(containerKey);
+      if (container != null) {
+        LOGGER.info("Starting container [{}]", containerKey);
+        container.start();
+      }
     }
   }
 
-  protected static PostgreSQLContainer<?> createPostgreSQLContainer() {
-    PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18")
+  protected static PostgreSQLContainer createPostgreSQLContainer() {
+    PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18")
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
@@ -66,8 +91,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     return postgres;
   }
 
-  protected static PostgreSQLContainer<?> createPostgreSQL15Container() {
-    PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
+  protected static PostgreSQLContainer createPostgreSQL15Container() {
+    PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:15")
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
@@ -102,8 +127,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     return oracle;
   }
 
-  protected static MySQLContainer<?> createMySQLContainer() {
-    MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
+  protected static MySQLContainer createMySQLContainer() {
+    MySQLContainer mysql = new MySQLContainer("mysql:8.0")
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
@@ -113,8 +138,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     return mysql;
   }
 
-  protected static MariaDBContainer<?> createMariaDBContainer() {
-    MariaDBContainer<?> mariadb = new MariaDBContainer<>("mariadb:11.8")
+  protected static MariaDBContainer createMariaDBContainer() {
+    MariaDBContainer mariadb = new MariaDBContainer("mariadb:11.8")
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
@@ -124,8 +149,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     return mariadb;
   }
 
-  protected static MariaDBContainer<?> createMariaDB10Container() {
-    MariaDBContainer<?> mariadb = new MariaDBContainer<>("mariadb:10.6")
+  protected static MariaDBContainer createMariaDB10Container() {
+    MariaDBContainer mariadb = new MariaDBContainer("mariadb:10.6")
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
@@ -135,8 +160,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     return mariadb;
   }
 
-  protected static MSSQLServerContainer<?> createSQLServerContainer() {
-    MSSQLServerContainer<?> sqlserver = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
+  protected static MSSQLServerContainer createSQLServerContainer() {
+    MSSQLServerContainer sqlserver = new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest")
         .withPassword("Camunda123!")
         .withExposedPorts(1433)
         .acceptLicense();

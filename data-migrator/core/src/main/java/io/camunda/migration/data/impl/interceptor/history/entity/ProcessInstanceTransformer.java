@@ -11,20 +11,24 @@ import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessIns
 import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceState;
 
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import java.util.HashSet;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Order(2)
 @Component
 public class ProcessInstanceTransformer implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -35,7 +39,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
   public void execute(HistoricProcessInstance entity, ProcessInstanceDbModelBuilder builder) {
     builder
         // Get key from runtime instance/model migration
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
         .startDate(convertDate(entity.getStartTime()))
         .state(convertState(entity.getState()))
         .tenantId(getTenantId(entity.getTenantId()))

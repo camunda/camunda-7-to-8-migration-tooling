@@ -31,6 +31,22 @@ public class RecipeUtils {
     return " TODO: " + removedMethod + " was removed - use businessId (Camunda 8.9+) instead";
   }
 
+  /**
+   * Extra hint used alongside {@link #businessIdHint} on process-instance <em>creation</em> paths
+   * where a {@code businessKey} is dropped without an automatic {@code businessId} replacement.
+   *
+   * <p>If the former {@code businessKey} was also propagated to a called process via a
+   * {@code <camunda:in businessKey="..." />} mapping on a BPMN call activity, that propagation must
+   * be migrated to Business ID on the diagram side as well. This is out of scope for code recipes
+   * (handled by the diagram converter), so we only surface it as a reminder here.
+   */
+  public static String businessIdCallActivityHint() {
+    return " TODO: if this businessKey was propagated to a called process via <camunda:in"
+        + " businessKey=\"...\" /> on a BPMN call activity, migrate that propagation to businessId in"
+        + " the diagram as well (diagram converter). Camunda 8.10+ can override the inherited"
+        + " businessId with a literal or FEEL expression when the child needs a different ID.";
+  }
+
   public static J.Identifier createSimpleIdentifier(String simpleName, String javaType) {
     return new J.Identifier(
         Tree.randomId(),
@@ -165,5 +181,35 @@ public class RecipeUtils {
     }
 
     return joiner + "";
+  }
+
+  /**
+   * Checks whether the given type is assignable to the supplied fully-qualified class name, walking
+   * supertypes and interfaces recursively.
+   */
+  public static boolean isAssignableTo(JavaType type, String fullyQualifiedName) {
+    return type != null && isAssignableTo(type, fullyQualifiedName, new HashSet<>());
+  }
+
+  private static boolean isAssignableTo(
+      JavaType type, String fullyQualifiedName, Set<String> visited) {
+    if (!visited.add(type.toString())) {
+      return false;
+    }
+    if (TypeUtils.isOfClassType(type, fullyQualifiedName)) {
+      return true;
+    }
+    if (type instanceof JavaType.FullyQualified fullyQualified) {
+      JavaType.FullyQualified supertype = fullyQualified.getSupertype();
+      if (supertype != null && isAssignableTo(supertype, fullyQualifiedName, visited)) {
+        return true;
+      }
+      for (JavaType.FullyQualified iface : fullyQualified.getInterfaces()) {
+        if (isAssignableTo(iface, fullyQualifiedName, visited)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }

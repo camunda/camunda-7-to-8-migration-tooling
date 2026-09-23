@@ -30,11 +30,6 @@ public abstract class GeneratedFormDataVisitor extends AbstractCamundaElementVis
     public String localName() {
       return "formData";
     }
-
-    @Override
-    protected Message visitCamundaElement(DomElementVisitorContext context) {
-      return MessageFactory.formData(context.getElement().getLocalName());
-    }
   }
 
   public static class FormFieldVisitor extends GeneratedFormDataVisitor {

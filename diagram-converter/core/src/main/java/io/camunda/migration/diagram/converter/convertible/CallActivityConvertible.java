@@ -20,6 +20,7 @@ public class CallActivityConvertible extends AbstractActivityConvertible {
     private boolean propagateAllParentVariables = false;
     private ZeebeCalledElementBindingType bindingType;
     private String versionTag;
+    private String businessId;
 
     public ZeebeCalledElementBindingType getBindingType() {
       return bindingType;
@@ -35,6 +36,14 @@ public class CallActivityConvertible extends AbstractActivityConvertible {
 
     public void setVersionTag(String versionTag) {
       this.versionTag = versionTag;
+    }
+
+    public String getBusinessId() {
+      return businessId;
+    }
+
+    public void setBusinessId(String businessId) {
+      this.businessId = businessId;
     }
 
     public boolean isPropagateAllParentVariables() {

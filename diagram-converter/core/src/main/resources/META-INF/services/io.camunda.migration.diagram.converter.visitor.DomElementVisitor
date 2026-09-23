@@ -3,6 +3,8 @@ io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVis
 io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVisitor$FormFieldVisitor
 io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVisitor$FormPropertyVisitor
 io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVisitor$ValidationVisitor
+io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormOwnerVisitor$StartEventVisitor
+io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormOwnerVisitor$UserTaskVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.AssigneeVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.AsyncAfterVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.AsyncBeforeVisitor
@@ -85,6 +87,7 @@ io.camunda.migration.diagram.converter.visitor.impl.attribute.FormRefBindingVisi
 io.camunda.migration.diagram.converter.visitor.impl.attribute.ErrorMessageVariableVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.CandidateStarterGroupsVisitor
 io.camunda.migration.diagram.converter.visitor.impl.activity.SendTaskVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.UserTaskPriorityVisitor
 io.camunda.migration.diagram.converter.visitor.impl.activity.TaskVisitor
 io.camunda.migration.diagram.converter.visitor.impl.activity.ManualTaskVisitor
 io.camunda.migration.diagram.converter.visitor.impl.eventReference.MessageVisitor

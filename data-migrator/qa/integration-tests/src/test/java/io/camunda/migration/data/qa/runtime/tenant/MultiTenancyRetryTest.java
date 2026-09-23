@@ -12,7 +12,6 @@ import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_C8_
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
-
 import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.RuntimeMigrator;
@@ -46,8 +45,10 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
   void setupTenants() {
     // create tenant
     client.newCreateTenantCommand().tenantId(TENANT_ID_1).name(TENANT_ID_1).execute();
+    awaitTenantVisible(TENANT_ID_1);
     // assign the default user to the tenant
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_1).execute();
+    awaitUserTenantMembership(DEFAULT_USERNAME, TENANT_ID_1);
   }
 
   @Test
@@ -78,11 +79,13 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
 
     // when
     client.newCreateTenantCommand().tenantId(TENANT_ID_2).name(TENANT_ID_2).execute();
+    awaitTenantVisible(TENANT_ID_2);
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).execute();
+    awaitUserTenantMembership(DEFAULT_USERNAME, TENANT_ID_2);
     deployer.deployCamunda8Process(SIMPLE_PROCESS_BPMN, TENANT_ID_2);
 
     runtimeMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    runtimeMigrator.start();
+    awaitRuntimeMigratorStart();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);

@@ -58,7 +58,7 @@ Check the [README](./README.md) for more details on class-level changes.
     }
 ```
 
--   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#using-variable).
+-   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#using-variable-recommended).
 -   _.send().join()_ is blocking and waits for the response from the cluster
 
 ### autoComplete = false (reactive)

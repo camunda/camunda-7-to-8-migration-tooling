@@ -25,27 +25,42 @@ import { test, expect, Page } from '@playwright/test';
 // regardless of DOM order (the hidden responsive copy may come first).
 const processesLink = (page: Page) => page.locator('a[href="#/processes"]:visible').first();
 
-// Navigate from the dashboard to the plugin's processes page.
+// Navigate directly to the plugin's processes page. The AngularJS navbar can
+// replace the link while it is settling, so clicking it can remain in
+// Playwright's actionability retry loop indefinitely.
 async function openProcessesPage(page: Page) {
-  await processesLink(page).click();
+  await page.goto('/camunda/app/cockpit/default/#/processes', {
+    waitUntil: 'domcontentloaded',
+    timeout: 15000,
+  });
   await page.waitForURL(/#\/processes/, { timeout: 15000 });
 }
 
 test.describe('Cockpit Plugin E2E', () => {
   test.describe.configure({ mode: 'serial' });
   // Cold CI containers need time for the login round-trip plus the Angular
-  // bootstrap; give each test a generous budget.
-  test.setTimeout(90000);
+  // bootstrap; give each test a generous budget. Firefox initialises the
+  // Angular runtime noticeably slower than Chromium on cold CI runners, so
+  // the budget must cover the worst-case beforeEach (up to 60 s for the login
+  // form + up to 60 s for the processes-link readiness gate + navigation
+  // overhead) and still leave meaningful headroom for the test body itself.
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
     // Playwright's default `page` fixture is function-scoped: every test gets a
     // fresh, cookie-less context, so we authenticate from scratch each time.
-    await page.goto('/camunda/app/cockpit/default/');
+    // Wait only for DOMContentLoaded (not the full `load` event) so that we
+    // start polling for the Angular-rendered login form as soon as the DOM is
+    // parsed, rather than waiting for every sub-resource to finish loading.
+    await page.goto('/camunda/app/cockpit/default/', { waitUntil: 'domcontentloaded' });
 
     // Log in with the Camunda 7 demo user. The login form is served by the same
     // Angular app, so wait for it explicitly rather than racing isVisible().
+    // Use a 60 s budget to accommodate Firefox's slower Angular bootstrap on
+    // cold CI containers (the previous 30 s budget caused intermittent failures
+    // in Firefox, see #1955).
     const usernameInput = page.locator('input[ng-model="username"]');
-    await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+    await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
     await usernameInput.fill('demo');
     await page.fill('input[ng-model="password"]', 'demo');
     await page.click('button[type="submit"]');
@@ -87,12 +102,10 @@ test.describe('Cockpit Plugin E2E', () => {
   test('should display migrated and skipped entity tabs', async ({ page }) => {
     await openProcessesPage(page);
 
-    // Wait for the plugin to render
-    await page.waitForTimeout(2000); // Give React time to render
-
     // Look for the radio buttons for skipped/migrated
     const skippedRadio = page.locator('input[type="radio"][value="skipped"]');
     const migratedRadio = page.locator('input[type="radio"][value="migrated"]');
+    await skippedRadio.waitFor({ state: 'visible', timeout: 10000 });
 
     // Verify both radio buttons are visible
     await expect(skippedRadio).toBeVisible();
@@ -109,21 +122,17 @@ test.describe('Cockpit Plugin E2E', () => {
   test('should be able to switch between entity types', async ({ page }) => {
     await openProcessesPage(page);
 
-    // Wait for plugin to load
-    await page.waitForTimeout(2000);
-
     // Switch to History mode to access the entity type selector
     const historyRadio = page.locator('input[type="radio"][value="history"]');
+    await expect(historyRadio).toBeVisible({ timeout: 10000 });
+    await expect(historyRadio).toBeEnabled({ timeout: 10000 });
     await historyRadio.click();
-
-    // Wait for the dropdown to appear
-    await page.waitForTimeout(500);
 
     // Look for the entity type selector dropdown
     const entityTypeSelector = page.locator('select#type-selector');
 
     // Verify the selector is visible
-    await expect(entityTypeSelector).toBeVisible();
+    await expect(entityTypeSelector).toBeVisible({ timeout: 10000 });
 
     // Take screenshot of the dropdown
     await page.screenshot({ path: 'test-results/entity-type-selector.png', fullPage: true });
@@ -138,19 +147,15 @@ test.describe('Cockpit Plugin E2E', () => {
   test('should display 6 skipped process instances with correct columns and data', async ({ page }) => {
     await openProcessesPage(page);
 
-    // Wait for plugin to load
-    await page.waitForTimeout(2000);
-
     // Select "Skipped" radio button (should be selected by default, but ensure it)
     const skippedRadio = page.locator('input[type="radio"][value="skipped"]');
+    await expect(skippedRadio).toBeVisible({ timeout: 10000 });
     await skippedRadio.click();
-
-    // Wait for data to load
-    await page.waitForTimeout(2000);
 
     // Find the table
     const table = page.locator('view[data-plugin-id="camunda-7-to-8-data-migrator"] table');
     await expect(table).toBeVisible();
+    await table.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 10000 });
 
     // Verify table headers contain the expected columns
     const headerRow = table.locator('thead tr');
@@ -158,15 +163,12 @@ test.describe('Cockpit Plugin E2E', () => {
     await expect(headerRow.locator('th:has-text("Process Definition Key")')).toBeVisible();
     await expect(headerRow.locator('th:has-text("Skip Reason")')).toBeVisible();
 
-    // Get all data rows (excluding header)
+    const expectedSkippedCount = 6;
     const dataRows = table.locator('tbody tr');
-    const rowCount = await dataRows.count();
-
-    // Verify we have exactly 6 rows
-    expect(rowCount).toBe(6);
+    await expect(dataRows).toHaveCount(expectedSkippedCount, { timeout: 15000 });
 
     // Verify each row has the expected data
-    for (let i = 0; i < rowCount; i++) {
+    for (let i = 0; i < expectedSkippedCount; i++) {
       const row = dataRows.nth(i);
 
       // Get cells in the row
@@ -202,7 +204,9 @@ test.describe('Cockpit Plugin E2E', () => {
 
     // Wait for plugin to fully render
     await page.locator('h1:has-text("Camunda 7 to 8 Data Migrator")').waitFor({ timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await page
+      .locator('input[type="radio"][value="skipped"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take final screenshot
     await page.screenshot({ path: 'test-results/plugin-loaded.png', fullPage: true });

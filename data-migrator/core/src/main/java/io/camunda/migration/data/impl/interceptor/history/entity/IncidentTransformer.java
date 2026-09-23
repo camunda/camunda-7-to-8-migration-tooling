@@ -12,7 +12,6 @@ import static io.camunda.migration.data.constants.MigratorConstants.C7_NO_MESSAG
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.DECISION_EVALUATION_ERROR;
@@ -22,18 +21,23 @@ import static io.camunda.search.entities.IncidentEntity.ErrorType.RESOURCE_NOT_F
 import static io.camunda.search.entities.IncidentEntity.ErrorType.UNHANDLED_ERROR_EVENT;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.UNKNOWN;
 
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
 import java.util.Set;
 import org.camunda.bpm.engine.runtime.Incident;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Order(7)
 @Component
 public class IncidentTransformer implements EntityInterceptor<HistoricIncident, Builder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -44,7 +48,7 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
   public void execute(HistoricIncident entity, Builder builder) {
     var incidentMessage = entity.getIncidentMessage();
     builder.incidentKey(getNextKey())
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
         .flowNodeId(sanitizeFlowNodeId(entity.getActivityId()))
         .errorType(determineErrorType(entity))
         .errorMessage(incidentMessage != null ? incidentMessage : C7_NO_MESSAGE)

@@ -54,7 +54,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 ```
 
 -   various filter, sorting and pagination options
--   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/search-variables/)
+-   for more information, see [the docs](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/specifications/search-variables/)
 
 ## Setting Variables
 

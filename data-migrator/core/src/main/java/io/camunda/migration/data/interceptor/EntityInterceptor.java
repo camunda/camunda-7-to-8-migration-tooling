@@ -36,7 +36,9 @@ import java.util.Set;
  *   public void execute(HistoricProcessInstance entity,
  *                       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder,
  *                       EntityConversionContext&lt;HistoricProcessInstance, ProcessInstanceDbModel.ProcessInstanceDbModelBuilder&gt; context) {
- *     // No casting needed!
+ *     // No casting needed! Prefix migrated definition IDs to avoid collisions with native
+ *     // Camunda 8 definitions - production transformers use LegacyIdPrefixResolver#applyTo,
+ *     // which honors the configurable camunda.migrator.history.legacy-id-prefix property.
  *     builder.processInstanceKey(getNextKey())
  *         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
  *         .startDate(convertDate(entity.getStartTime()));

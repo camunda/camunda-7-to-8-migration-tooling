@@ -48,7 +48,11 @@ public class ConverterPropertiesFactory extends AbstractFactory<ConverterPropert
 
   private ConverterProperties merge(
       DefaultConverterProperties base, ConverterProperties properties) {
+    boolean usesConfiguredPlatformVersion = properties.getPlatformVersion() == null;
     readDefaultValues(base, properties);
+    if (usesConfiguredPlatformVersion) {
+      TargetPlatformVersionPolicy.verifyConfiguredDefault(base.getPlatformVersion());
+    }
     return base;
   }
 
@@ -68,6 +72,10 @@ public class ConverterPropertiesFactory extends AbstractFactory<ConverterPropert
         base::setAlwaysUseDefaultJobType);
     readFlag(
         "append-documentation", properties::getAppendDocumentation, base::setAppendDocumentation);
+    readFlag(
+        "append-documentation-only-task-and-warning",
+        properties::getAppendDocumentationOnlyTaskAndWarning,
+        base::setAppendDocumentationOnlyTaskAndWarning);
     readFlag("keep-job-type-blank", properties::getKeepJobTypeBlank, base::setKeepJobTypeBlank);
     readFlag(
         "add-data-migration-execution-listener",

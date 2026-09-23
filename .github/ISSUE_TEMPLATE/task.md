@@ -9,6 +9,16 @@ assignees: ''
 
 ### Acceptance Criteria (Required on creation)
 
+### Work tracking (Required before implementation)
+
+- **Tracking issue or parent issue/PR:** This issue, or `#...` when this is a child item
+- **Owner:** `@github-handle`
+- **Project status (Camunda project 182):** `Analysis` / `Ready` / `In Progress`
+- **Implementation PR:** `#...` when available
+
+Before implementation, assign the issue to the owner and set its status to
+`In Progress` in Camunda project 182. See the repository [work-tracking workflow](../../AGENTS.md#work-tracking-and-change-evidence).
+
 ### Hints
 
 ### Links

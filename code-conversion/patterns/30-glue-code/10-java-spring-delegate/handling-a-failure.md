@@ -45,7 +45,7 @@ Check the [README](./README.md) for more details on class-level changes.
 -   the initial number of retries is set in the BPMN xml
 -   the job worker handles decrementing the number of retries and the retry backoff strategy explicitely
 -   the job can fail with variables to skip work in the next retry that was already done in a previous job run
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ### autoComplete = false (blocking)
 

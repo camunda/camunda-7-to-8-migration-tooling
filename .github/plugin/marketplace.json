@@ -1,0 +1,19 @@
+{
+  "name": "camunda",
+  "owner": {
+    "name": "Camunda",
+    "url": "https://github.com/camunda"
+  },
+  "metadata": {
+    "description": "Agent skills and plugins from Camunda for use with GitHub Copilot CLI",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "camunda-migration",
+      "description": "Agent skill for migrating Camunda 7 projects to Camunda 8 — Java code (OpenRewrite + AI) and BPMN/DMN models.",
+      "version": "0.1.0",
+      "source": "./agentic-migration-skills"
+    }
+  ]
+}

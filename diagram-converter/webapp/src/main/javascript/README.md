@@ -13,6 +13,9 @@ npm run dev
 
 # Build for production
 npm run build
+
+# Run frontend tests
+npm test
 ```
 
 The frontend is bundled into the Spring Boot webapp during the Maven build process.

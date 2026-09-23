@@ -18,7 +18,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.AfterEach;
@@ -56,10 +59,8 @@ public class DistributionSmokeTest {
   }
 
   @AfterEach
-  public  void tearDown() {
-    if (process != null) {
-      process.destroyForcibly();
-    }
+  public void tearDown() {
+    destroyProcessTree(process);
   }
 
   @Test
@@ -279,7 +280,7 @@ public class DistributionSmokeTest {
   }
 
   @Test
-  @Timeout(value = 90, unit = TimeUnit.SECONDS)
+  @Timeout(value = 240, unit = TimeUnit.SECONDS)
   void shouldAcceptValidFlags() throws Exception {
     // given
     String[][] validFlags = {
@@ -296,14 +297,20 @@ public class DistributionSmokeTest {
 
     for (String[] flag : validFlags) {
       ProcessBuilder processBuilder = createProcessBuilder(flag);
+      String expected = "Starting migration with flags: " + String.join(" ", flag);
 
       // when
-      process = processBuilder.start();
+      Process currentProcess = processBuilder.start();
+      try {
+        // Starting the distribution repeatedly in a single test is slower on Windows CI.
+        // Use a per-invocation budget that tolerates host variance while still failing deterministically.
+        String output = readProcessOutputUntil(currentProcess, expected, 20, TimeUnit.SECONDS);
 
-      // then
-      String output = readProcessOutput(process);
-
-      assertThat(output).contains("Starting migration with flags: " + String.join(" ", flag));
+        // then
+        assertThat(output).contains(expected);
+      } finally {
+        destroyProcessTree(currentProcess);
+      }
     }
   }
 
@@ -542,5 +549,129 @@ public class DistributionSmokeTest {
       }
     }
     return output.toString();
+  }
+
+  /**
+   * Reads process output until the expected string is found or the timeout elapses. Returns all
+   * output collected so far in either case. Uses a dedicated reader thread so blocking {@code
+   * readLine()} calls do not interfere with the deadline check — this is important on Windows where
+   * stream {@code ready()} is unreliable for subprocess stdout.
+   */
+  protected String readProcessOutputUntil(
+      final Process process,
+      final String expected,
+      final long timeout,
+      final TimeUnit unit)
+      throws InterruptedException {
+    final StringBuilder output = new StringBuilder();
+    final Thread readerThread =
+        new Thread(
+            () -> {
+              try (BufferedReader reader =
+                  new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                  synchronized (output) {
+                    output.append(line).append(System.lineSeparator());
+                    if (output.indexOf(expected) >= 0) {
+                      return;
+                    }
+                  }
+                }
+              } catch (final IOException e) {
+                // stream closed when process is destroyed — expected
+              }
+            });
+    readerThread.setDaemon(true);
+    readerThread.start();
+
+    final long deadline = System.nanoTime() + unit.toNanos(timeout);
+    while (System.nanoTime() < deadline) {
+      synchronized (output) {
+        if (output.indexOf(expected) >= 0) {
+          return output.toString();
+        }
+      }
+      if (!process.isAlive()) {
+        readerThread.join(1_000);
+        return output.toString();
+      }
+      Thread.sleep(50);
+    }
+    readerThread.interrupt();
+    return output.toString();
+  }
+
+  /**
+   * Terminates a process and its entire descendant tree. On Windows, {@code cmd.exe /c start.bat}
+   * spawns a child JVM that holds file locks on the extracted JARs; {@link Process#destroy()} only
+   * kills the {@code cmd.exe} parent. Descendants are destroyed first, then the parent, with a
+   * {@link Process#destroyForcibly()} fallback. {@link InterruptedException} from {@code waitFor}
+   * triggers forcible termination followed by bounded best-effort waits for the parent and
+   * descendants before restoring the interrupt flag, allowing file locks to be released.
+   */
+  protected void destroyProcessTree(final Process proc) {
+    if (proc == null) {
+      return;
+    }
+    final List<ProcessHandle> descendants = proc.descendants().toList();
+    descendants.forEach(ProcessHandle::destroyForcibly);
+    proc.destroy();
+    try {
+      if (!proc.waitFor(5, TimeUnit.SECONDS)) {
+        proc.destroyForcibly();
+      }
+      waitForProcessTreeToExit(proc, descendants, 5, TimeUnit.SECONDS);
+    } catch (final InterruptedException e) {
+      descendants.forEach(ProcessHandle::destroyForcibly);
+      proc.destroyForcibly();
+      // Best-effort wait for the parent and descendants before restoring the interrupt flag so that
+      // file locks are released before @TempDir cleanup. The interrupt flag is clear
+      // here, so onExit().get() can block normally.
+      try {
+        waitForProcessTreeToExit(proc, descendants, 5, TimeUnit.SECONDS);
+      } catch (InterruptedException ignored) {
+        // best effort
+      }
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  private void waitForProcessTreeToExit(
+      final Process proc,
+      final List<ProcessHandle> descendants,
+      final long timeout,
+      final TimeUnit unit)
+      throws InterruptedException {
+    final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
+    waitForProcessHandlesToExit(descendants, deadlineNanos);
+    waitForProcessHandlesToExit(List.of(proc.toHandle()), deadlineNanos);
+  }
+
+  private void waitForProcessHandlesToExit(
+      final List<ProcessHandle> processes, final long deadlineNanos)
+      throws InterruptedException {
+    for (final ProcessHandle process : processes) {
+      final long remainingNanos = deadlineNanos - System.nanoTime();
+      if (remainingNanos <= 0) {
+        process.destroyForcibly();
+        continue;
+      }
+      try {
+        process.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
+      } catch (ExecutionException ignored) {
+        // process state is already terminal
+      } catch (TimeoutException ignored) {
+        process.destroyForcibly();
+        final long remainingAfterDestroyNanos = deadlineNanos - System.nanoTime();
+        try {
+          if (remainingAfterDestroyNanos > 0) {
+            process.onExit().get(remainingAfterDestroyNanos, TimeUnit.NANOSECONDS);
+          }
+        } catch (ExecutionException | TimeoutException ignoredAfterDestroy) {
+          // best effort: process termination was already requested
+        }
+      }
+    }
   }
 }

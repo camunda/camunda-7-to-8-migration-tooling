@@ -1,40 +1,82 @@
 # Diagram Converter Webapp
 
+The webapp accepts Camunda Forms (`.form` files) alongside BPMN and DMN models.
+Forms are converted by updating their platform metadata and transforming exact
+simple JUEL variable references such as `${customerName}` or `#{customerName}`
+in component properties to FEEL (`= customerName`). Each transformation is
+reported for review. Complex expressions remain unchanged and are reported as
+tasks for manual migration. Schema versions and deprecated component properties are
+preserved because changing them without a schema-aware migration could alter
+form behavior. Forms can be opened as a read-only rendered preview from the
+results list.
+
 ## Rest API
+
+### CORS policy
+
+The hosted webapp intentionally allows browser requests only from its own origin.
+The default configuration rejects cross-origin requests with HTTP 403 before they
+reach the converter, and it does not enable credentials. This prevents unrelated
+websites from submitting conversion work through visitors' browsers while keeping
+the anonymous REST API available to clients without an `Origin` header, such as
+`curl`, CI jobs, and scripts; CORS does not apply to those clients.
+
+Additional browser origins can be explicitly configured with
+`webapp.cors.allowed-origins`, for example by activating the `dev` profile:
+
+```bash
+java -jar target/camunda-7-to-8-diagram-converter-webapp-*.jar --spring.profiles.active=dev
+```
+
+To use the Vite development server, start the backend with the `dev` profile as
+shown above. The profile permits `http://localhost:5173`; the Vite development
+server proxies API requests to `http://localhost:8080` and forwards the browser's
+`Origin` header, so the profile is required for `npm run dev`.
 
 `POST /check`: Check required tasks for Camunda 7 to 8 migration for all provided models
 
 - Request:
   - Format: `FormData`
   - Fields
-    - `file` (`MultipartFile`): 1..n BPMN file(s) _(mandatory)_
+    - `file` (`MultipartFile`): 1..n BPMN, DMN or form file(s) _(mandatory)_
     - `adapterJobType` (`String`): type of the job all service tasks formerly
       implemented as delegates or expressions should have. _(optional)_
     - `platformVersion` (`String`): version of the target platform _(optional)_
     - `adapterEnabled` (`Boolean`): whether the adapter job type should be set in the converted diagram _(default: `true`)_
   - Headers
-    - `Accept`: Either `application/json` or `text/csv` or `application/ms-excel`
+    - `Accept`: Either `application/json`, `application/vnd.camunda.analysis+json`, `text/csv` or `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 - Response:
   - `200`: Everything fine. The body contains a
     [check results](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/diagram-converter/core/src/main/java/io/camunda/migration/diagram/converter/DiagramCheckResult.java),
-    either in `application/json` format or flattened as `text/csv` or a Microsoft Excel file (XLST).
+    either in `application/json` format or flattened as `text/csv` or an XLSX file.
 
-`POST /convert`: convert the provided model from Camunda 7 to 8
+`POST /convert`: convert the provided BPMN, DMN or form model from Camunda 7 to 8
 
 - Request:
   - Format: `FormData`
   - Fields
-    - `file` (`MultipartFile`): BPMN file _(mandatory)_
+    - `file` (`MultipartFile`): BPMN, DMN or form file _(mandatory)_
     - `appendDocumentation` (`Boolean`): whether the check results should also
       be added to the documentation of each BPMN element _(default: `false`)_
-    - `adapterJobType` (`String`): type of the job all service tasks formerly
-      implemented as delegates or expressions should have. _(optional)_
+    - `appendDocumentationOnlyTaskAndWarning` (`Boolean`): whether only TASK and
+      WARNING check results should be added to BPMN element documentation. This
+      also enables documentation appending _(default: `false`)_
+    - `defaultJobType` (`String`): default job type for converted delegates
+      when `alwaysUseDefaultJobType` is enabled _(optional)_
     - `platformVersion` (`String`): version of the target platform _(optional)_
-    - `adapterEnabled` (`Boolean`): whether the adapter job type should be set in the converted diagram _(default: `true`)_
+    - `keepJobTypeBlank` (`Boolean`): whether converted delegates should keep
+      their job type blank _(default: `false`)_
+    - `alwaysUseDefaultJobType` (`Boolean`): whether every converted delegate
+      should use the default job type _(default: `false`)_
+    - `addDataMigrationExecutionListener` (`Boolean`): whether to add a data
+      migration execution listener to blank start events _(default: `false`)_
+    - `dataMigrationExecutionListenerJobType` (`String`): job type for the data
+      migration execution listener _(default: `migrator`)_
 - Response:
-  - `200`: Everything fine. The body contains a BPMN diagram. The header
+  - `200`: Everything fine. The body contains the converted model. The header
     contains a `Content-Disposition` field that declares this as attachment and
-    holds a filename. The `Content-Type` is `application/bpmn+xml`.
+    holds a filename. The `Content-Type` is `application/bpmn+xml`,
+    `application/dmn+xml` or `application/json` for forms.
 
 `POST /convertBatch`: Convert all provided models from Camunda 7 to 8 and return a ZIP file
 

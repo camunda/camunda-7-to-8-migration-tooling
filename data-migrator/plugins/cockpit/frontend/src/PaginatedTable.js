@@ -8,10 +8,9 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  flexRender,
   getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+  useLegacyTable as useReactTable,
+} from '@tanstack/react-table/legacy';
 
 import { Table } from "./Table";
 

@@ -22,22 +22,32 @@ public class TaskPriorityVisitor extends AbstractSupportedAttributeVisitor {
 
   @Override
   protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
+    String elementLocalName = context.getElement().getLocalName();
+    String siblingJobPriority =
+        context.getElement().getAttribute(NamespaceUri.CAMUNDA, "jobPriority");
+
     // Some elements support taskPriority in Camunda 7 where the equivalent Camunda 8
     // element does not (e.g. messageEventDefinition).
     if (!JobPriorityScope.isEligible(context)) {
+      if ("userTask".equals(elementLocalName)) {
+        if (StringUtils.isNotBlank(siblingJobPriority)) {
+          context.addMessage(
+              MessageFactory.userTaskPriorityCollision(
+                  context.getElement().getAttribute("id"), siblingJobPriority, attribute));
+        }
+        return MessageFactory.userTaskPriorityNotMigrated(
+            attributeLocalName(), context.getElement().getAttribute("id"), attribute);
+      }
       return MessageFactory.priorityNotMigrated(
-          context.getElement().getLocalName(), context.getElement().getAttribute("id"), attribute);
+          elementLocalName, context.getElement().getAttribute("id"), attribute);
     }
 
     Message primary =
         JobPriorityWriter.apply(context, attribute, attributeLocalName(), "Task priority");
 
-    String siblingJobPriority =
-        context.getElement().getAttribute(NamespaceUri.CAMUNDA, "jobPriority");
     if (StringUtils.isNotBlank(siblingJobPriority)) {
       context.addMessage(
-          MessageFactory.jobPriorityCollision(
-              context.getElement().getLocalName(), siblingJobPriority, attribute));
+          MessageFactory.jobPriorityCollision(elementLocalName, siblingJobPriority, attribute));
     }
     return primary;
   }

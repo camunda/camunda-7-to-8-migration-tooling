@@ -11,7 +11,6 @@ import static io.camunda.migration.data.constants.MigratorConstants.C7_AUDIT_LOG
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.camunda.bpm.engine.EntityTypes.*;
 import static org.camunda.bpm.engine.history.UserOperationLogEntry.*;
 
@@ -19,11 +18,13 @@ import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.AuditLogEntity;
 import java.util.Set;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +39,9 @@ import org.springframework.stereotype.Component;
 @Order(12)
 @Component
 public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEntry, AuditLogDbModel.Builder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -73,7 +77,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
         .entityVersion(C7_AUDIT_LOG_ENTITY_VERSION)
         .actorId(userOperationLog.getUserId())
         .actorType(AuditLogEntity.AuditLogActorType.USER)
-        .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(userOperationLog.getProcessDefinitionKey()))
         .tenantId(tenantId)
         .tenantScope(getAuditLogTenantScope(tenantId))
         .category(convertCategory(userOperationLog.getCategory()))

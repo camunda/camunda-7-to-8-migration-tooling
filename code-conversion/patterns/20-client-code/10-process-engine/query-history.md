@@ -10,8 +10,8 @@ In Camunda 8, runtime and history data are separated: historic data is exported 
 | `createHistoricActivityInstanceQuery()`            | `newElementInstanceSearchRequest()`                        |
 | `createHistoricVariableInstanceQuery()`            | `newVariableSearchRequest()`                               |
 | `createHistoricIncidentQuery()`                    | `newIncidentSearchRequest()`                               |
-| `createHistoricTaskInstanceQuery()`                | `newUserTaskSearchRequest()`                               |
-| `createHistoricDecisionInstanceQuery()`            | `newDecisionInstanceSearchRequest()`                       |
+| `createHistoricTaskInstanceQuery()`                | `newUserTaskSearchRequest()` (8.10+)                       |
+| `createHistoricDecisionInstanceQuery()`            | `newDecisionInstanceSearchRequest()` (8.10+)               |
 | `createUserOperationLogQuery()`                    | Audit log search (`POST /v2/audit-logs/search`, 8.9+)      |
 
 ## Searching Finished Process Instances
@@ -44,6 +44,7 @@ In Camunda 8, runtime and history data are separated: historic data is exported 
 -   C7 `.finished()` matches every instance with an end time — both `COMPLETED` and `TERMINATED` (cancelled) — so the C8 equivalent filters on both states; drop `TERMINATED` to narrow to successfully-completed instances only
 -   the same search endpoints serve running *and* finished entities — there is no separate "history API"
 -   search results are *eventually consistent*: data becomes visible after export to secondary storage, typically within a second; do not use search requests for read-after-write logic inside a worker
+-   user-task and decision-instance search became available in Camunda 8.10; keep these mappings as explicit TODO-backed API migrations when supporting an older target
 -   history time to live (HTTL) and data retention are configured on the cluster, not per query
 -   element instances are the equivalent of C7 activity instances; filter by `processInstanceKey` to get the execution trace (audit trail) of one instance
 

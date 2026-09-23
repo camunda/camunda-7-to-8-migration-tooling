@@ -103,7 +103,7 @@ public class UserTaskAndVariableInterceptor implements EntityInterceptor<Object,
     LOGGER.debug(
         "Processing variable: {} (type: {})",
         c7Variable.getName(),
-        c7Variable.getVariableTypeName());
+        c7Variable.getTypeName());
 
     if (validateVariables) {
       validateVariable(c7Variable);
@@ -182,4 +182,3 @@ public class UserTaskAndVariableInterceptor implements EntityInterceptor<Object,
     return assigneePrefix;
   }
 }
-

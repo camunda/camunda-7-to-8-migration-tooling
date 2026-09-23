@@ -1,4 +1,325 @@
 categories:
+  - category: generated forms
+    cases:
+      - name: Legacy generated form properties on user task
+        givenBpmn: |
+          <bpmn:userTask id="FormPropertyTask">
+            <bpmn:extensionElements>
+              <camunda:formProperty id="name" type="string"/>
+              <camunda:formProperty id="approved" type="boolean"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="FormPropertyTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Element 'formProperty' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually.</conversion:message>
+      - name: Legacy generated form properties on start event
+        givenBpmn: |
+          <bpmn:startEvent id="FormPropertyStart">
+            <bpmn:extensionElements>
+              <camunda:formProperty id="name" type="string"/>
+              <camunda:formProperty id="approved" type="boolean"/>
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="FormPropertyStart" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Element 'formProperty' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually.</conversion:message>
+  - category: form keys
+    cases:
+      - name: Embedded HTML task form from the application
+        givenBpmn: |
+          <bpmn:userTask id="EmbeddedAppFormTask" camunda:formKey="embedded:app:forms/loan-approval.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="EmbeddedAppFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="embedded:app:forms/loan-approval.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Embedded Task Form 'embedded:app:forms/loan-approval.html' is custom HTML/JavaScript that Camunda 8 cannot render. The reference was copied verbatim and is a placeholder, not a working form. Rebuild the form as a Camunda Form, or serve it from a custom task application.</conversion:message>
+      - name: Embedded HTML task form from the deployment
+        givenBpmn: |
+          <bpmn:userTask id="EmbeddedDeploymentFormTask" camunda:formKey="embedded:deployment:loan-approval.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="EmbeddedDeploymentFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="embedded:deployment:loan-approval.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Embedded Task Form 'embedded:deployment:loan-approval.html' is custom HTML/JavaScript that Camunda 8 cannot render. The reference was copied verbatim and is a placeholder, not a working form. Rebuild the form as a Camunda Form, or serve it from a custom task application.</conversion:message>
+      - name: Camunda Form referenced by form key
+        givenBpmn: |
+          <bpmn:userTask id="CamundaFormKeyTask" camunda:formKey="camunda-forms:deployment:forms/userTask.form"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="CamundaFormKeyTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="camunda-forms:deployment:forms/userTask.form"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Camunda Form reference 'camunda-forms:deployment:forms/userTask.form' was copied verbatim, but Camunda 8 does not resolve Camunda 7 form keys. Deploy the '.form' file to Camunda 8 and reference it by form id and binding instead.</conversion:message>
+      - name: External task form served by a custom application
+        givenBpmn: |
+          <bpmn:userTask id="ExternalFormTask" camunda:formKey="http://my-app/forms/loan"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="ExternalFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="http://my-app/forms/loan"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form 'http://my-app/forms/loan' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+      - name: Unprefixed HTML reference is an external task form and not an embedded one
+        givenBpmn: |
+          <bpmn:userTask id="UnprefixedHtmlFormTask" camunda:formKey="app:forms/loan-approval.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="UnprefixedHtmlFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="app:forms/loan-approval.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form 'app:forms/loan-approval.html' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+      - name: Form key built from an expression
+        givenBpmn: |
+          <bpmn:userTask id="ExpressionFormTask" camunda:formKey="${formKey}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="ExpressionFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="${formKey}"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Form key '${formKey}' is a Camunda 7 expression, so the referenced form type cannot be determined without running the process. The reference was copied verbatim. Resolve the possible values and migrate every form they reference manually.</conversion:message>
+      - name: External task form with credentials is redacted in findings but preserved in the model
+        givenBpmn: |
+          <bpmn:userTask id="CredentialFormTask" camunda:formKey="https://my-app/forms/loan?taskId=1&amp;token=s3cret"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="CredentialFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="https://my-app/forms/loan?taskId=1&amp;token=s3cret"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form 'https://my-app/forms/loan?taskId=1&amp;token=&lt;redacted&gt;' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+      - name: Start event form key with credentials is redacted in findings
+        givenBpmn: |
+          <bpmn:startEvent id="CredentialFormStart" camunda:formKey="https://my-app/forms/start?token=s3cret"/>
+        expectedBpmn: |
+          <bpmn:startEvent id="CredentialFormStart" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Attribute 'formKey' with value 'https://my-app/forms/start?token=&lt;redacted&gt;' on 'startEvent' is not supported.</conversion:message>
+      - name: Whitespace padded form key is external because Camunda 7 matches the form type exactly
+        givenBpmn: |
+          <bpmn:userTask id="PaddedFormKeyTask" camunda:formKey=" embedded:app:forms/loan.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PaddedFormKeyTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference=" embedded:app:forms/loan.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form ' embedded:app:forms/loan.html' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+  - category: user tasks
+    cases:
+      - name: Bare Camunda 7 user task becomes a Camunda user task
+        givenBpmn: |
+          <bpmn:userTask id="BareUserTask" name="Wait for approval"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="BareUserTask" implementation="##unspecified" isForCompensation="false" name="Wait for approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: ""
+        properties:
+          platformVersion: "8.9"
+      - name: User task assignments remain on a Camunda user task
+        givenBpmn: |
+          <bpmn:userTask id="AssignedUserTask" name="Review approval" camunda:assignee="${reviewer}" camunda:candidateGroups="approvers"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="AssignedUserTask" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:assignmentDefinition assignee="=reviewer" candidateGroups="approvers" candidateUsers=""/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Assignee: Please review transformed expression: '${reviewer}' -&gt; '=reviewer'.</conversion:message>
+        properties:
+          platformVersion: "8.9"
+      - name: C7 user task receives the modern C8 user-task marker
+        properties:
+          platformVersion: "8.5"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+      - name: User task assignments and schedule are mapped
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"
+              camunda:assignee="${assignee}"
+              camunda:candidateUsers="${candidateUsers}"
+              camunda:candidateGroups="approvers"
+              camunda:dueDate="${deadline}"
+              camunda:followUpDate="2026-01-01T00:00:00Z"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:assignmentDefinition assignee="=assignee" candidateGroups="approvers" candidateUsers="=candidateUsers"/>
+              <zeebe:taskSchedule dueDate="=deadline" followUpDate="2026-01-01T00:00:00Z"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Assignee: Please review transformed expression: '${assignee}' -&gt; '=assignee'.</conversion:message>
+          <conversion:message severity="REVIEW">Candidate users: Please review transformed expression: '${candidateUsers}' -&gt; '=candidateUsers'.</conversion:message>
+          <conversion:message severity="REVIEW">Due date: Please review transformed expression: '${deadline}' -&gt; '=deadline'.</conversion:message>
+      - name: User task form reference and deployment binding are mapped
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"
+              camunda:formRef="approval-form"
+              camunda:formRefBinding="deployment"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition bindingType="deployment" formId="approval-form"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Form reference binding has been mapped.</conversion:message>
+      - name: User task priority literal is mapped to the bounded user-task priority
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="80"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+      - name: User task priority expression is transformed to FEEL
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${priority}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="=priority"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">User task priority: Please review transformed expression: '${priority}' -&gt; '=priority'.</conversion:message>
+      - name: User task priority method invocation is left for manual migration
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${order.getPriority()}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">User task priority: Transformed expression: '${order.getPriority()}' -&gt; '${order.getPriority()}'. Method invocation is not possible in FEEL.</conversion:message>
+      - name: Invalid user task priority is reported and not emitted
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="101"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '101' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Constant user task priority expression is validated after FEEL conversion
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${101}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${101}' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Non-integer user task priority expression is rejected after FEEL conversion
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${1.5}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${1.5}' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: User task priority on an older target remains unsupported
+        properties:
+          platformVersion: "8.5"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Attribute 'priority' with value '80' on 'userTask' is not supported.</conversion:message>
+      - name: User task job and task priorities report a collision
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"
+              camunda:jobPriority="20"
+              camunda:taskPriority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on user task 'approve'. Neither priority maps to the Camunda 8 user-task priority slot. Handle both priorities manually.</conversion:message>
+          <conversion:message severity="TASK">Camunda 7 'taskPriority' value '80' on user task 'approve' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output
@@ -41,6 +362,33 @@ categories:
           </bpmn:serviceTask>
         expectedMessages: |
           <conversion:message severity="TASK">Execution Listener at 'start' with implementation '${myNewJobType}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+      - name: BPMN start event without execution listener
+        givenBpmn: |
+          <bpmn:startEvent id="startEvent"/>
+        expectedBpmn: |
+          <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: ""
+      - name: Execution Listener on BPMN start event
+        givenBpmn: |
+          <bpmn:startEvent id="startEvent">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${startEventListener}" event="start" />
+              <camunda:executionListener class="com.example.StartListener" event="start" />
+              <camunda:executionListener class="com.example.EndListener" event="end" />
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="startEvent" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="end" type="com.example.EndListener"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'delegateExpression' '${startEventListener}' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'class' 'com.example.StartListener' on a BPMN start event cannot be transformed. For Camunda 8.6 or later, review moving it to the containing process or subprocess start listener. For earlier targets, use a manual migration.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'com.example.EndListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
       - name: Execution Listener Without Implementation
         givenBpmn: |
           <bpmn:task id="ListenerWithoutImplTask" name="Listener Without Impl">
@@ -468,6 +816,148 @@ categories:
         expectedMessages: |
           <conversion:message severity="INFO">Called element reference binding has been mapped.</conversion:message>
           <conversion:message severity="INFO">Called element reference version tag has been mapped.</conversion:message>
+  - category: Camunda 8.10 conversion support
+    cases:
+      - name: New mappings are reported for a Camunda 8.8 target
+        properties:
+          platformVersion: "8.8"
+        givenBpmn: |
+          <bpmn:callActivity id="callWithBusinessKey" calledElement="childProcess">
+            <bpmn:extensionElements>
+              <camunda:in businessKey="#{execution.processBusinessKey}" />
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task id="taskWithListenerHeader">
+            <bpmn:extensionElements>
+              <camunda:executionListener class="listenerJob" event="start">
+                <camunda:field name="headerName">
+                  <camunda:string>headerValue</camunda:string>
+                </camunda:field>
+                <camunda:field name="attributeHeader" stringValue="attributeValue" />
+              </camunda:executionListener>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask id="ruleWithDynamicVersion" camunda:decisionRef="decision" camunda:decisionRefBinding="versionTag" camunda:decisionRefVersionTag="${decisionVersion}" />
+        expectedBpmn: |
+          <bpmn:callActivity calledElement="childProcess" completionQuantity="1" id="callWithBusinessKey" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledElement processId="childProcess" propagateAllChildVariables="false" propagateAllParentVariables="false"/>
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task completionQuantity="1" id="taskWithListenerHeader" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="listenerJob"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask completionQuantity="1" id="ruleWithDynamicVersion" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision bindingType="versionTag" decisionId="decision" resultVariable="decisionResult"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Element 'In' is not supported in Zeebe version '8.8'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="WARNING">Element 'Field' is not supported in Zeebe version '8.8'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="WARNING">Element 'Field' is not supported in Zeebe version '8.8'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'listenerJob' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="WARNING">Attribute 'decisionRefVersionTag' with value '${decisionVersion}' on 'businessRuleTask' is not supported.</conversion:message>
+          <conversion:message severity="INFO">Decision reference binding has been mapped.</conversion:message>
+      - name: New mappings are reported for a Camunda 8.9 target
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:callActivity id="callWithBusinessKey" calledElement="childProcess">
+            <bpmn:extensionElements>
+              <camunda:in businessKey="#{execution.processBusinessKey}" />
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task id="taskWithListenerHeader">
+            <bpmn:extensionElements>
+              <camunda:executionListener class="listenerJob" event="start">
+                <camunda:field name="headerName">
+                  <camunda:string>headerValue</camunda:string>
+                </camunda:field>
+                <camunda:field name="attributeHeader" stringValue="attributeValue" />
+              </camunda:executionListener>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask id="ruleWithDynamicVersion" camunda:decisionRef="decision" camunda:decisionRefBinding="versionTag" camunda:decisionRefVersionTag="${decisionVersion}" />
+        expectedBpmn: |
+          <bpmn:callActivity calledElement="childProcess" completionQuantity="1" id="callWithBusinessKey" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledElement processId="childProcess" propagateAllChildVariables="false" propagateAllParentVariables="false"/>
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task completionQuantity="1" id="taskWithListenerHeader" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="listenerJob"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask completionQuantity="1" id="ruleWithDynamicVersion" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision bindingType="versionTag" decisionId="decision" resultVariable="decisionResult"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Element 'In' is not supported in Zeebe version '8.9'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="WARNING">Element 'Field' is not supported in Zeebe version '8.9'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="WARNING">Element 'Field' is not supported in Zeebe version '8.9'. It is available in version '8.10.0'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'listenerJob' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="WARNING">Attribute 'decisionRefVersionTag' with value '${decisionVersion}' on 'businessRuleTask' is not supported.</conversion:message>
+          <conversion:message severity="INFO">Decision reference binding has been mapped.</conversion:message>
+      - name: New mappings are converted for a Camunda 8.10 target
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:callActivity id="callWithBusinessKey" calledElement="childProcess">
+            <bpmn:extensionElements>
+              <camunda:in businessKey="#{execution.processBusinessKey}" />
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task id="taskWithListenerHeader">
+            <bpmn:extensionElements>
+              <camunda:executionListener class="listenerJob" event="start">
+                <camunda:field name="headerName">
+                  <camunda:string>headerValue</camunda:string>
+                </camunda:field>
+                <camunda:field name="attributeHeader" stringValue="attributeValue" />
+              </camunda:executionListener>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask id="ruleWithDynamicVersion" camunda:decisionRef="decision" camunda:decisionRefBinding="versionTag" camunda:decisionRefVersionTag="${decisionVersion}" />
+        expectedBpmn: |
+          <bpmn:callActivity calledElement="childProcess" completionQuantity="1" id="callWithBusinessKey" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledElement businessId="=camunda.processInstance.businessId" processId="childProcess" propagateAllChildVariables="false" propagateAllParentVariables="false"/>
+            </bpmn:extensionElements>
+          </bpmn:callActivity>
+          <bpmn:task completionQuantity="1" id="taskWithListenerHeader" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="listenerJob">
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="headerName" value="headerValue"/>
+                    <zeebe:header key="attributeHeader" value="attributeValue"/>
+                  </zeebe:taskHeaders>
+                </zeebe:executionListener>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+          </bpmn:task>
+          <bpmn:businessRuleTask completionQuantity="1" id="ruleWithDynamicVersion" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision bindingType="versionTag" decisionId="decision" resultVariable="decisionResult" versionTag="=decisionVersion"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Element 'camunda:in' with businessKey '#{execution.processBusinessKey}' was mapped to 'businessId' on 'zeebe:calledElement'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'listenerJob' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="INFO">Execution listener field 'headerName' was mapped to a task header.</conversion:message>
+          <conversion:message severity="INFO">Execution listener field 'attributeHeader' was mapped to a task header.</conversion:message>
+          <conversion:message severity="REVIEW">Decision reference version tag: Please review transformed expression: '${decisionVersion}' -&gt; '=decisionVersion'.</conversion:message>
+          <conversion:message severity="INFO">Decision reference binding has been mapped.</conversion:message>
   - category: Expressions
     cases:
       - name: Condition Expressions
@@ -1128,7 +1618,7 @@ categories:
           </bpmn:businessRuleTask>
         expectedMessages: |
           <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'businessRuleTask' is removed.</conversion:message>
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'businessRuleTask' 'rules' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'businessRuleTask'. Priority '40' on 'businessRuleTask' 'rules' was not migrated. Handle the priority manually.</conversion:message>
       - name: Job priority literal on external script task
         description: A non-FEEL script task is converted to a service-task-style job worker, so the priority applies. Locks in the eligible branch of JobPriorityScope#scriptTask.
         properties:
@@ -1169,9 +1659,9 @@ categories:
           </bpmn:scriptTask>
         expectedMessages: |
           <conversion:message severity="INFO">Script is transformed to Zeebe script.</conversion:message>
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'scriptTask' 'calc' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'scriptTask'. Priority '40' on 'scriptTask' 'calc' was not migrated. Handle the priority manually.</conversion:message>
       - name: Priority on user task is not migrated
-        description: User tasks are out of scope for this conversion; the C8 user task priority is a separate, bounded concept. The C7 attribute is stripped and a REVIEW message surfaces the dropped priority.
+        description: C7 job priority has no direct equivalent on a modern C8 user task. The user-task implementation remains unchanged and a TASK finding surfaces the dropped priority.
         properties:
           platformVersion: "8.10"
         givenBpmn: |
@@ -1183,7 +1673,7 @@ categories:
             </bpmn:extensionElements>
           </bpmn:userTask>
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '30' on 'userTask' 'review' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="TASK">Camunda 7 'jobPriority' value '30' on user task 'review' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
       - name: Task priority on external message throw event is not migrated
         description: The realistic C7 carrier for camunda:taskPriority on a messageEventDefinition is the external-task throw pattern (camunda:type="external" + camunda:topic). The topic still maps to a zeebe:taskDefinition on the throw event, but C8 has no priority slot for messageEventDefinition (it doesn't implement ZeebeJobPriorityConvertible). The priority attribute is dropped and a WARNING surfaces the lost value. Locks in the realistic edge case the eligibility guard in TaskPriorityVisitor protects against.
         properties:
@@ -1200,7 +1690,7 @@ categories:
             <bpmn:messageEventDefinition />
           </bpmn:intermediateThrowEvent>
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'messageEventDefinition'. Priority '23' on 'messageEventDefinition' with null id was not migrated. Handle the priority manually.</conversion:message>
           <conversion:message severity="REVIEW">Attribute 'topic' on 'messageEventDefinition' was mapped. Is set as job type.</conversion:message>
           <conversion:message severity="INFO">Unused attribute 'type' on 'messageEventDefinition' is removed.</conversion:message>
       - name: Job priority on async-before gateway is not migrated
@@ -1212,7 +1702,7 @@ categories:
         expectedBpmn: |
           <bpmn:exclusiveGateway id="gw" name="Decide" gatewayDirection="Unspecified" />
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'exclusiveGateway' 'gw' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 has no job-priority slot for 'exclusiveGateway'. Priority '40' on 'exclusiveGateway' 'gw' was not migrated. Handle the priority manually.</conversion:message>
           <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'exclusiveGateway' is removed.</conversion:message>
       - name: Job priority JUEL expression on service task is transformed to FEEL
         description: JUEL expressions are transformed the same way as other expression-carrying attributes (dueDate, followUpDate, …), with the standard "review transformed expression" message.
@@ -1361,6 +1851,24 @@ categories:
           <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
         expectedMessages: |
           <conversion:message severity="TASK">Priority 'abc' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Constant job priority expression is validated after FEEL conversion
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${2147483648}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${2147483648}' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Non-integer job priority expression is rejected after FEEL conversion
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${1.5}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${1.5}' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
       - name: Priority on pre-8.10 target platform is flagged as unsupported
         description: The zeebe:jobPriorityDefinition extension only exists from Camunda 8.10 onward. Converting against an older target platform drops the conversion and emits the standard "attribute not supported" message.
         properties:

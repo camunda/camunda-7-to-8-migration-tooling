@@ -10,6 +10,7 @@ package io.camunda.migration.code.recipes.delegate;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
@@ -47,18 +48,21 @@ public class CleanupDelegateRecipe extends Recipe {
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-            // Skip interfaces
+            // Skip interfaces, but keep traversing so nested types are still visited.
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
-              return classDecl;
+              return super.visitClassDeclaration(classDecl, ctx);
             }
 
-            // Filter out the interface to remove
+            // Preserve delegate code when migration already warned that the body could not be
+            // copied automatically, so users can still migrate it manually.
+            if (hasDelegateBodyWarning(classDecl)) {
+              return super.visitClassDeclaration(classDecl, ctx);
+            }
+
+            // Filter out the JavaDelegate interface and any subinterfaces of it
             List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
                 classDecl.getImplements().stream()
-                    .filter(
-                        id ->
-                            !TypeUtils.isOfClassType(
-                                id.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate"))
+                    .filter(id -> !isJavaDelegateAssignable(id.getType()))
                     .collect(Collectors.toList());
 
             List<Statement> filteredStatements =
@@ -75,6 +79,23 @@ public class CleanupDelegateRecipe extends Recipe {
             return classDecl
                 .withBody(classDecl.getBody().withStatements(filteredStatements))
                 .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
+          }
+
+          private boolean hasDelegateBodyWarning(J.ClassDeclaration classDecl) {
+            List<Comment> comments =
+                classDecl.getComments() == null ? Collections.emptyList() : classDecl.getComments();
+            return comments.stream()
+                .filter(c -> c instanceof TextComment)
+                .map(c -> (TextComment) c)
+                .anyMatch(
+                    c ->
+                        c.getText().contains(
+                            MigrateExecutionRecipe.DELEGATE_BODY_COPY_WARNING_SENTINEL));
+          }
+
+          private boolean isJavaDelegateAssignable(JavaType type) {
+            return RecipeUtils.isAssignableTo(
+                type, "org.camunda.bpm.engine.delegate.JavaDelegate");
           }
         });
   }

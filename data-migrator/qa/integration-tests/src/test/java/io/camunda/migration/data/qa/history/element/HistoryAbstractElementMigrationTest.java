@@ -31,9 +31,10 @@ public abstract class HistoryAbstractElementMigrationTest extends HistoryMigrati
   @EnabledIf("hasScenarios_terminatedElementPostMigration")
   @MethodSource("elementScenarios_terminatedElementPostMigration")
   @ParameterizedTest
-  public void migrateSimpleElementScenarios_expectTerminatedElement(final String processFile,
-                                                                    final String processId,
-                                                                    final FlowNodeInstanceEntity.FlowNodeType elementType) {
+  public void shouldMigrateSimpleElementScenariosWithTerminatedElement(
+      final String processFile,
+      final String processId,
+      final FlowNodeInstanceEntity.FlowNodeType elementType) {
     // given
     deployer.deployCamunda7Process(processFile);
     runtimeService.startProcessInstanceByKey(processId);
@@ -55,9 +56,10 @@ public abstract class HistoryAbstractElementMigrationTest extends HistoryMigrati
   @EnabledIf("hasScenarios_completedElementPostMigration")
   @MethodSource("elementScenarios_completedElementPostMigration")
   @ParameterizedTest
-  public void migrateSimpleElementScenarios_expectCompletedElement(final String processFile,
-                                                                   final String processId,
-                                                                    final FlowNodeInstanceEntity.FlowNodeType elementType) {
+  public void shouldMigrateSimpleElementScenariosWithCompletedElement(
+      final String processFile,
+      final String processId,
+      final FlowNodeInstanceEntity.FlowNodeType elementType) {
     // given
     deployer.deployCamunda7Process(processFile);
     runtimeService.startProcessInstanceByKey(processId);
@@ -104,4 +106,3 @@ public abstract class HistoryAbstractElementMigrationTest extends HistoryMigrati
     return elementScenarios_completedElementPostMigration().findAny().isPresent();
   }
 }
-

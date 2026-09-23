@@ -22,6 +22,16 @@ on:
         required: true
         type: boolean
         default: false
+      ONLY_PUBLISH_DOCKER_IMAGE:
+        description: "ONLY_PUBLISH_DOCKER_IMAGE"
+        required: true
+        type: boolean
+        default: false
+      SOURCE_RELEASE_RUN_ID:
+        description: "Source workflow run ID when ONLY_PUBLISH_DOCKER_IMAGE is true"
+        required: false
+        type: string
+        default: ""
       DEPLOY_DIAGRAM_CONVERTER:
         description: "DEPLOY_DIAGRAM_CONVERTER (don't check for alpha and patches < latest minor)"
         required: false
@@ -48,6 +58,7 @@ jobs:
   release:
     name: Maven Release
     runs-on: ubuntu-latest
+    if: ${{ !inputs.ONLY_PUBLISH_DOCKER_IMAGE }}
     timeout-minutes: 60
 
     steps:
@@ -100,6 +111,14 @@ jobs:
           git config --global user.email "github-actions[release]"
           git config --global user.name "github-actions[release]@users.noreply.github.com"
 
+      - name: Validate release ref
+        if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
+        run: |
+          if [[ "${GITHUB_REF}" != refs/heads/release/* && "${GITHUB_REF}" != refs/heads/maintenance/* ]]; then
+            echo "::error::Full releases must run from a release/* or maintenance/* branch. Use ONLY_PUSH_TO_MAVEN_CENTRAL=true to publish an existing release tag to Maven Central without running release:prepare."
+            exit 1
+          fi
+
       - name: Install Maven Central GPG Key
         # setup-maven supports this as well but needs the key in the armor ascii format,
         # while we only have it plain bas64 encoded
@@ -135,11 +154,11 @@ jobs:
           # https://maven.apache.org/maven-release/maven-release-plugin/usage/prepare-release.html
           mvn release:prepare -B \
             -Dresume=false \
-            -Dtag=${RELEASE_VERSION} \
-            -DreleaseVersion=${RELEASE_VERSION} \
-            -DdevelopmentVersion=${DEVELOPMENT_VERSION} \
-            -DpushChanges=${PUSH_CHANGES} \
-            -DremoteTagging=${PUSH_CHANGES} \
+            -Dtag="${RELEASE_VERSION}" \
+            -DreleaseVersion="${RELEASE_VERSION}" \
+            -DdevelopmentVersion="${DEVELOPMENT_VERSION}" \
+            -DpushChanges="${PUSH_CHANGES}" \
+            -DremoteTagging="${PUSH_CHANGES}" \
             -DignoreSnapshots=true \
             -Darguments='-Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" -DskipTests=true'
 
@@ -147,15 +166,26 @@ jobs:
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
         id: release-artifacts
         run: |
+          set -euo pipefail
+
           ARTIFACT_DIR=$(mktemp -d)
-          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.tar.gz "${ARTIFACT_DIR}/"
-          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip "${ARTIFACT_DIR}/"
-          cp data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
+          release_assets=(
+            "data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.tar.gz"
+            "data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip"
+            "data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar"
+            "code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar"
+            "diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar"
+            "diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar"
+            "diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar"
+          )
+
+          for asset in "${release_assets[@]}"; do
+            cp "${asset}" "${ARTIFACT_DIR}/"
+            basename "${asset}" >> "${ARTIFACT_DIR}/release-assets.txt"
+          done
+
+          echo "dir=${ARTIFACT_DIR}" >> "${GITHUB_OUTPUT}"
+
       - name: Upload Release Artifacts
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
         uses: actions/upload-artifact@v7
@@ -175,13 +205,13 @@ jobs:
           # https://maven.apache.org/maven-release/maven-release-plugin/usage/perform-release.html
           mvn release:perform -B \
             -Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" \
-            -DlocalCheckout=${{ inputs.IS_DRY_RUN }} \
+            -DlocalCheckout="${{ inputs.IS_DRY_RUN }}" \
             -Pcentral-sonatype-publish,distro \
-            -Darguments='-DskipTests=true -Dskip.central.release=true -Dskip.camunda.release=${SKIP_REPO_DEPLOY}'
+            -Darguments="-DskipTests=true -Dskip.central.release=true -Dskip.camunda.release=${SKIP_REPO_DEPLOY}"
 
       - name: Checkout Code
-        # Tag does not exist if dry run
-        if: ${{ !inputs.IS_DRY_RUN }}
+        # The release tag exists for backfills even when running a dry run.
+        if: ${{ inputs.ONLY_PUSH_TO_MAVEN_CENTRAL || !inputs.IS_DRY_RUN }}
         uses: actions/checkout@v7
         with:
           # Checkout the release tag to perform a second deployment 
@@ -195,23 +225,321 @@ jobs:
         run: |
           mvn deploy -B \
             -Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" \
-            -DlocalCheckout=${{ inputs.IS_DRY_RUN }} \
+            -DlocalCheckout="${{ inputs.IS_DRY_RUN }}" \
             -Pcentral-sonatype-publish,central-release \
-            -DskipTests=true -Dskip.central.release=${SKIP_REPO_DEPLOY} -Dskip.camunda.release=true
+            -DskipTests=true \
+            -Dskip.central.release="${SKIP_REPO_DEPLOY}" \
+            -Dskip.camunda.release=true \
+            -Dcentral.autoPublish=true \
+            -DwaitUntil=published
 
-  docker-image:
-    name: Build and Publish Docker Image
+      - name: Verify Maven Central publication
+        if: ${{ !inputs.IS_DRY_RUN }}
+        run: |
+          set -euo pipefail
+
+          artifacts=(
+            "io/camunda/camunda-7-to-8-migration-tooling-root/${RELEASE_VERSION}/camunda-7-to-8-migration-tooling-root-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-code-conversion-parent/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-parent-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-code-conversion-recipes/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-code-conversion-recipes/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-data-migrator-parent/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-parent-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-data-migrator-core/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-core-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-data-migrator-core/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-core-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-data-migrator-cockpit-plugin/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-data-migrator-cockpit-plugin/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-diagram-converter-parent/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-parent-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-diagram-converter-core/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-core/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-diagram-converter-webapp/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-webapp/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-diagram-converter-cli/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-cli/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.pom"
+          )
+
+          for attempt in {1..30}; do
+            missing=()
+            for artifact in "${artifacts[@]}"; do
+              if ! curl --fail --head --location --silent --show-error \
+                --connect-timeout 10 --max-time 30 \
+                "https://repo.maven.apache.org/maven2/${artifact}" >/dev/null; then
+                missing+=("${artifact}")
+              fi
+            done
+
+            if ((${#missing[@]} == 0)); then
+              echo "All Maven Central artifacts for ${RELEASE_VERSION} are available."
+              exit 0
+            fi
+
+            echo "::notice::Maven Central propagation is incomplete for ${RELEASE_VERSION}; ${#missing[@]} artifact(s) are still unavailable (attempt ${attempt}/30)."
+            sleep 20
+          done
+
+          echo "::error::Maven Central publication verification failed for ${RELEASE_VERSION}."
+          printf 'Missing artifact: %s\n' "${missing[@]}"
+          exit 1
+
+  publish-github-release:
+    name: Publish GitHub Release Assets
     runs-on: ubuntu-latest
-    needs: release
-    if: ${{ !inputs.IS_DRY_RUN }}
-    timeout-minutes: 30
+    needs:
+      - release
+      - docker-image
+    if: ${{ !inputs.IS_DRY_RUN && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL && !inputs.ONLY_PUBLISH_DOCKER_IMAGE }}
+    timeout-minutes: 15
+    concurrency:
+      group: github-release-assets-${{ inputs.RELEASE_VERSION }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
 
     steps:
       - name: Download Release Artifacts
         uses: actions/download-artifact@v8
         with:
           name: release-artifacts-${{ env.RELEASE_VERSION }}
+          path: ./release-assets
+
+      - name: Create or reuse draft GitHub release
+        id: github-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release_json=$(mktemp)
+          releases_json=$(mktemp)
+          tag_error=$(mktemp)
+          trap 'rm -f "${release_json}" "${releases_json}" "${tag_error}"' EXIT
+
+          expected_prerelease=false
+          if [[ "${RELEASE_VERSION}" == *-* ]]; then
+            expected_prerelease=true
+          fi
+
+          # GitHub does not return draft releases from the tag lookup endpoint.
+          # List releases to locate an existing draft and use its ID throughout this job.
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > "${releases_json}"
+          release_count=$(jq --arg tag "${RELEASE_VERSION}" \
+            '[.[][] | select(.tag_name == $tag)] | length' "${releases_json}")
+          created_release=false
+
+          case "${release_count}" in
+            0)
+              if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_VERSION}" \
+                >/dev/null 2> "${tag_error}"; then
+                if grep -q 'HTTP 404' "${tag_error}"; then
+                  echo "::error::Cannot create GitHub release '${RELEASE_VERSION}' because its tag does not exist."
+                else
+                  cat "${tag_error}" >&2
+                  echo "::error::Could not validate the tag for GitHub release '${RELEASE_VERSION}'."
+                fi
+                exit 1
+              fi
+
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
+                --raw-field "tag_name=${RELEASE_VERSION}" \
+                --raw-field "name=${RELEASE_VERSION}" \
+                --field draft=true \
+                --field "prerelease=${expected_prerelease}" \
+                --field generate_release_notes=true > "${release_json}"
+              created_release=true
+              ;;
+            1)
+              jq --arg tag "${RELEASE_VERSION}" \
+                '[.[][] | select(.tag_name == $tag)] | .[0]' \
+                "${releases_json}" > "${release_json}"
+              ;;
+            *)
+              echo "::error::Found ${release_count} GitHub releases for tag '${RELEASE_VERSION}'."
+              exit 1
+              ;;
+          esac
+
+          release_id=$(jq --raw-output '.id' "${release_json}")
+          release_draft=$(jq --raw-output '.draft' "${release_json}")
+          release_prerelease=$(jq --raw-output '.prerelease' "${release_json}")
+          if [[ ! "${release_id}" =~ ^[0-9]+$ ]]; then
+            echo "::error::GitHub release '${RELEASE_VERSION}' returned an invalid release ID '${release_id}'."
+            exit 1
+          fi
+
+          if [[ "${release_prerelease}" != "${expected_prerelease}" ]]; then
+            echo "::error::Release '${RELEASE_VERSION}' has prerelease=${release_prerelease}, expected ${expected_prerelease}."
+            exit 1
+          fi
+
+          if [[ "${release_draft}" != true && "${release_draft}" != false ]]; then
+            echo "::error::GitHub release '${RELEASE_VERSION}' returned an invalid draft state '${release_draft}'."
+            exit 1
+          fi
+
+          if [[ "${created_release}" == true && "${release_draft}" != true ]]; then
+            echo "::error::New GitHub release '${RELEASE_VERSION}' is not a draft."
+            exit 1
+          fi
+
+          echo "draft=${release_draft}" >> "${GITHUB_OUTPUT}"
+          echo "release_id=${release_id}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload GitHub release assets
+        if: ${{ steps.github-release.outputs.draft == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.github-release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+
+          asset_directory=release-assets
+          manifest="${asset_directory}/release-assets.txt"
+          if [[ ! -s "${manifest}" ]]; then
+            echo "::error::Release asset manifest '${manifest}' is missing or empty."
+            exit 1
+          fi
+
+          mapfile -t assets < "${manifest}"
+          if ((${#assets[@]} != 7)); then
+            echo "::error::Expected seven release assets, found ${#assets[@]}."
+            exit 1
+          fi
+
+          duplicates=$(printf '%s\n' "${assets[@]}" | sort | uniq --repeated)
+          if [[ -n "${duplicates}" ]]; then
+            echo "::error::Release asset manifest contains duplicates:"
+            printf '%s\n' "${duplicates}"
+            exit 1
+          fi
+
+          declare -A local_digests
+          declare -A remote_digests
+          remote_assets=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --jq '.assets[] | [.name, .digest] | @tsv')
+          while IFS=$'\t' read -r asset_name asset_digest; do
+            [[ -z "${asset_name}" ]] && continue
+            remote_digests["${asset_name}"]="${asset_digest}"
+          done <<< "${remote_assets}"
+
+          for asset in "${assets[@]}"; do
+            asset_path="${asset_directory}/${asset}"
+            if [[ ! -f "${asset_path}" ]]; then
+              echo "::error::Expected release asset '${asset_path}' is missing."
+              exit 1
+            fi
+
+            local_digests["${asset}"]="sha256:$(sha256sum "${asset_path}" | awk '{print $1}')"
+            if [[ -n "${remote_digests[${asset}]+present}" ]] \
+              && [[ "${remote_digests[${asset}]}" != "${local_digests[${asset}]}" ]]; then
+              echo "::error::Existing asset '${asset}' has a different digest and will not be overwritten."
+              echo "Expected: ${local_digests[${asset}]}"
+              echo "Actual:   ${remote_digests[${asset}]}"
+              exit 1
+            fi
+          done
+
+          for asset in "${assets[@]}"; do
+            if [[ -z "${remote_digests[${asset}]+present}" ]]; then
+              encoded_asset=$(jq --null-input --raw-output --arg asset "${asset}" '$asset | @uri')
+              gh api --method POST \
+                -H 'Content-Type: application/octet-stream' \
+                --input "${asset_directory}/${asset}" \
+                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${encoded_asset}" \
+                > /dev/null
+            fi
+          done
+
+      - name: Verify GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.github-release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+
+          asset_directory=release-assets
+          manifest="${asset_directory}/release-assets.txt"
+          mapfile -t assets < "${manifest}"
+          if ((${#assets[@]} != 7)); then
+            echo "::error::Expected seven release assets, found ${#assets[@]}."
+            exit 1
+          fi
+
+          for attempt in {1..5}; do
+            declare -A remote_digests=()
+            remote_assets=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+              --jq '.assets[] | [.name, .digest] | @tsv')
+            while IFS=$'\t' read -r asset_name asset_digest; do
+              [[ -z "${asset_name}" ]] && continue
+              remote_digests["${asset_name}"]="${asset_digest}"
+            done <<< "${remote_assets}"
+
+            missing=()
+            mismatched=()
+            for asset in "${assets[@]}"; do
+              asset_path="${asset_directory}/${asset}"
+              expected_digest="sha256:$(sha256sum "${asset_path}" | awk '{print $1}')"
+              if [[ -z "${remote_digests[${asset}]+present}" ]]; then
+                missing+=("${asset}")
+              elif [[ "${remote_digests[${asset}]}" != "${expected_digest}" ]]; then
+                mismatched+=("${asset}")
+              fi
+            done
+
+            if ((${#missing[@]} == 0 && ${#mismatched[@]} == 0)); then
+              echo "Verified all ${#assets[@]} GitHub release assets for ${RELEASE_VERSION}."
+              exit 0
+            fi
+
+            if ((attempt < 5)); then
+              echo "::notice::GitHub release asset verification is incomplete (attempt ${attempt}/5)."
+              sleep 2
+            fi
+          done
+
+          echo "::error::GitHub release '${RELEASE_VERSION}' does not match the expected asset manifest."
+          printf 'Missing asset: %s\n' "${missing[@]}"
+          printf 'Mismatched asset: %s\n' "${mismatched[@]}"
+          exit 1
+
+      - name: Publish GitHub release
+        if: ${{ steps.github-release.outputs.draft == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.github-release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --field draft=false > /dev/null
+          if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')" != false ]]; then
+            echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
+            exit 1
+          fi
+
+  docker-image:
+    name: Build and Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: release
+    if: ${{ always() && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL && (inputs.ONLY_PUBLISH_DOCKER_IMAGE || (!inputs.IS_DRY_RUN && needs.release.result == 'success')) }}
+    timeout-minutes: 30
+    permissions:
+      actions: read
+
+    steps:
+      - name: Validate Docker-only source run
+        if: ${{ inputs.ONLY_PUBLISH_DOCKER_IMAGE && inputs.SOURCE_RELEASE_RUN_ID == '' }}
+        run: |
+          echo "::error::SOURCE_RELEASE_RUN_ID is required when ONLY_PUBLISH_DOCKER_IMAGE is true."
+          exit 1
+
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artifacts-${{ env.RELEASE_VERSION }}
           path: ./artifacts
+          run-id: ${{ inputs.ONLY_PUBLISH_DOCKER_IMAGE && inputs.SOURCE_RELEASE_RUN_ID || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -239,12 +567,12 @@ jobs:
         run: |
           mkdir -p docker-context
           cd docker-context
-          tar -xzf ../artifacts/camunda-7-to-8-data-migrator-${{ env.RELEASE_VERSION }}.tar.gz
-          cp ../artifacts/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar ./
-          cp ../artifacts/camunda-7-to-8-data-migrator-cockpit-plugin-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-diagram-converter-core-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-diagram-converter-webapp-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-diagram-converter-cli-${{ env.RELEASE_VERSION }}.jar ./
+          tar -xzf "../artifacts/camunda-7-to-8-data-migrator-${{ env.RELEASE_VERSION }}.tar.gz"
+          cp "../artifacts/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar" ./
+          cp "../artifacts/camunda-7-to-8-data-migrator-cockpit-plugin-${{ env.RELEASE_VERSION }}.jar" ./
+          cp "../artifacts/camunda-7-to-8-diagram-converter-core-${{ env.RELEASE_VERSION }}.jar" ./
+          cp "../artifacts/camunda-7-to-8-diagram-converter-webapp-${{ env.RELEASE_VERSION }}.jar" ./
+          cp "../artifacts/camunda-7-to-8-diagram-converter-cli-${{ env.RELEASE_VERSION }}.jar" ./
           
           # Create Dockerfile
           cat > Dockerfile << 'EOF'
@@ -262,8 +590,17 @@ jobs:
 
   deploy-diagram-converter:
     name: Deploy Diagram Converter
-    needs: release
-    if: ${{ inputs.DEPLOY_DIAGRAM_CONVERTER && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
+    needs:
+      - release
+      - publish-github-release
+    if: >-
+      ${{
+        always()
+        && inputs.DEPLOY_DIAGRAM_CONVERTER
+        && !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL
+        && needs.release.result == 'success'
+        && (inputs.IS_DRY_RUN || needs.publish-github-release.result == 'success')
+      }}
     uses: ./.github/workflows/deploy-diagram-converter.yml
     with:
       RELEASE_VERSION: ${{ inputs.RELEASE_VERSION }}

@@ -6,9 +6,8 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import { test, expect } from '@playwright/test';
-
-const OPERATE_URL = 'http://localhost:8088/operate';
+import { test, expect, type Page } from '@playwright/test';
+import { navigateToOperateLogin } from './operate-navigation';
 
 /**
  * Helper: install a persistent handler that auto-dismisses Operate's
@@ -20,7 +19,7 @@ const OPERATE_URL = 'http://localhost:8088/operate';
  * `page.addLocatorHandler` makes Playwright dismiss the modal before every
  * subsequent action, eliminating the race.
  */
-async function installChangelogHandler(page: any) {
+async function installChangelogHandler(page: Page) {
   const gotItButton = page.locator('button:has-text("Got it")');
   await page.addLocatorHandler(gotItButton, async () => {
     await gotItButton.click();
@@ -30,8 +29,8 @@ async function installChangelogHandler(page: any) {
 /**
  * Helper: login to Operate if needed.
  */
-async function login(page: any) {
-  await page.goto(`${OPERATE_URL}/login`);
+async function login(page: Page) {
+  await navigateToOperateLogin(page);
   await page.waitForLoadState('networkidle');
 
   const isLoginPage = await page
@@ -55,7 +54,7 @@ async function login(page: any) {
 /**
  * Helper: navigate to the processes page via the nav bar.
  */
-async function goToProcesses(page: any) {
+async function goToProcesses(page: Page) {
   const processesLink = page
     .locator(
       'nav a:has-text("Processes"), a[href*="/processes"], a[title*="Processes"]',
@@ -64,13 +63,18 @@ async function goToProcesses(page: any) {
   await processesLink.waitFor({ state: 'visible', timeout: 10000 });
   await processesLink.click();
   await page.waitForURL('**/processes**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator(
+      '[data-testid="data-list"], [data-testid="data-table-container"], table tbody tr',
+    )
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
  * Helper: open a process instance by clicking its link in the process list.
  */
-async function openProcessInstance(page: any, processName: string) {
+async function openProcessInstance(page: Page, processName: string) {
   const processRow = page
     .locator(
       `[data-testid="data-list"] > div:has-text("${processName}"), table tbody tr:has-text("${processName}")`,
@@ -83,7 +87,9 @@ async function openProcessInstance(page: any, processName: string) {
   await instanceLink.click();
 
   await page.waitForURL('**/processes/**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator('[data-testid="instance-header"]')
+    .waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -101,6 +107,7 @@ async function openProcessInstance(page: any, processName: string) {
  */
 test.describe('Operate - Process Instances & Audit Logs', () => {
   test.describe.configure({ mode: 'serial' });
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
@@ -328,8 +335,10 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     ).first();
     await viewAllLink.waitFor({ state: 'visible', timeout: 10000 });
     await viewAllLink.click();
-
-    await page.waitForTimeout(3000);
+    await page
+      .locator('a[href*="/processes/"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     await page.screenshot({
       path: 'test-results/operate-called-instances.png',
@@ -342,8 +351,7 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
       .first();
     await miProcessLink.waitFor({ state: 'visible', timeout: 10000 });
     await miProcessLink.click();
-
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/processes/**', { timeout: 10000 });
 
     await page.screenshot({
       path: 'test-results/operate-child-process.png',
@@ -441,8 +449,9 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     await goToProcesses(page);
     await openProcessInstance(page, 'callingProcessId');
 
-    // Wait for full render
-    await page.waitForTimeout(3000);
+    await expect(page.locator('[data-testid="diagram"]')).toBeVisible({
+      timeout: 10000,
+    });
 
     await page.screenshot({
       path: 'test-results/operate-process-no-errors.png',

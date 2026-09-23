@@ -10,9 +10,9 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.migration.data.impl.clients.C7Client;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import java.util.Set;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -27,6 +27,9 @@ public class ProcessDefinitionTransformer implements EntityInterceptor<ProcessDe
   @Autowired
   protected C7Client c7Client;
 
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(ProcessDefinition.class);
@@ -39,7 +42,7 @@ public class ProcessDefinitionTransformer implements EntityInterceptor<ProcessDe
     var bpmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
 
     builder.processDefinitionKey(getNextKey())
-        .processDefinitionId(prefixDefinitionId(entity.getKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getKey()))
         .resourceName(resourceName)
         .name(entity.getName())
         .tenantId(getTenantId(entity.getTenantId()))

@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-    <version>0.3.4-SNAPSHOT</version>
+    <version>0.3.6-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -16,12 +16,12 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- as long as there is no official engine-spring artifact for spring 7,
-      we need to override transitive spring libs -->
+      <!-- Until there is an official engine-spring artifact for Spring 7,
+      import the Spring Framework BOM to override Camunda 7's transitive Spring libraries. -->
       <dependency>
         <groupId>org.springframework</groupId>
         <artifactId>spring-framework-bom</artifactId>
-        <version>7.0.8</version>
+        <version>${version.spring-framework}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -53,4 +53,3 @@
   </profiles>
 
 </project>
-

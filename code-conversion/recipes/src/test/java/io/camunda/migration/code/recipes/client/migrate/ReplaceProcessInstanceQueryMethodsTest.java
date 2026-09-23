@@ -41,22 +41,26 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
     @Autowired
     private CamundaClient camundaClient;
-    
+
     public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
-    
+
         engine.getRuntimeService().createProcessInstanceQuery()
                 .activityIdIn(activityIdIn)
                 .active()
                 .list();
-                
+
         engine.getRuntimeService().createProcessInstanceQuery()
                .processInstanceBusinessKey(businessKey)
                .active()
                .list();
-               
+
         engine.getRuntimeService().createProcessInstanceQuery()
                .processInstanceBusinessKey(businessKey)
                .processDefinitionKey(processDefinitionKey);
+
+        engine.getRuntimeService().createProcessInstanceQuery()
+               .processDefinitionKey(processDefinitionKey)
+               .list();
     }
 }
 """,
@@ -82,9 +86,9 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
     @Autowired
     private CamundaClient camundaClient;
-    
+
     public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
-    
+
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter
@@ -93,7 +97,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .send()
                 .join()
                 .items();
-                
+
         // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
         camundaClient
                 .newProcessInstanceSearchRequest()
@@ -102,14 +106,280 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .send()
                 .join()
                 .items();
-                
+
         // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
         camundaClient
                 .newProcessInstanceSearchRequest()
-                .filter(filter -> filter.processDefinitionKey(Long.valueOf(processDefinitionKey)));
+                .filter(filter -> filter.processDefinitionId(processDefinitionKey));
+
+        camundaClient
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter
+                        .processDefinitionId(processDefinitionKey))
+                .send()
+                .join()
+                .items();
     }
 }
 """
         ));
+  }
+
+  @Test
+  void doesNotRewriteTaskQueryListChains() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import io.camunda.client.CamundaClient;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class MixedQueryTypesTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void mixedQueries(String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+
+                    engine.getTaskService().createTaskQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import io.camunda.client.CamundaClient;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class MixedQueryTypesTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void mixedQueries(String processDefinitionKey) {
+                    camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey))
+                            .send()
+                            .join()
+                            .items();
+
+                    engine.getTaskService().createTaskQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void warnsWhenBusinessKeyIsCombinedWithProcessDefinitionKey() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class CombinedQueryTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void combinedQuery(String businessKey, String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processInstanceBusinessKey(businessKey)
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class CombinedQueryTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void combinedQuery(String businessKey, String processDefinitionKey) {
+                    // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
+                    camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey))
+                            .send()
+                            .join()
+                            .items();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void replacesCompleteProcessInstanceCounts() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceCounts {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void count(String processDefinitionKey, String activityId) {
+                    int sizeCount = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .list()
+                            .size();
+                    long streamCount = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list()
+                            .stream()
+                            .count();
+                    long directCount = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .activityIdIn(activityId)
+                            .count();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceCounts {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void count(String processDefinitionKey, String activityId) {
+                    int sizeCount = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().intValue();
+                    long streamCount = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().longValue();
+                    long directCount = camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .elementId(activityId)
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .page()
+                            .totalItems().longValue();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotPartiallyRewriteUnsupportedCountQueries() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class UnsupportedProcessInstanceCount {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public long count(String processDefinitionKey) {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .suspended()
+                            .count();
+                }
+            }
+            """));
   }
 }

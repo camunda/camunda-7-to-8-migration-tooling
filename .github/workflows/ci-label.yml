@@ -1,0 +1,12 @@
+name: CI label escalation
+
+on:
+  pull_request:
+    types: [labeled, unlabeled]
+
+jobs:
+  ci:
+    name: CI label escalation
+    if: startsWith(github.event.label.name, 'ci:')
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit

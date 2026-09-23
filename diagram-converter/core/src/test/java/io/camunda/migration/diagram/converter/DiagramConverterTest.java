@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter;
 
 import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 import static io.camunda.migration.diagram.converter.TestUtil.*;
+import static io.camunda.migration.diagram.converter.bpmn.BpmnTestcaseUtils.wrapSnippetInProcess;
 import static org.assertj.core.api.Assertions.*;
 
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
@@ -107,6 +108,58 @@ public class DiagramConverterTest {
             this.getClass().getClassLoader().getResourceAsStream("c8_simple.bpmn"));
     Assertions.assertThrows(
         RuntimeException.class, () -> converter.convert(modelInstance, properties));
+  }
+
+  @Test
+  void shouldFilterDocumentationMessagesWithoutFilteringAnalysisResults() {
+    DefaultConverterProperties filteredProperties = new DefaultConverterProperties();
+    filteredProperties.setAppendDocumentationOnlyTaskAndWarning(true);
+    filteredProperties.setPlatformVersion("8.9");
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(filteredProperties);
+    assertThat(properties.getPlatformVersion()).isEqualTo("8.9");
+    BpmnModelInstance filteredModel = mixedSeverityModel();
+
+    DiagramConverter converter = DiagramConverterFactory.getInstance().get();
+    DiagramCheckResult filteredResult =
+        converter.check("mixed-severity.bpmn", filteredModel, properties);
+
+    String filteredDocumentation = documentation(filteredModel);
+    assertThat(filteredDocumentation).contains("- WARNING:").doesNotContain("- REVIEW:");
+    assertThat(filteredResult.getResult("mixedTask").getMessages())
+        .extracting(ElementCheckMessage::getSeverity)
+        .contains(Severity.WARNING, Severity.REVIEW);
+  }
+
+  @Test
+  void shouldAppendAllDocumentationMessagesByDefault() {
+    DefaultConverterProperties converterProperties = new DefaultConverterProperties();
+    converterProperties.setAppendDocumentation(true);
+    converterProperties.setPlatformVersion("8.9");
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(converterProperties);
+    assertThat(properties.getPlatformVersion()).isEqualTo("8.9");
+    BpmnModelInstance modelInstance = mixedSeverityModel();
+
+    DiagramConverter converter = DiagramConverterFactory.getInstance().get();
+    converter.convert(modelInstance, properties);
+
+    assertThat(documentation(modelInstance)).contains("- WARNING:", "- REVIEW:");
+  }
+
+  private BpmnModelInstance mixedSeverityModel() {
+    return wrapSnippetInProcess(
+        """
+        <bpmn:serviceTask
+            id="mixedTask"
+            camunda:class="com.example.MyDelegate"
+            camunda:taskPriority="100" />
+        """);
+  }
+
+  private String documentation(BpmnModelInstance modelInstance) {
+    DomElement element = modelInstance.getDocument().getElementById("mixedTask");
+    return element.getChildElementsByNameNs(BPMN, "documentation").get(0).getTextContent();
   }
 
   @Test
@@ -646,6 +699,40 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void shouldRemoveUnusedCamundaNamespaceFromConvertedBpmn() {
+    BpmnModelInstance modelInstance = loadAndConvert("history-time-to-live.bpmn");
+
+    StringWriter writer = new StringWriter();
+    DiagramConverterFactory.getInstance().get().printXml(modelInstance.getDocument(), true, writer);
+
+    assertThat(writer.toString()).doesNotContain("xmlns:camunda");
+  }
+
+  @Test
+  void shouldRetainCamundaNamespaceWhenConvertedBpmnStillUsesIt() {
+    BpmnModelInstance modelInstance = loadAndConvert("conditional-event-missing-id.bpmn");
+
+    StringWriter writer = new StringWriter();
+    DiagramConverterFactory.getInstance().get().printXml(modelInstance.getDocument(), true, writer);
+
+    assertThat(writer.toString()).contains("xmlns:camunda").contains("camunda:diagramRelationId");
+  }
+
+  @Test
+  void shouldRemoveUnusedCamundaNamespaceFromConvertedDmn() {
+    DmnModelInstance modelInstance =
+        Dmn.readModelFromStream(getClass().getClassLoader().getResourceAsStream("testing-dmn.dmn"));
+    DiagramConverterFactory.getInstance()
+        .get()
+        .convert(modelInstance, ConverterPropertiesFactory.getInstance().get());
+
+    StringWriter writer = new StringWriter();
+    DiagramConverterFactory.getInstance().get().printXml(modelInstance.getDocument(), true, writer);
+
+    assertThat(writer.toString()).doesNotContain("xmlns:camunda");
+  }
+
+  @Test
   void testShouldAppendDataMigrationListenerOnlyOnProcessStartEvent() {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setAddDataMigrationExecutionListener(true);
@@ -756,20 +843,27 @@ public class DiagramConverterTest {
 
   @Test
   void testJobPriorityNotMigratedAcrossUnsupportedCarriers() {
-    // Element id -> jobPriority value declared on it in the fixture. The priority value is
-    // included in the priorityNotMigrated WARNING ("Priority '<value>' on ..."), so asserting on
-    // it pins each WARNING to the correct element rather than just any "was not migrated" message.
-    record IneligibleCarrier(String id, String priority, String howIntroduced) {}
+    // Element id -> jobPriority value declared on it in the fixture. The message differs for user
+    // tasks because their priority requires user-task-specific migration guidance.
+    record IneligibleCarrier(
+        String id, String priority, String howIntroduced, String priorityMessageFragment) {}
     List<IneligibleCarrier> ineligibleCarriers =
         List.of(
-            new IneligibleCarrier("SubProc", "150", "subProcess + asyncBefore"),
-            new IneligibleCarrier("SubProcStart", "177", "start event in subprocess + asyncAfter"),
-            new IneligibleCarrier("SubProcEnd", "32", "end event in subprocess + asyncBefore"),
-            new IneligibleCarrier("FeelTask", "160", "internal FEEL script task + asyncBefore"),
-            new IneligibleCarrier("ParallelGw", "12", "parallel gateway + asyncBefore"),
-            new IneligibleCarrier("DmnTask", "15", "DMN-backed business rule task + asyncBefore"),
-            new IneligibleCarrier("BoundaryEvt", "43", "boundary event + asyncBefore"),
-            new IneligibleCarrier("Reviewer", "5", "user task + asyncAfter"));
+            new IneligibleCarrier("SubProc", "150", "subProcess + asyncBefore", "Priority '150'"),
+            new IneligibleCarrier(
+                "SubProcStart", "177", "start event in subprocess + asyncAfter", "Priority '177'"),
+            new IneligibleCarrier(
+                "SubProcEnd", "32", "end event in subprocess + asyncBefore", "Priority '32'"),
+            new IneligibleCarrier(
+                "FeelTask", "160", "internal FEEL script task + asyncBefore", "Priority '160'"),
+            new IneligibleCarrier(
+                "ParallelGw", "12", "parallel gateway + asyncBefore", "Priority '12'"),
+            new IneligibleCarrier(
+                "DmnTask", "15", "DMN-backed business rule task + asyncBefore", "Priority '15'"),
+            new IneligibleCarrier(
+                "BoundaryEvt", "43", "boundary event + asyncBefore", "Priority '43'"),
+            new IneligibleCarrier(
+                "Reviewer", "5", "user task + asyncAfter", "Camunda 7 'jobPriority' value '5'"));
 
     BpmnModelInstance model = loadAndConvert("job-priority-unsupported.bpmn", "8.10");
 
@@ -795,14 +889,14 @@ public class DiagramConverterTest {
           .isNotNull();
       assertThat(result.getResult(carrier.id()).getMessages())
           .as(
-              "priorityNotMigrated WARNING expected for element '%s' with priority '%s'",
+              "priority-not-migrated message expected for element '%s' with priority '%s'",
               carrier.id(), carrier.priority())
           .extracting(ElementCheckMessage::getMessage)
           .anyMatch(
               m ->
                   m.contains("was not migrated")
                       && m.contains("'" + carrier.id() + "'")
-                      && m.contains("Priority '" + carrier.priority() + "'"));
+                      && m.contains(carrier.priorityMessageFragment()));
     }
   }
 

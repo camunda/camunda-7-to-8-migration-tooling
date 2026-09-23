@@ -9,6 +9,9 @@ package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.convertible.BusinessRuleTaskConvertible;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
@@ -22,8 +25,25 @@ public class DecisionRefVersionTagVisitor extends AbstractSupportedAttributeVisi
 
   @Override
   protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
-    if (SemanticVersion.parse(context.getProperties().getPlatformVersion()).ordinal()
-        >= SemanticVersion._8_6.ordinal()) {
+    SemanticVersion targetVersion =
+        SemanticVersion.parse(context.getProperties().getPlatformVersion());
+    if (isExpression(attribute)) {
+      if (targetVersion.ordinal() < SemanticVersion._8_10.ordinal()) {
+        return MessageFactory.attributeNotSupported(
+            attributeLocalName(), context.getElement().getLocalName(), attribute);
+      }
+      ExpressionTransformationResult transformationResult =
+          ExpressionTransformer.transformToFeel("Decision reference version tag", attribute);
+      context.addConversion(
+          BusinessRuleTaskConvertible.class,
+          businessRuleTask ->
+              businessRuleTask
+                  .getZeebeCalledDecision()
+                  .setVersionTag(transformationResult.result()));
+      return ExpressionTransformationResultMessageFactory.getMessage(
+          transformationResult,
+          "https://docs.camunda.io/docs/components/modeler/bpmn/business-rule-tasks/");
+    } else if (targetVersion.ordinal() >= SemanticVersion._8_6.ordinal()) {
       context.addConversion(
           BusinessRuleTaskConvertible.class,
           businessRuleTask -> businessRuleTask.getZeebeCalledDecision().setVersionTag(attribute));
@@ -33,5 +53,9 @@ public class DecisionRefVersionTagVisitor extends AbstractSupportedAttributeVisi
       return MessageFactory.attributeNotSupported(
           attributeLocalName(), context.getElement().getLocalName(), attribute);
     }
+  }
+
+  private boolean isExpression(String value) {
+    return value.contains("${") || value.contains("#{");
   }
 }
