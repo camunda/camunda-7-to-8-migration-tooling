@@ -689,20 +689,6 @@ public class MigrateExecutionRecipe extends Recipe {
       return List.of(
           new ReplacementUtils.SimpleReplacementSpec(
               new MethodMatcher(
-                  // "getVariable(String variableName)"
-                  "org.camunda.bpm.engine.delegate.VariableScope getVariable(java.lang.String)"),
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariablesAsMap().get(#{any(java.lang.String)})"),
-              RecipeUtils.createSimpleIdentifier(
-                  "job", "io.camunda.client.api.response.ActivatedJob"),
-              null,
-              ReplacementUtils.ReturnTypeStrategy.INFER_FROM_CONTEXT,
-              List.of(
-                  new ReplacementUtils.SimpleReplacementSpec.NamedArg(
-                      "variableName", 0)),
-              Collections.emptyList()),
-          new ReplacementUtils.SimpleReplacementSpec(
-              new MethodMatcher(
                   // "setVariable(String variableName, Object value)"
                   "org.camunda.bpm.engine.delegate.VariableScope setVariable(java.lang.String, java.lang.Object)"),
               RecipeUtils.createSimpleJavaTemplate(
@@ -840,7 +826,37 @@ public class MigrateExecutionRecipe extends Recipe {
                       visited.getArguments().get(0));
             }
 
+            @Override
+            public J.MemberReference visitMemberReference(
+                J.MemberReference memberReference, ExecutionContext ctx) {
+              if (!isCopiedJobWorkerMethod()) {
+                return super.visitMemberReference(memberReference, ctx);
+              }
+
+              J.MemberReference visited = super.visitMemberReference(memberReference, ctx);
+              if (!isVariableLookup(visited)) {
+                return visited;
+              }
+
+              return JavaTemplate.builder(
+                      "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariablesAsMap()::get")
+                  .javaParser(
+                      JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                  .contextSensitive()
+                  .build()
+                  .apply(
+                      getCursor(),
+                      visited.getCoordinates().replace(),
+                      RecipeUtils.createSimpleIdentifier(
+                          "job", "io.camunda.client.api.response.ActivatedJob"));
+            }
+
             private boolean isVariableLookup(J.MethodInvocation invocation) {
+              if (invocation.getArguments().size() != 1
+                  || invocation.getArguments().get(0) instanceof J.Empty) {
+                return false;
+              }
+
               if (GET_VARIABLE.matches(invocation)) {
                 return true;
               }
@@ -849,6 +865,16 @@ public class MigrateExecutionRecipe extends Recipe {
               return "getVariable".equals(invocation.getSimpleName())
                   && receiver != null
                   && isVariableScopeReceiver(receiver);
+            }
+
+            private boolean isVariableLookup(J.MemberReference memberReference) {
+              if (!"getVariable".equals(memberReference.getReference().getSimpleName())
+                  || !isVariableScopeReceiver(memberReference.getContaining())) {
+                return false;
+              }
+
+              JavaType.Method methodType = memberReference.getMethodType();
+              return methodType == null || methodType.getParameterTypes().size() == 1;
             }
 
             private boolean isVariableScopeReceiver(Expression receiver) {
@@ -984,6 +1010,10 @@ public class MigrateExecutionRecipe extends Recipe {
                 return visited;
               }
 
+              if (isInsideLambdaBody()) {
+                return visited;
+              }
+
               String expectedType = methodReturnType();
               if (expectedType == null) {
                 return visited;
@@ -1115,6 +1145,14 @@ public class MigrateExecutionRecipe extends Recipe {
                 return ternary.withTruePart(truePart).withFalsePart(falsePart);
               }
 
+              if (expression instanceof J.Lambda lambda && expectedType != null) {
+                return adaptLambda(lambda, expectedType, scope);
+              }
+
+              if (expression instanceof J.NewArray newArray && expectedType != null) {
+                return adaptArrayInitializer(newArray, expectedType, scope);
+              }
+
               if (isEffectiveVariableLookup(expression)) {
                 if (expectedType == null
                     || isObjectType(expectedType)
@@ -1132,6 +1170,98 @@ public class MigrateExecutionRecipe extends Recipe {
               }
 
               return expression;
+            }
+
+            private Expression adaptLambda(
+                J.Lambda lambda, String expectedType, Cursor scope) {
+              String resultType = functionalResultType(expectedType);
+              if (resultType == null) {
+                return lambda;
+              }
+
+              J body = lambda.getBody();
+              if (body instanceof Expression expressionBody) {
+                Expression castBody =
+                    addCastIfNeeded(expressionBody, resultType, new Cursor(scope, lambda));
+                return castBody == expressionBody ? lambda : lambda.withBody(castBody);
+              }
+
+              if (body instanceof J.Block block) {
+                J.Block castBlock =
+                    (J.Block)
+                        new JavaIsoVisitor<ExecutionContext>() {
+                          @Override
+                          public J.Lambda visitLambda(J.Lambda lambda, ExecutionContext ctx) {
+                            return lambda;
+                          }
+
+                          @Override
+                          public J.ClassDeclaration visitClassDeclaration(
+                              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
+                            return classDeclaration;
+                          }
+
+                          @Override
+                          public J.Return visitReturn(
+                              J.Return returnStatement, ExecutionContext ctx) {
+                            J.Return visited = super.visitReturn(returnStatement, ctx);
+                            Expression expression = visited.getExpression();
+                            Expression castExpression =
+                                addCastIfNeeded(expression, resultType, getCursor());
+                            return castExpression == expression
+                                ? visited
+                                : visited.withExpression(castExpression);
+                          }
+                        }.visit(block, new InMemoryExecutionContext());
+                return castBlock == block ? lambda : lambda.withBody(castBlock);
+              }
+
+              return lambda;
+            }
+
+            private Expression adaptArrayInitializer(
+                J.NewArray newArray, String expectedType, Cursor scope) {
+              List<Expression> initializer = newArray.getInitializer();
+              String elementType = arrayElementType(expectedType);
+              if (initializer == null || elementType == null) {
+                return newArray;
+              }
+
+              List<Expression> updatedElements = new ArrayList<>(initializer);
+              boolean changed = false;
+              for (int i = 0; i < initializer.size(); i++) {
+                Expression element =
+                    addCastIfNeeded(
+                        initializer.get(i), elementType, new Cursor(scope, newArray));
+                if (element != initializer.get(i)) {
+                  updatedElements.set(i, element);
+                  changed = true;
+                }
+              }
+
+              return changed
+                  ? newArray.withInitializer(updatedElements)
+                  : newArray;
+            }
+
+            private String functionalResultType(String type) {
+              List<String> typeArguments = genericTypeArguments(type);
+              if (typeArguments.isEmpty()) {
+                return null;
+              }
+
+              String rawType = type.substring(0, type.indexOf('<')).trim();
+              String simpleName = rawType.substring(rawType.lastIndexOf('.') + 1);
+              return switch (simpleName) {
+                case "Function", "BiFunction" -> typeArguments.get(typeArguments.size() - 1);
+                case "Supplier", "Callable", "UnaryOperator", "BinaryOperator" ->
+                    typeArguments.get(0);
+                default -> null;
+              };
+            }
+
+            private String arrayElementType(String type) {
+              return type.endsWith("[]") ? type.substring(0, type.length() - 2).trim() : null;
             }
 
             private Expression createTypeCast(Expression expression, String expectedType) {
@@ -1411,6 +1541,18 @@ public class MigrateExecutionRecipe extends Recipe {
 
               String returnType = method.getReturnTypeExpression().toString();
               return "void".equals(returnType) ? null : returnType;
+            }
+
+            private boolean isInsideLambdaBody() {
+              for (Cursor cursor = getCursor(); cursor != null; cursor = cursor.getParent()) {
+                if (cursor.getValue() instanceof J.Lambda) {
+                  return true;
+                }
+                if (cursor.getValue() instanceof J.MethodDeclaration) {
+                  return false;
+                }
+              }
+              return false;
             }
 
             private String typeName(JavaType type) {

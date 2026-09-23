@@ -373,6 +373,172 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
+  void migratesVariableLookupMethodReferencesInCopiedBodies() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.Function;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Function<String, Object> lookup = execution::getVariable;
+                    return "done";
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.Function;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Function<String, Object> lookup = job.getVariablesAsMap()::get;
+                    return "done";
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesArgumentsOnUnsupportedGetVariableOverloads() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(0)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Object value = execution.getVariable("typed", String.class);
+                    Object noArgument = execution.getVariable();
+                    return "done";
+                }
+            }
+            """));
+  }
+
+  @Test
+  void castsVariableLookupsInTypedLambdaAndArrayExpressions() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.Function;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public Integer executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Function<String, String> read = ignored -> execution.getVariable("lambda");
+                    Function<String, String> blockRead =
+                            ignored -> {
+                                return execution.getVariable("block");
+                            };
+                    String[] values = {execution.getVariable("array")};
+                    return 1;
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.Function;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public Integer executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Function<String, String> read = ignored -> (String) job.getVariablesAsMap().get("lambda");
+                    Function<String, String> blockRead =
+                            ignored -> {
+                                return (String) job.getVariablesAsMap().get("block");
+                            };
+                    String[] values = {(String) job.getVariablesAsMap().get("array")};
+                    return 1;
+                }
+            }
+            """));
+  }
+
+  @Test
   void flagsLocalMethodReferencesAndPreservesTypedOverloads() {
     rewriteRun(
         spec ->
