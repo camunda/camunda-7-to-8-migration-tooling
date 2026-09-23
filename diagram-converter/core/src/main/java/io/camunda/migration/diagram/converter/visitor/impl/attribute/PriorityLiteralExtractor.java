@@ -12,7 +12,9 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 
 final class PriorityLiteralExtractor {
-  private static final Pattern FEEL_INTEGER_LITERAL = Pattern.compile("[+-]?\\d+");
+  private static final Pattern FEEL_LITERAL =
+      Pattern.compile(
+          "(?:[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?|true|false|null|\"(?:\\\\.|[^\"\\\\])*\")");
 
   private PriorityLiteralExtractor() {}
 
@@ -31,7 +33,7 @@ final class PriorityLiteralExtractor {
     }
 
     String feelLiteral = StringUtils.trimToNull(result.substring(1));
-    if (feelLiteral == null || !FEEL_INTEGER_LITERAL.matcher(feelLiteral).matches()) {
+    if (feelLiteral == null || !FEEL_LITERAL.matcher(feelLiteral).matches()) {
       return null;
     }
     return feelLiteral;

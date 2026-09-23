@@ -82,5 +82,4 @@ final class JobPriorityWriter {
       return true;
     }
   }
-
 }

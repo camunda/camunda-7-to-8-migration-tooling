@@ -66,5 +66,4 @@ final class UserTaskPriorityWriter {
       return true;
     }
   }
-
 }

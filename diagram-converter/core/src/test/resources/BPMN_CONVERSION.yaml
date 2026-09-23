@@ -278,6 +278,19 @@ categories:
           </bpmn:userTask>
         expectedMessages: |
           <conversion:message severity="TASK">Priority '${101}' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Non-integer user task priority expression is rejected after FEEL conversion
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request" camunda:priority="${1.5}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${1.5}' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
       - name: User task priority on an older target remains unsupported
         properties:
           platformVersion: "8.5"
@@ -1847,6 +1860,15 @@ categories:
           <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
         expectedMessages: |
           <conversion:message severity="TASK">Priority '${2147483648}' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Non-integer job priority expression is rejected after FEEL conversion
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${1.5}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${1.5}' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
       - name: Priority on pre-8.10 target platform is flagged as unsupported
         description: The zeebe:jobPriorityDefinition extension only exists from Camunda 8.10 onward. Converting against an older target platform drops the conversion and emits the standard "attribute not supported" message.
         properties:
