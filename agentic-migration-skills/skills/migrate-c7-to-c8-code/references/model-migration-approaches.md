@@ -316,7 +316,7 @@ potential-starter, priority-invalid, priority-not-migrated, priority-scales-merg
 resource, resource-on-conditional-event, resource-on-conditional-flow, result-variable-business-rule,
 result-variable-internal-script, result-variable-rest, script, script-format, script-job-type,
 script-on-conditional-event, script-on-conditional-flow, task-listener, task-listener-supported,
-timer-expression-not-supported, topic, user-task-priority-not-migrated,
+timer-expression-not-supported, topic, user-task-priority-collision, user-task-priority-not-migrated,
 variable-name-filter-not-supported, version-tag
 ```
 
@@ -553,9 +553,11 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - For target versions 8.5 and later, convert every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. Ensure that the task has a `bpmn:extensionElements` container. Create the container when it is missing, then add exactly one `<zeebe:userTask />` child.
+- The remaining user-task rules in this section apply only to target versions 8.5 and later.
 - A form-free user task still receives `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
 - Preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions. Preserve the task as a Camunda user task when any of that metadata is unsupported.
 - Record each unsupported user-task semantic as a finding with the source element and required manual action. Never silently replace that task with a legacy `io.camunda.zeebe:userTask` job.
+- For target versions before 8.5, do not add `<zeebe:userTask />`. Preserve the source implementation and record that modern user-task support is unavailable.
 - remove C7 generated-form elements from the converted copy after their source inventory is captured. `form-migration.md` creates separate standard `.form` resources.
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)

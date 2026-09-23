@@ -607,6 +607,19 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildUserTaskPriorityCollision() {
+    Message message = userTaskPriorityCollision("review", "20", "80");
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on user task 'review'. Neither priority maps to the Camunda 8 user-task priority slot. Handle both priorities manually.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#define-user-task-priority");
+  }
+
+  @Test
   void shouldBuildPriorityInvalid() {
     String elementLocalName = "serviceTask";
     String value = "9999999999";

@@ -843,25 +843,40 @@ public class DiagramConverterTest {
 
   @Test
   void testJobPriorityNotMigratedAcrossUnsupportedCarriers() {
-    // Element id -> jobPriority value declared on it in the fixture. The message prefix differs
-    // for user tasks because their priority requires user-task-specific migration guidance.
+    // Element id -> jobPriority value declared on it in the fixture. The message differs for user
+    // tasks because their priority requires user-task-specific migration guidance.
     record IneligibleCarrier(
-        String id, String priority, String howIntroduced, String priorityMessagePrefix) {}
+        String id, String priority, String howIntroduced, String priorityMessageFragment) {}
     List<IneligibleCarrier> ineligibleCarriers =
         List.of(
-            new IneligibleCarrier("SubProc", "150", "subProcess + asyncBefore", "Priority"),
             new IneligibleCarrier(
-                "SubProcStart", "177", "start event in subprocess + asyncAfter", "Priority"),
+                "SubProc", "150", "subProcess + asyncBefore", "Priority '150'"),
             new IneligibleCarrier(
-                "SubProcEnd", "32", "end event in subprocess + asyncBefore", "Priority"),
+                "SubProcStart",
+                "177",
+                "start event in subprocess + asyncAfter",
+                "Priority '177'"),
             new IneligibleCarrier(
-                "FeelTask", "160", "internal FEEL script task + asyncBefore", "Priority"),
-            new IneligibleCarrier("ParallelGw", "12", "parallel gateway + asyncBefore", "Priority"),
+                "SubProcEnd",
+                "32",
+                "end event in subprocess + asyncBefore",
+                "Priority '32'"),
             new IneligibleCarrier(
-                "DmnTask", "15", "DMN-backed business rule task + asyncBefore", "Priority"),
-            new IneligibleCarrier("BoundaryEvt", "43", "boundary event + asyncBefore", "Priority"),
+                "FeelTask", "160", "internal FEEL script task + asyncBefore", "Priority '160'"),
             new IneligibleCarrier(
-                "Reviewer", "5", "user task + asyncAfter", "Camunda 7 'jobPriority' value"));
+                "ParallelGw", "12", "parallel gateway + asyncBefore", "Priority '12'"),
+            new IneligibleCarrier(
+                "DmnTask",
+                "15",
+                "DMN-backed business rule task + asyncBefore",
+                "Priority '15'"),
+            new IneligibleCarrier(
+                "BoundaryEvt", "43", "boundary event + asyncBefore", "Priority '43'"),
+            new IneligibleCarrier(
+                "Reviewer",
+                "5",
+                "user task + asyncAfter",
+                "Camunda 7 'jobPriority' value '5'"));
 
     BpmnModelInstance model = loadAndConvert("job-priority-unsupported.bpmn", "8.10");
 
@@ -894,8 +909,7 @@ public class DiagramConverterTest {
               m ->
                   m.contains("was not migrated")
                       && m.contains("'" + carrier.id() + "'")
-                      && m.contains(
-                          carrier.priorityMessagePrefix() + " '" + carrier.priority() + "'"));
+                      && m.contains(carrier.priorityMessageFragment()));
     }
   }
 

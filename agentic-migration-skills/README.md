@@ -124,6 +124,8 @@ For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 use
 Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible
 assignments, schedules, forms, and listeners, records unsupported semantics, and does not create a
 legacy user-task job. A job-based replacement requires an explicit user decision.
+For targets before Camunda 8.5, the skill does not apply this mapping. It preserves the source
+implementation and records that modern user-task support is unavailable.
 This model rule complements the code-side user-task migration tracked in #1556.
 
 The agentic model-rewrite path preserves existing BPMN DI for unchanged semantic

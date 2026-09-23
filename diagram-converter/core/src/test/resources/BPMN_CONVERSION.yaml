@@ -278,6 +278,22 @@ categories:
           </bpmn:userTask>
         expectedMessages: |
           <conversion:message severity="WARNING">Attribute 'priority' with value '80' on 'userTask' is not supported.</conversion:message>
+      - name: User task job and task priorities report a collision
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:userTask id="approve" name="Approve request"
+              camunda:jobPriority="20"
+              camunda:taskPriority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="approve" implementation="##unspecified" isForCompensation="false" name="Approve request" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on user task 'approve'. Neither priority maps to the Camunda 8 user-task priority slot. Handle both priorities manually.</conversion:message>
+          <conversion:message severity="TASK">Camunda 7 'taskPriority' value '80' on user task 'approve' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output
