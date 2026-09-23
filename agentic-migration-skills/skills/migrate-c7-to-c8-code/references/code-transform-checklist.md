@@ -108,8 +108,9 @@ These items are not in the catalog:
 
 Apply this section to each migrated Maven module. Do not apply it to Gradle modules. Inspect
 `mvn help:effective-pom` before editing the POM. Record the plugin state, parent, and packaging in
-`MIGRATION_REPORT.md`. Never copy effective-POM output into `MIGRATION_REPORT.md`. Use the first
-matching row.
+`MIGRATION_REPORT.md`. Never copy effective-POM output into `MIGRATION_REPORT.md`. Classify the
+module from its source launch path and the runtime that the user requests. If the classification is
+unclear, then ask the user. Use the first matching row.
 
 | Module after migration | Action |
 |---|---|
