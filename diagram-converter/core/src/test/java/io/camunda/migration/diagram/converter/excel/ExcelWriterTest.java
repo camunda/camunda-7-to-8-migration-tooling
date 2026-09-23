@@ -80,7 +80,7 @@ class ExcelWriterTest {
             }
           }
         }
-        assertThat(pivotCount).isGreaterThanOrEqualTo(5);
+        assertThat(pivotCount).isEqualTo(5);
       }
 
       assertNoSerializedPivotOrChartData(report);
@@ -184,9 +184,9 @@ class ExcelWriterTest {
         }
       }
     }
-    assertThat(cacheDefinitions).isPositive();
+    assertThat(cacheDefinitions).isEqualTo(1);
     assertThat(cacheRecords).isEqualTo(cacheDefinitions);
-    assertThat(charts).isPositive();
+    assertThat(charts).isEqualTo(3);
     assertThat(sharedStringCount).isPositive();
     assertThat(referencedStrings)
         .containsExactlyInAnyOrderElementsOf(
