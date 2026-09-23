@@ -590,13 +590,13 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
                     // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
-                    BiFunction<String, Class<String>, Object> lookup = getVariableRequiresManualMigration();
+                    BiFunction<String, Class<String>, Object> lookup = (variableName, argument1) -> getVariableRequiresManualMigration(variableName, argument1);
                     return "done";
                 }
 
-                private static <T> T getVariableRequiresManualMigration() {
+                private static <T> T getVariableRequiresManualMigration(String variableName, Object... ignored) {
                     throw new UnsupportedOperationException(
-                            "Manual migration required for getVariable method reference.");
+                            "Manual migration required for getVariable: " + variableName);
                 }
             }
             """));
@@ -940,6 +940,268 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     throw new UnsupportedOperationException(
                             "Manual migration required for getVariableLocal: " + variableName);
                 }
+            }
+            """));
+  }
+
+  @Test
+  void preservesReceiverInUnboundLocalVariableMethodReference() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(2)
+            .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.BiFunction;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                BiFunction<DelegateExecution, String, Object> localLookup = DelegateExecution::getVariableLocal;
+                return "done";
+            }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.BiFunction;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
+                BiFunction<DelegateExecution, String, Object> localLookup = (execution1, variableName) -> getVariableLocalRequiresManualMigration(variableName);
+                return "done";
+            }
+
+                private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
+                    throw new UnsupportedOperationException(
+                            "Manual migration required for getVariableLocal: " + variableName);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesReceiverInUnboundUnsupportedVariableMethodReference() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+            .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @FunctionalInterface
+            private interface TriFunction<A, B, C, R> {
+                R apply(A receiver, B variableName, C type);
+            }
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                TriFunction<DelegateExecution, String, Class<String>, Object> lookup = DelegateExecution::getVariable;
+                return "done";
+            }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @FunctionalInterface
+            private interface TriFunction<A, B, C, R> {
+                R apply(A receiver, B variableName, C type);
+            }
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
+                TriFunction<DelegateExecution, String, Class<String>, Object> lookup = (execution1, variableName, argument1) -> getVariableRequiresManualMigration(variableName, argument1);
+                return "done";
+            }
+
+                private static <T> T getVariableRequiresManualMigration(String variableName, Object... ignored) {
+                    throw new UnsupportedOperationException(
+                            "Manual migration required for getVariable: " + variableName);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesReceiverWhenAdaptingUnboundVariableMethodReference() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+            .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.BiFunction;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                BiFunction<DelegateExecution, String, Object> lookup = DelegateExecution::getVariable;
+                return "done";
+            }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.BiFunction;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                BiFunction<DelegateExecution, String, Object> lookup = (execution1, variableName) -> job.getVariablesAsMap().get(variableName);
+                return "done";
+            }
+            }
+            """));
+  }
+
+  @Test
+  void migratesTypedVariableMethodReferenceInCopiedWorker() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+            .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.Function;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                Function<String, Object> lookup = execution::getVariableTyped;
+                return "done";
+            }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.function.Function;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+            @Override
+            public void execute(DelegateExecution execution) {
+            }
+
+            @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+            public String executeJobMigrated(ActivatedJob job) {
+                DelegateExecution execution = null;
+                Function<String, Object> lookup = job.getVariablesAsMap()::get;
+                return "done";
+            }
             }
             """));
   }

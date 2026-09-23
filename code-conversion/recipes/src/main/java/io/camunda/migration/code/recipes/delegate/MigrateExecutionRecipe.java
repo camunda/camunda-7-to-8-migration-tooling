@@ -207,12 +207,128 @@ public class MigrateExecutionRecipe extends Recipe {
   }
 
   private static boolean isUnsupportedVariableLookup(J.MemberReference reference, Cursor cursor) {
-    if (!"getVariable".equals(reference.getReference().getSimpleName())
+    String methodName = reference.getReference().getSimpleName();
+    if (!("getVariable".equals(methodName) || "getVariableTyped".equals(methodName))
         || !isVariableScopeReceiver(reference.getContaining(), cursor)) {
       return false;
     }
     JavaType.Method methodType = reference.getMethodType();
     return methodType == null || methodType.getParameterTypes().size() != 1;
+  }
+
+  private static boolean isUnboundVariableScopeMethodReference(J.MemberReference reference) {
+    Expression containing = reference.getContaining();
+    return isTypeQualifier(containing)
+        && RecipeUtils.isAssignableTo(containing.getType(), VARIABLE_SCOPE);
+  }
+
+  private static boolean isTypeQualifier(Expression expression) {
+    if (expression instanceof J.Identifier identifier) {
+      return identifier.getFieldType() == null;
+    }
+    if (expression instanceof J.FieldAccess fieldAccess) {
+      return fieldAccess.getName().getFieldType() == null
+          && isTypeQualifier(fieldAccess.getTarget());
+    }
+    return false;
+  }
+
+  private static List<String> methodReferenceLambdaParameterNames(
+      Cursor cursor, ExecutionContext ctx, int methodParameterCount, boolean includeReceiver) {
+    Set<String> usedNames = new HashSet<>();
+    J.MethodDeclaration method = cursor.firstEnclosing(J.MethodDeclaration.class);
+    if (method != null) {
+      new JavaIsoVisitor<ExecutionContext>() {
+        @Override
+        public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext nestedCtx) {
+          usedNames.add(identifier.getSimpleName());
+          return super.visitIdentifier(identifier, nestedCtx);
+        }
+      }.visit(method, ctx);
+    }
+
+    List<String> parameterNames = new ArrayList<>();
+    if (includeReceiver) {
+      parameterNames.add(uniqueLambdaParameterName("execution", usedNames));
+    }
+    for (int i = 0; i < methodParameterCount; i++) {
+      parameterNames.add(
+          uniqueLambdaParameterName(i == 0 ? "variableName" : "argument" + i, usedNames));
+    }
+    return parameterNames;
+  }
+
+  private static String uniqueLambdaParameterName(String preferredName, Set<String> usedNames) {
+    String name = preferredName;
+    int suffix = 1;
+    while (!usedNames.add(name)) {
+      name = preferredName + suffix++;
+    }
+    return name;
+  }
+
+  private static String lambdaParameterList(List<String> parameterNames) {
+    if (parameterNames.isEmpty()) {
+      return "()";
+    }
+    return parameterNames.size() == 1
+        ? parameterNames.get(0)
+        : "(" + String.join(", ", parameterNames) + ")";
+  }
+
+  private static int functionalInterfaceMethodParameterCount(
+      Cursor cursor, ExecutionContext ctx) {
+    J.VariableDeclarations variableDeclarations =
+        cursor.firstEnclosing(J.VariableDeclarations.class);
+    if (variableDeclarations == null || variableDeclarations.getType() == null) {
+      return -1;
+    }
+
+    JavaType variableType = variableDeclarations.getType();
+    JavaType.FullyQualified functionalType =
+        variableType instanceof JavaType.Parameterized parameterized
+            ? parameterized.getType()
+            : variableType instanceof JavaType.FullyQualified fullyQualified
+                ? fullyQualified
+                : null;
+    J.CompilationUnit compilationUnit = cursor.firstEnclosing(J.CompilationUnit.class);
+    if (functionalType == null || compilationUnit == null) {
+      return -1;
+    }
+
+    String functionalTypeName = functionalType.getFullyQualifiedName();
+    if ("java.util.function.Function".equals(functionalTypeName)) {
+      return 1;
+    }
+    if ("java.util.function.BiFunction".equals(functionalTypeName)) {
+      return 2;
+    }
+
+    int[] parameterCount = {-1};
+    new JavaIsoVisitor<ExecutionContext>() {
+      @Override
+      public J.ClassDeclaration visitClassDeclaration(
+          J.ClassDeclaration classDeclaration, ExecutionContext nestedCtx) {
+        JavaType.FullyQualified declarationType = classDeclaration.getType();
+        if (declarationType != null
+            && (functionalTypeName.equals(declarationType.getFullyQualifiedName())
+                || functionalTypeName
+                    .replace('$', '.')
+                    .equals(declarationType.getFullyQualifiedName().replace('$', '.')))) {
+          List<J.MethodDeclaration> abstractMethods =
+              classDeclaration.getBody().getStatements().stream()
+                  .filter(J.MethodDeclaration.class::isInstance)
+                  .map(J.MethodDeclaration.class::cast)
+                  .filter(method -> method.getBody() == null)
+                  .toList();
+          if (abstractMethods.size() == 1) {
+            parameterCount[0] = abstractMethods.get(0).getParameters().size();
+          }
+        }
+        return super.visitClassDeclaration(classDeclaration, nestedCtx);
+      }
+    }.visit(compilationUnit, ctx);
+    return parameterCount[0];
   }
 
   private static class CopyDelegateToJobWorkerRecipe extends Recipe {
@@ -544,28 +660,25 @@ public class MigrateExecutionRecipe extends Recipe {
                 classesWithReplacedLookups.add(classId);
               }
               JavaType.Method methodType = visited.getMethodType();
-              int parameterCount =
+              int methodParameterCount =
                   Math.max(
                       1,
                       methodType == null ? 1 : methodType.getParameterTypes().size());
-              if (classId != null && parameterCount > 1) {
+              if (classId != null && methodParameterCount > 1) {
                 classesWithTypedReplacedLookups.add(classId);
               }
-              List<String> parameterNames = new ArrayList<>();
-              for (int i = 0; i < parameterCount; i++) {
-                parameterNames.add(i == 0 ? "variableName" : "argument" + i);
-              }
-              String lambdaParameters =
-                  parameterCount == 1
-                      ? parameterNames.get(0)
-                      : "(" + String.join(", ", parameterNames) + ")";
-
+              boolean includeReceiver = isUnboundVariableScopeMethodReference(visited);
+              List<String> lambdaParameterNames =
+                  methodReferenceLambdaParameterNames(
+                      getCursor(), ctx, methodParameterCount, includeReceiver);
+              List<String> methodArgumentNames =
+                  lambdaParameterNames.subList(includeReceiver ? 1 : 0, lambdaParameterNames.size());
               return JavaTemplate.builder(
-                      lambdaParameters
+                      lambdaParameterList(lambdaParameterNames)
                           + " -> "
                           + methodName
                           + "("
-                          + String.join(", ", parameterNames)
+                          + String.join(", ", methodArgumentNames)
                           + ")")
                   .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                   .contextSensitive()
@@ -783,33 +896,34 @@ public class MigrateExecutionRecipe extends Recipe {
                     : methodNamesByClass.getOrDefault(
                         classId, manualMigrationMethodName(classDeclaration));
             JavaType.Method methodType = visited.getMethodType();
+            boolean includeReceiver = isUnboundVariableScopeMethodReference(visited);
+            int methodParameterCount =
+                methodType == null || methodType.getParameterTypes().isEmpty()
+                    ? functionalInterfaceMethodParameterCount(getCursor(), ctx)
+                        - (includeReceiver ? 1 : 0)
+                    : methodType.getParameterTypes().size();
+            if (methodParameterCount < 0) {
+              return visited;
+            }
             if (classId != null) {
-              if (methodType == null || methodType.getParameterTypes().isEmpty()) {
+              if (methodParameterCount == 0) {
                 classesWithUnknownArityReferences.add(classId);
               } else {
                 classesWithMultiArgumentLookups.add(classId);
               }
             }
 
-            if (methodType == null || methodType.getParameterTypes().isEmpty()) {
-              return JavaTemplate.builder(methodName + "()")
-                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                  .contextSensitive()
-                  .build()
-                  .apply(getCursor(), visited.getCoordinates().replace());
-            }
-
-            List<String> parameterNames = new ArrayList<>();
-            for (int i = 0; i < methodType.getParameterTypes().size(); i++) {
-              parameterNames.add(i == 0 ? "variableName" : "argument" + i);
-            }
-            String lambdaParameters = "(" + String.join(", ", parameterNames) + ")";
+            List<String> lambdaParameterNames =
+                methodReferenceLambdaParameterNames(
+                    getCursor(), ctx, methodParameterCount, includeReceiver);
+            List<String> methodArgumentNames =
+                lambdaParameterNames.subList(includeReceiver ? 1 : 0, lambdaParameterNames.size());
             String lambda =
-                lambdaParameters
+                lambdaParameterList(lambdaParameterNames)
                     + " -> "
                     + methodName
                     + "("
-                    + String.join(", ", parameterNames)
+                    + String.join(", ", methodArgumentNames)
                     + ")";
             return JavaTemplate.builder(lambda)
                 .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
@@ -1102,15 +1216,16 @@ public class MigrateExecutionRecipe extends Recipe {
 
       return Preconditions.check(
           precondition,
-          new JavaIsoVisitor<>() {
+          new JavaVisitor<ExecutionContext>() {
             @Override
             public J.MethodInvocation visitMethodInvocation(
                 J.MethodInvocation invocation, ExecutionContext ctx) {
               if (!isCopiedJobWorkerMethod()) {
-                return super.visitMethodInvocation(invocation, ctx);
+                return (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
               }
 
-              J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
+              J.MethodInvocation visited =
+                  (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
               if (!isVariableLookup(visited)) {
                 return visited;
               }
@@ -1126,15 +1241,39 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             @Override
-            public J.MemberReference visitMemberReference(
+            public J visitMemberReference(
                 J.MemberReference memberReference, ExecutionContext ctx) {
               if (!isCopiedJobWorkerMethod()) {
                 return super.visitMemberReference(memberReference, ctx);
               }
 
-              J.MemberReference visited = super.visitMemberReference(memberReference, ctx);
+              J.MemberReference visited =
+                  (J.MemberReference) super.visitMemberReference(memberReference, ctx);
               if (!isVariableLookup(visited)) {
                 return visited;
+              }
+
+              if (MigrateExecutionRecipe.isUnboundVariableScopeMethodReference(visited)) {
+                List<String> lambdaParameterNames =
+                    MigrateExecutionRecipe.methodReferenceLambdaParameterNames(
+                        getCursor(), ctx, 1, true);
+                String variableName = lambdaParameterNames.get(1);
+                String lambda =
+                    MigrateExecutionRecipe.lambdaParameterList(lambdaParameterNames)
+                        + " -> #{job:any(io.camunda.client.api.response.ActivatedJob)}"
+                        + ".getVariablesAsMap().get("
+                        + variableName
+                        + ")";
+                return JavaTemplate.builder(lambda)
+                    .javaParser(
+                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                    .contextSensitive()
+                    .build()
+                    .apply(
+                        getCursor(),
+                        visited.getCoordinates().replace(),
+                        RecipeUtils.createSimpleIdentifier(
+                            "job", "io.camunda.client.api.response.ActivatedJob"));
               }
 
               return JavaTemplate.builder(
@@ -1167,7 +1306,8 @@ public class MigrateExecutionRecipe extends Recipe {
             }
 
             private boolean isVariableLookup(J.MemberReference memberReference) {
-              if (!"getVariable".equals(memberReference.getReference().getSimpleName())
+              String methodName = memberReference.getReference().getSimpleName();
+              if (!("getVariable".equals(methodName) || "getVariableTyped".equals(methodName))
                   || !MigrateExecutionRecipe.isVariableScopeReceiver(
                       memberReference.getContaining(), getCursor())) {
                 return false;
