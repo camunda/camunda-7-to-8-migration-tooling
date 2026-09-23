@@ -25,13 +25,17 @@ option is marked (MAY).
 
 The skill asks the user in the host's current conversation.
 The skill uses a structured question tool only when the host documents it.
-When the host provides no live response path, the skill uses only choices stated in the request or
-execution configuration.
+When the host provides no live response path, the skill uses only choices explicitly stated in the
+request, current conversation, or execution configuration.
 The skill does not treat tool-trust settings as approval for scope, target, or migration decisions.
-If a required choice is missing after root confirmation, then the skill records it as an open item
-in `MIGRATION_REPORT.md`. The skill stops before the dependent action.
-The skill starts Step 3 only when the request or configuration authorizes the assessed scope and
-target version.
+If the host cannot respond live and any required choice is missing, then the skill stops before the
+dependent action.
+If the host cannot respond live and the project root is confirmed, then the skill records each
+missing choice as an open item in `MIGRATION_REPORT.md`.
+If the host cannot respond live and the project root is not confirmed, then the skill reports all
+missing choices in its response and writes no files.
+The skill starts Step 3 only when the request, current conversation, or execution configuration
+explicitly authorizes the assessed scope and target version.
 
 ## Step 0: Model preflight
 
@@ -217,10 +221,6 @@ and audit data are out of scope. Point the user to the Data Migrator.
 
 Write the assessment to `MIGRATION_REPORT.md`. The skill asks the user to confirm before Step 3 in
 the host's current conversation.
-
-If the host cannot respond live, then proceed only when the request or configuration authorizes the
-assessed scope and target version. Otherwise, the skill records the missing choice in
-`MIGRATION_REPORT.md` and stops before Step 3.
 
 ### Step 3: Execute Migration
 
