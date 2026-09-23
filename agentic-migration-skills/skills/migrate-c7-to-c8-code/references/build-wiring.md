@@ -34,10 +34,10 @@ the launch or an external launcher requires an executable artifact.
 
 | Effective Maven state | Required action |
 |---|---|
-| `spring-boot-maven-plugin` is declared under `build/plugins` with a direct or effective managed version | Keep a compatible version, executions, and configuration. If the version is stale for the selected Spring Boot major, update only the version. Add only missing run or packaging configuration. |
-| `spring-boot-maven-plugin` is declared under `build/plugins` without a direct or effective managed version | Add the selected Spring Boot version. Record its source and compatibility check. Keep existing executions and configuration. |
-| The plugin is absent from `build/plugins`, and a direct or effective managed version exists in `build/pluginManagement` or a parent | Add the plugin under the module's `build/plugins` and inherit the managed version. |
-| No plugin declaration or direct/effective managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
+| `org.springframework.boot:spring-boot-maven-plugin` is declared under `build/plugins` with a direct or effective managed version | Keep a compatible version, executions, and configuration. If the version is stale for the selected Spring Boot major, update only the version. Add only missing run or packaging configuration. |
+| `org.springframework.boot:spring-boot-maven-plugin` is declared under `build/plugins` without a direct or effective managed version | Add the selected Spring Boot version. Record its source and compatibility check. Keep existing executions and configuration. |
+| `org.springframework.boot:spring-boot-maven-plugin` is absent from `build/plugins`, and a direct or effective managed version exists in `build/pluginManagement` or a parent | Add `org.springframework.boot:spring-boot-maven-plugin` under the module's `build/plugins` and inherit the managed version. |
+| No `org.springframework.boot:spring-boot-maven-plugin` declaration or direct/effective managed version exists | Add `org.springframework.boot:spring-boot-maven-plugin` with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
 
 Do not infer a Maven plugin version from a dependency BOM. Dependency management supplies dependency
 versions, not build-plugin versions.
@@ -48,8 +48,8 @@ management, import a compatible `spring-boot-dependencies` BOM and manage the Ma
 `pluginManagement` or an explicit compatible version.
 
 Preserve existing plugin executions and configuration. Merge only the minimum required properties.
-Declare the plugin so `mvn spring-boot:run` resolves without a fully qualified temporary plugin
-invocation.
+Declare `org.springframework.boot:spring-boot-maven-plugin` so `mvn spring-boot:run` resolves
+without a fully qualified temporary plugin invocation.
 
 Compare every existing plugin version with the selected Spring Boot major. Record the compatibility
 check and its result. Update only a stale version to a compatible version.

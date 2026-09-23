@@ -289,8 +289,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory. Each inventory item must match a deployment pattern.
 13. **Build wiring** — apply the validation branch in `references/build-wiring.md`:
     - For a runtime Maven application, verify a supported run command and an executable artifact.
-      Declare the `spring-boot-maven-plugin` in the effective module build, not only in
-      `pluginManagement`. Preserve its existing configuration.
+      Declare `org.springframework.boot:spring-boot-maven-plugin` in the effective module build,
+      not only in `pluginManagement`. Preserve its existing configuration.
     - For an externally managed Maven application, apply the same checks only when the external
       launcher requires an executable artifact. Otherwise, record the external launch command and
       mark Maven launch, plugin, and artifact checks as not applicable.
