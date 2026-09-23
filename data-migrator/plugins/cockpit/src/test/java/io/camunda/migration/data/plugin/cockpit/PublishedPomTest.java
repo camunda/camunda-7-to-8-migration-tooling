@@ -20,7 +20,7 @@ import org.w3c.dom.NodeList;
 public class PublishedPomTest {
 
   private static final String MAVEN_POM_NAMESPACE = "http://maven.apache.org/POM/4.0.0";
-  private static final String FIXED_JACKSON_DATABIND_VERSION = "2.22.2";
+  private static final String FIXED_JACKSON_DATABIND_VERSION = "2.22.3";
 
   @Test
   public void publishesFixedJacksonDatabindDependencyAndCamundaWebappExclusion()
