@@ -552,6 +552,7 @@ has no source binding in the table. Do not replace a method-specific type with t
 For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit the original), applying:
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
+- Where the converted BPMN uses a `zeebe:` element or attribute, reuse an existing `zeebe` declaration on `bpmn:definitions` or declare `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` there before writing the converted copy.
 - Where the target version is 8.5 or later, convert every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. Ensure that the task has a `bpmn:extensionElements` container. Create the container when it is missing, then add exactly one `<zeebe:userTask />` child.
 - Where the target version is 8.5 or later and the user task is form-free, still add `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
 - Where the target version is 8.5 or later, preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions.
@@ -577,6 +578,7 @@ Before resolving the model findings, validate every converted `bpmn:userTask`:
 
 | Check | Required result |
 |---|---|
+| Zeebe namespace | `bpmn:definitions` declares `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` when any Zeebe extension is present |
 | User-task marker | Exactly one `zeebe:userTask` child exists in the task's `bpmn:extensionElements` |
 | Assignment, schedule, form, and listener metadata | Each supported value is present in its matching Zeebe extension |
 | Unsupported semantics | A finding names the source task and the manual action |
