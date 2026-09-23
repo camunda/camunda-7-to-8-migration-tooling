@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 
 public class ConvertLocalCommandTest {
@@ -211,6 +213,22 @@ public class ConvertLocalCommandTest {
     assertThat(Files.readString(new File(tempDir, "converted-c8-simple.form").toPath()))
         .contains("\"Camunda Cloud\"")
         .contains("\"8.10.0\"");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"8.8", "8.9", "8.10", "8.11"})
+  void shouldAcceptSupportedPlatformVersions(String platformVersion, @TempDir File tempDir)
+      throws IOException {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = new File(tempDir, "simple.form");
+    command.platformVersion = platformVersion;
+
+    assertThat(command.call()).isZero();
+
+    JsonNode converted = new ObjectMapper().readTree(new File(tempDir, "converted-c8-simple.form"));
+    assertThat(converted.get("executionPlatformVersion").asText())
+        .isEqualTo(platformVersion + ".0");
   }
 
   @Test

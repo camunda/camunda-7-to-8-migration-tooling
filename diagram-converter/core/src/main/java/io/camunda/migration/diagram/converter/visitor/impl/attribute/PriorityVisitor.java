@@ -7,11 +7,17 @@
  */
 package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
+import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.visitor.AbstractCurrentlyNotSupportedAttributeVisitor;
 
 public class PriorityVisitor extends AbstractCurrentlyNotSupportedAttributeVisitor {
   @Override
   public String attributeLocalName() {
     return "priority";
+  }
+
+  @Override
+  protected boolean canVisit(DomElementVisitorContext context) {
+    return super.canVisit(context) && !"userTask".equals(context.getElement().getLocalName());
   }
 }

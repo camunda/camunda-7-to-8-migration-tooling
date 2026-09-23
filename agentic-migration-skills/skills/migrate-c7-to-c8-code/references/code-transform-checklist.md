@@ -79,7 +79,7 @@ public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 ## 1. Dependencies and Configuration
 
 Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the `httpclient5` override, the SLF4J binding, the
+the starter choice by Spring Boot version, the startup validation, the SLF4J binding, the
 `@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
@@ -89,8 +89,8 @@ These items are not in the catalog:
 
 - If the project already pins a released GA Camunda 8 version in the selected target minor, keep it
   unless the user explicitly opts into a patch upgrade.
-- Check Spring Boot compatibility from the selected starter or BOM POM on Maven Central. Do not
-  assume a pairing works because both versions are "latest".
+- Check Spring Boot compatibility against the selected starter's version compatibility matrix. Do
+  not assume a pairing works because both versions are "latest".
 - Ensure Spring Boot dependency management is set through a parent or BOM before adding a Camunda
   starter.
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
@@ -102,7 +102,59 @@ These items are not in the catalog:
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
-- Replace `camunda.*` keys with `camunda.client.*` in application.properties or .yaml.
+- Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
+
+### Maven build wiring
+
+Apply this section to each migrated Maven module. Do not apply it to Gradle modules. Inspect
+`mvn help:effective-pom` before editing the POM. Record the plugin state, parent, and packaging in
+`MIGRATION_REPORT.md`. Never copy effective-POM output into `MIGRATION_REPORT.md`. Classify the
+module from its source launch path and the runtime that the user requests. If the classification is
+unclear, then ask the user. Use the first matching row.
+
+| Module after migration | Action |
+|---|---|
+| Test-only module | Never create a `@SpringBootApplication` class. Never add the plugin. Record the test command. |
+| External launcher that needs no executable artifact | Keep the build plugins unchanged. Record the launch command. |
+| No `@SpringBootApplication` entry point after migration | Never add the plugin. |
+| Created or kept runtime `@SpringBootApplication` entry point | Declare `org.springframework.boot:spring-boot-maven-plugin` under `build/plugins`. |
+
+When the skill declares the plugin, apply these rules:
+
+- Preserve an existing `<parent>`. Never replace it with `spring-boot-starter-parent`.
+- Preserve existing plugin executions and configuration.
+- Where the module, its parent, or `pluginManagement` supplies a plugin version with the selected
+  Spring Boot major, keep that version.
+- Otherwise, set the plugin version to the Spring Boot version that the selected Camunda starter
+  supports. A dependency BOM supplies no plugin version.
+- Ensure exactly one `repackage` execution runs during `package`.
+- Set `mainClass` to the selected entry point when several main classes exist or when an existing
+  `mainClass` differs.
+
+### Configuration binding validation
+
+Approach A runs `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` through
+`AllClientRecipes`. Do not run it again.
+
+Select the recipe version for the target minor. The validator reads its bundled starter metadata and
+legacy mappings.
+
+For approach B, run only the validation recipe after migration:
+
+| Build tool | Validation command |
+|---|---|
+| Maven | `mvn rewrite:run -Drewrite.activeRecipes=io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` |
+| Gradle | Replace every `activeRecipe(...)` entry in the `rewrite {}` block with `activeRecipe("io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe")`. Run the `REWRITE_COMMAND` from `code-migration-approaches.md`. Restore the original recipe configuration. |
+
+Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
+`code-migration-approaches.md` temporarily. Restore the build file after validation.
+
+The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
+It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
+does not start an application or connect to a Camunda cluster.
+
+Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
+record credential values.
 
 ---
 

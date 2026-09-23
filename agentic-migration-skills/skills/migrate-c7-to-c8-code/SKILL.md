@@ -255,8 +255,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
    Use `CamundaClient`.
 6. **Business keys** — search `businessKey`. Each use maps per the pattern catalog: businessId on
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
-7. **Configuration** — `camunda.client.*` keys replace the `camunda.*` keys in
-   `application.properties` or `.yaml`.
+7. **Configuration** — run the configuration validation in
+   `references/code-transform-checklist.md`.
 8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
 9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
@@ -282,6 +282,14 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
+13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
+    `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
+    launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
+    class. Stop each started process after the launch. The migration adds no
+    `@SpringBootApplication` class and no `spring-boot-maven-plugin` declaration to a test-only
+    module. A successful compile does not validate the plugin. If startup fails after the launch
+    only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
+    and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
 
 Check these pitfalls as well:
 
@@ -335,19 +343,32 @@ target version. See the linting section in `references/model-migration-approache
 15. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
    `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
    definitions-level XPath `expressionLanguage` attribute.
-16. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
+16. For every converted BPMN with source BPMN DI, the converted copy preserves the source diagram,
+    plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged
+    semantic IDs.
+17. For every converted BPMN without source BPMN DI, the skill does not create layout data and
+    records the absent source DI as provenance in `MIGRATION_REPORT.md`.
+18. When a semantic rewrite changes an ID referenced by BPMN DI, the skill updates the reference or
+    records a blocking or review finding when it cannot reconcile the reference.
+19. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
     from the original `camunda:delegateExpression`, `camunda:expression`, `camunda:class`, or
     `camunda:topic` attribute using the binding rules in
     `references/model-migration-approaches.md`. If the emitted type differs, require a confirmed
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
+20. Every executable process has a test that starts it directly, with the normal inputs and without
+    each input that a worker may not receive. Coverage through a call activity does not count,
+    because the parent can supply variables that a direct start lacks. If a process is not a valid
+    standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
+    covering test. A process with neither fails validation. For each failing scenario, record the
+    process ID, inputs, failing element, job type, and incident message.
 
 #### Summary
 
-Present a validation summary that states the status of compilation, remaining Camunda 7 imports,
-remaining migration TODOs, `businessKey` uses, the open items, tests, converted models, and the
-findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
+Present a validation summary that states the status of compilation, configuration binding,
+remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the open items, tests,
+converted models, and the findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
@@ -365,6 +386,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
 | Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
 | Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
+| BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
 
@@ -419,12 +441,24 @@ Within each impact, process rows with a severity before source-derived rows with
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
+- When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
+  `references/model-migration-approaches.md`.
+- Never relocate this listener automatically.
+- Confirm that the chosen target still supports execution listeners on the enclosing process or
+  subprocess before you offer relocation.
+- If the chosen target is earlier than Camunda 8.6, do not offer relocation.
+- Keep the category **needs review** and offer manual migration for a target earlier than Camunda 8.6.
+- Ask the user before editing an affected converted copy.
+- Offer to move each affected listener to the nearest enclosing process or subprocess.
+- Keep the category **needs review** when the user declines or verification fails.
 - When a Code + models run has Diagram Converter findings, offer a dispatcher scaffold for each many-to-one
   job-type group with a **needs review** verdict and no dispatcher. Use the procedure in
   `references/composing-code-and-models.md`.
 - After each batch, ask whether to commit.
 - For a model-finding batch, run the verification gate before updating the verdict table in
   `MIGRATION_REPORT.md`.
+- For a start-listener relocation, use the dedicated deployment and route checks in the relocation
+  procedure. Run the Step 4 test suite only when the same batch changed code.
 
 #### Action 2: delete now-redundant code
 

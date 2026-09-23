@@ -31,6 +31,10 @@ public class JobPriorityVisitor extends AbstractSupportedAttributeVisitor {
 
     // Handle elements for which job priority is not supported in Camunda 8
     if (!JobPriorityScope.isEligible(context)) {
+      if ("userTask".equals(context.getElement().getLocalName())) {
+        return MessageFactory.userTaskPriorityNotMigrated(
+            attributeLocalName(), context.getElement().getAttribute("id"), attribute);
+      }
       return MessageFactory.priorityNotMigrated(
           context.getElement().getLocalName(), context.getElement().getAttribute("id"), attribute);
     }

@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.diagram.converter.visitor.impl.element;
 
+import static io.camunda.migration.diagram.converter.NamespaceUri.BPMN;
 import static io.camunda.migration.diagram.converter.NamespaceUri.CAMUNDA;
 import static io.camunda.migration.diagram.converter.visitor.AbstractDelegateImplementationVisitor.*;
 
@@ -31,6 +32,11 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
   protected Message visitListener(
       DomElementVisitorContext context, String event, ListenerImplementation implementation) {
+    if (isStartListenerOnStartEvent(context, event)) {
+      return MessageFactory.executionListenerOnStartEventNotSupported(
+          event, ListenerImplementation.type(implementation), implementation.implementation());
+    }
+
     if (isExecutionListenerSupported(
         SemanticVersion.parse(context.getProperties().getPlatformVersion()), event)) {
       ZeebeExecutionListener executionListener = new ZeebeExecutionListener();
@@ -73,6 +79,10 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
     return version.ordinal() >= SemanticVersion._8_6.ordinal() && isKnownEventType(event);
   }
 
+  private boolean isStartListenerOnStartEvent(DomElementVisitorContext context, String event) {
+    return "start".equals(event) && isOnBpmnElement(context, BPMN, "startEvent");
+  }
+
   private boolean isKnownEventType(String event) {
     for (EventType eventType : EventType.values()) {
       if (eventType.name().equals(event)) {
@@ -84,8 +94,9 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
 
   @Override
   public boolean canBeTransformed(DomElementVisitorContext context) {
+    String event = findEventName(context);
     return isExecutionListenerSupported(
-        SemanticVersion.parse(context.getProperties().getPlatformVersion()),
-        findEventName(context));
+            SemanticVersion.parse(context.getProperties().getPlatformVersion()), event)
+        && !isStartListenerOnStartEvent(context, event);
   }
 }

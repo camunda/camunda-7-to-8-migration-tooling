@@ -14,6 +14,7 @@ const VERSION_HINTS = Object.freeze({
 // Keep this list independent of the Camunda libraries used to build a release
 // line. The converter accepts the target platform version as an input.
 export const SUPPORTED_PLATFORM_VERSIONS = Object.freeze([
+  { value: "8.8", label: "8.8" },
   { value: "8.9", label: "8.9", hint: VERSION_HINTS.PREVIOUS_STABLE },
   { value: "8.10", label: "8.10", hint: VERSION_HINTS.LATEST_STABLE },
   { value: "8.11", label: "8.11", hint: VERSION_HINTS.NEXT },

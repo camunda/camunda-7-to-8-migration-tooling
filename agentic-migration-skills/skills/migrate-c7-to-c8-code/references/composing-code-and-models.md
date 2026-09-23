@@ -118,6 +118,22 @@ When the project requires an existing registration source, update it after accep
 Rerun the relevant Step 4 code checks and the existing dispatcher cross-check.
 Keep the existing needs-fix evidence until that check passes.
 
+### 2c. Unsupported start-event listener scope
+
+When a model finding has messageId `execution-listener-on-start-event`, use the relocation procedure
+in `model-migration-approaches.md` before completing the code cross-check.
+Confirm that the chosen target supports execution listeners on the enclosing process or subprocess
+before you offer relocation.
+If the chosen target is earlier than Camunda 8.6, do not offer relocation.
+Keep the model category **needs review** and offer manual migration for a target earlier than
+Camunda 8.6.
+Resolve the original listener implementation.
+Resolve its recreated Camunda 8 listener type.
+Check that the migrated worker or connector route covers the recreated listener type.
+Keep the model category **needs review** when the target support is unconfirmed, the user declines
+relocation, or the route is uncovered.
+Record the target process or subprocess and the worker or connector evidence in `MIGRATION_REPORT.md`.
+
 ### 3. FEEL method-invocation category
 
 Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). These are the model-side occurrences of FEEL method-invocation (`code-transform-checklist.md` item 7): a JUEL expression invoked a Java method, on a bean or a plain variable (e.g. `${execution.getVariable("a").size()}`). The category applies regardless of element type: sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...). The remediation is the same in every case: a preceding job worker, execution listener, or DMN business rule table computes the value into a plain variable that FEEL can read.
@@ -188,6 +204,9 @@ After both complete, ask via AskUserQuestion whether to wire deployment of conve
 
 - **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - build a deployment inventory from this run's recorded converted-file paths and accepted generated forms. Add or update `@Deployment(resources = ...)` with explicit recursive classpath patterns for that inventory. Use a recursive pattern only when its packaged matches are a non-empty subset of that inventory. Otherwise, use explicit resource paths. Add a BPMN, DMN, or form pattern only when the inventory contains that resource type. Never target original diagrams, draft forms, or declined forms.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+
+When the skill creates or keeps a `@SpringBootApplication` class in a Maven module, apply "Maven
+build wiring" in `references/code-transform-checklist.md`.
 
 ## Report Keeping
 
