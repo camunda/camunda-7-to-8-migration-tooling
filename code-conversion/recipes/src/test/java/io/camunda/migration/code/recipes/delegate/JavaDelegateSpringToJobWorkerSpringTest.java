@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
-import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -85,7 +84,9 @@ public class RetrievePaymentAdapter {
 
             @Override
             public void execute(DelegateExecution execution) throws Exception {
-                System.out.println("SampleJavaDelegate " + execution.getVariable("x"));
+                Object x = execution.getVariable("x");
+                System.out.println("SampleJavaDelegate " + x);
+                if (x != null) execution.setVariable("observedX", x);
                 execution.setVariable("y", "hello world");
             }
         }
@@ -106,12 +107,15 @@ public class RetrievePaymentAdapter {
             @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
             public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                 Map<String, Object> resultMap = new HashMap<>();
-                System.out.println("SampleJavaDelegate " + job.getVariablesAsMap().get("x"));
+                Object x = job.getVariablesAsMap().get("x");
+                System.out.println("SampleJavaDelegate " + x);
+                if (x != null) resultMap.put("observedX", x);
                 resultMap.put("y", "hello world");
                 return resultMap;
             }
         }"""));
     }
+
 
     @Test
     void rewriteExecuteMethodWithVariables() {
@@ -171,51 +175,6 @@ public class RetrievePaymentAdapter {
         return resultMap;
     }
 }"""));
-    }
-
-    @Test
-    void typedVariableReadRemainsCompilableAfterFullMigration() {
-    rewriteRun(
-        java(
-"""
-package org.camunda.community.migration.example;
-
-import org.camunda.bpm.engine.delegate.DelegateExecution;
-import org.camunda.bpm.engine.delegate.JavaDelegate;
-import org.camunda.bpm.engine.variable.value.IntegerValue;
-import org.springframework.stereotype.Component;
-
-@Component
-public class RetrievePaymentAdapter implements JavaDelegate {
-
-    @Override
-    public void execute(DelegateExecution execution) throws Exception {
-        IntegerValue amount = execution.getVariableTyped("amount");
-    }
-}
-""",
-"""
-package org.camunda.community.migration.example;
-
-import io.camunda.client.annotation.JobWorker;
-import io.camunda.client.api.response.ActivatedJob;
-import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.Map;
-
-@Component
-public class RetrievePaymentAdapter {
-
-    @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
-    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
-        Map<String, Object> resultMap = new HashMap<>();
-        // please check type
-        Integer amount = (Integer) job.getVariablesAsMap().get("amount");
-        return resultMap;
-    }
-}"""
-        ));
     }
 
     @Test
@@ -318,16 +277,11 @@ public class TestDelegate {
         final Object jsonVariableTyped = job.getVariablesAsMap().get("jsonVariable");
         // please check type
         final Object fileVariableTyped = job.getVariablesAsMap().get("fileVariable");
-        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var stringVariableLocal = getVariableLocalRequiresManualMigration("stringVariableLocal");
-        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var integerVariableLocal = getVariableLocalRequiresManualMigration("integerVariableLocal");
-        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var doubleVariableLocal = getVariableLocalRequiresManualMigration("doubleVariableLocal");
-        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var boolVariableLocal = getVariableLocalRequiresManualMigration("boolVariableLocal");
-        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        final var jsonVariableLocal = getVariableLocalRequiresManualMigration("jsonVariableLocal");
+        final var stringVariableLocal = job.getVariable("stringVariableLocal");
+        final var integerVariableLocal = job.getVariable("integerVariableLocal");
+        final var doubleVariableLocal = job.getVariable("doubleVariableLocal");
+        final var boolVariableLocal = job.getVariable("boolVariableLocal");
+        final var jsonVariableLocal = job.getVariable("jsonVariableLocal");
 
         final String procInstanceId = String.valueOf(job.getProcessInstanceKey());
         final String procDefId = String.valueOf(job.getProcessDefinitionKey());
@@ -348,68 +302,6 @@ public class TestDelegate {
         resultMap.put("newObjectVariable", new DummyClass(215, 9.81, "Ein Beispielstring zum testen"));
         System.out.println("C7 finished");
         return resultMap;
-    }
-
-    private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
-        throw new UnsupportedOperationException(
-                "Manual migration required for getVariableLocal: " + variableName);
-    }
-}
-"""));
-    }
-
-    @Test
-    void typedLocalVariableReadRetainsLocalScopeForManualMigration() {
-    rewriteRun(
-        spec -> spec.typeValidationOptions(TypeValidation.none()),
-        java(
-"""
-package org.camunda.community.migration.example;
-
-import org.camunda.bpm.engine.delegate.DelegateExecution;
-import org.camunda.bpm.engine.delegate.JavaDelegate;
-import org.camunda.bpm.engine.variable.value.StringValue;
-import org.springframework.stereotype.Component;
-
-@Component
-public class RetrievePaymentAdapter implements JavaDelegate {
-
-    @Override
-    public void execute(DelegateExecution execution) throws Exception {
-        StringValue local = execution.getVariableLocalTyped("local", false);
-    }
-}
-""",
-"""
-package org.camunda.community.migration.example;
-
-import io.camunda.client.annotation.JobWorker;
-import io.camunda.client.api.response.ActivatedJob;
-import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.Map;
-
-@Component
-public class RetrievePaymentAdapter {
-
-    @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
-    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
-        Map<String, Object> resultMap = new HashMap<>();
-        // please check type
-        // TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.
-        String local = getVariableLocalRequiresManualMigration("local", false);
-        return resultMap;
-    }
-
-    private static <T> T getVariableLocalRequiresManualMigration(String variableName) {
-        throw new UnsupportedOperationException(
-                "Manual migration required for getVariableLocal: " + variableName);
-    }
-
-    private static <T> T getVariableLocalRequiresManualMigration(String variableName, Object... ignored) {
-        throw new UnsupportedOperationException(
-                "Manual migration required for getVariableLocal: " + variableName);
     }
 }
 """));

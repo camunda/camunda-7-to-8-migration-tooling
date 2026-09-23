@@ -45,35 +45,17 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
-### Preserve nullable variable reads
+### Optional variable reads
 
-Camunda 7 returns `null` when `DelegateExecution#getVariable` reads a variable that is not
-available. Use the variables map when the migrated code must preserve that behavior:
-
-```java
-    @JobWorker(type = "sampleJavaDelegate")
-    public Map<String, Object> handleJob(ActivatedJob job) {
-        Object comment = job.getVariablesAsMap().get("comment");
-        // continue when comment is null...
-        return Map.of("status", "processed");
-    }
-```
-
-Do not replace this access with `job.getVariable("comment")`: the job worker API raises an
-exception when the requested variable is unavailable. The OpenRewrite delegate migration recipe
-uses `job.getVariablesAsMap().get(...)` for migrated `getVariable` calls. It does not guess a
-scope for `getVariableLocal` because the job worker API does not expose the Camunda 7 execution
-scope. Instead, copied worker code calls a generated
-`getVariableLocalRequiresManualMigration(...)` placeholder that fails fast, and receives a
-manual-migration TODO. Replace that placeholder with an implementation for the required scope.
-When using Spring variable injection instead, mark an optional input explicitly:
+`DelegateExecution#getVariable("comment")` returns `null` when the variable is absent.
+The migration recipe preserves this for `getVariable(String)` with a nullable map lookup:
 
 ```java
-    @JobWorker(type = "sampleJavaDelegate")
-    public void handleJob(@Variable(name = "comment", optional = true) String comment) {
-        // comment is null when the process variable is unavailable
-    }
+Object comment = job.getVariablesAsMap().get("comment");
 ```
+
+Do not replace it with `job.getVariable("comment")`, which fails for an absent variable.
+Check local and typed variable lookups separately; they have different scope or type semantics.
 
 ### autoComplete = false (blocking)
 

@@ -8,7 +8,8 @@
 package io.camunda.conversion.standalone_process;
 
 import io.camunda.client.annotation.JobWorker;
-import io.camunda.client.annotation.Variable;
+import io.camunda.client.api.response.ActivatedJob;
+import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,8 +21,14 @@ public class OptionalVariableWorker {
     private static final Logger LOG = LoggerFactory.getLogger(OptionalVariableWorker.class);
 
     @JobWorker(type = "optional-variable-worker", autoComplete = true)
-    public Map<String, Object> executeJob(@Variable(name = "x", optional = true) Integer x) {
+    public Map<String, Object> executeJob(ActivatedJob job) {
+        Map<String, Object> resultMap = new HashMap<>();
+        Object x = job.getVariablesAsMap().get("x");
         LOG.info("Optional variable x = {}", x);
-        return Map.of("y", "hello world");
+        if (x != null) {
+            resultMap.put("observedX", x);
+        }
+        resultMap.put("y", "hello world");
+        return resultMap;
     }
 }

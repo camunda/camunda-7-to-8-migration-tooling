@@ -26,9 +26,9 @@ public void sampleJavaDelegate(ActivatedJob job) {
 
 ## Inject variables
 
-Replace `job.getVariable(...)` and `job.getVariablesAsMap()` with typed `@Variable` parameters.
-Use `@VariablesAsType` when several variables form one input object. Keep `ActivatedJob` when the
-method uses job metadata or the job key (`job.getKey()`).
+Replace required variable reads with typed `@Variable` parameters. Use `@VariablesAsType` when
+several variables form one input object. Keep `ActivatedJob` for job metadata, the job key
+(`job.getKey()`), or nullable variable reads.
 
 ```java
 // Before
@@ -41,16 +41,15 @@ public void sampleJavaDelegate(@Variable Object x) {
 }
 ```
 
-Mark an input optional only when the source worker accepts its absence:
+Mark an injected input optional only when the source worker accepts its absence:
 
 ```java
 public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 }
 ```
 
-For code that reads variables from `ActivatedJob`, use
-`job.getVariablesAsMap().get("comment")` when a missing variable must remain `null`.
-`job.getVariable("comment")` is strict and fails when the variable is unavailable.
+Keep nullable reads as `job.getVariablesAsMap().get(...)` when the source accepted a missing
+variable; do not turn them into required `@Variable` parameters or strict `job.getVariable(...)`.
 
 Remove `throws Exception` when the cleaned method no longer throws a checked exception. Keep a
 specific checked exception when the worker still requires it.
