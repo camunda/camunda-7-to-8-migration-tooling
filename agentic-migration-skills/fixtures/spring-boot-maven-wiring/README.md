@@ -16,8 +16,9 @@ Spring Boot deployment application. It adds the Camunda 8 starter,
 3. Configure a Camunda 8 connection. Confirm that `mvn spring-boot:run` starts
    `MessageStartApplication`. Run `mvn package`. Confirm that
    `java -jar target/message-start-1.0-SNAPSHOT.jar` starts the same class.
-4. Negative case: migrate a second copy as a test-only module. Confirm that it
-   has no `@SpringBootApplication` class and no `spring-boot-maven-plugin`.
+4. Negative case: migrate a second copy as a test-only module. Confirm that the
+   migration adds no `@SpringBootApplication` class and no
+   `spring-boot-maven-plugin` declaration.
 
 Without a reachable cluster, startup fails after Maven resolves the plugin.
 That failure does not replace the plugin and executable-JAR checks.
