@@ -109,9 +109,15 @@ async function openProcessInstance(page: Page, processName: string) {
  */
 test.describe('Operate - Process Instances & Audit Logs', () => {
   test.describe.configure({ mode: 'serial' });
-  test.setTimeout(180000);
 
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ page, context }, testInfo) => {
+    if (
+      testInfo.title ===
+      'should display flow node instance history for callingProcessId'
+    ) {
+      // The login helper allows two 60-second navigation attempts.
+      testInfo.setTimeout(180000);
+    }
     await context.clearCookies();
     await context.clearPermissions();
     await login(page);
