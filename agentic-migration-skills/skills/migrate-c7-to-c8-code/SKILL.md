@@ -357,6 +357,12 @@ target version. See the linting section in `references/model-migration-approache
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
+20. Every executable process has a test that starts it directly, with the normal inputs and without
+    each input that a worker may not receive. Coverage through a call activity does not count,
+    because the parent can supply variables that a direct start lacks. If a process is not a valid
+    standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
+    covering test. A process with neither fails validation. For each failing scenario, record the
+    process ID, inputs, failing element, job type, and incident message.
 
 #### Summary
 
