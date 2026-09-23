@@ -277,7 +277,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void preservesTypedVariableLookupsInNonDeclarationContexts() {
+  void flagsAlternateScopeLookupsInNonDeclarationContexts() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -357,12 +357,18 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
                     String existing = null;
-                    existing = (String) job.getVariablesAsMap().get("assignment");
-                    consume((String) job.getVariablesAsMap().get("argument"));
-                    consumeValues(List.of((String) job.getVariablesAsMap().get("generic")));
-                    consumeNested((Map<String, List<Integer>>) job.getVariablesAsMap().get("nested"));
-                    new Box((String) job.getVariablesAsMap().get("constructor"));
-                    return true ? (String) job.getVariablesAsMap().get("conditional") : "fallback";
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    existing = execution.getVariable("assignment");
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    consume(execution.getVariable("argument"));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    consumeValues(List.of(execution.getVariable("generic")));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    consumeNested(execution.getVariable("nested"));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    new Box(execution.getVariable("constructor"));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    return true ? execution.getVariable("conditional") : "fallback";
                 }
 
                 private void consume(String value) {
@@ -458,7 +464,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void migratesVariableLookupMethodReferencesInCopiedBodies() {
+  void flagsAlternateScopeMethodReferencesInCopiedBodies() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -512,8 +518,10 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
-                    Function<String, Object> lookup = variableName -> job.getVariablesAsMap().get(variableName);
-                    Function<String, String> typedLookup = variableName -> (String) job.getVariablesAsMap().get(variableName);
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    Function<String, Object> lookup = execution::getVariable;
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    Function<String, String> typedLookup = execution::getVariable;
                     return "done";
                 }
             }
@@ -648,6 +656,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
                     // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     Consumer<String> lookup = getVariableRequiresManualMigration();
                     return "done";
                 }
@@ -786,7 +795,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void castsUnattributedControlPredicatesAndArrayLookups() {
+  void flagsAlternateScopeLookupsInUnattributedConditionsAndArrays() {
     rewriteRun(
         spec ->
             spec.recipes(clearVariableLookupMethodTypes(), new MigrateExecutionRecipe())
@@ -864,12 +873,13 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         BooleanVariableScope execution = null;
-                        if ((Boolean) job.getVariablesAsMap().get("enabled")) {
+                        if (execution.getVariable("enabled")) {
                             {
                                 StringArrayVariableScope execution = null;
-                                return ((String[]) job.getVariablesAsMap().get("values"))[0];
+                                return execution.getVariable("values")[0];
                             }
                         }
                     }
@@ -880,7 +890,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void castsIndividualVarargsLookupsToTheComponentType() {
+  void flagsAlternateScopeLookupsInVarargsContexts() {
     rewriteRun(
         spec ->
             spec.recipes(clearVariableLookupMethodTypes(), new MigrateExecutionRecipe())
@@ -948,7 +958,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
                     StringVariableScope execution = null;
-                    consume("prefix", (String) job.getVariablesAsMap().get("vararg"));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    consume("prefix", execution.getVariable("vararg"));
                     return "done";
                 }
             }
@@ -956,7 +967,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void preservesTypedLookupsInBooleanArrayBinaryAndVarargsContexts() {
+  void flagsAlternateScopeLookupsInBooleanArrayBinaryAndVarargsContexts() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -1060,21 +1071,24 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     String first;
                     String concatenated;
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         BooleanVariableScope execution = null;
-                        if ((Boolean) job.getVariablesAsMap().get("enabled")) {
+                        if (execution.getVariable("enabled")) {
                             consume("enabled");
                         }
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         StringArrayVariableScope execution = null;
-                        first = ((String[]) job.getVariablesAsMap().get("values"))[0];
-                        consume((String[]) job.getVariablesAsMap().get("varargs"));
+                        first = execution.getVariable("values")[0];
+                        consume(execution.getVariable("varargs"));
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         StringVariableScope execution = null;
-                        concatenated = (String) job.getVariablesAsMap().get("value") + 1;
-                        consume("prefix", (String) job.getVariablesAsMap().get("vararg"));
+                        concatenated = execution.getVariable("value") + 1;
+                        consume("prefix", execution.getVariable("vararg"));
                     }
                     return first + concatenated;
                 }
@@ -1083,7 +1097,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void castsVariableLookupUsedAsMethodReceiver() {
+  void flagsAlternateScopeLookupUsedAsMethodReceiver() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -1144,7 +1158,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
                     StringVariableScope execution = null;
-                    String value = ((String) job.getVariablesAsMap().get("value")).trim();
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    String value = execution.getVariable("value").trim();
                     return value;
                 }
             }
@@ -1152,11 +1167,11 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void flagsChainedVariableLookupWhenReceiverTypeIsUnavailable() {
+  void flagsAlternateScopeLookupWhenMethodAttributionIsUnavailable() {
     rewriteRun(
         spec ->
             spec.recipes(clearMethodInvocationMethodTypes(), new MigrateExecutionRecipe())
-                .expectedCyclesThatMakeChanges(2)
+                .expectedCyclesThatMakeChanges(1)
                 .typeValidationOptions(TypeValidation.none()),
         java(
             """
@@ -1214,8 +1229,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) {
                     StringVariableScope execution = null;
-                    // TODO: chained variable lookups require manual migration because the receiver type cannot be inferred safely.
-                    String value = job.getVariablesAsMap().get("value").trim();
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    String value = execution.getVariable("value").trim();
                     return value;
                 }
             }
@@ -1343,6 +1358,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
                     // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     BiFunction<String, Class<String>, Object> lookup = (variableName, argument1) -> getVariableRequiresManualMigration(variableName, argument1);
                     return "done";
                 }
@@ -1356,7 +1372,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void preservesFullyQualifiedCastTypeForVariableLookupArguments() {
+  void flagsAlternateScopeLookupInFullyQualifiedCastContext() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -1407,7 +1423,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 public String executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
                     java.time.Instant value = null;
-                    value = (java.time.Instant) job.getVariablesAsMap().get("instant");
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    value = execution.getVariable("instant");
                     return "done";
                 }
             }
@@ -1480,7 +1497,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void castsVariableLookupsInTypedLambdaAndArrayExpressions() {
+  void flagsAlternateScopeLookupsInLambdasAndArrays() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -1538,12 +1555,15 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public Integer executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
-                    Function<String, String> read = ignored -> (String) job.getVariablesAsMap().get("lambda");
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    Function<String, String> read = ignored -> execution.getVariable("lambda");
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     Function<String, String> blockRead =
                             ignored -> {
-                                return (String) job.getVariablesAsMap().get("block");
+                                return execution.getVariable("block");
                             };
-                    String[] values = {(String) job.getVariablesAsMap().get("array")};
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    String[] values = {execution.getVariable("array")};
                     return 1;
                 }
             }
@@ -1837,7 +1857,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void preservesLookupTypesInParenthesizedThrowVarAndFunctionalContexts() {
+  void flagsAlternateScopeLookupsInParenthesizedThrowVarAndFunctionalContexts() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -1973,32 +1993,37 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) throws Throwable {
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         BooleanVariableScope execution = null;
-                        Predicate<String> predicate = variableName -> (Boolean) job.getVariablesAsMap().get(variableName);
+                        Predicate<String> predicate = execution::getVariable;
                         IntPredicate intPredicate =
-                                ignored -> (Boolean) job.getVariablesAsMap().get("intPredicate");
+                                ignored -> execution.getVariable("intPredicate");
                         BiPredicate<String, String> biPredicate =
-                                (name, ignored) -> (Boolean) job.getVariablesAsMap().get(name);
+                                (name, ignored) -> execution.getVariable(name);
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         IntegerVariableScope execution = null;
-                        ToIntFunction<String> intLookup = variableName -> (Integer) job.getVariablesAsMap().get(variableName);
+                        ToIntFunction<String> intLookup = execution::getVariable;
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         DoubleVariableScope execution = null;
                         LongToDoubleFunction doubleLookup =
-                                ignored -> (Double) job.getVariablesAsMap().get("double");
+                                ignored -> execution.getVariable("double");
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         StringVariableScope execution = null;
-                        String parenthesized = ((String) job.getVariablesAsMap().get("parenthesized"));
-                        var inferred = (String) job.getVariablesAsMap().get("inferred");
+                        String parenthesized = (execution.getVariable("parenthesized"));
+                        var inferred = execution.getVariable("inferred");
                         inferred.trim();
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         ThrowableVariableScope execution = null;
-                        throw (Throwable) job.getVariablesAsMap().get("failure");
+                        throw execution.getVariable("failure");
                     }
                 }
             }
@@ -2222,7 +2247,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void adaptsOptionalAndMapFactoryVariableLookups() {
+  void flagsAlternateScopeLookupsInOptionalAndMapFactoryContexts() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -2282,12 +2307,15 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public Map<String, Integer> executeJobMigrated(ActivatedJob job) {
                     DelegateExecution execution = null;
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     Optional<String> optional =
-                            Optional.ofNullable((String) job.getVariablesAsMap().get("optional"));
+                            Optional.ofNullable(execution.getVariable("optional"));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     Map<String, Integer> values =
-                            Map.of("value", (Integer) job.getVariablesAsMap().get("value"));
+                            Map.of("value", execution.getVariable("value"));
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     Map<String, Integer> entries =
-                            Map.ofEntries(Map.entry("entry", (Integer) job.getVariablesAsMap().get("entry")));
+                            Map.ofEntries(Map.entry("entry", execution.getVariable("entry")));
                     return values;
                 }
             }
@@ -2437,7 +2465,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   }
 
   @Test
-  void preservesLookupTypesInAdditionalExpressionContexts() {
+  void flagsAlternateScopeLookupsInAdditionalExpressionContexts() {
     rewriteRun(
         spec ->
             spec.expectedCyclesThatMakeChanges(1)
@@ -2622,54 +2650,60 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                 @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                 public String executeJobMigrated(ActivatedJob job) throws Throwable {
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         StringVariableScope execution = null;
                         String parenthesizedReceiver =
-                                ((String) job.getVariablesAsMap().get("receiver")).trim();
+                                (execution.getVariable("receiver")).trim();
                         var optional =
-                                Optional.<String>ofNullable((String) job.getVariablesAsMap().get("optional"));
-                        StringLookup customLookup = variableName -> (String) job.getVariablesAsMap().get(variableName);
+                                Optional.<String>ofNullable(execution.getVariable("optional"));
+                        StringLookup customLookup = execution::getVariable;
                         String yielded =
                                 switch ("value") {
-                                    case "value" -> (String) job.getVariablesAsMap().get("yielded");
+                                    case "value" -> execution.getVariable("yielded");
                                     default -> "fallback";
                                 };
-                        switch ((String) job.getVariablesAsMap().get("switchSelector")) {
+                        switch (execution.getVariable("switchSelector")) {
                             case "value" -> {
                             }
                             default -> {
                             }
                         }
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         ListVariableScope execution = null;
-                        for (String value : (java.util.List<java.lang.String>) job.getVariablesAsMap().get("iterable")) {
+                        for (String value : execution.getVariable("iterable")) {
                         }
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         BooleanVariableScope execution = null;
-                        Predicate<String> predicate = variableName -> (Boolean) job.getVariablesAsMap().get(variableName);
+                        Predicate<String> predicate = execution::getVariable;
                         IntPredicate intPredicate =
-                                ignored -> (Boolean) job.getVariablesAsMap().get("intPredicate");
+                                ignored -> execution.getVariable("intPredicate");
                         BiPredicate<String, String> biPredicate =
-                                (name, ignored) -> (Boolean) job.getVariablesAsMap().get(name);
-                        assert (Boolean) job.getVariablesAsMap().get("condition");
+                                (name, ignored) -> execution.getVariable(name);
+                        assert execution.getVariable("condition");
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         IntegerVariableScope execution = null;
-                        ToIntFunction<String> intLookup = variableName -> (Integer) job.getVariablesAsMap().get(variableName);
+                        ToIntFunction<String> intLookup = execution::getVariable;
                         Integer[] values = {1};
-                        Integer value = values[(Integer) job.getVariablesAsMap().get("index")];
+                        Integer value = values[execution.getVariable("index")];
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         DoubleVariableScope execution = null;
                         LongToDoubleFunction doubleLookup =
-                                ignored -> (Double) job.getVariablesAsMap().get("double");
+                                ignored -> execution.getVariable("double");
                     }
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     {
                         ThrowableVariableScope execution = null;
                         try {
-                            throw (Throwable) job.getVariablesAsMap().get("failure");
+                            throw execution.getVariable("failure");
                         } catch (Throwable ignored) {
                         }
                     }
@@ -2818,10 +2852,166 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     DelegateExecution execution = null;
                     VariableScope otherExecution = null;
                     CustomLocalVariableScope customScope = null;
-                    Object current = job.getVariablesAsMap().get("current");
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    Object current = execution.getVariable("current");
                     // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
                     Object other = otherExecution.getVariable("other");
                     Integer custom = customScope.getVariableLocal(42);
+                    return "done";
+                }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotMigrateShadowedDelegateExecutionVariable() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    Object value = execution.getVariable("value");
+                    return "done";
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    DelegateExecution execution = null;
+                    // TODO: variable lookups on alternate execution scopes require manual migration because the copied job worker cannot preserve another execution scope.
+                    Object value = execution.getVariable("value");
+                    return "done";
+                }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotMigrateWorkerWithNoncanonicalActivatedJobParameter() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(0)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob activatedJob) {
+                    DelegateExecution otherExecution = null;
+                    String processInstanceId = otherExecution.getProcessInstanceId();
+                    return processInstanceId;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void migratesLookupBoundToCopiedDelegateParameter() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .typeValidationOptions(TypeValidation.none()),
+        java(
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.HashMap;
+            import java.util.Map;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                    Object value = execution.getVariable("value");
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJob(ActivatedJob job) {
+                    Map<String, Object> resultMap = new HashMap<>();
+                    return "done";
+                }
+            }
+            """,
+            """
+            package org.camunda.conversion.java_delegates.handling_process_variables;
+
+            import io.camunda.client.api.response.ActivatedJob;
+            import io.camunda.client.annotation.JobWorker;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.HashMap;
+            import java.util.Map;
+
+            @Component
+            public class RetrievePaymentAdapter implements JavaDelegate {
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                    Object value = execution.getVariable("value");
+                }
+
+                @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                public String executeJobMigrated(ActivatedJob job) {
+                    Map<String, Object> resultMap = new HashMap<>();
+                    Object value = job.getVariablesAsMap().get("value");
                     return "done";
                 }
             }

@@ -30,6 +30,7 @@ import org.openrewrite.marker.Markers;
 public class MigrateExecutionRecipe extends Recipe {
 
   private static final String MIGRATED_WORKER_METHOD = "executeJobMigrated";
+  private static final String JOB_PARAMETER_NAME = "job";
   private static final String LOCAL_VARIABLE_LOOKUP_TODO =
       " TODO: getVariableLocal requires manual migration because Camunda 8 job workers do not expose the Camunda 7 execution scope.";
   private static final String TYPED_VARIABLE_LOOKUP_TODO =
@@ -98,16 +99,17 @@ public class MigrateExecutionRecipe extends Recipe {
         && method.getParameters().stream()
             .filter(J.VariableDeclarations.class::isInstance)
             .map(J.VariableDeclarations.class::cast)
-            .anyMatch(
-                parameter ->
-                    RecipeUtils.isAssignableTo(
-                            parameter.getType(),
-                            "io.camunda.client.api.response.ActivatedJob")
-                        || (parameter.getTypeExpression() != null
-                            && parameter
-                                .getTypeExpression()
-                                .toString()
-                                .endsWith("ActivatedJob")));
+            .anyMatch(parameter -> isActivatedJobParameterNamed(parameter, JOB_PARAMETER_NAME));
+  }
+
+  private static boolean isActivatedJobParameterNamed(
+      J.VariableDeclarations parameter, String parameterName) {
+    return (RecipeUtils.isAssignableTo(
+                parameter.getType(), "io.camunda.client.api.response.ActivatedJob")
+            || (parameter.getTypeExpression() != null
+                && parameter.getTypeExpression().toString().endsWith("ActivatedJob")))
+        && parameter.getVariables().stream()
+            .anyMatch(variable -> parameterName.equals(variable.getSimpleName()));
   }
 
   private static boolean isCopiedJobWorkerMethod(Cursor cursor) {
@@ -230,6 +232,10 @@ public class MigrateExecutionRecipe extends Recipe {
     if (!(unwrappedReceiver instanceof J.Identifier identifier)) {
       return false;
     }
+    JavaType.Variable receiverVariable = identifier.getFieldType();
+    if (receiverVariable == null) {
+      return false;
+    }
 
     J.ClassDeclaration classDeclaration = cursor.firstEnclosing(J.ClassDeclaration.class);
     if (classDeclaration == null) {
@@ -250,7 +256,9 @@ public class MigrateExecutionRecipe extends Recipe {
         if (declarations.getVariables().stream()
             .anyMatch(
                 variable ->
-                    identifier.getSimpleName().equals(variable.getName().getSimpleName()))) {
+                    identifier.getSimpleName().equals(variable.getSimpleName())
+                        && Objects.equals(
+                            receiverVariable, variable.getName().getFieldType()))) {
           return true;
         }
       }
@@ -409,7 +417,7 @@ public class MigrateExecutionRecipe extends Recipe {
       return false;
     }
     return variablesAsMap.getSelect() instanceof J.Identifier identifier
-        && "job".equals(identifier.getSimpleName());
+        && JOB_PARAMETER_NAME.equals(identifier.getSimpleName());
   }
 
   private static Expression unwrapParentheses(Expression expression) {

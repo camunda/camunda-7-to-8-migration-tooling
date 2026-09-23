@@ -34,6 +34,25 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
     return "Replaces typed value api to java object api.";
   }
 
+  private static boolean isVariableScopeLocalTypedLookup(J.MethodInvocation invocation) {
+    return "getVariableLocalTyped".equals(invocation.getSimpleName())
+        && (new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
+                .matches(invocation)
+            || (invocation.getMethodType() == null
+                && isVariableScopeOrUnknown(invocation.getSelect())));
+  }
+
+  private static boolean isVariableScopeOrUnknown(Expression receiver) {
+    if (receiver == null
+        || receiver.getType() == null
+        || receiver.getType() instanceof JavaType.Unknown) {
+      return true;
+    }
+    return RecipeUtils.isAssignableTo(
+        receiver.getType(), "org.camunda.bpm.engine.delegate.VariableScope");
+  }
+
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
 
@@ -710,11 +729,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (invocation.getSimpleName().equals("getVariableTyped")
                 || invocation.getSimpleName().equals("getVariableLocalTyped")) {
-              boolean isVariableScopeLocalLookup =
-                  invocation.getSimpleName().equals("getVariableLocalTyped")
-                      && new MethodMatcher(
-                              "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
-                          .matches(invocation);
+              boolean isVariableScopeLocalLookup = isVariableScopeLocalTypedLookup(invocation);
               String replacementName =
                   isVariableScopeLocalLookup ? "getVariableLocal" : "getVariable";
               J.Identifier newIdent =
