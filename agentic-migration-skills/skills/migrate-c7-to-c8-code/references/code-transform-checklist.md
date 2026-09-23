@@ -122,10 +122,10 @@ When the skill declares the plugin, apply these rules:
 
 - Preserve an existing `<parent>`. Never replace it with `spring-boot-starter-parent`.
 - Preserve existing plugin executions and configuration.
-- Where a parent or `pluginManagement` supplies a plugin version with the selected Spring Boot major,
-  inherit that version.
-- Otherwise, set the selected Spring Boot version in the module's plugin declaration. A dependency
-  BOM supplies no plugin version.
+- Where the module, its parent, or `pluginManagement` supplies a plugin version with the selected
+  Spring Boot major, keep that version.
+- Otherwise, set the plugin version to the Spring Boot version that the selected Camunda starter
+  supports. A dependency BOM supplies no plugin version.
 - Ensure exactly one `repackage` execution runs during `package`.
 - Set `mainClass` to the selected entry point when several main classes exist or when an existing
   `mainClass` differs.

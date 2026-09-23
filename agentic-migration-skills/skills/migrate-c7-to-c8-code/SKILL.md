@@ -282,13 +282,13 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
-13. **Build wiring** — for each Maven module that gets the plugin in the "Maven build wiring"
-    table of `references/code-transform-checklist.md`, `mvn spring-boot:run` starts the entry point.
-    `java -jar` on the `mvn package` artifact starts the same entry point. Stop each started
-    process after the entry point starts. The migration adds no
+13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
+    `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
+    launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
+    class. Stop each started process after the launch. The migration adds no
     `spring-boot-maven-plugin` declaration to a test-only module. A successful compile does not
-    validate the plugin. If a missing Camunda 8 cluster stops startup, then record that blocker.
-    Plugin resolution must still succeed. Record each command and exit code in `MIGRATION_REPORT.md`
+    validate the plugin. If startup fails after the launch only because no Camunda 8 cluster is
+    reachable, then record that blocker. Record each command and exit code in `MIGRATION_REPORT.md`
     with secret values replaced by `<redacted>`.
 
 Check these pitfalls as well:
