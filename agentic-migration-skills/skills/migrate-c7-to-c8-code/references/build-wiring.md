@@ -54,8 +54,8 @@ Ensure the effective build invokes `repackage` during `package`, either through 
 execution or through a minimal execution added to the plugin. Do not add a second `repackage`
 execution when a parent already supplies one. Before preserving plugin configuration, compare any
 existing `mainClass` with the selected entry point. If the values differ, replace `mainClass` with
-the selected entry point. If more than one main class is discoverable, set `mainClass` to the
-generated application's fully qualified class name.
+the selected entry point. If multiple main classes are discoverable, then the skill sets
+`mainClass` to the selected application's fully qualified class name.
 
 Keep the module's existing packaging type unless the migration explicitly changes it. Do not add
 `spring-boot-starter-web` or another runtime dependency only to make the plugin run. The application
