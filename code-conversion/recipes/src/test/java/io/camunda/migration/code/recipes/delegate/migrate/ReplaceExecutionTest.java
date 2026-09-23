@@ -1159,8 +1159,10 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             import io.camunda.client.annotation.JobWorker;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
             import org.springframework.stereotype.Component;
 
+            import java.util.function.BiFunction;
             import java.util.function.Function;
 
             @Component
@@ -1173,7 +1175,9 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
             public String executeJobMigrated(ActivatedJob job) {
                 DelegateExecution execution = null;
-                Function<String, Object> lookup = execution::getVariableTyped;
+                Function<String, TypedValue> lookup = execution::getVariableTyped;
+                BiFunction<DelegateExecution, String, TypedValue> unboundLookup =
+                        DelegateExecution::getVariableTyped;
                 return "done";
             }
             }
@@ -1185,8 +1189,10 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             import io.camunda.client.annotation.JobWorker;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
             import org.springframework.stereotype.Component;
 
+            import java.util.function.BiFunction;
             import java.util.function.Function;
 
             @Component
@@ -1199,9 +1205,18 @@ public class RetrievePaymentAdapter implements JavaDelegate {
             @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
             public String executeJobMigrated(ActivatedJob job) {
                 DelegateExecution execution = null;
-                Function<String, Object> lookup = job.getVariablesAsMap()::get;
+                // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
+                Function<String, TypedValue> lookup = variableName -> getVariableRequiresManualMigration(variableName);
+                // TODO: typed getVariable overload requires manual migration because job workers do not expose the Camunda 7 typed lookup contract.
+                BiFunction<DelegateExecution, String, TypedValue> unboundLookup =
+                        (execution1, variableName) -> getVariableRequiresManualMigration(variableName);
                 return "done";
             }
+
+                private static <T> T getVariableRequiresManualMigration(String variableName, Object... ignored) {
+                    throw new UnsupportedOperationException(
+                            "Manual migration required for getVariable: " + variableName);
+                }
             }
             """));
   }

@@ -213,7 +213,9 @@ public class MigrateExecutionRecipe extends Recipe {
       return false;
     }
     JavaType.Method methodType = reference.getMethodType();
-    return methodType == null || methodType.getParameterTypes().size() != 1;
+    return "getVariableTyped".equals(methodName)
+        || methodType == null
+        || methodType.getParameterTypes().size() != 1;
   }
 
   private static boolean isUnboundVariableScopeMethodReference(J.MemberReference reference) {
@@ -1307,7 +1309,7 @@ public class MigrateExecutionRecipe extends Recipe {
 
             private boolean isVariableLookup(J.MemberReference memberReference) {
               String methodName = memberReference.getReference().getSimpleName();
-              if (!("getVariable".equals(methodName) || "getVariableTyped".equals(methodName))
+              if (!"getVariable".equals(methodName)
                   || !MigrateExecutionRecipe.isVariableScopeReceiver(
                       memberReference.getContaining(), getCursor())) {
                 return false;

@@ -24,7 +24,7 @@ public class MyExecutionListener {
     @JobWorker(type = "myExecutionListener", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        String someVar = (String) job.getVariable("foo");
+        String someVar = (String) job.getVariablesAsMap().get("foo");
         LOG.info(">>> Migrated JobWorker triggered! foo = {}", someVar);
         return resultMap;
     }
