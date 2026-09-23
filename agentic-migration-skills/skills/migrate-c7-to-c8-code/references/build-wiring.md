@@ -25,7 +25,12 @@ configuration from a dependency alone.
 
 ## Maven application modules
 
-When Maven owns the runtime launch or an external launcher requires an executable artifact, apply the following decision table in order.
+Check for a runtime Spring Boot entry point before you inspect Maven plugin state. If
+no runtime entry point exists, then do not add the application plugin. Use the
+applicable test-only or externally managed procedure below.
+
+Use the table for runtime Spring Boot applications. Apply it only when Maven owns
+the launch or an external launcher requires an executable artifact.
 
 | Effective Maven state | Required action |
 |---|---|
@@ -33,7 +38,6 @@ When Maven owns the runtime launch or an external launcher requires an executabl
 | `spring-boot-maven-plugin` is declared under `build/plugins` without a direct or effective managed version | Add the selected Spring Boot version. Record its source and compatibility check. Keep existing executions and configuration. |
 | The plugin is absent from `build/plugins`, and a direct or effective managed version exists in `build/pluginManagement` or a parent | Add the plugin under the module's `build/plugins` and inherit the managed version. |
 | No plugin declaration or direct/effective managed version exists | Add the plugin with the Spring Boot version selected for the migrated module. Record the source and compatibility check. |
-| The module has no runtime Spring Boot entry point | Do not add the plugin. Record the supported non-application execution path. |
 
 Do not infer a Maven plugin version from a dependency BOM. Dependency management supplies dependency
 versions, not build-plugin versions.
@@ -67,8 +71,9 @@ transformation checklist.
 If the migrated code is test-only, do not create a misleading `@SpringBootApplication` entry point
 or add an application plugin. Record the supported test command in `MIGRATION_REPORT.md`.
 
-If an external launcher owns the runtime, record its command and ownership. Keep the module plugin
-configuration unchanged unless the external launcher requires the executable artifact.
+If an external launcher owns the runtime, record its command and ownership. Keep
+the plugin configuration unchanged unless the launcher requires an executable
+artifact for a runtime Spring Boot application.
 
 ## Validation
 
