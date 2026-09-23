@@ -15,7 +15,6 @@ import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
-import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 
 final class UserTaskPriorityWriter {
@@ -55,14 +54,37 @@ final class UserTaskPriorityWriter {
     if (priority.hasMethodInvocation() || priority.hasExecutionOnly()) {
       return false;
     }
-    if (!Objects.equals(priority.result(), priority.juelExpression())) {
+
+    String literal = extractLiteral(priority);
+    if (literal == null) {
       return false;
     }
     try {
-      int value = Integer.parseInt(priority.result().trim());
+      int value = Integer.parseInt(literal);
       return value < 0 || value > 100;
     } catch (NumberFormatException e) {
       return true;
     }
+  }
+
+  private static String extractLiteral(ExpressionTransformationResult priority) {
+    String result = StringUtils.trimToNull(priority.result());
+    if (result == null) {
+      return null;
+    }
+
+    if (result.equals(StringUtils.trimToEmpty(priority.juelExpression()))) {
+      return result;
+    }
+
+    if (!result.startsWith("=")) {
+      return null;
+    }
+
+    String feelLiteral = StringUtils.trimToNull(result.substring(1));
+    if (feelLiteral == null || !feelLiteral.matches("[+-]?\\d+")) {
+      return null;
+    }
+    return feelLiteral;
   }
 }

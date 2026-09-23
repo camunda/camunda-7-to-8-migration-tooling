@@ -15,7 +15,6 @@ import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
-import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 
 final class JobPriorityWriter {
@@ -64,22 +63,44 @@ final class JobPriorityWriter {
 
   /**
    * A priority literal is invalid when it doesn't fit C8's int32 priority slot — either out of
-   * range or not parseable as an integer at all. Expressions ({@code result != juelExpression})
-   * always pass; we can't validate them at conversion time and the engine will evaluate them at
-   * runtime.
+   * range or not parseable as an integer at all. Dynamic expressions still pass, but constant
+   * JUEL/FEEL literals are checked because the converter already knows the runtime value.
    */
   private static boolean isInvalidLiteral(ExpressionTransformationResult priority) {
     if (priority.hasMethodInvocation() || priority.hasExecutionOnly()) {
       return false;
     }
-    if (!Objects.equals(priority.result(), priority.juelExpression())) {
+
+    String literal = extractLiteral(priority);
+    if (literal == null) {
       return false;
     }
     try {
-      long value = Long.parseLong(priority.result().trim());
+      long value = Long.parseLong(literal);
       return value < Integer.MIN_VALUE || value > Integer.MAX_VALUE;
     } catch (NumberFormatException e) {
       return true;
     }
+  }
+
+  private static String extractLiteral(ExpressionTransformationResult priority) {
+    String result = StringUtils.trimToNull(priority.result());
+    if (result == null) {
+      return null;
+    }
+
+    if (result.equals(StringUtils.trimToEmpty(priority.juelExpression()))) {
+      return result;
+    }
+
+    if (!result.startsWith("=")) {
+      return null;
+    }
+
+    String feelLiteral = StringUtils.trimToNull(result.substring(1));
+    if (feelLiteral == null || !feelLiteral.matches("[+-]?\\d+")) {
+      return null;
+    }
+    return feelLiteral;
   }
 }
