@@ -1,51 +1,21 @@
 # Spring Boot Maven wiring fixture
 
-This fixture covers a Camunda 7 Maven module that does not use Spring Boot and
-becomes a Camunda 8 Spring Boot deployment application during migration.
-
-```text
-c7-source/
-  pom.xml
-  src/main/resources/message-start.bpmn
-expected-negative/
-  pom.xml
-expected-c8/
-  pom.xml
-  src/main/java/org/camunda/bpm/example/event/message/MessageStartApplication.java
-  src/main/resources/converted-c8-message-start.bpmn
-```
-
-The source POM declares the embedded Camunda 7 engine and a compiler plugin.
-It does not declare a Spring Boot parent, dependency, application class, or
-Maven application plugin. The expected copy adds the Camunda 8 Spring Boot 3
-starter, a `@SpringBootApplication` entry point, `@Deployment` for the
-converted BPMN, and `spring-boot-maven-plugin`.
+`c7-source` is a Camunda 7 Maven module with an embedded engine, no Spring Boot
+entry point, and no `spring-boot-maven-plugin`. `expected-c8` is the migrated
+Spring Boot deployment application. It adds the Camunda 8 starter,
+`MessageStartApplication`, a `converted-c8-*` BPMN copy, and
+`spring-boot-maven-plugin`. It keeps the compiler plugin.
 
 ## Running the evaluation
 
-1. Copy `c7-source` to a temporary project and confirm that it has no
-   `spring-boot-maven-plugin` and no Spring Boot entry point.
-2. Copy `c7-source` to a separate temporary project with a test-only or
-   non-application runtime intent. Migrate it with the
-   `migrate-c7-to-c8-code` skill and compare it with `expected-negative`.
-   Confirm that it has no Spring Boot entry point or application plugin.
-3. Migrate the first temporary project with the `migrate-c7-to-c8-code` skill.
-4. Compare the migrated project with `expected-c8`. Keep the original BPMN
-   unchanged and use a `converted-c8-*` copy for deployment.
-5. Configure the Camunda 8 connection required by the selected starter.
-6. Run `mvn spring-boot:run` from the migrated project. Confirm that Maven
-   resolves the plugin and starts `MessageStartApplication`.
-7. Run `mvn package` and inspect the JAR under `target/`. Confirm that it
-   contains the Spring Boot loader and `MessageStartApplication`.
-8. Run `java -jar target/message-start-1.0-SNAPSHOT.jar`. Confirm that the
-   packaged application selects the same entry point and deploys the converted
-   resource.
+1. Copy `c7-source` to a temporary project and migrate it with the
+   `migrate-c7-to-c8-code` skill. Accept `@Deployment` wiring.
+2. Compare the result with `expected-c8`.
+3. Configure a Camunda 8 connection. Run `mvn spring-boot:run`, then
+   `mvn package` and `java -jar target/message-start-1.0-SNAPSHOT.jar`. Both
+   commands start `MessageStartApplication`.
+4. Negative case: migrate a second copy as a test-only module. Confirm that it
+   has no `@SpringBootApplication` class and no `spring-boot-maven-plugin`.
 
-The start commands need a reachable Camunda 8 cluster because `@Deployment`
-executes during application startup. A cluster connection failure does not
-replace the Maven plugin and executable-JAR checks. Record the exact
-environment blocker in `MIGRATION_REPORT.md` when the cluster is unavailable.
-
-The `expected-negative` copy is the negative case. A module that remains
-test-only or has no runtime Spring Boot entry point must not receive the
-application class or `spring-boot-maven-plugin`.
+Without a reachable cluster, startup fails after Maven resolves the plugin.
+That failure does not replace the plugin and executable-JAR checks.

@@ -171,9 +171,6 @@ Record the original Java source baseline used for migration with the Code Invent
 class by its fully qualified class name, including its package and class name. Include every domain
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
-Record the build-wiring inventory from `references/build-wiring.md`. Include every existing Spring
-Boot entry point, Maven or Gradle application plugin, plugin-management declaration, packaging type,
-and runtime launch command.
 
 #### Model Inventory
 
@@ -218,9 +215,7 @@ For Code + models, see `references/composing-code-and-models.md`.
 #### Part A - Code Migration
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
-in Question 4. See `references/code-migration-approaches.md` for all three. Apply the Maven
-build-wiring procedure in `references/build-wiring.md` when a Maven module creates or retains a
-Spring Boot entry point. Do not apply this procedure to Gradle modules.
+in Question 4. See `references/code-migration-approaches.md` for all three.
 
 - **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
   source-to-output review.
@@ -287,17 +282,13 @@ Each item below is a check to run and a condition that must hold at exit. Record
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
     deployment inventory. Each inventory item must match a deployment pattern.
-13. **Build wiring** — apply the validation branch in `references/build-wiring.md`:
-    - For a runtime Maven application, verify a supported run command and an executable artifact.
-      Declare `org.springframework.boot:spring-boot-maven-plugin` in the effective module build,
-      not only in `pluginManagement`. Preserve its existing configuration.
-    - For an externally managed Maven application, apply the same checks only when the external
-      launcher requires an executable artifact. Otherwise, record the external launch command and
-      mark Maven launch, plugin, and artifact checks as not applicable.
-    - For a test-only module or a module without a runtime entry point, record its supported test or
-      non-application path and do not add an application plugin.
-    Record the selected launch commands, plugin source, package check, and any test-only or
-    externally managed execution path in `MIGRATION_REPORT.md`.
+13. **Build wiring** — for each Maven module that gets the plugin in the "Maven build wiring"
+    table of `references/code-transform-checklist.md`, `mvn spring-boot:run` starts the entry point.
+    `java -jar` on the `mvn package` artifact starts the same entry point. A test-only module has no
+    `spring-boot-maven-plugin`. A successful compile does not validate the plugin. If a missing
+    Camunda 8 cluster stops startup, then record that blocker. Plugin resolution must still succeed.
+    Record each command and exit code in `MIGRATION_REPORT.md` with secret values replaced by
+    `<redacted>`.
 
 Check these pitfalls as well:
 

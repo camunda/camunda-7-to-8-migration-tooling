@@ -104,6 +104,29 @@ These items are not in the catalog:
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
 
+### Maven build wiring
+
+Apply this section to each migrated Maven module. Do not apply it to Gradle modules. Inspect
+`mvn help:effective-pom` before editing the POM. Record the result in `MIGRATION_REPORT.md`. Use
+the first matching row.
+
+| Module after migration | Action |
+|---|---|
+| Test-only module, or no runtime entry point | Never create a `@SpringBootApplication` class. Never add the plugin. Record the test command. |
+| External launcher that needs no executable artifact | Keep the build plugins unchanged. Record the launch command. |
+| Runtime `@SpringBootApplication` entry point | Declare `org.springframework.boot:spring-boot-maven-plugin` under `build/plugins`. |
+
+When the skill declares the plugin, apply these rules:
+
+- Preserve an existing `<parent>`. Never replace it with `spring-boot-starter-parent`.
+- Preserve existing plugin executions and configuration.
+- If no parent or `pluginManagement` supplies a plugin version, then set the selected Spring Boot
+  version. A dependency BOM supplies no plugin version.
+- If the plugin version does not match the selected Spring Boot major, then update only the version.
+- Ensure exactly one `repackage` execution runs during `package`.
+- Set `mainClass` to the selected entry point when several main classes exist or when an existing
+  `mainClass` differs.
+
 ### Configuration binding validation
 
 Approach A runs `io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe` through
@@ -128,17 +151,6 @@ does not start an application or connect to a Camunda cluster.
 
 Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
 record credential values.
-
-### Maven build wiring
-
-When the migration creates or retains a Spring Boot entry point in a Maven module, load
-`references/build-wiring.md`. Detect the effective Maven plugin configuration before editing the
-POM. Add `org.springframework.boot:spring-boot-maven-plugin` under `build/plugins` only for a
-runtime application. Preserve existing plugin configuration and parent-managed versions. Verify
-both `mvn spring-boot:run` and the executable packaged artifact, or record the exact test-only or
-externally managed launch path.
-Do not add the plugin to modules without a runtime Spring Boot entry point.
-Do not apply these Maven rules to Gradle modules.
 
 ---
 
