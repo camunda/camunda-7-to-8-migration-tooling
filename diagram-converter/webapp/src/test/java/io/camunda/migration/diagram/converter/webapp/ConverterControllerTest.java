@@ -830,7 +830,7 @@ public class ConverterControllerTest {
 
     String converted = new String(form, StandardCharsets.UTF_8);
     assertThat(converted).contains("\"executionPlatform\": \"Camunda Cloud\"");
-    assertThat(converted).contains("\"executionPlatformVersion\": \"8.10.0\"");
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.9.0\"");
     assertThat(converted).contains("\"customerName\"");
   }
 
@@ -978,7 +978,7 @@ public class ConverterControllerTest {
     assertThat(entries).containsOnlyKeys("converted-c8-example.bpmn", "converted-c8-simple.form");
     assertThat(entries.get("converted-c8-simple.form"))
         .contains("\"executionPlatform\": \"Camunda Cloud\"")
-        .contains("\"executionPlatformVersion\": \"8.10.0\"");
+        .contains("\"executionPlatformVersion\": \"8.9.0\"");
   }
 
   @Test
@@ -995,7 +995,7 @@ public class ConverterControllerTest {
             .asByteArray();
 
     String converted = new String(form, StandardCharsets.UTF_8);
-    assertThat(converted).contains("\"executionPlatformVersion\": \"8.10.0\"");
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.9.0\"");
   }
 
   @Test
@@ -1016,7 +1016,7 @@ public class ConverterControllerTest {
             .asByteArray();
 
     assertThat(new String(bpmn, StandardCharsets.UTF_8))
-        .contains("executionPlatformVersion=\"8.10.0\"");
+        .contains("executionPlatformVersion=\"8.9.0\"");
   }
 
   @Test
