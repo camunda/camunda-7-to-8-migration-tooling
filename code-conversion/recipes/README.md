@@ -45,9 +45,10 @@ manual migration.
 
 ## Extending recipes
 
-For many scenarios you might need to extend the recipes. For example, a Java delegate might not
-implement `org.camunda.bpm.engine.delegate.JavaDelegate` directly. It can extend a custom superclass
-such as `org.acme.MyJavaDelegate`. The out-of-the-box recipes do not select that class.
+Some projects may need recipe extensions. For example, a delegate can extend a custom base class
+such as `org.acme.MyJavaDelegate` that implements
+`org.camunda.bpm.engine.delegate.JavaDelegate`. The out-of-the-box recipes do not detect that
+inherited implementation.
 
 Please read:
 - [Developer Guide](developer_guide.md)
