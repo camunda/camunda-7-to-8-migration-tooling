@@ -118,6 +118,34 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedByteGetterDoesNotImportPrimitiveArray() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ByteReads {
+                void read(DelegateExecution execution) {
+                    BytesValue bytes = execution.getVariableTyped("bytes");
+                    byte[] value = bytes.getValue();
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class ByteReads {
+                void read(DelegateExecution execution) {
+                    // please check type
+                    byte[] bytes = (byte[]) execution.getVariable("bytes");
+                    byte[] value = bytes;
+                }
+            }
+            """));
+  }
+
+  @Test
   void qualifiedTypedFieldAssignmentRemainsAssignable() {
     rewriteRun(
         java(
@@ -428,6 +456,124 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
 
                 private Date date = new Date(0);
                 private byte[] bytes = new byte[]{1};
+            }
+            """));
+  }
+
+  @Test
+  void laterTypedFactoryAssignmentsBecomeRawValues() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class AssignedValues {
+                private DateValue date;
+                private BytesValue bytes;
+                private boolean transientFlag;
+
+                void assign() {
+                    this.date = Variables.dateValue(new Date(0));
+                    this.bytes = Variables.byteArrayValue(new byte[] {1}, false);
+                    date = Variables.dateValue(new Date(2));
+                    bytes = Variables.byteArrayValue(new byte[] {3});
+                    this.date = Variables.dateValue(new Date(1), true);
+                    this.bytes = Variables.byteArrayValue(new byte[] {2}, transientFlag);
+                }
+
+                void assignLocal() {
+                    DateValue localDate = null;
+                    localDate = Variables.dateValue(new Date(3));
+                    BytesValue localBytes = null;
+                    localBytes = Variables.byteArrayValue(new byte[] {4}, false);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class AssignedValues {
+                private Date date;
+                private byte[] bytes;
+                private boolean transientFlag;
+
+                void assign() {
+                    this.date = new Date(0);
+                    this.bytes = new byte[]{1};
+                    date = new Date(2);
+                    bytes = new byte[]{3};
+                    // TODO: review Camunda 7 transient variable semantics for migrated values
+                    this.date = new Date(1);
+                    // TODO: review Camunda 7 transient variable semantics for migrated values
+                    this.bytes = new byte[]{2};
+                }
+
+                void assignLocal() {
+                    Date localDate = null;
+                    localDate = new Date(3);
+                    byte[] localBytes = null;
+                    localBytes = new byte[]{4};
+                }
+            }
+            """));
+  }
+
+  @Test
+  void retainedTypedFieldsKeepCompatibleAssignments() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class RetainedFields {
+                private DateValue date = loadDate();
+                private BytesValue bytes = loadBytes();
+
+                abstract DateValue loadDate();
+                abstract BytesValue loadBytes();
+
+                void assign(DelegateExecution execution) {
+                    this.date = execution.getVariableTyped("date");
+                    this.bytes = execution.getVariableTyped("bytes");
+                    this.date = Variables.dateValue(new Date(0));
+                    this.bytes = Variables.byteArrayValue(new byte[] {1});
+                    DateValue localDate = loadDate();
+                    localDate = execution.getVariableTyped("localDate");
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class RetainedFields {
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private DateValue date = loadDate();
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private BytesValue bytes = loadBytes();
+
+                abstract DateValue loadDate();
+                abstract BytesValue loadBytes();
+
+                void assign(DelegateExecution execution) {
+                    this.date = execution.getVariableTyped("date");
+                    this.bytes = execution.getVariableTyped("bytes");
+                    this.date = Variables.dateValue(new Date(0));
+                    this.bytes = Variables.byteArrayValue(new byte[] {1});
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue localDate = loadDate();
+                    localDate = execution.getVariableTyped("localDate");
+                }
             }
             """));
   }

@@ -1406,6 +1406,11 @@ Qualified `getValue()` reads of converted fields, such as `this.date.getValue()`
 become direct field reads even when the method precedes the field declaration.
 Reads of fields retained for manual migration keep `getValue()` until those
 fields are migrated.
+Later `Variables.dateValue(...)` and `Variables.byteArrayValue(...)` assignments
+to converted values are unwrapped in the same way as initializers, with a TODO
+for `true` or computed transient flags. Assignments to declarations retained for
+manual migration keep their Camunda 7 typed getters and factories until the
+declaration and its uses can be migrated together.
 
 ###### autoComplete = false (blocking)
 
