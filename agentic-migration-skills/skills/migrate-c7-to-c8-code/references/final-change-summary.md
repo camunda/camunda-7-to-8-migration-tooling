@@ -2,8 +2,8 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-Run this procedure before the final response. The change baseline is the starting commit and its
-`git status --porcelain` output, which Step 2 records in `MIGRATION_REPORT.md`.
+Run this procedure before the final response. The change baseline is the starting commit and
+`git status --porcelain` output that Step 2 records in `MIGRATION_REPORT.md`.
 
 If the baseline is missing or unreadable, or its status lists a path other than
 `MIGRATION_REPORT.md`, then mark every count unavailable and state why. Never estimate counts.

@@ -25,8 +25,8 @@ Where the run is non-interactive, take each choice, including the Step 3 confirm
 explicit statement in the request, the conversation, or the execution configuration. A tool-trust
 setting never counts as a choice.
 If a non-interactive run lacks a required choice, then stop before the action that needs it. Record
-the choice as an open item in `MIGRATION_REPORT.md`. While the project root is unconfirmed, report it
-only in the response and write no files.
+the missing choice as an open item in `MIGRATION_REPORT.md`. While the project root is unconfirmed,
+report it only in the response and write no files.
 
 ## Step 0: Model preflight
 

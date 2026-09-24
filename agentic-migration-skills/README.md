@@ -45,7 +45,7 @@ Check your agent's documentation for its exact skills directory.
 discovers the skill as a [client-side skill](https://docs.aws.amazon.com/transform/latest/userguide/custom-workflows.html#custom-client-side-skills)
 in the AWS Transform paths above. It loads project paths only when it has a code repository path.
 To run the skill as a transformation definition, use `skills/migrate-c7-to-c8-code/` as the source,
-not this package root. A definition contains only `SKILL.md` and optional `references/` or
+not this package root. A definition contains only `SKILL.md` and optional `references/` and
 `scripts/` directories. Execution needs a Git repository. See the
 [command reference](https://docs.aws.amazon.com/transform/latest/userguide/custom-command-reference.html)
 for current flags.
@@ -55,7 +55,7 @@ for current flags.
 atx custom def save-draft -n camunda-7-to-camunda-8-migration \
   --description "Migrate Camunda 7 projects to Camunda 8" \
   --sd agentic-migration-skills/skills/migrate-c7-to-c8-code/
-# Test the draft on a Camunda 7 Git repository, then publish the tested version to your AWS account.
+# Test the draft on a Camunda 7 Git repository, then publish the tested version to the registry.
 atx custom def exec -n camunda-7-to-camunda-8-migration --tv <draft-version> \
   -p /path/to/camunda-7-project -c "<build-command>"
 atx custom def publish -n camunda-7-to-camunda-8-migration --tv <draft-version>
