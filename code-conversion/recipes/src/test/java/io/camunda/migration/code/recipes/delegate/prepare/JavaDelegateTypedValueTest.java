@@ -146,6 +146,72 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void groupedTypedGetterDeclarationsKeepEveryVariable() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class GroupedReads {
+                void read(DelegateExecution execution) {
+                    final IntegerValue first = execution.getVariableTyped("first"), second = execution.getVariableTyped("second");
+                    BytesValue bytes = execution.getVariableTyped("bytes"), otherBytes = execution.getVariableTyped("otherBytes");
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class GroupedReads {
+                void read(DelegateExecution execution) {
+                    // please check type
+                    final Integer first = (Integer) execution.getVariable("first"), second = (Integer) execution.getVariable("second");
+                    // please check type
+                    byte[] bytes = (byte[]) execution.getVariable("bytes"), otherBytes = (byte[]) execution.getVariable("otherBytes");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void groupedTypedGetterFieldsConvertBeforeReads() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class GetterFields {
+                private DelegateExecution execution;
+                Date readDate() { return this.secondDate.getValue(); }
+                byte[] readBytes() { return this.secondBytes.getValue(); }
+
+                private DateValue firstDate = execution.getVariableTyped("firstDate"), secondDate = execution.getVariableTyped("secondDate");
+                private BytesValue firstBytes = execution.getVariableTyped("firstBytes"), secondBytes = execution.getVariableTyped("secondBytes");
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class GetterFields {
+                private DelegateExecution execution;
+                Date readDate() { return this.secondDate; }
+                byte[] readBytes() { return this.secondBytes; }
+
+                // please check type
+                private Date firstDate = (Date) execution.getVariable("firstDate"), secondDate = (Date) execution.getVariable("secondDate");
+                // please check type
+                private byte[] firstBytes = (byte[]) execution.getVariable("firstBytes"), secondBytes = (byte[]) execution.getVariable("secondBytes");
+            }
+            """));
+  }
+
+  @Test
   void qualifiedTypedFieldAssignmentRemainsAssignable() {
     rewriteRun(
         java(
@@ -191,6 +257,56 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     this.bytes = (byte[]) execution.getVariable("bytes");
                     this.object = execution.getVariable("object");
                 }
+            }
+            """));
+  }
+
+  @Test
+  void qualifiedAssignmentsHandleSameClassButKeepUnrelatedOwners() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class OwnedFields {
+                private DateValue date;
+                private BytesValue bytes;
+
+                void assign(OwnedFields other, RetainedFields unrelated, DelegateExecution execution) {
+                    other.date = execution.getVariableTyped("date");
+                    other.bytes = execution.getVariableTyped("bytes");
+                    unrelated.date = execution.getVariableTyped("otherDate");
+                }
+            }
+
+            abstract class RetainedFields {
+                DateValue date = loadDate();
+                abstract DateValue loadDate();
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class OwnedFields {
+                private Date date;
+                private byte[] bytes;
+
+                void assign(OwnedFields other, RetainedFields unrelated, DelegateExecution execution) {
+                    other.date = (Date) execution.getVariable("date");
+                    other.bytes = (byte[]) execution.getVariable("bytes");
+                    unrelated.date = execution.getVariableTyped("otherDate");
+                }
+            }
+
+            abstract class RetainedFields {
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                DateValue date = loadDate();
+                abstract DateValue loadDate();
             }
             """));
   }
@@ -374,6 +490,37 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void qualifiedFieldInitializersFollowConvertedTypes() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class CopiedValues {
+                private DateValue earlyCopy = this.date;
+                private DateValue date = Variables.dateValue(new Date(0));
+                private DateValue laterCopy = this.date;
+                private BytesValue bytes = Variables.byteArrayValue(new byte[] {1});
+                private BytesValue byteCopy = this.bytes;
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class CopiedValues {
+                private Date earlyCopy = this.date;
+                private Date date = new Date(0);
+                private Date laterCopy = this.date;
+                private byte[] bytes = new byte[]{1};
+                private byte[] byteCopy = this.bytes;
+            }
+            """));
+  }
+
+  @Test
   void qualifiedTypedFieldsOnlyUnwrapConvertedValues() {
     rewriteRun(
         java(
@@ -456,6 +603,42 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
 
                 private Date date = new Date(0);
                 private byte[] bytes = new byte[]{1};
+            }
+            """));
+  }
+
+  @Test
+  void retainedLocalValueShadowsConvertedField() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class ShadowedValues {
+                private DateValue date = Variables.dateValue(new Date(0));
+                abstract DateValue loadDate();
+
+                Date read() {
+                    DateValue date = loadDate();
+                    return date.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class ShadowedValues {
+                private Date date = new Date(0);
+                abstract DateValue loadDate();
+
+                Date read() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue date = loadDate();
+                    return date.getValue();
+                }
             }
             """));
   }
