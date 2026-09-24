@@ -78,9 +78,11 @@ public class CleanupDelegateRecipe extends Recipe {
             maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
             maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
 
-            return classDecl
-                .withBody(classDecl.getBody().withStatements(filteredStatements))
-                .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
+            return super.visitClassDeclaration(
+                classDecl
+                    .withBody(classDecl.getBody().withStatements(filteredStatements))
+                    .withImplements(updatedImplements.isEmpty() ? null : updatedImplements),
+                ctx);
           }
         });
   }
