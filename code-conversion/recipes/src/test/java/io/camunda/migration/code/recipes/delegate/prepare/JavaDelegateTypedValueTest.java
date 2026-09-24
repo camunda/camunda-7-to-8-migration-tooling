@@ -116,4 +116,29 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     }
                     """));
   }
+
+  @Test
+  void typedFactoryInitializersRemainAssignable() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class InitializedValues {
+                private DateValue date = Variables.dateValue(new Date(0)), anotherDate = Variables.dateValue(new Date(1));
+                private BytesValue bytes = Variables.byteArrayValue(new byte[] {1}), anotherBytes = Variables.byteArrayValue(new byte[] {2});
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class InitializedValues {
+                private Date date = new Date(0), anotherDate = new Date(1);
+                private byte[] bytes = new byte[]{1}, anotherBytes = new byte[]{2};
+            }
+            """));
+  }
 }
