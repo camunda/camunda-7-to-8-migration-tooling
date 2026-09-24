@@ -134,8 +134,8 @@ public class RetrievePaymentAdapter {
                 @Component
                 public class RetrievePaymentAdapter implements JavaDelegate {
                     IntegerValue fieldAmount;
-                    DateValue fieldDate;
-                    BytesValue fieldBytes;
+                    private DateValue fieldDate, anotherDate;
+                    private BytesValue fieldBytes = null, anotherBytes = null;
                     ObjectValue fieldObject;
 
                     @Override
@@ -145,7 +145,9 @@ public class RetrievePaymentAdapter {
                         laterAmount = execution.getVariableTyped("laterAmount");
                         this.fieldAmount = execution.getVariableTyped("fieldAmount");
                         this.fieldDate = execution.getVariableTyped("fieldDate");
+                        this.anotherDate = execution.getVariableTyped("anotherDate");
                         this.fieldBytes = execution.getVariableTyped("fieldBytes");
+                        this.anotherBytes = execution.getVariableTyped("anotherBytes");
                         this.fieldObject = execution.getVariableTyped("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
@@ -166,8 +168,8 @@ public class RetrievePaymentAdapter {
                 @Component
                 public class RetrievePaymentAdapter {
                     Integer fieldAmount;
-                    Date fieldDate;
-                    byte[] fieldBytes;
+                    private Date fieldDate, anotherDate;
+                    private byte[] fieldBytes = null, anotherBytes = null;
                     Object fieldObject;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
@@ -179,7 +181,9 @@ public class RetrievePaymentAdapter {
                         laterAmount = (Integer) job.getVariablesAsMap().get("laterAmount");
                         this.fieldAmount = (Integer) job.getVariablesAsMap().get("fieldAmount");
                         this.fieldDate = (Date) job.getVariablesAsMap().get("fieldDate");
+                        this.anotherDate = (Date) job.getVariablesAsMap().get("anotherDate");
                         this.fieldBytes = (byte[]) job.getVariablesAsMap().get("fieldBytes");
+                        this.anotherBytes = (byte[]) job.getVariablesAsMap().get("anotherBytes");
                         this.fieldObject = job.getVariablesAsMap().get("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);

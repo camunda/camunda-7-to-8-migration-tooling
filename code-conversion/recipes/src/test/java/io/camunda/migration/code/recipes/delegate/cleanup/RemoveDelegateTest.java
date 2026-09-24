@@ -170,4 +170,41 @@ public class RetrievePaymentAdapter {
             }
             """));
   }
+
+  @Test
+  void preservesImportsForSurvivingDelegateReferences() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                JavaDelegate delegate;
+                DelegateExecution execution;
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void keep() {}
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                JavaDelegate delegate;
+                DelegateExecution execution;
+
+                class Nested {
+
+                    void keep() {}
+                }
+            }
+            """));
+  }
 }

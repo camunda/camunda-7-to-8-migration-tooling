@@ -445,24 +445,40 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   || TypeUtils.isOfClassType(
                       typeExpr.getType(), "org.camunda.bpm.engine.variable.value.ObjectValue")) {
 
-                // record fqn of identifier for later uses
-                getCursor()
-                    .dropParentUntil(parent -> parent instanceof J.Block)
-                    .putMessage(originalName.toString(), newFqn);
-
-                maybeRemoveImport(declarations.getTypeAsFullyQualified());
-
                 String[] imports =
                     "java.util.Date".equals(newFqn) ? new String[] {newFqn} : new String[0];
                 if (imports.length > 0) {
                   maybeAddImport(newFqn);
                 }
+                StringBuilder declarationCode = new StringBuilder();
+                for (J.Modifier modifier : declarations.getModifiers()) {
+                  declarationCode.append(modifier).append(" ");
+                }
+                declarationCode.append(RecipeUtils.getShortName(newFqn)).append(" ");
+
+                List<Expression> initializers = new ArrayList<>();
+                Cursor block = getCursor().dropParentUntil(parent -> parent instanceof J.Block);
+                for (int i = 0; i < declarations.getVariables().size(); i++) {
+                  J.VariableDeclarations.NamedVariable variable = declarations.getVariables().get(i);
+                  if (i > 0) {
+                    declarationCode.append(", ");
+                  }
+                  declarationCode.append(variable.getSimpleName());
+                  if (variable.getInitializer() != null) {
+                    declarationCode.append(" = #{any()}");
+                    initializers.add(variable.getInitializer());
+                  }
+                  block.putMessage(variable.getSimpleName(), newFqn);
+                }
+
+                maybeRemoveImport(declarations.getTypeAsFullyQualified());
                 return maybeAutoFormat(
                     declarations,
-                    RecipeUtils.createSimpleJavaTemplate(
-                            RecipeUtils.getShortName(newFqn) + " " + firstVar.getSimpleName(),
-                            imports)
-                        .apply(getCursor(), declarations.getCoordinates().replace()),
+                    RecipeUtils.createSimpleJavaTemplate(declarationCode.toString(), imports)
+                        .apply(
+                            getCursor(),
+                            declarations.getCoordinates().replace(),
+                            initializers.toArray()),
                     ctx);
               }
             }
