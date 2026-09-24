@@ -97,6 +97,13 @@ public class RetrievePaymentAdapter {
 
                     void keep() {}
                 }
+
+                class Helper implements Runnable {
+                    @Override
+                    public void run() {}
+
+                    void execute() {}
+                }
             }
             """,
             """
@@ -106,6 +113,13 @@ public class RetrievePaymentAdapter {
                 class Nested {
 
                     void keep() {}
+                }
+
+                class Helper implements Runnable {
+                    @Override
+                    public void run() {}
+
+                    void execute() {}
                 }
             }
             """));

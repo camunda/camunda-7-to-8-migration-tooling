@@ -46,15 +46,21 @@ public class CleanupDelegateRecipe extends Recipe {
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-            // Skip interfaces and converted classes, but still visit nested delegates.
+            List<TypeTree> implementsTypes = classDecl.getImplements();
+            // Traverse non-delegates to reach nested delegates without removing unrelated methods.
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class
-                || classDecl.getImplements() == null) {
+                || implementsTypes == null
+                || implementsTypes.stream()
+                    .noneMatch(
+                        id ->
+                            TypeUtils.isOfClassType(
+                                id.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate"))) {
               return super.visitClassDeclaration(classDecl, ctx);
             }
 
             // Filter out the interface to remove
             List<TypeTree> updatedImplements =
-                classDecl.getImplements().stream()
+                implementsTypes.stream()
                     .filter(
                         id ->
                             !TypeUtils.isOfClassType(
