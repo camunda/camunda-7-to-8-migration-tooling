@@ -38,6 +38,7 @@ Patterns:
 - [Broadcast Signals](20-client-code/10-process-engine/broadcast-signals.md)
 - [Cancel Process Instance](20-client-code/10-process-engine/cancel-process-instance.md)
 - [Correlate Messages](20-client-code/10-process-engine/correlate-messages.md)
+- [Count Query Results](20-client-code/10-process-engine/count-query-results.md)
 - [Handle Variables](20-client-code/10-process-engine/handle-process-variables.md)
 - [Handle Resources](20-client-code/10-process-engine/handle-resources.md)
 - [Handle User Tasks](20-client-code/10-process-engine/handle-user-tasks.md)
