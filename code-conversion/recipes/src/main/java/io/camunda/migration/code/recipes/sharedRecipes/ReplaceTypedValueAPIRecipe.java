@@ -483,7 +483,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
 
-            if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
+            Expression target = assignment.getVariable();
+            if (!(target instanceof J.Identifier)
+                && !(target instanceof J.FieldAccess fieldAccess
+                    && fieldAccess.getTarget() instanceof J.Identifier owner
+                    && "this".equals(owner.getSimpleName()))) {
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -494,18 +498,22 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
                 .matches(invocation)) {
-              String newFqn = mapTypedValueToNewFqn(originalName.getType());
+              String newFqn = mapTypedValueToNewFqn(target.getType());
               if (!"java.lang.Object".equals(newFqn)) {
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
-                            originalName.getSimpleName()
-                                + " = ("
+                            "#{any()} = ("
                                 + RecipeUtils.getShortName(newFqn)
                                 + ") #{any()}",
                             newFqn)
-                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+                        .apply(
+                            getCursor(), assignment.getCoordinates().replace(), target, invocation);
                 return super.visitAssignment(modifiedAssignment, ctx);
               }
+            }
+
+            if (!(target instanceof J.Identifier originalName)) {
+              return super.visitAssignment(assignment, ctx);
             }
 
             // run through prepared migration rules

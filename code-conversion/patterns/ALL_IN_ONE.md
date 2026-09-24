@@ -1382,6 +1382,8 @@ Object comment = job.getVariablesAsMap().get("comment");
 
 Do not replace it with `job.getVariable("comment")`, which fails for an absent variable.
 Check local and typed variable lookups separately; they have different scope or type semantics.
+For known `getVariableTyped` types, assignments to converted fields such as
+`this.amount` include the cast required by the new field type.
 
 ###### autoComplete = false (blocking)
 

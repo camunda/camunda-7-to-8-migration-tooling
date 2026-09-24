@@ -46,8 +46,9 @@ public class CleanupDelegateRecipe extends Recipe {
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-            // Skip interfaces
-            if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
+            // Skip interfaces and classes whose implements clause was already removed.
+            if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class
+                || classDecl.getImplements() == null) {
               return classDecl;
             }
 

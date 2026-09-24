@@ -116,4 +116,38 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     }
                     """));
   }
+
+  @Test
+  void qualifiedTypedFieldAssignmentRemainsAssignable() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            public class TypedFieldDelegate implements JavaDelegate {
+                IntegerValue amount;
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                    this.amount = execution.getVariableTyped("amount");
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            public class TypedFieldDelegate implements JavaDelegate {
+                Integer amount;
+
+                @Override
+                public void execute(DelegateExecution execution) {
+                    this.amount = (Integer) execution.getVariable("amount");
+                }
+            }
+            """));
+  }
 }
