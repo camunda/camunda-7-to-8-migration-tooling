@@ -50,7 +50,10 @@ Review and validate both paths.
 
 If no BPMN/DMN model is found under the project root, the skill can offer the Diagram Converter's C7 engine source mode instead. It asks for a reachable C7 REST URL and the required authentication before fetching; when local models are present, it does not offer or request engine access. The released engine mode supports REST with optional Basic authentication and fetches latest BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
-The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and diagram-converter docs at runtime, resolves the latest Diagram Converter CLI release automatically, and describes what the agent should inspect/download/run rather than prescribing a POSIX shell dialect.
+The skill fetches the [maintenance/0.3 pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and current Diagram Converter docs at runtime.
+It resolves the latest Diagram Converter CLI release.
+It describes which files and artifacts to inspect, download, and run.
+It chooses commands for the current environment instead of assuming POSIX shell syntax.
 
 ## Structure
 

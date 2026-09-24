@@ -24,7 +24,7 @@ These apply throughout — referenced below instead of repeated.
 - **Prefer intent over shell dialect.** Use the available agent tools to inspect files, discover configuration, create directories, download artifacts, and run commands. When command execution is required, choose the platform-appropriate invocation for the current environment instead of assuming POSIX shell syntax or Unix-only helpers.
 - **Never mutate user assets silently.** Models convert to `converted-c8-*` copies; originals stay intact. Converted files and CSV/XLSX/MD reports are generated outputs for the user to review.
 - **Load the reference before editing.** Never guess API/XML mappings. For gaps, prefer `docs.camunda.io` via WebFetch over training knowledge.
-  - Code → pattern catalog: `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`. If context is tight, fetch only the individual files under `code-conversion/patterns/`.
+  - Code → pattern catalog: `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/maintenance/0.3/code-conversion/patterns/ALL_IN_ONE.md`. If context is tight, fetch only the individual files under `code-conversion/patterns/`.
   - Agentic models → diagram-converter docs (see M2).
 - **Respect the target version** (Q2). Don't offer 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, or 8.8 workarounds to 8.9+. Pass the same version to the CLI via `--platform-version`.
 - When a capable model can examine the source, prefer an AI-first, pattern-guided code migration. (SHOULD)
@@ -481,7 +481,7 @@ java -Dfile.encoding=UTF-8 -jar "$JAR" local <FILE_OR_DIR> \
 ```
 
 Useful options:
-- `--platform-version <v>` — target C8 version (`8.0`–`8.10`); defaults to latest if omitted. **Always set it.**
+- `--platform-version <v>` — target C8 version (`8.0`–`8.11`). The default is the latest stable version (`8.10`). **Always set it.**
 - `--prefix <str>` — prefix for generated filenames (default `converted-c8-`). The converter writes a **new file next to the source**, e.g. `converted-c8-order-process.bpmn`, so originals are never mutated in place.
 - `-o` / `--override` — overwrite an existing converted file (otherwise it writes `... (1).bpmn` to avoid clobbering).
 - `--csv`, `--xlsx`, `--md` — write an analysis report (`analysis-results.csv` / `.xlsx` / `.md`) in the target directory.
