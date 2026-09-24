@@ -62,10 +62,10 @@ atx custom def publish -n camunda-7-to-camunda-8-migration --tv <draft-version>
 ```
 
 Run the draft interactively while scope or migration decisions need input. A `--non-interactive`
-(`-x`) run needs every decision in the request or configuration. Otherwise, the skill stops before
-dependent changes and records the missing choices as open items. Until the project root is
-confirmed, it reports them only in its response. `--trust-all-tools` (`-t`) approves tool requests,
-not migration decisions.
+(`-x`) run needs every decision in the request or configuration, including acceptance of any
+default. Otherwise, the skill stops before dependent changes and records the missing choices as
+open items. Until the project root is confirmed, it reports them only in its response.
+`--trust-all-tools` (`-t`) approves tool requests, not migration decisions.
 
 For dashboard campaign reporting, run the command that the AWS Transform web application generates,
 with its campaign and repository arguments. The

@@ -22,8 +22,8 @@ option is marked (MAY).
 Ask the user in the host's current conversation. Use a structured question tool only when the host
 documents one.
 Where the run is non-interactive, take each choice, including the Step 3 confirmation, only from an
-explicit statement in the request, the conversation, or the execution configuration. A tool-trust
-setting never counts as a choice.
+explicit statement in the request, the conversation, or the execution configuration. A default, a
+recommended option, or a tool-trust setting never counts as a choice by itself.
 If a non-interactive run lacks a required choice, then stop before the action that needs it. Record
 the missing choice as an open item in `MIGRATION_REPORT.md`. While the project root is unconfirmed,
 report it only in the response and write no files.
