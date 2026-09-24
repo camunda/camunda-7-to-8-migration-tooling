@@ -51,7 +51,10 @@ claude plugin install camunda-migration
 /camunda-migration:migrate-c7-to-c8-code
 ```
 
-The skill will ask for your project path and present these code paths:
+The skill asks what to migrate — **code**, **models**, or **both** — then presents the
+relevant paths for each scope.
+
+**Code migration:**
 
 | Approach | What it does |
 |----------|-------------|
@@ -63,6 +66,10 @@ Compare both code paths on representative classes when practical. Recipes help w
 well-supported syntax changes. They can add cleanup for semantic or mixed delegate/client code.
 Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
 Review and validate both paths.
+
+**Model migration:** choose between the **Diagram Converter CLI** *(recommended)*, **Agentic AI**,
+or the hosted **online converter** depending on your environment and review needs. See
+[agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for the full matrix.
 
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
 

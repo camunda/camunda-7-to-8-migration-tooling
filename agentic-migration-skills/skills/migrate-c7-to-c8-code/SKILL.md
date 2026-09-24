@@ -68,11 +68,12 @@ Confirm the project root you detected. Provide two options so the question is va
 
 Ask which specific Camunda 8 version the user is migrating to (user can't select anything else):
 
-- **8.10** *(next version, not yet GA)* —; includes all features from 8.8 and 8.9 too.
-- **8.9** *(latest stable)* — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
+- **8.10** *(latest stable)* — includes all features from 8.8 and 8.9 too.
+- **8.9** *(previous stable)* — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
 - **8.8** — first version with the unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
+- **8.11** *(next version)* — use when the target environment is already pinned to the next release line.
 
-The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`; this skill only offers `8.8`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
+The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.11`; this skill only offers `8.8`–`8.11`). Record the concrete `major.minor` the user selects and use it throughout.
 
 **Question 3 — Migration scope**
 
