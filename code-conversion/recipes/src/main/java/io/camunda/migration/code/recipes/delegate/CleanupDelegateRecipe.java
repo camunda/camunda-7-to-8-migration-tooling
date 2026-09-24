@@ -72,7 +72,7 @@ public class CleanupDelegateRecipe extends Recipe {
                     .filter(
                         (statement ->
                             !(statement instanceof J.MethodDeclaration methDecl
-                                && methDecl.getSimpleName().equals("execute"))))
+                                && isDelegateExecute(methDecl))))
                     .toList();
 
             maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
@@ -83,6 +83,14 @@ public class CleanupDelegateRecipe extends Recipe {
                     .withBody(classDecl.getBody().withStatements(filteredStatements))
                     .withImplements(updatedImplements.isEmpty() ? null : updatedImplements),
                 ctx);
+          }
+
+          private boolean isDelegateExecute(J.MethodDeclaration method) {
+            return method.getSimpleName().equals("execute")
+                && method.getParameters().size() == 1
+                && method.getParameters().get(0) instanceof J.VariableDeclarations parameter
+                && TypeUtils.isOfClassType(
+                    parameter.getType(), "org.camunda.bpm.engine.delegate.DelegateExecution");
           }
         });
   }

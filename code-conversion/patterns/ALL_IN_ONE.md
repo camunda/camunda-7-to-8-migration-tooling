@@ -1005,6 +1005,10 @@ The code conversion patterns for the JavaDelegate cover the most important metho
 - raising an incident
 - throwing a BPMN error
 
+Cleanup removes only `JavaDelegate#execute(DelegateExecution)` from converted delegates.
+Other `execute` overloads and methods on non-delegate or nested helper classes remain;
+review them separately if they still use Camunda 7 APIs.
+
 There are often multiple methods that achieve the same result. The patterns try to capture as many examples as possible. Delegate code that accesses the engine services is not covered here. Please refer to the patterns for the engine services. In general, delegate code that utilizes engines services is more difficult to migrate to Camunda 8.
 
 

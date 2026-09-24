@@ -68,6 +68,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               new MethodMatcher("org.camunda.bpm.engine.variable.Variables dateValue(..)");
           private final MethodMatcher byteArrayValueFactory =
               new MethodMatcher("org.camunda.bpm.engine.variable.Variables byteArrayValue(..)");
+          private final MethodMatcher delegateTypedGetter =
+              new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)");
+          private final List<MethodMatcher> typedVariableGetters =
+              List.of(
+                  delegateTypedGetter,
+                  new MethodMatcher(
+                      "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)"),
+                  new MethodMatcher("org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)"),
+                  new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)"),
+                  new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableTyped(..)"));
 
           private final List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations =
               List.of(
@@ -230,6 +240,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return "java.lang.Object";
           }
 
+          private boolean matchesTypedVariableGetter(J.MethodInvocation invocation) {
+            return typedVariableGetters.stream().anyMatch(matcher -> matcher.matches(invocation));
+          }
+
           private Expression unwrapTypedValueFactory(Expression initializer, JavaType declaredType) {
             if (initializer instanceof J.MethodInvocation factory
                 && (factory.getArguments().size() == 1 || factory.getArguments().size() == 2)
@@ -319,26 +333,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
               }
 
-              boolean delegateTypedVariable =
-                  new MethodMatcher(
-                          "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
-                      .matches(invocation);
-              if (delegateTypedVariable
-                  || new MethodMatcher(
-                          "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
-                      .matches(invocation)
-                  || new MethodMatcher(
-                          "org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)")
-                      .matches(invocation)
+              boolean delegateTypedVariable = delegateTypedGetter.matches(invocation);
+              if (matchesTypedVariableGetter(invocation)
                   || new MethodMatcher(
                           "org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)")
-                      .matches(invocation)
-                  || new MethodMatcher(
-                      "org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)")
-                          .matches(invocation)
-                  || new MethodMatcher(
-                      "org.camunda.bpm.engine.TaskService getVariableTyped(..)")
-                          .matches(invocation)) {
+                      .matches(invocation)) {
 
                 // get modifiers
                 List<J.Modifier> modifiers = declarations.getModifiers();
@@ -547,22 +546,35 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
-            if (new MethodMatcher(
-                    "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
-                .matches(invocation)) {
+            if (matchesTypedVariableGetter(invocation)) {
               String newFqn = mapTypedValueToNewFqn(target.getType());
-              if (!"java.lang.Object".equals(newFqn)) {
-                String[] imports =
-                    "byte[]".equals(newFqn) ? new String[0] : new String[] {newFqn};
-                J.Assignment modifiedAssignment =
-                    RecipeUtils.createSimpleJavaTemplate(
-                            "#{any()} = ("
-                                + RecipeUtils.getShortName(newFqn)
-                                + ") #{any()}",
-                            imports)
-                        .apply(
-                            getCursor(), assignment.getCoordinates().replace(), target, invocation);
-                return super.visitAssignment(modifiedAssignment, ctx);
+              boolean mappedObjectValue =
+                  TypeUtils.isOfClassType(
+                      target.getType(), "org.camunda.bpm.engine.variable.value.ObjectValue");
+              if (!"java.lang.Object".equals(newFqn) || mappedObjectValue) {
+                J.Assignment modifiedAssignment = assignment;
+                if (!mappedObjectValue) {
+                  String[] imports =
+                      "byte[]".equals(newFqn) ? new String[0] : new String[] {newFqn};
+                  modifiedAssignment =
+                      RecipeUtils.createSimpleJavaTemplate(
+                              "#{any()} = ("
+                                  + RecipeUtils.getShortName(newFqn)
+                                  + ") #{any()}",
+                              imports)
+                          .apply(
+                              getCursor(), assignment.getCoordinates().replace(), target, invocation);
+                }
+                JavaType newType = JavaType.buildType(newFqn);
+                modifiedAssignment =
+                    modifiedAssignment
+                        .withVariable(modifiedAssignment.getVariable().withType(newType))
+                        .withType(newType);
+                modifiedAssignment = (J.Assignment) super.visitAssignment(modifiedAssignment, ctx);
+                if (target.getType() instanceof JavaType.FullyQualified oldType) {
+                  maybeRemoveImport(oldType);
+                }
+                return modifiedAssignment;
               }
             }
 
