@@ -1917,6 +1917,9 @@ including fields initialized with `Variables.dateValue(...)` or
 is `true` or computed, the recipe marks the declaration with a TODO. Review how
 that value is published to the process before removing the TODO; do not assume
 the transient behavior carries over.
+When an initializer instead calls a helper that still returns a typed value,
+the recipe leaves the declaration unchanged and marks it for manual migration
+rather than producing an invalid raw assignment.
 
 ###### autoComplete = false (blocking)
 
