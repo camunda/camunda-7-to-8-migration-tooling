@@ -89,7 +89,7 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                             .page()
                             .totalItems().intValue() % 2 == 0;
 
-                    Object inputValue = job.getVariable("inputValue");
+                    Object inputValue = job.getVariablesAsMap().get("inputValue");
                     System.out.println("ExampleWorkflowDelegate " + inputValue);
 
                     resultMap.put("readyToProceed", proceed);

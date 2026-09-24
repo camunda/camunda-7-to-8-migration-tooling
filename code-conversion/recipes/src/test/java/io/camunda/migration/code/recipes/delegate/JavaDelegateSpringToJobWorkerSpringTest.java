@@ -40,7 +40,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   @Override
   public void execute(DelegateExecution ctx) throws Exception {    
   }
-  
+
 }
 """,
 """
@@ -69,7 +69,7 @@ public class RetrievePaymentAdapter {
 
 
     @Test
-    void logTest() {
+    void nullableVariableRead() {
     rewriteRun(
         java(
             """
@@ -84,7 +84,9 @@ public class RetrievePaymentAdapter {
 
             @Override
             public void execute(DelegateExecution execution) throws Exception {
-                System.out.println("SampleJavaDelegate " + execution.getVariable("x"));
+                Object x = execution.getVariable("x");
+                System.out.println("SampleJavaDelegate " + x);
+                if (x != null) execution.setVariable("observedX", x);
                 execution.setVariable("y", "hello world");
             }
         }
@@ -105,12 +107,88 @@ public class RetrievePaymentAdapter {
             @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
             public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                 Map<String, Object> resultMap = new HashMap<>();
-                System.out.println("SampleJavaDelegate " + job.getVariable("x"));
+                Object x = job.getVariablesAsMap().get("x");
+                System.out.println("SampleJavaDelegate " + x);
+                if (x != null) resultMap.put("observedX", x);
                 resultMap.put("y", "hello world");
                 return resultMap;
             }
         }"""));
     }
+
+    @Test
+    void typedValueReadRemainsAssignable() {
+        rewriteRun(
+            java(
+                """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.delegate.JavaDelegate;
+                import org.camunda.bpm.engine.variable.value.BytesValue;
+                import org.camunda.bpm.engine.variable.value.DateValue;
+                import org.camunda.bpm.engine.variable.value.IntegerValue;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+                import org.springframework.stereotype.Component;
+
+                @Component
+                public class RetrievePaymentAdapter implements JavaDelegate {
+                    IntegerValue fieldAmount;
+                    DateValue fieldDate;
+                    BytesValue fieldBytes;
+                    ObjectValue fieldObject;
+
+                    @Override
+                    public void execute(DelegateExecution execution) {
+                        IntegerValue typedAmount = execution.getVariableTyped("amount");
+                        IntegerValue laterAmount;
+                        laterAmount = execution.getVariableTyped("laterAmount");
+                        this.fieldAmount = execution.getVariableTyped("fieldAmount");
+                        this.fieldDate = execution.getVariableTyped("fieldDate");
+                        this.fieldBytes = execution.getVariableTyped("fieldBytes");
+                        this.fieldObject = execution.getVariableTyped("fieldObject");
+                        System.out.println(typedAmount);
+                        System.out.println(laterAmount);
+                    }
+                }
+                """,
+                """
+                package org.camunda.community.migration.example;
+
+                import io.camunda.client.annotation.JobWorker;
+                import io.camunda.client.api.response.ActivatedJob;
+                import org.springframework.stereotype.Component;
+
+                import java.util.Date;
+                import java.util.HashMap;
+                import java.util.Map;
+
+                @Component
+                public class RetrievePaymentAdapter {
+                    Integer fieldAmount;
+                    Date fieldDate;
+                    byte[] fieldBytes;
+                    Object fieldObject;
+
+                    @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+                        Map<String, Object> resultMap = new HashMap<>();
+                        // please check type
+                        Integer typedAmount = (Integer) job.getVariablesAsMap().get("amount");
+                        Integer laterAmount;
+                        laterAmount = (Integer) job.getVariablesAsMap().get("laterAmount");
+                        this.fieldAmount = (Integer) job.getVariablesAsMap().get("fieldAmount");
+                        this.fieldDate = (Date) job.getVariablesAsMap().get("fieldDate");
+                        this.fieldBytes = (byte[]) job.getVariablesAsMap().get("fieldBytes");
+                        this.fieldObject = job.getVariablesAsMap().get("fieldObject");
+                        System.out.println(typedAmount);
+                        System.out.println(laterAmount);
+                        return resultMap;
+                    }
+                }
+                """));
+    }
+
 
     @Test
     void rewriteExecuteMethodWithVariables() {
@@ -162,7 +240,7 @@ public class RetrievePaymentAdapter {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        Integer amount = (Integer) job.getVariable("AMOUNT");
+        Integer amount = (Integer) job.getVariablesAsMap().get("AMOUNT");
     
         String response = rest.postForObject("endpoint", amount, String.class);
 
@@ -254,24 +332,24 @@ public class TestDelegate {
         Map<String, Object> resultMap = new HashMap<>();
 
         System.out.println("C7 delegate called");
-        final var stringVariable = job.getVariable("stringVariable");
-        final var integerVariable = job.getVariable("integerVariable");
-        final var doubleVariable = job.getVariable("doubleVariable");
-        final var boolVariable = job.getVariable("boolVariable");
-        final var jsonVariable = job.getVariable("jsonVariable");
-        final var fileVariable = job.getVariable("fileVariable");
+        final var stringVariable = job.getVariablesAsMap().get("stringVariable");
+        final var integerVariable = job.getVariablesAsMap().get("integerVariable");
+        final var doubleVariable = job.getVariablesAsMap().get("doubleVariable");
+        final var boolVariable = job.getVariablesAsMap().get("boolVariable");
+        final var jsonVariable = job.getVariablesAsMap().get("jsonVariable");
+        final var fileVariable = job.getVariablesAsMap().get("fileVariable");
         // please check type
-        final Object stringVariableTyped = job.getVariable("stringVariable");
+        final Object stringVariableTyped = job.getVariablesAsMap().get("stringVariable");
         // please check type
-        final Object integerVariableTyped = job.getVariable("integerVariable");
+        final Object integerVariableTyped = job.getVariablesAsMap().get("integerVariable");
         // please check type
-        final Object doubleVariableTyped = job.getVariable("doubleVariable");
+        final Object doubleVariableTyped = job.getVariablesAsMap().get("doubleVariable");
         // please check type
-        final Object boolVariableTyped = job.getVariable("boolVariable");
+        final Object boolVariableTyped = job.getVariablesAsMap().get("boolVariable");
         // please check type
-        final Object jsonVariableTyped = job.getVariable("jsonVariable");
+        final Object jsonVariableTyped = job.getVariablesAsMap().get("jsonVariable");
         // please check type
-        final Object fileVariableTyped = job.getVariable("fileVariable");
+        final Object fileVariableTyped = job.getVariablesAsMap().get("fileVariable");
         final var stringVariableLocal = job.getVariable("stringVariableLocal");
         final var integerVariableLocal = job.getVariable("integerVariableLocal");
         final var doubleVariableLocal = job.getVariable("doubleVariableLocal");

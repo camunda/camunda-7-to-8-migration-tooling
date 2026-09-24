@@ -67,7 +67,7 @@ class SubinterfaceJavaDelegateMigrationTest implements RewriteTest {
                     @JobWorker(type = "exampleWorkflowStep", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                         Map<String, Object> resultMap = new HashMap<>();
-                        System.out.println(job.getVariable("x"));
+                        System.out.println(job.getVariablesAsMap().get("x"));
                         return resultMap;
                     }
 

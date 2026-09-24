@@ -77,7 +77,7 @@ public class MyExecutionListener implements ExecutionListener {
     @JobWorker(type = "myExecutionListener", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        String someVar = (String) job.getVariable("foo");
+        String someVar = (String) job.getVariablesAsMap().get("foo");
         return resultMap;
     }
 }
