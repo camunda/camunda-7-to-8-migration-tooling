@@ -125,17 +125,22 @@ public class RetrievePaymentAdapter {
 
                 import org.camunda.bpm.engine.delegate.DelegateExecution;
                 import org.camunda.bpm.engine.delegate.JavaDelegate;
+                import org.camunda.bpm.engine.variable.Variables;
                 import org.camunda.bpm.engine.variable.value.BytesValue;
                 import org.camunda.bpm.engine.variable.value.DateValue;
                 import org.camunda.bpm.engine.variable.value.IntegerValue;
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
                 import org.springframework.stereotype.Component;
 
+                import java.util.Date;
+
                 @Component
                 public class RetrievePaymentAdapter implements JavaDelegate {
                     IntegerValue fieldAmount;
                     private DateValue fieldDate, anotherDate;
                     private BytesValue fieldBytes = null, anotherBytes = null;
+                    private DateValue initialDate = Variables.dateValue(new Date(0));
+                    private BytesValue initialBytes = Variables.byteArrayValue(new byte[] {1});
                     ObjectValue fieldObject;
 
                     @Override
@@ -170,6 +175,8 @@ public class RetrievePaymentAdapter {
                     Integer fieldAmount;
                     private Date fieldDate, anotherDate;
                     private byte[] fieldBytes = null, anotherBytes = null;
+                    private Date initialDate = new Date(0);
+                    private byte[] initialBytes = new byte[]{1};
                     Object fieldObject;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)

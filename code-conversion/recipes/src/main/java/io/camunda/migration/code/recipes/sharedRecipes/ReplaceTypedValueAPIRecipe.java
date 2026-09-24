@@ -64,6 +64,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
         check,
         new JavaVisitor<ExecutionContext>() {
 
+          private final MethodMatcher dateValueFactory =
+              new MethodMatcher("org.camunda.bpm.engine.variable.Variables dateValue(java.util.Date)");
+          private final MethodMatcher byteArrayValueFactory =
+              new MethodMatcher("org.camunda.bpm.engine.variable.Variables byteArrayValue(byte[])");
+
           private final List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations =
               List.of(
                   new ReplacementUtils.SimpleReplacementSpec(
@@ -225,6 +230,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return "java.lang.Object";
           }
 
+          private Expression unwrapTypedValueFactory(Expression initializer, JavaType declaredType) {
+            if (initializer instanceof J.MethodInvocation factory
+                && factory.getArguments().size() == 1
+                && ((TypeUtils.isOfClassType(
+                            declaredType, "org.camunda.bpm.engine.variable.value.DateValue")
+                        && dateValueFactory.matches(factory))
+                    || (TypeUtils.isOfClassType(
+                            declaredType, "org.camunda.bpm.engine.variable.value.BytesValue")
+                        && byteArrayValueFactory.matches(factory)))) {
+              return factory.getArguments().get(0);
+            }
+            return initializer;
+          }
+
           /** Visit variable declarations to replace all typedValue types */
           @Override
           public J visitVariableDeclarations(
@@ -236,7 +255,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             Expression originalInitializer = firstVar.getInitializer();
 
             // work with initializer that is a method invocation
-            if (originalInitializer instanceof J.MethodInvocation invocation) {
+            if (originalInitializer instanceof J.MethodInvocation invocation
+                && unwrapTypedValueFactory(
+                        originalInitializer, declarations.getTypeAsFullyQualified())
+                    == originalInitializer) {
 
               // run through prepared migration rules
               for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
@@ -464,9 +486,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     declarationCode.append(", ");
                   }
                   declarationCode.append(variable.getSimpleName());
-                  if (variable.getInitializer() != null) {
+                  Expression initializer =
+                      unwrapTypedValueFactory(
+                          variable.getInitializer(), declarations.getTypeAsFullyQualified());
+                  if (initializer != null) {
                     declarationCode.append(" = #{any()}");
-                    initializers.add(variable.getInitializer());
+                    initializers.add(initializer);
+                    if (initializer != variable.getInitializer()) {
+                      maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
+                    }
                   }
                   block.putMessage(variable.getSimpleName(), newFqn);
                 }
