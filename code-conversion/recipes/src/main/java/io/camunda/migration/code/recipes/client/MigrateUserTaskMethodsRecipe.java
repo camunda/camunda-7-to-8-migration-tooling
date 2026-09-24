@@ -122,7 +122,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             RecipeUtils.createSimpleJavaTemplate(
                 """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newUserTaskCompleteCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
+                    .newCompleteUserTaskCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
                     .send()
                     .join();
                 """),
@@ -138,7 +138,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             RecipeUtils.createSimpleJavaTemplate(
                 """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newUserTaskCompleteCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
+                    .newCompleteUserTaskCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
                     .variables(#{variables:any(java.util.Map)})
                     .send()
                     .join();
