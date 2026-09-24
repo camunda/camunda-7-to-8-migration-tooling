@@ -127,26 +127,26 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.BytesValue;
             import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.ObjectValue;
 
             public class TypedFieldDelegate implements JavaDelegate {
                 IntegerValue amount;
                 DateValue date;
                 BytesValue bytes;
+                ObjectValue object;
 
                 @Override
                 public void execute(DelegateExecution execution) {
                     this.amount = execution.getVariableTyped("amount");
                     this.date = execution.getVariableTyped("date");
                     this.bytes = execution.getVariableTyped("bytes");
+                    this.object = execution.getVariableTyped("object");
                 }
             }
             """,
             """
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
-            import org.camunda.bpm.engine.variable.value.BytesValue;
-            import org.camunda.bpm.engine.variable.value.DateValue;
-            import org.camunda.bpm.engine.variable.value.IntegerValue;
 
             import java.util.Date;
 
@@ -154,12 +154,52 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 Integer amount;
                 Date date;
                 byte[] bytes;
+                Object object;
 
                 @Override
                 public void execute(DelegateExecution execution) {
                     this.amount = (Integer) execution.getVariable("amount");
                     this.date = (Date) execution.getVariable("date");
                     this.bytes = (byte[]) execution.getVariable("bytes");
+                    this.object = execution.getVariable("object");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void nonDelegateTypedGettersKeepQualifiedAssignmentsAssignable() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.client.task.ExternalTask;
+            import org.camunda.bpm.engine.TaskService;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class TypedFields {
+                private DateValue date;
+                private BytesValue bytes;
+
+                void read(ExternalTask externalTask, TaskService taskService) {
+                    this.date = externalTask.getVariableTyped("date");
+                    this.bytes = taskService.getVariableTyped("task", "bytes");
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.client.task.ExternalTask;
+            import org.camunda.bpm.engine.TaskService;
+
+            import java.util.Date;
+
+            class TypedFields {
+                private Date date;
+                private byte[] bytes;
+
+                void read(ExternalTask externalTask, TaskService taskService) {
+                    this.date = (Date) externalTask.getVariable("date");
+                    this.bytes = (byte[]) taskService.getVariable("task", "bytes");
                 }
             }
             """));
