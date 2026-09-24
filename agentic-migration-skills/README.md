@@ -28,14 +28,56 @@ Copy the skill directory into your agent's skills directory:
 
 | Scope | Path |
 |---|---|
-| Project | `.agents/skills/migrate-c7-to-c8-code` (Copilot, Cursor, Codex, Gemini CLI, Cline, and others) |
+| Project | `.aws/atx/skills/migrate-c7-to-c8-code` (AWS Transform CLI v2+) |
+| Project | `.agents/skills/migrate-c7-to-c8-code` (AWS Transform CLI v2+, Copilot, Cursor, Codex, Gemini CLI, Cline, and others) |
 | Project | `.github/skills/migrate-c7-to-c8-code` (GitHub Copilot) |
 | Project | `.claude/skills/migrate-c7-to-c8-code` (Claude Code) |
+| User | `~/.aws/atx/skills/migrate-c7-to-c8-code` (AWS Transform CLI v2+) |
 | User | `~/.copilot/skills/migrate-c7-to-c8-code` (GitHub Copilot) |
 | User | `~/.claude/skills/migrate-c7-to-c8-code` (Claude Code) |
-| User | `~/.agents/skills/migrate-c7-to-c8-code` (generic fallback) |
+| User | `~/.agents/skills/migrate-c7-to-c8-code` (AWS Transform CLI v2+, generic fallback) |
 
 Check your agent's documentation for its exact skills directory.
+
+### AWS Transform custom
+
+[AWS Transform custom](https://docs.aws.amazon.com/transform/latest/userguide/custom.html) CLI v2+
+discovers the skill as a [client-side skill](https://docs.aws.amazon.com/transform/latest/userguide/custom-workflows.html#custom-client-side-skills)
+in the AWS Transform paths above. It loads project paths only when it has a code repository path.
+To run the skill as a transformation definition, use `skills/migrate-c7-to-c8-code/` as the source,
+not this package root. A definition contains only `SKILL.md` and optional `references/` and
+`scripts/` directories. Execution needs a Git repository. See the
+[command reference](https://docs.aws.amazon.com/transform/latest/userguide/custom-command-reference.html)
+for current flags.
+
+```bash
+# From this repository's root. save-draft returns the draft version. Drafts expire after 30 days.
+atx custom def save-draft -n camunda-7-to-camunda-8-migration \
+  --description "Migrate Camunda 7 projects to Camunda 8" \
+  --sd agentic-migration-skills/skills/migrate-c7-to-c8-code/
+# Test the draft on a Camunda 7 Git repository, then publish the tested version to the registry.
+atx custom def exec -n camunda-7-to-camunda-8-migration --tv <draft-version> \
+  -p /path/to/camunda-7-project -c "<build-command>"
+atx custom def publish -n camunda-7-to-camunda-8-migration --tv <draft-version>
+```
+
+Run the draft interactively while scope or migration decisions need input. A `--non-interactive`
+(`-x`) run needs every decision in the request or configuration, including acceptance of any
+default. Otherwise, the skill stops before dependent changes and records the missing choices as
+open items. Until the project root is confirmed, it reports them only in its response.
+`--trust-all-tools` (`-t`) approves tool requests, not migration decisions.
+
+For dashboard campaign reporting, run the command that the AWS Transform web application generates,
+with its campaign and repository arguments. The
+[setup guide](https://docs.aws.amazon.com/transform/latest/userguide/custom-get-started.html#custom-web-application)
+states that this command logs execution results to the web application. Do not assume that a draft
+test run reports to a campaign.
+
+At the end of a run, the skill reports changed files and added and deleted lines per asset type. It
+measures them with Git from the clean starting commit, or marks them unavailable instead of
+estimating. It shows them in the `atx` conversation and in `MIGRATION_REPORT.md`. These counts are
+local run data, not AWS dashboard metrics. AWS documents no result schema or CLI option to submit
+them.
 
 ## Use
 

@@ -12,9 +12,9 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 
 ## Question Batching Rules
 
-- At most 4 questions per AskUserQuestion call
+- At most 4 questions per prompt
 - Every question with `options` must have at least 2 options
-- Batch: Call 1 = Q1, then re-scan, Call 2 = Q2+Q3, Call 3 = conditional Q4/Q5/Q5a/Q6
+- Batch: Prompt 1 = Q1, then re-scan, Prompt 2 = Q2+Q3, Prompt 3 = conditional Q4/Q5/Q5a/Q6
 
 ---
 
