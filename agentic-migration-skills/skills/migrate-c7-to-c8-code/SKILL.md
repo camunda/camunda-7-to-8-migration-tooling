@@ -487,4 +487,4 @@ issue, or deletion candidate remains and no item has `deferred` or `blocked` sta
 An open item is a team decision, so an `open` status does not block completion, but the summary
 always lists every open item.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
-Before the final response, follow `references/final-change-summary.md`.
+Where the root is confirmed, follow `references/final-change-summary.md` before the final response.
