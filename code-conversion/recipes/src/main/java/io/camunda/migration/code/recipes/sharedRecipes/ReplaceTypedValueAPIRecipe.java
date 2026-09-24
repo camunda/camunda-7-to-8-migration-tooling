@@ -440,24 +440,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             // this replaces standalone declarations, like method parameters
             if (declarations.getTypeExpression() instanceof J.Identifier typeExpr) {
 
-              String newFqn = null;
-
-              // depending on the type expression, newType is set
-              switch (typeExpr.getSimpleName()) {
-                case "BooleanValue" -> newFqn = "java.lang.Boolean";
-                case "StringValue" -> newFqn = "java.lang.String";
-                case "IntegerValue" -> newFqn = "java.lang.Integer";
-                case "LongValue" -> newFqn = "java.lang.Long";
-                case "ShortValue" -> newFqn = "java.lang.Short";
-                case "DoubleValue" -> newFqn = "java.lang.Double";
-                case "FloatValue" -> newFqn = "java.lang.Float";
-                case "ByteArrayValue" -> newFqn = "java.lang.Byte[]";
-                case "ObjectValue" -> newFqn = "java.lang.Object";
-                default -> {}
-              }
-
-              // if new fqn was set, update type expression of declaration and return declaration
-              if (newFqn != null) {
+              String newFqn = mapTypedValueToNewFqn(typeExpr.getType());
+              if (!"java.lang.Object".equals(newFqn)
+                  || TypeUtils.isOfClassType(
+                      typeExpr.getType(), "org.camunda.bpm.engine.variable.value.ObjectValue")) {
 
                 // record fqn of identifier for later uses
                 getCursor()
@@ -466,12 +452,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                 maybeRemoveImport(declarations.getTypeAsFullyQualified());
 
+                String[] imports =
+                    "java.util.Date".equals(newFqn) ? new String[] {newFqn} : new String[0];
+                if (imports.length > 0) {
+                  maybeAddImport(newFqn);
+                }
                 return maybeAutoFormat(
                     declarations,
                     RecipeUtils.createSimpleJavaTemplate(
-                            newFqn.substring(newFqn.lastIndexOf('.') + 1)
-                                + " "
-                                + firstVar.getSimpleName())
+                            RecipeUtils.getShortName(newFqn) + " " + firstVar.getSimpleName(),
+                            imports)
                         .apply(getCursor(), declarations.getCoordinates().replace()),
                     ctx);
               }
@@ -500,12 +490,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 .matches(invocation)) {
               String newFqn = mapTypedValueToNewFqn(target.getType());
               if (!"java.lang.Object".equals(newFqn)) {
+                String[] imports =
+                    "byte[]".equals(newFqn) ? new String[0] : new String[] {newFqn};
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
                             "#{any()} = ("
                                 + RecipeUtils.getShortName(newFqn)
                                 + ") #{any()}",
-                            newFqn)
+                            imports)
                         .apply(
                             getCursor(), assignment.getCoordinates().replace(), target, invocation);
                 return super.visitAssignment(modifiedAssignment, ctx);
