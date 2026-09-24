@@ -4,9 +4,9 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 
 ## Code Patterns
 
-The code pattern catalog lives in the [GitHub directory](https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/code-conversion/patterns/).
+The code pattern catalog lives in the [maintenance/0.3 GitHub directory](https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/maintenance/0.3/code-conversion/patterns/).
 Fetch individual catalog files from
-`https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/<catalog-path>`.
+`https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/maintenance/0.3/code-conversion/patterns/<catalog-path>`.
 
 The catalog is the source of truth for every API mapping, artifact id, and version-specific
 workaround. CI regenerates `code-conversion/patterns/README.md` and

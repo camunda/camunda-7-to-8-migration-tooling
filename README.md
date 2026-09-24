@@ -51,13 +51,25 @@ claude plugin install camunda-migration
 /camunda-migration:migrate-c7-to-c8-code
 ```
 
-The skill will ask for your project path and walk you through three options:
+The skill asks what to migrate — **code**, **models**, or **both** — then presents the
+relevant paths for each scope.
+
+**Code migration:**
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves TODOs, config, and test code |
-| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **AI only (AI-first)** *(recommended with a capable coding model)* | Applies migration patterns directly to the source. Use it for semantic, mixed, or complex Java code. Review every change. |
+| **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
 | **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no changes made |
+
+Compare both code paths on representative classes when practical. Recipes help with repeated,
+well-supported syntax changes. They can add cleanup for semantic or mixed delegate/client code.
+Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+Review and validate both paths.
+
+**Model migration:** choose between the **Diagram Converter CLI** *(recommended)*, **Agentic AI**,
+or the hosted **online converter** depending on your environment and review needs. See
+[agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for the full matrix.
 
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
 
@@ -157,4 +169,3 @@ The source files in this repository are made available under the [Camunda Licens
 - **[Migration Analyzer & Diagram Converter](https://diagram-converter.camunda.io/)** - Tool for migrating BPMN models and analyzing migration effort
 - **[Community Forum](https://forum.camunda.io/)** - Get help from the community
 - **[GitHub Issues](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues)** - Report bugs and request features in the issue tracker
-

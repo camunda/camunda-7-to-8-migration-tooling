@@ -31,9 +31,14 @@ The skill asks what to migrate — **code**, **models**, or **both** — then wa
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves remaining TODOs, config, and test code |
-| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **AI only (AI-first)** *(recommended with a capable coding model)* | Applies migration patterns directly to the source. Use it for semantic, mixed, or complex Java code. Review every change. |
+| **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
 | **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no code changes |
+
+Compare both code paths on representative classes when practical. Recipes help with repeated,
+well-supported syntax changes. They can add cleanup for semantic or mixed delegate/client code.
+Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+Review and validate both paths.
 
 **Model migration (BPMN/DMN):**
 
@@ -45,7 +50,10 @@ The skill asks what to migrate — **code**, **models**, or **both** — then wa
 
 If no BPMN/DMN model is found under the project root, the skill can offer the Diagram Converter's C7 engine source mode instead. It asks for a reachable C7 REST URL and the required authentication before fetching; when local models are present, it does not offer or request engine access. The released engine mode supports REST with optional Basic authentication and fetches latest BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
-The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and diagram-converter docs at runtime, resolves the latest Diagram Converter CLI release automatically, and describes what the agent should inspect/download/run rather than prescribing a POSIX shell dialect.
+The skill fetches the [maintenance/0.3 pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and current Diagram Converter docs at runtime.
+It resolves the latest Diagram Converter CLI release.
+It describes which files and artifacts to inspect, download, and run.
+It chooses commands for the current environment instead of assuming POSIX shell syntax.
 
 ## Structure
 

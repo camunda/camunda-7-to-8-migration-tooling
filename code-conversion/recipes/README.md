@@ -1,7 +1,8 @@
 # OpenRewrite recipes refactoring code from Camunda 7 to Camunda 8 
 
 > [!NOTE]  
-> The recipes are still under development. Feedback of course welcome. Expect recipes to work out-of-the-box only in simple scenarios, oftentimes you might want to extend them to suite your needs.
+> The recipes remain under development. Expect them to work out of the box only in simple scenarios.
+> You may need to extend them for your codebase.
 >
 > **For users:** See the [official documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/code-conversion/#refactoring-recipes-using-openrewrite) for how to use the recipes in your project.
 
@@ -17,6 +18,22 @@ The recipes help automatically refactor:
 
 Transformation examples can be found in the [code conversion patterns](../patterns/).
 
+## Choose a migration path
+
+Use recipes as an optional first pass, not as proof that a migration is complete. Compare both code
+paths on representative classes when practical. Prefer an AI-first, pattern-guided migration for
+semantic, mixed delegate/client, or complex code when a capable coding model is available.
+
+| Recipe effect | Where it applies |
+|---|---|
+| Helps | Repeated, supported, primarily syntactic Java transformations and a deterministic first diff. |
+| Can hurt | Semantic or mixed delegate/client code that needs context across APIs or business behavior. Generated scaffolding can add cleanup. |
+| Neutral | Domain behavior, eventual consistency, transaction boundaries, architectural separation, and validation. |
+
+Expect generated worker methods, generated names, TODOs, and cleanup after a recipe run. Compare each
+generated worker with its source before you delete or rename legacy logic. Confirm its business logic,
+inputs, outputs, exception behavior, and job type. A successful compilation does not confirm behavior.
+
 ### RepositoryService deployments
 
 `AllClientRecipes` converts complete, standalone `RepositoryService.createDeployment()` chains
@@ -28,7 +45,10 @@ manual migration.
 
 ## Extending recipes
 
-For many scenarios you might want to extend the recipes. For example, your Java Delegates might not implement `org.camunda.bpm.engine.delegate.JavaDelegate` but extend your own superclass `org.acme.MyJavaDelegate`. This would not be picked up by the out-of-the-box recipes.
+Some projects may need recipe extensions. For example, a delegate can extend a custom base class
+such as `org.acme.MyJavaDelegate` that implements
+`org.camunda.bpm.engine.delegate.JavaDelegate`. The out-of-the-box recipes do not detect that
+inherited implementation.
 
 Please read:
 - [Developer Guide](developer_guide.md)
