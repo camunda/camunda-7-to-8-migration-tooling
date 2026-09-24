@@ -46,10 +46,10 @@ public class CleanupDelegateRecipe extends Recipe {
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-            // Skip interfaces and classes whose implements clause was already removed.
+            // Skip interfaces and converted classes, but still visit nested delegates.
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class
                 || classDecl.getImplements() == null) {
-              return classDecl;
+              return super.visitClassDeclaration(classDecl, ctx);
             }
 
             // Filter out the interface to remove

@@ -78,4 +78,36 @@ public class RetrievePaymentAdapter {
 }
 """));
   }
+
+  @Test
+  void visitsNestedDelegateWhenOuterClassHasNoInterface() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                void execute() {}
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void keep() {}
+                }
+            }
+            """,
+            """
+            class Holder {
+                void execute() {}
+
+                class Nested {
+
+                    void keep() {}
+                }
+            }
+            """));
+  }
 }
