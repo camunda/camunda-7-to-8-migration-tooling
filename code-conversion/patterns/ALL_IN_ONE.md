@@ -1921,6 +1921,9 @@ the transient behavior carries over.
 When an initializer instead calls a helper that still returns a typed value,
 the recipe leaves the declaration unchanged and marks it for manual migration
 rather than producing an invalid raw assignment.
+Separate fields initialized from another converted field in the same class,
+including qualified forward references such as `this.date`, are converted
+together.
 Qualified `getValue()` reads of converted fields, such as `this.date.getValue()`,
 become direct field reads even when the method precedes the field declaration.
 Reads of fields retained for manual migration keep `getValue()` until those
@@ -1930,6 +1933,10 @@ to converted values are unwrapped in the same way as initializers, with a TODO
 for `true` or computed transient flags. Assignments to declarations retained for
 manual migration keep their Camunda 7 typed getters and factories until the
 declaration and its uses can be migrated together.
+Grouped typed-getter declarations keep every variable and required cast; groups
+with incompatible initializers stay at their Camunda 7 types with a TODO.
+Assignments through another instance of the same class use converted field
+types, while unrelated owners and retained local values keep their typed calls.
 
 ###### autoComplete = false (blocking)
 
