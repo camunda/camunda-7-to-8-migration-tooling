@@ -139,8 +139,8 @@ public class RetrievePaymentAdapter {
                     IntegerValue fieldAmount;
                     private DateValue fieldDate, anotherDate;
                     private BytesValue fieldBytes = null, anotherBytes = null;
-                    private DateValue initialDate = Variables.dateValue(new Date(0));
-                    private BytesValue initialBytes = Variables.byteArrayValue(new byte[] {1});
+                    private DateValue initialDate = Variables.dateValue(new Date(0), true);
+                    private BytesValue initialBytes = Variables.byteArrayValue(new byte[] {1}, false);
                     ObjectValue fieldObject;
 
                     @Override
@@ -175,6 +175,7 @@ public class RetrievePaymentAdapter {
                     Integer fieldAmount;
                     private Date fieldDate, anotherDate;
                     private byte[] fieldBytes = null, anotherBytes = null;
+                    // TODO: review Camunda 7 transient variable semantics for migrated values
                     private Date initialDate = new Date(0);
                     private byte[] initialBytes = new byte[]{1};
                     Object fieldObject;

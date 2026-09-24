@@ -189,4 +189,53 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void transientTypedFactoryInitializersRemainAssignable() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class InitializedValues {
+                private boolean transientFlag;
+                private DateValue date = Variables.dateValue(new Date(0), true), otherDate = Variables.dateValue(new Date(1), transientFlag);
+                private BytesValue bytes = Variables.byteArrayValue(new byte[] {1}, false), otherBytes = Variables.byteArrayValue(new byte[] {2}, true);
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class InitializedValues {
+                private boolean transientFlag;
+                // TODO: review Camunda 7 transient variable semantics for migrated values
+                private Date date = new Date(0), otherDate = new Date(1);
+                // TODO: review Camunda 7 transient variable semantics for migrated values
+                private byte[] bytes = new byte[]{1}, otherBytes = new byte[]{2};
+            }
+            """));
+  }
+
+  @Test
+  void standaloneDateValueFieldIsConverted() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class DateOnly {
+                private DateValue date;
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class DateOnly {
+                private Date date;
+            }
+            """));
+  }
 }

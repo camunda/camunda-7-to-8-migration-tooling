@@ -65,9 +65,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
         new JavaVisitor<ExecutionContext>() {
 
           private final MethodMatcher dateValueFactory =
-              new MethodMatcher("org.camunda.bpm.engine.variable.Variables dateValue(java.util.Date)");
+              new MethodMatcher("org.camunda.bpm.engine.variable.Variables dateValue(..)");
           private final MethodMatcher byteArrayValueFactory =
-              new MethodMatcher("org.camunda.bpm.engine.variable.Variables byteArrayValue(byte[])");
+              new MethodMatcher("org.camunda.bpm.engine.variable.Variables byteArrayValue(..)");
 
           private final List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations =
               List.of(
@@ -232,7 +232,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private Expression unwrapTypedValueFactory(Expression initializer, JavaType declaredType) {
             if (initializer instanceof J.MethodInvocation factory
-                && factory.getArguments().size() == 1
+                && (factory.getArguments().size() == 1 || factory.getArguments().size() == 2)
                 && ((TypeUtils.isOfClassType(
                             declaredType, "org.camunda.bpm.engine.variable.value.DateValue")
                         && dateValueFactory.matches(factory))
@@ -480,6 +480,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                 List<Expression> initializers = new ArrayList<>();
                 Cursor block = getCursor().dropParentUntil(parent -> parent instanceof J.Block);
+                boolean reviewTransientVariable = false;
                 for (int i = 0; i < declarations.getVariables().size(); i++) {
                   J.VariableDeclarations.NamedVariable variable = declarations.getVariables().get(i);
                   if (i > 0) {
@@ -494,20 +495,37 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     initializers.add(initializer);
                     if (initializer != variable.getInitializer()) {
                       maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
+                      if (variable.getInitializer() instanceof J.MethodInvocation factory
+                          && factory.getArguments().size() == 2
+                          && !(factory.getArguments().get(1) instanceof J.Literal literal
+                              && Boolean.FALSE.equals(literal.getValue()))) {
+                        reviewTransientVariable = true;
+                      }
                     }
                   }
                   block.putMessage(variable.getSimpleName(), newFqn);
                 }
 
                 maybeRemoveImport(declarations.getTypeAsFullyQualified());
-                return maybeAutoFormat(
-                    declarations,
+                J.VariableDeclarations modifiedDeclarations =
                     RecipeUtils.createSimpleJavaTemplate(declarationCode.toString(), imports)
                         .apply(
                             getCursor(),
                             declarations.getCoordinates().replace(),
-                            initializers.toArray()),
-                    ctx);
+                            initializers.toArray());
+                if (reviewTransientVariable) {
+                  modifiedDeclarations =
+                      modifiedDeclarations.withComments(
+                          Stream.concat(
+                                  declarations.getComments().stream(),
+                                  Stream.of(
+                                      RecipeUtils.createSimpleComment(
+                                          declarations,
+                                          " TODO: review Camunda 7 transient variable semantics for migrated values")))
+                              .toList());
+                }
+                return maybeAutoFormat(
+                    declarations, modifiedDeclarations, ctx);
               }
             }
             return super.visitVariableDeclarations(declarations, ctx);

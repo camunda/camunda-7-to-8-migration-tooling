@@ -1385,6 +1385,16 @@ Check local and typed variable lookups separately; they have different scope or 
 For known `getVariableTyped` types, assignments to converted fields such as
 `this.amount` include the cast required by the new field type.
 
+###### Typed date and byte factories
+
+The recipe converts `DateValue` and `BytesValue` declarations to `Date` and `byte[]`,
+including fields initialized with `Variables.dateValue(...)` or
+`Variables.byteArrayValue(...)`. These factories can also take a Camunda 7
+`isTransient` flag, which the unwrapped Java value cannot retain. When the flag
+is `true` or computed, the recipe marks the declaration with a TODO. Review how
+that value is published to the process before removing the TODO; do not assume
+the transient behavior carries over.
+
 ###### autoComplete = false (blocking)
 
 ```java
