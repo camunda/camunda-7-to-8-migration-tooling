@@ -130,11 +130,14 @@ public class RetrievePaymentAdapter {
 
                 @Component
                 public class RetrievePaymentAdapter implements JavaDelegate {
+                    IntegerValue fieldAmount;
+
                     @Override
                     public void execute(DelegateExecution execution) {
                         IntegerValue typedAmount = execution.getVariableTyped("amount");
                         IntegerValue laterAmount;
                         laterAmount = execution.getVariableTyped("laterAmount");
+                        this.fieldAmount = execution.getVariableTyped("fieldAmount");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                     }
@@ -152,6 +155,7 @@ public class RetrievePaymentAdapter {
 
                 @Component
                 public class RetrievePaymentAdapter {
+                    Integer fieldAmount;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
@@ -160,6 +164,7 @@ public class RetrievePaymentAdapter {
                         Integer typedAmount = (Integer) job.getVariablesAsMap().get("amount");
                         Integer laterAmount;
                         laterAmount = (Integer) job.getVariablesAsMap().get("laterAmount");
+                        this.fieldAmount = (Integer) job.getVariablesAsMap().get("fieldAmount");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                         return resultMap;
