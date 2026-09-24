@@ -124,28 +124,42 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             """
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
 
             public class TypedFieldDelegate implements JavaDelegate {
                 IntegerValue amount;
+                DateValue date;
+                BytesValue bytes;
 
                 @Override
                 public void execute(DelegateExecution execution) {
                     this.amount = execution.getVariableTyped("amount");
+                    this.date = execution.getVariableTyped("date");
+                    this.bytes = execution.getVariableTyped("bytes");
                 }
             }
             """,
             """
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            import java.util.Date;
 
             public class TypedFieldDelegate implements JavaDelegate {
                 Integer amount;
+                Date date;
+                byte[] bytes;
 
                 @Override
                 public void execute(DelegateExecution execution) {
                     this.amount = (Integer) execution.getVariable("amount");
+                    this.date = (Date) execution.getVariable("date");
+                    this.bytes = (byte[]) execution.getVariable("bytes");
                 }
             }
             """));

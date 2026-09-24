@@ -125,12 +125,18 @@ public class RetrievePaymentAdapter {
 
                 import org.camunda.bpm.engine.delegate.DelegateExecution;
                 import org.camunda.bpm.engine.delegate.JavaDelegate;
+                import org.camunda.bpm.engine.variable.value.BytesValue;
+                import org.camunda.bpm.engine.variable.value.DateValue;
                 import org.camunda.bpm.engine.variable.value.IntegerValue;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
                 import org.springframework.stereotype.Component;
 
                 @Component
                 public class RetrievePaymentAdapter implements JavaDelegate {
                     IntegerValue fieldAmount;
+                    DateValue fieldDate;
+                    BytesValue fieldBytes;
+                    ObjectValue fieldObject;
 
                     @Override
                     public void execute(DelegateExecution execution) {
@@ -138,6 +144,9 @@ public class RetrievePaymentAdapter {
                         IntegerValue laterAmount;
                         laterAmount = execution.getVariableTyped("laterAmount");
                         this.fieldAmount = execution.getVariableTyped("fieldAmount");
+                        this.fieldDate = execution.getVariableTyped("fieldDate");
+                        this.fieldBytes = execution.getVariableTyped("fieldBytes");
+                        this.fieldObject = execution.getVariableTyped("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                     }
@@ -150,12 +159,16 @@ public class RetrievePaymentAdapter {
                 import io.camunda.client.api.response.ActivatedJob;
                 import org.springframework.stereotype.Component;
 
+                import java.util.Date;
                 import java.util.HashMap;
                 import java.util.Map;
 
                 @Component
                 public class RetrievePaymentAdapter {
                     Integer fieldAmount;
+                    Date fieldDate;
+                    byte[] fieldBytes;
+                    Object fieldObject;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
@@ -165,6 +178,9 @@ public class RetrievePaymentAdapter {
                         Integer laterAmount;
                         laterAmount = (Integer) job.getVariablesAsMap().get("laterAmount");
                         this.fieldAmount = (Integer) job.getVariablesAsMap().get("fieldAmount");
+                        this.fieldDate = (Date) job.getVariablesAsMap().get("fieldDate");
+                        this.fieldBytes = (byte[]) job.getVariablesAsMap().get("fieldBytes");
+                        this.fieldObject = job.getVariablesAsMap().get("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                         return resultMap;
