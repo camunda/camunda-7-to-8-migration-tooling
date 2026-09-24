@@ -59,9 +59,15 @@ public class CleanupDelegateRecipe extends Recipe {
               return super.visitClassDeclaration(classDecl, ctx);
             }
 
-            // Filter out the JavaDelegate interface and any subinterfaces of it
-            List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
-                classDecl.getImplements().stream()
+            List<TypeTree> implementsTypes = classDecl.getImplements();
+            if (implementsTypes == null
+                || implementsTypes.stream()
+                    .noneMatch(id -> isJavaDelegateAssignable(id.getType()))) {
+              return super.visitClassDeclaration(classDecl, ctx);
+            }
+
+            List<TypeTree> updatedImplements =
+                implementsTypes.stream()
                     .filter(id -> !isJavaDelegateAssignable(id.getType()))
                     .collect(Collectors.toList());
 
@@ -70,15 +76,25 @@ public class CleanupDelegateRecipe extends Recipe {
                     .filter(
                         (statement ->
                             !(statement instanceof J.MethodDeclaration methDecl
-                                && methDecl.getSimpleName().equals("execute"))))
+                                && isDelegateExecute(methDecl))))
                     .toList();
 
             maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
             maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
 
-            return classDecl
-                .withBody(classDecl.getBody().withStatements(filteredStatements))
-                .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
+            return super.visitClassDeclaration(
+                classDecl
+                    .withBody(classDecl.getBody().withStatements(filteredStatements))
+                    .withImplements(updatedImplements.isEmpty() ? null : updatedImplements),
+                ctx);
+          }
+
+          private boolean isDelegateExecute(J.MethodDeclaration method) {
+            return method.getSimpleName().equals("execute")
+                && method.getParameters().size() == 1
+                && method.getParameters().get(0) instanceof J.VariableDeclarations parameter
+                && TypeUtils.isOfClassType(
+                    parameter.getType(), "org.camunda.bpm.engine.delegate.DelegateExecution");
           }
 
           private boolean hasDelegateBodyWarning(J.ClassDeclaration classDecl) {
