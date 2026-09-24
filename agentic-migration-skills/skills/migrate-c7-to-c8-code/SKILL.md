@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion
 
 You are a migration expert helping the user migrate a Camunda 7 project to Camunda 8. A project can contain **two independent kinds of assets**, each with its own migration path:
 
-- **Code** — Java/Spring glue and client code, config, tests. Migrated with **OpenRewrite recipes** (deterministic) plus AI cleanup.
+- **Code** — Java/Spring glue and client code, config, tests. Migrated with a pattern-guided AI-first approach or OpenRewrite recipes plus AI cleanup.
 - **Models** — BPMN/DMN diagrams using the `camunda:` namespace. Migrated with the **Diagram Converter** (deterministic) or agentically.
 
 Treat these as separate operations that compose. Ask what the user wants (Step 1, Question 3) and run only the relevant path(s).
@@ -27,7 +27,14 @@ These apply throughout — referenced below instead of repeated.
   - Code → pattern catalog: `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`. If context is tight, fetch only the individual files under `code-conversion/patterns/`.
   - Agentic models → diagram-converter docs (see M2).
 - **Respect the target version** (Q2). Don't offer 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, or 8.8 workarounds to 8.9+. Pass the same version to the CLI via `--platform-version`.
-- **Prefer deterministic over agentic.** Code: OpenRewrite + AI over AI-only. Models: CLI (M1) over agentic rewrite (M2). Use agentic only when the deterministic path can't run.
+- When a capable model can examine the source, prefer an AI-first, pattern-guided code migration. (SHOULD)
+- When code repeats supported syntactic transformations, use OpenRewrite plus AI.
+- When the team needs a deterministic first diff, use OpenRewrite plus AI.
+- Where a recipe run includes semantic or mixed delegate/client code, review its output with AI.
+- Compare recipe output with the original source before accepting it.
+- Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+- Review these decisions in both code paths.
+- Prefer the CLI over an agentic rewrite for models. (SHOULD)
 - **Conversion is not completion.** Converter finding severities: WARNING, TASK, REVIEW, INFO. TASK/REVIEW/WARNING need human follow-up and JUEL conversion is partial — always say so, then offer the Step 5 follow-up.
 - **Diagram Converter: fail fast on Java, download don't ask.** Require Java 21+; stop with a clear message (offer M2/M3) if missing. Download the CLI from the latest GitHub release into `.camunda-migration/`, reuse an existing download, never commit the JAR.
 - **Don't redo what the tools changed.** In Approach A, check for existing transforms before rewriting. After a converter run, don't re-apply conversions it already did.
@@ -80,8 +87,15 @@ When no local model files were found, do not silently drop models from a combine
 
 **Question 4 — Code migration approach** *(include only if code files are present and user selected code migration, user can't select anything else)*:
 
-- **A. OpenRewrite (deterministic) + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code). When prompted you can ask AI to resolve remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
-- **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
+When a representative comparison is practical, compare both approaches on representative classes.
+One class does not predict the rest of the project.
+
+| When | Choose | What to expect |
+|---|---|---|
+| Semantic, mixed delegate/client, or complex code with a capable model | **B. AI only (AI-first)** *(recommended with a capable coding model)* | The skill applies patterns directly. Model capability affects the result. Review every change. |
+| Repeated, supported, primarily syntactic code | **A. OpenRewrite + AI** | Expect scaffolding, TODOs, cleanup, and behavioral validation. |
+| A deterministic first diff helps review | **A. OpenRewrite + AI** | Validate behavior after cleanup. |
+| OpenRewrite cannot run | **B. AI only (AI-first)** | The skill migrates from source and patterns. Review every change. |
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes.
 
 **Question 5 — Model source and migration approach** *(include only if the user selected model migration, user can't select anything else)*:
@@ -155,8 +169,8 @@ These are migrated in **Part B** (not by OpenRewrite). Do not attempt to hand-ed
 
 After the tables, present:
 - Total code files and total model files to migrate
-- Overall complexity estimate
-- Whether OpenRewrite would help (JavaDelegates or ExternalTaskWorkers present?)
+- Overall complexity and the recommended code path
+- Whether recipes help, hurt, or are neutral
 - Any blockers requiring manual decision before starting
 - One short note on data migration scope: running instances, history/audit data, and authorizations are **not** code or model migration — point to the [Data Migrator](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/) (runtime since 8.8; history and identity since 8.9, history requires RDBMS secondary storage)
 
@@ -174,7 +188,7 @@ Commit policy and reference loading: see Shared rules. Run **Part A** if the sco
 
 ## Part A — Code migration (Java/Spring)
 
-Both approaches apply the same **Transform checklist** below. Approach A runs OpenRewrite first for the deterministic bulk, then uses the checklist for the rest; Approach B works the whole checklist manually.
+Both code approaches apply the same **Transform checklist** below. Approach A runs recipes for repeated, supported syntax changes before AI cleanup. Approach B applies the checklist with patterns and AI.
 
 ### Transform checklist
 
@@ -225,15 +239,18 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
 - Pure data expressions → FEEL (the converter automates this model-side, Part B). Conditional events are native since 8.9. Only bean-invoking expressions need a JUEL job worker or a refactor into job workers.
 - Reference: "Expression → Job Worker".
 
-### Approach A — OpenRewrite + AI (recommended)
+### Approach A — OpenRewrite + AI
+
+Use this approach for repeated, supported, primarily syntactic transformations or a deterministic
+first diff.
 
 **1. Run OpenRewrite** — deterministic bulk transforms for delegates, external workers, and client code.
 
 RECIPES_VERSION by Camunda target, use the latest from these minor versions: 8.8 → `0.2.x`; 8.9 and 8.10 → `0.3.x`.
 
 REWRITE_VERSION: Before adding the plugin, resolve the latest released version via WebFetch:
-- `rewrite-maven-plugin` (OpenRewrite): `https://search.maven.org/solrsearch/select?q=g:org.openrewrite.maven+AND+a:rewrite-maven-plugin&rows=1&wt=json` → read `response.docs[0].latestVersion`
-
+`https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml`.
+Exclude snapshots and pre-releases.
 
 Use those resolved versions in the snippets below (replacing `REWRITE_VERSION` and `RECIPES_VERSION`).
 
@@ -263,25 +280,6 @@ For Maven — add to `pom.xml`:
 </plugin>
 ```
 
-**Before running**, check for Spotless + Java version incompatibility and fix proactively:
-
-1. Detect Java major version: `java -version 2>&1 | head -1`
-2. Check if Spotless is configured: `grep -r "spotless" pom.xml build.gradle build.gradle.kts 2>/dev/null`
-3. If Spotless is present **and** Java major version ≥ 17:
-   - Run with the JVM flags Spotless needs on Java 17+:
-     ```
-     MAVEN_OPTS="--add-opens=java.base/java.lang=ALL-UNNAMED \
-       --add-opens=java.base/java.util=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED" \
-     mvn rewrite:run
-     ```
-   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to Java 11/17 first?"
-4. If Spotless is not present, or Java < 17: run `mvn rewrite:run` directly.
-
 For Gradle — add to `build.gradle`:
 ```groovy
 plugins {
@@ -296,11 +294,66 @@ rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllExternalWorkerRecipes")
 }
 ```
-Run: `./gradlew rewriteRun`
+
+Set `REWRITE_COMMAND` to the matching build command:
+
+| Build tool | `REWRITE_COMMAND` |
+|---|---|
+| Maven | `mvn rewrite:run` |
+| Gradle on macOS/Linux | `./gradlew rewriteRun` |
+| Gradle in Windows PowerShell | `.\gradlew.bat rewriteRun` |
+| Gradle in Windows cmd | `gradlew.bat rewriteRun` |
+
+### Java compatibility and Spotless
+
+1. Run `java -version` from `PATH`, capture stderr, and record the major version. Show the
+   executable: `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java`
+   in Windows Command Prompt.
+   - The recipe module supports Java 21–25 (`[21,26)`). Check the project's OpenRewrite
+     configuration first for a narrower range.
+   - If Java is missing or outside that range, ask for a JDK home that contains `bin/java`. Never
+     install Java or change the user's system configuration.
+   - Validate the supplied home with its `bin/java` (Windows: `bin/java.exe`) and `-version`.
+     Reject a stale path, JRE-only directory, missing `bin/javac` (Windows: `bin/javac.exe`), or
+     incompatible version.
+   - When several compatible homes exist, use the lowest version. Prefer 21, then 22, 23, 24, or
+     25. (SHOULD)
+   - Set `JAVA_HOME` and prepend its `bin` directory to `PATH` for this invocation only. Never use
+     an unvalidated Java executable.
+
+2. Check the build files for a Spotless configuration.
+
+3. Where Spotless is present and the selected Java major version is at least 17, run OpenRewrite
+   with these JVM flags:
+   - `--add-opens=java.base/java.lang=ALL-UNNAMED`
+   - `--add-opens=java.base/java.util=ALL-UNNAMED`
+   - `--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED`
+   - `--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED`
+   - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
+   - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
+   - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
+   - Where Maven and `.mvn` are present, append the flags temporarily to `.mvn/jvm.config` and
+     preserve its content. (SHOULD)
+   - Where Maven has no `.mvn` directory, use `JAVA_TOOL_OPTIONS` for the `REWRITE_COMMAND`
+     invocation.
+   - Where the build uses Gradle, use `JAVA_TOOL_OPTIONS` for the `REWRITE_COMMAND` invocation.
+     Do not add repository configuration for this temporary step.
+   - Restore the previous `.mvn/jvm.config` content, or remove it if this step created it, whether
+     `REWRITE_COMMAND` succeeds or fails. Do not stage or commit the temporary changes.
+   - If Spotless still fails in a Maven project, ask whether to skip it or switch to another
+     compatible JDK. Offer `mvn rewrite:run -Dspotless.skip=true` as the skip command.
+   - If Spotless still fails in a Gradle project, ask the user to choose another compatible JDK
+     or the project's documented Spotless bypass. Never use a Maven command in a Gradle project.
+
+4. Otherwise, run `REWRITE_COMMAND` directly.
 
 Before AI cleanup, ask whether to commit the OpenRewrite result (commit policy: Shared rules).
 
 **2. AI cleanup — after OpenRewrite**
+
+Before cleanup, compare every generated `@JobWorker` with its original source. Confirm the business
+logic, job type, inputs, outputs, and exception behavior. Do not delete or rename source logic until
+this comparison passes.
 
 Ask the user whether to run AI cleanup; proceed only on YES. Load the pattern catalog (Shared rules), then work the Transform checklist for what OpenRewrite left:
 
@@ -309,7 +362,11 @@ Ask the user whether to run AI cleanup; proceed only on YES. Load the pattern ca
 
 ---
 
-### Approach B — AI only
+### Approach B — AI only (AI-first)
+
+Use this approach for semantic, mixed, or complex code when a capable coding model is available.
+Model capability affects the result. Apply the same behavior and semantic validation as the
+recipe-assisted path.
 
 Load the pattern catalog (Shared rules), then work the full Transform checklist (items 1–7) in order, confirming each before the next.
 
@@ -318,12 +375,12 @@ Load the pattern catalog (Shared rules), then work the full Transform checklist 
 ### Approach C — Assessment only
 
 Present the code assessment table from Step 2 with additional detail:
-- Per-file effort estimate (hours)
-- Total estimated effort
-- Which files OpenRewrite can handle automatically vs. require manual AI work
-- Recommended approach (A or B) based on codebase size and complexity
+- Per-file and total effort estimates
+- Recipe coverage and remaining AI/manual work
+- Recommended approach based on code shape, model capability, and review needs
+- Where recipes help, need AI review, or still need a team decision
 - Known risks or blockers (incl. multi-instance listener pattern, custom batches, IdentityService/FormService usage)
-- Data migration scope note (Data Migrator: runtime / history / identity)
+- Data Migrator scope for runtime, history, and identity data
 
 Write the full report to `MIGRATION_REPORT.md`. Then stop — make no code changes.
 

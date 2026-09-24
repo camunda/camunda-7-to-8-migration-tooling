@@ -10,6 +10,10 @@ Confirm each item before the next. Ask the user before each commit.
 
 ## OpenRewrite output: de-recipe cleanup
 
+Before cleanup, compare every generated `@JobWorker` with its original source. Confirm the business
+logic, job type, inputs, outputs, and exception behavior. Do not delete or rename source logic until
+this comparison passes.
+
 Approach A runs this section after OpenRewrite. The cleanup removes recipe artifacts while preserving
 the worker's job type, inputs, outputs, and behavior. Load
 `30-glue-code/idiomatic-job-worker-cleanup.md` from the pattern catalog before editing.

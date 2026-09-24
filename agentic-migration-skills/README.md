@@ -31,9 +31,14 @@ The skill asks what to migrate — **code**, **models**, or **both** — then wa
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves remaining TODOs, config, and test code |
-| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **AI only (AI-first)** *(recommended with a capable coding model)* | Applies migration patterns directly to the source. Use it for semantic, mixed, or complex Java code. Review every change. |
+| **OpenRewrite + AI** | Runs recipes for repeated, supported syntax transformations, then AI cleans and reviews the generated code. Expect scaffolding, TODOs, and cleanup. |
 | **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no code changes |
+
+Compare both code paths on representative classes when practical. Recipes help with repeated,
+well-supported syntax changes. They can add cleanup for semantic or mixed delegate/client code.
+Recipes do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
+Review and validate both paths.
 
 **Model migration (BPMN/DMN):**
 
