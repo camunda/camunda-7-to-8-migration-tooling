@@ -260,6 +260,92 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void nestedTypedFactoryArgumentsAreConverted() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class InitializedValues {
+                private DateValue firstDate = Variables.dateValue(new Date(0));
+                private DateValue otherDate = Variables.dateValue(firstDate.getValue());
+                private BytesValue firstBytes = Variables.byteArrayValue(new byte[] {1});
+                private BytesValue otherBytes = Variables.byteArrayValue(firstBytes.getValue(), false);
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class InitializedValues {
+                private Date firstDate = new Date(0);
+                private Date otherDate = firstDate;
+                private byte[] firstBytes = new byte[]{1};
+                private byte[] otherBytes = firstBytes;
+            }
+            """));
+  }
+
+  @Test
+  void unsupportedTypedInitializersRemainForManualMigration() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class InitializedValues {
+                abstract DateValue loadDate();
+                abstract BytesValue loadBytes();
+
+                private DateValue date = loadDate();
+                private BytesValue bytes = loadBytes();
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class InitializedValues {
+                abstract DateValue loadDate();
+                abstract BytesValue loadBytes();
+
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private DateValue date = loadDate();
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private BytesValue bytes = loadBytes();
+            }
+            """));
+  }
+
+  @Test
+  void convertedTypedFieldsCanInitializeLaterFields() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class InitializedValues {
+                private DateValue date = Variables.dateValue(new Date(0)), otherDate = date;
+                private BytesValue bytes = Variables.byteArrayValue(new byte[] {1}), otherBytes = bytes;
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class InitializedValues {
+                private Date date = new Date(0), otherDate = date;
+                private byte[] bytes = new byte[]{1}, otherBytes = bytes;
+            }
+            """));
+  }
+
+  @Test
   void standaloneDateValueFieldIsConverted() {
     rewriteRun(
         java(

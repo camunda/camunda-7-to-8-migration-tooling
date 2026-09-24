@@ -258,6 +258,44 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return initializer;
           }
 
+          private boolean canRewriteTypedInitializers(
+              J.VariableDeclarations declarations, String newFqn) {
+            Set<String> convertedNames = new HashSet<>();
+            for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
+              Expression initializer = variable.getInitializer();
+              if (initializer != null
+                  && !(initializer instanceof J.Literal literal && literal.getValue() == null)
+                  && unwrapTypedValueFactory(
+                          initializer, declarations.getTypeAsFullyQualified())
+                      == initializer
+                  && !(initializer instanceof J.Identifier identifier
+                      && (convertedNames.contains(identifier.getSimpleName())
+                          || newFqn.equals(
+                              getCursor().getNearestMessage(identifier.getSimpleName()))))) {
+                return false;
+              }
+              convertedNames.add(variable.getSimpleName());
+            }
+            return true;
+          }
+
+          private J.VariableDeclarations markUnsupportedTypedInitializer(
+              J.VariableDeclarations declarations) {
+            String hint = " TODO: migrate Camunda 7 typed-value initializer manually";
+            if (declarations.getComments().stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment.getText().contains(hint.trim()))) {
+              return declarations;
+            }
+            return declarations.withComments(
+                Stream.concat(
+                        declarations.getComments().stream(),
+                        Stream.of(RecipeUtils.createSimpleComment(declarations, hint)))
+                    .toList());
+          }
+
           /** Visit variable declarations to replace all typedValue types */
           @Override
           public J visitVariableDeclarations(
@@ -466,6 +504,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   || TypeUtils.isOfClassType(
                       typeExpr.getType(), "org.camunda.bpm.engine.variable.value.ObjectValue")) {
 
+                if ((TypeUtils.isOfClassType(
+                            typeExpr.getType(), "org.camunda.bpm.engine.variable.value.DateValue")
+                        || TypeUtils.isOfClassType(
+                            typeExpr.getType(), "org.camunda.bpm.engine.variable.value.BytesValue"))
+                    && !canRewriteTypedInitializers(declarations, newFqn)) {
+                  return markUnsupportedTypedInitializer(declarations);
+                }
+
                 String[] imports =
                     "java.util.Date".equals(newFqn) ? new String[] {newFqn} : new String[0];
                 if (imports.length > 0) {
@@ -523,6 +569,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                           " TODO: review Camunda 7 transient variable semantics for migrated values")))
                               .toList());
                 }
+                modifiedDeclarations =
+                    (J.VariableDeclarations) super.visitVariableDeclarations(modifiedDeclarations, ctx);
                 return maybeAutoFormat(
                     declarations, modifiedDeclarations, ctx);
               }
@@ -797,6 +845,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
               // get returnTypeFqn from cursor message
               String returnTypeFqn = getCursor().getNearestMessage(select.getSimpleName());
+              if (returnTypeFqn == null) {
+                return super.visitMethodInvocation(invocation, ctx);
+              }
 
               return RecipeUtils.createSimpleJavaTemplate("#{any()}")
                   .apply(
