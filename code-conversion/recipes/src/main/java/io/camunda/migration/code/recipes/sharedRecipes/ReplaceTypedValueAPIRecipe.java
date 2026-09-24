@@ -21,6 +21,8 @@ import org.openrewrite.java.tree.*;
 
 public class ReplaceTypedValueAPIRecipe extends Recipe {
 
+  private static final String CONVERTED_FIELD_MESSAGE_PREFIX = "convertedField:";
+
   /** Instantiates a new instance. */
   public ReplaceTypedValueAPIRecipe() {}
 
@@ -244,6 +246,24 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return typedVariableGetters.stream().anyMatch(matcher -> matcher.matches(invocation));
           }
 
+          private String convertedFieldType(J.FieldAccess fieldAccess) {
+            JavaType.Variable fieldType = fieldAccess.getName().getFieldType();
+            if (fieldType == null) {
+              return null;
+            }
+            Cursor cursor = getCursor();
+            while (cursor.getParent() != null) {
+              if (cursor.getValue() instanceof J.Block
+                  && cursor.getParent().getValue() instanceof J.ClassDeclaration classDeclaration
+                  && TypeUtils.isOfType(fieldType.getOwner(), classDeclaration.getType())) {
+                return cursor.getMessage(
+                    CONVERTED_FIELD_MESSAGE_PREFIX + fieldAccess.getSimpleName());
+              }
+              cursor = cursor.getParent();
+            }
+            return null;
+          }
+
           private Expression unwrapTypedValueFactory(Expression initializer, JavaType declaredType) {
             if (initializer instanceof J.MethodInvocation factory
                 && (factory.getArguments().size() == 1 || factory.getArguments().size() == 2)
@@ -277,6 +297,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               convertedNames.add(variable.getSimpleName());
             }
             return true;
+          }
+
+          private boolean requiresManualTypedInitializer(
+              J.VariableDeclarations declarations, JavaType declaredType, String newFqn) {
+            return (TypeUtils.isOfClassType(
+                        declaredType, "org.camunda.bpm.engine.variable.value.DateValue")
+                    || TypeUtils.isOfClassType(
+                        declaredType, "org.camunda.bpm.engine.variable.value.BytesValue"))
+                && !canRewriteTypedInitializers(declarations, newFqn);
           }
 
           private J.VariableDeclarations markUnsupportedTypedInitializer(
@@ -504,11 +533,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   || TypeUtils.isOfClassType(
                       typeExpr.getType(), "org.camunda.bpm.engine.variable.value.ObjectValue")) {
 
-                if ((TypeUtils.isOfClassType(
-                            typeExpr.getType(), "org.camunda.bpm.engine.variable.value.DateValue")
-                        || TypeUtils.isOfClassType(
-                            typeExpr.getType(), "org.camunda.bpm.engine.variable.value.BytesValue"))
-                    && !canRewriteTypedInitializers(declarations, newFqn)) {
+                if (requiresManualTypedInitializer(declarations, typeExpr.getType(), newFqn)) {
                   return markUnsupportedTypedInitializer(declarations);
                 }
 
@@ -840,20 +865,33 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       RecipeUtils.updateType(getCursor(), invocation.getArguments().get(1)));
             }
 
-            if (invocation.getSimpleName().equals("getValue")
-                && invocation.getSelect() instanceof J.Identifier select) {
-
-              // get returnTypeFqn from cursor message
-              String returnTypeFqn = getCursor().getNearestMessage(select.getSimpleName());
-              if (returnTypeFqn == null) {
-                return super.visitMethodInvocation(invocation, ctx);
+            if (invocation.getSimpleName().equals("getValue")) {
+              Expression select = invocation.getSelect();
+              String returnTypeFqn = null;
+              if (select instanceof J.Identifier identifier) {
+                returnTypeFqn = getCursor().getNearestMessage(identifier.getSimpleName());
+              } else if (select instanceof J.FieldAccess fieldAccess) {
+                returnTypeFqn = convertedFieldType(fieldAccess);
               }
-
-              return RecipeUtils.createSimpleJavaTemplate("#{any()}")
-                  .apply(
-                      getCursor(),
-                      invocation.getCoordinates().replace(),
-                      invocation.getSelect().withType(JavaType.buildType(returnTypeFqn)));
+              if (returnTypeFqn != null) {
+                JavaType newType = JavaType.buildType(returnTypeFqn);
+                if (select instanceof J.FieldAccess fieldAccess) {
+                  if (fieldAccess.getType() instanceof JavaType.FullyQualified oldType) {
+                    maybeRemoveImport(oldType);
+                  }
+                  select =
+                      fieldAccess
+                          .withName(fieldAccess.getName().withType(newType))
+                          .withType(newType);
+                } else {
+                  select = select.withType(newType);
+                }
+                return RecipeUtils.createSimpleJavaTemplate("#{any()}")
+                    .apply(
+                        getCursor(),
+                        invocation.getCoordinates().replace(),
+                        select);
+              }
             }
 
             if (invocation.getSimpleName().equals("getVariableTyped")
@@ -884,6 +922,26 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            */
           @Override
           public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+            if (getCursor().getParent() != null
+                && getCursor().getParent().getValue() instanceof J.ClassDeclaration) {
+              for (Statement statement : block.getStatements()) {
+                if (statement instanceof J.VariableDeclarations fields
+                    && fields.getTypeExpression() instanceof J.Identifier typeExpr) {
+                  String newFqn = mapTypedValueToNewFqn(typeExpr.getType());
+                  if ((!"java.lang.Object".equals(newFqn)
+                          || TypeUtils.isOfClassType(
+                              typeExpr.getType(),
+                              "org.camunda.bpm.engine.variable.value.ObjectValue"))
+                      && !requiresManualTypedInitializer(fields, typeExpr.getType(), newFqn)) {
+                    for (J.VariableDeclarations.NamedVariable field : fields.getVariables()) {
+                      getCursor()
+                          .putMessage(
+                              CONVERTED_FIELD_MESSAGE_PREFIX + field.getSimpleName(), newFqn);
+                    }
+                  }
+                }
+              }
+            }
             J.Block bl = (J.Block) super.visitBlock(block, ctx);
             J directParent = getCursor().getParentTreeCursor().getValue();
             if (directParent instanceof J.NewClass || directParent instanceof J.ClassDeclaration) {

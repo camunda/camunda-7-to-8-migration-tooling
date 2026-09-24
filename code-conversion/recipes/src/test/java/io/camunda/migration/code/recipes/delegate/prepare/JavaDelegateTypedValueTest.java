@@ -346,6 +346,93 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void qualifiedTypedFieldsOnlyUnwrapConvertedValues() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class QualifiedValues {
+                private DateValue date = Variables.dateValue(new Date(0));
+                private BytesValue bytes = Variables.byteArrayValue(new byte[] {1});
+                private DateValue untouched = loadDate();
+
+                abstract DateValue loadDate();
+
+                Date readDate() { return this.date.getValue(); }
+                byte[] readBytes() { return this.bytes.getValue(); }
+                Date readUntouched(DateValue untouched) { return this.untouched.getValue(); }
+                Date readSameType(QualifiedValues other) { return other.date.getValue(); }
+                Date readOtherType(RetainedValues other) { return other.date.getValue(); }
+            }
+
+            abstract class RetainedValues {
+                DateValue date = loadDate();
+                abstract DateValue loadDate();
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class QualifiedValues {
+                private Date date = new Date(0);
+                private byte[] bytes = new byte[]{1};
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private DateValue untouched = loadDate();
+
+                abstract DateValue loadDate();
+
+                Date readDate() { return this.date; }
+                byte[] readBytes() { return this.bytes; }
+                Date readUntouched(Date untouched) { return this.untouched.getValue(); }
+                Date readSameType(QualifiedValues other) { return other.date; }
+                Date readOtherType(RetainedValues other) { return other.date.getValue(); }
+            }
+
+            abstract class RetainedValues {
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                DateValue date = loadDate();
+                abstract DateValue loadDate();
+            }
+            """));
+  }
+
+  @Test
+  void qualifiedReadsBeforeConvertedFieldDeclarationsAreUnwrapped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class LaterFields {
+                Date date() { return this.date.getValue(); }
+                byte[] bytes() { return this.bytes.getValue(); }
+
+                private DateValue date = Variables.dateValue(new Date(0));
+                private BytesValue bytes = Variables.byteArrayValue(new byte[] {1});
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class LaterFields {
+                Date date() { return this.date; }
+                byte[] bytes() { return this.bytes; }
+
+                private Date date = new Date(0);
+                private byte[] bytes = new byte[]{1};
+            }
+            """));
+  }
+
+  @Test
   void standaloneDateValueFieldIsConverted() {
     rewriteRun(
         java(
