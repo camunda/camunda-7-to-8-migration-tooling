@@ -13,7 +13,7 @@ If the baseline is missing or unreadable, or its status lists a path other than
    one with `git diff --no-index --numstat -- /dev/null "<path>"`. Git reads `/dev/null` in this
    command as an empty file on every platform. Exit code 1 means that the files differ.
 3. Never stage or commit files to count them.
-4. Exclude `MIGRATION_REPORT.md` from the counts. List it as a report output.
+4. Exclude `MIGRATION_REPORT.md` from every count. List it as a report output.
 5. List binary files separately, because Git reports no line counts for them.
 6. Classify each changed path with the Step 2 inventories and the table below.
 
