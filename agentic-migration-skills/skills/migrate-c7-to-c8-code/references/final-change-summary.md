@@ -7,15 +7,15 @@ Run this procedure before the final response. The change baseline is the startin
 
 If the baseline is missing or unreadable, or its status lists a path other than
 `MIGRATION_REPORT.md`, then mark every count unavailable and state why. Never estimate counts.
+Exclude `MIGRATION_REPORT.md` from the tracked and untracked counts. List it as a report output.
 
 1. Count tracked changes with `git diff --numstat <starting-commit> --`.
 2. List untracked, non-ignored files with `git ls-files --others --exclude-standard -z`. Count each
    one with `git diff --no-index --numstat -- /dev/null "<path>"`. Git reads `/dev/null` in this
    command as an empty file on every platform. Exit code 1 means that the files differ.
 3. Never stage or commit files to count them.
-4. Exclude `MIGRATION_REPORT.md` from every count. List it as a report output.
-5. List binary files separately, because Git reports no line counts for them.
-6. Classify each changed path with the Step 2 inventories and the table below.
+4. List binary files separately, because Git reports no line counts for them.
+5. Classify each changed path with the Step 2 inventories and the table below.
 
 Present this table in the final response and record it in `MIGRATION_REPORT.md`. Total changed lines
 are the line additions plus the line deletions. Beside the table, state whether the migration is
