@@ -297,9 +297,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
               }
 
-              if (new MethodMatcher(
+              boolean delegateTypedVariable =
+                  new MethodMatcher(
                           "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
-                      .matches(invocation)
+                      .matches(invocation);
+              if (delegateTypedVariable
                   || new MethodMatcher(
                           "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
                       .matches(invocation)
@@ -333,7 +335,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 + newFqn.substring(newFqn.lastIndexOf('.') + 1)
                                 + " "
                                 + originalName.getSimpleName()
-                                + " = #{any()}",
+                                + " = "
+                                + (delegateTypedVariable && !newFqn.equals("java.lang.Object")
+                                    ? "(" + RecipeUtils.getShortName(newFqn) + ") "
+                                    : "")
+                                + "#{any()}",
                             "java.lang.Object")
                         .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
@@ -483,6 +489,23 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
+            }
+
+            if (new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
+                .matches(invocation)) {
+              String newFqn = mapTypedValueToNewFqn(originalName.getType());
+              if (!"java.lang.Object".equals(newFqn)) {
+                J.Assignment modifiedAssignment =
+                    RecipeUtils.createSimpleJavaTemplate(
+                            originalName.getSimpleName()
+                                + " = ("
+                                + RecipeUtils.getShortName(newFqn)
+                                + ") #{any()}",
+                            newFqn)
+                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+                return super.visitAssignment(modifiedAssignment, ctx);
+              }
             }
 
             // run through prepared migration rules

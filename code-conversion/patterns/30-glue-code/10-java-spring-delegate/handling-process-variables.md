@@ -45,6 +45,18 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+### Optional variable reads
+
+`DelegateExecution#getVariable("comment")` returns `null` when the variable is absent.
+The migration recipe preserves this for `getVariable(String)` with a nullable map lookup:
+
+```java
+Object comment = job.getVariablesAsMap().get("comment");
+```
+
+Do not replace it with `job.getVariable("comment")`, which fails for an absent variable.
+Check local and typed variable lookups separately; they have different scope or type semantics.
+
 ### autoComplete = false (blocking)
 
 ```java
