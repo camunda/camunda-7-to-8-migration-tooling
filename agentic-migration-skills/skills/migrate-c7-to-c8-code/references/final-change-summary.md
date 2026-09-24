@@ -1,45 +1,29 @@
 # Final Change Summary
 
-Use this procedure after Step 5 and before the final response. Compare the final project tree with
-the clean starting commit recorded in `MIGRATION_REPORT.md`.
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-## Count changes
+Run this procedure before the final response. The change baseline is the starting commit and its
+`git status --porcelain` output, which Step 2 records in `MIGRATION_REPORT.md`.
 
-1. Read the baseline commit from `MIGRATION_REPORT.md`.
-2. Count tracked-file changes with `git diff --numstat --no-ext-diff <baseline> --`.
-3. List untracked, non-ignored files with `git ls-files --others --exclude-standard -z`.
-4. For each untracked file, use the platform's empty-file path with
-   `git diff --no-index --numstat --no-ext-diff <empty-file> -- "<path>"`.
-   Exit code 1 means the command found differences.
-5. Do not stage or commit files to calculate counts.
+If the baseline is missing or unreadable, or its status lists a path other than
+`MIGRATION_REPORT.md`, then mark every count unavailable and state why. Never estimate counts.
 
-| Host OS | Empty-file path |
-|---|---|
-| Linux or macOS | `/dev/null` |
-| Windows | `NUL` |
+1. Count tracked changes with `git diff --numstat <starting-commit> --`.
+2. List untracked, non-ignored files with `git ls-files --others --exclude-standard -z`. Count each
+   one with `git diff --no-index --numstat -- /dev/null "<path>"`. Git reads `/dev/null` in this
+   command as an empty file on every platform. Exit code 1 means that the files differ.
+3. Never stage or commit files to count them.
+4. Exclude `MIGRATION_REPORT.md` from the counts. List it as a report output.
+5. List binary files separately, because Git reports no line counts for them.
+6. Classify each changed path with the Step 2 inventories and the table below.
 
-Count changed file paths. Classify files with the Step 2 inventories. Include each new file in the
-matching category. Treat code, tests, application configuration, and scripts as **Code**. Treat
-BPMN, DMN, and form files as **BPMN/DMN/forms**. Treat all remaining files as **Other**.
+Present this table in the final response and record it in `MIGRATION_REPORT.md`. Total changed lines
+are the line additions plus the line deletions. Beside the table, state whether the migration is
+complete and give the validation results.
 
-Sum line additions and deletions for each category. Report that sum as total changed lines. List
-binary changes separately because Git does not provide line counts for them. Exclude
-`MIGRATION_REPORT.md` from all counts, and list it separately as a report output.
-
-If the baseline is missing or unreadable, or the starting tree was dirty, mark all exact change
-counts unavailable. State why. Never estimate counts.
-
-## Report the result
-
-Use this table in `MIGRATION_REPORT.md` and the final response:
-
-| Asset type | Files changed | Line additions | Line deletions | Total changed lines |
-|---|---:|---:|---:|---:|
-| Code | ... | ... | ... | ... |
-| BPMN/DMN/forms | ... | ... | ... | ... |
-| Other | ... | ... | ... | ... |
-| Total | ... | ... | ... | ... |
-
-State whether the migration is complete. Include validation results, binary changes, and every open
-item. Present the summary in the host's current conversation. In AWS Transform CLI, use the `atx`
-transformation conversation.
+| Asset type | Includes | Files changed | Line additions | Line deletions | Total changed lines |
+|---|---|---:|---:|---:|---:|
+| Code | code, tests, application configuration, and scripts | | | | |
+| BPMN/DMN/forms | BPMN, DMN, and form files | | | | |
+| Other | every other file | | | | |
+| Total | | | | | |

@@ -167,11 +167,9 @@ markup.
 
 ## Ask decisions per integration group
 
-The skill groups rows and asks the user in the current conversation.
-The skill asks **one decision per group**, not one per row.
-The skill groups only references that share an integration.
-The skill treats heterogeneous opaque keys that point at different applications as separate decisions.
-The skill treats identical or provably related references as one decision.
+Group rows and ask the user. Ask **one decision per group**, not one per row. Group only
+references that share an integration. Heterogeneous opaque keys pointing at different applications
+are separate decisions. Identical or provably related references are one decision.
 
 Offer these options:
 

@@ -1,11 +1,7 @@
 ---
 name: migrate-c7-to-c8-code
 description: |-
-  Migrates Camunda 7 / camunda-bpm projects to Camunda 8.
-  Handles Java/Spring code: JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService clients,
-  execution/task listeners, and camunda.* application configuration.
-  Handles BPMN/DMN models that use the camunda: namespace.
-  Use for code migration, model migration, or both.
+  Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, application.properties/application.yaml with camunda.* keys) and BPMN/DMN models (diagrams with the camunda: namespace). Use for code migration, model migration, or both.
 license: Camunda License 1.0
 ---
 
@@ -23,19 +19,14 @@ option is marked (MAY).
 
 ## Host interaction
 
-The skill asks the user in the host's current conversation.
-The skill uses a structured question tool only when the host documents it.
-When the host provides no live response path, the skill uses only choices explicitly stated in the
-request, current conversation, or execution configuration.
-The skill does not treat tool-trust settings as approval for scope, target, or migration decisions.
-If the host cannot respond live and any required choice is missing, then the skill stops before the
-dependent action.
-If the host cannot respond live and the project root is confirmed, then the skill records each
-missing choice as an open item in `MIGRATION_REPORT.md`.
-If the host cannot respond live and the project root is not confirmed, then the skill reports all
-missing choices in its response and writes no files.
-The skill starts Step 3 only when the request, current conversation, or execution configuration
-explicitly authorizes the assessed scope and target version.
+Ask the user in the host's current conversation. Use a structured question tool only when the host
+documents one.
+Where the run is non-interactive, take each choice, including the Step 3 confirmation, only from an
+explicit statement in the request, the conversation, or the execution configuration. A tool-trust
+setting never counts as a choice.
+If a non-interactive run lacks a required choice, then stop before the action that needs it. Record
+the choice as an open item in `MIGRATION_REPORT.md`. While the project root is unconfirmed, report it
+only in the response and write no files.
 
 ## Step 0: Model preflight
 
@@ -45,11 +36,11 @@ Recommended examples: `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5
 `gpt-5.6-sol`. Caution examples: `gpt-5-mini`, `gpt-5.4-mini`, `gemini-3.7-flash`. These are routing
 examples, not a benchmark and not a ranking. Prefer host capability metadata. (SHOULD) Treat an unknown identifier as unverified.
 
-If the model is lightweight (mini, small, lite, flash, haiku, and similar) or unverified, then the
-skill warns the user and asks in the host's current conversation:
+If the model is lightweight (mini, small, lite, flash, haiku, and similar) or unverified, then warn
+the user and ask:
 
-- **Switch to a model built for complex reasoning (recommended)** — explain the host model selector
-  when one exists, wait for confirmation, then read the host model metadata again.
+- **Switch to a model built for complex reasoning (recommended)** — explain any host model selector,
+  wait for confirmation, then read the host model metadata again.
 - **Continue** — use deterministic approaches and ask for extra human review.
 
 Where the host permits a model change, repeat this check before AI-only migration, an agentic
@@ -76,7 +67,7 @@ See `references/interview-questions.md` for the question set and the batching ru
 
 1. Detect the project root, the build tool (`pom.xml`, or `build.gradle` / `build.gradle.kts`), and
    the model files (`*.bpmn`, `*.bpmn20.xml`, `*.dmn`, `*.dmn11.xml`).
-2. The skill asks Question 1 (project location) in the host's current conversation.
+2. Ask Question 1 (project location).
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6, including Question 5a where it applies.
@@ -181,7 +172,8 @@ at all.
 
 Scan the project and produce the inventories that the chosen scope needs.
 
-Where the confirmed root is a Git repository, record the complete `git status --porcelain` result and `git rev-parse HEAD` in `MIGRATION_REPORT.md` before writing the assessment. If the status is not empty, mark the starting tree dirty so `final-change-summary.md` reports exact counts as unavailable.
+Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
+`git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
 
 #### Code Inventory
 
@@ -221,8 +213,7 @@ State whether recipes help, hurt, or are neutral. Present blockers that need a m
 Include the Step 0 preflight result and any user acknowledgment. State that running instances, history,
 and audit data are out of scope. Point the user to the Data Migrator.
 
-Write the assessment to `MIGRATION_REPORT.md`. The skill asks the user to confirm before Step 3 in
-the host's current conversation.
+Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3.
 
 ### Step 3: Execute Migration
 
@@ -419,7 +410,7 @@ to resolve it:
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
-The skill presents these options in the host's current conversation:
+Offer these options:
 
 - **Yes, fix what you can (recommended)** — resolve the unambiguous items, and propose each one for
   review.
@@ -447,12 +438,11 @@ Within each impact, process rows with a severity before source-derived rows with
 | Verdict | Action |
 |---|---|
 | **needs fix** | Resolve one verdict-table row at a time, using that row's cross-check guidance. |
-| **needs review** | The skill collects the pending user decision in the current conversation before any fix. The skill runs the gate directly when verification is the only pending action. |
+| **needs review** | Collect the pending user decision before any fix. Run the gate directly when verification is the only pending action. |
 | **no action** | Do not offer the row. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
-- The skill proposes an ambiguous fix in the host's current conversation.
-- The skill skips each fix the user declines.
+- Propose an ambiguous fix to the user. Skip whatever the user declines.
 - Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`:
   generate the drafts deterministically, and link only an accepted form.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
@@ -483,10 +473,10 @@ The model/code cross-check flags Camunda 7 workaround code as a deletion candida
 reports that Zeebe now provides the capability natively. See "Now-redundant workaround code" in
 `references/composing-code-and-models.md`.
 
-Deleting code is never unambiguous. Even under "Yes, fix what you can", the skill shows each deletion
-candidate in the host's current conversation. The skill explains the triggering finding, the code's
-purpose, and why the code is redundant. The skill deletes it only after explicit confirmation. The
-skill records confirmed deletions and declined candidates in `MIGRATION_REPORT.md`.
+Deleting code is never unambiguous. Even under "Yes, fix what you can", present every deletion
+candidate to the user with its reasoning: the triggering finding, what the code did, and
+why it is now redundant. Delete only on an explicit confirmation. Record the confirmed deletions and
+the declined candidates in `MIGRATION_REPORT.md`.
 
 ## Exit Criteria
 
