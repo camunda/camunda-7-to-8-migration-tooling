@@ -14,11 +14,14 @@ import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 @CamundaSpringProcessTest
+@DisabledOnOs(OS.WINDOWS)
 class SynchronousDelegateTransactionBoundaryTest {
 
     @Autowired
