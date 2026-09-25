@@ -245,6 +245,12 @@ For target support, deploy every fresh converted copy named by the row. Record e
 deployment identifier, and result in `Impact evidence`. After a deployment succeeds, start
 instances that reach every Element list ID from that copy. Record each execution result.
 
+While a conditional event's scope is active, make its condition evaluate to `true`.
+Check that the event path executes. A deployment or linter pass alone does not prove that the event
+fired.
+Record the target version, deployment identifier, event ID, trigger inputs, and execution result in
+`Impact evidence`. If a safe Camunda 8.9+ cluster is unavailable, keep the row **needs review**.
+
 For `element-not-supported-hint` and `conditional-flow`, use **Advisory** and **no action** only
 after the target-support test and verification gate pass. If a test failure identifies an affected
 element or condition, use **Blocking** and **needs fix**. If the test is unavailable, incomplete,
@@ -564,6 +570,16 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Simple JUEL to FEEL for pure data expressions. Flag bean-invoking expressions for manual work.
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
+- Where the target is Camunda 8.9 or later, assign each
+  `bpmn:conditionalEventDefinition` a nonempty, document-unique ID.
+- Preserve an existing definition ID when it is nonempty and unique.
+- Otherwise generate a collision-free definition ID without changing existing event IDs,
+  sequence-flow IDs, or BPMN DI references.
+- Run the conditional-event ID check in `SKILL.md` Step 5 independently of BPMN lint.
+- Reject the converted copy if the ID check fails, even when lint reports no ID error.
+- Record failed definition IDs and the validator result in `MIGRATION_REPORT.md`.
+- For a conditional-event verdict row, require an execution test that triggers the event before
+  assigning **no action**. See 5d.1 for the target-support test and evidence.
 - DMN: update decision/definition namespaces and expression language as needed
 - Preserve existing BPMN DI instead of reconstructing it from the rewritten semantic tree.
 - Before rewriting, parse the source with a namespace-aware XML parser and record counts for diagrams, planes, shapes, edges, labels, bounds, and waypoints.

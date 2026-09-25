@@ -202,6 +202,8 @@ fixtures/                                  ← sample projects for manual regres
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/conditional-events` walkthrough covers M2 conditional-event IDs,
+BPMN DI preservation, and a Camunda 8.9+ runtime check.
 
 ## License
 
