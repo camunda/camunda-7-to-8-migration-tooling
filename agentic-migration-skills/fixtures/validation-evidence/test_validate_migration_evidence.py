@@ -1,6 +1,7 @@
 """Regression tests for the migration validation evidence gate."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -636,6 +637,69 @@ class ValidationEvidenceTest(unittest.TestCase):
                             in blocker
                             for blocker in summary["blockers"]
                         )
+                    )
+
+    def test_hard_links_to_generated_validation_files_cannot_be_used_as_evidence(self):
+        generated_files = {
+            "manifest": gate.DEFAULT_EVIDENCE_PATH,
+            "inventory": gate.DEFAULT_INVENTORY_PATH,
+            "summary": gate.DEFAULT_SUMMARY_PATH,
+            "report": gate.DEFAULT_REPORT_PATH,
+        }
+        for name, generated_path in generated_files.items():
+            with self.subTest(generated_file=name):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    materialize_inventory(project_root, manifest)
+                    write_step2_inventory(
+                        project_root,
+                        [module["path"] for module in manifest["modules"]],
+                        [
+                            model["source_path"]
+                            for model in manifest["models"]
+                        ],
+                    )
+                    check = next(
+                        check
+                        for check in manifest["checks"]
+                        if check.get("result") == "passed"
+                    )
+                    evidence_path = (
+                        LOG_DIRECTORY + "/hard-link-{}.log".format(name)
+                    )
+                    check["evidence_path"] = evidence_path
+
+                    generated_file = project_root / generated_path
+                    generated_file.parent.mkdir(parents=True, exist_ok=True)
+                    if name == "manifest":
+                        generated_file.write_text(
+                            json.dumps(manifest), encoding="utf-8"
+                        )
+                    elif name == "summary":
+                        generated_file.write_text(
+                            "generated validation summary\n", encoding="utf-8"
+                        )
+                    evidence_file = project_root / evidence_path
+                    evidence_file.parent.mkdir(parents=True, exist_ok=True)
+                    os.link(generated_file, evidence_file)
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "cannot reference a generated validation file"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
                     )
 
     def test_timer_preflight_requires_an_isolation_or_cleanup_plan(self):

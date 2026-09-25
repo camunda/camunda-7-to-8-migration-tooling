@@ -1471,6 +1471,12 @@ def validate_evidence_path(value, project_root, label, error, excluded_paths):
     if not resolved.is_file() or resolved.stat().st_size == 0:
         error("{} must point to a non-empty evidence file.".format(label))
         return None
+    if any(
+        excluded_path.is_file() and resolved.samefile(excluded_path)
+        for excluded_path in excluded_paths
+    ):
+        error("{} cannot reference a generated validation file.".format(label))
+        return None
     return resolved
 
 
