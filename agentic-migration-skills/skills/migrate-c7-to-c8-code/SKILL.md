@@ -144,7 +144,7 @@ These rules apply to every later step.
   answer.
 - Name the call site in each open item.
 - State the question in each open item.
-- Set each open item to status `open` or `resolved`.
+- Set each open item to status `open`, `blocked`, or `resolved`.
 - Create an open item for every migrated query against secondary storage, regardless of the running
   model.
 - See `references/code-transform-checklist.md` for the mandatory triggers and the wording.

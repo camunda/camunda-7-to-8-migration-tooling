@@ -203,8 +203,9 @@ record its wording. Replace `<call site>` with the class and the method.
 | The C7 code read its own recent write inside a worker (read-after-write) | `<call site>` relied on a C7 transaction boundary for read-after-write. The C8 search is asynchronous. Confirm the logic does not depend on immediate visibility. |
 | The C7 project relied on `historyTimeToLive` for data availability or cleanup | `<call site>` relied on `historyTimeToLive`. Camunda 8 controls retention on the cluster, not per query. Confirm the cluster retention matches the old expectation. |
 
-Set each open item to status `open`. Resolve it only on an explicit user decision, and record that
-decision in `MIGRATION_REPORT.md`.
+Set each query follow-up to status `open`.
+Set its status to `resolved` only after an explicit user decision.
+Record that decision in `MIGRATION_REPORT.md`.
 
 ### Query counts and pagination
 

@@ -132,8 +132,14 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_blocked_report_uses_the_skill_status_contract(self):
         skill = " ".join(SKILL_PATH.read_text().lower().split())
+        checklist = " ".join(CHECKLIST_PATH.read_text().lower().split())
         report = " ".join(BLOCKED_REPORT_PATH.read_text().lower().split())
 
+        self.assertIn(
+            "set each open item to status `open`, `blocked`, or `resolved`",
+            skill,
+        )
+        self.assertIn("set each query follow-up to status `open`", checklist)
         self.assertIn("no item has `deferred` or `blocked` status", skill)
         self.assertIn("| call site | manual follow-up | status |", report)
         self.assertNotIn("`blocking/manual`", report)
