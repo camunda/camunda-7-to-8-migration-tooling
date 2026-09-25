@@ -7,7 +7,8 @@ The application and Engine REST API share the default port `8080`.
 `expected-c8` keeps the application route and moves process start to
 `CamundaClient`. The application listens on port `8081`. The external Camunda 8
 cluster uses REST port `8080`. The application does not recreate or proxy
-`/engine-rest`.
+`/engine-rest`. The public `/actuator/health` response exposes only the aggregate
+status and hides component details.
 
 ## Running the evaluation
 
@@ -32,16 +33,18 @@ cluster uses REST port `8080`. The application does not recreate or proxy
 
    The Spring Boot test starts the application on `8081` while the cluster
    remains on `8080`. The application deploys the converted process. The test
-   checks the cluster health component, starts that process through the
-   application API, and confirms that `/engine-rest` returns `404`.
-4. Run `CamundaClusterHealthIndicatorTest` without a cluster. It confirms that
-   the health check maps `/v2/status` responses `204` and `503` to `UP` and
-   `DOWN`. It also confirms that an unavailable endpoint reports `DOWN`:
+   checks the aggregate health status without exposing component details,
+   starts that process through the application API, and confirms that
+   `/engine-rest` returns `404`.
+4. Run the health-check and Actuator disclosure tests without a cluster. They
+   confirm that the health check maps `/v2/status` responses `204` and `503` to
+   `UP` and `DOWN`, an unavailable endpoint reports `DOWN`, and the public health
+   response hides component details:
 
    ```bash
    mvn -f agentic-migration-skills/fixtures/spring-boot-web-topology/expected-c8/pom.xml \
-     -Dtest=CamundaClusterHealthIndicatorTest test
+     -Dtest=CamundaClusterHealthIndicatorTest,ActuatorHealthDisclosureTest test
    ```
 
-The integration test needs the cluster from step 2. A context-load test does not
+The integration test needs the cluster from step 2. The cluster-free tests do not
 replace its endpoint and process-behavior checks.

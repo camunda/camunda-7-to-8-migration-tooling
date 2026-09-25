@@ -42,7 +42,7 @@ class WebTopologyIntegrationTest {
         restTemplate.getForEntity("/actuator/health", JsonNode.class);
     assertThat(health.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(health.getBody().path("status").asText()).isEqualTo("UP");
-    assertThat(health.getBody().path("components").has("camundaCluster")).isTrue();
+    assertThat(health.getBody().has("components")).isFalse();
 
     ResponseEntity<ProcessInstanceController.StartedProcess> started =
         restTemplate.postForEntity(
