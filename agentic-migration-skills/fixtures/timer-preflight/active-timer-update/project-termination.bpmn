@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="projectTerminationDefinitions"
+                  targetNamespace="http://camunda.org/examples/project-termination">
+  <bpmn:process id="projectTermination" name="Project termination" isExecutable="true">
+    <bpmn:startEvent id="terminationStart" name="Start termination" />
+    <bpmn:sequenceFlow id="startToActiveProject" sourceRef="terminationStart" targetRef="activeProject" />
+    <bpmn:userTask id="activeProject" name="Project is active" />
+    <bpmn:boundaryEvent id="terminationDeadline"
+                        name="Termination deadline"
+                        attachedToRef="activeProject"
+                        cancelActivity="true">
+      <bpmn:timerEventDefinition id="terminationTimer">
+        <bpmn:timeDate>${terminationDate}</bpmn:timeDate>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="deadlineToEnd" sourceRef="terminationDeadline" targetRef="terminationEnd" />
+    <bpmn:endEvent id="terminationEnd" name="Project terminated" />
+  </bpmn:process>
+</bpmn:definitions>

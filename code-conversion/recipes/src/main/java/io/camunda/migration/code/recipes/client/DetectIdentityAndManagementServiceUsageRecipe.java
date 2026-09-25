@@ -52,6 +52,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       "ManagementService method has a direct Java client equivalent";
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
+  private static final String MANAGEMENT_TIMER_DUE_DATE_MARKER =
+      "ManagementService timer due-date update needs target-version verification";
   private static final Set<String> MANAGEMENT_CLIENT_METHODS =
       Set.of(
           "createJobQuery",
@@ -135,7 +137,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   @Override
   public @NonNull String getDescription() {
     return "Adds migration TODO comments for Camunda 7 IdentityService and ManagementService "
-        + "usage, including guidance for migrating ManagementService.setJobRetries.";
+        + "usage, including guidance for migrating ManagementService.setJobRetries and "
+        + "setJobDuedate.";
   }
 
   @Override
@@ -520,6 +523,12 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
+            if (isTimerDueDateUpdate(serviceCall)) {
+              return "Trace every caller and affected BPMN timer. Confirm a target-supported "
+                  + "replacement with the project and test repeated changes on an active instance. "
+                  + "If none is confirmed, mark the flow as blocking manual work. Do not leave a "
+                  + "reachable UnsupportedOperationException placeholder.";
+            }
             if (serviceCall.timerQuery()) {
               return "Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).";
             }
@@ -556,6 +565,9 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
           private String methodMarker(ServiceCall serviceCall) {
             if (MANAGEMENT_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
+              if (isTimerDueDateUpdate(serviceCall)) {
+                return MANAGEMENT_TIMER_DUE_DATE_MARKER;
+              }
               return !serviceCall.timerQuery()
                       && MANAGEMENT_CLIENT_METHODS.contains(serviceCall.methodName())
                   ? MANAGEMENT_CLIENT_MARKER
@@ -568,6 +580,11 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return IDENTITY_NO_DIRECT_MARKER;
             }
             return IDENTITY_MANUAL_MARKER;
+          }
+
+          private boolean isTimerDueDateUpdate(ServiceCall serviceCall) {
+            return MANAGEMENT_SERVICE_FQN.equals(serviceCall.serviceFqn())
+                && "setJobDuedate".equals(serviceCall.methodName());
           }
 
           private boolean isIdentityAuthenticationMethod(ServiceCall serviceCall) {

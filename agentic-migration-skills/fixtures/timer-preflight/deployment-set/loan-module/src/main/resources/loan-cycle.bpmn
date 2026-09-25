@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="loanDefinitions"
+                  targetNamespace="http://camunda.org/examples/loan">
+  <bpmn:process id="Sample" name="Loan cycle" isExecutable="true">
+    <bpmn:startEvent id="recurringStart" name="Recurring loan start">
+      <bpmn:timerEventDefinition id="recurringTimer">
+        <bpmn:timeCycle>R/PT5S</bpmn:timeCycle>
+      </bpmn:timerEventDefinition>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="startToEnd" sourceRef="recurringStart" targetRef="loanEnd" />
+    <bpmn:endEvent id="loanEnd" name="Loan cycle complete" />
+  </bpmn:process>
+</bpmn:definitions>
