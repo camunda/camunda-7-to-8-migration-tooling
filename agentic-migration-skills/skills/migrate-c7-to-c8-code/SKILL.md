@@ -303,6 +303,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
+14. **SLF4J providers** — the skill runs the provider check in
+    `references/code-transform-checklist.md` for every runtime module. The skill records the runtime
+    dependency evidence and provider initialization result in `MIGRATION_REPORT.md`. The skill
+    reports a complete migration only after a provider **PASS** or a user-approved exception resolves
+    the finding. The skill keeps the migration incomplete while the finding remains open. The skill
+    never marks logging or startup readiness **PASS** without a passing provider result.
 
 Check these pitfalls as well:
 
