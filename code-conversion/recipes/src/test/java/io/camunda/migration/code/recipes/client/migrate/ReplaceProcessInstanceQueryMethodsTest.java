@@ -1067,4 +1067,110 @@ public class HandleProcessInstanceQueryMethodsTestClass {
             }
             """));
   }
+
+  @Test
+  void leavesProcessInstanceQueryAliasesForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceQueryAliases {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey) {
+                    ProcessInstanceQuery declared = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey);
+                    declared.list();
+
+                    ProcessInstanceQuery assigned;
+                    assigned = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey);
+                    assigned.list();
+
+                    ProcessInstanceQuery stateChanged = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey);
+                    stateChanged = stateChanged.active();
+                    stateChanged.list();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void replacesActiveQueriesWithParenthesizedReceivers() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ParenthesizedProcessInstanceQuery {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey) {
+                    (engine.getRuntimeService().createProcessInstanceQuery().active())
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ParenthesizedProcessInstanceQuery {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey) {
+                    camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+                }
+            }
+            """));
+  }
 }

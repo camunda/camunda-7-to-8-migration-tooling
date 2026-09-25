@@ -70,7 +70,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves queries with unsupported filters, suspended/default state, or unsupported terminals for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves queries with unsupported filters, aliases with pre-applied filters, suspended/default state, or unsupported terminals for manual migration.";
   }
 
   @Override
@@ -92,6 +92,20 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         current = current.getParent();
       }
 
+      if (value instanceof J.VariableDeclarations declarations
+          && isProcessInstanceQueryType(declarations.getTypeAsFullyQualified())
+          && declarations.getVariables().stream()
+              .anyMatch(
+                  variable ->
+                      variable.getInitializer() != null
+                          && containsNonActiveQueryFilter(variable.getInitializer()))) {
+        return true;
+      }
+      if (value instanceof J.Assignment assignment
+          && isProcessInstanceQueryType(assignment.getVariable().getType())
+          && containsNonActiveQueryFilter(assignment.getAssignment())) {
+        return true;
+      }
       if (value instanceof J.VariableDeclarations declarations
           && declarations.getVariables().stream()
               .anyMatch(
@@ -173,7 +187,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     while (current != null) {
       if (current.getValue() instanceof J.ClassDeclaration classDeclaration) {
         J.Block classBody = classDeclaration.getBody();
-        return hasVariableFilteredQuery(classBody, queryVariable)
+        return hasUnpreservedQueryFilter(classBody, queryVariable)
             || (processInstanceQueryVariable
                 && hasUntraceableProcessInstanceQueryAlias(classBody, queryVariable));
       }
@@ -182,29 +196,30 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return processInstanceQueryVariable;
   }
 
-  private static boolean hasVariableFilteredQuery(
+  private static boolean hasUnpreservedQueryFilter(
       J.Block classBody, J.Identifier queryVariable) {
     AtomicBoolean found = new AtomicBoolean();
     new JavaIsoVisitor<AtomicBoolean>() {
       @Override
       public J.VariableDeclarations visitVariableDeclarations(
-          J.VariableDeclarations declarations, AtomicBoolean hasVariableFilter) {
+          J.VariableDeclarations declarations, AtomicBoolean unpreservedFilter) {
         if (declarations.getVariables().stream()
             .anyMatch(
                 variable ->
                     refersToSameVariable(variable.getName(), queryVariable)
                         && variable.getInitializer() != null
-                        && containsVariableFilter(variable.getInitializer()))) {
-          hasVariableFilter.set(true);
+                        && (containsVariableFilter(variable.getInitializer())
+                            || containsNonActiveQueryFilter(variable.getInitializer())))) {
+          unpreservedFilter.set(true);
           return declarations;
         }
-        return hasVariableFilter.get()
+        return unpreservedFilter.get()
             ? declarations
-            : super.visitVariableDeclarations(declarations, hasVariableFilter);
+            : super.visitVariableDeclarations(declarations, unpreservedFilter);
       }
 
       @Override
-      public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean hasVariableFilter) {
+      public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean unpreservedFilter) {
         J.Identifier assignedVariable =
             assignment.getVariable() instanceof J.Identifier identifier
                 ? identifier
@@ -213,28 +228,29 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
                     : null;
         if (assignedVariable != null
             && refersToSameVariable(assignedVariable, queryVariable)
-            && containsVariableFilter(assignment.getAssignment())) {
-          hasVariableFilter.set(true);
+            && (containsVariableFilter(assignment.getAssignment())
+                || containsNonActiveQueryFilter(assignment.getAssignment()))) {
+          unpreservedFilter.set(true);
           return assignment;
         }
-        return hasVariableFilter.get()
+        return unpreservedFilter.get()
             ? assignment
-            : super.visitAssignment(assignment, hasVariableFilter);
+            : super.visitAssignment(assignment, unpreservedFilter);
       }
 
       @Override
       public J.MethodInvocation visitMethodInvocation(
-          J.MethodInvocation candidate, AtomicBoolean hasVariableFilter) {
+          J.MethodInvocation candidate, AtomicBoolean unpreservedFilter) {
         J.Identifier receiver = rootReceiverIdentifier(candidate);
         if (isVariableFilterMethod(candidate)
             && receiver != null
             && refersToSameVariable(receiver, queryVariable)) {
-          hasVariableFilter.set(true);
+          unpreservedFilter.set(true);
           return candidate;
         }
-        return hasVariableFilter.get()
+        return unpreservedFilter.get()
             ? candidate
-            : super.visitMethodInvocation(candidate, hasVariableFilter);
+            : super.visitMethodInvocation(candidate, unpreservedFilter);
       }
     }.visit(classBody, found);
     return found.get();
@@ -368,6 +384,28 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
     }
     return false;
+  }
+
+  private static boolean containsNonActiveQueryFilter(Expression expression) {
+    Expression current = expression;
+    while (current != null) {
+      current = unwrapParentheses(current);
+      if (current instanceof J.MethodInvocation invocation) {
+        if (TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)
+            && !ACTIVE_QUERY_MATCHER.matches(invocation)
+            && !CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation)) {
+          return true;
+        }
+        current = invocation.getSelect();
+      } else {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isProcessInstanceQueryType(JavaType type) {
+    return TypeUtils.isOfClassType(type, PROCESS_INSTANCE_QUERY);
   }
 
   @Override

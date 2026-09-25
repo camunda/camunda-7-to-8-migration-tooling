@@ -589,12 +589,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
           private boolean hasAnyMethodInReceiverChain(
               J.MethodInvocation invocation, Set<String> methodNames) {
-            Expression current = invocation.getSelect();
+            Expression current = unwrapParentheses(invocation.getSelect());
             while (current instanceof J.MethodInvocation mi) {
               if (methodNames.contains(mi.getSimpleName())) {
                 return true;
               }
-              current = mi.getSelect();
+              current = unwrapParentheses(mi.getSelect());
             }
             return false;
           }
@@ -605,5 +605,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);
           }
         });
+  }
+
+  private static Expression unwrapParentheses(Expression expression) {
+    while (expression instanceof J.Parentheses<?> parentheses
+        && parentheses.getTree() instanceof Expression nested) {
+      expression = nested;
+    }
+    return expression;
   }
 }
