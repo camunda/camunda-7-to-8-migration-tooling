@@ -397,6 +397,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | Check | Pass condition | Record |
 |---|---|---|
 | XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
+| Conditional-event IDs | Where the target is Camunda 8.9 or later, each converted `bpmn:conditionalEventDefinition` has a nonempty `id` that does not match another XML ID. When the converter reads a nonempty source definition ID that is unique in the source document, the converted copy retains that ID. | Paths, source and converted definition IDs, and validator result |
 | Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
 | Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
