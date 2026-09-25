@@ -49,6 +49,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       new MethodMatcher(PROCESS_INSTANCE_QUERY + " active()");
   private static final MethodMatcher SUSPENDED_QUERY_MATCHER =
       new MethodMatcher(PROCESS_INSTANCE_QUERY + " suspended()");
+  private static final Set<String> SUPPORTED_QUERY_FILTER_METHODS =
+      Set.of("active", "activityIdIn", "processDefinitionKey", "processInstanceBusinessKey");
   private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
       Set.of(
           "active",
@@ -68,7 +70,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves variable-filtered, suspended-state, or default-state list/count queries for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves queries with unsupported filters, suspended/default state, or unsupported terminals for manual migration.";
   }
 
   @Override
@@ -76,7 +78,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return cursor -> {
       Object value = cursor.getValue();
       if (value instanceof J.MethodInvocation invocation
-          && (hasUnsupportedQueryFilterInReceiverChain(invocation)
+          && (hasUnsupportedQueryMethodInReceiverChain(invocation)
               || isManualDefaultStateQuery(invocation))) {
         return true;
       }
@@ -84,9 +86,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       Cursor current = cursor;
       while (current != null) {
         if (current.getValue() instanceof J.MethodInvocation invocation
-            && (isVariableFilterMethod(invocation)
-                || isUnsupportedQueryTerminal(invocation)
-                || SUSPENDED_QUERY_MATCHER.matches(invocation))) {
+            && (isUnsupportedQueryMethod(invocation) || isUnsupportedQueryTerminal(invocation))) {
           return true;
         }
         current = current.getParent();
@@ -97,11 +97,11 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
               .anyMatch(
                   variable ->
                       variable.getInitializer() != null
-                          && containsVariableFilter(variable.getInitializer()))) {
+                          && containsUnsupportedQueryMethod(variable.getInitializer()))) {
         return true;
       }
       if (value instanceof J.Assignment assignment
-          && containsVariableFilter(assignment.getAssignment())) {
+          && containsUnsupportedQueryMethod(assignment.getAssignment())) {
         return true;
       }
       if (value instanceof J.MethodInvocation invocation
@@ -144,12 +144,12 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return true;
   }
 
-  private static boolean hasUnsupportedQueryFilterInReceiverChain(J.MethodInvocation invocation) {
+  private static boolean hasUnsupportedQueryMethodInReceiverChain(J.MethodInvocation invocation) {
     Expression current = invocation.getSelect();
     while (current != null) {
       current = unwrapParentheses(current);
       if (current instanceof J.MethodInvocation receiver) {
-        if (isVariableFilterMethod(receiver) || SUSPENDED_QUERY_MATCHER.matches(receiver)) {
+        if (isUnsupportedQueryMethod(receiver)) {
           return true;
         }
         current = receiver.getSelect();
@@ -328,6 +328,30 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   private static boolean isVariableFilterMethod(J.MethodInvocation invocation) {
     return VARIABLE_FILTER_MATCHERS.stream().anyMatch(matcher -> matcher.matches(invocation));
+  }
+
+  private static boolean isUnsupportedQueryMethod(J.MethodInvocation invocation) {
+    return isVariableFilterMethod(invocation)
+        || SUSPENDED_QUERY_MATCHER.matches(invocation)
+        || (TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)
+            && !SUPPORTED_QUERY_FILTER_METHODS.contains(invocation.getSimpleName())
+            && !CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation));
+  }
+
+  private static boolean containsUnsupportedQueryMethod(Expression expression) {
+    Expression current = expression;
+    while (current != null) {
+      current = unwrapParentheses(current);
+      if (current instanceof J.MethodInvocation invocation) {
+        if (isUnsupportedQueryMethod(invocation)) {
+          return true;
+        }
+        current = invocation.getSelect();
+      } else {
+        return false;
+      }
+    }
+    return false;
   }
 
   private static boolean containsVariableFilter(Expression expression) {

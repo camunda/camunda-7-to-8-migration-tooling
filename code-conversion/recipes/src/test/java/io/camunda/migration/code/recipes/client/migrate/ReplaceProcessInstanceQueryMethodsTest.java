@@ -937,6 +937,57 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void leavesQueriesWithUnsupportedNonVariableFiltersForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstance;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class UnsupportedProcessInstanceFilters {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey, String processInstanceId) {
+                    List<ProcessInstance> declared = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .processInstanceId(processInstanceId)
+                            .active()
+                            .list();
+
+                    List<ProcessInstance> assigned;
+                    assigned = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .processInstanceId(processInstanceId)
+                            .active()
+                            .list();
+
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .processInstanceId(processInstanceId)
+                            .active()
+                            .count();
+                }
+            }
+            """));
+  }
+
+  @Test
   void leavesUnsupportedQueryTerminalsForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
