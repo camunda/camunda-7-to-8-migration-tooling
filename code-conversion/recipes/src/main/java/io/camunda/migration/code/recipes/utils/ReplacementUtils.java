@@ -34,6 +34,10 @@ public class ReplacementUtils {
     default Optional<String> receiverTypeFqn() {
       return Optional.empty();
     }
+
+    default Set<String> requiredReceiverMethodNames() {
+      return Collections.emptySet();
+    }
   }
 
   public record SimpleReplacementSpec(

@@ -58,6 +58,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           "list",
           "processDefinitionKey",
           "processInstanceBusinessKey");
+  private static final Set<String> UNSUPPORTED_QUERY_TERMINALS =
+      Set.of("listPage", "singleResult", "unlimitedList");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -83,6 +85,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       while (current != null) {
         if (current.getValue() instanceof J.MethodInvocation invocation
             && (isVariableFilterMethod(invocation)
+                || isUnsupportedQueryTerminal(invocation)
                 || SUSPENDED_QUERY_MATCHER.matches(invocation))) {
           return true;
         }
@@ -107,6 +110,13 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
       return false;
     };
+  }
+
+  private static boolean isUnsupportedQueryTerminal(J.MethodInvocation invocation) {
+    Expression receiver = invocation.getSelect();
+    return UNSUPPORTED_QUERY_TERMINALS.contains(invocation.getSimpleName())
+        && receiver != null
+        && TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY);
   }
 
   private static boolean isManualDefaultStateQuery(J.MethodInvocation invocation) {

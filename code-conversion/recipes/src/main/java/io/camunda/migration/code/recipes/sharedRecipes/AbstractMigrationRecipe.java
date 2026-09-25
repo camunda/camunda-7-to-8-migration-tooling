@@ -344,8 +344,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
 
               if (spec.matcher().matches(invocation)
-                  && (spec.requiredReceiverMethodNames().isEmpty()
-                      || hasAnyMethodInReceiverChain(invocation, spec.requiredReceiverMethodNames()))) {
+                  && receiverTypeMatches(spec, invocation)) {
 
                 spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                 spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -377,10 +376,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                   if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
-                      && receiverTypeMatches(spec, invocation)
-                      && (spec.requiredReceiverMethodNames().isEmpty()
-                          || hasAnyMethodInReceiverChain(
-                              invocation, spec.requiredReceiverMethodNames()))) {
+                      && receiverTypeMatches(spec, invocation)) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -495,7 +491,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                     fqn ->
                         invocation.getSelect() != null
                             && TypeUtils.isOfClassType(invocation.getSelect().getType(), fqn))
-                .orElse(true);
+                .orElse(true)
+                && (spec.requiredReceiverMethodNames().isEmpty()
+                    || hasAnyMethodInReceiverChain(
+                        invocation, spec.requiredReceiverMethodNames()));
           }
 
           private J.MethodInvocation replaceCountBuilderInvocation(
@@ -513,12 +512,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                 if (!collectedArguments.keySet().equals(spec.methodNamesToExtractParameters())
                     || !supportsCountedQuery(queryTerminal)
-                  || !receiverTypeMatches(spec, queryTerminal)
-                  || (!spec.requiredReceiverMethodNames().isEmpty()
-                      && !hasAnyMethodInReceiverChain(
-                          queryTerminal, spec.requiredReceiverMethodNames()))) {
-                continue;
-              }
+                    || !receiverTypeMatches(spec, queryTerminal)) {
+                  continue;
+                }
 
                 spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                 spec.maybeAddImports().forEach(this::maybeAddImport);
