@@ -677,21 +677,35 @@ public class ValidateCamundaClientWorkerEnablement
         WorkerDeclaration worker,
         EffectiveWorkerType workerType,
         List<WorkerSetting> overrideSettings) {
-      List<WorkerSetting> selected = new ArrayList<>();
+      List<WorkerSetting> typeOverrides = new ArrayList<>();
+      List<WorkerSetting> nameOverrides = new ArrayList<>();
+      List<WorkerSetting> unresolvedTargets = new ArrayList<>();
       boolean targetConditional = false;
       for (WorkerSetting setting : overrideSettings) {
         String target = setting.target();
         if (target.contains("${")) {
-          selected.add(setting);
+          unresolvedTargets.add(setting);
           targetConditional = true;
         } else if (workerType.possibleValues().contains(target)) {
-          selected.add(setting);
+          typeOverrides.add(setting);
           targetConditional |=
               workerType.conditional() || workerType.value() == null;
         } else if (worker.name() != null && target.equals(worker.name())) {
-          selected.add(setting);
+          nameOverrides.add(setting);
         }
       }
+
+      boolean typeOverrideTakesPrecedence =
+          workerType.value() != null
+              && !workerType.conditional()
+              && !typeOverrides.isEmpty()
+              && typeOverrides.stream().anyMatch(setting -> !setting.conditionallyActive())
+              && unresolvedTargets.isEmpty();
+      List<WorkerSetting> selected = new ArrayList<>(typeOverrides);
+      if (!typeOverrideTakesPrecedence) {
+        selected.addAll(nameOverrides);
+      }
+      selected.addAll(unresolvedTargets);
       return new OverrideSelection(List.copyOf(selected), targetConditional);
     }
 
