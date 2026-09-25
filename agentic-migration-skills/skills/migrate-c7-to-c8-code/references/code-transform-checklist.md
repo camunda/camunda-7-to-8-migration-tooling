@@ -78,9 +78,10 @@ public void sampleJavaDelegate(@Variable(optional = true) String comment) {
 
 ## 1. Dependencies and Configuration
 
-Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the startup validation, the SLF4J binding, the
-`@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
+The `10-general/dependencies.md` catalog owns GA version resolution from Maven Central and starter
+selection by Spring Boot version. It also owns BOM alignment, startup validation, and the SLF4J
+binding. It defines the `@PostConstruct` to
+`@EventListener(CamundaPostDeploymentEvent.class)` migration. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
 Never restate a version number from memory.
@@ -103,6 +104,36 @@ These items are not in the catalog:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
+
+### Runtime dependency validation
+
+For each migrated Maven module that uses a Camunda Spring Boot starter:
+
+1. Before editing the POM, run `mvn help:effective-pom` and
+   `mvn dependency:tree -Dverbose`. Record the imported BOMs and the resolved dependency families.
+2. If an imported BOM does not resolve, record its coordinates and the exact Maven error. Check the
+   coordinates and configured repositories before changing the BOM. Never comment out a failing BOM
+   or replace selected managed artifacts with individual version pins to make the build pass.
+3. After editing the POM, run `mvn help:effective-pom`.
+   Run `mvn dependency:tree -Dverbose` for the starter and existing cloud libraries.
+   Inspect every resolved `io.grpc` artifact and its dependency path.
+4. Manage an incompatible gRPC family through a compatible `io.grpc:grpc-bom` in
+   `<dependencyManagement>`. Remove a conflicting direct dependency only after source, configuration,
+   and test searches show that the project does not use it. Never pin only `grpc-xds`, `grpc-util`,
+   or `grpc-core`.
+5. Run a focused Spring application-context test that creates the actual `CamundaClient` bean. Do
+   not mock the bean or issue a cluster request in this test. The test does not require a reachable
+   cluster.
+6. Record the failing and final `groupId:artifactId:version` values and their dependency paths in
+   `MIGRATION_REPORT.md`. Record the BOM decision, remediation, focused test command, and exit code
+   there.
+   Never copy the full effective POM into the report.
+
+| Evidence | Required verdict |
+|---|---|
+| An unresolved BOM has no verified replacement | Block readiness. Fix the coordinates or repository. Ask the user before selecting a replacement. |
+| The client context reports a `LinkageError` or a verified incompatible dependency family | Record a blocking finding. |
+| The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
 
 ### Maven build wiring
 

@@ -176,6 +176,10 @@ that source provenance in `MIGRATION_REPORT.md`. The
 [`fixtures/diagram-interchange`](fixtures/diagram-interchange) fixture checks
 both cases.
 
+The [`fixtures/grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthrough checks
+BOM resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
+`MIGRATION_REPORT.md`.
+
 If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
 source. It asks for a reachable Camunda 7 REST URL and the required authentication, saves the original
 definitions, then runs the Diagram Converter locally. While local models exist, it does not offer or
