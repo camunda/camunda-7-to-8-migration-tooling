@@ -367,6 +367,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             }
 
             // loop through builder pattern groups
+            boolean hasMatchingBuilderReceiver = false;
             for (Map.Entry<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>> entry :
                 builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
@@ -375,8 +376,11 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
-                  if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
-                      && receiverTypeMatches(spec, invocation)) {
+                  if (receiverTypeMatches(spec, invocation)) {
+                    hasMatchingBuilderReceiver = true;
+                    if (!collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())) {
+                      continue;
+                    }
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -403,6 +407,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   }
                 }
               }
+            }
+            if (hasMatchingBuilderReceiver) {
+              return invocation;
             }
 
             // migrate methods based on returned variable declaration identifier
@@ -548,7 +555,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
           private Map<String, Expression> collectBuilderArguments(
               J.MethodInvocation invocation) {
             Map<String, Expression> collectedArguments = new HashMap<>();
-            Expression current = invocation.getSelect();
+            Expression current = unwrapParentheses(invocation.getSelect());
 
             while (current instanceof J.MethodInvocation methodInvocation) {
               List<Expression> arguments = methodInvocation.getArguments();
@@ -566,13 +573,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   collectedArguments.put(argumentName + "Duplicate", argument);
                 }
               }
-              current = methodInvocation.getSelect();
+              current = unwrapParentheses(methodInvocation.getSelect());
             }
             return collectedArguments;
           }
 
           private J.MethodInvocation findCountedQuery(J.MethodInvocation invocation) {
-            Expression select = invocation.getSelect();
+            Expression select = unwrapParentheses(invocation.getSelect());
             if (invocation.getSimpleName().equals("size")
                 && select instanceof J.MethodInvocation query) {
               return query;
@@ -581,7 +588,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             if (invocation.getSimpleName().equals("count")
                 && select instanceof J.MethodInvocation stream
                 && stream.getSimpleName().equals("stream")
-                && stream.getSelect() instanceof J.MethodInvocation query) {
+                && unwrapParentheses(stream.getSelect()) instanceof J.MethodInvocation query) {
               return query;
             }
             return invocation.getSimpleName().equals("count") ? invocation : null;
