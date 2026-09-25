@@ -232,6 +232,8 @@ in Question 4. See `references/code-migration-approaches.md` for all three.
 
 The skill runs the transaction and security gate in `references/code-transform-checklist.md` before
 each C7 JavaDelegate transformation.
+The gate treats a predecessor `camunda:asyncAfter` as an asynchronous boundary when it commits before
+the delegate.
 If the gate identifies a gap or lacks path evidence, then the skill stops that delegate's
 transformation. The skill asks the user to provide evidence or make the listed decision.
 When the user supplies evidence, the skill reruns the gate.
