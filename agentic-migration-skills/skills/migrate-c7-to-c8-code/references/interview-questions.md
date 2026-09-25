@@ -96,9 +96,13 @@ Include only if scope includes code, approach is A, and detection was ambiguous 
 Ask after the Step 2 code inventory only when the project has a Spring web server, an application
 HTTP endpoint, a health check, or a Camunda 7 Engine REST call.
 
-Show the application and management ports, application-owned routes, Engine REST routes, outbound
-Engine REST call sites, health dependencies, and known consumers from the inventory. Ask the user to
-confirm the target application port, Camunda REST base address, and authentication mode.
+Show the application and management bind addresses and ports from the inventory.
+Show application-owned routes, Engine REST routes, outbound Engine REST call sites, health
+dependencies, and known consumers from the inventory.
+Ask the user to confirm the target application bind address and port.
+Ask the user to confirm the Camunda REST base address and the authentication mode.
+Where the management server uses a separate bind address or port, ask the user to confirm its bind
+address and port.
 
 For every application endpoint or Engine REST call, ask the user to select a target:
 

@@ -12,8 +12,8 @@ Complete this inventory before changing code. Record it in `MIGRATION_REPORT.md`
 
 | Surface | Record |
 |---|---|
-| Application server | Module, bind address, `server.port`, active profile, and environment overrides. |
-| Management server | `management.server.port`, exposed endpoints, and active health checks. |
+| Application server | Module, bind address (`server.address`), `server.port`, active profile, and environment overrides. |
+| Management server | Bind address (`management.server.address`), `management.server.port`, exposed endpoints, and active health checks. |
 | Application routes | HTTP method, path, controller or handler, authentication, consumers, and tests. |
 | Camunda 7 Engine routes | Every `/engine-rest` or webapp route and the owning engine module. |
 | Engine REST clients | HTTP method, path, request, response, authentication, caller, and business purpose. |
@@ -47,8 +47,10 @@ its `MIGRATION_REPORT.md` status to `open`. Do not replace an endpoint with
 ## Decide application and cluster addresses
 
 Ask Question 7 in `references/interview-questions.md` after the inventory. Record the user's explicit
-target application port, Camunda REST base address, authentication mode, and endpoint decisions.
-Do not guess a port or cluster address.
+target application bind address and port, the Camunda REST base address, and the authentication mode.
+Record the user's endpoint decisions. Where the management server uses a separate bind address or
+port, record both.
+Do not guess a bind address, port, or cluster address.
 
 When the application and cluster use the same host, configure different ports. For example, an
 application can use `server.port=8081` while a local cluster uses REST port `8080`. Record the

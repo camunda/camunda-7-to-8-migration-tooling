@@ -191,8 +191,9 @@ APIs.
 When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
 Engine REST call, inventory its HTTP topology. Follow
 `references/http-topology-migration.md`. Ask Question 7 from
-`references/interview-questions.md` before Step 3. Record the target application port, Camunda REST
-base address, authentication mode, endpoint decisions, and consumer actions.
+`references/interview-questions.md` before Step 3. Record the target application bind address and
+port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
+consumer actions. Where the management server uses a separate bind address or port, record both.
 
 #### Model Inventory
 
