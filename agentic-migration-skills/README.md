@@ -197,11 +197,13 @@ skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
     └── references/                        ← procedures loaded on demand
-fixtures/                                  ← sample projects for manual regression walkthroughs
+fixtures/                                  ← sample projects and executable regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/worker-input-bindings` fixture tests explicit single-variable
+bindings and complete-map access without retained Java parameter names.
 
 ## License
 
