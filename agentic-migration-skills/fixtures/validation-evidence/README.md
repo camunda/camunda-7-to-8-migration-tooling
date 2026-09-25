@@ -20,9 +20,10 @@ paths that alias another model's source or duplicate another converted path. The
 module paths after path resolution. They reject manifests that omit Step 2 modules, models, or BPMN
 processes, or misstate process executability. They reject timer inventories that omit or invent
 repeating starts in converted BPMN. They also reject form-check waivers that conflict with the form
-inventory, synthetic direct-start checks for non-standalone processes, waived applicable process
-assertions, manual executable checks, evidence outside the logs directory, and suite logs or
-commands reused across modules. They reject omitted default Maven Surefire, Maven Failsafe, and
+inventory, synthetic direct-start checks for non-standalone processes, and process applicability
+values that conflict with converted BPMN or accepted source forms. They reject manual executable
+checks, evidence outside the logs directory, and suite logs or commands reused across modules. They
+reject omitted default Maven Surefire, Maven Failsafe, and
 Gradle `test` suites. They reject explicit Gradle test suites and manifest suites without matching
 build configuration. They reject source BPMN form inventories that omit detected form categories
 and Docker probe commands that only mention `docker info`. They reject timer preflights without a
@@ -30,6 +31,9 @@ safety plan and output paths that identify the evidence input, each other, evide
 reserved validation files. They reject converted model symlinks that resolve outside the project
 root without parsing the linked files.
 They reject summary and report paths inside the evidence log directory, including when the manifest is malformed.
+They reject summary and report hard links to log files when the manifest is malformed or its `checks` field is invalid.
+They reject `deployable: false` waivers and passed test, lint, deployment, process, or timer commands
+that omit their target or check selector.
 They also reject standalone processes without passing worker-input inventory evidence, omitted
 missing-input direct-start scenarios, and malformed report gates that leave stale `READY` claims.
 The tests reject executed checks that reuse evidence files.

@@ -64,10 +64,20 @@ Keep the summary and report paths outside `.camunda-migration/validation/logs`.
 Keep the summary and report paths distinct from every evidence file.
 The validator rejects output paths that identify a manifest evidence file.
 The validator checks file identity, including hard links, before it writes output.
+The validator scans the evidence log directory independently of the manifest before it writes output.
 
 Each check record gives its target type, target, check kind, scenario, method, command, exit code,
 result, evidence path, reason, blocker reason, failure class, and environment. A timer preflight
 record also gives its isolation or cleanup plan. Use these result values:
+
+Set `command` to the exact invocation for each command check. Use one direct command. Do not use a
+shell no-op, inline interpreter code, or shell operators. The validator rejects these forms for every
+passed command check.
+
+For module tests, include the module path and test suite name. For model lint and deployment, include
+the model path and operation. For process checks, include the process ID and check selector. For
+timer preflights, include the process ID, timer-start ID, and check selector. The validator checks
+these targets and selectors before it accepts a passed result.
 
 | Result | Meaning | Required evidence |
 |---|---|---|
@@ -106,6 +116,9 @@ Use the fields below to build the required check set.
 | Repeating timer | The process ID and timer-start ID for each repeating timer start. |
 | Form | Every Generated Task Form, referenced form, and form-free owner for each model. |
 
+Set `deployable` to `true` for every converted model. The full-migration gate requires safe deployment
+evidence for every BPMN and DMN model. A false value cannot waive deployment.
+
 Each model has a `form_inventory` array. Add one record for each source Generated Task Form,
 referenced form, and form-free owner. Each record has `id`, `kind`, `accepted`, `schema_applicable`,
 `form_js_applicable`, and `binding_required`. Set `kind` to `generated`, `referenced`, or
@@ -118,6 +131,9 @@ The validator parses every source and converted model as BPMN or DMN XML. It com
 type with each detected definitions root.
 The validator detects BPMN DI and form categories from each source BPMN. It compares the detected
 values with `source_has_di` and `form_inventory` before it derives conditional checks.
+The validator derives process assertion applicability from converted BPMN elements and accepted
+form inventory. It rejects any manifest value that differs from the derived value. If it cannot
+inspect a process, it requires every assertion to pass.
 
 The validator derives conditional form checks from these records:
 
@@ -235,7 +251,7 @@ when a condition does not apply.
 | `converted_copy` | The converted copy exists for the in-scope model. |
 | `xml_parse` | The source and converted model parse. |
 | `lint` | Target-compatible lint output for the model. |
-| `deployment` | Safe deployment evidence for each deployable model. |
+| `deployment` | Safe deployment evidence for every converted BPMN and DMN model. |
 | `source_preservation` | Evidence that the original model remains unchanged. |
 | `resource_packaging` | Evidence that findings reports are not packaged as application resources. |
 | `findings_verdicts` | Complete findings and their category/impact verdicts. |
@@ -270,18 +286,18 @@ reason and a separate `process_coverage` check for its covering test. Do not add
 record for a process that is not a standalone entry point.
 
 Add an `assertion_applicability` object with one boolean for every assertion below in each executable
-process inventory entry. Set each value to `true` when its behavior applies. Set it to `false` when
-its behavior does not apply. The validator requires each `true` assertion to pass. It requires each
-`false` assertion to be `not_applicable` with a reason.
+process inventory entry. Set each value to the applicability that the validator derives from the
+converted BPMN and form inventory. The validator requires each applicable assertion to pass. It
+requires each non-applicable assertion to be `not_applicable` with a reason.
 
-| Check kind | Required assertion |
-|---|---|
-| `user_task_type` | Assert the migrated user-task type and resulting user task. |
-| `downstream_message_instance` | Assert the message starts the expected downstream process instance. |
-| `branch_selection` | Assert each tested gateway condition selects the expected branch. |
-| `worker_input_output` | Assert the actual worker input and output values. |
-| `incident_behavior` | Assert the expected incident or BPMN error for each tested failure path. |
-| `form_resolution` | Assert each accepted or relinked form resolves for its owner. |
+| Check kind | Required assertion | Applicable when |
+|---|---|---|
+| `user_task_type` | Assert the migrated user-task type and resulting user task. | The converted process contains a `bpmn:userTask`. |
+| `downstream_message_instance` | Assert the message starts the expected downstream process instance. | The converted process contains a message event or a send/receive task with `messageRef`. |
+| `branch_selection` | Assert each tested gateway condition selects the expected branch. | The converted process contains a BPMN gateway. |
+| `worker_input_output` | Assert the actual worker input and output values. | The converted process contains a Zeebe `taskDefinition` or `ioMapping`. |
+| `incident_behavior` | Assert the expected incident or BPMN error for each tested failure path. | The converted process contains a Zeebe job mapping or BPMN error event. |
+| `form_resolution` | Assert each accepted or relinked form resolves for its owner. | The converted process has form metadata, or the source form inventory maps an accepted form to it. |
 
 List every repeating timer start in `recurring_timer_starts`. Run a separate timer preflight before
 deployment or process start. Record the target environment and a non-empty
@@ -295,7 +311,8 @@ Keep its check record before deployment and process-start records in the manifes
 The validator requires all check records derived from the module, model, process, and timer
 inventories. It compares manifest paths with the independent Step 2 inventory. It rejects
 duplicate, missing, unexpected, or malformed records. It rejects a passing
-command without exit code 0 or a non-empty evidence file. It rejects manual evidence for an
+command without exit code 0 or a non-empty evidence file. It rejects generic passed commands that
+do not invoke the declared target and check. It rejects manual evidence for an
 unlisted check kind. It rejects evidence outside the validation log directory.
 It rejects evidence files reused by executed checks and reused test-suite commands.
 It rejects a timer preflight without an isolation or cleanup plan. It rejects an unsafe deployment

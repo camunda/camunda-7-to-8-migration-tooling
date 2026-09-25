@@ -3,8 +3,10 @@
 
 import argparse
 import json
+import os
 import re
 import shlex
+import stat
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
@@ -19,6 +21,21 @@ BPMN_DEFINITIONS_TAG = "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
 BPMN_PROCESS_TAG = "{{{}}}process".format(BPMN_MODEL_NAMESPACE)
 BPMN_USER_TASK_TAG = "{{{}}}userTask".format(BPMN_MODEL_NAMESPACE)
 BPMN_START_EVENT_TAG = "{{{}}}startEvent".format(BPMN_MODEL_NAMESPACE)
+BPMN_GATEWAY_TAGS = {
+    "{{{}}}exclusiveGateway".format(BPMN_MODEL_NAMESPACE),
+    "{{{}}}inclusiveGateway".format(BPMN_MODEL_NAMESPACE),
+    "{{{}}}parallelGateway".format(BPMN_MODEL_NAMESPACE),
+    "{{{}}}eventBasedGateway".format(BPMN_MODEL_NAMESPACE),
+    "{{{}}}complexGateway".format(BPMN_MODEL_NAMESPACE),
+}
+BPMN_MESSAGE_EVENT_DEFINITION_TAG = (
+    "{{{}}}messageEventDefinition".format(BPMN_MODEL_NAMESPACE)
+)
+BPMN_ERROR_EVENT_DEFINITION_TAG = (
+    "{{{}}}errorEventDefinition".format(BPMN_MODEL_NAMESPACE)
+)
+BPMN_SEND_TASK_TAG = "{{{}}}sendTask".format(BPMN_MODEL_NAMESPACE)
+BPMN_RECEIVE_TASK_TAG = "{{{}}}receiveTask".format(BPMN_MODEL_NAMESPACE)
 BPMN_EXTENSION_ELEMENTS_TAG = "{{{}}}extensionElements".format(
     BPMN_MODEL_NAMESPACE
 )
@@ -29,6 +46,10 @@ CAMUNDA_FORM_PROPERTY_TAG = "{{{}}}formProperty".format(
 )
 CAMUNDA_FORM_KEY_ATTRIBUTE = "{{{}}}formKey".format(CAMUNDA_BPMN_NAMESPACE)
 CAMUNDA_FORM_REF_ATTRIBUTE = "{{{}}}formRef".format(CAMUNDA_BPMN_NAMESPACE)
+ZEEBE_NAMESPACE = "http://camunda.org/schema/zeebe/1.0"
+ZEEBE_TASK_DEFINITION_TAG = "{{{}}}taskDefinition".format(ZEEBE_NAMESPACE)
+ZEEBE_IO_MAPPING_TAG = "{{{}}}ioMapping".format(ZEEBE_NAMESPACE)
+ZEEBE_FORM_DEFINITION_TAG = "{{{}}}formDefinition".format(ZEEBE_NAMESPACE)
 DMN_MODEL_NAMESPACES = {
     "http://www.omg.org/spec/DMN/20151101/dmn.xsd",
     "http://www.omg.org/spec/DMN/20180521/MODEL/",
@@ -382,6 +403,192 @@ def paths_identify_same_file(left, right):
     return left.is_file() and right.is_file() and left.samefile(right)
 
 
+def normalize_command_value(value):
+    if not isinstance(value, str):
+        return ""
+    return re.sub(r"[^a-z0-9]", "", value.casefold())
+
+
+def command_has_action(tokens, actions):
+    return any(normalize_command_value(token) in actions for token in tokens)
+
+
+def command_includes(command_text, value):
+    normalized_value = normalize_command_value(value)
+    return bool(normalized_value) and normalized_value in command_text
+
+
+def passed_command_error(check):
+    if check.get("method") != "command" or check.get("result") != "passed":
+        return None
+    command = check.get("command")
+    if not is_nonempty_string(command):
+        return "command must be an executable validation invocation"
+    try:
+        lexer = shlex.shlex(
+            command,
+            posix=True,
+            punctuation_chars=";&|<>",
+        )
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return "command must be a valid direct invocation"
+    comment_index = next(
+        (
+            index
+            for index, token in enumerate(tokens)
+            if token.startswith("#")
+        ),
+        len(tokens),
+    )
+    tokens = tokens[:comment_index]
+    if not tokens:
+        return "command must be an executable validation invocation"
+    if any(
+        (
+            token
+            and all(character in ";&|<>" for character in token)
+        )
+        or "$(" in token
+        or "`" in token
+        for token in tokens
+    ):
+        return "command must be a single direct invocation without shell operators"
+
+    executable_tokens = list(tokens)
+    while executable_tokens and re.match(
+        r"^[A-Za-z_][A-Za-z0-9_]*=", executable_tokens[0]
+    ):
+        executable_tokens.pop(0)
+    if not executable_tokens:
+        return "command must be an executable validation invocation"
+    if Path(executable_tokens[0]).name.casefold() == "env":
+        executable_tokens.pop(0)
+        while executable_tokens and (
+            executable_tokens[0].startswith("-")
+            or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", executable_tokens[0])
+        ):
+            if (
+                executable_tokens[0] in {"-u", "--unset", "-C", "--chdir"}
+                and len(executable_tokens) > 1
+            ):
+                del executable_tokens[:2]
+            else:
+                executable_tokens.pop(0)
+    if not executable_tokens:
+        return "command must be an executable validation invocation"
+
+    executable = Path(executable_tokens[0]).name.casefold()
+    if executable in {
+        "true",
+        "false",
+        ":",
+        "echo",
+        "printf",
+        "exit",
+        "test",
+        "[",
+        "pwd",
+        "ls",
+        "cat",
+        "head",
+        "tail",
+    }:
+        return "command must not use a shell no-op such as true or echo"
+    inline_options = {
+        "bash": {"-c"},
+        "node": {"-e", "--eval", "-p", "--print"},
+        "perl": {"-e"},
+        "powershell": {"-command"},
+        "pwsh": {"-c", "-command"},
+        "py": {"-c"},
+        "python": {"-c"},
+        "python2": {"-c"},
+        "python3": {"-c"},
+        "ruby": {"-e"},
+        "sh": {"-c"},
+        "zsh": {"-c"},
+    }
+    if any(
+        token.casefold() in inline_options.get(executable, set())
+        for token in executable_tokens[1:]
+    ):
+        return "command must not use inline interpreter code"
+
+    command_text = normalize_command_value(" ".join(tokens))
+    target_type = check.get("target_type")
+    target = check.get("target")
+    kind = check.get("kind")
+    scenario = check.get("scenario")
+    test_actions = {
+        "test",
+        "tests",
+        "verify",
+        "integrationtest",
+        "check",
+        "unittest",
+        "pytest",
+        "vitest",
+        "jest",
+    }
+
+    if target_type == "module" and kind == "tests":
+        if not command_includes(command_text, target):
+            return "command must include the declared module target"
+        if not command_has_action(tokens, test_actions):
+            return "command must invoke a test suite"
+        if scenario and not command_includes(command_text, scenario):
+            return "command must select the declared test suite"
+    elif target_type == "model" and kind in {"lint", "deployment"}:
+        if not command_includes(command_text, target):
+            return "command must include the declared model path"
+        if kind == "lint" and not command_includes(command_text, "lint"):
+            return "command must invoke model lint"
+        if kind == "deployment" and not (
+            command_has_action(tokens, {"deploy", "deployment"})
+            or (
+                command_has_action(tokens, test_actions)
+                and command_includes(command_text, "deployment")
+            )
+        ):
+            return "command must invoke model deployment"
+    elif target_type == "process":
+        target_parts = target.split("#") if isinstance(target, str) else []
+        if len(target_parts) < 2 or not command_includes(
+            command_text, target_parts[1]
+        ):
+            return "command must include the declared process ID"
+        if not command_includes(command_text, kind):
+            return "command must select the declared process check"
+        if not command_has_action(
+            tokens,
+            test_actions
+            | {"start", "run", "correlate", "publish", "complete", "deploy"},
+        ):
+            return "command must invoke a process test or operation"
+        if kind == "direct_start" and scenario and not command_includes(
+            command_text, scenario
+        ):
+            return "command must select the declared process-start scenario"
+    elif target_type == "timer" and kind == "timer_preflight":
+        target_parts = target.split("#") if isinstance(target, str) else []
+        if (
+            len(target_parts) != 3
+            or not command_includes(command_text, target_parts[1])
+            or not command_includes(command_text, target_parts[2])
+        ):
+            return "command must include the declared process and timer-start IDs"
+        if not command_includes(command_text, kind):
+            return "command must select the timer preflight"
+        if not command_has_action(
+            tokens, test_actions | {"start", "run", "deploy"}
+        ):
+            return "command must invoke a timer test or operation"
+    return None
+
+
 def path_is_within_root(path, root):
     try:
         path.relative_to(root)
@@ -700,19 +907,30 @@ def detect_module_test_suites(module_root, project_root, location, error):
 
 def read_source_form_inventory(root, location, error):
     if root is None:
-        return Counter()
+        return (
+            Counter(),
+            {kind: set() for kind in FORM_INVENTORY_KINDS},
+            {},
+        )
     if root.tag != BPMN_DEFINITIONS_TAG:
         error(
             "{} source model must have a BPMN definitions root to verify its "
             "form inventory.".format(location)
         )
-        return Counter()
+        return (
+            Counter(),
+            {kind: set() for kind in FORM_INVENTORY_KINDS},
+            {},
+        )
 
     inventory = Counter()
     identities = {kind: set() for kind in FORM_INVENTORY_KINDS}
+    process_form_ids = {}
     reference_ids = set()
     event_definition_suffix = "EventDefinition"
     for process in root.findall(BPMN_PROCESS_TAG):
+        process_id = process.get("id")
+        process_identities = set()
         process_start_events = set(process.findall(BPMN_START_EVENT_TAG))
         for owner in process.iter():
             if owner.tag not in {BPMN_USER_TASK_TAG, BPMN_START_EVENT_TAG}:
@@ -757,7 +975,9 @@ def read_source_form_inventory(root, location, error):
                         "id.".format(location)
                     )
                 identities["generated"].add(owner_id)
+                process_identities.add(owner_id)
             reference_ids.update(references)
+            process_identities.update(references)
 
             process_level_none_start = (
                 owner.tag == BPMN_START_EVENT_TAG
@@ -786,10 +1006,15 @@ def read_source_form_inventory(root, location, error):
                         .format(location)
                     )
                 identities["form-free-owner"].add(owner_id)
+                process_identities.add(owner_id)
+        if is_nonempty_string(process_id):
+            process_form_ids.setdefault(process_id, set()).update(
+                process_identities
+            )
 
     inventory["referenced"] = len(reference_ids)
     identities["referenced"].update(reference_ids)
-    return inventory, identities
+    return inventory, identities, process_form_ids
 
 
 def read_converted_model(path, location, error):
@@ -898,6 +1123,97 @@ def read_bpmn_inventory(root, location, error):
                 continue
             repeating_timer_starts.add(timer_key)
     return processes, repeating_timer_starts
+
+
+def derive_process_assertion_applicability(
+    model_root,
+    process_id,
+    form_inventory,
+    source_process_form_ids,
+):
+    if model_root is None or model_root.tag != BPMN_DEFINITIONS_TAG:
+        return None
+    process = next(
+        (
+            candidate
+            for candidate in model_root.findall(BPMN_PROCESS_TAG)
+            if candidate.get("id") == process_id
+        ),
+        None,
+    )
+    if process is None:
+        return None
+
+    elements = [
+        element
+        for element in process.iter()
+        if isinstance(element.tag, str)
+    ]
+    element_ids = {
+        element.get("id")
+        for element in elements
+        if is_nonempty_string(element.get("id"))
+    }
+    worker_mapping_present = any(
+        element.tag in {ZEEBE_TASK_DEFINITION_TAG, ZEEBE_IO_MAPPING_TAG}
+        for element in elements
+    )
+    error_event_present = any(
+        element.tag == BPMN_ERROR_EVENT_DEFINITION_TAG
+        for element in elements
+    )
+    message_event_present = any(
+        element.tag == BPMN_MESSAGE_EVENT_DEFINITION_TAG
+        for element in elements
+    ) or any(
+        element.tag in {BPMN_SEND_TASK_TAG, BPMN_RECEIVE_TASK_TAG}
+        and is_nonempty_string(element.get("messageRef"))
+        for element in elements
+    )
+
+    form_references = set()
+    has_form_metadata = False
+    for element in elements:
+        if element.tag in {BPMN_USER_TASK_TAG, BPMN_START_EVENT_TAG}:
+            for attribute in (
+                CAMUNDA_FORM_KEY_ATTRIBUTE,
+                CAMUNDA_FORM_REF_ATTRIBUTE,
+            ):
+                value = element.get(attribute)
+                if is_nonempty_string(value):
+                    form_references.add(value)
+        if element.tag == ZEEBE_FORM_DEFINITION_TAG:
+            has_form_metadata = True
+            for attribute in ("formId", "formKey", "externalReference"):
+                value = element.get(attribute)
+                if is_nonempty_string(value):
+                    form_references.add(value)
+        if element.tag in {CAMUNDA_FORM_DATA_TAG, CAMUNDA_FORM_PROPERTY_TAG}:
+            has_form_metadata = True
+
+    accepted_form_ids = {
+        form.get("id")
+        for form in form_inventory
+        if isinstance(form, dict)
+        and form.get("accepted") is True
+        and is_nonempty_string(form.get("id"))
+    }
+    return {
+        "user_task_type": any(
+            element.tag == BPMN_USER_TASK_TAG for element in elements
+        ),
+        "downstream_message_instance": message_event_present,
+        "branch_selection": any(
+            element.tag in BPMN_GATEWAY_TAGS for element in elements
+        ),
+        "worker_input_output": worker_mapping_present,
+        "incident_behavior": worker_mapping_present or error_event_present,
+        "form_resolution": has_form_metadata
+        or bool(
+            accepted_form_ids
+            & (element_ids | form_references | source_process_form_ids)
+        ),
+    }
 
 
 def resolve_contained_path(value, project_root, label):
@@ -1037,15 +1353,65 @@ def validate_cli_outputs_against_evidence(data, output_paths, project_root):
 def validate_cli_outputs_outside_evidence_log_directory(
     output_paths, project_root
 ):
+    project_root = Path(project_root).resolve()
     evidence_log_directory = (
         project_root / EVIDENCE_LOG_DIRECTORY
     ).resolve()
+    if not path_is_within_root(evidence_log_directory, project_root):
+        raise ValueError(
+            "The validation evidence log directory must stay inside the "
+            "project root."
+        )
     for output_name, output_path in output_paths:
         if path_is_within_root(output_path, evidence_log_directory):
             raise ValueError(
                 "The {} path must stay outside the validation evidence "
                 "log directory.".format(output_name)
             )
+    try:
+        log_directory_stat = evidence_log_directory.stat()
+    except FileNotFoundError:
+        return
+    except (OSError, RuntimeError) as exception:
+        raise ValueError(
+            "The validation evidence log directory cannot be inspected: {}."
+            .format(exception)
+        ) from exception
+    if not stat.S_ISDIR(log_directory_stat.st_mode):
+        raise ValueError(
+            "The validation evidence log directory must be a directory."
+        )
+
+    def raise_walk_error(exception):
+        raise exception
+
+    try:
+        for directory, _, filenames in os.walk(
+            evidence_log_directory,
+            followlinks=False,
+            onerror=raise_walk_error,
+        ):
+            for filename in filenames:
+                evidence_file = Path(directory) / filename
+                try:
+                    evidence_stat = evidence_file.lstat()
+                except FileNotFoundError:
+                    continue
+                if not stat.S_ISREG(evidence_stat.st_mode):
+                    continue
+                for output_name, output_path in output_paths:
+                    if paths_identify_same_file(output_path, evidence_file):
+                        raise ValueError(
+                            "The {} path must not identify a file in the "
+                            "validation evidence log directory.".format(
+                                output_name
+                            )
+                        )
+    except (OSError, RuntimeError) as exception:
+        raise ValueError(
+            "The validation evidence log directory cannot be inspected: {}."
+            .format(exception)
+        ) from exception
 
 
 def load_step2_inventory(project_root, error):
@@ -1491,6 +1857,12 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             error("{} approach must be M1, M2, M3, or E1.".format(location))
         if not isinstance(deployable, bool):
             error("{} deployable must be true or false.".format(location))
+        elif not deployable:
+            error(
+                "{} deployable must be true for a full migration.".format(
+                    location
+                )
+            )
         if not isinstance(source_has_di, bool):
             error("{} source_has_di must be true or false.".format(location))
         if not isinstance(processes, list):
@@ -1668,10 +2040,12 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         source_form_identities = {
             kind: set() for kind in FORM_INVENTORY_KINDS
         }
+        source_form_process_ids = {}
         if source_model_type == "bpmn" and source_model_root is not None:
             (
                 source_form_inventory,
                 source_form_identities,
+                source_form_process_ids,
             ) = read_source_form_inventory(
                 source_model_root, location, error
             )
@@ -1713,8 +2087,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             require_pass = kind in MODEL_CHECKS_REQUIRING_PASS
             safe_environment = None
             if kind == "deployment":
-                not_applicable_only = deployable is False
-                require_pass = deployable is True
+                require_pass = True
                 safe_environment = SAFE_RUNTIME_ENVIRONMENTS
             elif kind == "bpmn_di":
                 not_applicable_only = model_type == "dmn"
@@ -1994,14 +2367,29 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 )
                 process_run_keys.append(key)
 
+            detected_applicability = (
+                derive_process_assertion_applicability(
+                    converted_model_root,
+                    process_id,
+                    form_inventory,
+                    source_form_process_ids.get(process_id, set()),
+                )
+                or {kind: True for kind in PROCESS_ASSERTIONS}
+            )
             for kind in PROCESS_ASSERTIONS:
-                applicable = assertion_applicability.get(kind)
-                if not isinstance(applicable, bool):
+                declared_applicable = assertion_applicability.get(kind)
+                applicable = detected_applicability.get(kind, True)
+                if not isinstance(declared_applicable, bool):
                     error(
                         "{} assertion_applicability.{} must be true or false."
                         .format(process_location, kind)
                     )
-                    applicable = True
+                elif declared_applicable != applicable:
+                    error(
+                        "{} assertion_applicability.{} does not match the "
+                        "converted BPMN or form inventory (expected {})."
+                        .format(process_location, kind, applicable)
+                    )
                 key = ("process", process_target, kind, None)
                 add_expected(
                     expected,
@@ -2266,6 +2654,10 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             )
         if not is_nonempty_string(command):
             error("{} command must be a non-empty string.".format(location))
+        else:
+            command_error = passed_command_error(check)
+            if command_error is not None:
+                error("{} {}.".format(location, command_error))
         if exit_code is not None and (
             not isinstance(exit_code, int) or isinstance(exit_code, bool)
         ):

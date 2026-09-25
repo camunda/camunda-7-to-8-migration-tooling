@@ -89,7 +89,11 @@ form inventories for BPMN sources. It detects default Maven
 Surefire and Gradle `test` suites, plus Maven Failsafe and explicit Gradle suites. It checks each
 suite against the inventory and rejects missing or undeclared suites. It
 skips model files that resolve outside the project root, including paths reached through symlinks.
-It also rejects output paths that identify evidence files.
+It requires safe deployment evidence for every converted model. It derives process assertion
+applicability from converted BPMN and accepted form inventory. It rejects passed shell no-ops and
+inline interpreter code.
+It checks targets and selectors for test, lint, deployment, process, and timer checks. It checks
+output file identity against every evidence log, even when the manifest is malformed.
 
 ## Use
 
@@ -218,7 +222,8 @@ form-free user task and a user task carrying assignment and form metadata.
 The `fixtures/validation-evidence` regression test checks contradictory report claims, XML parsing,
 source DI provenance, path aliases, and reserved output paths. It also checks runtime detection,
 Step 2 inventory completeness, form-check applicability, process assertions, suite evidence, and
-timer safety plans.
+timer safety plans. It checks derived process applicability, deployment waivers, target-specific
+commands, and hard-linked outputs against evidence logs.
 
 ## License
 

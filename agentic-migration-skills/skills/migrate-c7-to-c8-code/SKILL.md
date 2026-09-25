@@ -267,9 +267,13 @@ probe. Use `unit` for the default Maven Surefire suite. Use `test` for Gradle's 
 Maven Failsafe execution IDs and Gradle task names for other suites. Keep the summary and report
 destinations distinct from every evidence file.
 
-Lint every in-scope model. Verify deployment in a local or non-production environment. Check every
-executable process path and run the separate preflight for every repeating timer start. See
-`references/validation-evidence.md` for the required assertions and evidence format.
+For each passed command check, record the exact executable invocation with its declared target and
+selector. Follow the command-validation rules in `references/validation-evidence.md`.
+
+Lint every in-scope model. Deploy every converted model to a local or non-production environment.
+Do not use `deployable: false` to waive deployment. Check every executable process path and run the
+separate preflight for every repeating timer start. See `references/validation-evidence.md` for the
+required assertions and evidence format.
 
 #### Code checks, when code was migrated
 
@@ -400,8 +404,9 @@ in `references/model-migration-approaches.md`.
 
 For every executable process, record assertions for user-task type, downstream message instances,
 branch selection, worker input and output values, incidents, and form resolution. Mark an
-assertion `not_applicable` only with a reason. Record the command and evidence for each applicable
-assertion.
+assertion `not_applicable` only with a reason. The validator derives applicability from converted
+BPMN and accepted form inventory. Match every `assertion_applicability` flag to that derived value.
+Record the command and evidence for each applicable assertion.
 
 Inspect every repeating timer start before deployment or process start. Record a separate timer
 preflight and its isolation or cleanup plan. Do not test repeating timers on a shared or production

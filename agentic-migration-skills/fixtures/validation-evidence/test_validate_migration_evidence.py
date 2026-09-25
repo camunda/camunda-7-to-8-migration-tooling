@@ -20,6 +20,7 @@ LOG_DIRECTORY = ".camunda-migration/validation/logs"
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 BPMN_DI_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/DI"
 CAMUNDA_BPMN_NAMESPACE = "http://camunda.org/schema/1.0/bpmn"
+ZEEBE_NAMESPACE = "http://camunda.org/schema/zeebe/1.0"
 DMN_MODEL_NAMESPACE = "https://www.omg.org/spec/DMN/20191111/MODEL/"
 STEP2_INVENTORY_PATH = (
     ".camunda-migration/validation/step2-inventory.json"
@@ -40,6 +41,40 @@ sys.path.insert(0, str(SCRIPT.parent))
 import validate_migration_evidence as gate  # noqa: E402
 
 
+def passing_command(target_type, target, kind, scenario):
+    if target_type == "module" and kind == "tests":
+        suite_name = "".join(
+            part.capitalize()
+            for part in (scenario or "suite").replace("_", "-").split("-")
+        )
+        return "mvn -pl {} test -Dtest={}Test".format(target, suite_name)
+    if target_type == "model" and kind == "lint":
+        return "npx bpmnlint {}".format(target)
+    if target_type == "model" and kind == "deployment":
+        return "c8ctl deploy {}".format(target)
+    if target_type == "process":
+        process_id = target.split("#")[1]
+        test_name = "".join(
+            part.capitalize() for part in kind.replace("_", "-").split("-")
+        )
+        command = (
+            "mvn test -Dtest={}Test#test{} -DprocessId={} "
+            "-DvalidationCheck={}"
+        ).format(process_id.replace("-", ""), test_name, process_id, kind)
+        if kind == "direct_start" and scenario:
+            command += " -Dscenario={}".format(scenario)
+        return command
+    if target_type == "timer":
+        _, process_id, timer_id = target.split("#")
+        return (
+            "mvn test -Dtest={}TimerPreflightTest -DprocessId={} "
+            "-DtimerStartId={} -DvalidationCheck={}"
+        ).format(process_id.replace("-", ""), process_id, timer_id, kind)
+    if target_type == "project" and kind == "docker_info":
+        return "docker info"
+    return "mvn -pl {} verify -DvalidationCheck={}".format(target, kind)
+
+
 def passing_check(
     target_type, target, kind, evidence_path, scenario=None, environment=None
 ):
@@ -49,7 +84,7 @@ def passing_check(
         "kind": kind,
         "scenario": scenario,
         "method": "command",
-        "command": "python3 -c pass",
+        "command": passing_command(target_type, target, kind, scenario),
         "exit_code": 0,
         "result": "passed",
         "evidence_path": evidence_path,
@@ -166,7 +201,13 @@ def passing_module_manifest(module_path, project_root):
     }
 
 
-def write_bpmn_file(path, processes, timer_starts, include_di=False):
+def write_bpmn_file(
+    path,
+    processes,
+    timer_starts,
+    include_di=False,
+    include_assertion_elements=False,
+):
     root = ET.Element(
         "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
     )
@@ -181,6 +222,81 @@ def write_bpmn_file(path, processes, timer_starts, include_di=False):
             {"id": process["id"], "isExecutable": executable},
         )
         process_elements[process["id"]] = process_element
+        if not include_assertion_elements:
+            continue
+        assertions = process.get("assertion_applicability", {})
+        if assertions.get("user_task_type"):
+            ET.SubElement(
+                process_element,
+                "{{{}}}userTask".format(BPMN_MODEL_NAMESPACE),
+                {"id": "{}-user-task".format(process["id"])},
+            )
+        if assertions.get("downstream_message_instance"):
+            message_event = ET.SubElement(
+                process_element,
+                "{{{}}}intermediateCatchEvent".format(BPMN_MODEL_NAMESPACE),
+                {"id": "{}-message-event".format(process["id"])},
+            )
+            ET.SubElement(
+                message_event,
+                "{{{}}}messageEventDefinition".format(
+                    BPMN_MODEL_NAMESPACE
+                ),
+            )
+        if assertions.get("branch_selection"):
+            ET.SubElement(
+                process_element,
+                "{{{}}}exclusiveGateway".format(BPMN_MODEL_NAMESPACE),
+                {"id": "{}-gateway".format(process["id"])},
+            )
+        if assertions.get("worker_input_output"):
+            worker_task = ET.SubElement(
+                process_element,
+                "{{{}}}serviceTask".format(BPMN_MODEL_NAMESPACE),
+                {"id": "{}-worker-task".format(process["id"])},
+            )
+            extension_elements = ET.SubElement(
+                worker_task,
+                "{{{}}}extensionElements".format(BPMN_MODEL_NAMESPACE),
+            )
+            ET.SubElement(
+                extension_elements,
+                "{{{}}}taskDefinition".format(ZEEBE_NAMESPACE),
+                {"type": "worker"},
+            )
+        if assertions.get("incident_behavior"):
+            incident_task = ET.SubElement(
+                process_element,
+                "{{{}}}serviceTask".format(BPMN_MODEL_NAMESPACE),
+                {"id": "{}-incident-task".format(process["id"])},
+            )
+            boundary_event = ET.SubElement(
+                process_element,
+                "{{{}}}boundaryEvent".format(BPMN_MODEL_NAMESPACE),
+                {
+                    "id": "{}-error-boundary".format(process["id"]),
+                    "attachedToRef": incident_task.get("id"),
+                },
+            )
+            ET.SubElement(
+                boundary_event,
+                "{{{}}}errorEventDefinition".format(BPMN_MODEL_NAMESPACE),
+            )
+        if assertions.get("form_resolution"):
+            form_start = ET.SubElement(
+                process_element,
+                "{{{}}}startEvent".format(BPMN_MODEL_NAMESPACE),
+                {"id": "{}-form-start".format(process["id"])},
+            )
+            extension_elements = ET.SubElement(
+                form_start,
+                "{{{}}}extensionElements".format(BPMN_MODEL_NAMESPACE),
+            )
+            ET.SubElement(
+                extension_elements,
+                "{{{}}}formDefinition".format(ZEEBE_NAMESPACE),
+                {"formId": "test-form"},
+            )
     for timer in timer_starts:
         if not isinstance(timer, dict):
             continue
@@ -266,6 +382,7 @@ def materialize_inventory(project_root, manifest):
                     model_file,
                     model.get("processes", []),
                     model.get("recurring_timer_starts", []),
+                    include_assertion_elements=key == "path",
                 )
             else:
                 write_dmn_file(model_file)
@@ -297,6 +414,96 @@ class ValidationEvidenceTest(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+
+    def test_passed_commands_must_target_the_declared_check(self):
+        cases = (
+            (
+                "module suite",
+                {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                    "command": (
+                        "mvn -pl examples/web test -Dtest=WebSmokeTest"
+                    ),
+                },
+            ),
+            (
+                "model lint",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "lint",
+                    "scenario": None,
+                    "command": (
+                        "npx bpmnlint models/converted-c8-order.bpmn"
+                    ),
+                },
+            ),
+            (
+                "model deployment",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "deployment",
+                    "scenario": None,
+                    "command": (
+                        "c8ctl deploy models/converted-c8-order.bpmn"
+                    ),
+                },
+            ),
+            (
+                "process assertion",
+                {
+                    "target_type": "process",
+                    "target": (
+                        "models/converted-c8-order.bpmn#order-process"
+                    ),
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                    "command": (
+                        "mvn test -Dtest=OrderProcessTest"
+                        "#testDownstreamMessageInstance "
+                        "-DprocessId=order-process "
+                        "-DvalidationCheck=downstream_message_instance"
+                    ),
+                },
+            ),
+            (
+                "timer preflight",
+                {
+                    "target_type": "timer",
+                    "target": (
+                        "models/converted-c8-order.bpmn#order-process"
+                        "#repeat-start"
+                    ),
+                    "kind": "timer_preflight",
+                    "scenario": None,
+                    "command": (
+                        "mvn test -Dtest=OrderProcessTimerPreflightTest "
+                        "-DprocessId=order-process "
+                        "-DtimerStartId=repeat-start "
+                        "-DvalidationCheck=timer_preflight"
+                    ),
+                },
+            ),
+        )
+        for name, check in cases:
+            with self.subTest(name=name):
+                check.update({"method": "command", "result": "passed"})
+                self.assertIsNone(gate.passed_command_error(check))
+                check["command"] = "mvn test -Dtest=GenericTest"
+                self.assertIsNotNone(gate.passed_command_error(check))
+        module_test = dict(cases[0][1])
+        module_test.update({"method": "command", "result": "passed"})
+        for invalid_command in (
+            "python3 -c pass",
+            "mvn -pl examples/web test -Dtest=WebSmokeTest && true",
+        ):
+            with self.subTest(invalid_command=invalid_command):
+                module_test["command"] = invalid_command
+                self.assertIsNotNone(gate.passed_command_error(module_test))
 
     def test_contradictory_report_is_not_ready(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
@@ -1520,6 +1727,71 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "was not rejected.",
             )
 
+    def test_cli_rejects_hard_linked_outputs_to_logs_with_malformed_manifests(
+        self,
+    ):
+        malformed_manifests = {
+            "invalid-json": "{",
+            "checks-not-array": '{"checks": {}}',
+        }
+        for malformed_kind, manifest_contents in malformed_manifests.items():
+            for output_kind in ("summary", "report"):
+                with self.subTest(
+                    malformed_kind=malformed_kind, output_kind=output_kind
+                ):
+                    with tempfile.TemporaryDirectory(
+                        prefix="migration-evidence-"
+                    ) as temporary:
+                        project_root = Path(temporary) / "project"
+                        project_root.mkdir()
+                        (project_root / "validation-evidence.json").write_text(
+                            manifest_contents, encoding="utf-8"
+                        )
+                        log_file = (
+                            project_root / LOG_DIRECTORY / "captured.log"
+                        )
+                        log_file.parent.mkdir(parents=True)
+                        original_contents = b"captured evidence\n"
+                        log_file.write_bytes(original_contents)
+                        output_alias = project_root / "outside" / (
+                            "summary.json"
+                            if output_kind == "summary"
+                            else "report.md"
+                        )
+                        output_alias.parent.mkdir(parents=True)
+                        os.link(log_file, output_alias)
+                        output_path = output_alias.relative_to(
+                            project_root
+                        ).as_posix()
+
+                        if output_kind == "summary":
+                            completed = self.run_gate(
+                                project_root,
+                                report=None,
+                                summary=output_path,
+                            )
+                        else:
+                            completed = self.run_gate(
+                                project_root,
+                                report=output_path,
+                                summary="custom-validation-summary.json",
+                            )
+
+                        self.assertEqual(completed.returncode, 1)
+                        self.assertEqual(log_file.read_bytes(), original_contents)
+                        self.assertEqual(
+                            output_alias.read_bytes(), original_contents
+                        )
+                        summary = json.loads(completed.stdout)
+                        self.assertTrue(
+                            any(
+                                "must not identify a file in the validation "
+                                "evidence log directory" in blocker
+                                for blocker in summary["blockers"]
+                            ),
+                            "A hard-linked output corrupted evidence logs.",
+                        )
+
     def test_cli_reports_looped_input_symlinks_as_not_ready(self):
         for input_kind in ("module", "model", "evidence"):
             with self.subTest(input_kind=input_kind):
@@ -1667,6 +1939,232 @@ class ValidationEvidenceTest(unittest.TestCase):
                     ),
                     "{} was waived despite being applicable.".format(kind),
                 )
+
+    def test_process_assertion_applicability_is_derived_from_converted_bpmn(
+        self,
+    ):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            model = manifest["models"][0]
+            process = model["processes"][0]
+            process["assertion_applicability"] = {
+                kind: False for kind in gate.PROCESS_ASSERTIONS
+            }
+            process_target = "{}#{}".format(model["path"], process["id"])
+            for kind in gate.PROCESS_ASSERTIONS:
+                check = next(
+                    (
+                        check
+                        for check in manifest["checks"]
+                        if check.get("target_type") == "process"
+                        and check.get("target") == process_target
+                        and check.get("kind") == kind
+                    ),
+                    None,
+                )
+                if check is None:
+                    check = not_applicable_check(
+                        "process",
+                        process_target,
+                        kind,
+                        "The manifest incorrectly waives this assertion.",
+                    )
+                    manifest["checks"].append(check)
+                check.update(
+                    {
+                        "method": "not_applicable",
+                        "command": "N/A: assertion declared inapplicable",
+                        "exit_code": None,
+                        "result": "not_applicable",
+                        "evidence_path": None,
+                        "reason": "The manifest incorrectly waives this assertion.",
+                        "blocker_reason": None,
+                        "failure_class": None,
+                        "environment": None,
+                    }
+                )
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            for kind in gate.PROCESS_ASSERTIONS:
+                self.assertTrue(
+                    any(
+                        "assertion_applicability.{} does not match".format(kind)
+                        in blocker
+                        for blocker in summary["blockers"]
+                    ),
+                    "{} applicability was trusted from the manifest.".format(
+                        kind
+                    ),
+                )
+                self.assertTrue(
+                    any(
+                        "must pass for this target" in blocker
+                        and kind in blocker
+                        for blocker in summary["blockers"]
+                    ),
+                    "{} was waived despite appearing in converted BPMN.".format(
+                        kind
+                    ),
+                )
+
+    def test_non_deployable_declaration_cannot_waive_model_deployment(self):
+        for model_type in ("bpmn", "dmn"):
+            with self.subTest(model_type=model_type):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    model_path = "models/converted-c8-model.{}".format(
+                        model_type
+                    )
+                    source_path = "models/source-model.{}".format(model_type)
+                    for path in (model_path, source_path):
+                        model_file = project_root / path
+                        model_file.parent.mkdir(parents=True, exist_ok=True)
+                        if model_type == "bpmn":
+                            write_bpmn_file(model_file, [], [])
+                        else:
+                            write_dmn_file(model_file)
+                    manifest = {
+                        "schema_version": 1,
+                        "mode": "migration",
+                        "modules": [],
+                        "models": [
+                            {
+                                "path": model_path,
+                                "source_path": source_path,
+                                "type": model_type,
+                                "approach": "M1",
+                                "deployable": False,
+                                "source_has_di": False,
+                                "form_inventory": [],
+                                "processes": [],
+                                "recurring_timer_starts": [],
+                            }
+                        ],
+                        "checks": [
+                            not_applicable_check(
+                                "model",
+                                model_path,
+                                kind,
+                                "The test manifest omits this check.",
+                            )
+                            for kind in gate.MODEL_CHECKS
+                        ],
+                    }
+                    write_step2_inventory(project_root, [], [source_path])
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "deployable must be true" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "A false deployable declaration was accepted.",
+                    )
+                    self.assertTrue(
+                        any(
+                            "deployment must pass for this target" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "A false deployable declaration waived deployment.",
+                    )
+
+    def test_accepted_source_form_requires_process_form_resolution(self):
+        with tempfile.TemporaryDirectory(
+            prefix="migration-evidence-"
+        ) as temporary:
+            project_root = Path(temporary)
+            source_path = "models/source.bpmn"
+            model_path = "models/converted-c8-source.bpmn"
+            source_file = project_root / source_path
+            converted_file = project_root / model_path
+            source_file.parent.mkdir(parents=True)
+            converted_file.parent.mkdir(parents=True, exist_ok=True)
+            write_source_bpmn_with_owner(
+                source_file,
+                "order-process",
+                "referenced",
+                "order-form",
+            )
+            process = {
+                "id": "order-process",
+                "executable": True,
+                "standalone_entry_point": False,
+                "direct_start_scenarios": [],
+                "missing_worker_input_scenarios": [],
+                "covering_test": "OrderProcessTest",
+                "reason": "The process starts from another process.",
+                "assertion_applicability": {
+                    kind: False for kind in gate.PROCESS_ASSERTIONS
+                },
+            }
+            write_bpmn_file(converted_file, [process], [])
+            model = {
+                "path": model_path,
+                "source_path": source_path,
+                "type": "bpmn",
+                "approach": "M1",
+                "deployable": True,
+                "source_has_di": False,
+                "form_inventory": [
+                    {
+                        "id": "order-form",
+                        "kind": "referenced",
+                        "accepted": True,
+                        "schema_applicable": False,
+                        "form_js_applicable": False,
+                        "binding_required": False,
+                    }
+                ],
+                "processes": [process],
+                "recurring_timer_starts": [],
+            }
+            process_target = "{}#order-process".format(model_path)
+            manifest = {
+                "schema_version": 1,
+                "mode": "migration",
+                "modules": [],
+                "models": [model],
+                "checks": [
+                    not_applicable_check(
+                        "process",
+                        process_target,
+                        kind,
+                        "The manifest incorrectly waives this assertion.",
+                    )
+                    for kind in gate.PROCESS_ASSERTIONS
+                ],
+            }
+            write_step2_inventory(project_root, [], [source_path])
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "assertion_applicability.form_resolution does not match"
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "Accepted source form applicability was not derived.",
+            )
+            self.assertTrue(
+                any(
+                    "form_resolution" in blocker
+                    and "must pass for this target" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The accepted source form resolution assertion was waived.",
+            )
 
     def test_form_checks_cannot_be_waived_when_form_inventory_applies(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
@@ -2384,6 +2882,22 @@ class ValidationEvidenceTest(unittest.TestCase):
                 report.read_text(encoding="utf-8"),
             )
 
+            test_check = next(
+                check for check in checks if check.get("kind") == "tests"
+            )
+            valid_test_command = test_check["command"]
+            test_check["command"] = "true"
+            summary = gate.validate_manifest(manifest, project_root)
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "shell no-op" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                summary["blockers"],
+            )
+            test_check["command"] = valid_test_command
+
             manual_check = next(
                 check
                 for check in checks
@@ -2431,6 +2945,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
 
             integration_check = checks[-1]
+            integration_check["command"] = test_check["command"]
             integration_check["evidence_path"] = (
                 LOG_DIRECTORY + "/integration.log"
             )
@@ -2717,9 +3232,6 @@ class ValidationEvidenceTest(unittest.TestCase):
                             check
                             for check in module_manifest["checks"]
                             if check["kind"] == "tests"
-                        )
-                        test_check["command"] = "Run unit suite for {}".format(
-                            module_path
                         )
                         test_check["evidence_path"] = (
                             LOG_DIRECTORY + "/{}-unit.log".format(module_path)
