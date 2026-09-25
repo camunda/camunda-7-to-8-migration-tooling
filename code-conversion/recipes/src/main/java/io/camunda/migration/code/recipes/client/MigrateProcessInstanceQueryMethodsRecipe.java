@@ -11,6 +11,7 @@ import io.camunda.migration.code.recipes.sharedRecipes.AbstractMigrationRecipe;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import java.util.*;
+import java.util.function.Predicate;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
@@ -28,9 +29,9 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   private static final String PROCESS_INSTANCE_STATE = "io.camunda.client.api.search.enums.ProcessInstanceState";
   private static final String PROCESS_INSTANCE_FILTER =
       "io.camunda.client.api.search.filter.ProcessInstanceFilter";
-  private static final String VARIABLE_VALUE_EQUALS = "variableValueEquals";
-  private static final String VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT =
-      VARIABLE_VALUE_EQUALS + "Arg1";
+  private static final MethodMatcher VARIABLE_VALUE_EQUALS_MATCHER =
+      new MethodMatcher(
+          "org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueEquals(..)");
   private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
       Set.of(
           "active",
@@ -39,8 +40,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           "createProcessInstanceQuery",
           "list",
           "processDefinitionKey",
-          "processInstanceBusinessKey",
-          VARIABLE_VALUE_EQUALS);
+          "processInstanceBusinessKey");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -49,7 +49,23 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces Camunda 7 process instance query methods with Camunda 8 client methods.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves variable-filtered queries for manual migration.";
+  }
+
+  @Override
+  protected Predicate<Cursor> visitorSkipCondition() {
+    return cursor -> {
+      // Preserve the entire chain because the 8.9 process-instance search API has no variable filter.
+      Cursor current = cursor;
+      while (current != null) {
+        if (current.getValue() instanceof J.MethodInvocation invocation
+            && VARIABLE_VALUE_EQUALS_MATCHER.matches(invocation)) {
+          return true;
+        }
+        current = current.getParent();
+      }
+      return false;
+    };
   }
 
   @Override
@@ -108,84 +124,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   protected List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations() {
 
     List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
-    JavaTemplate variableListTemplate =
-        RecipeUtils.createSimpleJavaTemplate(
-            """
-            #{camundaClient:any(io.camunda.client.CamundaClient)}
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter
-                    .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{variableValue:any(java.lang.Object)}))
-                    .state(ProcessInstanceState.ACTIVE))
-                .send()
-                .join()
-                .items()
-            """,
-            PROCESS_INSTANCE_STATE,
-            "io.camunda.client.api.search.response.ProcessInstance",
-            PROCESS_INSTANCE_FILTER);
-    JavaTemplate processDefinitionAndVariableListTemplate =
-        RecipeUtils.createSimpleJavaTemplate(
-            """
-            #{camundaClient:any(io.camunda.client.CamundaClient)}
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter
-                    .processDefinitionId(#{processDefinitionKey:any(java.lang.String)})
-                    .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{variableValue:any(java.lang.Object)}))
-                    .state(ProcessInstanceState.ACTIVE))
-                .send()
-                .join()
-                .items()
-            """,
-            PROCESS_INSTANCE_STATE,
-            "io.camunda.client.api.search.response.ProcessInstance",
-            PROCESS_INSTANCE_FILTER);
-    JavaTemplate variableSingleResultTemplate =
-        RecipeUtils.createSimpleJavaTemplate(
-            """
-            java.util.Optional.of(
-                #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newProcessInstanceSearchRequest()
-                    .page(page -> page.limit(1))
-                    .filter(filter -> filter
-                        .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{variableValue:any(java.lang.Object)}))
-                        .state(ProcessInstanceState.ACTIVE))
-                    .send()
-                    .join())
-                .map(response -> {
-                    if (response.page().totalItems() > 1) {
-                        throw new java.lang.IllegalStateException("Process-instance query returned more than one result");
-                    }
-                    return response.items().stream().findFirst().orElse(null);
-                })
-                .orElse(null)
-            """,
-            PROCESS_INSTANCE_STATE,
-            "io.camunda.client.api.search.response.ProcessInstance",
-            PROCESS_INSTANCE_FILTER);
-    JavaTemplate processDefinitionAndVariableSingleResultTemplate =
-        RecipeUtils.createSimpleJavaTemplate(
-            """
-            java.util.Optional.of(
-                #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newProcessInstanceSearchRequest()
-                    .page(page -> page.limit(1))
-                    .filter(filter -> filter
-                        .processDefinitionId(#{processDefinitionKey:any(java.lang.String)})
-                        .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{variableValue:any(java.lang.Object)}))
-                        .state(ProcessInstanceState.ACTIVE))
-                    .send()
-                    .join())
-                .map(response -> {
-                    if (response.page().totalItems() > 1) {
-                        throw new java.lang.IllegalStateException("Process-instance query returned more than one result");
-                    }
-                    return response.items().stream().findFirst().orElse(null);
-                })
-                .orElse(null)
-            """,
-            PROCESS_INSTANCE_STATE,
-            "io.camunda.client.api.search.response.ProcessInstance",
-            PROCESS_INSTANCE_FILTER);
 
     specs.add(new ReplacementUtils.BuilderReplacementSpec(
         new MethodMatcher("org.camunda.bpm.engine.query.Query list()"),
@@ -290,74 +228,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         List.of(PROCESS_INSTANCE_STATE),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
 
-    specs.add(
-        new ReplacementUtils.BuilderReplacementSpec(
-            new MethodMatcher("org.camunda.bpm.engine.query.Query list()"),
-            Set.of(VARIABLE_VALUE_EQUALS, VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            List.of(VARIABLE_VALUE_EQUALS, VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            variableListTemplate,
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "List<io.camunda.client.api.search.response.ProcessInstance>",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            Collections.emptyList(),
-            Collections.emptyList(),
-            List.of(PROCESS_INSTANCE_STATE),
-            Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
-
-    specs.add(
-        new ReplacementUtils.BuilderReplacementSpec(
-            new MethodMatcher("org.camunda.bpm.engine.query.Query list()"),
-            Set.of(
-                "processDefinitionKey",
-                VARIABLE_VALUE_EQUALS,
-                VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            List.of(
-                "processDefinitionKey",
-                VARIABLE_VALUE_EQUALS,
-                VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            processDefinitionAndVariableListTemplate,
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "List<io.camunda.client.api.search.response.ProcessInstance>",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            Collections.emptyList(),
-            Collections.emptyList(),
-            List.of(PROCESS_INSTANCE_STATE),
-            Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
-
-    specs.add(
-        new ReplacementUtils.BuilderReplacementSpec(
-            new MethodMatcher("org.camunda.bpm.engine.query.Query singleResult()"),
-            Set.of(VARIABLE_VALUE_EQUALS, VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            List.of(VARIABLE_VALUE_EQUALS, VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            variableSingleResultTemplate,
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.search.response.ProcessInstance",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            Collections.emptyList(),
-            Collections.emptyList(),
-            List.of(PROCESS_INSTANCE_STATE),
-            Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
-
-    specs.add(
-        new ReplacementUtils.BuilderReplacementSpec(
-            new MethodMatcher("org.camunda.bpm.engine.query.Query singleResult()"),
-            Set.of(
-                "processDefinitionKey",
-                VARIABLE_VALUE_EQUALS,
-                VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            List.of(
-                "processDefinitionKey",
-                VARIABLE_VALUE_EQUALS,
-                VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-            processDefinitionAndVariableSingleResultTemplate,
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.search.response.ProcessInstance",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            Collections.emptyList(),
-            Collections.emptyList(),
-            List.of(PROCESS_INSTANCE_STATE),
-            Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
-
     return specs;
   }
 
@@ -406,38 +276,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             """,
             PROCESS_INSTANCE_STATE,
             PROCESS_INSTANCE_FILTER);
-    JavaTemplate variableCountTemplate =
-        RecipeUtils.createSimpleJavaTemplate(
-            """
-            #{camundaClient:any(io.camunda.client.CamundaClient)}
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter
-                    .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{variableValue:any(java.lang.Object)}))
-                    .state(ProcessInstanceState.ACTIVE))
-                .send()
-                .join()
-                .page()
-                .totalItems()
-            """,
-            PROCESS_INSTANCE_STATE,
-            PROCESS_INSTANCE_FILTER);
-    JavaTemplate processDefinitionAndVariableCountTemplate =
-        RecipeUtils.createSimpleJavaTemplate(
-            """
-            #{camundaClient:any(io.camunda.client.CamundaClient)}
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter
-                    .processDefinitionId(#{processDefinitionKey:any(java.lang.String)})
-                    .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{variableValue:any(java.lang.Object)}))
-                    .state(ProcessInstanceState.ACTIVE))
-                .send()
-                .join()
-                .page()
-                .totalItems()
-            """,
-            PROCESS_INSTANCE_STATE,
-            PROCESS_INSTANCE_FILTER);
-
     List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
     addCountSpecs(
         specs,
@@ -465,24 +303,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         List.of("processDefinitionKey"),
         processDefinitionCountTemplate,
         List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
-    addCountSpecs(
-        specs,
-        Set.of(VARIABLE_VALUE_EQUALS, VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-        List.of(VARIABLE_VALUE_EQUALS, VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-        variableCountTemplate,
-        Collections.emptyList());
-    addCountSpecs(
-        specs,
-        Set.of(
-            "processDefinitionKey",
-            VARIABLE_VALUE_EQUALS,
-            VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-        List.of(
-            "processDefinitionKey",
-            VARIABLE_VALUE_EQUALS,
-            VARIABLE_VALUE_EQUALS_SECOND_ARGUMENT),
-        processDefinitionAndVariableCountTemplate,
-        Collections.emptyList());
     return specs;
   }
 
@@ -553,9 +373,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
       if (methodName.equals("processInstanceBusinessKey")
           && invocation.getArguments().size() != 1) {
-        return false;
-      }
-      if (methodName.equals(VARIABLE_VALUE_EQUALS) && invocation.getArguments().size() != 2) {
         return false;
       }
       if (!invocation.getArguments().isEmpty() && !seenFilters.add(methodName)) {

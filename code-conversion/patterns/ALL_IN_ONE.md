@@ -1249,34 +1249,11 @@ public ProcessInstance findSingleActiveByVariable(
 }
 ```
 
-###### Camunda 8.9+
+###### Camunda 8.9+ (manual migration for variable filters)
 
-```java
-public ProcessInstance findSingleActiveByVariable(
-        String processDefinitionId, String variableName, Object variableValue) {
-    var response = camundaClient.newProcessInstanceSearchRequest()
-            .page(page -> page.limit(1))
-            .filter(filter -> filter
-                    .processDefinitionId(processDefinitionId)
-                    .variables(Collections.singletonMap(variableName, variableValue))
-                    .state(ProcessInstanceState.ACTIVE))
-            .send()
-            .join();
+The Orchestration Cluster REST API's `POST /v2/process-instances/search` contract does not define a variable field in `ProcessInstanceFilter`. Do not emit `.variables(...)` on `newProcessInstanceSearchRequest()`; the client builder may compile, but the server cannot enforce that predicate. The query migration recipe leaves chains containing `variableValueEquals(...)` unchanged, including `list()`, `count()`, and `singleResult()` queries. This also avoids partially converting a query with multiple variable predicates.
 
-    if (response.page().totalItems() > 1) {
-        throw new IllegalStateException("Process-instance query returned more than one result");
-    }
-    return response.items().stream().findFirst().orElse(null);
-}
-```
-
-`ProcessInstanceFilter.variables(Map)` filters by the requested variable name and value. A C7 process variable is not automatically a C8 business ID.
-
-`page().totalItems()` counts matches across pages. Do not use `items().size()` to enforce uniqueness because `items()` contains only the current page.
-
-This keeps `singleResult()` behavior: no match returns `null`, one match returns that instance, and multiple matches raise an error. The active-state filter excludes non-running instances.
-
-When a required query filter has no supported C8 equivalent, leave the query for manual migration and report the missing filter instead of dropping it.
+For a manual migration, use `POST /v2/variables/search` to find candidate variables by name and JSON-serialized value, then use their process-instance keys to apply the remaining process-definition and active-state filters. Preserve pagination and account for the variable search endpoint's scope and consistency semantics. Do not drop the variable predicate when migrating the other filters.
 
 ---
 

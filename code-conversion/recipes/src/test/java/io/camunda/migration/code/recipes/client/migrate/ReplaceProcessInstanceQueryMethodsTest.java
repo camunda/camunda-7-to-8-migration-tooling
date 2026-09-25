@@ -127,7 +127,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
-  void preservesProcessVariableAndActiveFilters() {
+  void leavesVariableFilteredQueriesForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -148,7 +148,8 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 @Autowired
                 private CamundaClient camundaClient;
 
-                public void search(String processDefinitionKey, String variableName, Object variableValue) {
+                public void search(String processDefinitionKey, String variableName, Object variableValue,
+                        String secondVariableName, Object secondVariableValue) {
                     engine.getRuntimeService()
                             .createProcessInstanceQuery()
                             .processDefinitionKey(processDefinitionKey)
@@ -167,66 +168,21 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .processDefinitionKey(processDefinitionKey)
                             .variableValueEquals(variableName, variableValue)
                             .singleResult();
-                }
-            }
-            """,
-            """
-            package org.camunda.community.migration.example;
 
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .variableValueEquals(variableName, variableValue)
+                            .variableValueEquals(secondVariableName, secondVariableValue)
+                            .active()
+                            .list();
 
-            @Component
-            public class ProcessInstanceVariableQueries {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void search(String processDefinitionKey, String variableName, Object variableValue) {
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .variables(java.util.Collections.singletonMap(variableName, variableValue))
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items();
-
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .variables(java.util.Collections.singletonMap(variableName, variableValue))
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .page()
-                            .totalItems().longValue();
-
-                    java.util.Optional.of(
-                            camundaClient
-                                    .newProcessInstanceSearchRequest()
-                                    .page(page -> page.limit(1))
-                                    .filter(filter -> filter
-                                            .processDefinitionId(processDefinitionKey)
-                                            .variables(java.util.Collections.singletonMap(variableName, variableValue))
-                                            .state(ProcessInstanceState.ACTIVE))
-                                    .send()
-                                    .join())
-                            .map(response -> {
-                                if (response.page().totalItems() > 1) {
-                                    throw new java.lang.IllegalStateException("Process-instance query returned more than one result");
-                                }
-                                return response.items().stream().findFirst().orElse(null);
-                            })
-                            .orElse(null);
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .variableValueEquals(variableName, variableValue)
+                            .variableValueEquals(secondVariableName, secondVariableValue)
+                            .singleResult();
                 }
             }
             """));
@@ -262,47 +218,6 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .processDefinitionKey(processDefinitionKey)
                             .variableValueEquals(variableName, variableValue)
                             .singleResult();
-                }
-            }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.camunda.bpm.engine.task.Task;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            @Component
-            public class MixedSingleResultQueries {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void find(String taskId, String processDefinitionKey, String variableName, Object variableValue) {
-                    Task task = engine.getTaskService().createTaskQuery().taskId(taskId).singleResult();
-                    java.util.Optional.of(
-                            camundaClient
-                                    .newProcessInstanceSearchRequest()
-                                    .page(page -> page.limit(1))
-                                    .filter(filter -> filter
-                                            .processDefinitionId(processDefinitionKey)
-                                            .variables(java.util.Collections.singletonMap(variableName, variableValue))
-                                            .state(ProcessInstanceState.ACTIVE))
-                                    .send()
-                                    .join())
-                            .map(response -> {
-                                if (response.page().totalItems() > 1) {
-                                    throw new java.lang.IllegalStateException("Process-instance query returned more than one result");
-                                }
-                                return response.items().stream().findFirst().orElse(null);
-                            })
-                            .orElse(null);
                 }
             }
             """));
