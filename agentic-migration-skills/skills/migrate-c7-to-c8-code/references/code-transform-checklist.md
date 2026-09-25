@@ -109,12 +109,14 @@ These items are not in the catalog:
 
 For each migrated Maven module that uses a Camunda Spring Boot starter:
 
-1. Before editing the POM, run `mvn help:effective-pom` and
+1. Before editing the POM, run `mvn help:effective-pom -Dverbose` and
    `mvn dependency:tree -Dverbose`. Record the imported BOMs and the resolved dependency families.
+   Trace each imported BOM's resolved version to the POM or property that supplies it.
 2. If an imported BOM does not resolve, record its coordinates and the exact Maven error. Check the
-   coordinates and configured repositories before changing the BOM. Never comment out a failing BOM
-   or replace selected managed artifacts with individual version pins to make the build pass.
-3. After editing the POM, run `mvn help:effective-pom`.
+   coordinates, inherited version source, and configured repositories before changing the BOM.
+   Never comment out a failing BOM or replace selected managed artifacts with individual version pins
+   to make the build pass.
+3. After editing the POM, run `mvn help:effective-pom -Dverbose`.
    Run `mvn dependency:tree -Dverbose` for the starter and existing cloud libraries.
    Inspect every resolved `io.grpc` artifact and its dependency path.
 4. Manage an incompatible gRPC family through a compatible `io.grpc:grpc-bom` in
@@ -125,14 +127,16 @@ For each migrated Maven module that uses a Camunda Spring Boot starter:
    not mock the bean or issue a cluster request in this test. The test does not require a reachable
    cluster.
 6. Record the failing and final `groupId:artifactId:version` values and their dependency paths in
-   `MIGRATION_REPORT.md`. Record the BOM decision, remediation, focused test command, and exit code
-   there.
+   `MIGRATION_REPORT.md`. Record the BOM coordinates, version source, decision, and remediation
+   there. Record the focused test command and exit code there.
    Never copy the full effective POM into the report.
 
 | Evidence | Required verdict |
 |---|---|
 | An unresolved BOM has no verified replacement | Block readiness. Fix the coordinates or repository. Ask the user before selecting a replacement. |
+| An imported BOM's effective version cannot be traced to the POM or property that supplies it | Block readiness until the version source is verified. |
 | The client context reports a `LinkageError` or a verified incompatible dependency family | Record a blocking finding. |
+| The focused client-context test fails or cannot run | Block readiness until it passes. Record the command, exit code, and error. Do not assign a classpath cause without evidence. |
 | The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
 
 ### Maven build wiring

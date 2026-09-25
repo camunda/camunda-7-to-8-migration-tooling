@@ -25,9 +25,11 @@ This evidence proves a gRPC compatibility defect. It does not explain every test
 
 1. Run the `migrate-c7-to-c8-code` skill on a Maven project with a Camunda Spring Boot starter and
    Google Cloud dependencies.
-2. Inspect `mvn help:effective-pom` and the dependency tree before and after POM changes. Keep the
-   Google Cloud BOM unless a documented dependency decision supports changing it. If Maven cannot
-   resolve the BOM, record the exact coordinates and error. Check the repository configuration
+2. Inspect `mvn help:effective-pom -Dverbose` and `mvn dependency:tree -Dverbose` before and after
+   POM changes.
+   Trace the Google Cloud BOM version to the POM or property that supplies it. Keep the BOM unless a
+   documented dependency decision supports changing it. If Maven cannot resolve the BOM, record the
+   exact coordinates and error. Check the inherited version source and repository configuration
    before changing the BOM.
 3. Inspect the dependency paths for the Camunda starter, Google Cloud libraries, and every
    `io.grpc` artifact. Use a compatible BOM in `<dependencyManagement>` to align an incompatible
@@ -68,9 +70,10 @@ This evidence proves a gRPC compatibility defect. It does not explain every test
    }
    ```
 
-5. Fail migration readiness if the focused test reports a `LinkageError` or the dependency tree
-   proves an incompatible family. A cluster that is unavailable during a separate API call is a
-   connectivity finding, not a passing startup test.
+5. Fail migration readiness if the focused test fails or cannot run. Record its command, exit code,
+   and error. Classify a dependency incompatibility only when the test reports a `LinkageError` or
+   the dependency tree proves an incompatible family. A cluster that is unavailable during a
+   separate API call is a connectivity finding, not a passing startup test.
 6. Record the failing and final artifact versions, the BOM resolution error, and the selected
    remediation in `MIGRATION_REPORT.md`. Record the focused test command and exit code there.
    Keep unrelated test failures separate from the gRPC finding.

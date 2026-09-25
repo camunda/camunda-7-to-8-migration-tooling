@@ -23,11 +23,13 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 ```
 
 **BOM alignment**: Preserve existing parent dependency management and imported BOMs unless
-inspection supports an explicit change. Inspect the effective POM and dependency tree for the
-Camunda starter and existing cloud libraries before changing dependency management. If a BOM does
-not resolve, record its coordinates and the exact Maven error. Inspect its coordinates and configured
-repositories before replacing or removing it. Never comment out an unresolved BOM and replace
-selected managed artifacts with isolated version pins.
+inspection supports an explicit change. Inspect `mvn help:effective-pom -Dverbose` and
+`mvn dependency:tree -Dverbose` for the Camunda starter and existing cloud libraries before changing
+dependency management. Trace each imported BOM's resolved version to the POM or property that
+supplies it. If a BOM does not resolve, record its coordinates and the exact Maven error. Check its
+coordinates, inherited version source, and configured repositories before replacing or removing it.
+Never comment out an unresolved BOM and replace selected managed artifacts with isolated version
+pins.
 
 For gRPC, inspect every resolved `io.grpc` artifact. Manage an incompatible gRPC family through a
 compatible `io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`,
@@ -37,10 +39,11 @@ remediation in `MIGRATION_REPORT.md`.
 
 **Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
 that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this
-focused test. The test does not require a reachable cluster. If bean creation fails with a
-`LinkageError` or a verified incompatible dependency family, record a blocking finding. A cluster
-connection failure during an API command is separate evidence and never proves that the classpath is
-compatible.
+focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,
+block readiness and record its command, exit code, and error. Classify the failure as a classpath
+incompatibility only when it reports a `LinkageError` or the resolved dependency graph proves an
+incompatible family. A cluster connection failure during an API command is separate evidence and
+never proves that the classpath is compatible.
 
 **Version resolution**: Resolve the latest released GA version from Maven Central's direct artifact metadata, for example `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available). From `<versions>`, select the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release. Do not use `search.maven.org`'s search API or the Camunda public repository metadata for this lookup.
 
