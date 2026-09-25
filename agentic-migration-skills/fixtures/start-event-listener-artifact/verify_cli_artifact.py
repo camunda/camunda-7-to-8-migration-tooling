@@ -12,6 +12,7 @@ from xml.etree import ElementTree
 CATEGORY = "execution-listener-on-start-event"
 NAMESPACES = {
     "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+    "camunda": "http://camunda.org/schema/1.0/bpmn",
     "zeebe": "http://camunda.org/schema/zeebe/1.0",
 }
 
@@ -56,6 +57,29 @@ def convert_case(java, jar, source, target_version, work_directory):
     return json.loads(report_file.read_text(encoding="utf-8")), converted_file
 
 
+def get_source_listener_implementation(source):
+    root = ElementTree.parse(source).getroot()
+    listeners = root.findall(
+        ".//bpmn:startEvent[@id='Start_Listener']/bpmn:extensionElements/"
+        "camunda:executionListener[@event='start']",
+        NAMESPACES,
+    )
+    require(
+        len(listeners) == 1,
+        "The source fixture must have exactly one start listener at Start_Listener.",
+    )
+    implementations = [
+        listeners[0].get(attribute)
+        for attribute in ("class", "expression", "delegateExpression")
+        if listeners[0].get(attribute)
+    ]
+    require(
+        len(implementations) == 1,
+        "The source listener must have exactly one implementation.",
+    )
+    return implementations[0]
+
+
 def find_start_listener(report):
     require(isinstance(report, list), "The converter JSON report must be an array.")
     require(
@@ -69,7 +93,7 @@ def find_start_listener(report):
     ]
 
 
-def require_listener_finding(report, source_name):
+def require_listener_finding(report, source_name, implementation):
     findings = find_start_listener(report)
     require(
         len(findings) == 1
@@ -77,6 +101,17 @@ def require_listener_finding(report, source_name):
         and findings[0].get("elementId") == "Start_Listener",
         f"The listener model must report exactly one matching {CATEGORY} "
         f"finding for {source_name} at Start_Listener.",
+    )
+    finding = findings[0]
+    require(
+        finding.get("severity") == "TASK",
+        f"The matching {CATEGORY} finding must have blocking TASK severity.",
+    )
+    require(
+        isinstance(finding.get("message"), str)
+        and implementation in finding["message"],
+        f"The matching {CATEGORY} finding message must include the source "
+        f"listener implementation {implementation!r}.",
     )
 
 
@@ -112,6 +147,7 @@ def main():
     fixture_directory = Path(__file__).resolve().parent / "c7-source"
     listener_source = fixture_directory / "start-listener.bpmn"
     control_source = fixture_directory / "no-listener.bpmn"
+    implementation = get_source_listener_implementation(listener_source)
 
     with tempfile.TemporaryDirectory(prefix="camunda-cli-artifact-check-") as temporary:
         temporary_directory = Path(temporary)
@@ -130,7 +166,9 @@ def main():
             temporary_directory / "control",
         )
 
-        require_listener_finding(listener_report, listener_source.name)
+        require_listener_finding(
+            listener_report, listener_source.name, implementation
+        )
         require_no_listener_findings(control_report)
         require(
             not has_unsupported_start_listener(listener_copy),

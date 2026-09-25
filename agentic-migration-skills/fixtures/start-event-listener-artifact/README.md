@@ -16,11 +16,12 @@ python3 verify_cli_artifact.py \
 ```
 
 The script runs both fixture models in fresh temporary directories. It requires
-the listener model to report `execution-listener-on-start-event` for the exact
-input filename and `Start_Listener` event. It also requires the converted copy to
-omit a `start` execution listener directly on a BPMN start event. The control
-model must not report that finding for any filename. A release that predates
-the fix in #2841 fails this check.
+the listener model to report one blocking `TASK`
+`execution-listener-on-start-event` finding for the exact input filename and
+`Start_Listener` event. The finding message must include the source listener
+implementation. The converted copy must omit a `start` execution listener
+directly on a BPMN start event. The control model must not report that finding
+for any filename. A release that predates the fix in #2841 fails this check.
 
 ## Check the migration workflow
 
