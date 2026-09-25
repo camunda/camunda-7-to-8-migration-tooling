@@ -100,6 +100,9 @@ These items are not in the catalog:
   `10-general/dependencies.md`. Record its uses, target compatibility, and action in
   `MIGRATION_REPORT.md`. A `org.camunda.bpm` group or package prefix does not prove that a
   dependency is engine-only.
+- If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
+  affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
+  an affected flow as migrated.
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:

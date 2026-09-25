@@ -262,10 +262,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
 2. **Camunda 7 dependencies** — inventory every dependency and its uses before removal. Record
    each dependency, use, classification, and decision in `MIGRATION_REPORT.md`. Treat a group ID
    starting with `org.camunda.bpm` as a review signal, not proof that a dependency is engine-only.
-   Follow `references/code-transform-checklist.md`.
+   Follow `references/code-transform-checklist.md`. If target compatibility remains unconfirmed,
+   then leave the active code unchanged. Record each affected call site as `blocked` with a manual
+   follow-up in `MIGRATION_REPORT.md`. Do not report an affected flow as migrated.
 3. **Camunda 7 imports** — search `org.camunda.bpm` and classify each match. Replace imports that
    depend on Camunda 7 engine APIs. Keep imports required by a retained, compatible domain library.
-   Record unresolved behavior as blocking/manual work in `MIGRATION_REPORT.md`.
+   Record unresolved behavior as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`.
 4. **Migration TODOs** — search for `// TODO` comments that OpenRewrite inserted or that mark
    migration work. Review each matching TODO and resolve or record it.
 5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.

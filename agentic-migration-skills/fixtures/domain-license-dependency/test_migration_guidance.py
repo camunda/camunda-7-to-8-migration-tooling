@@ -40,8 +40,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The dependency catalog must classify the group ID as a review signal.",
         )
         self.assertTrue(
-            "blocking/manual" in dependencies,
-            "The dependency catalog must require a blocker when no replacement is approved.",
+            "blocked" in dependencies and "manual follow-up" in dependencies,
+            "The dependency catalog must require a blocked status with manual follow-up.",
         )
 
         blocked_report_source = BLOCKED_REPORT_PATH.read_text().lower()
@@ -55,8 +55,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The blocked report must name the update call site.",
         )
         self.assertTrue(
-            "block both license flows" in blocked_report,
-            "The blocked report must state that both flows remain blocked.",
+            "both license flows incomplete" in blocked_report,
+            "The blocked report must state that both flows remain incomplete.",
         )
 
         self.assertIn(
@@ -93,7 +93,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("active domain library", classification)
         self.assertIn("review signal", classification)
         self.assertIn("no project-owner-approved replacement", decision)
-        self.assertIn("blocking/manual", decision)
+        self.assertIn("blocked", decision)
+        self.assertIn("manual follow-up", decision)
         self.assertIn("do not report either flow as migrated", decision)
         self.assertEqual(
             dependency,
@@ -110,7 +111,32 @@ class MigrationGuidanceTest(unittest.TestCase):
                     row for row in open_items.splitlines() if f"`{call_site}`" in row
                 ]
                 self.assertEqual(len(rows), 1, f"Expected one open item for {call_site}.")
-                self.assertIn("`blocking/manual`", rows[0])
+                self.assertIn("project owner must approve", rows[0])
+                self.assertIn("`blocked`", rows[0])
+
+    def test_unconfirmed_compatibility_blocks_migration(self):
+        skill = " ".join(SKILL_PATH.read_text().lower().split())
+        checklist = " ".join(CHECKLIST_PATH.read_text().lower().split())
+        dependencies = " ".join(DEPENDENCIES_PATH.read_text().lower().split())
+        unknown_compatibility = dependencies.split(
+            "| active library with unknown target compatibility", maxsplit=1
+        )[1].split("| active library is incompatible", maxsplit=1)[0]
+
+        self.assertIn("if compatibility remains unconfirmed", unknown_compatibility)
+        self.assertIn("leave the active code unchanged", unknown_compatibility)
+        self.assertIn("record each affected call site as `blocked`", unknown_compatibility)
+        self.assertIn("manual follow-up", unknown_compatibility)
+        self.assertIn("do not report those flows as migrated", unknown_compatibility)
+        self.assertIn("record each affected call site as `blocked`", skill)
+        self.assertIn("if target compatibility remains unconfirmed", checklist)
+
+    def test_blocked_report_uses_the_skill_status_contract(self):
+        skill = " ".join(SKILL_PATH.read_text().lower().split())
+        report = " ".join(BLOCKED_REPORT_PATH.read_text().lower().split())
+
+        self.assertIn("no item has `deferred` or `blocked` status", skill)
+        self.assertIn("| call site | manual follow-up | status |", report)
+        self.assertNotIn("`blocking/manual`", report)
 
 
 if __name__ == "__main__":

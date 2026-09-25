@@ -206,7 +206,7 @@ form-free user task and a user task carrying assignment and form metadata.
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture checks that a
 compatible active library under an `org.camunda.bpm` group survives migration. Its tests cover both
 synthetic license types and the downstream membership update. Its blocked-case report shows the
-manual finding required when the project owner has not approved a replacement.
+blocked finding and manual follow-up required when the project owner has not approved a replacement.
 
 ## License
 
