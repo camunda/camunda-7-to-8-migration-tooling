@@ -31,9 +31,12 @@ reserved validation files. They reject converted model symlinks that resolve out
 root without parsing the linked files.
 They also reject standalone processes without passing worker-input inventory evidence, omitted
 missing-input direct-start scenarios, and malformed report gates that leave stale `READY` claims.
+The tests reject executed checks that reuse evidence files.
+They reject unmarked readiness claims.
+They preserve report sections between duplicate gates.
+They leave unmatched gates without safe boundaries untouched.
 The tests reject mismatched source form IDs, runtime-scan symlinks outside the project root, and
-module suite discovery after path validation fails. They preserve later report sections and leave
-ambiguous malformed gates untouched.
+module suite discovery after path validation fails.
 The tests reject symlink and hard-link source aliases, XML type mismatches, and non-empty DMN
 process or timer inventories. They reject `runtime_mode: none` when `src/main`, `pom.xml`, or a JAR
 in `target/` exposes runtime entry-point markers, including qualified Spring Boot annotations and

@@ -102,8 +102,15 @@ def write_unit_suite_configuration(project_root, module_path):
     )
 
 
-def passing_module_manifest(module_path):
+def write_evidence_file(project_root, evidence_path):
+    evidence_file = project_root / evidence_path
+    evidence_file.parent.mkdir(parents=True, exist_ok=True)
+    evidence_file.write_text("check completed\n", encoding="utf-8")
+
+
+def passing_module_manifest(module_path, project_root):
     checks = []
+    module_slug = module_path.replace("/", "_")
     for kind in gate.MODULE_CHECKS:
         if kind in {
             "spring_boot_run",
@@ -119,20 +126,28 @@ def passing_module_manifest(module_path):
                 )
             )
         else:
+            evidence_path = "{}/{}-{}.log".format(
+                LOG_DIRECTORY, module_slug, kind
+            )
+            write_evidence_file(project_root, evidence_path)
             checks.append(
                 passing_check(
                     "module",
                     module_path,
                     kind,
-                    LOG_DIRECTORY + "/pass.log",
+                    evidence_path,
                 )
             )
+    test_evidence_path = "{}/{}-tests-unit.log".format(
+        LOG_DIRECTORY, module_slug
+    )
+    write_evidence_file(project_root, test_evidence_path)
     checks.append(
         passing_check(
             "module",
             module_path,
             "tests",
-            LOG_DIRECTORY + "/pass.log",
+            test_evidence_path,
             "unit",
         )
     )
@@ -442,6 +457,86 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual(report_text.count(gate.REPORT_START), 1)
             self.assertEqual(report_text.count(gate.REPORT_END), 1)
 
+    def test_markerless_validation_status_is_replaced_with_not_ready(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            report = project_root / "MIGRATION_REPORT.md"
+            report.write_text(
+                "Migration findings.\n\n"
+                "**Validation gate:** **READY**\n\n"
+                "## Open items\n\nKeep this decision.\n",
+                encoding="utf-8",
+            )
+
+            completed = self.run_gate(project_root)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "malformed validation gate block" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            report_text = report.read_text(encoding="utf-8")
+            self.assertIn("Migration findings.", report_text)
+            self.assertIn("## Open items", report_text)
+            self.assertIn("Keep this decision.", report_text)
+            self.assertIn("**Validation gate:** **NOT READY**", report_text)
+            self.assertNotIn("**Validation gate:** **READY**", report_text)
+
+    def test_duplicate_report_gate_pairs_preserve_intervening_sections(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            report = project_root / "MIGRATION_REPORT.md"
+            gate_block = (
+                gate.REPORT_START
+                + "\n## Aggregate validation gate\n\n"
+                + "**Validation gate:** **READY**\n"
+                + gate.REPORT_END
+            )
+            report.write_text(
+                "Migration findings.\n\n"
+                + gate_block
+                + "\n\n## Open items\n\nKeep this decision.\n\n"
+                + gate_block
+                + "\n\n## Decisions\n\nKeep this decision too.\n",
+                encoding="utf-8",
+            )
+
+            completed = self.run_gate(project_root)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "malformed validation gate block" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            report_text = report.read_text(encoding="utf-8")
+            self.assertIn("Migration findings.", report_text)
+            self.assertIn("## Open items\n\nKeep this decision.", report_text)
+            self.assertIn("## Decisions\n\nKeep this decision too.", report_text)
+            self.assertIn("**Validation gate:** **NOT READY**", report_text)
+            self.assertNotIn("**Validation gate:** **READY**", report_text)
+            self.assertEqual(report_text.count(gate.REPORT_START), 1)
+            self.assertEqual(report_text.count(gate.REPORT_END), 1)
+
     def test_unbounded_malformed_report_gate_is_left_untouched(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary) / "project"
@@ -682,7 +777,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                     (log_directory / "pass.log").write_text(
                         "check completed\n", encoding="utf-8"
                     )
-                    manifest = passing_module_manifest("examples/web")
+                    manifest = passing_module_manifest(
+                        "examples/web", project_root
+                    )
                     duplicate_module = dict(manifest["modules"][0])
                     duplicate_module["path"] = alias
                     manifest["modules"].append(duplicate_module)
@@ -738,7 +835,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 wraps=gate.detect_module_test_suites,
             ) as detect_test_suites:
                 summary = gate.validate_manifest(
-                    passing_module_manifest("service"),
+                    passing_module_manifest("service", project_root),
                     project_root,
                 )
 
@@ -1818,7 +1915,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
             )
-            manifest = passing_module_manifest("service")
+            manifest = passing_module_manifest("service", project_root)
             write_step2_inventory(
                 project_root,
                 ["service", "omitted-module"],
@@ -2107,20 +2204,28 @@ class ValidationEvidenceTest(unittest.TestCase):
                         )
                     )
                 else:
+                    evidence_path = "{}/{}-{}.log".format(
+                        LOG_DIRECTORY, module_path, kind
+                    )
+                    write_evidence_file(project_root, evidence_path)
                     checks.append(
                         passing_check(
                             "module",
                             module_path,
                             kind,
-                            LOG_DIRECTORY + "/pass.log",
+                            evidence_path,
                         )
                     )
+            test_evidence_path = "{}/{}-tests-unit.log".format(
+                LOG_DIRECTORY, module_path
+            )
+            write_evidence_file(project_root, test_evidence_path)
             checks.append(
                 passing_check(
                     "module",
                     module_path,
                     "tests",
-                    LOG_DIRECTORY + "/pass.log",
+                    test_evidence_path,
                     "unit",
                 )
             )
@@ -2174,12 +2279,17 @@ class ValidationEvidenceTest(unittest.TestCase):
             manifest["modules"][0]["test_suites"].append(
                 {"name": "integration", "requires_docker": False}
             )
+            unit_evidence_path = next(
+                check["evidence_path"]
+                for check in checks
+                if check.get("kind") == "tests"
+            )
             checks.append(
                 passing_check(
                     "module",
                     module_path,
                     "tests",
-                    LOG_DIRECTORY + "/pass.log",
+                    unit_evidence_path,
                     "integration",
                 )
             )
@@ -2347,7 +2457,7 @@ class ValidationEvidenceTest(unittest.TestCase):
 
                     write_step2_inventory(project_root, [module_path], [])
                     summary = gate.validate_manifest(
-                        passing_module_manifest(module_path),
+                        passing_module_manifest(module_path, project_root),
                         project_root,
                     )
 
@@ -2423,7 +2533,7 @@ class ValidationEvidenceTest(unittest.TestCase):
 
                     write_step2_inventory(project_root, [module_path], [])
                     summary = gate.validate_manifest(
-                        passing_module_manifest(module_path),
+                        passing_module_manifest(module_path, project_root),
                         project_root,
                     )
 
@@ -2475,7 +2585,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                         unit_log_path.write_text(
                             "test suite completed\n", encoding="utf-8"
                         )
-                        module_manifest = passing_module_manifest(module_path)
+                        module_manifest = passing_module_manifest(
+                            module_path, project_root
+                        )
                         test_check = next(
                             check
                             for check in module_manifest["checks"]
@@ -2524,6 +2636,53 @@ class ValidationEvidenceTest(unittest.TestCase):
                         summary["blockers"],
                     )
 
+    def test_module_checks_reject_a_shared_evidence_file(self):
+        for alias_type in ("same_path", "symlink", "hard_link"):
+            with self.subTest(alias_type=alias_type):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    module_path = "service"
+                    (project_root / module_path).mkdir()
+                    write_unit_suite_configuration(project_root, module_path)
+                    manifest = passing_module_manifest(
+                        module_path, project_root
+                    )
+                    write_step2_inventory(project_root, [module_path], [])
+
+                    check_kinds = {"migration_todos", "business_keys"}
+                    checks = [
+                        check
+                        for check in manifest["checks"]
+                        if check["kind"] in check_kinds
+                    ]
+                    self.assertEqual(len(checks), 2)
+                    duplicate_path = checks[0]["evidence_path"]
+                    if alias_type != "same_path":
+                        alias_path = "{}/alias-{}.log".format(
+                            LOG_DIRECTORY, alias_type
+                        )
+                        original_file = project_root / duplicate_path
+                        alias_file = project_root / alias_path
+                        if alias_type == "symlink":
+                            alias_file.symlink_to(original_file)
+                        else:
+                            os.link(original_file, alias_file)
+                        duplicate_path = alias_path
+                    checks[1]["evidence_path"] = duplicate_path
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(summary["readiness"], "not_ready")
+                    self.assertTrue(
+                        any(
+                            "distinct evidence file" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
+
     def test_spring_boot_runtime_accepts_either_launch_strategy(self):
         for launch_kind in ("spring_boot_run", "executable_jar"):
             with self.subTest(launch_kind=launch_kind):
@@ -2539,7 +2698,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                     (log_directory / "pass.log").write_text(
                         "check completed\n", encoding="utf-8"
                     )
-                    manifest = passing_module_manifest(module_path)
+                    manifest = passing_module_manifest(
+                        module_path, project_root
+                    )
                     manifest["modules"][0]["runtime_mode"] = "spring-boot"
                     for index, check in enumerate(manifest["checks"]):
                         if check.get("kind") == launch_kind:
@@ -2636,30 +2797,42 @@ class ValidationEvidenceTest(unittest.TestCase):
                         )
                     )
                 elif kind == "external_launcher":
+                    evidence_path = "{}/{}-{}.log".format(
+                        LOG_DIRECTORY, module_path, kind
+                    )
+                    write_evidence_file(project_root, evidence_path)
                     checks.append(
                         passing_check(
                             "module",
                             module_path,
                             kind,
-                            LOG_DIRECTORY + "/pass.log",
+                            evidence_path,
                             environment="local",
                         )
                     )
                 else:
+                    evidence_path = "{}/{}-{}.log".format(
+                        LOG_DIRECTORY, module_path, kind
+                    )
+                    write_evidence_file(project_root, evidence_path)
                     checks.append(
                         passing_check(
                             "module",
                             module_path,
                             kind,
-                            LOG_DIRECTORY + "/pass.log",
+                            evidence_path,
                         )
                     )
+            test_evidence_path = "{}/{}-tests-unit.log".format(
+                LOG_DIRECTORY, module_path
+            )
+            write_evidence_file(project_root, test_evidence_path)
             checks.append(
                 passing_check(
                     "module",
                     module_path,
                     "tests",
-                    LOG_DIRECTORY + "/pass.log",
+                    test_evidence_path,
                     "unit",
                 )
             )
@@ -2765,7 +2938,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                     (log_directory / "pass.log").write_text(
                         "test suite completed\n", encoding="utf-8"
                     )
-                    manifest = passing_module_manifest(module_path)
+                    manifest = passing_module_manifest(
+                        module_path, project_root
+                    )
                     write_step2_inventory(project_root, [module_path], [])
 
                     summary = gate.validate_manifest(manifest, project_root)
@@ -2811,7 +2986,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             (log_directory / "pass.log").write_text(
                 "test suite completed\n", encoding="utf-8"
             )
-            manifest = passing_module_manifest(module_path)
+            manifest = passing_module_manifest(
+                module_path, project_root
+            )
             manifest["modules"][0]["test_suites"] = [
                 {"name": "integration-tests", "requires_docker": False}
             ]
@@ -2870,7 +3047,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     (log_directory / "pass.log").write_text(
                         "test suite completed\n", encoding="utf-8"
                     )
-                    manifest = passing_module_manifest(module_path)
+                    manifest = passing_module_manifest(module_path, project_root)
                     manifest["modules"][0]["test_suites"] = [
                         {
                             "name": "integrationTest",
@@ -2908,7 +3085,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             (log_directory / "pass.log").write_text(
                 "test suite completed\n", encoding="utf-8"
             )
-            manifest = passing_module_manifest(module_path)
+            manifest = passing_module_manifest(
+                module_path, project_root
+            )
             manifest["modules"][0]["test_suites"][0]["name"] = "invented"
             test_check = next(
                 check
@@ -3012,7 +3191,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             (log_directory / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
             )
-            manifest = passing_module_manifest(module_path)
+            manifest = passing_module_manifest(module_path, project_root)
             manifest["modules"][0]["test_suites"][0]["requires_docker"] = True
             docker_probe = passing_check(
                 "project",

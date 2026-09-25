@@ -2176,6 +2176,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
     counts = Counter()
     seen = {}
     seen_indices = {}
+    check_evidence_identities = {}
     test_evidence_paths = []
     test_commands = {}
     for index, check in enumerate(checks):
@@ -2277,6 +2278,25 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 error,
                 excluded_paths,
             )
+        if (
+            resolved_evidence_path is not None
+            and isinstance(result, str)
+            and result in {"passed", "failed", "blocked", "unknown"}
+        ):
+            evidence_stat = resolved_evidence_path.stat()
+            evidence_identity = (evidence_stat.st_dev, evidence_stat.st_ino)
+            duplicate_evidence = check_evidence_identities.get(
+                evidence_identity
+            )
+            if duplicate_evidence is not None:
+                error(
+                    "{} reuses the evidence file for {}. Each executed check "
+                    "must use a distinct evidence file".format(
+                        location, duplicate_evidence
+                    )
+                )
+            else:
+                check_evidence_identities[evidence_identity] = location
         if (
             target_type == "module"
             and kind == "tests"
@@ -2678,15 +2698,46 @@ def find_markerless_legacy_gate(contents):
         r"(?m)^## Aggregate validation gate[ \t]*$"
     )
     status_pattern = re.compile(r"(?m)^\*\*Validation gate:\*\*[^\n]*$")
-    for heading in heading_pattern.finditer(contents):
-        if contents[:heading.start()].rstrip().endswith(REPORT_START):
+    for status in status_pattern.finditer(contents):
+        marker_start = contents.rfind(REPORT_START, 0, status.start())
+        marker_end = contents.rfind(REPORT_END, 0, status.start())
+        if marker_start > marker_end:
             continue
-        section_end = next_report_section(contents, heading.end())
-        if section_end is None:
-            section_end = len(contents)
-        if status_pattern.search(contents, heading.end(), section_end):
-            return heading.start(), section_end
+        for heading in reversed(
+            [
+                match
+                for match in heading_pattern.finditer(contents)
+                if match.start() < status.start()
+            ]
+        ):
+            section_end = next_report_section(contents, heading.end())
+            if section_end is None or status.start() < section_end:
+                if section_end is None:
+                    return status.start(), status.end()
+                return heading.start(), section_end
+        return status.start(), status.end()
     return None
+
+
+def find_report_marker_regions(contents):
+    marker_pattern = re.compile(
+        "{}|{}".format(re.escape(REPORT_START), re.escape(REPORT_END))
+    )
+    regions = []
+    open_start = None
+    for marker in marker_pattern.finditer(contents):
+        if marker.group() == REPORT_START:
+            if open_start is not None:
+                return None
+            open_start = marker.start()
+        elif open_start is None:
+            return None
+        else:
+            regions.append((open_start, marker.end()))
+            open_start = None
+    if open_start is not None:
+        return None
+    return regions
 
 
 def remove_report_region(contents, start, end):
@@ -2707,6 +2758,12 @@ def remove_malformed_report_gate(contents):
         if end == len(contents):
             return original, False
         contents = remove_report_region(contents, start, end)
+
+    marker_regions = find_report_marker_regions(contents)
+    if marker_regions is not None:
+        for start, end in reversed(marker_regions):
+            contents = remove_report_region(contents, start, end)
+        return contents, contents != original
 
     start_positions = [
         match.start() for match in re.finditer(re.escape(REPORT_START), contents)

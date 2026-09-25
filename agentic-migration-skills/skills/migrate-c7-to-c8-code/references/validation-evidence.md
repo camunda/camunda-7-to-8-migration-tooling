@@ -197,8 +197,10 @@ manifest.
 Run each selected runtime launch check only with local or non-production settings. Never start a
 production worker as a validation probe.
 
-Run each module and test suite independently. Use a distinct command and evidence file for each
-suite. The validator enforces this contract across all modules.
+Run each required check independently.
+Give each executed check a distinct evidence file.
+Give each test suite a distinct command.
+The validator enforces this contract across all modules.
 The validator adds `unit` for Maven modules with JVM test sources or an active
 `maven-surefire-plugin`. It adds `test` for Gradle builds with a test-capable plugin or JVM test
 sources. Use `unit` for the default Maven Surefire suite. Use `test` for the default Gradle task.
@@ -293,9 +295,10 @@ The validator requires all check records derived from the module, model, process
 inventories. It compares manifest paths with the independent Step 2 inventory. It rejects
 duplicate, missing, unexpected, or malformed records. It rejects a passing
 command without exit code 0 or a non-empty evidence file. It rejects manual evidence for an
-unlisted check kind. It rejects evidence outside the validation log directory and reused test-suite
-commands or evidence. It rejects a timer preflight without an isolation or cleanup plan. It rejects
-an unsafe deployment environment.
+unlisted check kind. It rejects evidence outside the validation log directory.
+It rejects evidence files reused by executed checks and reused test-suite commands.
+It rejects a timer preflight without an isolation or cleanup plan. It rejects an unsafe deployment
+environment.
 
 | Check result | Gate effect |
 |---|---|
@@ -312,6 +315,9 @@ reports a missing or malformed record. Re-run failed checks before changing thei
 The validator writes the aggregate gate block in `MIGRATION_REPORT.md`. Use that block as the
 validation-readiness summary. The gate does not replace the migration exit criteria in `SKILL.md`.
 Never report the migration as ready when the gate says `NOT READY`.
-A markerless legacy aggregate gate with a validation status is malformed. The validator replaces a
-malformed gate only when it can identify a safe section boundary. If the validator cannot identify
-a safe boundary, then it leaves the report unchanged and writes a `NOT READY` summary.
+A validation-status line outside a complete marked gate is malformed.
+The validator removes a markerless gate section when the next heading provides a safe boundary.
+If no section boundary exists, then the validator removes only the status line.
+The validator removes duplicate marker regions separately to preserve intervening report sections.
+If unmatched markers do not provide a safe boundary, then the validator leaves the report
+unchanged and writes a `NOT READY` summary.

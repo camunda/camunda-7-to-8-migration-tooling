@@ -1,1 +1,1 @@
-Target-compatible lint reported 44 errors across ten converted BPMN resources.
+Target-compatible lint reported errors for models/converted-c8-order.bpmn.
