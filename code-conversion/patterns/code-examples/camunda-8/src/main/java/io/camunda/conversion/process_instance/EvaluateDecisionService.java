@@ -33,14 +33,24 @@ public class EvaluateDecisionService {
     }
 
     static String extractSlaPackageId(EvaluateDecisionResponse response) throws JsonProcessingException {
-        if (response == null || response.getDecisionOutput() == null) {
+        if (response == null) {
             return null;
         }
-        JsonNode output = OBJECT_MAPPER.readTree(response.getDecisionOutput());
+        return extractSlaPackageIdFromOutput(response.getDecisionOutput());
+    }
+
+    static String extractSlaPackageIdFromOutput(String decisionOutput) throws JsonProcessingException {
+        if (decisionOutput == null) {
+            return null;
+        }
+        JsonNode output = OBJECT_MAPPER.readTree(decisionOutput);
         if (output == null) {
             throw new IllegalStateException("Decision output is empty");
         }
         if (output.isNull()) {
+            return null;
+        }
+        if ((output.isObject() || output.isArray()) && output.isEmpty()) {
             return null;
         }
         if (!output.isObject()) {

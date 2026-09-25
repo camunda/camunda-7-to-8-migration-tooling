@@ -8,13 +8,16 @@
 package io.camunda.conversion.process_instance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class EvaluateDecisionServiceTest {
 
@@ -42,10 +45,31 @@ class EvaluateDecisionServiceTest {
                 .containsEntry("account", "acme");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "[]"})
+    void shouldReturnNullForEmptyDecisionOutput(String decisionOutput) throws JsonProcessingException {
+        assertThat(EvaluateDecisionService.extractSlaPackageIdFromOutput(decisionOutput)).isNull();
+    }
+
+    @ParameterizedTest
+    @MethodSource("malformedDecisionOutputs")
+    void shouldRejectMalformedNonEmptyDecisionOutput(String decisionOutput, String message) {
+        assertThatThrownBy(() -> EvaluateDecisionService.extractSlaPackageIdFromOutput(decisionOutput))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(message);
+    }
+
     private static Stream<Arguments> nullableInputs() {
         return Stream.of(
                 Arguments.of(null, "priority", "acme", "sla"),
                 Arguments.of("gold", null, "acme", "tier"),
                 Arguments.of("gold", "priority", null, "account"));
+    }
+
+    private static Stream<Arguments> malformedDecisionOutputs() {
+        return Stream.of(
+                Arguments.of("{\"matchedRule\":\"complete\"}", "Decision output is missing slaPackageId"),
+                Arguments.of("[\"complete\"]", "Expected decision output to be a JSON object"),
+                Arguments.of("{\"slaPackageId\":42}", "Expected slaPackageId to be a string"));
     }
 }

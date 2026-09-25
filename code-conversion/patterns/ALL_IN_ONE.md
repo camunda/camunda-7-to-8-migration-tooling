@@ -638,6 +638,7 @@ Preserve any source guard that skips evaluation when a required input is absent.
 -   naming follows the same swap as process definitions: the C7 *decision definition key* (the id in the DMN XML) is the C8 `decisionId`; the C8 `decisionKey` is the unique key assigned on deployment
 -   using `decisionId` evaluates the latest deployed version
 -   `response.getDecisionOutput()` is a JSON-encoded string; parse it using the output shape of the target decision
+-   when the target decision returns an empty object or array for no matching rules, return `null` and keep validating non-empty outputs against the expected shape
 -   `response.getEvaluatedDecisions()` contains details of all evaluated (required) decisions
 -   `DmnDecisionTableResult` convenience methods like `getSingleEntry()` have no direct equivalent — parse the JSON output instead
 -   test a missing required input, each nullable input, the complete input set, matching and nonmatching rules, and the expected return value against the target Camunda version
