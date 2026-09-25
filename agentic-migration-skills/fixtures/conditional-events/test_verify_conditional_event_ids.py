@@ -65,6 +65,19 @@ class ConditionalEventDefinitionIdTests(unittest.TestCase):
             failures,
         )
 
+    def test_rejects_moving_unique_source_definition_ids_between_events(self):
+        failures = self.check_documents(
+            (None, "Definition_Keep_One", "Definition_Keep_Two"),
+            ("Definition_Generated", "Definition_Keep_Two", "Definition_Keep_One"),
+        )
+
+        self.assertIn(
+            "unique source conditional event definition ID "
+            "'Definition_Keep_One' moved from event 'Boundary_2' to event "
+            "'Boundary_3'",
+            failures,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

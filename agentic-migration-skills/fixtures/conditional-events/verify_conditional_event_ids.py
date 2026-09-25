@@ -62,6 +62,24 @@ def ids_for_types(root, local_names):
     )
 
 
+def owning_event_ids(root, definitions):
+    parents = {child: parent for parent in root.iter() for child in parent}
+    owner_ids = []
+    for definition in definitions:
+        owner = parents.get(definition)
+        while owner is not None:
+            if (
+                owner.tag.startswith(f"{{{BPMN}}}")
+                and owner.tag.rsplit("}", 1)[-1] in BPMN_EVENTS
+            ):
+                owner_ids.append(owner.get("id"))
+                break
+            owner = parents.get(owner)
+        else:
+            owner_ids.append(None)
+    return owner_ids
+
+
 def check(source_path, converted_path):
     source_root = ET.parse(source_path).getroot()
     converted_root = ET.parse(converted_path).getroot()
@@ -69,6 +87,8 @@ def check(source_path, converted_path):
     converted_definitions = descendants(
         converted_root, BPMN, "conditionalEventDefinition"
     )
+    source_owner_ids = owning_event_ids(source_root, source_definitions)
+    converted_owner_ids = owning_event_ids(converted_root, converted_definitions)
     failures = []
 
     if not source_definitions:
@@ -114,20 +134,43 @@ def check(source_path, converted_path):
     if len(set(definition_ids)) != len(definition_ids):
         failures.append("converted conditional event definition IDs are not unique")
 
-    for definition_id in sorted(
-        {
-            (definition.get("id") or "").strip()
-            for definition in source_definitions
-        }
-    ):
-        if (
-            definition_id
-            and source_id_counts[definition_id] == 1
-            and definition_id not in definition_ids
-        ):
+    converted_owner_ids_by_definition_id = {}
+    for definition, owner_id in zip(converted_definitions, converted_owner_ids):
+        definition_id = (definition.get("id") or "").strip()
+        if definition_id:
+            converted_owner_ids_by_definition_id.setdefault(
+                definition_id, []
+            ).append(owner_id)
+
+    for definition, source_owner_id in zip(source_definitions, source_owner_ids):
+        definition_id = (definition.get("id") or "").strip()
+        if not definition_id or source_id_counts[definition_id] != 1:
+            continue
+        converted_owners = converted_owner_ids_by_definition_id.get(definition_id, [])
+        if not converted_owners:
             failures.append(
                 f"unique source conditional event definition ID "
                 f"{definition_id!r} was not preserved"
+            )
+            continue
+        if len(converted_owners) != 1:
+            continue
+        converted_owner_id = converted_owners[0]
+        if not source_owner_id or not source_owner_id.strip():
+            failures.append(
+                f"unique source conditional event definition ID "
+                f"{definition_id!r} has no owning event ID"
+            )
+        elif not converted_owner_id or not converted_owner_id.strip():
+            failures.append(
+                f"converted conditional event definition ID "
+                f"{definition_id!r} has no owning event ID"
+            )
+        elif source_owner_id != converted_owner_id:
+            failures.append(
+                f"unique source conditional event definition ID "
+                f"{definition_id!r} moved from event {source_owner_id!r} "
+                f"to event {converted_owner_id!r}"
             )
 
     for local_names, label in (
