@@ -103,7 +103,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // if match is found for the invocation, check returnTypeFqn to adjust variable
                 // declaration type
-                if (spec.matcher().matches(invocation)) {
+                if (spec.matcher().matches(invocation) && receiverTypeMatches(spec, invocation)) {
 
                   // nothing to do if type stays the same
                   if (spec.returnTypeStrategy()
@@ -241,7 +241,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
               // if match is found for the invocation, check returnTypeFqn to adjust variable
               // declaration type
-              if (spec.matcher().matches(invocation)) {
+              if (spec.matcher().matches(invocation) && receiverTypeMatches(spec, invocation)) {
 
                 // nothing to do if type stays the same
                 if (spec.returnTypeStrategy()
@@ -371,29 +371,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
-                Map<String, Expression> collectedArgs = new HashMap<>();
-                Expression current = invocation.getSelect();
-
-                // extract arguments
-                while (current instanceof J.MethodInvocation mi) {
-                  String name = mi.getSimpleName();
-                  if (!mi.getArguments().isEmpty()
-                      && !(mi.getArguments().get(0) instanceof J.Empty)) {
-                    collectedArgs.put(name, mi.getArguments().get(0));
-                  }
-                  current = mi.getSelect();
-                }
+                Map<String, Expression> collectedArgs = collectBuilderArguments(invocation);
 
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                   if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
-                      && spec.receiverTypeFqn()
-                          .map(
-                              fqn ->
-                                  invocation.getSelect() != null
-                                      && TypeUtils.isOfClassType(
-                                          invocation.getSelect().getType(), fqn))
-                          .orElse(true)) {
+                      && receiverTypeMatches(spec, invocation)) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -501,6 +484,16 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 .anyMatch(matcher -> matcher.matches(queryTerminal));
           }
 
+          private boolean receiverTypeMatches(
+              ReplacementUtils.ReplacementSpec spec, J.MethodInvocation invocation) {
+            return spec.receiverTypeFqn()
+                .map(
+                    fqn ->
+                        invocation.getSelect() != null
+                            && TypeUtils.isOfClassType(invocation.getSelect().getType(), fqn))
+                .orElse(true);
+          }
+
           private J.MethodInvocation replaceCountBuilderInvocation(
               J.MethodInvocation replacementTarget,
               J.MethodInvocation queryTerminal,
@@ -516,13 +509,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                 if (!collectedArguments.keySet().equals(spec.methodNamesToExtractParameters())
                     || !supportsCountedQuery(queryTerminal)
-                    || !spec.receiverTypeFqn()
-                        .map(
-                            fqn ->
-                                queryTerminal.getSelect() != null
-                                    && TypeUtils.isOfClassType(
-                                        queryTerminal.getSelect().getType(), fqn))
-                        .orElse(true)) {
+                    || !receiverTypeMatches(spec, queryTerminal)) {
                   continue;
                 }
 
@@ -561,10 +548,20 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             Expression current = invocation.getSelect();
 
             while (current instanceof J.MethodInvocation methodInvocation) {
-              if (!methodInvocation.getArguments().isEmpty()
-                  && !(methodInvocation.getArguments().get(0) instanceof J.Empty)) {
-                collectedArguments.put(
-                    methodInvocation.getSimpleName(), methodInvocation.getArguments().get(0));
+              List<Expression> arguments = methodInvocation.getArguments();
+              for (int i = 0; i < arguments.size(); i++) {
+                Expression argument = arguments.get(i);
+                if (argument instanceof J.Empty) {
+                  continue;
+                }
+
+                String argumentName =
+                    i == 0
+                        ? methodInvocation.getSimpleName()
+                        : methodInvocation.getSimpleName() + "Arg" + i;
+                if (collectedArguments.putIfAbsent(argumentName, argument) != null) {
+                  collectedArguments.put(argumentName + "Duplicate", argument);
+                }
               }
               current = methodInvocation.getSelect();
             }
