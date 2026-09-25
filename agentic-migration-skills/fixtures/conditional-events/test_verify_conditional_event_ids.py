@@ -1,4 +1,4 @@
-"""Regression tests for conditional event definition ID preservation."""
+"""Regression tests for conditional event definition ID validation."""
 
 from pathlib import Path
 import tempfile
@@ -45,13 +45,63 @@ class ConditionalEventDefinitionIdTests(unittest.TestCase):
             converted_path.write_text(document(converted_ids), encoding="utf-8")
             return verify_conditional_event_ids.check(source_path, converted_path)
 
-    def test_preserves_each_unique_nonempty_source_definition_id(self):
+    def test_generates_id_for_idless_source_and_preserves_unique_source_ids(self):
         failures = self.check_documents(
             (None, "Definition_Keep_One", "Definition_Keep_Two"),
             ("Definition_Generated", "Definition_Keep_One", "Definition_Keep_Two"),
         )
 
         self.assertEqual([], failures)
+
+    def test_regenerates_nonunique_source_definition_ids(self):
+        failures = self.check_documents(
+            (None, "Definition_Duplicate", "Definition_Duplicate"),
+            (
+                "Definition_Generated",
+                "Definition_Generated_One",
+                "Definition_Generated_Two",
+            ),
+        )
+
+        self.assertEqual([], failures)
+
+    def test_rejects_preserving_a_nonunique_source_definition_id(self):
+        failures = self.check_documents(
+            (None, "Definition_Duplicate", "Definition_Duplicate"),
+            (
+                "Definition_Generated",
+                "Definition_Duplicate",
+                "Definition_Generated_Two",
+            ),
+        )
+
+        self.assertIn(
+            "nonunique source conditional event definition ID "
+            "'Definition_Duplicate' was preserved",
+            failures,
+        )
+
+    def test_rejects_a_missing_converted_definition_id(self):
+        failures = self.check_documents(
+            (None, "Definition_Keep"),
+            (None, "Definition_Keep"),
+        )
+
+        self.assertIn(
+            "converted conditional event definition 1 has no nonempty ID",
+            failures,
+        )
+
+    def test_rejects_duplicate_converted_definition_ids(self):
+        failures = self.check_documents(
+            (None, "Definition_Keep"),
+            ("Definition_Generated", "Definition_Generated"),
+        )
+
+        self.assertIn(
+            "converted conditional event definition IDs are not unique",
+            failures,
+        )
 
     def test_rejects_renaming_a_unique_source_definition_id(self):
         failures = self.check_documents(

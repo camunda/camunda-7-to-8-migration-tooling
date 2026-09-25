@@ -59,6 +59,7 @@ behavior.
 | Source conditional definition | At least one definition has no `id`. |
 | Converted conditional definitions | Every definition has a nonempty, unique `id`. |
 | Existing conditional definition IDs | Each unique source ID remains on its original event. |
+| Nonunique source definition IDs | Conditional definitions do not retain nonunique source IDs. |
 | Existing BPMN IDs | Event and sequence-flow IDs remain unchanged. |
 | BPMN DI | Diagram, shapes, edges, geometry, and references remain unchanged. |
 | Runtime | The converted copy deploys and the conditional boundary completes the process. |

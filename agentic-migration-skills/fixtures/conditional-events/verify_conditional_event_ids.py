@@ -131,8 +131,22 @@ def check(source_path, converted_path):
                 f"conditional event definition {index} ID {element_id!r} "
                 "is not unique in the XML document"
             )
-    if len(set(definition_ids)) != len(definition_ids):
+    converted_definition_id_set = set(definition_ids)
+    if len(converted_definition_id_set) != len(definition_ids):
         failures.append("converted conditional event definition IDs are not unique")
+
+    nonunique_source_definition_ids = set()
+    for definition in source_definitions:
+        element_id = (definition.get("id") or "").strip()
+        if element_id and source_id_counts[element_id] != 1:
+            nonunique_source_definition_ids.add(element_id)
+    for element_id in sorted(
+        nonunique_source_definition_ids & converted_definition_id_set
+    ):
+        failures.append(
+            f"nonunique source conditional event definition ID "
+            f"{element_id!r} was preserved"
+        )
 
     converted_owner_ids_by_definition_id = {}
     for definition, owner_id in zip(converted_definitions, converted_owner_ids):
