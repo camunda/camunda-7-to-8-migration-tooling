@@ -11,7 +11,7 @@ client and the SLF4J API, but no SLF4J provider.
 2. Run the skill's Step 4 validation against `expected-c8` as the migrated runtime
    module. Do not change its POM or approve a logging exception before the skill
    reports the gap.
-3. Run the following commands from the repository root:
+3. From the repository root, inspect the runtime dependencies:
 
    ```sh
    mvn -f agentic-migration-skills/fixtures/slf4j-provider/expected-c8/pom.xml \
@@ -19,8 +19,21 @@ client and the SLF4J API, but no SLF4J provider.
    mvn -f agentic-migration-skills/fixtures/slf4j-provider/expected-c8/pom.xml \
      dependency:build-classpath -Dmdep.includeScope=runtime \
      -Dmdep.outputFile=target/runtime-classpath.txt
+   ```
+
+   Start the application:
+
+   ```sh
    mvn -f agentic-migration-skills/fixtures/slf4j-provider/expected-c8/pom.xml \
      spring-boot:run
+   ```
+
+   After Spring Boot reports that the application has started, stop the
+   `spring-boot:run` process with `Ctrl+C`.
+
+   Then package and run the executable JAR:
+
+   ```sh
    mvn -f agentic-migration-skills/fixtures/slf4j-provider/expected-c8/pom.xml package
    java -jar \
      agentic-migration-skills/fixtures/slf4j-provider/expected-c8/target/slf4j-provider-gap-1.0-SNAPSHOT.jar

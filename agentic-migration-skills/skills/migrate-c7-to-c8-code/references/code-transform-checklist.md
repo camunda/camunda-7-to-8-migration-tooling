@@ -132,7 +132,7 @@ Write `none` when the runtime path has no provider candidates. The skill applies
 
 | Provider evidence | User decision | Report status | Required action |
 |---|---|---|---|
-| One compatible provider initializes. The factory is not `NOPLoggerFactory`. No conflict appears. | None | **PASS** | Record the evidence. |
+| The compatible-provider count is exactly one. The provider initializes. The factory is not `NOPLoggerFactory`. No conflict appears. | None | **PASS** | Record the evidence. |
 | The API is missing, no compatible provider initializes, the factory is `NOPLoggerFactory`, or initialization fails. | None | Open finding | Leave the finding open. Fix dependencies or ask the user for an explicit logging decision. |
 | Multiple compatible providers initialize or the diagnostic reports a conflict. | None | Open finding | Leave the finding open. Fix dependencies or ask the user for an explicit logging decision. |
 | The provider check fails. | The user explicitly approves an exception. | Approved exception | Record approval and resolve the finding. Never mark logging or startup readiness **PASS**. |
