@@ -1,0 +1,2 @@
+Application startup failed before worker registration.
+Invalid value: camunda.client.mode=simple

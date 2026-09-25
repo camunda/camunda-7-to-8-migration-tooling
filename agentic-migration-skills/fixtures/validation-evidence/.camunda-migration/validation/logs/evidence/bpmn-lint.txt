@@ -1,0 +1,1 @@
+Target-compatible lint reported 44 errors across ten converted BPMN resources.

@@ -1,0 +1,2 @@
+The test asserted that the initiating process instance remained active.
+The test did not assert that the expected downstream process instance started.

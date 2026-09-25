@@ -137,9 +137,10 @@ These rules apply to every later step.
   `conversion:*` elements and attributes from the converted copies with namespace-aware XML tooling.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root.
 - Keep `MIGRATION_REPORT.md` current.
-- Use `MIGRATION_REPORT.md` as the single source of truth for inventories, decisions, open items,
-  phase status, incompatibilities, and validation results.
-- Never scatter this record across separate notes.
+- Use `MIGRATION_REPORT.md` as the human-readable source of truth for inventories, decisions, open
+  items, phase status, incompatibilities, and validation summaries.
+- Store machine-readable check evidence under `.camunda-migration/validation/`.
+- Keep decisions and open items in `MIGRATION_REPORT.md`, not in separate notes.
 - Keep an open-items section in `MIGRATION_REPORT.md` for each design question the migration cannot
   answer.
 - Name the call site in each open item.
@@ -171,6 +172,8 @@ at all.
 ### Step 2: Assessment (always runs)
 
 Scan the project and produce the inventories that the chosen scope needs.
+During Step 2, the skill records the confirmed module paths and original model paths in
+`.camunda-migration/validation/step2-inventory.json` before conversion.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
@@ -254,7 +257,16 @@ For every approach, once each original BPMN is paired with its converted copy, r
 ### Step 4: Validation (always runs)
 
 Each item below is a check to run and a condition that must hold at exit. Record every result in
-`MIGRATION_REPORT.md`.
+`MIGRATION_REPORT.md` and `.camunda-migration/validation/validation-evidence.json`. Follow
+`references/validation-evidence.md`.
+
+Run every independent check, even when another module or test suite fails. Record each command,
+exit code, target, result, evidence path, and blocker reason. Run `docker info` before a
+Docker-dependent suite. Never classify a test failure as Docker-unavailable without that probe.
+
+Lint every in-scope model. Verify deployment in a local or non-production environment. Check every
+executable process path and run the separate preflight for every repeating timer start. See
+`references/validation-evidence.md` for the required assertions and evidence format.
 
 #### Code checks, when code was migrated
 
@@ -270,8 +282,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
 7. **Configuration** — run the configuration validation in
    `references/code-transform-checklist.md`.
-8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
-   documented with an explanation.
+8. **Tests** — run every independent test suite in each migrated module. Continue with other suites
+   and modules after a failure. Record each suite's result. Classify application and infrastructure
+   failures separately. A failed or blocked suite prevents a ready gate.
 9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
@@ -315,8 +328,9 @@ Check these pitfalls as well:
 
 #### Model checks, when models were migrated
 
-After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
-target version. See the linting section in `references/model-migration-approaches.md`.
+Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
+skill edited. After every manual BPMN edit, lint the converted copy again. See the linting section
+in `references/model-migration-approaches.md`.
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.
@@ -377,11 +391,23 @@ target version. See the linting section in `references/model-migration-approache
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
 
+#### Process behavior and timer safety
+
+For every executable process, record assertions for user-task type, downstream message instances,
+branch selection, worker input and output values, incidents, and form resolution. Mark an
+assertion `not_applicable` only with a reason. Record the command and evidence for each applicable
+assertion.
+
+Inspect every repeating timer start before deployment or process start. Record a separate timer
+preflight and its isolation or cleanup plan. Do not test repeating timers on a shared or production
+cluster. If the skill cannot isolate timer starts or clean them up, then block the check.
+
 #### Summary
 
 Present a validation summary that states the status of compilation, configuration binding,
 remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the open items, tests,
-converted models, and the findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
+converted models, and the findings that still need follow-up. Run the evidence validator and use its
+generated gate block as the validation-readiness summary in `MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
@@ -486,10 +512,12 @@ the declined candidates in `MIGRATION_REPORT.md`.
 
 ## Exit Criteria
 
-The migration run may exit when every pass condition in Step 4 holds and `MIGRATION_REPORT.md` holds
-the complete inventories, the decisions, the open items, and the validation results.
-The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
-issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
+The migration run may exit when every pass condition in Step 4 holds, the evidence gate reports
+`READY`, and `MIGRATION_REPORT.md` holds the complete inventories, decisions, open items, and
+validation summary.
+The skill reports a complete migration only when the gate reports `READY`, no unresolved migration
+TODO, finding, compilation issue, or deletion candidate remains, and no item has `deferred` or
+`blocked` status.
 An open item is a team decision, so an `open` status does not block completion, but the summary
 always lists every open item.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.

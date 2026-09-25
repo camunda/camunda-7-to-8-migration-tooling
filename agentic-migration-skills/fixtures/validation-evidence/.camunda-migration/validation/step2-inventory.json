@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "modules": [
+    "examples/web",
+    "examples/account",
+    "examples/loan",
+    "examples/order",
+    "examples/invoice",
+    "examples/messaging",
+    "examples/customer",
+    "examples/runtime-api",
+    "examples/runtime-worker"
+  ],
+  "models": [
+    "models/order.bpmn",
+    "models/account.bpmn",
+    "models/loan.bpmn",
+    "models/invoice.bpmn",
+    "models/customer.bpmn",
+    "models/messaging.bpmn",
+    "models/customer-archive.bpmn",
+    "models/eligibility.bpmn",
+    "models/notification.bpmn",
+    "models/report.bpmn"
+  ]
+}
