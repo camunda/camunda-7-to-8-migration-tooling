@@ -92,7 +92,7 @@ public class ValidateCamundaClientWorkerEnablement
           scanWorkers(compilationUnit, sourcePath, state, ctx);
         } else if (tree instanceof Properties.File propertiesFile
             && isApplicationConfiguration(sourcePath)) {
-          scanProperties(propertiesFile, sourcePath, state, ctx);
+          scanProperties(propertiesFile, sourcePath, state);
         } else if (tree instanceof Yaml.Documents yamlDocuments
             && isApplicationConfiguration(sourcePath)) {
           scanYaml(yamlDocuments, sourcePath, state, ctx);
@@ -151,18 +151,34 @@ public class ValidateCamundaClientWorkerEnablement
   }
 
   private static void scanProperties(
-      Properties.File propertiesFile,
+      Properties.File propertiesFile, String sourcePath, WorkerEnablementState state) {
+    List<Properties.Entry> documentEntries = new ArrayList<>();
+    boolean conditionallyActive = false;
+    for (Properties.Content content : propertiesFile.getContent()) {
+      if (content instanceof Properties.Comment comment && comment.getMessage().equals("---")) {
+        addPropertiesSettings(documentEntries, sourcePath, state, conditionallyActive);
+        documentEntries.clear();
+        conditionallyActive = false;
+      } else if (content instanceof Properties.Entry entry) {
+        documentEntries.add(entry);
+        if (PROFILE_ACTIVATION_PROPERTY.equals(entry.getKey())
+            && !entry.getValue().getText().isBlank()) {
+          conditionallyActive = true;
+        }
+      }
+    }
+    addPropertiesSettings(documentEntries, sourcePath, state, conditionallyActive);
+  }
+
+  private static void addPropertiesSettings(
+      List<Properties.Entry> entries,
       String sourcePath,
       WorkerEnablementState state,
-      ExecutionContext ctx) {
-    new PropertiesIsoVisitor<ExecutionContext>() {
-      @Override
-      public Properties.Entry visitEntry(Properties.Entry entry, ExecutionContext ctx) {
-        Properties.Entry visited = super.visitEntry(entry, ctx);
-        state.addSetting(sourcePath, visited.getKey(), visited.getValue().getText(), false);
-        return visited;
-      }
-    }.visit(propertiesFile, ctx);
+      boolean conditionallyActive) {
+    for (Properties.Entry entry : entries) {
+      state.addSetting(
+          sourcePath, entry.getKey(), entry.getValue().getText(), conditionallyActive);
+    }
   }
 
   private static void scanYaml(

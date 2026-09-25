@@ -441,6 +441,35 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
   }
 
   @Test
+  void flagsDisabledSettingsInProfileActivatedPropertiesDocumentsAsConditional() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            app.name=sample
+            #---
+            camunda.client.worker.defaults.enabled=false
+            spring.config.activate.on-profile=prod
+            """,
+            """
+            app.name=sample
+            #---
+            ~~(Job-worker readiness is conditional because 'camunda.client.worker.defaults.enabled' may disable the worker for job type 'process-payment'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>camunda.client.worker.defaults.enabled=false
+            spring.config.activate.on-profile=prod
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void flagsConflictingInheritedYamlWorkerSettingsAsConditional() {
     rewriteRun(
         java(
