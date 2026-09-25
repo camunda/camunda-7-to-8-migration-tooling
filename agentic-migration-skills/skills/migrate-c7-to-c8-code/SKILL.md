@@ -263,7 +263,8 @@ Each item below is a check to run and a condition that must hold at exit. Record
 Run every independent check, even when another module or test suite fails. Record each command,
 exit code, target, result, evidence path, and blocker reason. Run `docker info` as a direct command
 before a Docker-dependent suite. Never classify a test failure as Docker-unavailable without that
-probe.
+probe. Use Maven Failsafe execution IDs and Gradle test-task names in the suite inventory. Keep the
+summary and report destinations distinct from every evidence file.
 
 Lint every in-scope model. Verify deployment in a local or non-production environment. Check every
 executable process path and run the separate preflight for every repeating timer start. See

@@ -60,6 +60,8 @@ Keep the summary path distinct from the Step 2 inventory and `MIGRATION_REPORT.m
 Keep the report path distinct from the Step 2 inventory.
 The validator reserves the default evidence and summary paths from custom outputs.
 Use each default path only for its matching output.
+Keep the summary and report paths distinct from every evidence file.
+The validator rejects output paths that identify a manifest evidence file.
 The validator checks file identity, including hard links, before it writes output.
 
 Each check record gives its target type, target, check kind, scenario, method, command, exit code,
@@ -185,10 +187,11 @@ production worker as a validation probe.
 
 Run each module and test suite independently. Use a distinct command and evidence file for each
 suite. The validator enforces this contract across all modules.
-The validator also checks `test_suites` against Maven Failsafe executions and explicit Gradle
-`Test` or `JvmTestSuite` declarations. It detects `Test` tasks declared with `register`, `create`,
-or `named`. Use the Maven execution ID or Gradle task name as the suite name. Use `integration` when
-a Failsafe execution has no ID.
+The validator checks each declared `test_suites` entry against Maven Failsafe executions and
+explicit Gradle `Test` or `JvmTestSuite` declarations. It rejects undeclared build suites and
+manifest suites without matching build declarations. It detects `Test` tasks declared with
+`register`, `create`, or `named`. Use the Maven execution ID or Gradle task name as the suite name.
+Use `integration` when a Failsafe execution has no ID.
 A failed Docker or Testcontainers suite does not stop the skill from running other suites or module
 checks. Do not summarize all test failures as Docker failures.
 

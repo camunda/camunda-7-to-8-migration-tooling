@@ -84,7 +84,8 @@ Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_R
 machine-readable summary under `.camunda-migration/validation/`. It accepts evidence files only
 under `.camunda-migration/validation/logs/`. It parses source and converted BPMN or DMN models. It
 verifies diagram interchange and form inventories for BPMN sources. It checks Maven Failsafe and
-Gradle test-suite declarations against the suite inventory.
+Gradle test-suite declarations against the suite inventory. It rejects declared suites without
+matching build configuration and output paths that identify evidence files.
 
 ## Use
 

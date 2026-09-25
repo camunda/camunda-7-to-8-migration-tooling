@@ -93,6 +93,15 @@ def write_step2_inventory(project_root, modules, models):
     )
 
 
+def write_unit_suite_configuration(project_root, module_path):
+    module_root = project_root / module_path
+    module_root.mkdir(parents=True, exist_ok=True)
+    (module_root / "build.gradle.kts").write_text(
+        'tasks.register<Test>("unit") {}\n',
+        encoding="utf-8",
+    )
+
+
 def passing_module_manifest(module_path):
     checks = []
     for kind in gate.MODULE_CHECKS:
@@ -979,6 +988,69 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "An output alias of a reserved file was not rejected.",
                     )
 
+    def test_cli_rejects_outputs_that_alias_evidence_files(self):
+        cases = (("summary", False), ("report", True))
+        for output_kind, hard_link in cases:
+            with self.subTest(output_kind=output_kind, hard_link=hard_link):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    materialize_inventory(project_root, manifest)
+                    test_check = next(
+                        check
+                        for check in manifest["checks"]
+                        if check.get("kind") == "tests"
+                        and check.get("evidence_path")
+                    )
+                    evidence_file = project_root / test_check["evidence_path"]
+                    original_evidence = evidence_file.read_bytes()
+                    output_file = evidence_file
+                    if hard_link:
+                        output_file = (
+                            evidence_file.parent / "report-alias.log"
+                        )
+                        os.link(evidence_file, output_file)
+                    output_path = output_file.relative_to(
+                        project_root
+                    ).as_posix()
+
+                    if output_kind == "summary":
+                        completed = self.run_gate(
+                            project_root,
+                            report=None,
+                            summary=output_path,
+                        )
+                    else:
+                        completed = self.run_gate(
+                            project_root,
+                            report=output_path,
+                            summary=(
+                                ".camunda-migration/validation/"
+                                "custom-summary.json"
+                            ),
+                        )
+
+                    self.assertEqual(completed.returncode, 1)
+                    summary = json.loads(completed.stdout)
+                    self.assertEqual(
+                        evidence_file.read_bytes(), original_evidence
+                    )
+                    self.assertTrue(
+                        any(
+                            "path must not identify an evidence file"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "An output alias of a manifest evidence file was accepted.",
+                    )
+
     def test_cli_reports_looped_input_symlinks_as_not_ready(self):
         for input_kind in ("module", "model", "evidence"):
             with self.subTest(input_kind=input_kind):
@@ -1601,6 +1673,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "service").mkdir()
+            write_unit_suite_configuration(project_root, "service")
             (project_root / LOG_DIRECTORY).mkdir(parents=True)
             (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
@@ -1904,6 +1977,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     test_checks = []
                     for module_path in module_paths:
                         (project_root / module_path).mkdir()
+                        write_unit_suite_configuration(project_root, module_path)
                         unit_log_path = log_directory / "{}-unit.log".format(
                             module_path
                         )
@@ -1968,6 +2042,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     project_root = Path(temporary)
                     module_path = "service"
                     (project_root / module_path).mkdir()
+                    write_unit_suite_configuration(project_root, module_path)
                     log_directory = project_root / LOG_DIRECTORY
                     log_directory.mkdir(parents=True)
                     (log_directory / "pass.log").write_text(
@@ -2052,6 +2127,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "external").mkdir()
+            write_unit_suite_configuration(project_root, "external")
             (project_root / LOG_DIRECTORY).mkdir(parents=True)
             (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
@@ -2217,10 +2293,44 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "The build-configured suite was not required.",
                     )
 
+    def test_declared_test_suites_must_be_build_configured(self):
+        with tempfile.TemporaryDirectory(
+            prefix="migration-evidence-"
+        ) as temporary:
+            project_root = Path(temporary)
+            module_path = "service"
+            (project_root / module_path).mkdir()
+            log_directory = project_root / LOG_DIRECTORY
+            log_directory.mkdir(parents=True)
+            (log_directory / "pass.log").write_text(
+                "test suite completed\n", encoding="utf-8"
+            )
+            manifest = passing_module_manifest(module_path)
+            manifest["modules"][0]["test_suites"][0]["name"] = "invented"
+            test_check = next(
+                check
+                for check in manifest["checks"]
+                if check.get("kind") == "tests"
+            )
+            test_check["scenario"] = "invented"
+            write_step2_inventory(project_root, [module_path], [])
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "test_suites declares suite invented" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "An unconfigured test suite was accepted as passing.",
+            )
+
     def test_docker_suite_requires_a_daemon_probe(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "service").mkdir()
+            write_unit_suite_configuration(project_root, "service")
             (project_root / LOG_DIRECTORY).mkdir(parents=True)
             (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"

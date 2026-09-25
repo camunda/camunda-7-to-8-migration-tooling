@@ -867,6 +867,35 @@ def validate_cli_paths(evidence_path, summary_path, report_path, project_root):
     return resolved_summary, resolved_report
 
 
+def validate_cli_outputs_against_evidence(data, output_paths, project_root):
+    if not isinstance(data, dict) or not isinstance(data.get("checks"), list):
+        return
+
+    evidence_paths = []
+    for check in data["checks"]:
+        if not isinstance(check, dict):
+            continue
+        evidence_path = check.get("evidence_path")
+        if not is_nonempty_string(evidence_path):
+            continue
+        candidate = Path(evidence_path.replace("\\", "/"))
+        if not candidate.is_absolute():
+            candidate = project_root / candidate
+        try:
+            evidence_paths.append(candidate.resolve())
+        except (OSError, RuntimeError):
+            continue
+
+    for output_name, output_path in output_paths:
+        for evidence_path in evidence_paths:
+            if paths_identify_same_file(output_path, evidence_path):
+                raise ValueError(
+                    "The {} path must not identify an evidence file".format(
+                        output_name
+                    )
+                )
+
+
 def load_step2_inventory(project_root, error):
     inventory_path = project_root / DEFAULT_INVENTORY_PATH
     resolved_inventory_path = inventory_path.resolve()
@@ -1084,6 +1113,11 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 "{} test_suites omits build-configured suite {}.".format(
                     location, suite_name
                 )
+            )
+        for suite_name in sorted(declared_test_suites - configured_test_suites):
+            error(
+                "{} test_suites declares suite {} that is not configured or "
+                "discoverable.".format(location, suite_name)
             )
 
         if runtime_mode == "none" and not Path(canonical_path).is_absolute():
@@ -2473,6 +2507,7 @@ def main():
     resolved_summary = None
     resolved_report = None
     cli_path_error = None
+    output_path_error = None
     if project_root_exists:
         try:
             resolved_summary, resolved_report = validate_cli_paths(
@@ -2496,6 +2531,15 @@ def main():
                 args.evidence, project_root
             )
             data = json.loads(resolved_evidence.read_text(encoding="utf-8"))
+            output_paths = [("summary", resolved_summary)]
+            if resolved_report is not None:
+                output_paths.append(("report", resolved_report))
+            try:
+                validate_cli_outputs_against_evidence(
+                    data, output_paths, project_root
+                )
+            except (OSError, ValueError, RuntimeError) as exception:
+                output_path_error = exception
             excluded_evidence_paths = {
                 resolved_evidence,
                 resolved_summary,
@@ -2514,6 +2558,15 @@ def main():
             summary = make_input_error(
                 "The evidence manifest or one of its inputs cannot be "
                 "validated: {}.".format(exception)
+            )
+        if output_path_error is not None:
+            cli_path_error = output_path_error
+            summary["readiness"] = "not_ready"
+            summary["counts"]["invalid"] += 1
+            summary["blockers"].append(
+                "The validation paths cannot be used: {}.".format(
+                    output_path_error
+                )
             )
 
     summary_written = False
