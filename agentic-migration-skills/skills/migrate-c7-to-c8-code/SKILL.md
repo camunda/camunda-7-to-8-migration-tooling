@@ -298,11 +298,11 @@ Each item below is a check to run and a condition that must hold at exit. Record
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
 12. **Deployment resources** — where the application declares `@Deployment`, the skill builds the
     inventory from this run's converted-file paths and accepted generated forms. The skill creates
-    one annotation entry per included resource type. It resolves each entry with Spring's
-    `PathMatchingResourcePatternResolver` against the build classpath. Each entry must match a
-    non-empty subset of the inventory, and their union must equal it. After packaging, the skill
-    confirms every matched resource exists in the application artifact. A test that disables
-    annotation deployment does not validate this wiring.
+    at least one annotation entry for each included resource type. The skill resolves each entry
+    with Spring's `PathMatchingResourcePatternResolver` against the build classpath. Each entry
+    must match a non-empty subset of the inventory, and their union must equal it. After packaging,
+    the skill confirms every matched resource exists in the application artifact. A test that
+    disables annotation deployment does not validate this wiring.
 13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same

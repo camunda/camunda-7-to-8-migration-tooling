@@ -205,8 +205,8 @@ application code.
 
 - **Yes, add or update `@Deployment` for converted files** (MAY). The skill recommends this choice
   when code scope includes a Spring Boot app. (SHOULD) The skill builds a deployment inventory from
-  this run's recorded converted-file paths and accepted generated forms. The skill adds one
-  `resources` array entry for each included resource type. The skill never joins patterns with
+  this run's recorded converted-file paths and accepted generated forms. The skill adds at least
+  one `resources` array entry for each included resource type. The skill never joins patterns with
   commas inside one string. For BPMN and DMN resources, the skill uses this shape:
 
   ```java
