@@ -12,7 +12,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@Deployment(resources = "classpath:converted-c8-web-example.bpmn")
+@Deployment(resources = "classpath:converted-c8-process.bpmn")
 public class ExampleWebApplication {
 
   public static void main(String[] args) {
