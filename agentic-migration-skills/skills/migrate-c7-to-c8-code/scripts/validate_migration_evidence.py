@@ -423,6 +423,34 @@ def validate_cli_paths(evidence_path, summary_path, report_path, project_root):
                     "The {} and {} paths must not identify the same file."
                     .format(left_name, right_name)
                 )
+
+    output_paths = [("summary", resolved_summary)]
+    if resolved_report is not None:
+        output_paths.append(("report", resolved_report))
+    reserved_paths = [
+        (
+            "Step 2 inventory",
+            (project_root / DEFAULT_INVENTORY_PATH).resolve(),
+        ),
+        (
+            "default report",
+            (project_root / DEFAULT_REPORT_PATH).resolve(),
+        ),
+    ]
+    for output_name, output_path in output_paths:
+        for reserved_name, reserved_path in reserved_paths:
+            if (
+                output_name == "report"
+                and reserved_name == "default report"
+                and output_path == reserved_path
+            ):
+                # Writing the default report is valid; a summary cannot replace it.
+                continue
+            if paths_identify_same_file(output_path, reserved_path):
+                raise ValueError(
+                    "The {} and {} paths must not identify the same file."
+                    .format(output_name, reserved_name)
+                )
     return resolved_summary, resolved_report
 
 
@@ -1925,7 +1953,14 @@ def main():
     )
     args = parser.parse_args()
 
-    project_root = Path(args.project_root).resolve()
+    try:
+        project_root = Path(args.project_root).resolve()
+    except (OSError, RuntimeError) as exception:
+        summary = make_input_error(
+            "The project root cannot be resolved: {}.".format(exception)
+        )
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 1
     project_root_exists = project_root.is_dir()
     resolved_summary = None
     resolved_report = None
@@ -1938,7 +1973,7 @@ def main():
                 args.report,
                 project_root,
             )
-        except (OSError, ValueError) as exception:
+        except (OSError, ValueError, RuntimeError) as exception:
             cli_path_error = exception
 
     if not project_root_exists:
@@ -1962,9 +1997,15 @@ def main():
             summary = validate_manifest(
                 data, project_root, excluded_evidence_paths
             )
-        except (OSError, ValueError, json.JSONDecodeError) as exception:
+        except (
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+            RuntimeError,
+        ) as exception:
             summary = make_input_error(
-                "The evidence manifest cannot be read: {}.".format(exception)
+                "The evidence manifest or one of its inputs cannot be "
+                "validated: {}.".format(exception)
             )
 
     summary_written = False
@@ -1972,7 +2013,7 @@ def main():
         try:
             write_summary(args.summary, summary, project_root)
             summary_written = True
-        except (OSError, ValueError) as exception:
+        except (OSError, ValueError, RuntimeError) as exception:
             summary["readiness"] = "not_ready"
             summary["counts"]["invalid"] += 1
             summary["blockers"].append(
@@ -1983,7 +2024,7 @@ def main():
     if args.report and project_root_exists and cli_path_error is None:
         try:
             write_report(args.report, summary, project_root, args.summary)
-        except (OSError, ValueError) as exception:
+        except (OSError, ValueError, RuntimeError) as exception:
             summary["readiness"] = "not_ready"
             summary["counts"]["invalid"] += 1
             summary["blockers"].append(
@@ -1994,7 +2035,7 @@ def main():
     if report_failed and summary_written:
         try:
             write_summary(args.summary, summary, project_root)
-        except (OSError, ValueError) as exception:
+        except (OSError, ValueError, RuntimeError) as exception:
             summary["counts"]["invalid"] += 1
             summary["blockers"].append(
                 "The not-ready summary cannot be rewritten: {}.".format(exception)

@@ -54,8 +54,11 @@ not-ready gate returns exit code 1. With `--report`, the validator writes the ma
 An unreadable manifest returns exit code 1. Do not treat a nonzero exit code as a successful
 validation.
 
-The evidence, JSON summary, and report paths must identify different files. The validator checks
-path identity before it writes output.
+Keep the evidence manifest, summary, and report in distinct files.
+Keep the summary path distinct from the Step 2 inventory and `MIGRATION_REPORT.md`, even when
+`--report` is omitted.
+Keep the report path distinct from the Step 2 inventory.
+The validator checks file identity, including hard links, before it writes output.
 
 Each check record gives its target type, target, check kind, scenario, method, command, exit code,
 result, evidence path, reason, blocker reason, failure class, and environment. A timer preflight

@@ -8,7 +8,10 @@ import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 
 FIXTURE = Path(__file__).resolve().parent
@@ -850,6 +853,153 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "The hard-linked output alias was not rejected.",
             )
             self.assertEqual(evidence_file.read_bytes(), original_evidence)
+
+    def test_cli_rejects_outputs_that_alias_reserved_files(self):
+        cases = (
+            ("summary", STEP2_INVENTORY_PATH, False),
+            ("summary", STEP2_INVENTORY_PATH, True),
+            ("summary", "MIGRATION_REPORT.md", False),
+            ("summary", "MIGRATION_REPORT.md", True),
+            ("report", STEP2_INVENTORY_PATH, False),
+            ("report", STEP2_INVENTORY_PATH, True),
+        )
+        for output_kind, reserved_path, hard_link in cases:
+            with self.subTest(
+                output_kind=output_kind,
+                reserved_path=reserved_path,
+                hard_link=hard_link,
+            ):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    materialize_inventory(project_root, manifest)
+                    protected_file = project_root / reserved_path
+                    output_file = protected_file
+                    if hard_link:
+                        output_file = (
+                            project_root
+                            / ".camunda-migration/validation/reserved-alias"
+                        )
+                        os.link(protected_file, output_file)
+                    original_contents = protected_file.read_bytes()
+                    output_path = output_file.relative_to(
+                        project_root
+                    ).as_posix()
+
+                    if output_kind == "summary":
+                        completed = self.run_gate(
+                            project_root,
+                            report=None,
+                            summary=output_path,
+                        )
+                    else:
+                        completed = self.run_gate(
+                            project_root,
+                            report=output_path,
+                        )
+
+                    self.assertEqual(completed.returncode, 1)
+                    self.assertEqual(
+                        protected_file.read_bytes(), original_contents
+                    )
+                    summary = json.loads(completed.stdout)
+                    self.assertTrue(
+                        any(
+                            "must not identify the same file" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "An output alias of a reserved file was not rejected.",
+                    )
+
+    def test_cli_reports_looped_input_symlinks_as_not_ready(self):
+        for input_kind in ("module", "model", "evidence"):
+            with self.subTest(input_kind=input_kind):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest_path = project_root / "validation-evidence.json"
+                    manifest = json.loads(
+                        manifest_path.read_text(encoding="utf-8")
+                    )
+                    materialize_inventory(project_root, manifest)
+
+                    if input_kind == "module":
+                        manifest["modules"][0]["path"] = "looped-module"
+                        looped_path = project_root / "looped-module"
+                    elif input_kind == "model":
+                        manifest["models"][0]["path"] = "models/looped.bpmn"
+                        looped_path = project_root / "models/looped.bpmn"
+                    else:
+                        check = next(
+                            check
+                            for check in manifest["checks"]
+                            if check.get("evidence_path")
+                        )
+                        looped_path = (
+                            project_root / check["evidence_path"]
+                        )
+                        looped_path.unlink()
+
+                    looped_path = project_root.resolve() / (
+                        looped_path.relative_to(project_root)
+                    )
+                    looped_path.parent.mkdir(parents=True, exist_ok=True)
+                    looped_path.symlink_to(looped_path.name)
+                    manifest_path.write_text(
+                        json.dumps(manifest), encoding="utf-8"
+                    )
+
+                    original_resolve = Path.resolve
+
+                    def resolve_with_loop_error(path, *args, **kwargs):
+                        if path == looped_path:
+                            raise RuntimeError("Symlink loop")
+                        return original_resolve(path, *args, **kwargs)
+
+                    output = StringIO()
+                    argv = [
+                        str(SCRIPT),
+                        "--project-root",
+                        str(project_root),
+                        "--evidence",
+                        "validation-evidence.json",
+                        "--report",
+                        "MIGRATION_REPORT.md",
+                    ]
+                    with patch.object(
+                        Path, "resolve", new=resolve_with_loop_error
+                    ):
+                        with patch.object(sys, "argv", argv):
+                            with redirect_stdout(output):
+                                exit_code = gate.main()
+
+                    self.assertEqual(exit_code, 1)
+                    summary = json.loads(output.getvalue())
+                    self.assertEqual(summary["readiness"], "not_ready")
+                    summary_file = (
+                        project_root / gate.DEFAULT_SUMMARY_PATH
+                    )
+                    self.assertEqual(
+                        json.loads(summary_file.read_text(encoding="utf-8"))[
+                            "readiness"
+                        ],
+                        "not_ready",
+                    )
+                    self.assertIn(
+                        "<!-- migration-validation-gate:start -->",
+                        (project_root / "MIGRATION_REPORT.md").read_text(
+                            encoding="utf-8"
+                        ),
+                    )
 
     def test_process_assertions_cannot_be_waived_when_applicable(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
