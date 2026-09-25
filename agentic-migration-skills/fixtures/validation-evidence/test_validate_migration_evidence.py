@@ -14,6 +14,7 @@ from pathlib import Path
 FIXTURE = Path(__file__).resolve().parent
 LOG_DIRECTORY = ".camunda-migration/validation/logs"
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+DMN_MODEL_NAMESPACE = "https://www.omg.org/spec/DMN/20191111/MODEL/"
 STEP2_INVENTORY_PATH = (
     ".camunda-migration/validation/step2-inventory.json"
 )
@@ -173,6 +174,13 @@ def write_bpmn_file(path, processes, timer_starts):
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
+def write_dmn_file(path):
+    root = ET.Element(
+        "{{{}}}definitions".format(DMN_MODEL_NAMESPACE)
+    )
+    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
+
+
 def materialize_inventory(project_root, manifest):
     for module in manifest["modules"]:
         (project_root / module["path"]).mkdir(parents=True, exist_ok=True)
@@ -187,7 +195,7 @@ def materialize_inventory(project_root, manifest):
                     model.get("recurring_timer_starts", []),
                 )
             else:
-                model_file.write_text("<definitions />\n", encoding="utf-8")
+                write_dmn_file(model_file)
 
 
 class ValidationEvidenceTest(unittest.TestCase):
@@ -348,6 +356,50 @@ class ValidationEvidenceTest(unittest.TestCase):
                             for blocker in summary["blockers"]
                         ),
                         "The cross-model source collision was not rejected.",
+                    )
+
+    def test_model_inventory_rejects_source_file_aliases(self):
+        for alias_type in ("symlink", "hard_link"):
+            with self.subTest(alias_type=alias_type):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    models = [
+                        model
+                        for model in manifest["models"]
+                        if model["type"] == "bpmn"
+                    ][:2]
+                    self.assertEqual(len(models), 2)
+                    materialize_inventory(project_root, manifest)
+
+                    first_source = project_root / models[0]["source_path"]
+                    aliased_source = project_root / models[1]["source_path"]
+                    aliased_source.unlink()
+                    if alias_type == "symlink":
+                        aliased_source.symlink_to(first_source)
+                    else:
+                        os.link(first_source, aliased_source)
+                    write_step2_inventory(
+                        project_root,
+                        [module["path"] for module in manifest["modules"]],
+                        [model["source_path"] for model in manifest["models"]],
+                    )
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "source_path identifies the same file" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "The source-file alias was not rejected.",
                     )
 
     def test_module_inventory_rejects_canonical_directory_aliases(self):
@@ -595,6 +647,106 @@ class ValidationEvidenceTest(unittest.TestCase):
                     for blocker in summary["blockers"]
                 ),
                 "The process executability mismatch was not reported.",
+            )
+
+    def test_declared_model_type_must_match_converted_xml(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = next(
+                model
+                for model in manifest["models"]
+                if model["type"] == "bpmn"
+                and model["processes"]
+                and model["recurring_timer_starts"]
+            )
+            process_id = model["processes"][0]["id"]
+            timer = model["recurring_timer_starts"][0]
+            materialize_inventory(project_root, manifest)
+            model["type"] = "dmn"
+            model["processes"] = []
+            model["recurring_timer_starts"] = []
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "declared type dmn does not match converted XML type bpmn"
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The converted model type mismatch was not reported.",
+            )
+            self.assertTrue(
+                any(
+                    "process inventory omits BPMN process {}".format(process_id)
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "BPMN process requirements were skipped after a type mismatch.",
+            )
+            self.assertTrue(
+                any(
+                    "recurring_timer_starts omits converted BPMN repeating "
+                    "timer start {} in process {}.".format(
+                        timer["id"], timer["process_id"]
+                    )
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "BPMN timer requirements were skipped after a type mismatch.",
+            )
+
+    def test_dmn_models_reject_process_and_timer_inventories(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            model["type"] = "dmn"
+            model["processes"] = [
+                {
+                    "id": "invented-process",
+                    "executable": True,
+                    "standalone_entry_point": True,
+                    "direct_start_scenarios": ["normal"],
+                    "covering_test": None,
+                    "reason": None,
+                    "assertion_applicability": {
+                        kind: False for kind in gate.PROCESS_ASSERTIONS
+                    },
+                }
+            ]
+            model["recurring_timer_starts"] = [
+                {"process_id": "invented-process", "id": "invented-timer"}
+            ]
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "processes must be empty for DMN models" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "A DMN process inventory was not rejected.",
+            )
+            self.assertTrue(
+                any(
+                    "recurring_timer_starts must be empty for DMN models"
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "A DMN timer inventory was not rejected.",
             )
 
     def test_cli_rejects_output_paths_that_overwrite_inputs_or_each_other(self):
@@ -1350,6 +1502,95 @@ class ValidationEvidenceTest(unittest.TestCase):
                     for blocker in summary["blockers"]
                 )
             )
+
+    def test_spring_boot_runtime_accepts_either_launch_strategy(self):
+        for launch_kind in ("spring_boot_run", "executable_jar"):
+            with self.subTest(launch_kind=launch_kind):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    module_path = "service"
+                    (project_root / module_path).mkdir()
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "check completed\n", encoding="utf-8"
+                    )
+                    manifest = passing_module_manifest(module_path)
+                    manifest["modules"][0]["runtime_mode"] = "spring-boot"
+                    for index, check in enumerate(manifest["checks"]):
+                        if check.get("kind") == launch_kind:
+                            manifest["checks"][index] = passing_check(
+                                "module",
+                                module_path,
+                                launch_kind,
+                                LOG_DIRECTORY + "/pass.log",
+                                environment="local",
+                            )
+                        elif check.get("kind") in {
+                            "spring_boot_run",
+                            "executable_jar",
+                            "external_launcher",
+                        }:
+                            manifest["checks"][index] = not_applicable_check(
+                                "module",
+                                module_path,
+                                check["kind"],
+                                "The module uses another launch strategy.",
+                            )
+                    write_step2_inventory(project_root, [module_path], [])
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(
+                        summary["readiness"], "ready", summary["blockers"]
+                    )
+
+                    for index, check in enumerate(manifest["checks"]):
+                        if check.get("kind") in {
+                            "spring_boot_run",
+                            "executable_jar",
+                        }:
+                            manifest["checks"][index] = not_applicable_check(
+                                "module",
+                                module_path,
+                                check["kind"],
+                                "The module has no selected launch strategy.",
+                            )
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(summary["readiness"], "not_ready")
+                    self.assertTrue(
+                        any(
+                            "must mark exactly one Spring Boot launch check"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        )
+                    )
+
+                    for index, check in enumerate(manifest["checks"]):
+                        if check.get("kind") in {
+                            "spring_boot_run",
+                            "executable_jar",
+                        }:
+                            manifest["checks"][index] = passing_check(
+                                "module",
+                                module_path,
+                                check["kind"],
+                                LOG_DIRECTORY + "/pass.log",
+                                environment="local",
+                            )
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(summary["readiness"], "not_ready")
+                    self.assertTrue(
+                        any(
+                            "must mark exactly one Spring Boot launch check"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        )
+                    )
 
     def test_external_launcher_mode_uses_its_own_check(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:

@@ -11,6 +11,18 @@ from pathlib import Path
 
 SCHEMA_VERSION = 1
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+BPMN_DEFINITIONS_TAG = "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
+DMN_MODEL_NAMESPACES = {
+    "http://www.omg.org/spec/DMN/20151101/dmn.xsd",
+    "http://www.omg.org/spec/DMN/20180521/MODEL/",
+    "https://www.omg.org/spec/DMN/20180521/MODEL/",
+    "http://www.omg.org/spec/DMN/20191111/MODEL/",
+    "https://www.omg.org/spec/DMN/20191111/MODEL/",
+}
+DMN_DEFINITIONS_TAGS = {
+    "{{{}}}definitions".format(namespace)
+    for namespace in DMN_MODEL_NAMESPACES
+}
 RESULTS = {
     "passed",
     "failed",
@@ -56,6 +68,7 @@ MODULE_CHECKS = (
     "executable_jar",
     "external_launcher",
 )
+SPRING_BOOT_LAUNCH_CHECKS = ("spring_boot_run", "executable_jar")
 MODULE_CHECKS_REQUIRING_PASS = {
     "compile",
     "c7_dependencies",
@@ -255,18 +268,29 @@ def paths_identify_same_file(left, right):
     return left.is_file() and right.is_file() and left.samefile(right)
 
 
-def read_bpmn_inventory(path, location, error):
+def read_converted_model(path, location, error):
     try:
         root = ET.parse(str(path)).getroot()
     except (OSError, ET.ParseError) as exception:
         error(
-            "{} converted BPMN cannot be parsed for process or timer inventory: {}."
+            "{} converted model cannot be parsed to identify its type: {}."
             .format(location, exception)
         )
-        return None
+        return None, None
 
-    definitions_tag = "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
-    if root.tag != definitions_tag:
+    if root.tag == BPMN_DEFINITIONS_TAG:
+        return "bpmn", root
+    if root.tag in DMN_DEFINITIONS_TAGS:
+        return "dmn", root
+    error(
+        "{} converted model must have a BPMN or DMN definitions root."
+        .format(location)
+    )
+    return None, None
+
+
+def read_bpmn_inventory(root, location, error):
+    if root.tag != BPMN_DEFINITIONS_TAG:
         error(
             "{} converted BPMN must have a BPMN definitions root."
             .format(location)
@@ -487,6 +511,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
     docker_test_keys = set()
     process_start_checks = {}
     timer_order_requirements = []
+    spring_boot_launch_requirements = []
 
     def error(message):
         errors.append(message)
@@ -603,8 +628,23 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             error("{} test_suites must be an array.".format(location))
             test_suites = []
 
+        if runtime_mode == "spring-boot":
+            spring_boot_launch_requirements.append(
+                (
+                    path,
+                    [
+                        ("module", path, kind, None)
+                        for kind in SPRING_BOOT_LAUNCH_CHECKS
+                    ],
+                )
+            )
+
         for kind in MODULE_CHECKS:
             key = ("module", path, kind, None)
+            spring_boot_launch_alternative = (
+                runtime_mode == "spring-boot"
+                and kind in SPRING_BOOT_LAUNCH_CHECKS
+            )
             required_runtime_mode = {
                 "spring_boot_run": "spring-boot",
                 "executable_jar": "spring-boot",
@@ -613,15 +653,17 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             not_applicable_only = (
                 required_runtime_mode is not None
                 and runtime_mode != required_runtime_mode
+                and not spring_boot_launch_alternative
             )
             must_run = (
                 required_runtime_mode is not None
                 and runtime_mode == required_runtime_mode
+                and not spring_boot_launch_alternative
             )
             require_pass = kind in MODULE_CHECKS_REQUIRING_PASS or must_run
             safe_environment = (
                 SAFE_RUNTIME_ENVIRONMENTS
-                if must_run
+                if must_run or spring_boot_launch_alternative
                 else None
             )
             add_expected(
@@ -750,15 +792,26 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 error,
             )
             normalized_source_path = source_path.replace("\\", "/")
-            if normalized_source_path in model_source_paths:
-                error(
-                    "The model source_path {} appears more than once."
-                    .format(source_path)
-                )
             model_source_paths.add(normalized_source_path)
             resolved_source_path = (
                 project_root.resolve() / Path(source_path.replace("\\", "/"))
             ).resolve()
+            previous_source = next(
+                (
+                    previous_location
+                    for previous_path, previous_location
+                    in model_source_file_paths
+                    if paths_identify_same_file(
+                        resolved_source_path, previous_path
+                    )
+                ),
+                None,
+            )
+            if previous_source is not None:
+                error(
+                    "{} source_path identifies the same file as {}."
+                    .format(location, previous_source)
+                )
             model_source_file_paths.append((resolved_source_path, location))
             if paths_identify_same_file(
                 resolved_model_path, resolved_source_path
@@ -767,6 +820,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     "{} source and converted paths identify the same file."
                     .format(location)
                 )
+        declared_model_type = model_type
         if not isinstance(model_type, str) or model_type not in {"bpmn", "dmn"}:
             error("{} type must be bpmn or dmn.".format(location))
         if not isinstance(approach, str) or approach not in {"M1", "M2", "M3", "E1"}:
@@ -778,11 +832,25 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not isinstance(processes, list):
             error("{} processes must be an array.".format(location))
             processes = []
+        converted_model_type = None
+        converted_model_root = None
+        if resolved_model_path.is_file():
+            converted_model_type, converted_model_root = read_converted_model(
+                resolved_model_path, location, error
+            )
+        if converted_model_type is not None:
+            if declared_model_type != converted_model_type:
+                error(
+                    "{} declared type {} does not match converted XML type {}."
+                    .format(location, declared_model_type, converted_model_type)
+                )
+            model_type = converted_model_type
+
         bpmn_process_inventory = None
         bpmn_timer_start_inventory = None
-        if model_type == "bpmn" and resolved_model_path.is_file():
+        if converted_model_type == "bpmn" and converted_model_root is not None:
             bpmn_inventory = read_bpmn_inventory(
-                resolved_model_path, location, error
+                converted_model_root, location, error
             )
             if bpmn_inventory is not None:
                 (
@@ -792,6 +860,16 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not isinstance(timer_starts, list):
             error("{} recurring_timer_starts must be an array.".format(location))
             timer_starts = []
+        if model_type == "dmn":
+            if processes:
+                error("{} processes must be empty for DMN models.".format(location))
+                processes = []
+            if timer_starts:
+                error(
+                    "{} recurring_timer_starts must be empty for DMN models."
+                    .format(location)
+                )
+                timer_starts = []
 
         form_inventory = model.get("form_inventory")
         if not isinstance(form_inventory, list):
@@ -1564,6 +1642,17 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             and "docker info" not in command.lower()
         ):
             error("{} must run docker info.".format(location))
+
+    for path, launch_keys in spring_boot_launch_requirements:
+        launch_results = [
+            seen.get(key, {}).get("result")
+            for key in launch_keys
+        ]
+        if launch_results.count("not_applicable") != 1:
+            error(
+                "Module {} must mark exactly one Spring Boot launch check "
+                "not_applicable.".format(path)
+            )
 
     missing_count = 0
     blockers = []

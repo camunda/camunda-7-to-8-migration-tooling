@@ -124,9 +124,10 @@ reason for a non-executable process. List `normal` and every missing-worker-inpu
 `direct_start_scenarios`. For a process that is not a standalone entry point, list no direct-start
 scenarios. Give its reason and covering test.
 
-The validator reads each converted BPMN model. Its `processes` array must match every top-level
-`bpmn:process` ID and `isExecutable` value. Include non-executable process definitions. Keep the
-array empty when a BPMN model has no process definitions or when the model is DMN.
+The validator detects each converted model type from its XML definitions root. Reject any `type`
+value that differs from the detected type. For BPMN models, the `processes` array must match every
+top-level `bpmn:process` ID and `isExecutable` value. Include non-executable process definitions.
+Keep `processes` and `recurring_timer_starts` empty for DMN models.
 
 ## Required module checks
 
@@ -153,11 +154,16 @@ each suite in that module's `test_suites` inventory. Use the suite name as the s
 
 If a module has no test suite, then add a `tests` record with scenario `no-tests`. Set its result to
 `blocked` or `unknown` and state why no test ran. The gate cannot report readiness without tests.
-Set `runtime_mode` to `spring-boot`, `external-launcher`, or
-`none` for every module. Record the launch check that matches that mode. Mark the other launch
-checks `not_applicable`. If a module has no runtime entry point, then set all three launch checks to
-`not_applicable`. Run each runtime launch check only with local or non-production settings. Never
-start a production worker as a validation probe.
+Set `runtime_mode` to `spring-boot`, `external-launcher`, or `none` for every module.
+
+| `runtime_mode` | Required launch-check results |
+|---|---|
+| `spring-boot` | Record the result for exactly one of `spring_boot_run` and `executable_jar`. Mark the other Spring Boot check and `external_launcher` as `not_applicable`. |
+| `external-launcher` | Pass `external_launcher`. Mark both Spring Boot checks as `not_applicable`. |
+| `none` | Mark all three launch checks as `not_applicable`. |
+
+Run each selected runtime launch check only with local or non-production settings. Never start a
+production worker as a validation probe.
 
 Run each module and test suite independently. Use a distinct command and evidence file for each
 suite. The validator rejects command or evidence-file reuse between test suites in the same module.

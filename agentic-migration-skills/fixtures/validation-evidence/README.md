@@ -23,6 +23,9 @@ repeating starts in converted BPMN. They also reject form-check waivers that con
 inventory, synthetic direct-start checks for non-standalone processes, waived applicable process
 assertions, manual executable checks, evidence outside the logs directory, reused suite logs, timer
 preflights without a safety plan, and output paths that identify the evidence input or each other.
+The tests reject symlink and hard-link source aliases, XML type mismatches, and non-empty DMN
+process or timer inventories. They accept either Spring Boot launch check when the other is marked
+`not_applicable`.
 
 From the repository root, run the regression test with Python 3:
 
