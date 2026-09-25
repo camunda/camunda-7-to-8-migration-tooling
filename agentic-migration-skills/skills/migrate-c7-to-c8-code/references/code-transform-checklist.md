@@ -232,6 +232,26 @@ These items are not in the catalog:
 
 Catalog: `30-glue-code/20-java-spring-external-task-worker/`, with the same five files as item 3.
 
+For each `ExternalTaskService.complete(...)` call, record the overload, both variable maps, branch
+condition, and downstream consumers. Load
+`30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md` for the mapping
+contract.
+
+| C7 completion call | C7 write scope |
+|---|---|
+| `complete(id, processVariables)` or `complete(id, processVariables, null)` | Process variables |
+| `complete(id, processVariables, localVariables)` | Process and task-local variables |
+| `complete(id, null, localVariables)` | Task-local variables |
+
+A C8 job-result map does not prove scope parity with the C7 call. If a faithful C8 scope cannot be
+confirmed, then stop and ask the user for a BPMN/worker-scoping decision. Never leave a source
+branch unused and claim parity.
+
+When a completion branch depends on a condition, test both outcomes. Assert process- and task-local
+visibility for each result and whether its downstream consumers execute. If a separate deployment
+blocker prevents the test, then record that blocker and keep parity unresolved. After the blocker
+closes, run both outcomes before reporting parity.
+
 ---
 
 ## 5. Listeners (NOT covered by OpenRewrite)

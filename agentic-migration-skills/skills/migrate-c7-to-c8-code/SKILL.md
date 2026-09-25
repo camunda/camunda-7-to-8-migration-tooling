@@ -203,6 +203,10 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+For each call activity, record the called process, every `camunda:in` and `camunda:out` mapping,
+and the child business-key intent. Keep parent-to-child inputs separate from child-to-parent outputs.
+See `references/model-migration-approaches.md` for the scope-preservation rules.
+
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
 
@@ -240,6 +244,7 @@ in Question 4. See `references/code-migration-approaches.md` for all three.
 
 Convert BPMN/DMN from the `camunda:` namespace to `zeebe:` with the approach chosen in Question 5.
 See `references/model-migration-approaches.md` for all four.
+Apply its Call-Activity Variable Scope contract before changing any call activity.
 
 - **M1. Diagram Converter CLI + AI** (recommended) — download and run the CLI, then handle the
   findings.
@@ -376,6 +381,11 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
+21. The skill records one call-activity scope row per element in `MIGRATION_REPORT.md`. Each row
+    compares C7 inputs and outputs, C8 mappings, both propagation flags, and child identity intent.
+    The skill verifies that a child receives selected inputs but not a parent-only variable.
+    The skill checks child identity separately from process variables. If the target cannot preserve
+    the contract, then the category remains **needs review**.
 
 #### Summary
 
