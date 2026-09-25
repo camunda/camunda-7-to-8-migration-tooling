@@ -47,6 +47,7 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                 public void execute(DelegateExecution execution) throws Exception {
                     boolean proceed = runtimeService.createProcessInstanceQuery()
                             .processDefinitionKey("example-workflow-process")
+                            .active()
                             .list()
                             .size() % 2 == 0;
 
@@ -83,7 +84,7 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                             .newProcessInstanceSearchRequest()
                             .filter(filter -> filter
                                     .processDefinitionId("example-workflow-process")
-                                    .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
+                                    .state(ProcessInstanceState.ACTIVE))
                             .send()
                             .join()
                             .page()

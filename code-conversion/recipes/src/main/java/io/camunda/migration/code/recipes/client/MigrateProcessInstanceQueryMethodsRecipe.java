@@ -34,9 +34,17 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       "io.camunda.client.api.search.filter.ProcessInstanceFilter";
   private static final String PROCESS_INSTANCE_QUERY =
       "org.camunda.bpm.engine.runtime.ProcessInstanceQuery";
-  private static final MethodMatcher VARIABLE_VALUE_EQUALS_MATCHER =
-      new MethodMatcher(
-          PROCESS_INSTANCE_QUERY + " variableValueEquals(..)");
+  private static final List<MethodMatcher> VARIABLE_FILTER_MATCHERS =
+      List.of(
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueEquals(..)"),
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueNotEquals(..)"),
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueGreaterThan(..)"),
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueGreaterThanOrEqual(..)"),
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLessThan(..)"),
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLessThanOrEqual(..)"),
+          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLike(..)"));
+  private static final MethodMatcher ACTIVE_QUERY_MATCHER =
+      new MethodMatcher(PROCESS_INSTANCE_QUERY + " active()");
   private static final MethodMatcher SUSPENDED_QUERY_MATCHER =
       new MethodMatcher(PROCESS_INSTANCE_QUERY + " suspended()");
   private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
@@ -56,23 +64,23 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves variable-filtered or suspended-state queries for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves variable-filtered, suspended-state, or default-state list/count queries for manual migration.";
   }
 
   @Override
   protected Predicate<Cursor> visitorSkipCondition() {
     return cursor -> {
-      // Preserve variable-filtered and suspended chains that these specs cannot map safely.
       Object value = cursor.getValue();
       if (value instanceof J.MethodInvocation invocation
-          && hasUnsupportedQueryFilterInReceiverChain(invocation)) {
+          && (hasUnsupportedQueryFilterInReceiverChain(invocation)
+              || isManualDefaultStateQuery(invocation))) {
         return true;
       }
 
       Cursor current = cursor;
       while (current != null) {
         if (current.getValue() instanceof J.MethodInvocation invocation
-            && (VARIABLE_VALUE_EQUALS_MATCHER.matches(invocation)
+            && (isVariableFilterMethod(invocation)
                 || SUSPENDED_QUERY_MATCHER.matches(invocation))) {
           return true;
         }
@@ -84,11 +92,11 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
               .anyMatch(
                   variable ->
                       variable.getInitializer() != null
-                          && containsVariableValueEquals(variable.getInitializer()))) {
+                          && containsVariableFilter(variable.getInitializer()))) {
         return true;
       }
       if (value instanceof J.Assignment assignment
-          && containsVariableValueEquals(assignment.getAssignment())) {
+          && containsVariableFilter(assignment.getAssignment())) {
         return true;
       }
       if (value instanceof J.MethodInvocation invocation
@@ -99,13 +107,37 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     };
   }
 
+  private static boolean isManualDefaultStateQuery(J.MethodInvocation invocation) {
+    String methodName = invocation.getSimpleName();
+    if (!methodName.equals("list") && !methodName.equals("count")) {
+      return false;
+    }
+
+    Expression receiver = invocation.getSelect();
+    if (receiver == null || !TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY)) {
+      return false;
+    }
+
+    while (receiver != null) {
+      receiver = unwrapParentheses(receiver);
+      if (receiver instanceof J.MethodInvocation methodInvocation) {
+        if (ACTIVE_QUERY_MATCHER.matches(methodInvocation)) {
+          return false;
+        }
+        receiver = methodInvocation.getSelect();
+      } else {
+        break;
+      }
+    }
+    return true;
+  }
+
   private static boolean hasUnsupportedQueryFilterInReceiverChain(J.MethodInvocation invocation) {
     Expression current = invocation.getSelect();
     while (current != null) {
       current = unwrapParentheses(current);
       if (current instanceof J.MethodInvocation receiver) {
-        if (VARIABLE_VALUE_EQUALS_MATCHER.matches(receiver)
-            || SUSPENDED_QUERY_MATCHER.matches(receiver)) {
+        if (isVariableFilterMethod(receiver) || SUSPENDED_QUERY_MATCHER.matches(receiver)) {
           return true;
         }
         current = receiver.getSelect();
@@ -147,7 +179,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
                 variable ->
                     refersToSameVariable(variable.getName(), queryVariable)
                         && variable.getInitializer() != null
-                        && containsVariableValueEquals(variable.getInitializer()))) {
+                        && containsVariableFilter(variable.getInitializer()))) {
           hasVariableFilter.set(true);
           return declarations;
         }
@@ -166,7 +198,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
                     : null;
         if (assignedVariable != null
             && refersToSameVariable(assignedVariable, queryVariable)
-            && containsVariableValueEquals(assignment.getAssignment())) {
+            && containsVariableFilter(assignment.getAssignment())) {
           hasVariableFilter.set(true);
           return assignment;
         }
@@ -179,7 +211,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       public J.MethodInvocation visitMethodInvocation(
           J.MethodInvocation candidate, AtomicBoolean hasVariableFilter) {
         J.Identifier receiver = rootReceiverIdentifier(candidate);
-        if (VARIABLE_VALUE_EQUALS_MATCHER.matches(candidate)
+        if (isVariableFilterMethod(candidate)
             && receiver != null
             && refersToSameVariable(receiver, queryVariable)) {
           hasVariableFilter.set(true);
@@ -216,12 +248,16 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         : candidate.getSimpleName().equals(target.getSimpleName());
   }
 
-  private static boolean containsVariableValueEquals(Expression expression) {
+  private static boolean isVariableFilterMethod(J.MethodInvocation invocation) {
+    return VARIABLE_FILTER_MATCHERS.stream().anyMatch(matcher -> matcher.matches(invocation));
+  }
+
+  private static boolean containsVariableFilter(Expression expression) {
     Expression current = expression;
     while (current != null) {
       current = unwrapParentheses(current);
       if (current instanceof J.MethodInvocation invocation) {
-        if (VARIABLE_VALUE_EQUALS_MATCHER.matches(invocation)) {
+        if (isVariableFilterMethod(invocation)) {
           return true;
         }
         current = invocation.getSelect();
@@ -240,6 +276,12 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processInstanceBusinessKey(..)", true),
         new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processDefinitionKey(..)", true),
         new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueEquals(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueNotEquals(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueGreaterThan(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueGreaterThanOrEqual(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueLessThan(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueLessThanOrEqual(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueLike(..)", true),
         new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery active()", true));
   }
 
@@ -290,62 +332,47 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     MethodMatcher listMatcher = new MethodMatcher("org.camunda.bpm.engine.query.Query list()");
     JavaTemplate activityListWithActive =
         processInstanceSearchTemplate(
-            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), true, false);
-    JavaTemplate activityListWithoutActive =
-        processInstanceSearchTemplate(
-            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), false, false);
+            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), false);
     JavaTemplate unfilteredListWithActive =
-        processInstanceSearchTemplate(Collections.emptyList(), true, false);
-    JavaTemplate unfilteredListWithoutActive =
-        processInstanceSearchTemplate(Collections.emptyList(), false, false);
+        processInstanceSearchTemplate(Collections.emptyList(), false);
     JavaTemplate processDefinitionListWithActive =
         processInstanceSearchTemplate(
             List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
-            true,
-            false);
-    JavaTemplate processDefinitionListWithoutActive =
-        processInstanceSearchTemplate(
-            List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
-            false,
             false);
 
-    addStateVariants(
+    addActiveStateVariant(
         specs,
         listMatcher,
         Set.of("activityIdIn"),
         List.of("activityIdIn"),
         activityListWithActive,
-        activityListWithoutActive,
         "List<io.camunda.client.api.search.response.ProcessInstance>",
         Collections.emptyList(),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    addStateVariants(
+    addActiveStateVariant(
         specs,
         listMatcher,
         Set.of("processInstanceBusinessKey"),
         Collections.emptyList(),
         unfilteredListWithActive,
-        unfilteredListWithoutActive,
         "List<io.camunda.client.api.search.response.ProcessInstance>",
         List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    addStateVariants(
+    addActiveStateVariant(
         specs,
         listMatcher,
         Set.of("processDefinitionKey"),
         List.of("processDefinitionKey"),
         processDefinitionListWithActive,
-        processDefinitionListWithoutActive,
         "List<io.camunda.client.api.search.response.ProcessInstance>",
         Collections.emptyList(),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    addStateVariants(
+    addActiveStateVariant(
         specs,
         listMatcher,
         Set.of("processInstanceBusinessKey", "processDefinitionKey"),
         List.of("processDefinitionKey"),
         processDefinitionListWithActive,
-        processDefinitionListWithoutActive,
         "List<io.camunda.client.api.search.response.ProcessInstance>",
         List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
@@ -357,73 +384,52 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
     JavaTemplate activityCountWithActive =
         processInstanceSearchTemplate(
-            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), true, true);
-    JavaTemplate activityCountWithoutActive =
-        processInstanceSearchTemplate(
-            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), false, true);
+            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), true);
     JavaTemplate unfilteredCountWithActive =
-        processInstanceSearchTemplate(Collections.emptyList(), true, true);
-    JavaTemplate unfilteredCountWithoutActive =
-        processInstanceSearchTemplate(Collections.emptyList(), false, true);
+        processInstanceSearchTemplate(Collections.emptyList(), true);
     JavaTemplate processDefinitionCountWithActive =
         processInstanceSearchTemplate(
             List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
-            true,
-            true);
-    JavaTemplate processDefinitionCountWithoutActive =
-        processInstanceSearchTemplate(
-            List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
-            false,
             true);
     addCountSpecs(
         specs,
         Set.of("activityIdIn"),
         List.of("activityIdIn"),
         activityCountWithActive,
-        activityCountWithoutActive,
         Collections.emptyList());
     addCountSpecs(
         specs,
         Set.of(),
         Collections.emptyList(),
         unfilteredCountWithActive,
-        unfilteredCountWithoutActive,
         Collections.emptyList());
     addCountSpecs(
         specs,
         Set.of("processInstanceBusinessKey"),
         Collections.emptyList(),
         unfilteredCountWithActive,
-        unfilteredCountWithoutActive,
         List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
     addCountSpecs(
         specs,
         Set.of("processDefinitionKey"),
         List.of("processDefinitionKey"),
         processDefinitionCountWithActive,
-        processDefinitionCountWithoutActive,
         Collections.emptyList());
     addCountSpecs(
         specs,
         Set.of("processInstanceBusinessKey", "processDefinitionKey"),
         List.of("processDefinitionKey"),
         processDefinitionCountWithActive,
-        processDefinitionCountWithoutActive,
         List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
     return specs;
   }
 
   private static JavaTemplate processInstanceSearchTemplate(
-      List<String> filterMethods, boolean active, boolean count) {
+      List<String> filterMethods, boolean count) {
     List<String> methods = new ArrayList<>(filterMethods);
-    if (active) {
-      methods.add("state(ProcessInstanceState.ACTIVE)");
-    } else {
-      methods.add(
-          "state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED))");
-    }
+    methods.add("state(ProcessInstanceState.ACTIVE)");
     String filter =
-        methods.size() == 1 && !(active && !count)
+        methods.size() == 1 && count
             ? "\n    .filter(filter -> filter." + methods.get(0) + ")"
             : "\n    .filter(filter -> filter\n        ."
                 + String.join("\n        .", methods)
@@ -448,60 +454,29 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return RecipeUtils.createSimpleJavaTemplate(template, templateTypes.toArray(String[]::new));
   }
 
-  private void addStateVariants(
+  private void addActiveStateVariant(
       List<ReplacementUtils.BuilderReplacementSpec> specs,
       MethodMatcher matcher,
       Set<String> methodNamesToExtractParameters,
       List<String> extractedParametersToApply,
       JavaTemplate activeTemplate,
-      JavaTemplate defaultTemplate,
       String returnType,
       List<String> textComments,
       Optional<String> receiverType) {
     specs.add(
-        stateVariant(
+        new ReplacementUtils.BuilderReplacementSpec(
             matcher,
             methodNamesToExtractParameters,
             extractedParametersToApply,
             activeTemplate,
+            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             returnType,
+            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             textComments,
+            Collections.emptyList(),
+            List.of(PROCESS_INSTANCE_STATE),
             receiverType,
-            true));
-    specs.add(
-        stateVariant(
-            matcher,
-            methodNamesToExtractParameters,
-            extractedParametersToApply,
-            defaultTemplate,
-            returnType,
-            textComments,
-            receiverType,
-            false));
-  }
-
-  private ReplacementUtils.BuilderReplacementSpec stateVariant(
-      MethodMatcher matcher,
-      Set<String> methodNamesToExtractParameters,
-      List<String> extractedParametersToApply,
-      JavaTemplate template,
-      String returnType,
-      List<String> textComments,
-      Optional<String> receiverType,
-      boolean requiresActive) {
-    return new ReplacementUtils.BuilderReplacementSpec(
-        matcher,
-        methodNamesToExtractParameters,
-        extractedParametersToApply,
-        template,
-        RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-        returnType,
-        ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-        textComments,
-        Collections.emptyList(),
-        List.of(PROCESS_INSTANCE_STATE),
-        receiverType,
-        requiresActive ? Set.of("active") : Collections.emptySet());
+            Set.of("active")));
   }
 
   private void addCountSpecs(
@@ -509,16 +484,14 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       Set<String> methodNamesToExtractParameters,
       List<String> extractedParametersToApply,
       JavaTemplate activeTemplate,
-      JavaTemplate defaultTemplate,
       List<String> textComments) {
     for (String terminalMethod : List.of("list", "count")) {
-      addStateVariants(
+      addActiveStateVariant(
           specs,
           new MethodMatcher("org.camunda.bpm.engine.query.Query " + terminalMethod + "()"),
           methodNamesToExtractParameters,
           extractedParametersToApply,
           activeTemplate,
-          defaultTemplate,
           "java.lang.Long",
           textComments,
           Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
