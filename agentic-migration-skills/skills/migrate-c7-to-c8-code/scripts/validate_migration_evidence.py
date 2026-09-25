@@ -3,8 +3,10 @@
 
 import argparse
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
+import zipfile
 from collections import Counter
 from pathlib import Path
 
@@ -69,6 +71,24 @@ MODULE_CHECKS = (
     "external_launcher",
 )
 SPRING_BOOT_LAUNCH_CHECKS = ("spring_boot_run", "executable_jar")
+RUNTIME_SOURCE_SUFFIXES = {".java", ".kt", ".groovy", ".scala"}
+SPRING_BOOT_ENTRY_POINT_PATTERN = re.compile(
+    r"@(?:SpringBootApplication|SpringBootConfiguration|EnableAutoConfiguration)\b"
+    r"|SpringApplication\s*\.\s*run\s*\("
+)
+MAIN_ENTRY_POINT_PATTERN = re.compile(
+    r"\b(?:static\s+void\s+main|fun\s+main|def\s+main)\s*\("
+    r"|\bextends\s+(?:scala\.)?App\b|@main\s+def\b"
+)
+EXECUTABLE_JAR_MANIFEST_PATTERN = re.compile(
+    r"(?im)^(?:main-class|start-class):\s*\S+"
+)
+POM_MAIN_CLASS_TAGS = {
+    "mainClass",
+    "main-class",
+    "start-class",
+    "spring-boot.run.main-class",
+}
 MODULE_CHECKS_REQUIRING_PASS = {
     "compile",
     "c7_dependencies",
@@ -266,6 +286,92 @@ def paths_identify_same_file(left, right):
     if left == right:
         return True
     return left.is_file() and right.is_file() and left.samefile(right)
+
+
+def detect_module_runtime_entry_points(module_root, location, error):
+    entry_points = []
+    pom_path = module_root / "pom.xml"
+    if pom_path.is_file():
+        try:
+            pom_root = ET.parse(str(pom_path)).getroot()
+        except (OSError, ET.ParseError, UnicodeError) as exception:
+            error(
+                "{} cannot verify runtime_mode because pom.xml cannot be read: "
+                "{}.".format(location, exception)
+            )
+        else:
+            if any(
+                isinstance(element.tag, str)
+                and element.tag.rsplit("}", 1)[-1] in POM_MAIN_CLASS_TAGS
+                and is_nonempty_string(element.text)
+                for element in pom_root.iter()
+            ):
+                entry_points.append("pom.xml configures a main class")
+
+    source_root = module_root / "src" / "main"
+    if source_root.is_dir():
+        for source_path in sorted(source_root.rglob("*")):
+            if (
+                source_path.suffix.lower() not in RUNTIME_SOURCE_SUFFIXES
+                or not source_path.is_file()
+            ):
+                continue
+            try:
+                source_text = source_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exception:
+                error(
+                    "{} cannot verify runtime_mode because {} cannot be read: "
+                    "{}.".format(
+                        location,
+                        source_path.relative_to(module_root).as_posix(),
+                        exception,
+                    )
+                )
+                continue
+            source_relative_path = source_path.relative_to(module_root).as_posix()
+            if SPRING_BOOT_ENTRY_POINT_PATTERN.search(source_text):
+                entry_points.append(
+                    "{} contains Spring Boot startup code.".format(
+                        source_relative_path
+                    )
+                )
+            elif MAIN_ENTRY_POINT_PATTERN.search(source_text):
+                entry_points.append(
+                    "{} declares a main entry point.".format(
+                        source_relative_path
+                    )
+                )
+
+    target_directory = module_root / "target"
+    if target_directory.is_dir():
+        for jar_path in sorted(target_directory.glob("*.jar")):
+            if not jar_path.is_file() or not zipfile.is_zipfile(jar_path):
+                continue
+            try:
+                with zipfile.ZipFile(jar_path) as archive:
+                    manifest = archive.read("META-INF/MANIFEST.MF").decode(
+                        "utf-8", errors="replace"
+                    )
+            except KeyError:
+                continue
+            except (OSError, RuntimeError, zipfile.BadZipFile) as exception:
+                error(
+                    "{} cannot verify runtime_mode because {} cannot be read: "
+                    "{}.".format(
+                        location,
+                        jar_path.relative_to(module_root).as_posix(),
+                        exception,
+                    )
+                )
+                continue
+            if EXECUTABLE_JAR_MANIFEST_PATTERN.search(manifest):
+                entry_points.append(
+                    "{} declares an executable JAR entry point.".format(
+                        jar_path.relative_to(module_root).as_posix()
+                    )
+                )
+
+    return entry_points
 
 
 def read_converted_model(path, location, error):
@@ -655,6 +761,21 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not isinstance(test_suites, list):
             error("{} test_suites must be an array.".format(location))
             test_suites = []
+
+        if runtime_mode == "none" and not Path(canonical_path).is_absolute():
+            entry_points = detect_module_runtime_entry_points(
+                project_root / Path(canonical_path),
+                location,
+                error,
+            )
+            if entry_points:
+                error(
+                    "{} runtime_mode none conflicts with detected runtime "
+                    "entry point(s): {}.".format(
+                        location,
+                        "; ".join(entry_points),
+                    )
+                )
 
         if runtime_mode == "spring-boot":
             spring_boot_launch_requirements.append(
@@ -1399,7 +1520,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
     counts = Counter()
     seen = {}
     seen_indices = {}
-    test_evidence_paths = {}
+    test_evidence_paths = []
     test_commands = {}
     for index, check in enumerate(checks):
         location = "checks[{}]".format(index)
@@ -1505,46 +1626,54 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             and kind == "tests"
             and resolved_evidence_path is not None
         ):
-            suite_target = check.get("target")
-            previous_suites = test_evidence_paths.setdefault(suite_target, [])
             duplicate_suite = next(
                 (
                     previous
-                    for previous in previous_suites
+                    for previous in test_evidence_paths
                     if resolved_evidence_path.samefile(previous[0])
                 ),
                 None,
             )
             if duplicate_suite is not None:
                 error(
-                    "Module {} test suites must use distinct evidence files ({} "
-                    "and {}).".format(
-                        suite_target,
+                    "Duplicate suite evidence: test suites must use distinct "
+                    "evidence files (module {} "
+                    "scenario {} and module {} scenario {}).".format(
                         duplicate_suite[1],
+                        duplicate_suite[2],
+                        check.get("target"),
                         check.get("scenario"),
                     )
                 )
             else:
-                previous_suites.append(
-                    (resolved_evidence_path, check.get("scenario"))
+                test_evidence_paths.append(
+                    (
+                        resolved_evidence_path,
+                        check.get("target"),
+                        check.get("scenario"),
+                    )
                 )
         if (
             target_type == "module"
             and kind == "tests"
             and is_nonempty_string(command)
         ):
-            command_key = (check.get("target"), command)
-            if command_key in test_commands:
+            if command in test_commands:
                 error(
-                    "Module {} test suites must use distinct commands ({} and {})."
-                    .format(
+                    "Duplicate suite command: test suites must use distinct "
+                    "commands (module {} "
+                    "scenario {} and module {} scenario {}).".format(
+                        test_commands[command][0],
+                        test_commands[command][1],
                         check.get("target"),
-                        test_commands[command_key],
                         check.get("scenario"),
                     )
                 )
             else:
-                test_commands[command_key] = check.get("scenario")
+                test_commands[command] = (
+                    check.get("target"),
+                    check.get("scenario"),
+                )
         if environment is not None and (
             not isinstance(environment, str) or environment not in ENVIRONMENTS
         ):

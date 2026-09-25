@@ -165,11 +165,19 @@ Set `runtime_mode` to `spring-boot`, `external-launcher`, or `none` for every mo
 | `external-launcher` | Pass `external_launcher`. Mark both Spring Boot checks as `not_applicable`. |
 | `none` | Mark all three launch checks as `not_applicable`. |
 
+The validator rejects `runtime_mode: none` when `src/main` files declare a Java, Kotlin, Groovy, or
+Scala `main` entry point.
+The validator rejects it when `src/main` files contain a Spring Boot startup annotation or a
+`SpringApplication.run` call.
+The validator rejects it when the module `pom.xml` configures a main class.
+The validator rejects it when a JAR under `target/` declares `Main-Class` or `Start-Class` in its
+manifest.
+
 Run each selected runtime launch check only with local or non-production settings. Never start a
 production worker as a validation probe.
 
 Run each module and test suite independently. Use a distinct command and evidence file for each
-suite. The validator rejects command or evidence-file reuse between test suites in the same module.
+suite. The validator enforces this contract across all modules.
 A failed Docker or Testcontainers suite does not stop the skill from running other suites or module
 checks. Do not summarize all test failures as Docker failures.
 

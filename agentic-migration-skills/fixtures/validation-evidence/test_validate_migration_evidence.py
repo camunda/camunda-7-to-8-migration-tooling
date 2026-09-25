@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 import xml.etree.ElementTree as ET
 from contextlib import redirect_stdout
 from io import StringIO
@@ -1652,6 +1653,192 @@ class ValidationEvidenceTest(unittest.TestCase):
                     for blocker in summary["blockers"]
                 )
             )
+
+    def test_none_runtime_mode_rejects_detectable_entry_points(self):
+        for entry_point in (
+            "spring_boot_source",
+            "java_main",
+            "kotlin_main",
+            "scala_main",
+            "executable_jar",
+            "pom_main_class",
+        ):
+            with self.subTest(entry_point=entry_point):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    module_path = "service"
+                    module_root = project_root / module_path
+                    module_root.mkdir()
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "check completed\n", encoding="utf-8"
+                    )
+
+                    if entry_point == "spring_boot_source":
+                        source = (
+                            module_root
+                            / "src/main/java/com/example/Application.java"
+                        )
+                        source.parent.mkdir(parents=True)
+                        source.write_text(
+                            "@SpringBootApplication\n"
+                            "class Application {}\n",
+                            encoding="utf-8",
+                        )
+                    elif entry_point == "java_main":
+                        source = (
+                            module_root
+                            / "src/main/java/com/example/Application.java"
+                        )
+                        source.parent.mkdir(parents=True)
+                        source.write_text(
+                            "class Application {\n"
+                            "  public static void main(String[] args) {}\n"
+                            "}\n",
+                            encoding="utf-8",
+                        )
+                    elif entry_point == "kotlin_main":
+                        source = (
+                            module_root
+                            / "src/main/kotlin/com/example/Application.kt"
+                        )
+                        source.parent.mkdir(parents=True)
+                        source.write_text(
+                            "fun main(args: Array<String>) {}\n",
+                            encoding="utf-8",
+                        )
+                    elif entry_point == "scala_main":
+                        source = (
+                            module_root
+                            / "src/main/scala/com/example/Application.scala"
+                        )
+                        source.parent.mkdir(parents=True)
+                        source.write_text(
+                            "object Application extends App {}\n",
+                            encoding="utf-8",
+                        )
+                    elif entry_point == "executable_jar":
+                        jar_path = module_root / "target/service.jar"
+                        jar_path.parent.mkdir(parents=True)
+                        with zipfile.ZipFile(jar_path, "w") as archive:
+                            archive.writestr(
+                                "META-INF/MANIFEST.MF",
+                                "Manifest-Version: 1.0\n"
+                                "Main-Class: "
+                                "org.springframework.boot.loader.launch.JarLauncher\n"
+                                "Start-Class: com.example.Application\n\n",
+                            )
+                    else:
+                        (module_root / "pom.xml").write_text(
+                            "<project><build><plugins><plugin>"
+                            "<configuration><mainClass>"
+                            "com.example.Application"
+                            "</mainClass></configuration>"
+                            "</plugin></plugins></build></project>",
+                            encoding="utf-8",
+                        )
+
+                    write_step2_inventory(project_root, [module_path], [])
+                    summary = gate.validate_manifest(
+                        passing_module_manifest(module_path),
+                        project_root,
+                    )
+
+                    self.assertEqual(
+                        summary["readiness"],
+                        "not_ready",
+                        summary["blockers"],
+                    )
+                    self.assertTrue(
+                        any(
+                            "runtime_mode none conflicts with detected "
+                            "runtime entry point" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
+
+    def test_test_suites_reject_shared_evidence_and_commands_across_modules(
+        self,
+    ):
+        for duplicate_field, blocker_fragment in (
+            ("evidence_path", "test suites must use distinct evidence files"),
+            ("command", "test suites must use distinct commands"),
+        ):
+            with self.subTest(duplicate_field=duplicate_field):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "check completed\n", encoding="utf-8"
+                    )
+
+                    module_paths = ("service-a", "service-b")
+                    modules = []
+                    checks = []
+                    test_checks = []
+                    for module_path in module_paths:
+                        (project_root / module_path).mkdir()
+                        unit_log_path = log_directory / "{}-unit.log".format(
+                            module_path
+                        )
+                        unit_log_path.write_text(
+                            "test suite completed\n", encoding="utf-8"
+                        )
+                        module_manifest = passing_module_manifest(module_path)
+                        test_check = next(
+                            check
+                            for check in module_manifest["checks"]
+                            if check["kind"] == "tests"
+                        )
+                        test_check["command"] = "Run unit suite for {}".format(
+                            module_path
+                        )
+                        test_check["evidence_path"] = (
+                            LOG_DIRECTORY + "/{}-unit.log".format(module_path)
+                        )
+                        test_checks.append(test_check)
+                        modules.extend(module_manifest["modules"])
+                        checks.extend(module_manifest["checks"])
+
+                    write_step2_inventory(project_root, module_paths, [])
+                    manifest = {
+                        "schema_version": 1,
+                        "mode": "migration",
+                        "modules": modules,
+                        "models": [],
+                        "checks": checks,
+                    }
+                    baseline = gate.validate_manifest(manifest, project_root)
+                    self.assertEqual(
+                        baseline["readiness"],
+                        "ready",
+                        baseline["blockers"],
+                    )
+
+                    test_checks[1][duplicate_field] = test_checks[0][
+                        duplicate_field
+                    ]
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(
+                        summary["readiness"],
+                        "not_ready",
+                        summary["blockers"],
+                    )
+                    self.assertTrue(
+                        any(
+                            blocker_fragment in blocker.lower()
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
 
     def test_spring_boot_runtime_accepts_either_launch_strategy(self):
         for launch_kind in ("spring_boot_run", "executable_jar"):
