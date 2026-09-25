@@ -109,8 +109,9 @@ Each model has a `form_inventory` array. Add one record for each source Generate
 referenced form, and form-free owner. Each record has `id`, `kind`, `accepted`, `schema_applicable`,
 `form_js_applicable`, and `binding_required`. Set `kind` to `generated`, `referenced`, or
 `form-free-owner`. Set form applicability fields from the source inventory and the accepted
-migration decision. Use a unique ID for each record. Use an empty array when the model has no form
-records or form-free owners.
+migration decision. Set a `referenced` record ID to its source form key, form reference, or
+form-definition ID. Set `generated` and `form-free-owner` record IDs to their BPMN owner IDs. Use a
+unique ID for each record. Use an empty array when the model has no form records or form-free owners.
 
 The validator parses every source and converted model as BPMN or DMN XML. It compares the declared
 type with each detected definitions root.
@@ -311,3 +312,6 @@ reports a missing or malformed record. Re-run failed checks before changing thei
 The validator writes the aggregate gate block in `MIGRATION_REPORT.md`. Use that block as the
 validation-readiness summary. The gate does not replace the migration exit criteria in `SKILL.md`.
 Never report the migration as ready when the gate says `NOT READY`.
+A markerless legacy aggregate gate with a validation status is malformed. The validator replaces a
+malformed gate only when it can identify a safe section boundary. If the validator cannot identify
+a safe boundary, then it leaves the report unchanged and writes a `NOT READY` summary.

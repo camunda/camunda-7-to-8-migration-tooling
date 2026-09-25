@@ -390,12 +390,40 @@ def path_is_within_root(path, root):
     return True
 
 
-def detect_module_runtime_entry_points(module_root, location, error):
+def resolve_runtime_scan_path(path, project_root, location, error):
+    try:
+        resolved_path = Path(path).resolve()
+    except (OSError, RuntimeError) as exception:
+        error(
+            "{} cannot verify runtime_mode because {} cannot be resolved: "
+            "{}.".format(location, path, exception)
+        )
+        return None
+    if not path_is_within_root(resolved_path, project_root):
+        error(
+            "{} cannot verify runtime_mode because {} resolves outside the "
+            "project root.".format(location, path)
+        )
+        return None
+    return resolved_path
+
+
+def detect_module_runtime_entry_points(module_root, project_root, location, error):
+    project_root = Path(project_root).resolve()
+    module_root = resolve_runtime_scan_path(
+        module_root, project_root, location, error
+    )
+    if module_root is None:
+        return []
+
     entry_points = []
     pom_path = module_root / "pom.xml"
-    if pom_path.is_file():
+    resolved_pom_path = resolve_runtime_scan_path(
+        pom_path, project_root, location, error
+    )
+    if resolved_pom_path is not None and resolved_pom_path.is_file():
         try:
-            pom_root = ET.parse(str(pom_path)).getroot()
+            pom_root = ET.parse(str(resolved_pom_path)).getroot()
         except (OSError, ET.ParseError, UnicodeError) as exception:
             error(
                 "{} cannot verify runtime_mode because pom.xml cannot be read: "
@@ -411,15 +439,23 @@ def detect_module_runtime_entry_points(module_root, location, error):
                 entry_points.append("pom.xml configures a main class")
 
     source_root = module_root / "src" / "main"
-    if source_root.is_dir():
+    resolved_source_root = resolve_runtime_scan_path(
+        source_root, project_root, location, error
+    )
+    if resolved_source_root is not None and resolved_source_root.is_dir():
         for source_path in sorted(source_root.rglob("*")):
+            if source_path.suffix.lower() not in RUNTIME_SOURCE_SUFFIXES:
+                continue
+            resolved_source_path = resolve_runtime_scan_path(
+                source_path, project_root, location, error
+            )
             if (
-                source_path.suffix.lower() not in RUNTIME_SOURCE_SUFFIXES
-                or not source_path.is_file()
+                resolved_source_path is None
+                or not resolved_source_path.is_file()
             ):
                 continue
             try:
-                source_text = source_path.read_text(encoding="utf-8")
+                source_text = resolved_source_path.read_text(encoding="utf-8")
             except (OSError, UnicodeError) as exception:
                 error(
                     "{} cannot verify runtime_mode because {} cannot be read: "
@@ -445,12 +481,25 @@ def detect_module_runtime_entry_points(module_root, location, error):
                 )
 
     target_directory = module_root / "target"
-    if target_directory.is_dir():
+    resolved_target_directory = resolve_runtime_scan_path(
+        target_directory, project_root, location, error
+    )
+    if (
+        resolved_target_directory is not None
+        and resolved_target_directory.is_dir()
+    ):
         for jar_path in sorted(target_directory.glob("*.jar")):
-            if not jar_path.is_file() or not zipfile.is_zipfile(jar_path):
+            resolved_jar_path = resolve_runtime_scan_path(
+                jar_path, project_root, location, error
+            )
+            if (
+                resolved_jar_path is None
+                or not resolved_jar_path.is_file()
+                or not zipfile.is_zipfile(resolved_jar_path)
+            ):
                 continue
             try:
-                with zipfile.ZipFile(jar_path) as archive:
+                with zipfile.ZipFile(resolved_jar_path) as archive:
                     manifest = archive.read("META-INF/MANIFEST.MF").decode(
                         "utf-8", errors="replace"
                     )
@@ -660,6 +709,7 @@ def read_source_form_inventory(root, location, error):
         return Counter()
 
     inventory = Counter()
+    identities = {kind: set() for kind in FORM_INVENTORY_KINDS}
     reference_ids = set()
     event_definition_suffix = "EventDefinition"
     for process in root.findall(BPMN_PROCESS_TAG):
@@ -701,6 +751,12 @@ def read_source_form_inventory(root, location, error):
 
             if generated_form:
                 inventory["generated"] += 1
+                if not is_nonempty_string(owner.get("id")):
+                    error(
+                        "{} source generated-form owner must have a non-empty "
+                        "id.".format(location)
+                    )
+                identities["generated"].add(owner_id)
             reference_ids.update(references)
 
             process_level_none_start = (
@@ -724,9 +780,16 @@ def read_source_form_inventory(root, location, error):
                 )
             ):
                 inventory["form-free-owner"] += 1
+                if not is_nonempty_string(owner.get("id")):
+                    error(
+                        "{} source form-free owner must have a non-empty id."
+                        .format(location)
+                    )
+                identities["form-free-owner"].add(owner_id)
 
     inventory["referenced"] = len(reference_ids)
-    return inventory
+    identities["referenced"].update(reference_ids)
+    return inventory, identities
 
 
 def read_converted_model(path, location, error):
@@ -1145,13 +1208,15 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not is_nonempty_string(path):
             error("{} must have a non-empty project-relative path.".format(location))
             continue
-        validate_project_path(
+        resolved_module_path = validate_project_path(
             path,
             project_root,
             "{} path".format(location),
             "directory",
             error,
         )
+        if resolved_module_path is None:
+            continue
         canonical_path = canonical_project_path(path, project_root)
         if canonical_path in module_paths:
             error(
@@ -1173,7 +1238,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             error("{} test_suites must be an array.".format(location))
             test_suites = []
         configured_test_suites = detect_module_test_suites(
-            project_root / Path(canonical_path),
+            resolved_module_path,
             project_root,
             location,
             error,
@@ -1197,7 +1262,8 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
 
         if runtime_mode == "none" and not Path(canonical_path).is_absolute():
             entry_points = detect_module_runtime_entry_points(
-                project_root / Path(canonical_path),
+                resolved_module_path,
+                project_root,
                 location,
                 error,
             )
@@ -1494,6 +1560,9 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             form_inventory = []
         form_inventory_ids = set()
         declared_form_inventory = Counter()
+        declared_form_identities = {
+            kind: set() for kind in FORM_INVENTORY_KINDS
+        }
         form_check_applicability = {
             kind: False for kind in FORM_CHECKS
         }
@@ -1528,6 +1597,8 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 )
             else:
                 declared_form_inventory[form_kind] += 1
+                if is_nonempty_string(form_id):
+                    declared_form_identities[form_kind].add(form_id)
             accepted = form.get("accepted")
             if not isinstance(accepted, bool):
                 error("{} accepted must be true or false.".format(form_location))
@@ -1580,8 +1651,14 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 form_check_applicability["form_binding"] = True
 
         source_form_inventory = Counter()
+        source_form_identities = {
+            kind: set() for kind in FORM_INVENTORY_KINDS
+        }
         if source_model_type == "bpmn" and source_model_root is not None:
-            source_form_inventory = read_source_form_inventory(
+            (
+                source_form_inventory,
+                source_form_identities,
+            ) = read_source_form_inventory(
                 source_model_root, location, error
             )
         for form_kind in sorted(FORM_INVENTORY_KINDS):
@@ -1595,6 +1672,24 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                         source_form_inventory[form_kind],
                         form_kind,
                         declared_form_inventory[form_kind],
+                    )
+                )
+            missing_ids = sorted(
+                source_form_identities[form_kind]
+                - declared_form_identities[form_kind]
+            )
+            unexpected_ids = sorted(
+                declared_form_identities[form_kind]
+                - source_form_identities[form_kind]
+            )
+            if missing_ids or unexpected_ids:
+                error(
+                    "{} source form inventory identities do not match "
+                    "detected {} IDs (missing: {}; unexpected: {}).".format(
+                        location,
+                        form_kind,
+                        ", ".join(missing_ids) or "none",
+                        ", ".join(unexpected_ids) or "none",
                     )
                 )
 
@@ -2571,7 +2666,48 @@ def render_report_block(summary, summary_path):
     return "\n".join(lines)
 
 
+def next_report_section(contents, offset):
+    match = re.search(r"(?m)^##[ \t]+", contents[offset:])
+    if match is None:
+        return None
+    return offset + match.start()
+
+
+def find_markerless_legacy_gate(contents):
+    heading_pattern = re.compile(
+        r"(?m)^## Aggregate validation gate[ \t]*$"
+    )
+    status_pattern = re.compile(r"(?m)^\*\*Validation gate:\*\*[^\n]*$")
+    for heading in heading_pattern.finditer(contents):
+        if contents[:heading.start()].rstrip().endswith(REPORT_START):
+            continue
+        section_end = next_report_section(contents, heading.end())
+        if section_end is None:
+            section_end = len(contents)
+        if status_pattern.search(contents, heading.end(), section_end):
+            return heading.start(), section_end
+    return None
+
+
+def remove_report_region(contents, start, end):
+    prefix = contents[:start].rstrip()
+    suffix = contents[end:].lstrip()
+    if prefix and suffix:
+        return prefix + "\n\n" + suffix
+    return prefix or suffix
+
+
 def remove_malformed_report_gate(contents):
+    original = contents
+    while True:
+        legacy_gate = find_markerless_legacy_gate(contents)
+        if legacy_gate is None:
+            break
+        start, end = legacy_gate
+        if end == len(contents):
+            return original, False
+        contents = remove_report_region(contents, start, end)
+
     start_positions = [
         match.start() for match in re.finditer(re.escape(REPORT_START), contents)
     ]
@@ -2580,7 +2716,7 @@ def remove_malformed_report_gate(contents):
     ]
     marker_positions = start_positions + end_positions
     if not marker_positions:
-        return contents
+        return contents, contents != original
 
     first_marker = min(marker_positions)
     gate_heading = contents.rfind(
@@ -2594,21 +2730,36 @@ def remove_malformed_report_gate(contents):
     else:
         start = first_marker
 
-    balanced = (
-        len(start_positions) == len(end_positions)
-        and bool(start_positions)
-        and start_positions[-1] < end_positions[-1]
-    )
-    if balanced:
-        end = end_positions[-1] + len(REPORT_END)
-        suffix = contents[end:]
+    if not start_positions:
+        end = max(end_positions) + len(REPORT_END)
     else:
-        suffix = ""
-    prefix = contents[:start].rstrip()
-    suffix = suffix.lstrip()
-    if prefix and suffix:
-        return prefix + "\n\n" + suffix
-    return prefix or suffix
+        last_start = max(start_positions)
+        ends_after_last_start = [
+            position for position in end_positions if position > last_start
+        ]
+        if ends_after_last_start:
+            end = max(ends_after_last_start) + len(REPORT_END)
+        else:
+            marker_end = last_start + len(REPORT_START)
+            next_heading = next_report_section(contents, marker_end)
+            if next_heading is not None:
+                heading_end = contents.find("\n", next_heading)
+                if heading_end < 0:
+                    heading_end = len(contents)
+                if contents[next_heading:heading_end].strip() == (
+                    "## Aggregate validation gate"
+                ):
+                    next_heading = next_report_section(
+                        contents, heading_end + 1
+                    )
+            if next_heading is None:
+                if contents[marker_end:].strip():
+                    return original, False
+                end = len(contents)
+            else:
+                end = next_heading
+
+    return remove_report_region(contents, start, end), True
 
 
 def write_report(report_path, summary, project_root, summary_path):
@@ -2629,6 +2780,7 @@ def write_report(report_path, summary, project_root, summary_path):
         or contents.count(REPORT_START) > 1
         or contents.count(REPORT_END) > 1
         or (has_start and has_end and not markers_in_order)
+        or find_markerless_legacy_gate(contents) is not None
     )
     if malformed:
         summary["readiness"] = "not_ready"
@@ -2636,7 +2788,9 @@ def write_report(report_path, summary, project_root, summary_path):
         summary["blockers"].append(
             "The report contains a malformed validation gate block."
         )
-        contents = remove_malformed_report_gate(contents)
+        contents, removed_gate = remove_malformed_report_gate(contents)
+        if not removed_gate:
+            return malformed
         has_start = False
         has_end = False
 

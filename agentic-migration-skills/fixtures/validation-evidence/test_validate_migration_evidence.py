@@ -363,7 +363,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                     materialize_inventory(project_root, manifest)
                     report = project_root / "MIGRATION_REPORT.md"
                     report.write_text(
-                        "Migration findings.\n\n" + malformed_gate,
+                        "Migration findings.\n\n"
+                        + malformed_gate
+                        + "\n\n## Open items\n\nKeep this decision.\n",
                         encoding="utf-8",
                     )
 
@@ -380,6 +382,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                     report_text = report.read_text(encoding="utf-8")
                     self.assertIn("Migration findings.", report_text)
+                    self.assertIn("## Open items", report_text)
+                    self.assertIn("Keep this decision.", report_text)
                     self.assertIn(
                         "**Validation gate:** **NOT READY**", report_text
                     )
@@ -397,6 +401,73 @@ class ValidationEvidenceTest(unittest.TestCase):
                         ).read_text(encoding="utf-8")
                     )
                     self.assertEqual(saved_summary, summary)
+
+    def test_markerless_legacy_ready_gate_is_replaced_with_not_ready(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            report = project_root / "MIGRATION_REPORT.md"
+            report.write_text(
+                "Migration findings.\n\n"
+                "## Aggregate validation gate\n\n"
+                "**Validation gate:** **READY**\n\n"
+                "Legacy gate details.\n\n"
+                "## Open items\n\nKeep this decision.\n",
+                encoding="utf-8",
+            )
+
+            completed = self.run_gate(project_root)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "malformed validation gate block" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            report_text = report.read_text(encoding="utf-8")
+            self.assertIn("Migration findings.", report_text)
+            self.assertIn("## Open items", report_text)
+            self.assertIn("Keep this decision.", report_text)
+            self.assertIn("**Validation gate:** **NOT READY**", report_text)
+            self.assertNotIn("**Validation gate:** **READY**", report_text)
+            self.assertEqual(report_text.count(gate.REPORT_START), 1)
+            self.assertEqual(report_text.count(gate.REPORT_END), 1)
+
+    def test_unbounded_malformed_report_gate_is_left_untouched(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            report = project_root / "MIGRATION_REPORT.md"
+            original_contents = (
+                "Migration findings.\n\n"
+                + gate.REPORT_START
+                + "\n## Aggregate validation gate\n\n"
+                "**Validation gate:** **READY**\n\n"
+                "Retain these unsectioned notes.\n"
+            )
+            report.write_text(original_contents, encoding="utf-8")
+
+            completed = self.run_gate(project_root)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertEqual(report.read_text(encoding="utf-8"), original_contents)
 
     def test_converted_model_cannot_overwrite_source_path(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
@@ -639,6 +710,47 @@ class ValidationEvidenceTest(unittest.TestCase):
                             alias
                         ),
                     )
+
+    def test_out_of_root_module_skips_test_suite_discovery(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            temporary_root = Path(temporary)
+            project_root = temporary_root / "project"
+            project_root.mkdir()
+            external_module = temporary_root / "external-module"
+            external_module.mkdir()
+            (external_module / "build.gradle").write_text(
+                'tasks.register<Test>("externalSuite") {}\n',
+                encoding="utf-8",
+            )
+            (project_root / "service").symlink_to(
+                external_module, target_is_directory=True
+            )
+            log_directory = project_root / LOG_DIRECTORY
+            log_directory.mkdir(parents=True)
+            (log_directory / "pass.log").write_text(
+                "check completed\n", encoding="utf-8"
+            )
+            write_step2_inventory(project_root, ["service"], [])
+
+            with patch.object(
+                gate,
+                "detect_module_test_suites",
+                wraps=gate.detect_module_test_suites,
+            ) as detect_test_suites:
+                summary = gate.validate_manifest(
+                    passing_module_manifest("service"),
+                    project_root,
+                )
+
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "resolves outside the project root" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                summary["blockers"],
+            )
+            detect_test_suites.assert_not_called()
 
     def test_duplicate_converted_model_paths_are_normalized(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
@@ -1425,6 +1537,70 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "The source inventory omitted {}.".format(form_kind),
                     )
 
+    def test_source_form_inventory_requires_matching_source_identities(self):
+        form_inventory_cases = (
+            ("generated", "Task_FormOwner", "wrong-owner", None),
+            ("referenced", "order-form", "wrong-form", "order-form"),
+            ("form-free-owner", "Task_FormOwner", "wrong-owner", None),
+        )
+        for (
+            form_kind,
+            source_id,
+            declared_id,
+            source_reference,
+        ) in form_inventory_cases:
+            with self.subTest(form_kind=form_kind):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    model = manifest["models"][0]
+                    model["form_inventory"] = [
+                        {
+                            "id": source_id,
+                            "kind": form_kind,
+                            "accepted": False,
+                            "schema_applicable": False,
+                            "form_js_applicable": False,
+                            "binding_required": False,
+                        }
+                    ]
+                    materialize_inventory(project_root, manifest)
+                    write_source_bpmn_with_owner(
+                        project_root / model["source_path"],
+                        model["processes"][0]["id"],
+                        form_kind,
+                        source_reference,
+                    )
+
+                    summary = gate.validate_manifest(manifest, project_root)
+                    self.assertFalse(
+                        any(
+                            "source form inventory identities do not match"
+                            in blocker.lower()
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
+
+                    model["form_inventory"][0]["id"] = declared_id
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "source form inventory identities do not match"
+                            in blocker.lower()
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
+
     def test_form_free_owner_requires_form_reference_evidence(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary) / "project"
@@ -1437,7 +1613,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             model = manifest["models"][0]
             model["form_inventory"] = [
                 {
-                    "id": "order-user-task",
+                    "id": "Task_FormOwner",
                     "kind": "form-free-owner",
                     "accepted": False,
                     "schema_applicable": False,
@@ -2181,6 +2357,85 @@ class ValidationEvidenceTest(unittest.TestCase):
                         summary["blockers"],
                     )
                     self.assertTrue(
+                        any(
+                            "runtime_mode none conflicts with detected "
+                            "runtime entry point" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
+
+    def test_none_runtime_mode_does_not_read_out_of_root_symlink_entry_points(
+        self,
+    ):
+        for entry_point in ("pom.xml", "source", "jar"):
+            with self.subTest(entry_point=entry_point):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    temporary_root = Path(temporary)
+                    project_root = temporary_root / "project"
+                    module_path = "service"
+                    module_root = project_root / module_path
+                    module_root.mkdir(parents=True)
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "check completed\n", encoding="utf-8"
+                    )
+
+                    if entry_point == "pom.xml":
+                        external_path = temporary_root / "external-pom.xml"
+                        external_path.write_text(
+                            "<project><build><mainClass>"
+                            "com.example.Application"
+                            "</mainClass></build></project>",
+                            encoding="utf-8",
+                        )
+                        (module_root / "pom.xml").symlink_to(external_path)
+                    elif entry_point == "source":
+                        external_path = temporary_root / "External.java"
+                        external_path.write_text(
+                            "class Application {\n"
+                            "  public static void main(String[] args) {}\n"
+                            "}\n",
+                            encoding="utf-8",
+                        )
+                        source_path = (
+                            module_root
+                            / "src/main/java/com/example/Application.java"
+                        )
+                        source_path.parent.mkdir(parents=True)
+                        source_path.symlink_to(external_path)
+                    else:
+                        external_path = temporary_root / "external.jar"
+                        with zipfile.ZipFile(external_path, "w") as archive:
+                            archive.writestr(
+                                "META-INF/MANIFEST.MF",
+                                "Manifest-Version: 1.0\n"
+                                "Main-Class: "
+                                "org.springframework.boot.loader.launch.JarLauncher\n"
+                                "Start-Class: com.example.Application\n\n",
+                            )
+                        jar_path = module_root / "target/service.jar"
+                        jar_path.parent.mkdir(parents=True)
+                        jar_path.symlink_to(external_path)
+
+                    write_step2_inventory(project_root, [module_path], [])
+                    summary = gate.validate_manifest(
+                        passing_module_manifest(module_path),
+                        project_root,
+                    )
+
+                    self.assertEqual(summary["readiness"], "not_ready")
+                    self.assertTrue(
+                        any(
+                            "resolves outside the project root" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
+                    self.assertFalse(
                         any(
                             "runtime_mode none conflicts with detected "
                             "runtime entry point" in blocker
