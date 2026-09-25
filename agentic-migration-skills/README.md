@@ -79,6 +79,11 @@ estimating. It shows them in the `atx` conversation and in `MIGRATION_REPORT.md`
 local run data, not AWS dashboard metrics. AWS documents no result schema or CLI option to submit
 them.
 
+The skill also records validation evidence for each migrated module, model, and executable process.
+Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_REPORT.md` and a
+machine-readable summary under `.camunda-migration/validation/`. The
+`fixtures/validation-evidence` directory contains the gate regression test.
+
 ## Use
 
 From your Camunda 7 project directory:
@@ -196,12 +201,14 @@ plugin.json                                ← Copilot CLI plugin manifest
 skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
-    └── references/                        ← procedures loaded on demand
+    ├── references/                        ← procedures loaded on demand
+    └── scripts/                           ← evidence schema and aggregate gate validator
 fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/validation-evidence` regression test checks a report with contradictory claims.
 
 ## License
 

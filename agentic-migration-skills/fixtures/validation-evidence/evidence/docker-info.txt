@@ -1,0 +1,1 @@
+Docker info completed with exit code 0.

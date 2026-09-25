@@ -1,0 +1,556 @@
+{
+  "schema_version": 1,
+  "mode": "migration",
+  "modules": [
+    {
+      "path": "examples/web",
+      "runtime_mode": "none",
+      "test_suites": [
+        {
+          "name": "web-smoke",
+          "requires_docker": false
+        },
+        {
+          "name": "container-integration",
+          "requires_docker": true
+        }
+      ]
+    },
+    {
+      "path": "examples/account",
+      "runtime_mode": "none",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/loan",
+      "runtime_mode": "none",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/order",
+      "runtime_mode": "none",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/invoice",
+      "runtime_mode": "none",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/messaging",
+      "runtime_mode": "none",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/customer",
+      "runtime_mode": "none",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/runtime-api",
+      "runtime_mode": "spring-boot",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    },
+    {
+      "path": "examples/runtime-worker",
+      "runtime_mode": "spring-boot",
+      "test_suites": [{"name": "unit", "requires_docker": false}]
+    }
+  ],
+  "models": [
+    {
+      "path": "models/converted-c8-order.bpmn",
+      "source_path": "models/order.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "order-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": [
+        {"process_id": "order-process", "id": "repeat-start"}
+      ]
+    },
+    {
+      "path": "models/converted-c8-account.bpmn",
+      "source_path": "models/account.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "account-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-loan.bpmn",
+      "source_path": "models/loan.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "loan-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-invoice.bpmn",
+      "source_path": "models/invoice.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "invoice-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-customer.bpmn",
+      "source_path": "models/customer.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "customer-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-messaging.bpmn",
+      "source_path": "models/messaging.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "messaging-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-customer-archive.bpmn",
+      "source_path": "models/customer-archive.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "customer-archive-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-eligibility.bpmn",
+      "source_path": "models/eligibility.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "eligibility-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-notification.bpmn",
+      "source_path": "models/notification.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "notification-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    },
+    {
+      "path": "models/converted-c8-report.bpmn",
+      "source_path": "models/report.bpmn",
+      "type": "bpmn",
+      "approach": "M2",
+      "deployable": true,
+      "source_has_di": false,
+      "processes": [
+        {
+          "id": "report-process",
+          "executable": true,
+          "standalone_entry_point": true,
+          "direct_start_scenarios": ["normal"],
+          "covering_test": null,
+          "reason": null
+        }
+      ],
+      "recurring_timer_starts": []
+    }
+  ],
+  "checks": [
+    {
+      "target_type": "module",
+      "target": "examples/web",
+      "kind": "configuration",
+      "scenario": null,
+      "method": "command",
+      "command": "mvn rewrite:run ValidateCamundaClientConfigurationRecipe",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/configuration.txt",
+      "reason": "Spring rejected camunda.client.mode=simple before worker startup.",
+      "blocker_reason": null,
+      "failure_class": "configuration",
+      "environment": null
+    },
+    {
+      "target_type": "project",
+      "target": "docker",
+      "kind": "docker_info",
+      "scenario": null,
+      "method": "command",
+      "command": "docker info",
+      "exit_code": 0,
+      "result": "passed",
+      "evidence_path": "evidence/docker-info.txt",
+      "reason": null,
+      "blocker_reason": null,
+      "failure_class": null,
+      "environment": null
+    },
+    {
+      "target_type": "module",
+      "target": "examples/web",
+      "kind": "tests",
+      "scenario": "web-smoke",
+      "method": "command",
+      "command": "mvn test -Dtest=WebSmokeTest",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/web-smoke.txt",
+      "reason": "Both non-Docker web tests failed during application context startup.",
+      "blocker_reason": null,
+      "failure_class": "application",
+      "environment": null
+    },
+    {
+      "target_type": "module",
+      "target": "examples/web",
+      "kind": "tests",
+      "scenario": "container-integration",
+      "method": "command",
+      "command": "mvn verify -Pintegration",
+      "exit_code": 1,
+      "result": "blocked",
+      "evidence_path": "evidence/testcontainers.txt",
+      "reason": null,
+      "blocker_reason": "Testcontainers found no valid environment although docker info succeeded.",
+      "failure_class": "testcontainers",
+      "environment": null
+    },
+    {
+      "target_type": "module",
+      "target": "examples/runtime-api",
+      "kind": "executable_jar",
+      "scenario": null,
+      "method": "command",
+      "command": "java -jar target/runtime-api.jar",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/executable-jar-runtime-api.txt",
+      "reason": "The runtime entry point did not launch from the packaged JAR.",
+      "blocker_reason": null,
+      "failure_class": "application",
+      "environment": "local"
+    },
+    {
+      "target_type": "module",
+      "target": "examples/runtime-worker",
+      "kind": "executable_jar",
+      "scenario": null,
+      "method": "command",
+      "command": "java -jar target/runtime-worker.jar",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/executable-jar-runtime-worker.txt",
+      "reason": "The runtime entry point did not launch from the packaged JAR.",
+      "blocker_reason": null,
+      "failure_class": "application",
+      "environment": "local"
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-order.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-order.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-account.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-account.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-loan.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-loan.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-invoice.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-invoice.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-customer.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-customer.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-messaging.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-messaging.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-customer-archive.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-customer-archive.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-eligibility.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-eligibility.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-notification.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-notification.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/bpmn-lint.txt",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-report.bpmn",
+      "kind": "lint",
+      "scenario": null,
+      "method": "command",
+      "command": "npx bpmnlint models/converted-c8-report.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "logs/bpmn-lint.log",
+      "reason": "The target-compatible lint output contains migration errors.",
+      "blocker_reason": null,
+      "failure_class": "compatibility",
+      "environment": null
+    },
+    {
+      "target_type": "model",
+      "target": "models/converted-c8-order.bpmn",
+      "kind": "deployment",
+      "scenario": null,
+      "method": "command",
+      "command": "c8ctl deploy models/converted-c8-order.bpmn",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/order-deployment.txt",
+      "reason": "The conditional definition has no ID and cannot deploy.",
+      "blocker_reason": null,
+      "failure_class": "application",
+      "environment": "non-production"
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-order.bpmn#order-process",
+      "kind": "direct_start",
+      "scenario": "normal",
+      "method": "command",
+      "command": "mvn test -Dtest=OrderProcessTest",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "No direct process-start test was run.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-order.bpmn#order-process",
+      "kind": "downstream_message_instance",
+      "scenario": null,
+      "method": "command",
+      "command": "mvn test -Dtest=MessageTest",
+      "exit_code": 1,
+      "result": "failed",
+      "evidence_path": "evidence/message-assertion.txt",
+      "reason": "The test checks only the initiating process instance.",
+      "blocker_reason": null,
+      "failure_class": "behavior",
+      "environment": null
+    },
+    {
+      "target_type": "timer",
+      "target": "models/converted-c8-order.bpmn#order-process#repeat-start",
+      "kind": "timer_preflight",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual timer-start safety preflight",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "No isolated timer preflight or cleanup plan was recorded.",
+      "failure_class": "unknown",
+      "environment": null
+    }
+  ]
+}

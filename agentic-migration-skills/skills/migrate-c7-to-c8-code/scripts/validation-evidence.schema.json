@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Camunda migration validation evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "modules", "models", "checks"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "mode": {
+      "const": "migration"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "runtime_mode", "test_suites"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "runtime_mode": {
+            "enum": ["spring-boot", "external-launcher", "none"]
+          },
+          "test_suites": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "requires_docker"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "requires_docker": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "source_path",
+          "type",
+          "approach",
+          "deployable",
+          "source_has_di",
+          "processes",
+          "recurring_timer_starts"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "enum": ["bpmn", "dmn"]
+          },
+          "approach": {
+            "enum": ["M1", "M2", "M3", "E1"]
+          },
+          "deployable": {
+            "type": "boolean"
+          },
+          "source_has_di": {
+            "type": "boolean"
+          },
+          "processes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "executable",
+                "standalone_entry_point",
+                "direct_start_scenarios",
+                "covering_test",
+                "reason"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "executable": {
+                  "type": "boolean"
+                },
+                "standalone_entry_point": {
+                  "type": "boolean"
+                },
+                "direct_start_scenarios": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "covering_test": {
+                  "type": ["string", "null"]
+                },
+                "reason": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          },
+          "recurring_timer_starts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["process_id", "id"],
+              "properties": {
+                "process_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_type",
+          "target",
+          "kind",
+          "scenario",
+          "method",
+          "command",
+          "exit_code",
+          "result",
+          "evidence_path",
+          "reason",
+          "blocker_reason",
+          "failure_class",
+          "environment"
+        ],
+        "properties": {
+          "target_type": {
+            "enum": ["project", "module", "model", "process", "timer"]
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario": {
+            "type": ["string", "null"]
+          },
+          "method": {
+            "enum": ["command", "manual", "not_applicable"]
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "exit_code": {
+            "type": ["integer", "null"]
+          },
+          "result": {
+            "enum": [
+              "passed",
+              "failed",
+              "blocked",
+              "unknown",
+              "not_run",
+              "not_applicable"
+            ]
+          },
+          "evidence_path": {
+            "type": ["string", "null"]
+          },
+          "reason": {
+            "type": ["string", "null"]
+          },
+          "blocker_reason": {
+            "type": ["string", "null"]
+          },
+          "failure_class": {
+            "type": ["string", "null"]
+          },
+          "environment": {
+            "enum": [
+              "local",
+              "non-production",
+              "production",
+              "unknown",
+              "not-deployed",
+              null
+            ]
+          }
+        }
+      }
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "modules": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "models": {
+          "minItems": 1
+        }
+      }
+    }
+  ]
+}

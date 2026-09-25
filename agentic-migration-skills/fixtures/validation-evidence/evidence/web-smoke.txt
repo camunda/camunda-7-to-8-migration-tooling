@@ -1,0 +1,2 @@
+Tests run: 2, Failures: 0, Errors: 2.
+Both web tests fail during application context startup because the configured client mode is invalid.
