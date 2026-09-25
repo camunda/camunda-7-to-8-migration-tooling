@@ -122,6 +122,19 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           && hasUnsafeQueryAlias(cursor, invocation)) {
         return true;
       }
+      if (value instanceof J.VariableDeclarations declarations
+          && declarations.getVariables().stream()
+              .anyMatch(
+                  variable ->
+                      variable.getInitializer() instanceof J.MethodInvocation invocation
+                          && hasUnsafeQueryAlias(cursor, invocation))) {
+        return true;
+      }
+      if (value instanceof J.Assignment assignment
+          && assignment.getAssignment() instanceof J.MethodInvocation invocation
+          && hasUnsafeQueryAlias(cursor, invocation)) {
+        return true;
+      }
       return false;
     };
   }
@@ -242,7 +255,11 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       public J.MethodInvocation visitMethodInvocation(
           J.MethodInvocation candidate, AtomicBoolean unpreservedFilter) {
         J.Identifier receiver = rootReceiverIdentifier(candidate);
-        if (isVariableFilterMethod(candidate)
+        if ((isVariableFilterMethod(candidate)
+                || (receiver != null
+                    && isProcessInstanceQueryType(receiver.getType())
+                    && isNonActiveQueryFilter(candidate)
+                    && !isPartOfListOrCountQuery(getCursor(), queryVariable)))
             && receiver != null
             && refersToSameVariable(receiver, queryVariable)) {
           unpreservedFilter.set(true);
@@ -346,6 +363,28 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return VARIABLE_FILTER_MATCHERS.stream().anyMatch(matcher -> matcher.matches(invocation));
   }
 
+  private static boolean isNonActiveQueryFilter(J.MethodInvocation invocation) {
+    return TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)
+        && !ACTIVE_QUERY_MATCHER.matches(invocation)
+        && !CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation);
+  }
+
+  private static boolean isPartOfListOrCountQuery(Cursor cursor, J.Identifier queryVariable) {
+    Cursor current = cursor.getParent();
+    while (current != null) {
+      if (current.getValue() instanceof J.MethodInvocation invocation
+          && (invocation.getSimpleName().equals("list")
+              || invocation.getSimpleName().equals("count"))) {
+        J.Identifier receiver = rootReceiverIdentifier(invocation);
+        if (receiver != null && refersToSameVariable(receiver, queryVariable)) {
+          return true;
+        }
+      }
+      current = current.getParent();
+    }
+    return false;
+  }
+
   private static boolean isUnsupportedQueryMethod(J.MethodInvocation invocation) {
     if (isVariableFilterMethod(invocation) || SUSPENDED_QUERY_MATCHER.matches(invocation)) {
       return true;
@@ -395,9 +434,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     while (current != null) {
       current = unwrapParentheses(current);
       if (current instanceof J.MethodInvocation invocation) {
-        if (TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)
-            && !ACTIVE_QUERY_MATCHER.matches(invocation)
-            && !CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation)) {
+        if (isNonActiveQueryFilter(invocation)) {
           return true;
         }
         current = invocation.getSelect();

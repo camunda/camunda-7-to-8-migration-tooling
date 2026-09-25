@@ -387,6 +387,77 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void leavesQueryAliasesWithFiltersAppliedInSeparateStatementsForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceQueryWithSeparateFilters {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey, String businessKey, String activityId,
+                        String processInstanceId) {
+                    ProcessInstanceQuery query = engine.getRuntimeService().createProcessInstanceQuery();
+                    query.processDefinitionKey(processDefinitionKey);
+                    query.processInstanceBusinessKey(businessKey);
+                    query.activityIdIn(activityId);
+                    query.processInstanceId(processInstanceId);
+                    query.active().list();
+                    query.active().count();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void leavesUntraceableQueryAliasListResultTypesForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.runtime.ProcessInstance;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class UntraceableProcessInstanceQueryResult {
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(ProcessInstanceQuery query, String processDefinitionKey) {
+                    List<ProcessInstance> result =
+                            query.active().processDefinitionKey(processDefinitionKey).list();
+
+                    List<ProcessInstance> assignmentTarget = null;
+                    assignmentTarget =
+                            query.active().processDefinitionKey(processDefinitionKey).list();
+                    ProcessInstance instanceFromAssignment = assignmentTarget.get(0);
+                }
+            }
+            """));
+  }
+
+  @Test
   void leavesFieldsAssignedFromHelperReturnedVariableFilteredQueriesForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
