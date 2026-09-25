@@ -87,6 +87,7 @@ MODULE_CHECKS = (
 )
 SPRING_BOOT_LAUNCH_CHECKS = ("spring_boot_run", "executable_jar")
 RUNTIME_SOURCE_SUFFIXES = {".java", ".kt", ".groovy", ".scala"}
+TEST_SOURCE_SUFFIXES = RUNTIME_SOURCE_SUFFIXES
 SPRING_BOOT_ENTRY_POINT_PATTERN = re.compile(
     r"@(?:org\s*\.\s*springframework\s*\.\s*boot\s*\.\s*)?"
     r"SpringBootConfiguration\b"
@@ -132,6 +133,35 @@ GRADLE_TEST_SUITE_PATTERNS = (
         r'''\b(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s+by\s+registering\s*'''
         r'''\(\s*(?:[\w.]+\.)?JvmTestSuite(?:\.class|::class)?\s*\)'''
     ),
+)
+GRADLE_PLUGINS_BLOCK_PATTERN = re.compile(
+    r"\bplugins\s*\{([^{}]*)\}", re.DOTALL
+)
+GRADLE_TEST_PLUGIN_IDS = (
+    "java",
+    "java-library",
+    "application",
+    "groovy",
+    "scala",
+    "org.jetbrains.kotlin.jvm",
+)
+GRADLE_TEST_PLUGIN_ID_PATTERN = re.compile(
+    r'''\bid\s*(?:\(\s*)?["'](?:'''
+    + "|".join(re.escape(plugin_id) for plugin_id in GRADLE_TEST_PLUGIN_IDS)
+    + r''')["']'''
+)
+GRADLE_KOTLIN_JVM_PLUGIN_PATTERN = re.compile(
+    r'''\bkotlin\s*\(\s*["']jvm["']\s*\)'''
+)
+GRADLE_BARE_TEST_PLUGIN_PATTERN = re.compile(
+    r"(?m)(?:^|[;{])\s*(?:java|java-library|application|groovy|scala)"
+    r"\s*(?=[;}]|$)"
+)
+GRADLE_APPLIED_TEST_PLUGIN_PATTERN = re.compile(
+    r'''\b(?:apply\s*(?:\(\s*)?plugin\s*[:=]|plugins\s*\.\s*apply\s*\()\s*'''
+    r'''["'](?:'''
+    + "|".join(re.escape(plugin_id) for plugin_id in GRADLE_TEST_PLUGIN_IDS)
+    + r''')["']'''
 )
 MODULE_CHECKS_REQUIRING_PASS = {
     "compile",
@@ -313,7 +343,7 @@ def command_invokes_docker_info(command):
 def validate_project_path(value, project_root, label, expected_type, error):
     if not is_nonempty_string(value):
         error("{} must be a non-empty project-relative path.".format(label))
-        return
+        return None
     normalized = value.replace("\\", "/")
     if (
         normalized.startswith("/")
@@ -321,18 +351,19 @@ def validate_project_path(value, project_root, label, expected_type, error):
         or ".." in normalized.split("/")
     ):
         error("{} must stay inside the project root.".format(label))
-        return
+        return None
     root = project_root.resolve()
     resolved = (root / Path(normalized)).resolve()
     try:
         resolved.relative_to(root)
     except ValueError:
         error("{} resolves outside the project root.".format(label))
-        return
+        return None
     if expected_type == "directory" and not resolved.is_dir():
         error("{} must point to an existing directory.".format(label))
     if expected_type == "file" and not resolved.is_file():
         error("{} must point to an existing file.".format(label))
+    return resolved
 
 
 def canonical_project_path(value, project_root):
@@ -478,7 +509,18 @@ def project_ancestor_directories(module_root, project_root):
     return directories
 
 
-def maven_test_suites(pom_roots):
+def module_has_test_sources(module_root):
+    test_source_root = Path(module_root) / "src" / "test"
+    if not test_source_root.is_dir():
+        return False
+    return any(
+        source_file.is_file()
+        and source_file.suffix.lower() in TEST_SOURCE_SUFFIXES
+        for source_file in test_source_root.rglob("*")
+    )
+
+
+def maven_test_suites(pom_roots, module_root):
     active_plugins = []
     managed_plugins = []
     for pom_root in pom_roots:
@@ -494,13 +536,22 @@ def maven_test_suites(pom_roots):
                 for plugins in xml_children(plugin_management, "plugins"):
                     managed_plugins.extend(xml_children(plugins, "plugin"))
 
+    suite_names = set()
+    if pom_roots and (
+        any(
+            xml_child_text(plugin, "artifactId") == "maven-surefire-plugin"
+            for plugin in active_plugins
+        )
+        or module_has_test_sources(module_root)
+    ):
+        suite_names.add("unit")
+
     if not any(
         xml_child_text(plugin, "artifactId") == "maven-failsafe-plugin"
         for plugin in active_plugins
     ):
-        return set()
+        return suite_names
 
-    suite_names = set()
     for plugin in active_plugins + managed_plugins:
         if xml_child_text(plugin, "artifactId") != "maven-failsafe-plugin":
             continue
@@ -526,9 +577,23 @@ def gradle_test_suites(script_text):
     }
 
 
+def gradle_declares_default_test_suite(script_text):
+    for match in GRADLE_PLUGINS_BLOCK_PATTERN.finditer(script_text):
+        plugins = match.group(1)
+        if (
+            GRADLE_TEST_PLUGIN_ID_PATTERN.search(plugins)
+            or GRADLE_KOTLIN_JVM_PLUGIN_PATTERN.search(plugins)
+            or GRADLE_BARE_TEST_PLUGIN_PATTERN.search(plugins)
+        ):
+            return True
+    return bool(GRADLE_APPLIED_TEST_PLUGIN_PATTERN.search(script_text))
+
+
 def detect_module_test_suites(module_root, project_root, location, error):
     suite_names = set()
     pom_roots = []
+    gradle_build_found = False
+    gradle_default_test_found = False
     project_root = Path(project_root).resolve()
     for directory in project_ancestor_directories(module_root, project_root):
         pom_path = directory / "pom.xml"
@@ -554,6 +619,7 @@ def detect_module_test_suites(module_root, project_root, location, error):
             build_path = directory / build_file
             if not build_path.is_file():
                 continue
+            gradle_build_found = True
             resolved_build_path = build_path.resolve()
             if not path_is_within_root(resolved_build_path, project_root):
                 error(
@@ -570,7 +636,15 @@ def detect_module_test_suites(module_root, project_root, location, error):
                 )
                 continue
             suite_names.update(gradle_test_suites(script_text))
-    suite_names.update(maven_test_suites(pom_roots))
+            gradle_default_test_found = (
+                gradle_default_test_found
+                or gradle_declares_default_test_suite(script_text)
+            )
+    if gradle_build_found and (
+        gradle_default_test_found or module_has_test_sources(module_root)
+    ):
+        suite_names.add("test")
+    suite_names.update(maven_test_suites(pom_roots, module_root))
     return suite_names
 
 
@@ -1268,31 +1342,29 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not is_nonempty_string(path):
             error("{} must have a non-empty converted model path.".format(location))
             continue
-        validate_project_path(
+        resolved_model_path = validate_project_path(
             path,
             project_root,
             "{} path".format(location),
             "file",
             error,
         )
-        resolved_model_path = (
-            project_root / Path(path.replace("\\", "/"))
-        ).resolve()
-        if any(
-            paths_identify_same_file(resolved_model_path, previous_path)
-            for previous_path in model_paths
-        ):
-            error(
-                "The converted model path {} appears more than once."
-                .format(path)
-            )
-        model_paths.append(resolved_model_path)
-        converted_model_file_paths.append((resolved_model_path, location))
+        if resolved_model_path is not None:
+            if any(
+                paths_identify_same_file(resolved_model_path, previous_path)
+                for previous_path in model_paths
+            ):
+                error(
+                    "The converted model path {} appears more than once."
+                    .format(path)
+                )
+            model_paths.append(resolved_model_path)
+            converted_model_file_paths.append((resolved_model_path, location))
         resolved_source_path = None
         if not is_nonempty_string(source_path):
             error("{} must have a non-empty source_path.".format(location))
         else:
-            validate_project_path(
+            resolved_source_path = validate_project_path(
                 source_path,
                 project_root,
                 "{} source_path".format(location),
@@ -1301,33 +1373,36 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             )
             normalized_source_path = source_path.replace("\\", "/")
             model_source_paths.add(normalized_source_path)
-            resolved_source_path = (
-                project_root.resolve() / Path(source_path.replace("\\", "/"))
-            ).resolve()
-            previous_source = next(
-                (
-                    previous_location
-                    for previous_path, previous_location
-                    in model_source_file_paths
-                    if paths_identify_same_file(
-                        resolved_source_path, previous_path
+            if resolved_source_path is not None:
+                previous_source = next(
+                    (
+                        previous_location
+                        for previous_path, previous_location
+                        in model_source_file_paths
+                        if paths_identify_same_file(
+                            resolved_source_path, previous_path
+                        )
+                    ),
+                    None,
+                )
+                if previous_source is not None:
+                    error(
+                        "{} source_path identifies the same file as {}."
+                        .format(location, previous_source)
                     )
-                ),
-                None,
-            )
-            if previous_source is not None:
-                error(
-                    "{} source_path identifies the same file as {}."
-                    .format(location, previous_source)
+                model_source_file_paths.append(
+                    (resolved_source_path, location)
                 )
-            model_source_file_paths.append((resolved_source_path, location))
-            if paths_identify_same_file(
-                resolved_model_path, resolved_source_path
-            ):
-                error(
-                    "{} source and converted paths identify the same file."
-                    .format(location)
-                )
+                if (
+                    resolved_model_path is not None
+                    and paths_identify_same_file(
+                        resolved_model_path, resolved_source_path
+                    )
+                ):
+                    error(
+                        "{} source and converted paths identify the same file."
+                        .format(location)
+                    )
         declared_model_type = model_type
         if not isinstance(model_type, str) or model_type not in {"bpmn", "dmn"}:
             error("{} type must be bpmn or dmn.".format(location))
@@ -1342,7 +1417,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             processes = []
         converted_model_type = None
         converted_model_root = None
-        if resolved_model_path.is_file():
+        if resolved_model_path is not None and resolved_model_path.is_file():
             converted_model_type, converted_model_root = read_converted_model(
                 resolved_model_path, location, error
             )

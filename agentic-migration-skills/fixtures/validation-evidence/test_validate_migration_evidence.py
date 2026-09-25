@@ -368,6 +368,61 @@ class ValidationEvidenceTest(unittest.TestCase):
                 )
             )
 
+    def test_converted_model_outside_project_is_not_parsed(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            workspace = Path(temporary)
+            project_root = workspace / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            materialize_inventory(project_root, manifest)
+
+            converted_file = project_root / model["path"]
+            converted_file.unlink()
+            outside_file = workspace / "outside.xml"
+            outside_file.write_text("<malformed", encoding="utf-8")
+            converted_file.symlink_to(outside_file)
+
+            parsed_paths = []
+            original_reader = gate.read_converted_model
+            identity_path_pairs = []
+            original_identity_check = gate.paths_identify_same_file
+
+            def record_read(path, location, error):
+                parsed_paths.append(Path(path).resolve())
+                return original_reader(path, location, error)
+
+            def record_identity_check(left, right):
+                identity_path_pairs.append((Path(left), Path(right)))
+                return original_identity_check(left, right)
+
+            with patch.object(
+                gate, "read_converted_model", side_effect=record_read
+            ), patch.object(
+                gate,
+                "paths_identify_same_file",
+                side_effect=record_identity_check,
+            ):
+                summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "resolves outside the project root" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            self.assertNotIn(outside_file.resolve(), parsed_paths)
+            self.assertFalse(
+                any(
+                    outside_file.resolve() in path_pair
+                    for path_pair in identity_path_pairs
+                )
+            )
+
     def test_converted_models_cannot_alias_other_source_files(self):
         for alias_type in ("cycle", "hard_link"):
             with self.subTest(alias_type=alias_type):
@@ -2291,6 +2346,118 @@ class ValidationEvidenceTest(unittest.TestCase):
                             for blocker in summary["blockers"]
                         ),
                         "The build-configured suite was not required.",
+                    )
+
+    def test_maven_default_surefire_suite_cannot_be_omitted(self):
+        with tempfile.TemporaryDirectory(
+            prefix="migration-evidence-"
+        ) as temporary:
+            project_root = Path(temporary)
+            module_path = "service"
+            module_root = project_root / module_path
+            test_source_root = module_root / "src/test/java"
+            test_source_root.mkdir(parents=True)
+            (test_source_root / "ServiceTest.java").write_text(
+                "class ServiceTest {}",
+                encoding="utf-8",
+            )
+            (module_root / "pom.xml").write_text(
+                "<project><build><plugins><plugin>"
+                "<artifactId>maven-failsafe-plugin</artifactId>"
+                "<executions><execution><id>integration-tests</id>"
+                "<goals><goal>integration-test</goal><goal>verify</goal>"
+                "</goals></execution></executions></plugin></plugins></build>"
+                "</project>",
+                encoding="utf-8",
+            )
+            log_directory = project_root / LOG_DIRECTORY
+            log_directory.mkdir(parents=True)
+            (log_directory / "pass.log").write_text(
+                "test suite completed\n", encoding="utf-8"
+            )
+            manifest = passing_module_manifest(module_path)
+            manifest["modules"][0]["test_suites"] = [
+                {"name": "integration-tests", "requires_docker": False}
+            ]
+            test_check = next(
+                check for check in manifest["checks"] if check.get("kind") == "tests"
+            )
+            test_check["scenario"] = "integration-tests"
+            write_step2_inventory(project_root, [module_path], [])
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "build-configured suite unit" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The default Maven Surefire suite was not required.",
+            )
+
+    def test_gradle_default_test_suite_cannot_be_omitted(self):
+        configurations = (
+            ("plugins { id(\"java\") }", False),
+            ("plugins { java }", False),
+            ('plugins { kotlin("jvm") version "1.9.0" }', False),
+            ('apply(plugin = "java")', False),
+            ("apply plugin: 'java'", False),
+            ("", True),
+        )
+        for build_configuration, has_test_sources in configurations:
+            with self.subTest(
+                build_configuration=build_configuration,
+                has_test_sources=has_test_sources,
+            ):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    module_path = "service"
+                    module_root = project_root / module_path
+                    module_root.mkdir()
+                    (module_root / "build.gradle.kts").write_text(
+                        build_configuration
+                        + '\ntasks.register<Test>("integrationTest") {}\n',
+                        encoding="utf-8",
+                    )
+                    if has_test_sources:
+                        test_source_root = module_root / "src/test/java"
+                        test_source_root.mkdir(parents=True)
+                        (test_source_root / "ServiceTest.java").write_text(
+                            "class ServiceTest {}",
+                            encoding="utf-8",
+                        )
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "test suite completed\n", encoding="utf-8"
+                    )
+                    manifest = passing_module_manifest(module_path)
+                    manifest["modules"][0]["test_suites"] = [
+                        {
+                            "name": "integrationTest",
+                            "requires_docker": False,
+                        }
+                    ]
+                    test_check = next(
+                        check
+                        for check in manifest["checks"]
+                        if check.get("kind") == "tests"
+                    )
+                    test_check["scenario"] = "integrationTest"
+                    write_step2_inventory(project_root, [module_path], [])
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(summary["readiness"], "not_ready")
+                    self.assertTrue(
+                        any(
+                            "build-configured suite test" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "The default Gradle test suite was not required.",
                     )
 
     def test_declared_test_suites_must_be_build_configured(self):

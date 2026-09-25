@@ -83,9 +83,11 @@ The skill also records validation evidence for each migrated module, model, and 
 Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_REPORT.md` and a
 machine-readable summary under `.camunda-migration/validation/`. It accepts evidence files only
 under `.camunda-migration/validation/logs/`. It parses source and converted BPMN or DMN models. It
-verifies diagram interchange and form inventories for BPMN sources. It checks Maven Failsafe and
-Gradle test-suite declarations against the suite inventory. It rejects declared suites without
-matching build configuration and output paths that identify evidence files.
+verifies diagram interchange and form inventories for BPMN sources. It detects default Maven
+Surefire and Gradle `test` suites, plus Maven Failsafe and explicit Gradle suites. It checks each
+suite against the inventory and rejects missing or undeclared suites. It
+skips model files that resolve outside the project root, including paths reached through symlinks.
+It also rejects output paths that identify evidence files.
 
 ## Use
 

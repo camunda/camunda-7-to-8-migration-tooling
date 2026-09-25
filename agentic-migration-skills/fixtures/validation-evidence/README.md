@@ -22,11 +22,13 @@ processes, or misstate process executability. They reject timer inventories that
 repeating starts in converted BPMN. They also reject form-check waivers that conflict with the form
 inventory, synthetic direct-start checks for non-standalone processes, waived applicable process
 assertions, manual executable checks, evidence outside the logs directory, and suite logs or
-commands reused across modules. They reject omitted Maven Failsafe and explicit Gradle test suites.
-They reject manifest suites without matching build configuration. They reject source BPMN form
-inventories that omit detected form categories and Docker probe commands that only mention
-`docker info`. They reject timer preflights without a safety plan and output paths that identify
-the evidence input, each other, evidence logs, or reserved validation files.
+commands reused across modules. They reject omitted default Maven Surefire, Maven Failsafe, and
+Gradle `test` suites. They reject explicit Gradle test suites and manifest suites without matching
+build configuration. They reject source BPMN form inventories that omit detected form categories
+and Docker probe commands that only mention `docker info`. They reject timer preflights without a
+safety plan and output paths that identify the evidence input, each other, evidence logs, or
+reserved validation files. They reject converted model symlinks that resolve outside the project
+root without parsing the linked files.
 The tests reject symlink and hard-link source aliases, XML type mismatches, and non-empty DMN
 process or timer inventories. They reject `runtime_mode: none` when `src/main`, `pom.xml`, or a JAR
 in `target/` exposes runtime entry-point markers, including qualified Spring Boot annotations and

@@ -187,11 +187,14 @@ production worker as a validation probe.
 
 Run each module and test suite independently. Use a distinct command and evidence file for each
 suite. The validator enforces this contract across all modules.
-The validator checks each declared `test_suites` entry against Maven Failsafe executions and
-explicit Gradle `Test` or `JvmTestSuite` declarations. It rejects undeclared build suites and
-manifest suites without matching build declarations. It detects `Test` tasks declared with
-`register`, `create`, or `named`. Use the Maven execution ID or Gradle task name as the suite name.
-Use `integration` when a Failsafe execution has no ID.
+The validator adds `unit` for Maven modules with JVM test sources or an active
+`maven-surefire-plugin`. It adds `test` for Gradle builds with a test-capable plugin or JVM test
+sources. Use `unit` for the default Maven Surefire suite. Use `test` for the default Gradle task.
+Use Maven Failsafe execution IDs and Gradle task names for other suites. The validator checks every declared
+`test_suites` entry against detected suites. It rejects undeclared build suites and manifest suites
+without matching build declarations. It detects explicit Gradle `Test` tasks declared with
+`register`, `create`, or `named`, plus `JvmTestSuite` declarations. Use `integration` when a Failsafe
+execution has no ID.
 A failed Docker or Testcontainers suite does not stop the skill from running other suites or module
 checks. Do not summarize all test failures as Docker failures.
 
@@ -206,6 +209,8 @@ mentions these words does not satisfy the probe.
 
 The converted model path must resolve to a different file from its source path.
 The validator rejects source and converted paths that resolve to or identify the same file.
+The validator skips model files that resolve outside the project root, including paths reached
+through symlinks.
 
 Add one record for every model check kind in the following table. Use `not_applicable` with a reason
 when a condition does not apply.
