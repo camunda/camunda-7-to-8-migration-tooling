@@ -10,6 +10,7 @@
     <bpmn:startEvent id="Start_Listener" name="Start">
       <bpmn:extensionElements>
         <camunda:executionListener delegateExpression="${startListener}" event="start" />
+        <camunda:executionListener class="com.example.StartListener" event="start" />
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_StartToEnd</bpmn:outgoing>
     </bpmn:startEvent>

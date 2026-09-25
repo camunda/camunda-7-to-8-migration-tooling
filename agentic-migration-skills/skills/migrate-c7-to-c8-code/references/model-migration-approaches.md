@@ -119,9 +119,13 @@ converted copies. It matches the report's `filename` value to the source path an
 `elementId` value to the start-event ID. For directory input, the CLI reports a path relative to the
 input directory. For single-file input, the CLI reports the filename. The skill uses the report path
 exactly. If this pair does not identify exactly one source start event, then the skill blocks
-compatibility and asks the user to resolve the mapping. The skill requires a matching
-`execution-listener-on-start-event` finding for each source listener. If the report omits a finding,
-the skill adds a source-derived blocking row. That row does not count as a converter match.
+compatibility and asks the user to resolve the mapping.
+
+The skill matches each finding to one source listener entry by implementation attribute and value in
+the finding's `message`. Each finding matches only one source entry. The skill requires one finding
+per source entry, including repeated implementations. If a source entry lacks a finding, then the
+skill adds a source-derived blocking row. That row does not count as a converter match. If a finding
+has no source match or the counts differ, then the skill blocks compatibility.
 
 The skill parses each converted copy with a namespace-aware XML parser. If a converted
 `bpmn:startEvent` still contains a direct `zeebe:executionListener` with `eventType="start"`, then

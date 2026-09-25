@@ -204,9 +204,9 @@ See `references/form-reference-migration.md` for the classification rules and th
 columns.
 
 For every original BPMN, the skill records each `camunda:executionListener` with `event="start"`
-attached directly to a `bpmn:startEvent`. The skill records the source path, start-event ID, and
-listener implementation. The skill keeps this inventory when a converter report omits the matching
-finding.
+attached directly to a `bpmn:startEvent` as a separate inventory entry. Each entry records the
+source path, start-event ID, implementation attribute, and value. The skill keeps this inventory
+when a converter report omits a matching finding.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.

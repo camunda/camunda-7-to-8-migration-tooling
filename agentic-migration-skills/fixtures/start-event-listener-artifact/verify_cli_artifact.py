@@ -5,11 +5,14 @@ import json
 import shutil
 import subprocess
 import tempfile
+from collections import Counter
 from pathlib import Path
 from xml.etree import ElementTree
 
 
 CATEGORY = "execution-listener-on-start-event"
+START_EVENT_ID = "Start_Listener"
+IMPLEMENTATION_ATTRIBUTES = ("class", "expression", "delegateExpression")
 NAMESPACES = {
     "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
     "camunda": "http://camunda.org/schema/1.0/bpmn",
@@ -57,27 +60,30 @@ def convert_case(java, jar, source, target_version, work_directory):
     return json.loads(report_file.read_text(encoding="utf-8")), converted_file
 
 
-def get_source_listener_implementation(source):
+def get_source_listener_implementations(source):
     root = ElementTree.parse(source).getroot()
     listeners = root.findall(
-        ".//bpmn:startEvent[@id='Start_Listener']/bpmn:extensionElements/"
+        f".//bpmn:startEvent[@id='{START_EVENT_ID}']/bpmn:extensionElements/"
         "camunda:executionListener[@event='start']",
         NAMESPACES,
     )
     require(
-        len(listeners) == 1,
-        "The source fixture must have exactly one start listener at Start_Listener.",
+        len(listeners) > 0,
+        f"The source fixture must have at least one start listener at {START_EVENT_ID}.",
     )
-    implementations = [
-        listeners[0].get(attribute)
-        for attribute in ("class", "expression", "delegateExpression")
-        if listeners[0].get(attribute)
-    ]
-    require(
-        len(implementations) == 1,
-        "The source listener must have exactly one implementation.",
-    )
-    return implementations[0]
+    source_implementations = []
+    for listener in listeners:
+        implementations = [
+            (attribute, listener.get(attribute))
+            for attribute in IMPLEMENTATION_ATTRIBUTES
+            if listener.get(attribute)
+        ]
+        require(
+            len(implementations) == 1,
+            "Each source listener must have exactly one implementation.",
+        )
+        source_implementations.append(implementations[0])
+    return source_implementations
 
 
 def find_start_listener(report):
@@ -93,25 +99,54 @@ def find_start_listener(report):
     ]
 
 
-def require_listener_finding(report, source_name, implementation):
+def require_listener_findings(
+    report, source_name, event_id, source_implementations
+):
     findings = find_start_listener(report)
+    expected = Counter(source_implementations)
     require(
-        len(findings) == 1
-        and findings[0].get("filename") == source_name
-        and findings[0].get("elementId") == "Start_Listener",
-        f"The listener model must report exactly one matching {CATEGORY} "
-        f"finding for {source_name} at Start_Listener.",
-    )
-    finding = findings[0]
-    require(
-        finding.get("severity") == "TASK",
-        f"The matching {CATEGORY} finding must have blocking TASK severity.",
+        sum(expected.values()) > 0,
+        "The source listener inventory must not be empty.",
     )
     require(
-        isinstance(finding.get("message"), str)
-        and implementation in finding["message"],
-        f"The matching {CATEGORY} finding message must include the source "
-        f"listener implementation {implementation!r}.",
+        len(findings) == sum(expected.values()),
+        f"The listener model must report exactly one {CATEGORY} finding "
+        "for each source listener.",
+    )
+    matched = Counter()
+    for finding in findings:
+        require(
+            finding.get("filename") == source_name
+            and finding.get("elementId") == event_id,
+            f"Each {CATEGORY} finding must match {source_name} at {event_id}.",
+        )
+        message = finding.get("message")
+        require(
+            isinstance(message, str),
+            f"Each {CATEGORY} finding must identify its source listener implementation.",
+        )
+        implementations = [
+            implementation
+            for implementation in expected
+            if f"'{implementation[0]}' '{implementation[1]}'" in message
+        ]
+        require(
+            len(implementations) == 1,
+            f"Each {CATEGORY} finding must match exactly one source listener implementation.",
+        )
+        implementation = implementations[0]
+        matched[implementation] += 1
+        require(
+            matched[implementation] <= expected[implementation],
+            f"The converter report contains a duplicate {CATEGORY} finding.",
+        )
+        require(
+            finding.get("severity") == "TASK",
+            f"Each matching {CATEGORY} finding must have blocking TASK severity.",
+        )
+    require(
+        matched == expected,
+        f"The converter report must include each source {CATEGORY} finding.",
     )
 
 
@@ -147,7 +182,7 @@ def main():
     fixture_directory = Path(__file__).resolve().parent / "c7-source"
     listener_source = fixture_directory / "start-listener.bpmn"
     control_source = fixture_directory / "no-listener.bpmn"
-    implementation = get_source_listener_implementation(listener_source)
+    implementations = get_source_listener_implementations(listener_source)
 
     with tempfile.TemporaryDirectory(prefix="camunda-cli-artifact-check-") as temporary:
         temporary_directory = Path(temporary)
@@ -166,8 +201,11 @@ def main():
             temporary_directory / "control",
         )
 
-        require_listener_finding(
-            listener_report, listener_source.name, implementation
+        require_listener_findings(
+            listener_report,
+            listener_source.name,
+            START_EVENT_ID,
+            implementations,
         )
         require_no_listener_findings(control_report)
         require(

@@ -2,7 +2,8 @@
 
 This fixture checks the selected Diagram Converter CLI artifact and the
 `migrate-c7-to-c8-code` workflow against the start-listener regression from #2825.
-It includes one Camunda 7 start-event listener and one no-listener control.
+It includes two Camunda 7 start-event listeners on `Start_Listener` and one
+no-listener control.
 
 ## Check the selected artifact
 
@@ -16,12 +17,12 @@ python3 verify_cli_artifact.py \
 ```
 
 The script runs both fixture models in fresh temporary directories. It requires
-the listener model to report one blocking `TASK`
-`execution-listener-on-start-event` finding for the exact input filename and
-`Start_Listener` event. The finding message must include the source listener
-implementation. The converted copy must omit a `start` execution listener
-directly on a BPMN start event. The control model must not report that finding
-for any filename. A release that predates the fix in #2841 fails this check.
+one blocking `TASK` `execution-listener-on-start-event` finding for each source
+listener. Each finding must match the exact input filename, `Start_Listener`
+event, implementation attribute, and implementation value. The converted copy
+must omit a `start` execution listener directly on a BPMN start event. The
+control model must not report that finding for any filename. A release that
+predates the fix in #2841 fails this check.
 
 ## Check the migration workflow
 
