@@ -347,11 +347,15 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   }
 
   private static boolean isUnsupportedQueryMethod(J.MethodInvocation invocation) {
-    return isVariableFilterMethod(invocation)
-        || SUSPENDED_QUERY_MATCHER.matches(invocation)
-        || (TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)
-            && !SUPPORTED_QUERY_FILTER_METHODS.contains(invocation.getSimpleName())
-            && !CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation));
+    if (isVariableFilterMethod(invocation) || SUSPENDED_QUERY_MATCHER.matches(invocation)) {
+      return true;
+    }
+    if (CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation)
+        || !TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)) {
+      return false;
+    }
+    return !SUPPORTED_QUERY_FILTER_METHODS.contains(invocation.getSimpleName())
+        || !hasSupportedQueryMethodArguments(invocation);
   }
 
   private static boolean containsUnsupportedQueryMethod(Expression expression) {
@@ -652,18 +656,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       if (!SUPPORTED_COUNT_QUERY_METHODS.contains(methodName)) {
         return false;
       }
-      if (methodName.equals("active")
-          && invocation.getArguments().stream().anyMatch(argument -> !(argument instanceof J.Empty))) {
-        return false;
-      }
-      if (methodName.equals("activityIdIn") && !hasSingleStringArgument(invocation)) {
-        return false;
-      }
-      if (methodName.equals("processDefinitionKey") && invocation.getArguments().size() != 1) {
-        return false;
-      }
-      if (methodName.equals("processInstanceBusinessKey")
-          && invocation.getArguments().size() != 1) {
+      if (SUPPORTED_QUERY_FILTER_METHODS.contains(methodName)
+          && !hasSupportedQueryMethodArguments(invocation)) {
         return false;
       }
       if (!invocation.getArguments().isEmpty() && !seenFilters.add(methodName)) {
@@ -696,6 +690,15 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   private static boolean hasSingleStringArgument(J.MethodInvocation invocation) {
     return invocation.getArguments().size() == 1
         && isStringType(invocation.getArguments().get(0).getType());
+  }
+
+  private static boolean hasSupportedQueryMethodArguments(J.MethodInvocation invocation) {
+    return switch (invocation.getSimpleName()) {
+      case "active" -> invocation.getArguments().stream().allMatch(argument -> argument instanceof J.Empty);
+      case "activityIdIn", "processDefinitionKey", "processInstanceBusinessKey" ->
+          hasSingleStringArgument(invocation);
+      default -> false;
+    };
   }
 
   private static boolean isStringType(JavaType type) {

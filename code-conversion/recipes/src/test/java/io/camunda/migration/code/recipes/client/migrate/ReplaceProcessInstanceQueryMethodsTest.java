@@ -937,6 +937,53 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void leavesActivityIdInWithUnsupportedAritiesForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class UnsupportedActivityIdInArities {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey, String activityId, String otherActivityId) {
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .activityIdIn(activityId, otherActivityId)
+                            .active()
+                            .list();
+
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .activityIdIn(activityId, otherActivityId)
+                            .active()
+                            .count();
+
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .activityIdIn()
+                            .active()
+                            .list();
+                }
+            }
+            """));
+  }
+
+  @Test
   void leavesQueriesWithUnsupportedNonVariableFiltersForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
