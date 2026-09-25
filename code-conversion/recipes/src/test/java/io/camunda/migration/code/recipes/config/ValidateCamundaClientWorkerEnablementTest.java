@@ -202,6 +202,89 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
   }
 
   @Test
+  void flagsBaseDisabledDefaultsDespiteProfileSpecificEnabledOverride() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    enabled: false
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    ~~(Job-worker readiness is conditional because worker defaults or a per-worker 'enabled' override may disable the worker for job type 'process-payment'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>enabled: false
+            """,
+            spec -> spec.path("src/main/resources/application.yml")),
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  override:
+                    process-payment:
+                      enabled: true
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  override:
+                    process-payment:
+                      ~~(Job-worker readiness is conditional because worker defaults or a per-worker 'enabled' override may disable the worker for job type 'process-payment'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>enabled: true
+            """,
+            spec -> spec.path("src/main/resources/application-prod.yml")));
+  }
+
+  @Test
+  void acceptsProfileSpecificOverrideWhenDefaultsRemainEnabled() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    enabled: true
+            """,
+            spec -> spec.path("src/main/resources/application.yml")),
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  override:
+                    process-payment:
+                      enabled: true
+            """,
+            spec -> spec.path("src/main/resources/application-prod.yml")));
+  }
+
+  @Test
   void matchesPerWorkerOverridesByAnnotationWorkerName() {
     rewriteRun(
         java(
@@ -310,6 +393,51 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
                     ~~(Job-worker readiness is conditional because 'camunda.client.worker.defaults.enabled' may disable the worker for job type 'process-payment'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>enabled: false
             """,
             spec -> spec.path("src/main/resources/application-prod.yml")));
+  }
+
+  @Test
+  void flagsDisabledSettingsInProfileActivatedYamlDocumentsAsConditional() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        yaml(
+            """
+            app:
+              name: sample
+            ---
+            spring:
+              config:
+                activate:
+                  on-profile: prod
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    enabled: false
+            """,
+            """
+            app:
+              name: sample
+            ---
+            spring:
+              config:
+                activate:
+                  on-profile: prod
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    ~~(Job-worker readiness is conditional because 'camunda.client.worker.defaults.enabled' may disable the worker for job type 'process-payment'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>enabled: false
+            """,
+            spec -> spec.path("src/main/resources/application.yml")));
   }
 
   @Test

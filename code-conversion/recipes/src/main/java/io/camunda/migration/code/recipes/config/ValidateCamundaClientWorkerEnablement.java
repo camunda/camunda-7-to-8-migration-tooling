@@ -47,6 +47,7 @@ public class ValidateCamundaClientWorkerEnablement
       "camunda.client.worker.defaults.enabled";
   private static final String WORKER_DEFAULT_TYPE_PROPERTY =
       "camunda.client.worker.defaults.type";
+  private static final String PROFILE_ACTIVATION_PROPERTY = "spring.config.activate.on-profile";
   private static final String ENABLED_SUFFIX = ".enabled";
   private static final Set<String> JOB_WORKER_ANNOTATION_TYPES =
       Set.of(
@@ -158,7 +159,7 @@ public class ValidateCamundaClientWorkerEnablement
       @Override
       public Properties.Entry visitEntry(Properties.Entry entry, ExecutionContext ctx) {
         Properties.Entry visited = super.visitEntry(entry, ctx);
-        state.addSetting(sourcePath, visited.getKey(), visited.getValue().getText());
+        state.addSetting(sourcePath, visited.getKey(), visited.getValue().getText(), false);
         return visited;
       }
     }.visit(propertiesFile, ctx);
@@ -169,21 +170,45 @@ public class ValidateCamundaClientWorkerEnablement
       String sourcePath,
       WorkerEnablementState state,
       ExecutionContext ctx) {
+    for (Yaml.Document document : yamlDocuments.getDocuments()) {
+      boolean conditionallyActive = hasProfileActivation(document, ctx);
+      new YamlIsoVisitor<ExecutionContext>() {
+        @Override
+        public Yaml.Mapping visitMapping(Yaml.Mapping mapping, ExecutionContext ctx) {
+          Yaml.Mapping visited = super.visitMapping(mapping, ctx);
+          String parentPath = ValidateCamundaClientYaml.ancestorPath(getCursor());
+          for (Yaml.Mapping.Entry entry : visited.getEntries()) {
+            if (entry.getValue() instanceof Yaml.Scalar value) {
+              String key =
+                  ValidateCamundaClientYaml.join(parentPath, entry.getKey().getValue());
+              state.addSetting(sourcePath, key, value.getValue(), conditionallyActive);
+            }
+          }
+          return visited;
+        }
+      }.visit(document, ctx);
+    }
+  }
+
+  private static boolean hasProfileActivation(Yaml.Document document, ExecutionContext ctx) {
+    boolean[] conditionallyActive = {false};
     new YamlIsoVisitor<ExecutionContext>() {
       @Override
       public Yaml.Mapping visitMapping(Yaml.Mapping mapping, ExecutionContext ctx) {
         Yaml.Mapping visited = super.visitMapping(mapping, ctx);
         String parentPath = ValidateCamundaClientYaml.ancestorPath(getCursor());
         for (Yaml.Mapping.Entry entry : visited.getEntries()) {
-          if (entry.getValue() instanceof Yaml.Scalar value) {
-            String key =
-                ValidateCamundaClientYaml.join(parentPath, entry.getKey().getValue());
-            state.addSetting(sourcePath, key, value.getValue());
+          if (ValidateCamundaClientYaml.join(parentPath, entry.getKey().getValue())
+                  .equals(PROFILE_ACTIVATION_PROPERTY)
+              && entry.getValue() instanceof Yaml.Scalar profile
+              && !profile.getValue().isBlank()) {
+            conditionallyActive[0] = true;
           }
         }
         return visited;
       }
-    }.visit(yamlDocuments, ctx);
+    }.visit(document, ctx);
+    return conditionallyActive[0];
   }
 
   private static void scanWorkers(
@@ -407,7 +432,8 @@ public class ValidateCamundaClientWorkerEnablement
   private enum SettingKind {
     CLIENT,
     WORKER_DEFAULTS,
-    WORKER_OVERRIDE
+    WORKER_OVERRIDE,
+    WORKER_DEFAULTS_AND_OVERRIDE
   }
 
   private record WorkerDeclaration(
@@ -418,9 +444,11 @@ public class ValidateCamundaClientWorkerEnablement
       String key,
       String value,
       String target,
-      SettingKind kind) {}
+      SettingKind kind,
+      boolean conditionallyActive) {}
 
-  private record WorkerTypeSetting(String sourcePath, String key, String value) {}
+  private record WorkerTypeSetting(
+      String sourcePath, String key, String value, boolean conditionallyActive) {}
 
   private record EntryKey(String sourcePath, String key, String value) {}
 
@@ -456,9 +484,12 @@ public class ValidateCamundaClientWorkerEnablement
       workers.add(new WorkerDeclaration(sourcePath, type, name, methodName, unresolvedType));
     }
 
-    private synchronized void addSetting(String sourcePath, String key, String value) {
-      setting(sourcePath, key, value).ifPresent(settings::add);
-      workerTypeSetting(sourcePath, key, value).ifPresent(workerTypeSettings::add);
+    private synchronized void addSetting(
+        String sourcePath, String key, String value, boolean conditionallyActiveDocument) {
+      boolean conditionallyActive = conditionallyActiveDocument || profileSpecific(sourcePath);
+      setting(sourcePath, key, value, conditionallyActive).ifPresent(settings::add);
+      workerTypeSetting(sourcePath, key, value, conditionallyActive)
+          .ifPresent(workerTypeSettings::add);
     }
 
     private synchronized Map<EntryKey, List<String>> findings() {
@@ -532,13 +563,17 @@ public class ValidateCamundaClientWorkerEnablement
         OverrideSelection overrides = selectOverrides(worker, workerType, overrideSettings);
         if (!overrides.settings().isEmpty()) {
           EffectiveBoolean workerEnabled = effectiveBoolean(overrides.settings(), true);
-          if (overrides.targetConditional()) {
+          EffectiveBoolean defaultsEnabled = effectiveBoolean(defaultSettings, true);
+          boolean defaultFallbackMayDisableWorker =
+              overrides.settings().stream().anyMatch(WorkerSetting::conditionallyActive)
+                  && isConditionalOrDisabled(defaultsEnabled);
+          if (overrides.targetConditional() || defaultFallbackMayDisableWorker) {
             workerEnabled =
                 new EffectiveBoolean(workerEnabled.value(), true, workerEnabled.sources());
           }
           if (isConditionalOrDisabled(workerEnabled)) {
             List<WorkerSetting> relatedSettings =
-                overrides.targetConditional()
+                overrides.targetConditional() || defaultFallbackMayDisableWorker
                     ? combine(defaultSettings, overrides.settings())
                     : overrides.settings();
             addFinding(
@@ -546,7 +581,9 @@ public class ValidateCamundaClientWorkerEnablement
                 relatedSettings,
                 worker,
                 workerType,
-                SettingKind.WORKER_OVERRIDE,
+                defaultFallbackMayDisableWorker
+                    ? SettingKind.WORKER_DEFAULTS_AND_OVERRIDE
+                    : SettingKind.WORKER_OVERRIDE,
                 workerEnabled);
           }
         } else {
@@ -608,7 +645,7 @@ public class ValidateCamundaClientWorkerEnablement
           values.add(candidate.get());
         }
         conditional |=
-            setting.value().contains("${") || profileSpecific(setting.sourcePath());
+            setting.value().contains("${") || setting.conditionallyActive();
       }
       if (values.size() > 1 || unknownValue || (hasBlankValue && !values.isEmpty())) {
         conditional = true;
@@ -655,7 +692,7 @@ public class ValidateCamundaClientWorkerEnablement
         ParsedBoolean parsed = parseBoolean(setting.value());
         conditional |=
             parsed.conditional()
-                || (profileSpecific(setting.sourcePath())
+                || (setting.conditionallyActive()
                     && !Boolean.TRUE.equals(parsed.value()));
         if (parsed.value() == null) {
           unknownValue = true;
@@ -755,6 +792,8 @@ public class ValidateCamundaClientWorkerEnablement
             case CLIENT -> "'camunda.client.enabled'";
             case WORKER_DEFAULTS -> "'camunda.client.worker.defaults.enabled'";
             case WORKER_OVERRIDE -> "a per-worker 'enabled' override";
+            case WORKER_DEFAULTS_AND_OVERRIDE ->
+                "worker defaults or a per-worker 'enabled' override";
           };
       return "Job-worker readiness is conditional because "
           + settingDescription
@@ -790,7 +829,8 @@ public class ValidateCamundaClientWorkerEnablement
           .orElse("");
     }
 
-    private static Optional<WorkerSetting> setting(String sourcePath, String key, String value) {
+    private static Optional<WorkerSetting> setting(
+        String sourcePath, String key, String value, boolean conditionallyActive) {
       Optional<String> overrideTarget = overrideTarget(key);
       String effectiveKey = CamundaClientConfigurationValidation.effectivePropertyName(key);
       if (overrideTarget.isEmpty()) {
@@ -803,12 +843,14 @@ public class ValidateCamundaClientWorkerEnablement
                 key,
                 value,
                 overrideTarget.get(),
-                SettingKind.WORKER_OVERRIDE));
+                SettingKind.WORKER_OVERRIDE,
+                conditionallyActive));
       }
 
       if (effectiveKey.equals(CLIENT_ENABLED_PROPERTY)) {
         return Optional.of(
-            new WorkerSetting(sourcePath, key, value, null, SettingKind.CLIENT));
+            new WorkerSetting(
+                sourcePath, key, value, null, SettingKind.CLIENT, conditionallyActive));
       }
       if (effectiveKey.equals(WORKER_DEFAULT_ENABLED_PROPERTY)) {
         return Optional.of(
@@ -817,18 +859,19 @@ public class ValidateCamundaClientWorkerEnablement
                 key,
                 value,
                 null,
-                SettingKind.WORKER_DEFAULTS));
+                SettingKind.WORKER_DEFAULTS,
+                conditionallyActive));
       }
       return Optional.empty();
     }
 
     private static Optional<WorkerTypeSetting> workerTypeSetting(
-        String sourcePath, String key, String value) {
+        String sourcePath, String key, String value, boolean conditionallyActive) {
       String effectiveKey = CamundaClientConfigurationValidation.effectivePropertyName(key);
       if (!effectiveKey.equals(WORKER_DEFAULT_TYPE_PROPERTY)) {
         return Optional.empty();
       }
-      return Optional.of(new WorkerTypeSetting(sourcePath, key, value));
+      return Optional.of(new WorkerTypeSetting(sourcePath, key, value, conditionallyActive));
     }
 
     private static Optional<String> overrideTarget(String key) {
