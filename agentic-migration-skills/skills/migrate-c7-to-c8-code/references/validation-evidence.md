@@ -107,6 +107,9 @@ referenced form, and form-free owner. Each record has `id`, `kind`, `accepted`, 
 migration decision. Use a unique ID for each record. Use an empty array when the model has no form
 records or form-free owners.
 
+The validator parses each source BPMN and compares the discovered form categories with
+`form_inventory` before it derives conditional form checks.
+
 The validator derives conditional form checks from these records:
 
 | Check kind | Applicable when |
@@ -178,6 +181,9 @@ production worker as a validation probe.
 
 Run each module and test suite independently. Use a distinct command and evidence file for each
 suite. The validator enforces this contract across all modules.
+The validator also checks `test_suites` against Maven Failsafe executions and explicit Gradle
+`Test` or `JvmTestSuite` declarations. Use the Maven execution ID or Gradle task name as the suite
+name. Use `integration` when a Failsafe execution has no ID.
 A failed Docker or Testcontainers suite does not stop the skill from running other suites or module
 checks. Do not summarize all test failures as Docker failures.
 
@@ -185,7 +191,8 @@ Before a Docker-dependent suite, run `docker info` and record a project check wi
 `docker_info`. Record the probe even when Docker works. Use failure class `docker_unavailable` only
 when the probe fails. Use `testcontainers` when the daemon works but Testcontainers cannot select a
 valid environment. Keep check records in execution order. The Docker probe must precede its
-dependent test suite.
+dependent test suite. Record a direct `docker info` invocation as the command. A command that only
+mentions these words does not satisfy the probe.
 
 ## Required model and process checks
 

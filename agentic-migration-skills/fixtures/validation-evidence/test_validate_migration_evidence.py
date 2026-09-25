@@ -18,6 +18,7 @@ from unittest.mock import patch
 FIXTURE = Path(__file__).resolve().parent
 LOG_DIRECTORY = ".camunda-migration/validation/logs"
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+CAMUNDA_BPMN_NAMESPACE = "http://camunda.org/schema/1.0/bpmn"
 DMN_MODEL_NAMESPACE = "https://www.omg.org/spec/DMN/20191111/MODEL/"
 STEP2_INVENTORY_PATH = (
     ".camunda-migration/validation/step2-inventory.json"
@@ -175,6 +176,43 @@ def write_bpmn_file(path, processes, timer_starts):
             timer_definition,
             "{{{}}}timeCycle".format(BPMN_MODEL_NAMESPACE),
         ).text = "R/PT1M"
+    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
+
+
+def write_source_bpmn_with_owner(path, process_id, form_kind, form_reference=None):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    root = ET.Element("{{{}}}definitions".format(BPMN_MODEL_NAMESPACE))
+    process = ET.SubElement(
+        root,
+        "{{{}}}process".format(BPMN_MODEL_NAMESPACE),
+        {"id": process_id, "isExecutable": "true"},
+    )
+    owner = ET.SubElement(
+        process,
+        "{{{}}}userTask".format(BPMN_MODEL_NAMESPACE),
+        {"id": "Task_FormOwner"},
+    )
+    if form_kind == "generated":
+        extension_elements = ET.SubElement(
+            owner,
+            "{{{}}}extensionElements".format(BPMN_MODEL_NAMESPACE),
+        )
+        form_data = ET.SubElement(
+            extension_elements,
+            "{{{}}}formData".format(CAMUNDA_BPMN_NAMESPACE),
+        )
+        ET.SubElement(
+            form_data,
+            "{{{}}}formField".format(CAMUNDA_BPMN_NAMESPACE),
+            {"id": "field"},
+        )
+    elif form_kind == "referenced":
+        owner.set(
+            "{{{}}}formKey".format(CAMUNDA_BPMN_NAMESPACE),
+            form_reference or "embedded:app:forms/task.html",
+        )
+    elif form_kind != "form-free-owner":
+        raise ValueError("Unsupported source form kind: {}".format(form_kind))
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
@@ -1106,6 +1144,12 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                 )
             materialize_inventory(project_root, manifest)
+            write_source_bpmn_with_owner(
+                project_root / model["source_path"],
+                model["processes"][0]["id"],
+                "referenced",
+                "order-form",
+            )
 
             summary = gate.validate_manifest(manifest, project_root)
 
@@ -1119,6 +1163,38 @@ class ValidationEvidenceTest(unittest.TestCase):
                     ),
                     "{} was waived despite its form inventory.".format(kind),
                 )
+
+    def test_source_form_inventory_cannot_omit_detected_records(self):
+        for form_kind in ("generated", "referenced", "form-free-owner"):
+            with self.subTest(form_kind=form_kind):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    model = manifest["models"][0]
+                    materialize_inventory(project_root, manifest)
+                    write_source_bpmn_with_owner(
+                        project_root / model["source_path"],
+                        model["processes"][0]["id"],
+                        form_kind,
+                    )
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "source form inventory" in blocker.lower()
+                            and form_kind in blocker.lower()
+                            for blocker in summary["blockers"]
+                        ),
+                        "The source inventory omitted {}.".format(form_kind),
+                    )
 
     def test_form_free_owner_requires_form_reference_evidence(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
@@ -1158,6 +1234,11 @@ class ValidationEvidenceTest(unittest.TestCase):
                 )
             )
             materialize_inventory(project_root, manifest)
+            write_source_bpmn_with_owner(
+                project_root / model["source_path"],
+                model["processes"][0]["id"],
+                "form-free-owner",
+            )
 
             summary = gate.validate_manifest(manifest, project_root)
 
@@ -2003,6 +2084,91 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stdout)
             self.assertEqual(json.loads(completed.stdout)["readiness"], "ready")
 
+    def test_build_configuration_suites_cannot_be_omitted(self):
+        configurations = (
+            (
+                "pom.xml",
+                "<project><build><plugins><plugin>"
+                "<artifactId>maven-failsafe-plugin</artifactId>"
+                "<executions><execution><id>integration-tests</id>"
+                "<goals><goal>integration-test</goal><goal>verify</goal>"
+                "</goals></execution></executions></plugin></plugins></build>"
+                "</project>",
+                "integration-tests",
+            ),
+            (
+                "pom.xml",
+                "<project><build><plugins><plugin>"
+                "<artifactId>maven-failsafe-plugin</artifactId>"
+                "<executions><execution><goals><goal>integration-test</goal>"
+                "<goal>verify</goal></goals></execution></executions>"
+                "</plugin></plugins></build></project>",
+                "integration",
+            ),
+            (
+                "pom.xml",
+                "<project><build><pluginManagement><plugins><plugin>"
+                "<artifactId>maven-failsafe-plugin</artifactId>"
+                "<executions><execution><id>managed-integration</id>"
+                "<goals><goal>integration-test</goal><goal>verify</goal>"
+                "</goals></execution></executions></plugin></plugins>"
+                "</pluginManagement><plugins><plugin>"
+                "<artifactId>maven-failsafe-plugin</artifactId>"
+                "</plugin></plugins></build></project>",
+                "managed-integration",
+            ),
+            (
+                "build.gradle.kts",
+                'tasks.register<Test>("integrationTest") {}',
+                "integrationTest",
+            ),
+            (
+                "build.gradle",
+                "tasks.register('integrationTest', Test) {}",
+                "integrationTest",
+            ),
+            (
+                "build.gradle.kts",
+                'testing { suites { register<JvmTestSuite>("integrationTest") {} } }',
+                "integrationTest",
+            ),
+        )
+        for build_file, contents, suite_name in configurations:
+            with self.subTest(build_file=build_file):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    module_path = "service"
+                    module_root = project_root / module_path
+                    module_root.mkdir()
+                    (module_root / build_file).write_text(
+                        contents, encoding="utf-8"
+                    )
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "test suite completed\n", encoding="utf-8"
+                    )
+                    manifest = passing_module_manifest(module_path)
+                    write_step2_inventory(project_root, [module_path], [])
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertEqual(
+                        summary["readiness"],
+                        "not_ready",
+                        summary["blockers"],
+                    )
+                    self.assertTrue(
+                        any(
+                            "build-configured suite {}".format(suite_name)
+                            in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "The build-configured suite was not required.",
+                    )
+
     def test_docker_suite_requires_a_daemon_probe(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
@@ -2073,6 +2239,42 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual(summary["readiness"], "not_ready")
             self.assertTrue(
                 any("docker_info" in blocker for blocker in summary["blockers"])
+            )
+
+    def test_docker_probe_must_invoke_docker_info(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary)
+            module_path = "service"
+            (project_root / module_path).mkdir()
+            log_directory = project_root / LOG_DIRECTORY
+            log_directory.mkdir(parents=True)
+            (log_directory / "pass.log").write_text(
+                "check completed\n", encoding="utf-8"
+            )
+            manifest = passing_module_manifest(module_path)
+            manifest["modules"][0]["test_suites"][0]["requires_docker"] = True
+            docker_probe = passing_check(
+                "project",
+                "docker",
+                "docker_info",
+                LOG_DIRECTORY + "/pass.log",
+            )
+            docker_probe["command"] = "echo docker info"
+            manifest["checks"].insert(-1, docker_probe)
+            write_step2_inventory(project_root, [module_path], [])
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertEqual(
+                summary["readiness"],
+                "not_ready",
+            )
+            self.assertTrue(
+                any(
+                    "must invoke docker info" in blocker.lower()
+                    for blocker in summary["blockers"]
+                ),
+                "The Docker probe did not invoke docker info.",
             )
 
     def test_docker_probe_must_precede_dependent_suite(self):

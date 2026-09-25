@@ -4,6 +4,7 @@
 import argparse
 import json
 import re
+import shlex
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
@@ -14,6 +15,19 @@ from pathlib import Path
 SCHEMA_VERSION = 1
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 BPMN_DEFINITIONS_TAG = "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
+BPMN_PROCESS_TAG = "{{{}}}process".format(BPMN_MODEL_NAMESPACE)
+BPMN_USER_TASK_TAG = "{{{}}}userTask".format(BPMN_MODEL_NAMESPACE)
+BPMN_START_EVENT_TAG = "{{{}}}startEvent".format(BPMN_MODEL_NAMESPACE)
+BPMN_EXTENSION_ELEMENTS_TAG = "{{{}}}extensionElements".format(
+    BPMN_MODEL_NAMESPACE
+)
+CAMUNDA_BPMN_NAMESPACE = "http://camunda.org/schema/1.0/bpmn"
+CAMUNDA_FORM_DATA_TAG = "{{{}}}formData".format(CAMUNDA_BPMN_NAMESPACE)
+CAMUNDA_FORM_PROPERTY_TAG = "{{{}}}formProperty".format(
+    CAMUNDA_BPMN_NAMESPACE
+)
+CAMUNDA_FORM_KEY_ATTRIBUTE = "{{{}}}formKey".format(CAMUNDA_BPMN_NAMESPACE)
+CAMUNDA_FORM_REF_ATTRIBUTE = "{{{}}}formRef".format(CAMUNDA_BPMN_NAMESPACE)
 DMN_MODEL_NAMESPACES = {
     "http://www.omg.org/spec/DMN/20151101/dmn.xsd",
     "http://www.omg.org/spec/DMN/20180521/MODEL/",
@@ -89,6 +103,29 @@ POM_MAIN_CLASS_TAGS = {
     "start-class",
     "spring-boot.run.main-class",
 }
+GRADLE_TEST_SUITE_PATTERNS = (
+    re.compile(
+        r'''\b(?:tasks\s*\.\s*)?register\s*<\s*(?:[\w.]+\.)?Test\s*>\s*'''
+        r'''\(\s*["'](?P<name>[^"']+)["']'''
+    ),
+    re.compile(
+        r'''\b(?:tasks\s*\.\s*)?(?:register|create)\s*\(\s*'''
+        r'''["'](?P<name>[^"']+)["']\s*,\s*'''
+        r'''(?:[\w.]+\.)?Test(?:::class|\.class)?\s*\)'''
+    ),
+    re.compile(
+        r'''\btask\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(\s*'''
+        r'''type\s*:\s*(?:[\w.]+\.)?Test(?:\.class|::class)?\s*\)'''
+    ),
+    re.compile(
+        r'''\bregister\s*<\s*(?:[\w.]+\.)?JvmTestSuite\s*>\s*'''
+        r'''\(\s*["'](?P<name>[^"']+)["']'''
+    ),
+    re.compile(
+        r'''\b(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s+by\s+registering\s*'''
+        r'''\(\s*(?:[\w.]+\.)?JvmTestSuite(?:\.class|::class)?\s*\)'''
+    ),
+)
 MODULE_CHECKS_REQUIRING_PASS = {
     "compile",
     "c7_dependencies",
@@ -248,6 +285,24 @@ def check_was_executed(check):
     )
 
 
+def command_invokes_docker_info(command):
+    if not isinstance(command, str):
+        return False
+    try:
+        arguments = shlex.split(command)
+    except ValueError:
+        return False
+    while arguments and re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_]*=.*", arguments[0]
+    ):
+        arguments.pop(0)
+    return (
+        len(arguments) >= 2
+        and Path(arguments[0]).name == "docker"
+        and arguments[1] == "info"
+    )
+
+
 def validate_project_path(value, project_root, label, expected_type, error):
     if not is_nonempty_string(value):
         error("{} must be a non-empty project-relative path.".format(label))
@@ -286,6 +341,14 @@ def paths_identify_same_file(left, right):
     if left == right:
         return True
     return left.is_file() and right.is_file() and left.samefile(right)
+
+
+def path_is_within_root(path, root):
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 def detect_module_runtime_entry_points(module_root, location, error):
@@ -372,6 +435,222 @@ def detect_module_runtime_entry_points(module_root, location, error):
                 )
 
     return entry_points
+
+
+def xml_local_name(tag):
+    return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
+
+
+def xml_children(element, name):
+    return [
+        child
+        for child in element
+        if xml_local_name(child.tag) == name
+    ]
+
+
+def xml_child_text(element, name):
+    for child in xml_children(element, name):
+        return (child.text or "").strip()
+    return ""
+
+
+def project_ancestor_directories(module_root, project_root):
+    module_root = Path(module_root).resolve()
+    project_root = Path(project_root).resolve()
+    if module_root != project_root and project_root not in module_root.parents:
+        return []
+
+    directories = []
+    current = module_root
+    while True:
+        directories.append(current)
+        if current == project_root:
+            break
+        current = current.parent
+    return directories
+
+
+def maven_test_suites(pom_roots):
+    active_plugins = []
+    managed_plugins = []
+    for pom_root in pom_roots:
+        build_sections = list(xml_children(pom_root, "build"))
+        for profiles in xml_children(pom_root, "profiles"):
+            for profile in xml_children(profiles, "profile"):
+                build_sections.extend(xml_children(profile, "build"))
+
+        for build in build_sections:
+            for plugins in xml_children(build, "plugins"):
+                active_plugins.extend(xml_children(plugins, "plugin"))
+            for plugin_management in xml_children(build, "pluginManagement"):
+                for plugins in xml_children(plugin_management, "plugins"):
+                    managed_plugins.extend(xml_children(plugins, "plugin"))
+
+    if not any(
+        xml_child_text(plugin, "artifactId") == "maven-failsafe-plugin"
+        for plugin in active_plugins
+    ):
+        return set()
+
+    suite_names = set()
+    for plugin in active_plugins + managed_plugins:
+        if xml_child_text(plugin, "artifactId") != "maven-failsafe-plugin":
+            continue
+        for executions in xml_children(plugin, "executions"):
+            for execution in xml_children(executions, "execution"):
+                goals = {
+                    (goal.text or "").strip()
+                    for goal_container in xml_children(execution, "goals")
+                    for goal in xml_children(goal_container, "goal")
+                }
+                if goals.intersection({"integration-test", "verify"}):
+                    suite_names.add(
+                        xml_child_text(execution, "id") or "integration"
+                    )
+    return suite_names
+
+
+def gradle_test_suites(script_text):
+    return {
+        match.group("name")
+        for pattern in GRADLE_TEST_SUITE_PATTERNS
+        for match in pattern.finditer(script_text)
+    }
+
+
+def detect_module_test_suites(module_root, project_root, location, error):
+    suite_names = set()
+    pom_roots = []
+    project_root = Path(project_root).resolve()
+    for directory in project_ancestor_directories(module_root, project_root):
+        pom_path = directory / "pom.xml"
+        if pom_path.is_file():
+            resolved_pom_path = pom_path.resolve()
+            if not path_is_within_root(resolved_pom_path, project_root):
+                error(
+                    "{} cannot verify test suites because {} resolves outside "
+                    "the project root.".format(location, pom_path)
+                )
+                continue
+            try:
+                pom_root = ET.parse(str(resolved_pom_path)).getroot()
+            except (OSError, ET.ParseError, UnicodeError) as exception:
+                error(
+                    "{} cannot verify test suites because {} cannot be read: "
+                    "{}.".format(location, resolved_pom_path, exception)
+                )
+            else:
+                pom_roots.append(pom_root)
+
+        for build_file in ("build.gradle", "build.gradle.kts"):
+            build_path = directory / build_file
+            if not build_path.is_file():
+                continue
+            resolved_build_path = build_path.resolve()
+            if not path_is_within_root(resolved_build_path, project_root):
+                error(
+                    "{} cannot verify test suites because {} resolves outside "
+                    "the project root.".format(location, build_path)
+                )
+                continue
+            try:
+                script_text = resolved_build_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exception:
+                error(
+                    "{} cannot verify test suites because {} cannot be read: "
+                    "{}.".format(location, resolved_build_path, exception)
+                )
+                continue
+            suite_names.update(gradle_test_suites(script_text))
+    suite_names.update(maven_test_suites(pom_roots))
+    return suite_names
+
+
+def read_source_form_inventory(path, location, error):
+    try:
+        root = ET.parse(str(path)).getroot()
+    except (OSError, ET.ParseError, UnicodeError) as exception:
+        error(
+            "{} source BPMN cannot be parsed to verify its form inventory: "
+            "{}.".format(location, exception)
+        )
+        return Counter()
+    if root.tag != BPMN_DEFINITIONS_TAG:
+        error(
+            "{} source model must have a BPMN definitions root to verify its "
+            "form inventory.".format(location)
+        )
+        return Counter()
+
+    inventory = Counter()
+    reference_ids = set()
+    event_definition_suffix = "EventDefinition"
+    for process in root.findall(BPMN_PROCESS_TAG):
+        process_start_events = set(process.findall(BPMN_START_EVENT_TAG))
+        for owner in process.iter():
+            if owner.tag not in {BPMN_USER_TASK_TAG, BPMN_START_EVENT_TAG}:
+                continue
+            generated_form = False
+            references = set()
+            owner_id = owner.get("id") or "unknown"
+            for attribute in (
+                CAMUNDA_FORM_KEY_ATTRIBUTE,
+                CAMUNDA_FORM_REF_ATTRIBUTE,
+            ):
+                if attribute in owner.attrib:
+                    references.add(
+                        owner.get(attribute)
+                        or "{}:{}".format(xml_local_name(attribute), owner_id)
+                    )
+
+            extension_elements = owner.find(BPMN_EXTENSION_ELEMENTS_TAG)
+            if extension_elements is not None:
+                for extension in extension_elements:
+                    if extension.tag in {
+                        CAMUNDA_FORM_DATA_TAG,
+                        CAMUNDA_FORM_PROPERTY_TAG,
+                    }:
+                        generated_form = True
+                    elif xml_local_name(extension.tag) == "formDefinition":
+                        form_references = {
+                            extension.get("formId"),
+                            extension.get("externalReference"),
+                        }
+                        form_references.discard(None)
+                        if form_references:
+                            references.update(form_references)
+                        else:
+                            references.add("formDefinition:{}".format(owner_id))
+
+            if generated_form:
+                inventory["generated"] += 1
+            reference_ids.update(references)
+
+            process_level_none_start = (
+                owner.tag == BPMN_START_EVENT_TAG
+                and owner in process_start_events
+                and not any(
+                    child.tag.startswith("{{{}}}".format(BPMN_MODEL_NAMESPACE))
+                    and xml_local_name(child.tag).endswith(
+                        event_definition_suffix
+                    )
+                    for child in owner
+                    if isinstance(child.tag, str)
+                )
+            )
+            if (
+                not generated_form
+                and not references
+                and (
+                    owner.tag == BPMN_USER_TASK_TAG
+                    or process_level_none_start
+                )
+            ):
+                inventory["form-free-owner"] += 1
+
+    inventory["referenced"] = len(reference_ids)
+    return inventory
 
 
 def read_converted_model(path, location, error):
@@ -761,6 +1040,23 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not isinstance(test_suites, list):
             error("{} test_suites must be an array.".format(location))
             test_suites = []
+        configured_test_suites = detect_module_test_suites(
+            project_root / Path(canonical_path),
+            project_root,
+            location,
+            error,
+        )
+        declared_test_suites = {
+            suite.get("name")
+            for suite in test_suites
+            if isinstance(suite, dict) and is_nonempty_string(suite.get("name"))
+        }
+        for suite_name in sorted(configured_test_suites - declared_test_suites):
+            error(
+                "{} test_suites omits build-configured suite {}.".format(
+                    location, suite_name
+                )
+            )
 
         if runtime_mode == "none" and not Path(canonical_path).is_absolute():
             entry_points = detect_module_runtime_entry_points(
@@ -930,6 +1226,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             )
         model_paths.append(resolved_model_path)
         converted_model_file_paths.append((resolved_model_path, location))
+        resolved_source_path = None
         if not is_nonempty_string(source_path):
             error("{} must have a non-empty source_path.".format(location))
         else:
@@ -1025,6 +1322,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             error("{} form_inventory must be an array.".format(location))
             form_inventory = []
         form_inventory_ids = set()
+        declared_form_inventory = Counter()
         form_check_applicability = {
             kind: False for kind in FORM_CHECKS
         }
@@ -1057,6 +1355,8 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     "{} kind must be generated, referenced, or form-free-owner."
                     .format(form_location)
                 )
+            else:
+                declared_form_inventory[form_kind] += 1
             accepted = form.get("accepted")
             if not isinstance(accepted, bool):
                 error("{} accepted must be true or false.".format(form_location))
@@ -1107,6 +1407,32 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 form_check_applicability["form_references"] = True
             if binding_required:
                 form_check_applicability["form_binding"] = True
+
+        source_form_inventory = Counter()
+        if (
+            model_type == "bpmn"
+            and resolved_source_path is not None
+            and resolved_source_path.is_file()
+            and path_is_within_root(
+                resolved_source_path, project_root.resolve()
+            )
+        ):
+            source_form_inventory = read_source_form_inventory(
+                resolved_source_path, location, error
+            )
+        for form_kind in sorted(FORM_INVENTORY_KINDS):
+            if source_form_inventory[form_kind] != declared_form_inventory[
+                form_kind
+            ]:
+                error(
+                    "{} source form inventory detects {} {} record(s), but "
+                    "form_inventory declares {}.".format(
+                        location,
+                        source_form_inventory[form_kind],
+                        form_kind,
+                        declared_form_inventory[form_kind],
+                    )
+                )
 
         for kind in MODEL_CHECKS:
             key = ("model", path, kind, None)
@@ -1795,10 +2121,9 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if (
             check.get("target_type") == "project"
             and check.get("kind") == "docker_info"
-            and isinstance(command, str)
-            and "docker info" not in command.lower()
+            and not command_invokes_docker_info(command)
         ):
-            error("{} must run docker info.".format(location))
+            error("{} must invoke docker info.".format(location))
 
     for path, launch_keys in spring_boot_launch_requirements:
         launch_results = [

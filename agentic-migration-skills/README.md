@@ -82,7 +82,8 @@ them.
 The skill also records validation evidence for each migrated module, model, and executable process.
 Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_REPORT.md` and a
 machine-readable summary under `.camunda-migration/validation/`. It accepts evidence files only
-under `.camunda-migration/validation/logs/`.
+under `.camunda-migration/validation/logs/`. The validator checks form records against source BPMN
+and checks Maven Failsafe and explicit Gradle test-suite declarations against the suite inventory.
 
 ## Use
 

@@ -261,8 +261,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
 `references/validation-evidence.md`.
 
 Run every independent check, even when another module or test suite fails. Record each command,
-exit code, target, result, evidence path, and blocker reason. Run `docker info` before a
-Docker-dependent suite. Never classify a test failure as Docker-unavailable without that probe.
+exit code, target, result, evidence path, and blocker reason. Run `docker info` as a direct command
+before a Docker-dependent suite. Never classify a test failure as Docker-unavailable without that
+probe.
 
 Lint every in-scope model. Verify deployment in a local or non-production environment. Check every
 executable process path and run the separate preflight for every repeating timer start. See
