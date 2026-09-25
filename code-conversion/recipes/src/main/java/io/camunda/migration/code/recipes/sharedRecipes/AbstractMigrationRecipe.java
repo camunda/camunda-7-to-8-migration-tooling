@@ -376,7 +376,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                   if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
-                      && receiverTypeMatches(spec, invocation)) {
+                      && receiverTypeMatches(spec, invocation)
+                      && (spec.requiredReceiverMethodNames().isEmpty()
+                          || hasAnyMethodInReceiverChain(
+                              invocation, spec.requiredReceiverMethodNames()))) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -509,9 +512,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                 if (!collectedArguments.keySet().equals(spec.methodNamesToExtractParameters())
                     || !supportsCountedQuery(queryTerminal)
-                    || !receiverTypeMatches(spec, queryTerminal)) {
-                  continue;
-                }
+                  || !receiverTypeMatches(spec, queryTerminal)
+                  || (!spec.requiredReceiverMethodNames().isEmpty()
+                      && !hasAnyMethodInReceiverChain(
+                          queryTerminal, spec.requiredReceiverMethodNames()))) {
+                continue;
+              }
 
                 spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                 spec.maybeAddImports().forEach(this::maybeAddImport);
