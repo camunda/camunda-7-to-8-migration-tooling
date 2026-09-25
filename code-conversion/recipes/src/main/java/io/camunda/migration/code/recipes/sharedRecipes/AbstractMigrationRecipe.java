@@ -95,6 +95,31 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             J.Identifier originalName = firstVar.getName();
             Expression originalInitializer = firstVar.getInitializer();
 
+            // A local declared for later assignment must receive the migrated return type too.
+            String assignedReturnType = assignedLocalVariableReturnType(declarations, ctx);
+            if (assignedReturnType != null && declarations.getTypeExpression() != null) {
+              String genericLongName = RecipeUtils.getGenericLongName(assignedReturnType);
+              J.VariableDeclarations typeTemplate =
+                  (J.VariableDeclarations)
+                      RecipeUtils.createSimpleJavaTemplate(
+                              RecipeUtils.getShortName(assignedReturnType)
+                                  + " "
+                                  + originalName.getSimpleName(),
+                              genericLongName)
+                          .apply(getCursor(), declarations.getCoordinates().replace());
+              J.VariableDeclarations modifiedDeclarations =
+                  declarations
+                      .withTypeExpression(typeTemplate.getTypeExpression())
+                      .withType(JavaType.buildType(assignedReturnType));
+              JavaType.FullyQualified originalType = declarations.getTypeAsFullyQualified();
+              if (originalType != null) {
+                maybeRemoveImport(RecipeUtils.getGenericLongName(originalType.toString()));
+              }
+              maybeAddImport(genericLongName);
+              return maybeAutoFormat(
+                  declarations, super.visitVariableDeclarations(modifiedDeclarations, ctx), ctx);
+            }
+
             Expression unwrappedInitializer = unwrapParentheses(originalInitializer);
             if (unwrappedInitializer instanceof J.MethodInvocation invocation) {
 
@@ -222,6 +247,87 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             return super.visitVariableDeclarations(declarations, ctx);
           }
 
+          private String assignedLocalVariableReturnType(
+              J.VariableDeclarations declarations, ExecutionContext ctx) {
+            if (declarations.getVariables().size() != 1) {
+              return null;
+            }
+
+            J.VariableDeclarations.NamedVariable declared = declarations.getVariables().get(0);
+            Expression initializer = declared.getInitializer();
+            JavaType.Variable declaredVariable = declared.getName().getFieldType();
+            if ((initializer != null
+                    && (!(initializer instanceof J.Literal literal)
+                        || literal.getValue() != null))
+                || declaredVariable == null) {
+              return null;
+            }
+
+            J.MethodDeclaration methodDeclaration = null;
+            J.ClassDeclaration classDeclaration = null;
+            boolean insideBlock = false;
+            Cursor current = getCursor();
+            while (current != null) {
+              if (current.getValue() instanceof J.Block) {
+                insideBlock = true;
+              }
+              if (current.getValue() instanceof J.MethodDeclaration method) {
+                methodDeclaration = method;
+              }
+              if (current.getValue() instanceof J.ClassDeclaration type) {
+                classDeclaration = type;
+              }
+              if (methodDeclaration != null && classDeclaration != null) {
+                break;
+              }
+              current = current.getParent();
+            }
+            if (!insideBlock
+                || methodDeclaration == null
+                || methodDeclaration.getBody() == null
+                || classDeclaration == null) {
+              return null;
+            }
+
+            String[] assignedReturnType = {null};
+            boolean[] hasUnsupportedAssignment = {false};
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.Assignment visitAssignment(
+                  J.Assignment assignment, ExecutionContext nestedCtx) {
+                if (assignment.getVariable() instanceof J.Identifier identifier
+                    && declaredVariable.equals(identifier.getFieldType())) {
+                  Expression assignmentValue = unwrapParentheses(assignment.getAssignment());
+                  if (assignmentValue instanceof J.Literal literal && literal.getValue() == null) {
+                    return assignment;
+                  }
+                  if (!(assignmentValue instanceof J.MethodInvocation invocation)
+                      || visitorSkipCondition().test(getCursor())) {
+                    hasUnsupportedAssignment[0] = true;
+                    return assignment;
+                  }
+                  for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
+                    if (spec.matcher().matches(invocation)
+                        && receiverTypeMatches(spec, invocation)
+                        && spec.returnTypeStrategy()
+                            == ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE) {
+                      if (assignedReturnType[0] == null) {
+                        assignedReturnType[0] = spec.returnTypeFqn();
+                      } else if (!assignedReturnType[0].equals(spec.returnTypeFqn())) {
+                        hasUnsupportedAssignment[0] = true;
+                      }
+                      return assignment;
+                    }
+                  }
+                  hasUnsupportedAssignment[0] = true;
+                  return assignment;
+                }
+                return super.visitAssignment(assignment, nestedCtx);
+              }
+            }.visit(classDeclaration, ctx);
+            return hasUnsupportedAssignment[0] ? null : assignedReturnType[0];
+          }
+
           /** Replace initializers of assignments */
           @Override
           public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
@@ -235,7 +341,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
-            if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
+            Expression originalAssignment = assignment.getAssignment();
+            if (!(unwrapParentheses(originalAssignment) instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -265,7 +372,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
                             originalName.getSimpleName() + " = #{any()}", resolvedFqn)
-                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+                        .apply(
+                            getCursor(),
+                            assignment.getCoordinates().replace(),
+                            originalAssignment);
 
                 assert resolvedFqn != null;
                 modifiedAssignment =
@@ -273,7 +383,17 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                         modifiedAssignment.getVariable().withType(JavaType.buildType(resolvedFqn)));
                 modifiedAssignment = modifiedAssignment.withType(JavaType.buildType(resolvedFqn));
 
-                maybeAddImport(resolvedFqn);
+                String newImport = RecipeUtils.getGenericLongName(resolvedFqn);
+                String oldImport =
+                    originalName.getFieldType() == null
+                        || originalName.getFieldType().getType() == null
+                        ? null
+                        : RecipeUtils.getGenericLongName(
+                            originalName.getFieldType().getType().toString());
+                if (oldImport != null && !oldImport.equals(newImport)) {
+                  maybeRemoveImport(oldImport);
+                }
+                maybeAddImport(newImport);
 
                 // ensure comments are added here, not on method invocation
                 getCursor().putMessage(invocation.getId().toString(), "comments added");

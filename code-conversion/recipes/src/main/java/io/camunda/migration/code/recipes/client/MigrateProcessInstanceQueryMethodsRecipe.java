@@ -85,7 +85,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
       if (value instanceof J.MethodInvocation invocation
           && (hasUnsupportedQueryMethodInReceiverChain(invocation)
-              || isManualDefaultStateQuery(invocation))) {
+              || isManualDefaultStateQuery(invocation)
+              || isIncompleteActiveQueryChain(cursor, invocation))) {
         return true;
       }
 
@@ -132,12 +133,15 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           && declarations.getVariables().stream()
               .anyMatch(
                   variable ->
-                      variable.getInitializer() instanceof J.MethodInvocation invocation
+                      variable.getInitializer() != null
+                          && unwrapParentheses(variable.getInitializer())
+                              instanceof J.MethodInvocation invocation
                           && hasUnsafeQueryAlias(cursor, invocation))) {
         return true;
       }
       if (value instanceof J.Assignment assignment
-          && assignment.getAssignment() instanceof J.MethodInvocation invocation
+          && unwrapParentheses(assignment.getAssignment())
+              instanceof J.MethodInvocation invocation
           && hasUnsafeQueryAlias(cursor, invocation)) {
         return true;
       }
@@ -175,6 +179,28 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
     }
     return true;
+  }
+
+  private static boolean isIncompleteActiveQueryChain(
+      Cursor cursor, J.MethodInvocation invocation) {
+    return isProcessInstanceQueryType(invocation.getType())
+        && containsActiveQueryFilter(invocation)
+        && !hasProcessInstanceListOrCountTerminal(cursor);
+  }
+
+  private static boolean hasProcessInstanceListOrCountTerminal(Cursor cursor) {
+    Cursor current = cursor;
+    while (current != null) {
+      if (current.getValue() instanceof J.MethodInvocation invocation
+          && (invocation.getSimpleName().equals("list")
+              || invocation.getSimpleName().equals("count"))
+          && invocation.getSelect() != null
+          && isProcessInstanceQueryType(invocation.getSelect().getType())) {
+        return true;
+      }
+      current = current.getParent();
+    }
+    return false;
   }
 
   private static boolean hasUnsupportedQueryMethodInReceiverChain(J.MethodInvocation invocation) {
@@ -490,7 +516,9 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   private static boolean isFieldAssignmentTarget(Expression target) {
     return target instanceof J.FieldAccess
-        || target instanceof J.Identifier identifier && identifier.getFieldType() != null;
+        || target instanceof J.Identifier identifier
+            && identifier.getFieldType() != null
+            && identifier.getFieldType().getOwner() instanceof JavaType.FullyQualified;
   }
 
   private static boolean isProcessInstanceQueryType(JavaType type) {
