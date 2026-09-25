@@ -96,7 +96,10 @@ These items are not in the catalog:
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
-- Remove dependencies with groupId `org.camunda.bpm` or a groupId that starts with `org.camunda.bpm.`. Remove `camunda-bom` and the embedded-engine deps (H2, JDBC starter).
+- Before removing a dependency, follow the inventory and classification rules in
+  `10-general/dependencies.md`. Record its uses, target compatibility, and action in
+  `MIGRATION_REPORT.md`. A `org.camunda.bpm` group or package prefix does not prove that a
+  dependency is engine-only.
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
