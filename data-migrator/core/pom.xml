@@ -17,6 +17,14 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-89425: pin Jackson 3 Core ahead of the Camunda 8.8 BOMs. -->
+      <dependency>
+        <groupId>tools.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-3-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- CVE-2026-59889: pin jackson-bom ahead of Spring Boot BOM, which
            manages jackson-databind at 2.21.4 (below the 2.21.5 fix). -->
       <dependency>
