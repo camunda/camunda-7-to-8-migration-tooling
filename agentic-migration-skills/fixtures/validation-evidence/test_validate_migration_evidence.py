@@ -18,6 +18,7 @@ from unittest.mock import patch
 FIXTURE = Path(__file__).resolve().parent
 LOG_DIRECTORY = ".camunda-migration/validation/logs"
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+BPMN_DI_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/DI"
 CAMUNDA_BPMN_NAMESPACE = "http://camunda.org/schema/1.0/bpmn"
 DMN_MODEL_NAMESPACE = "https://www.omg.org/spec/DMN/20191111/MODEL/"
 STEP2_INVENTORY_PATH = (
@@ -141,7 +142,7 @@ def passing_module_manifest(module_path):
     }
 
 
-def write_bpmn_file(path, processes, timer_starts):
+def write_bpmn_file(path, processes, timer_starts, include_di=False):
     root = ET.Element(
         "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
     )
@@ -176,6 +177,12 @@ def write_bpmn_file(path, processes, timer_starts):
             timer_definition,
             "{{{}}}timeCycle".format(BPMN_MODEL_NAMESPACE),
         ).text = "R/PT1M"
+    if include_di:
+        ET.SubElement(
+            root,
+            "{{{}}}BPMNDiagram".format(BPMN_DI_NAMESPACE),
+            {"id": "BPMNDiagram_1"},
+        )
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
@@ -897,10 +904,15 @@ class ValidationEvidenceTest(unittest.TestCase):
         cases = (
             ("summary", STEP2_INVENTORY_PATH, False),
             ("summary", STEP2_INVENTORY_PATH, True),
+            ("summary", gate.DEFAULT_EVIDENCE_PATH, False),
+            ("summary", gate.DEFAULT_EVIDENCE_PATH, True),
+            ("summary", gate.DEFAULT_SUMMARY_PATH, True),
             ("summary", "MIGRATION_REPORT.md", False),
             ("summary", "MIGRATION_REPORT.md", True),
             ("report", STEP2_INVENTORY_PATH, False),
             ("report", STEP2_INVENTORY_PATH, True),
+            ("report", gate.DEFAULT_SUMMARY_PATH, False),
+            ("report", gate.DEFAULT_SUMMARY_PATH, True),
         )
         for output_kind, reserved_path, hard_link in cases:
             with self.subTest(
@@ -920,12 +932,16 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                     materialize_inventory(project_root, manifest)
                     protected_file = project_root / reserved_path
+                    protected_file.parent.mkdir(parents=True, exist_ok=True)
+                    if not protected_file.exists():
+                        protected_file.write_bytes(b"reserved validation file\n")
                     output_file = protected_file
                     if hard_link:
                         output_file = (
                             project_root
                             / ".camunda-migration/validation/reserved-alias"
                         )
+                        output_file.parent.mkdir(parents=True, exist_ok=True)
                         os.link(protected_file, output_file)
                     original_contents = protected_file.read_bytes()
                     output_path = output_file.relative_to(
@@ -939,9 +955,15 @@ class ValidationEvidenceTest(unittest.TestCase):
                             summary=output_path,
                         )
                     else:
+                        summary_path = (
+                            "custom-validation-summary.json"
+                            if reserved_path == gate.DEFAULT_SUMMARY_PATH
+                            else None
+                        )
                         completed = self.run_gate(
                             project_root,
                             report=output_path,
+                            summary=summary_path,
                         )
 
                     self.assertEqual(completed.returncode, 1)
@@ -1738,6 +1760,8 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_none_runtime_mode_rejects_detectable_entry_points(self):
         for entry_point in (
             "spring_boot_source",
+            "spring_boot_qualified_annotation",
+            "spring_boot_qualified_run",
             "java_main",
             "kotlin_main",
             "scala_main",
@@ -1758,15 +1782,29 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "check completed\n", encoding="utf-8"
                     )
 
-                    if entry_point == "spring_boot_source":
+                    if entry_point.startswith("spring_boot"):
                         source = (
                             module_root
                             / "src/main/java/com/example/Application.java"
                         )
                         source.parent.mkdir(parents=True)
+                        spring_boot_sources = {
+                            "spring_boot_source": (
+                                "@SpringBootApplication\n"
+                                "class Application {}\n"
+                            ),
+                            "spring_boot_qualified_annotation": (
+                                "@org.springframework.boot.autoconfigure."
+                                "SpringBootApplication\n"
+                                "class Application {}\n"
+                            ),
+                            "spring_boot_qualified_run": (
+                                "org.springframework.boot.SpringApplication."
+                                "run(Application.class, args);\n"
+                            ),
+                        }
                         source.write_text(
-                            "@SpringBootApplication\n"
-                            "class Application {}\n",
+                            spring_boot_sources[entry_point],
                             encoding="utf-8",
                         )
                     elif entry_point == "java_main":
@@ -2123,6 +2161,16 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "integrationTest",
             ),
             (
+                "build.gradle.kts",
+                'tasks.named<Test>("integrationTest") {}',
+                "integrationTest",
+            ),
+            (
+                "build.gradle.kts",
+                'tasks.named("integrationTest", Test::class) {}',
+                "integrationTest",
+            ),
+            (
                 "build.gradle",
                 "tasks.register('integrationTest', Test) {}",
                 "integrationTest",
@@ -2449,6 +2497,139 @@ class ValidationEvidenceTest(unittest.TestCase):
                     for blocker in summary["blockers"]
                 )
             )
+
+    def test_dmn_source_xml_must_parse_before_readiness(self):
+        with tempfile.TemporaryDirectory(
+            prefix="migration-evidence-"
+        ) as temporary:
+            project_root = Path(temporary) / "project"
+            source_path = "models/decision.dmn"
+            model_path = "models/converted-c8-decision.dmn"
+            log_directory = project_root / LOG_DIRECTORY
+            log_directory.mkdir(parents=True)
+            model_directory = project_root / "models"
+            model_directory.mkdir()
+            source_file = project_root / source_path
+            converted_file = project_root / model_path
+            write_dmn_file(source_file)
+            write_dmn_file(converted_file)
+
+            checks = []
+            for kind in gate.MODEL_CHECKS:
+                if (
+                    kind in gate.MODEL_CHECKS_REQUIRING_PASS
+                    or kind == "deployment"
+                ):
+                    check_evidence = (
+                        LOG_DIRECTORY + "/{}.log".format(kind)
+                    )
+                    (project_root / check_evidence).write_text(
+                        "validation evidence\n", encoding="utf-8"
+                    )
+                    check = passing_check(
+                        "model",
+                        model_path,
+                        kind,
+                        check_evidence,
+                    )
+                    if ("model", kind) in gate.MANUAL_CHECKS:
+                        check.update(
+                            {
+                                "method": "manual",
+                                "command": "Reviewed the DMN model",
+                                "exit_code": None,
+                            }
+                        )
+                    if kind == "deployment":
+                        check["environment"] = "local"
+                    checks.append(check)
+                else:
+                    checks.append(
+                        not_applicable_check(
+                            "model",
+                            model_path,
+                            kind,
+                            "The DMN model has no related behavior.",
+                        )
+                    )
+
+            manifest = {
+                "schema_version": 1,
+                "mode": "migration",
+                "modules": [],
+                "models": [
+                    {
+                        "path": model_path,
+                        "source_path": source_path,
+                        "type": "dmn",
+                        "approach": "M1",
+                        "deployable": True,
+                        "source_has_di": False,
+                        "form_inventory": [],
+                        "processes": [],
+                        "recurring_timer_starts": [],
+                    }
+                ],
+                "checks": checks,
+            }
+            write_step2_inventory(project_root, [], [source_path])
+
+            valid_summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertEqual(
+                valid_summary["readiness"],
+                "ready",
+                valid_summary["blockers"],
+            )
+
+            source_file.write_text("not XML", encoding="utf-8")
+            invalid_summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertEqual(invalid_summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "source model cannot be parsed" in blocker
+                    for blocker in invalid_summary["blockers"]
+                ),
+                invalid_summary["blockers"],
+            )
+
+    def test_source_has_di_must_match_parsed_bpmn_di(self):
+        for declared_has_di, parsed_has_di in ((True, False), (False, True)):
+            with self.subTest(
+                declared_has_di=declared_has_di,
+                parsed_has_di=parsed_has_di,
+            ):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    model = manifest["models"][0]
+                    model["source_has_di"] = declared_has_di
+                    materialize_inventory(project_root, manifest)
+                    write_bpmn_file(
+                        project_root / model["source_path"],
+                        model["processes"],
+                        model["recurring_timer_starts"],
+                        include_di=parsed_has_di,
+                    )
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "source_has_di declaration does not match parsed "
+                            "source BPMN DI" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        summary["blockers"],
+                    )
 
     def test_passing_command_with_nonzero_exit_is_rejected(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:

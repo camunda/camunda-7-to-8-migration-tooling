@@ -82,8 +82,9 @@ them.
 The skill also records validation evidence for each migrated module, model, and executable process.
 Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_REPORT.md` and a
 machine-readable summary under `.camunda-migration/validation/`. It accepts evidence files only
-under `.camunda-migration/validation/logs/`. The validator checks form records against source BPMN
-and checks Maven Failsafe and explicit Gradle test-suite declarations against the suite inventory.
+under `.camunda-migration/validation/logs/`. It parses source and converted BPMN or DMN models. It
+verifies diagram interchange and form inventories for BPMN sources. It checks Maven Failsafe and
+Gradle test-suite declarations against the suite inventory.
 
 ## Use
 
@@ -209,9 +210,10 @@ fixtures/                                  ← sample projects for manual regres
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
-The `fixtures/validation-evidence` regression test checks contradictory report claims, source and
-converted path aliases, Step 2 inventory completeness, form-check applicability, process
-assertions, independent suite evidence, and timer safety plans.
+The `fixtures/validation-evidence` regression test checks contradictory report claims, XML parsing,
+source DI provenance, path aliases, and reserved output paths. It also checks runtime detection,
+Step 2 inventory completeness, form-check applicability, process assertions, suite evidence, and
+timer safety plans.
 
 ## License
 

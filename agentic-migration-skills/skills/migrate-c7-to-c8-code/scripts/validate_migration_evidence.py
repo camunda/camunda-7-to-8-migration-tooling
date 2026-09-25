@@ -14,6 +14,7 @@ from pathlib import Path
 
 SCHEMA_VERSION = 1
 BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+BPMN_DI_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/DI"
 BPMN_DEFINITIONS_TAG = "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
 BPMN_PROCESS_TAG = "{{{}}}process".format(BPMN_MODEL_NAMESPACE)
 BPMN_USER_TASK_TAG = "{{{}}}userTask".format(BPMN_MODEL_NAMESPACE)
@@ -87,8 +88,13 @@ MODULE_CHECKS = (
 SPRING_BOOT_LAUNCH_CHECKS = ("spring_boot_run", "executable_jar")
 RUNTIME_SOURCE_SUFFIXES = {".java", ".kt", ".groovy", ".scala"}
 SPRING_BOOT_ENTRY_POINT_PATTERN = re.compile(
-    r"@(?:SpringBootApplication|SpringBootConfiguration|EnableAutoConfiguration)\b"
-    r"|SpringApplication\s*\.\s*run\s*\("
+    r"@(?:org\s*\.\s*springframework\s*\.\s*boot\s*\.\s*)?"
+    r"SpringBootConfiguration\b"
+    r"|@(?:org\s*\.\s*springframework\s*\.\s*boot\s*\.\s*"
+    r"autoconfigure\s*\.\s*)?"
+    r"(?:SpringBootApplication|EnableAutoConfiguration)\b"
+    r"|(?:org\s*\.\s*springframework\s*\.\s*boot\s*\.\s*)?"
+    r"SpringApplication\s*\.\s*run\s*\("
 )
 MAIN_ENTRY_POINT_PATTERN = re.compile(
     r"\b(?:static\s+void\s+main|fun\s+main|def\s+main)\s*\("
@@ -105,11 +111,12 @@ POM_MAIN_CLASS_TAGS = {
 }
 GRADLE_TEST_SUITE_PATTERNS = (
     re.compile(
-        r'''\b(?:tasks\s*\.\s*)?register\s*<\s*(?:[\w.]+\.)?Test\s*>\s*'''
+        r'''\b(?:tasks\s*\.\s*)?(?:register|named)\s*'''
+        r'''<\s*(?:[\w.]+\.)?Test\s*>\s*'''
         r'''\(\s*["'](?P<name>[^"']+)["']'''
     ),
     re.compile(
-        r'''\b(?:tasks\s*\.\s*)?(?:register|create)\s*\(\s*'''
+        r'''\b(?:tasks\s*\.\s*)?(?:register|create|named)\s*\(\s*'''
         r'''["'](?P<name>[^"']+)["']\s*,\s*'''
         r'''(?:[\w.]+\.)?Test(?:::class|\.class)?\s*\)'''
     ),
@@ -567,14 +574,8 @@ def detect_module_test_suites(module_root, project_root, location, error):
     return suite_names
 
 
-def read_source_form_inventory(path, location, error):
-    try:
-        root = ET.parse(str(path)).getroot()
-    except (OSError, ET.ParseError, UnicodeError) as exception:
-        error(
-            "{} source BPMN cannot be parsed to verify its form inventory: "
-            "{}.".format(location, exception)
-        )
+def read_source_form_inventory(root, location, error):
+    if root is None:
         return Counter()
     if root.tag != BPMN_DEFINITIONS_TAG:
         error(
@@ -654,12 +655,20 @@ def read_source_form_inventory(path, location, error):
 
 
 def read_converted_model(path, location, error):
+    return read_model(path, location, "converted model", error)
+
+
+def read_source_model(path, location, error):
+    return read_model(path, location, "source model", error)
+
+
+def read_model(path, location, model_label, error):
     try:
         root = ET.parse(str(path)).getroot()
-    except (OSError, ET.ParseError) as exception:
+    except (OSError, ET.ParseError, UnicodeError) as exception:
         error(
-            "{} converted model cannot be parsed to identify its type: {}."
-            .format(location, exception)
+            "{} {} cannot be parsed to identify its type: {}."
+            .format(location, model_label, exception)
         )
         return None, None
 
@@ -668,10 +677,18 @@ def read_converted_model(path, location, error):
     if root.tag in DMN_DEFINITIONS_TAGS:
         return "dmn", root
     error(
-        "{} converted model must have a BPMN or DMN definitions root."
-        .format(location)
+        "{} {} must have a BPMN or DMN definitions root."
+        .format(location, model_label)
     )
     return None, None
+
+
+def source_bpmn_has_di(root):
+    return any(
+        isinstance(element.tag, str)
+        and element.tag.startswith("{{{}}}".format(BPMN_DI_NAMESPACE))
+        for element in root.iter()
+    )
 
 
 def read_bpmn_inventory(root, location, error):
@@ -818,18 +835,29 @@ def validate_cli_paths(evidence_path, summary_path, report_path, project_root):
             (project_root / DEFAULT_INVENTORY_PATH).resolve(),
         ),
         (
+            "default evidence",
+            (project_root / DEFAULT_EVIDENCE_PATH).resolve(),
+        ),
+        (
+            "default summary",
+            (project_root / DEFAULT_SUMMARY_PATH).resolve(),
+        ),
+        (
             "default report",
             (project_root / DEFAULT_REPORT_PATH).resolve(),
         ),
     ]
+    matching_default_outputs = {
+        ("summary", "default summary"),
+        ("report", "default report"),
+    }
     for output_name, output_path in output_paths:
         for reserved_name, reserved_path in reserved_paths:
             if (
-                output_name == "report"
-                and reserved_name == "default report"
-                and output_path == reserved_path
+                output_path == reserved_path
+                and (output_name, reserved_name) in matching_default_outputs
             ):
-                # Writing the default report is valid; a summary cannot replace it.
+                # Only the matching output may use its reserved default path.
                 continue
             if paths_identify_same_file(output_path, reserved_path):
                 raise ValueError(
@@ -1284,6 +1312,39 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             converted_model_type, converted_model_root = read_converted_model(
                 resolved_model_path, location, error
             )
+        source_model_type = None
+        source_model_root = None
+        if (
+            resolved_source_path is not None
+            and resolved_source_path.is_file()
+            and path_is_within_root(
+                resolved_source_path, project_root.resolve()
+            )
+        ):
+            source_model_type, source_model_root = read_source_model(
+                resolved_source_path, location, error
+            )
+        if source_model_type is not None:
+            if declared_model_type != source_model_type:
+                error(
+                    "{} declared type {} does not match source XML type {}."
+                    .format(location, declared_model_type, source_model_type)
+                )
+            if source_model_type == "bpmn":
+                parsed_source_has_di = source_bpmn_has_di(source_model_root)
+                if (
+                    isinstance(source_has_di, bool)
+                    and source_has_di != parsed_source_has_di
+                ):
+                    error(
+                        "{} source_has_di declaration does not match parsed "
+                        "source BPMN DI.".format(location)
+                    )
+                source_has_di = parsed_source_has_di
+            else:
+                source_has_di = None
+        else:
+            source_has_di = None
         if converted_model_type is not None:
             if declared_model_type != converted_model_type:
                 error(
@@ -1409,16 +1470,9 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 form_check_applicability["form_binding"] = True
 
         source_form_inventory = Counter()
-        if (
-            model_type == "bpmn"
-            and resolved_source_path is not None
-            and resolved_source_path.is_file()
-            and path_is_within_root(
-                resolved_source_path, project_root.resolve()
-            )
-        ):
+        if source_model_type == "bpmn" and source_model_root is not None:
             source_form_inventory = read_source_form_inventory(
-                resolved_source_path, location, error
+                source_model_root, location, error
             )
         for form_kind in sorted(FORM_INVENTORY_KINDS):
             if source_form_inventory[form_kind] != declared_form_inventory[

@@ -58,6 +58,8 @@ Keep the evidence manifest, summary, and report in distinct files.
 Keep the summary path distinct from the Step 2 inventory and `MIGRATION_REPORT.md`, even when
 `--report` is omitted.
 Keep the report path distinct from the Step 2 inventory.
+The validator reserves the default evidence and summary paths from custom outputs.
+Use each default path only for its matching output.
 The validator checks file identity, including hard links, before it writes output.
 
 Each check record gives its target type, target, check kind, scenario, method, command, exit code,
@@ -107,8 +109,10 @@ referenced form, and form-free owner. Each record has `id`, `kind`, `accepted`, 
 migration decision. Use a unique ID for each record. Use an empty array when the model has no form
 records or form-free owners.
 
-The validator parses each source BPMN and compares the discovered form categories with
-`form_inventory` before it derives conditional form checks.
+The validator parses every source and converted model as BPMN or DMN XML. It compares the declared
+type with each detected definitions root.
+The validator detects BPMN DI and form categories from each source BPMN. It compares the detected
+values with `source_has_di` and `form_inventory` before it derives conditional checks.
 
 The validator derives conditional form checks from these records:
 
@@ -170,8 +174,8 @@ Set `runtime_mode` to `spring-boot`, `external-launcher`, or `none` for every mo
 
 The validator rejects `runtime_mode: none` when `src/main` files declare a Java, Kotlin, Groovy, or
 Scala `main` entry point.
-The validator rejects it when `src/main` files contain a Spring Boot startup annotation or a
-`SpringApplication.run` call.
+The validator rejects it when `src/main` files contain a fully qualified or unqualified Spring Boot
+startup annotation or `SpringApplication.run` call.
 The validator rejects it when the module `pom.xml` configures a main class.
 The validator rejects it when a JAR under `target/` declares `Main-Class` or `Start-Class` in its
 manifest.
@@ -182,8 +186,9 @@ production worker as a validation probe.
 Run each module and test suite independently. Use a distinct command and evidence file for each
 suite. The validator enforces this contract across all modules.
 The validator also checks `test_suites` against Maven Failsafe executions and explicit Gradle
-`Test` or `JvmTestSuite` declarations. Use the Maven execution ID or Gradle task name as the suite
-name. Use `integration` when a Failsafe execution has no ID.
+`Test` or `JvmTestSuite` declarations. It detects `Test` tasks declared with `register`, `create`,
+or `named`. Use the Maven execution ID or Gradle task name as the suite name. Use `integration` when
+a Failsafe execution has no ID.
 A failed Docker or Testcontainers suite does not stop the skill from running other suites or module
 checks. Do not summarize all test failures as Docker failures.
 
