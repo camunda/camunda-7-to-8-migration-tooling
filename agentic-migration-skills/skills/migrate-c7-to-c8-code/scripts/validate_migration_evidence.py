@@ -545,6 +545,8 @@ def command_includes_model_path(tokens, target):
     while index < len(tokens):
         token = tokens[index]
         if token in path_options:
+            if index + 1 < len(tokens):
+                path_values.append(tokens[index + 1])
             index += 2
             continue
         if token.startswith("-"):
@@ -724,6 +726,33 @@ def command_suppresses_test_execution(tokens, executable):
     return False
 
 
+def tokenize_command(command):
+    lexer = shlex.shlex(
+        command,
+        posix=True,
+        punctuation_chars=";&|<>",
+    )
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    tokens = list(lexer)
+    comment_index = next(
+        (
+            index
+            for index, token in enumerate(tokens)
+            if token.startswith("#")
+        ),
+        len(tokens),
+    )
+    return tokens[:comment_index]
+
+
+def command_invocation_key(command):
+    try:
+        return tuple(tokenize_command(command))
+    except ValueError:
+        return (command,)
+
+
 def passed_command_error(check):
     if check.get("method") != "command" or check.get("result") != "passed":
         return None
@@ -733,25 +762,9 @@ def passed_command_error(check):
     if "\n" in command or "\r" in command:
         return "command must be a single direct invocation without newlines"
     try:
-        lexer = shlex.shlex(
-            command,
-            posix=True,
-            punctuation_chars=";&|<>",
-        )
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
+        tokens = tokenize_command(command)
     except ValueError:
         return "command must be a valid direct invocation"
-    comment_index = next(
-        (
-            index
-            for index, token in enumerate(tokens)
-            if token.startswith("#")
-        ),
-        len(tokens),
-    )
-    tokens = tokens[:comment_index]
     if not tokens:
         return "command must be an executable validation invocation"
     if any(
@@ -3087,19 +3100,20 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             and kind == "tests"
             and is_nonempty_string(command)
         ):
-            if command in test_commands:
+            command_key = command_invocation_key(command)
+            if command_key in test_commands:
                 error(
                     "Duplicate suite command: test suites must use distinct "
                     "commands (module {} "
                     "scenario {} and module {} scenario {}).".format(
-                        test_commands[command][0],
-                        test_commands[command][1],
+                        test_commands[command_key][0],
+                        test_commands[command_key][1],
                         check.get("target"),
                         check.get("scenario"),
                     )
                 )
             else:
-                test_commands[command] = (
+                test_commands[command_key] = (
                     check.get("target"),
                     check.get("scenario"),
                 )

@@ -91,6 +91,9 @@ class selector can use the scenario name with `Test`, `Tests`, or `IT` appended.
 a test pattern only when it selects a class name derived from the scenario. Omit the test selector
 only for the default Maven `unit` suite.
 
+Use a distinct command invocation for each module test suite. The validator treats changes in
+whitespace or trailing comments as the same invocation.
+
 Never mark a test, process, or timer check as passed when its command skips tests, excludes a test
 task, requests a dry run, or ignores test failures. Maven suppression options include `-DskipTests`,
 `-Dmaven.test.skip`, `-DskipITs`, and `-Dmaven.test.failure.ignore`. Gradle suppression options

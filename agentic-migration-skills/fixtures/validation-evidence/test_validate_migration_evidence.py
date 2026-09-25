@@ -505,6 +505,28 @@ class ValidationEvidenceTest(unittest.TestCase):
                 module_test["command"] = invalid_command
                 self.assertIsNotNone(gate.passed_command_error(module_test))
 
+    def test_passed_model_commands_accept_separated_path_options(self):
+        target = "models/converted-c8-order.bpmn"
+        commands = (
+            ("lint", "npx bpmnlint"),
+            ("deployment", "c8ctl deploy"),
+        )
+        for kind, base_command in commands:
+            for option in ("-f", "--file", "--model", "--path", "--resource"):
+                check = {
+                    "target_type": "model",
+                    "target": target,
+                    "kind": kind,
+                    "scenario": None,
+                    "method": "command",
+                    "result": "passed",
+                    "command": "{} {} {}".format(
+                        base_command, option, target
+                    ),
+                }
+                with self.subTest(kind=kind, option=option):
+                    self.assertIsNone(gate.passed_command_error(check))
+
     def test_passed_command_targets_require_exact_values(self):
         cases = (
             (
@@ -3628,11 +3650,24 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_test_suites_reject_shared_evidence_and_commands_across_modules(
         self,
     ):
-        for duplicate_field, blocker_fragment in (
-            ("evidence_path", "test suites must use distinct evidence files"),
-            ("command", "test suites must use distinct commands"),
+        for duplicate_field, command_format, blocker_fragment in (
+            (
+                "evidence_path",
+                None,
+                "test suites must use distinct evidence files",
+            ),
+            ("command", "exact", "test suites must use distinct commands"),
+            ("command", "comment", "test suites must use distinct commands"),
+            (
+                "command",
+                "whitespace",
+                "test suites must use distinct commands",
+            ),
         ):
-            with self.subTest(duplicate_field=duplicate_field):
+            with self.subTest(
+                duplicate_field=duplicate_field,
+                command_format=command_format,
+            ):
                 with tempfile.TemporaryDirectory(
                     prefix="migration-evidence-"
                 ) as temporary:
@@ -3686,9 +3721,12 @@ class ValidationEvidenceTest(unittest.TestCase):
                         baseline["blockers"],
                     )
 
-                    test_checks[1][duplicate_field] = test_checks[0][
-                        duplicate_field
-                    ]
+                    duplicate_value = test_checks[0][duplicate_field]
+                    if command_format == "comment":
+                        duplicate_value += " # same invocation"
+                    elif command_format == "whitespace":
+                        duplicate_value = "   ".join(duplicate_value.split())
+                    test_checks[1][duplicate_field] = duplicate_value
                     summary = gate.validate_manifest(manifest, project_root)
 
                     self.assertEqual(
