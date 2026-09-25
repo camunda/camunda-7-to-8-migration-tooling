@@ -16,6 +16,14 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-89425: align Jackson 3 transitive dependencies across Data Migrator modules. -->
+      <dependency>
+        <groupId>tools.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-3-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- as long as there is no official engine-spring artifact for spring 7,
       we need to override transitive spring libs -->
       <dependency>

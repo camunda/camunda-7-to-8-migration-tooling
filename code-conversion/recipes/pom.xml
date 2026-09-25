@@ -24,6 +24,14 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-89425: keep Jackson Core on the fixed Jackson 2 line. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- netty-bom must be imported before spring-boot-dependencies to ensure
            the pinned Netty version takes precedence over the version pulled in
            transitively by gRPC (via spring-boot-dependencies). -->
