@@ -7,9 +7,10 @@ and BPMN DI IDs.
 
 ## Run the M2 evaluation
 
-1. Copy only `c7-source/conditional-boundary.bpmn` into a temporary project.
-2. Run `migrate-c7-to-c8-code` with **Models only**, target **Camunda 8.9**, and
-   **Agentic AI**.
+1. Create a temporary project. Copy only `c7-source/conditional-boundary.bpmn`
+   into its root.
+2. Run `migrate-c7-to-c8-code` with the temporary project as the confirmed
+   project root. Select **Models only**, target **Camunda 8.9**, and **Agentic AI**.
 3. Confirm that the skill writes `converted-c8-conditional-boundary.bpmn`.
 4. Check the converted copy with Python 3:
 
@@ -42,10 +43,12 @@ c8ctl await pi \
 ```
 
 The interrupting boundary event fires when the service task activates because
-`shouldEscalate` is `true`. The normal path waits for a job worker, so successful
-process completion confirms that the boundary path fired. Record the cluster
-version, deployment result, and execution result in `MIGRATION_REPORT.md`. Keep
-the finding **needs review** when this runtime check cannot run.
+`shouldEscalate` is `true`. Use a cluster where no worker handles the fixture's
+`orderReviewDelegate` job type. The `await pi` command waits for process
+completion. The normal path remains at that unhandled job, so successful
+completion confirms that the boundary path fired. Record the cluster version,
+deployment result, and execution result in `MIGRATION_REPORT.md`. Keep the
+finding **needs review** when this runtime check cannot run.
 See the [conditional-event documentation][conditionals] for this activation
 behavior.
 
@@ -62,5 +65,15 @@ behavior.
 `expected-c8/converted-c8-conditional-boundary.bpmn` is a reference conversion
 for offline structural checks. The Python verifier also accepts the converted
 copy produced by the M2 evaluation.
+
+The Python verifier is specific to this fixture. Apply the skill's Step 5
+conditional-event ID checks to every source and converted copy in a migration.
+Run the verifier regression tests from the repository root:
+
+```sh
+python3 -m unittest discover \
+  -s agentic-migration-skills/fixtures/conditional-events \
+  -p 'test_*.py'
+```
 
 [conditionals]: https://docs.camunda.io/docs/components/concepts/conditionals/#on-scope-activation

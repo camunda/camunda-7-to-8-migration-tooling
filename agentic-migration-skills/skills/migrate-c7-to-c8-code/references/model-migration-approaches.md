@@ -570,14 +570,17 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Simple JUEL to FEEL for pure data expressions. Flag bean-invoking expressions for manual work.
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
-- Where the target is Camunda 8.9 or later, assign each
+- Where the target is Camunda 8.9 or later, the converter assigns each
   `bpmn:conditionalEventDefinition` a nonempty, document-unique ID.
-- Preserve an existing definition ID when it is nonempty and unique.
-- Otherwise generate a collision-free definition ID without changing existing event IDs,
-  sequence-flow IDs, or BPMN DI references.
+- When the converter reads a nonempty definition ID that is unique in the source document, it
+  preserves that ID.
+- If the converter finds an empty or nonunique definition ID, then it generates a collision-free ID
+  without changing existing event IDs, sequence-flow IDs, or BPMN DI references.
 - Run the conditional-event ID check in `SKILL.md` Step 5 independently of BPMN lint.
 - Reject the converted copy if the ID check fails, even when lint reports no ID error.
 - Record failed definition IDs and the validator result in `MIGRATION_REPORT.md`.
+- Use the fixture's Python verifier only for regression tests. Apply the Step 5 checks to each
+  migration project's source and converted copies.
 - For a conditional-event verdict row, require an execution test that triggers the event before
   assigning **no action**. See 5d.1 for the target-support test and evidence.
 - DMN: update decision/definition namespaces and expression language as needed

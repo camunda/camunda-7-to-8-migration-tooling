@@ -87,6 +87,11 @@ def check(source_path, converted_path):
             f"found {len(converted_definitions)}"
         )
 
+    source_id_counts = Counter(
+        element_id.strip()
+        for element in source_root.iter()
+        if (element_id := element.get("id")) is not None and element_id.strip()
+    )
     all_ids = Counter(
         element_id
         for element in converted_root.iter()
@@ -108,6 +113,22 @@ def check(source_path, converted_path):
             )
     if len(set(definition_ids)) != len(definition_ids):
         failures.append("converted conditional event definition IDs are not unique")
+
+    for definition_id in sorted(
+        {
+            (definition.get("id") or "").strip()
+            for definition in source_definitions
+        }
+    ):
+        if (
+            definition_id
+            and source_id_counts[definition_id] == 1
+            and definition_id not in definition_ids
+        ):
+            failures.append(
+                f"unique source conditional event definition ID "
+                f"{definition_id!r} was not preserved"
+            )
 
     for local_names, label in (
         (BPMN_EVENTS, "event"),
