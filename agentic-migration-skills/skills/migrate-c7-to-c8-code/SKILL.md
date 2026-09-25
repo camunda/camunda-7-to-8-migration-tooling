@@ -230,6 +230,15 @@ For Code + models, see `references/composing-code-and-models.md`.
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
 
+The skill runs the transaction and security gate in `references/code-transform-checklist.md` before
+each C7 JavaDelegate transformation.
+If the gate identifies a gap, then the skill stops that delegate's transformation. The skill asks
+the user for the listed decision.
+When the user makes the listed decision, the skill records it and any accepted parity gap in
+`MIGRATION_REPORT.md`.
+The skill resumes that transformation only after it records the decision and any accepted parity
+gap.
+
 - **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
   source-to-output review.
 - **B. AI only** — use a pattern-guided, AI-first migration for semantic, mixed, or complex code
@@ -291,9 +300,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
-    For each delegate adapter, also run the transaction and security review in
-    `references/code-transform-checklist.md`. Keep every identified gap open until the user decides.
-    Record the accepted parity gap in the `MIGRATION_REPORT.md` decision log.
+    For each delegate adapter, check that `MIGRATION_REPORT.md` records the pre-transform gate
+    result. Check that the report records each affected incoming path, C7 rollback effects, and
+    every user decision. Check that undecided gaps remain open and accepted parity gaps appear in
+    the decision log.
 12. **Deployment resources** — when `@Deployment` is present after migration, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged

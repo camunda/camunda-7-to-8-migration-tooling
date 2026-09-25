@@ -281,14 +281,22 @@ and `30-glue-code/outbound-http-rest-connector.md`.
 
 ### Synchronous transaction and security semantics
 
-Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path from its preceding wait state. The skill inspects the delegate and its invoked services. The skill checks exception paths, `camunda:asyncBefore`, Spring transaction synchronization, `SecurityContextHolder`, `ThreadLocal`, and caller-identity access.
+Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path to the delegate.
+The skill includes paths that start the process and paths that continue from a wait state through
+synchronous activities. The skill identifies every asynchronous transaction boundary before the
+delegate runs. The skill checks exception paths in the delegate and its invoked services. The skill
+checks `camunda:asyncBefore`, Spring transaction synchronization, `SecurityContextHolder`,
+`ThreadLocal`, and caller-identity access.
 
 | Source evidence | Required action | User decision |
 |---|---|---|
-| A synchronous delegate can fail after a user task or other wait state completes, with no `camunda:asyncBefore` or other intervening asynchronous transaction boundary. | Record the exact wait state, failure path, and effects that C7 rolls back. Mark that rollback behavior as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
+| At least one incoming BPMN path reaches the delegate without `camunda:asyncBefore` or another asynchronous transaction boundary. | Record each affected path and the C7 command that runs the delegate. Record each failure path and the process-state changes that the C7 command rolls back. Mark that rollback behavior as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
-If either row matches, then the skill adds an open item to `MIGRATION_REPORT.md` and asks for the listed decision before transforming the delegate. A C8 job worker cannot roll back a preceding wait state. It does not inherit the C7 engine transaction or thread-bound security context.
+If either row matches, then the skill adds an open item to `MIGRATION_REPORT.md`.
+The skill asks for the listed decision before it transforms the delegate. A C8 job worker cannot
+roll back the C7 command that started or advanced the process. It does not inherit the C7 engine
+transaction or thread-bound security context.
 
 The skill never describes the worker as preserving synchronous behavior. The skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision log. The skill resolves the open item only after an explicit user decision.
 
