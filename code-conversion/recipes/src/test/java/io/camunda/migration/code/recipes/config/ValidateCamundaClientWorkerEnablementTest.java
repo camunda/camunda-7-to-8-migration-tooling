@@ -140,6 +140,102 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
   }
 
   @Test
+  void flagsWorkersDisabledByJobWorkerAnnotation() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment", enabled = false)
+                void handle() {}
+
+                @JobWorker(type = "already-enabled", enabled = true)
+                void alreadyEnabled() {}
+
+                @JobWorker(type = "default-enabled", enabled = {})
+                void defaultEnabled() {}
+            }
+            """,
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                /*~~(The job worker is disabled by the @JobWorker `enabled=false` attribute. Verify its runtime registration before marking workers ready.)~~>*/@JobWorker(type = "process-payment", enabled = false)
+                void handle() {}
+
+                @JobWorker(type = "already-enabled", enabled = true)
+                void alreadyEnabled() {}
+
+                @JobWorker(type = "default-enabled", enabled = {})
+                void defaultEnabled() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")));
+  }
+
+  @Test
+  void flagsWorkersWithUnresolvedJobWorkerEnablementAsConditional() {
+    rewriteRun(
+        java(
+            """
+            final class WorkerSettings {
+                static final boolean ENABLED = true;
+            }
+            """,
+            spec -> spec.path("src/main/java/WorkerSettings.java")),
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment", enabled = WorkerSettings.ENABLED)
+                void handle() {}
+            }
+            """,
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                /*~~(Job-worker readiness is conditional because the @JobWorker `enabled` value is not statically known. Resolve it, then verify the worker's runtime registration before marking workers ready.)~~>*/@JobWorker(type = "process-payment", enabled = WorkerSettings.ENABLED)
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")));
+  }
+
+  @Test
+  void flagsDisabledWorkerDefaultsEvenWhenClientEnablementIsConditional() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            camunda.client.worker.defaults.enabled=false
+            """,
+            """
+            ~~(The worker for job type 'process-payment' is disabled by 'camunda.client.worker.defaults.enabled=false'. Verify the effective runtime configuration and job worker registration before marking workers ready.)~~>camunda.client.worker.defaults.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")),
+        properties(
+            """
+            camunda.client.enabled=false
+            """,
+            """
+            ~~(Job-worker readiness is conditional because 'camunda.client.enabled' may disable the worker for job type 'process-payment'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>camunda.client.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application-prod.properties")));
+  }
+
+  @Test
   void flagsWorkersDisabledByPerWorkerOverride() {
     rewriteRun(
         java(
@@ -448,6 +544,60 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
             camunda.client.worker.override.processPayment.enabled=false
             """,
             spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void matchesMethodNameFallbackWhenDefaultTypeIsProfileScoped() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker
+                void processPayment() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            camunda.client.worker.override.processPayment.enabled=false
+            """,
+            """
+            ~~(Job-worker readiness is conditional because a per-worker 'enabled' override may disable the worker for job type 'processPayment' or 'shared'. Resolve profile and environment overrides, then verify its registration at runtime.)~~>camunda.client.worker.override.processPayment.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")),
+        properties(
+            """
+            camunda.client.worker.defaults.type=shared
+            """,
+            spec -> spec.path("src/main/resources/application-prod.properties")));
+  }
+
+  @Test
+  void doesNotUseMethodNameFallbackWhenAnUnconditionalDefaultTypeExists() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker
+                void processPayment() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            camunda.client.worker.defaults.type=shared
+            camunda.client.worker.override.processPayment.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")),
+        properties(
+            """
+            camunda.client.worker.defaults.type=profiled
+            """,
+            spec -> spec.path("src/main/resources/application-prod.properties")));
   }
 
   @Test
