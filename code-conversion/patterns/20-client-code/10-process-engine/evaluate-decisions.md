@@ -39,6 +39,9 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 `Map.of` rejects null values. If the C7 `VariableMap` can contain nulls, preserve every input key and value in a mutable map:
 
 ```java
+import java.util.HashMap;
+import java.util.Map;
+
 Map<String, Object> variableMap = new HashMap<>();
 variableMap.put("timezone", timezone);
 variableMap.put("sla", sla);
