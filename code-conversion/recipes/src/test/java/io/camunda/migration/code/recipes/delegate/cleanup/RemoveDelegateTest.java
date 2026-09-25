@@ -78,4 +78,165 @@ public class RetrievePaymentAdapter {
 }
 """));
   }
+
+  @Test
+  void visitsNestedDelegateWhenOuterClassHasNoInterface() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                void execute() {}
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void keep() {}
+                }
+
+                class Helper implements Runnable {
+                    @Override
+                    public void run() {}
+
+                    void execute() {}
+                }
+            }
+            """,
+            """
+            class Holder {
+                void execute() {}
+
+                class Nested {
+
+                    void keep() {}
+                }
+
+                class Helper implements Runnable {
+                    @Override
+                    public void run() {}
+
+                    void execute() {}
+                }
+            }
+            """));
+  }
+
+  @Test
+  void visitsNestedDelegateWithinDelegate() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Outer implements JavaDelegate {
+                @Override
+                public void execute(DelegateExecution execution) {}
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void keep() {}
+                }
+
+                class Helper implements Runnable {
+                    @Override
+                    public void run() {}
+
+                    void execute() {}
+                }
+            }
+            """,
+            """
+            class Outer {
+
+                class Nested {
+
+                    void keep() {}
+                }
+
+                class Helper implements Runnable {
+                    @Override
+                    public void run() {}
+
+                    void execute() {}
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesImportsForSurvivingDelegateReferences() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                JavaDelegate delegate;
+                DelegateExecution execution;
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void keep() {}
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                JavaDelegate delegate;
+                DelegateExecution execution;
+
+                class Nested {
+
+                    void keep() {}
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesExecuteOverloadsInsideNestedDelegates() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void execute() {}
+
+                    void execute(String value) {}
+                }
+            }
+            """,
+            """
+            class Holder {
+                class Nested {
+
+                    void execute() {}
+
+                    void execute(String value) {}
+                }
+            }
+            """));
+  }
 }
