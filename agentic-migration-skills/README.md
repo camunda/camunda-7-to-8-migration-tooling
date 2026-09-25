@@ -103,7 +103,7 @@ The skill separates assessment, model analysis, model conversion, and complete m
 
 Analyze-only is available only with **Models only** and the Diagram Converter CLI or Agentic AI.
 Select **Assessment only** to inspect code and models without editing source code or models.
-Assessment-only and analyze-only runs do not edit project files.
+Assessment-only and analyze-only runs write `MIGRATION_REPORT.md` but do not edit any other project files.
 Every assessment also inventories project documentation and existing CI workflows.
 Full migrations update only approved in-scope documentation and assess project readiness.
 

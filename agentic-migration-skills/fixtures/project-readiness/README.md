@@ -24,7 +24,8 @@ Run the migration skill with **Assessment only** at the sample project root.
 The skill must record the README as in scope and the excluded example as retained.
 The CI inventory must list each missing readiness check.
 The report must set the readiness verdict to `not assessed`.
-The skill must not edit any fixture file during assessment.
+The skill writes `MIGRATION_REPORT.md` at the sample project root.
+It must not change any other fixture file during assessment.
 
 ## Full migration walkthrough
 

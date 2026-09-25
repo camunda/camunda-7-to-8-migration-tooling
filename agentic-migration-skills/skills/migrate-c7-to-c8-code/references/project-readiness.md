@@ -15,7 +15,7 @@ Project documentation means README files, runbooks, deployment guides, form guid
 7. Compare each document and workflow with the code and model inventories.
 
 Do not classify a document from its title alone.
-Do not edit files during assessment.
+While the skill assesses the project, it does not edit project files other than `MIGRATION_REPORT.md`.
 Do not record credentials, tokens, or private endpoint values in `MIGRATION_REPORT.md`.
 
 Use this table to classify each document:
@@ -45,8 +45,7 @@ Never guess a URL, profile, port, worker name, form mapping, or parity decision.
 If the project does not document a value, ask the user or leave an open item.
 Never publish credentials, tokens, or private endpoint values in documentation, CI logs, or `MIGRATION_REPORT.md`.
 
-While the user selects assessment-only or analyze-only, leave project files unchanged.
-Record proposed documentation updates in `MIGRATION_REPORT.md`.
+While the user selects assessment-only or analyze-only, record proposed documentation updates in `MIGRATION_REPORT.md` instead of editing those documents.
 
 ## CI readiness
 
@@ -83,7 +82,7 @@ If no relevant process test exists, then ask the user to approve adding a test o
 When the user approves a process test, add it before the readiness gate.
 If CI cannot start the required C8/Docker runtime, then ask the user to approve a manual alternative.
 If the user declines a CI change, then ask the user to approve a manual alternative.
-If the user declines both options, then leave the readiness verdict at `needs review`.
+If the user declines both options, then record the missing decision or check and apply the verdict table.
 Record the approver, responsible person, prerequisites, commands, result, and date for each approved manual alternative.
 Run every required manual check before reporting it as passed.
 A manual plan without a result does not establish readiness.
@@ -117,7 +116,7 @@ Use this readiness verdict table:
 | Verdict | Condition |
 |---|---|
 | `ready` | Every required check passes, and each in-scope document matches migrated assets and configuration. |
-| `needs review` | A check is not run, a document is deferred or stale, scope is unclear, or a user decision is missing. |
+| `needs review` | A migrated run has an unrun required check, a deferred or stale document, unclear scope, or a missing user decision. No required check has failed, and no required runtime dependency is unavailable. |
 | `blocked` | A required check fails or a required runtime dependency is unavailable. |
 | `not assessed` | The user selects assessment-only or analyze-only and the migration checks do not run. |
 

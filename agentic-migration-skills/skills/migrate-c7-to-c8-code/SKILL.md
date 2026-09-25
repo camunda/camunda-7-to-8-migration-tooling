@@ -265,7 +265,7 @@ For every approach, once each original BPMN is paired with its converted copy, r
 
 When the user approves the migration plan, follow `references/project-readiness.md` for in-scope documentation and CI gaps.
 Update only approved in-scope documentation. Leave retained C7-only documents unchanged.
-While the user selects assessment-only or analyze-only, do not change documentation or CI workflows.
+While the user selects assessment-only or analyze-only, do not edit project files other than `MIGRATION_REPORT.md`.
 Record the findings in `MIGRATION_REPORT.md`.
 Follow the exit rule for the selected mode.
 
@@ -515,8 +515,9 @@ the declined candidates in `MIGRATION_REPORT.md`.
 
 The migration run may exit when every pass condition in Step 4 holds and `MIGRATION_REPORT.md` holds
 the complete inventories, the decisions, the open items, and the validation results.
-The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
-issue, deletion candidate, or project-readiness blocker remains and no item has `deferred` or `blocked` status.
+For a migrated run, the skill reports a complete migration only when the project-readiness verdict is `ready`.
+The skill also requires that no unresolved migration TODO, finding, compilation issue, deletion candidate,
+or project-readiness blocker remains. No item can have `deferred` or `blocked` status.
 An open item is a team decision. It does not block completion unless it prevents an in-scope documentation change
 or a required readiness check. The summary always lists every open item.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
