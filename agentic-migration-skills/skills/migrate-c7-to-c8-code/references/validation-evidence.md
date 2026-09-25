@@ -8,21 +8,27 @@ uses this file to produce the aggregate validation gate in `MIGRATION_REPORT.md`
 
 ## Evidence files
 
-1. Create `.camunda-migration/validation/validation-evidence.json` in the confirmed project root.
-2. Capture command output under `.camunda-migration/validation/logs/`.
-3. Use files under `.camunda-migration/validation/logs/` for every `evidence_path`.
-4. Never use the manifest, generated summary, or `MIGRATION_REPORT.md` as evidence.
-5. Remove credentials and secret values from every command and log.
-6. List every migrated code module and every in-scope model from the Step 2 inventories.
-7. List every independent test suite for each module.
-8. List every executable process and every repeating timer start.
-9. Use project-relative paths for every target and evidence file.
+1. Before conversion, save the confirmed Step 2 scope in `.camunda-migration/validation/step2-inventory.json`.
+2. List every migrated code module path in the inventory `modules` array.
+3. List every in-scope original model path in the inventory `models` array.
+4. Keep the Step 2 inventory separate from the evidence manifest. The validator requires exact path-set equality.
+5. Create `.camunda-migration/validation/validation-evidence.json` in the confirmed project root.
+6. Capture command output under `.camunda-migration/validation/logs/`.
+7. Use files under `.camunda-migration/validation/logs/` for every `evidence_path`.
+8. Never use the inventory, manifest, generated summary, or `MIGRATION_REPORT.md` as evidence.
+9. Remove credentials and secret values from every command and log.
+10. List every independent test suite for each module.
+11. List every executable process and every repeating timer start.
+12. Use project-relative paths for every target and evidence file.
+
+Use `../scripts/validation-inventory.schema.json` for the Step 2 inventory. Use
+`../scripts/validation-evidence.schema.json` for the evidence manifest.
 
 Run this gate only for a full migration. Assessment-only and analyze-only runs do not claim
 migration readiness.
 
-Use the contract in `../scripts/validation-evidence.schema.json`. The validator also checks
-required check coverage, project-relative targets, and evidence files. Run it with Python 3:
+The validator also checks required check coverage, project-relative targets, and evidence files.
+Run it with Python 3:
 
 On macOS or Linux, run:
 
@@ -77,9 +83,32 @@ Use the fields below to build the required check set.
 | Entry | Required values |
 |---|---|
 | Module | `path`, `runtime_mode`, and each `test_suites` name with its `requires_docker` value. |
-| Model | Converted `path`, original `source_path`, `type`, `approach`, `deployable`, and `source_has_di`. |
+| Model | Converted `path`, original `source_path`, `type`, `approach`, `deployable`, `source_has_di`, and `form_inventory`. |
 | Process | Every process ID, its `executable` value, its standalone-entry-point value, direct-start scenarios, and assertion applicability for each executable process. |
 | Repeating timer | The process ID and timer-start ID for each repeating timer start. |
+| Form | Every Generated Task Form, referenced form, and form-free owner for each model. |
+
+Each model has a `form_inventory` array. Add one record for each source Generated Task Form,
+referenced form, and form-free owner. Each record has `id`, `kind`, `accepted`, `schema_applicable`,
+`form_js_applicable`, and `binding_required`. Set `kind` to `generated`, `referenced`, or
+`form-free-owner`. Set form applicability fields from the source inventory and the accepted
+migration decision. Use a unique ID for each record. Use an empty array when the model has no form
+records or form-free owners.
+
+The validator derives conditional form checks from these records:
+
+| Check kind | Applicable when |
+|---|---|
+| `accepted_forms`, `form_parsing`, `form_definition`, `form_deployment` | At least one record has `accepted: true`. |
+| `form_schema` | At least one accepted record has `schema_applicable: true`. |
+| `form_js` | At least one accepted record has `form_js_applicable: true`. |
+| `form_references` | At least one record has `kind: referenced` or `kind: form-free-owner`. |
+| `form_binding` | At least one accepted record has `binding_required: true`. |
+
+An applicable form check must pass. A non-applicable form check must be `not_applicable` with a
+reason. Set `accepted` and all applicability fields to `false` for a `form-free-owner` record. Set
+`schema_applicable`, `form_js_applicable`, and `binding_required` to `false` when `accepted` is
+`false`.
 
 List every process, including non-executable processes. Set `executable` to `false` and give a
 reason for a non-executable process. List `normal` and every missing-worker-input scenario in
@@ -170,8 +199,9 @@ Run process-start and behavior checks only in a local or non-production environm
 target environment on each applicable check.
 
 For every executable process, add one `direct_start` record for each declared start scenario. Include
-the normal inputs and each worker input that the process may not receive. If a process is not a standalone entry point, then record its reason and a separate
-`process_coverage` check for its covering test.
+the normal inputs and each worker input that the process may not receive. Where a process is not a
+standalone entry point, record its reason and a separate `process_coverage` check for its covering
+test. Do not add a `direct_start` record for a process that is not a standalone entry point.
 
 Add an `assertion_applicability` object with one boolean for every assertion below in each executable
 process inventory entry. Set each value to `true` when its behavior applies. Set it to `false` when
@@ -197,7 +227,8 @@ Keep its check record before deployment and process-start records in the manifes
 ## Aggregate gate
 
 The validator requires all check records derived from the module, model, process, and timer
-inventories. It rejects duplicate, missing, unexpected, or malformed records. It rejects a passing
+inventories. It compares manifest paths with the independent Step 2 inventory. It rejects
+duplicate, missing, unexpected, or malformed records. It rejects a passing
 command without exit code 0 or a non-empty evidence file. It rejects manual evidence for an
 unlisted check kind. It rejects evidence outside the validation log directory and reused test-suite
 commands or evidence. It rejects a timer preflight without an isolation or cleanup plan. It rejects
@@ -208,6 +239,7 @@ an unsafe deployment environment.
 | Every required check passes or has a justified `not_applicable` result. | The gate reports `READY`. |
 | Any required check fails, is blocked, is unknown, or was not run. | The gate reports `NOT READY`. |
 | Any required record or evidence file is missing. | The gate reports `NOT READY`. |
+| A manifest path differs from the Step 2 inventory. | The gate reports `NOT READY`. |
 | A check is `not_applicable` without a reason. | The gate reports `NOT READY`. |
 
 Run every independent check before the final gate. Fix the evidence manifest when the validator

@@ -105,6 +105,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "order-process",
@@ -139,6 +140,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "account-process",
@@ -168,6 +170,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "loan-process",
@@ -197,6 +200,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "invoice-process",
@@ -226,6 +230,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "customer-process",
@@ -255,6 +260,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "messaging-process",
@@ -284,6 +290,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "customer-archive-process",
@@ -313,6 +320,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "eligibility-process",
@@ -342,6 +350,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "notification-process",
@@ -371,6 +380,7 @@
       "approach": "M2",
       "deployable": true,
       "source_has_di": false,
+      "form_inventory": [],
       "processes": [
         {
           "id": "report-process",

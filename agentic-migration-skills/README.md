@@ -202,15 +202,15 @@ skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
     ├── references/                        ← procedures loaded on demand
-    └── scripts/                           ← evidence schema and aggregate gate validator
+    └── scripts/                           ← inventory schemas and aggregate gate validator
 fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
 The `fixtures/validation-evidence` regression test checks contradictory report claims, source and
-converted path aliases, process assertion applicability, independent suite evidence, and timer
-safety plans.
+converted path aliases, Step 2 inventory completeness, form-check applicability, process
+assertions, independent suite evidence, and timer safety plans.
 
 ## License
 

@@ -90,6 +90,17 @@ MODEL_CHECKS = (
     "semantic_id_references",
     "task_definition_types",
 )
+FORM_CHECKS = (
+    "accepted_forms",
+    "form_parsing",
+    "form_schema",
+    "form_js",
+    "form_definition",
+    "form_deployment",
+    "form_references",
+    "form_binding",
+)
+FORM_INVENTORY_KINDS = {"generated", "referenced", "form-free-owner"}
 MODEL_CHECKS_REQUIRING_PASS = {
     "converted_copy",
     "xml_parse",
@@ -116,6 +127,9 @@ DEFAULT_SUMMARY_PATH = (
 )
 DEFAULT_EVIDENCE_PATH = (
     ".camunda-migration/validation/validation-evidence.json"
+)
+DEFAULT_INVENTORY_PATH = (
+    ".camunda-migration/validation/step2-inventory.json"
 )
 DEFAULT_REPORT_PATH = "MIGRATION_REPORT.md"
 EVIDENCE_LOG_DIRECTORY = ".camunda-migration/validation/logs"
@@ -224,6 +238,74 @@ def validate_project_path(value, project_root, label, expected_type, error):
         error("{} must point to an existing file.".format(label))
 
 
+def load_step2_inventory(project_root, error):
+    inventory_path = project_root / DEFAULT_INVENTORY_PATH
+    resolved_inventory_path = inventory_path.resolve()
+    try:
+        resolved_inventory_path.relative_to(project_root)
+    except ValueError:
+        error("The Step 2 inventory path resolves outside the project root.")
+        return None
+    if not resolved_inventory_path.is_file():
+        error(
+            "The Step 2 inventory file is missing or is not a file at {}."
+            .format(DEFAULT_INVENTORY_PATH)
+        )
+        return None
+    try:
+        inventory = json.loads(
+            resolved_inventory_path.read_text(encoding="utf-8")
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError) as exception:
+        error(
+            "The Step 2 inventory file could not be read: {}.".format(
+                exception
+            )
+        )
+        return None
+    if not isinstance(inventory, dict):
+        error("The Step 2 inventory must contain a JSON object.")
+        return None
+
+    reject_extra_fields(
+        inventory,
+        {"schema_version", "modules", "models"},
+        "The Step 2 inventory",
+        error,
+    )
+    schema_version = inventory.get("schema_version")
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != 1
+    ):
+        error("The Step 2 inventory schema_version must be 1.")
+
+    inventory_paths = {}
+    for field, expected_type in (("modules", "directory"), ("models", "file")):
+        paths = inventory.get(field)
+        if not isinstance(paths, list):
+            error("The Step 2 inventory {} field must be an array.".format(field))
+            inventory_paths[field] = set()
+            continue
+        normalized_paths = set()
+        for index, path in enumerate(paths):
+            location = "Step 2 inventory {}[{}]".format(field, index)
+            if not is_nonempty_string(path):
+                error("{} must be a non-empty project-relative path.".format(location))
+                continue
+            validate_project_path(path, project_root, location, expected_type, error)
+            normalized_path = path.replace("\\", "/")
+            if normalized_path in normalized_paths:
+                error("{} duplicates a path.".format(location))
+            normalized_paths.add(normalized_path)
+        inventory_paths[field] = normalized_paths
+
+    if not inventory_paths.get("modules") and not inventory_paths.get("models"):
+        error("The Step 2 inventory must list at least one module or model.")
+    return inventory_paths
+
+
 def label_for_key(key):
     target_type, target, kind, scenario = key
     label = "{} {} / {}".format(target_type, target, kind)
@@ -246,6 +328,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
     project_root = project_root.resolve()
     excluded_paths = {
         (project_root / DEFAULT_EVIDENCE_PATH).resolve(),
+        (project_root / DEFAULT_INVENTORY_PATH).resolve(),
         (project_root / DEFAULT_SUMMARY_PATH).resolve(),
         (project_root / DEFAULT_REPORT_PATH).resolve(),
     }
@@ -272,6 +355,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             "blockers": ["The evidence manifest must contain a JSON object."],
         }
 
+    step2_inventory = load_step2_inventory(project_root, error)
     reject_extra_fields(
         data,
         {"schema_version", "mode", "modules", "models", "checks"},
@@ -332,9 +416,10 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             "directory",
             error,
         )
-        if path in module_paths:
+        normalized_path = path.replace("\\", "/")
+        if normalized_path in module_paths:
             error("The module path {} appears more than once.".format(path))
-        module_paths.add(path)
+        module_paths.add(normalized_path)
         if not isinstance(runtime_mode, str) or runtime_mode not in {
             "spring-boot",
             "external-launcher",
@@ -430,6 +515,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 docker_test_keys.add(key)
 
     model_paths = set()
+    model_source_paths = set()
     for index, model in enumerate(models):
         location = "models[{}]".format(index)
         if not isinstance(model, dict):
@@ -444,6 +530,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 "approach",
                 "deployable",
                 "source_has_di",
+                "form_inventory",
                 "processes",
                 "recurring_timer_starts",
             },
@@ -481,6 +568,13 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 "file",
                 error,
             )
+            normalized_source_path = source_path.replace("\\", "/")
+            if normalized_source_path in model_source_paths:
+                error(
+                    "The model source_path {} appears more than once."
+                    .format(source_path)
+                )
+            model_source_paths.add(normalized_source_path)
             resolved_model_path = (
                 project_root.resolve() / Path(path.replace("\\", "/"))
             ).resolve()
@@ -514,6 +608,94 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             error("{} recurring_timer_starts must be an array.".format(location))
             timer_starts = []
 
+        form_inventory = model.get("form_inventory")
+        if not isinstance(form_inventory, list):
+            error("{} form_inventory must be an array.".format(location))
+            form_inventory = []
+        form_inventory_ids = set()
+        form_check_applicability = {
+            kind: False for kind in FORM_CHECKS
+        }
+        for form_index, form in enumerate(form_inventory):
+            form_location = "{} form_inventory[{}]".format(location, form_index)
+            if not isinstance(form, dict):
+                error("{} must be an object.".format(form_location))
+                continue
+            form_fields = {
+                "id",
+                "kind",
+                "accepted",
+                "schema_applicable",
+                "form_js_applicable",
+                "binding_required",
+            }
+            reject_extra_fields(form, form_fields, form_location, error)
+            for field in sorted(form_fields - set(form)):
+                error("{} is missing {}.".format(form_location, field))
+            form_id = form.get("id")
+            if not is_nonempty_string(form_id):
+                error("{} id must be a non-empty string.".format(form_location))
+            elif form_id in form_inventory_ids:
+                error("{} duplicates form inventory id {}.".format(form_location, form_id))
+            else:
+                form_inventory_ids.add(form_id)
+            form_kind = form.get("kind")
+            if not isinstance(form_kind, str) or form_kind not in FORM_INVENTORY_KINDS:
+                error(
+                    "{} kind must be generated, referenced, or form-free-owner."
+                    .format(form_location)
+                )
+            accepted = form.get("accepted")
+            if not isinstance(accepted, bool):
+                error("{} accepted must be true or false.".format(form_location))
+            applicability_fields = (
+                "schema_applicable",
+                "form_js_applicable",
+                "binding_required",
+            )
+            for field in applicability_fields:
+                if not isinstance(form.get(field), bool):
+                    error(
+                        "{} {} must be true or false.".format(form_location, field)
+                    )
+            is_accepted = accepted is True
+            schema_applicable = form.get("schema_applicable") is True
+            form_js_applicable = form.get("form_js_applicable") is True
+            binding_required = form.get("binding_required") is True
+            if form_kind == "form-free-owner" and (
+                is_accepted
+                or schema_applicable
+                or form_js_applicable
+                or binding_required
+            ):
+                error(
+                    "{} form-free-owner cannot have accepted form checks."
+                    .format(form_location)
+                )
+            elif not is_accepted and (
+                schema_applicable or form_js_applicable or binding_required
+            ):
+                error(
+                    "{} cannot require form checks when accepted is false."
+                    .format(form_location)
+                )
+            if is_accepted and form_kind in {"generated", "referenced"}:
+                for kind in (
+                    "accepted_forms",
+                    "form_parsing",
+                    "form_definition",
+                    "form_deployment",
+                ):
+                    form_check_applicability[kind] = True
+            if schema_applicable:
+                form_check_applicability["form_schema"] = True
+            if form_js_applicable:
+                form_check_applicability["form_js"] = True
+            if form_kind in {"referenced", "form-free-owner"}:
+                form_check_applicability["form_references"] = True
+            if binding_required:
+                form_check_applicability["form_binding"] = True
+
         for kind in MODEL_CHECKS:
             key = ("model", path, kind, None)
             not_applicable_only = False
@@ -534,6 +716,9 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     model_type == "bpmn" and approach == "M2"
                 )
                 require_pass = model_type == "bpmn" and approach == "M2"
+            elif kind in FORM_CHECKS:
+                require_pass = form_check_applicability[kind]
+                not_applicable_only = not require_pass
             add_expected(
                 expected,
                 key,
@@ -713,15 +898,6 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                         "{} needs a covering_test when it is not a standalone "
                         "entry point.".format(process_location)
                     )
-                key = ("process", process_target, "direct_start", "not-standalone")
-                add_expected(
-                    expected,
-                    key,
-                    label_for_key(key),
-                    allow_not_applicable=True,
-                    require_pass=False,
-                    not_applicable_only=True,
-                )
                 key = ("process", process_target, "process_coverage", None)
                 add_expected(
                     expected,
@@ -808,6 +984,34 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     ("model", path, "deployment", None),
                     process_start_checks.get((path, process_id), []),
                 )
+            )
+
+    if step2_inventory is not None:
+        omitted_modules = sorted(step2_inventory["modules"] - module_paths)
+        extra_modules = sorted(module_paths - step2_inventory["modules"])
+        omitted_models = sorted(
+            step2_inventory["models"] - model_source_paths
+        )
+        extra_models = sorted(model_source_paths - step2_inventory["models"])
+        if omitted_modules:
+            error(
+                "The evidence manifest omits Step 2 module inventory path(s): {}."
+                .format(", ".join(omitted_modules))
+            )
+        if extra_modules:
+            error(
+                "The evidence manifest lists module path(s) absent from the Step 2 "
+                "inventory: {}.".format(", ".join(extra_modules))
+            )
+        if omitted_models:
+            error(
+                "The evidence manifest omits Step 2 model inventory path(s): {}."
+                .format(", ".join(omitted_models))
+            )
+        if extra_models:
+            error(
+                "The evidence manifest lists model source path(s) absent from the "
+                "Step 2 inventory: {}.".format(", ".join(extra_models))
             )
 
     for check in checks:

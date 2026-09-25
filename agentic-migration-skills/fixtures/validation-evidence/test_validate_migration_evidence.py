@@ -11,8 +11,21 @@ from pathlib import Path
 
 FIXTURE = Path(__file__).resolve().parent
 LOG_DIRECTORY = ".camunda-migration/validation/logs"
+STEP2_INVENTORY_PATH = (
+    ".camunda-migration/validation/step2-inventory.json"
+)
 SKILL_ROOT = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code"
 SCRIPT = SKILL_ROOT / "scripts" / "validate_migration_evidence.py"
+FORM_CHECKS = (
+    "accepted_forms",
+    "form_parsing",
+    "form_schema",
+    "form_js",
+    "form_definition",
+    "form_deployment",
+    "form_references",
+    "form_binding",
+)
 sys.path.insert(0, str(SCRIPT.parent))
 import validate_migration_evidence as gate  # noqa: E402
 
@@ -52,6 +65,70 @@ def not_applicable_check(target_type, target, kind, reason):
         "blocker_reason": None,
         "failure_class": None,
         "environment": None,
+    }
+
+
+def write_step2_inventory(project_root, modules, models):
+    inventory_path = project_root / STEP2_INVENTORY_PATH
+    inventory_path.parent.mkdir(parents=True, exist_ok=True)
+    inventory_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "modules": modules,
+                "models": models,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def passing_module_manifest(module_path):
+    checks = []
+    for kind in gate.MODULE_CHECKS:
+        if kind in {
+            "spring_boot_run",
+            "executable_jar",
+            "external_launcher",
+        }:
+            checks.append(
+                not_applicable_check(
+                    "module",
+                    module_path,
+                    kind,
+                    "The module has no runtime entry point.",
+                )
+            )
+        else:
+            checks.append(
+                passing_check(
+                    "module",
+                    module_path,
+                    kind,
+                    LOG_DIRECTORY + "/pass.log",
+                )
+            )
+    checks.append(
+        passing_check(
+            "module",
+            module_path,
+            "tests",
+            LOG_DIRECTORY + "/pass.log",
+            "unit",
+        )
+    )
+    return {
+        "schema_version": 1,
+        "mode": "migration",
+        "modules": [
+            {
+                "path": module_path,
+                "runtime_mode": "none",
+                "test_suites": [{"name": "unit", "requires_docker": False}],
+            }
+        ],
+        "models": [],
+        "checks": checks,
     }
 
 
@@ -237,6 +314,218 @@ class ValidationEvidenceTest(unittest.TestCase):
                     ),
                     "{} was waived despite being applicable.".format(kind),
                 )
+
+    def test_form_checks_cannot_be_waived_when_form_inventory_applies(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            model["form_inventory"] = [
+                {
+                    "id": "order-form",
+                    "kind": "referenced",
+                    "accepted": True,
+                    "schema_applicable": True,
+                    "form_js_applicable": True,
+                    "binding_required": True,
+                }
+            ]
+            manifest["checks"] = [
+                check
+                for check in manifest["checks"]
+                if not (
+                    check.get("target_type") == "model"
+                    and check.get("target") == model["path"]
+                    and check.get("kind") in FORM_CHECKS
+                )
+            ]
+            for kind in FORM_CHECKS:
+                manifest["checks"].append(
+                    not_applicable_check(
+                        "model",
+                        model["path"],
+                        kind,
+                        "The manifest incorrectly waives this form check.",
+                    )
+                )
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            for kind in FORM_CHECKS:
+                check_label = "model {} / {}".format(model["path"], kind)
+                self.assertTrue(
+                    any(
+                        check_label in blocker
+                        and "must pass for this target" in blocker
+                        for blocker in summary["blockers"]
+                    ),
+                    "{} was waived despite its form inventory.".format(kind),
+                )
+
+    def test_form_free_owner_requires_form_reference_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            model["form_inventory"] = [
+                {
+                    "id": "order-user-task",
+                    "kind": "form-free-owner",
+                    "accepted": False,
+                    "schema_applicable": False,
+                    "form_js_applicable": False,
+                    "binding_required": False,
+                }
+            ]
+            manifest["checks"] = [
+                check
+                for check in manifest["checks"]
+                if not (
+                    check.get("target_type") == "model"
+                    and check.get("target") == model["path"]
+                    and check.get("kind") == "form_references"
+                )
+            ]
+            manifest["checks"].append(
+                not_applicable_check(
+                    "model",
+                    model["path"],
+                    "form_references",
+                    "The manifest incorrectly waives this form-free owner.",
+                )
+            )
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "model {} / form_references".format(model["path"]) in blocker
+                    and "must pass for this target" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_non_standalone_process_requires_coverage_not_direct_start(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = next(
+                model
+                for model in manifest["models"]
+                if model["source_path"] == "models/account.bpmn"
+            )
+            process = model["processes"][0]
+            process["standalone_entry_point"] = False
+            process["direct_start_scenarios"] = []
+            process["covering_test"] = "account-flow-integration"
+            process["reason"] = "Started by the parent process."
+            model["form_inventory"] = []
+            process_target = "{}#{}".format(model["path"], process["id"])
+            manifest["checks"] = [
+                check
+                for check in manifest["checks"]
+                if not (
+                    check.get("target_type") == "process"
+                    and check.get("target") == process_target
+                    and check.get("kind") == "direct_start"
+                )
+            ]
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertFalse(
+                any(
+                    "direct_start (not-standalone)" in blocker
+                    and process_target in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "process_coverage" in blocker
+                    and process_target in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_step2_inventory_prevents_omitted_modules_and_models(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary)
+            for module_path in ("service", "omitted-module"):
+                (project_root / module_path).mkdir()
+            (project_root / "models").mkdir()
+            (project_root / "models/omitted.bpmn").write_text(
+                "source model\n", encoding="utf-8"
+            )
+            (project_root / LOG_DIRECTORY).mkdir(parents=True)
+            (project_root / LOG_DIRECTORY / "pass.log").write_text(
+                "check completed\n", encoding="utf-8"
+            )
+            manifest = passing_module_manifest("service")
+            write_step2_inventory(
+                project_root,
+                ["service", "omitted-module"],
+                ["models/omitted.bpmn"],
+            )
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertEqual(summary["readiness"], "not_ready")
+            self.assertTrue(
+                any(
+                    "Step 2 module inventory" in blocker
+                    and "omitted-module" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "Step 2 model inventory" in blocker
+                    and "models/omitted.bpmn" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_step2_inventory_is_required(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            inventory_path = project_root / STEP2_INVENTORY_PATH
+            inventory_path.unlink()
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "Step 2 inventory" in blocker
+                    and "missing" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
 
     def test_executable_check_cannot_pass_with_manual_evidence(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
@@ -447,6 +736,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "models": [],
                 "checks": checks,
             }
+            write_step2_inventory(project_root, [module_path], [])
             evidence = project_root / "validation-evidence.json"
             evidence.write_text(json.dumps(manifest), encoding="utf-8")
             report = project_root / "MIGRATION_REPORT.md"
@@ -612,6 +902,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "models": [],
                 "checks": checks,
             }
+            write_step2_inventory(project_root, [module_path], [])
             evidence = project_root / "validation-evidence.json"
             evidence.write_text(json.dumps(manifest), encoding="utf-8")
             report = project_root / "MIGRATION_REPORT.md"
@@ -679,6 +970,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "models": [],
                 "checks": checks,
             }
+            write_step2_inventory(project_root, [module_path], [])
             evidence = project_root / "validation-evidence.json"
             evidence.write_text(json.dumps(manifest), encoding="utf-8")
             report = project_root / "MIGRATION_REPORT.md"
@@ -841,12 +1133,14 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "approach": "M1",
                         "deployable": True,
                         "source_has_di": False,
+                        "form_inventory": [],
                         "processes": [],
                         "recurring_timer_starts": [],
                     }
                 ],
                 "checks": checks,
             }
+            write_step2_inventory(project_root, [], [source_path])
             evidence = project_root / "validation-evidence.json"
             evidence.write_text(json.dumps(manifest), encoding="utf-8")
             report = project_root / "MIGRATION_REPORT.md"
@@ -922,6 +1216,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "models": [],
                 "checks": checks,
             }
+            write_step2_inventory(project_root, [module_path], [])
             evidence = project_root / "validation-evidence.json"
             evidence.write_text(json.dumps(manifest), encoding="utf-8")
             report = project_root / "MIGRATION_REPORT.md"

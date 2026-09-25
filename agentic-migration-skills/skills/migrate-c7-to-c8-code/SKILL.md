@@ -172,6 +172,8 @@ at all.
 ### Step 2: Assessment (always runs)
 
 Scan the project and produce the inventories that the chosen scope needs.
+During Step 2, the skill records the confirmed module paths and original model paths in
+`.camunda-migration/validation/step2-inventory.json` before conversion.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.

@@ -57,6 +57,7 @@
           "approach",
           "deployable",
           "source_has_di",
+          "form_inventory",
           "processes",
           "recurring_timer_starts"
         ],
@@ -80,6 +81,93 @@
           },
           "source_has_di": {
             "type": "boolean"
+          },
+          "form_inventory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "accepted",
+                "schema_applicable",
+                "form_js_applicable",
+                "binding_required"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "enum": ["generated", "referenced", "form-free-owner"]
+                },
+                "accepted": {
+                  "type": "boolean"
+                },
+                "schema_applicable": {
+                  "type": "boolean"
+                },
+                "form_js_applicable": {
+                  "type": "boolean"
+                },
+                "binding_required": {
+                  "type": "boolean"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "form-free-owner"
+                      }
+                    },
+                    "required": ["kind"]
+                  },
+                  "then": {
+                    "properties": {
+                      "accepted": {
+                        "const": false
+                      },
+                      "schema_applicable": {
+                        "const": false
+                      },
+                      "form_js_applicable": {
+                        "const": false
+                      },
+                      "binding_required": {
+                        "const": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "accepted": {
+                        "const": false
+                      }
+                    },
+                    "required": ["accepted"]
+                  },
+                  "then": {
+                    "properties": {
+                      "schema_applicable": {
+                        "const": false
+                      },
+                      "form_js_applicable": {
+                        "const": false
+                      },
+                      "binding_required": {
+                        "const": false
+                      }
+                    }
+                  }
+                }
+              ]
+            }
           },
           "processes": {
             "type": "array",
