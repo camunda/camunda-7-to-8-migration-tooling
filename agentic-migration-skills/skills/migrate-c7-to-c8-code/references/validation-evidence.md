@@ -10,11 +10,13 @@ uses this file to produce the aggregate validation gate in `MIGRATION_REPORT.md`
 
 1. Create `.camunda-migration/validation/validation-evidence.json` in the confirmed project root.
 2. Capture command output under `.camunda-migration/validation/logs/`.
-3. Remove credentials and secret values from every command and log.
-4. List every migrated code module and every in-scope model from the Step 2 inventories.
-5. List every independent test suite for each module.
-6. List every executable process and every repeating timer start.
-7. Use project-relative paths for every target and evidence file.
+3. Use files under `.camunda-migration/validation/logs/` for every `evidence_path`.
+4. Never use the manifest, generated summary, or `MIGRATION_REPORT.md` as evidence.
+5. Remove credentials and secret values from every command and log.
+6. List every migrated code module and every in-scope model from the Step 2 inventories.
+7. List every independent test suite for each module.
+8. List every executable process and every repeating timer start.
+9. Use project-relative paths for every target and evidence file.
 
 Run this gate only for a full migration. Assessment-only and analyze-only runs do not claim
 migration readiness.
@@ -41,20 +43,32 @@ An unreadable manifest returns exit code 1. Do not treat a nonzero exit code as 
 validation.
 
 Each check record gives its target type, target, check kind, scenario, method, command, exit code,
-result, evidence path, reason, blocker reason, failure class, and environment. Use these result
-values:
+result, evidence path, reason, blocker reason, failure class, and environment. A timer preflight
+record also gives its isolation or cleanup plan. Use these result values:
 
 | Result | Meaning | Required evidence |
 |---|---|---|
-| `passed` | The check ran and passed. | Exit code 0 and a non-empty evidence file. |
-| `failed` | The check ran and found a migration defect. | Failure class, reason, exit code, and a non-empty evidence file. |
+| `passed` | The check ran and passed. | A command check needs exit code 0 and a non-empty evidence file. A manual check needs a non-empty evidence file. |
+| `failed` | The check ran and found a migration defect. | Failure class, reason, and a non-empty evidence file. A command check also needs an exit code. |
 | `blocked` | An environment or dependency stopped the check. | Failure class, blocker reason, and captured output when a command ran. |
 | `unknown` | The available evidence does not show whether the check passed. | Failure class and blocker reason. |
 | `not_run` | The skill did not run a required check. | Blocker reason. |
 | `not_applicable` | The check does not apply to this target. | A reason and no command result. |
 
-Never mark a check as `passed` when its command did not run. Use `blocked`, `unknown`, or `not_run`.
-Mark a check `not_applicable` only when its condition does not apply. State the reason.
+Never mark a command check as `passed` when its command did not run. Use `blocked`, `unknown`, or
+`not_run` when a command check did not run. Mark a check `not_applicable` only when its condition
+does not apply. State the reason.
+
+Set `method` to `manual` only for the checks in this table. Use `command` for every other check.
+Pass a manual check only after completing its review and saving non-empty evidence.
+
+| Target | Check kinds that allow manual evidence |
+|---|---|
+| Module | `migration_todos`, `business_keys`, `eventual_consistency`, `pagination`, `worker_adapters`, `deployment_resources` |
+| Model | `findings_verdicts`, `generated_forms`, `form_references`, `form_binding`, `semantic_id_references`, `task_definition_types` |
+
+Set `exit_code` to null for a manual check. Save the manual review evidence under
+`.camunda-migration/validation/logs/`.
 
 ## Inventory fields
 
@@ -64,7 +78,7 @@ Use the fields below to build the required check set.
 |---|---|
 | Module | `path`, `runtime_mode`, and each `test_suites` name with its `requires_docker` value. |
 | Model | Converted `path`, original `source_path`, `type`, `approach`, `deployable`, and `source_has_di`. |
-| Process | Every process ID, its `executable` value, its standalone-entry-point value, and direct-start scenarios. |
+| Process | Every process ID, its `executable` value, its standalone-entry-point value, direct-start scenarios, and assertion applicability for each executable process. |
 | Repeating timer | The process ID and timer-start ID for each repeating timer start. |
 
 List every process, including non-executable processes. Set `executable` to `false` and give a
@@ -103,9 +117,10 @@ checks `not_applicable`. If a module has no runtime entry point, then set all th
 `not_applicable`. Run each runtime launch check only with local or non-production settings. Never
 start a production worker as a validation probe.
 
-Run each module and test suite independently. A failed Docker or Testcontainers suite does not stop
-the skill from running other suites or module checks. Do not summarize all test failures as Docker
-failures.
+Run each module and test suite independently. Use a distinct command and evidence file for each
+suite. The validator rejects command or evidence-file reuse between test suites in the same module.
+A failed Docker or Testcontainers suite does not stop the skill from running other suites or module
+checks. Do not summarize all test failures as Docker failures.
 
 Before a Docker-dependent suite, run `docker info` and record a project check with kind
 `docker_info`. Record the probe even when Docker works. Use failure class `docker_unavailable` only
@@ -114,6 +129,9 @@ valid environment. Keep check records in execution order. The Docker probe must 
 dependent test suite.
 
 ## Required model and process checks
+
+The converted model path must resolve to a different file from its source path.
+The validator rejects source and converted paths that resolve to or identify the same file.
 
 Add one record for every model check kind in the following table. Use `not_applicable` with a reason
 when a condition does not apply.
@@ -155,8 +173,10 @@ For every executable process, add one `direct_start` record for each declared st
 the normal inputs and each worker input that the process may not receive. If a process is not a standalone entry point, then record its reason and a separate
 `process_coverage` check for its covering test.
 
-Add each assertion below for every executable process. If a process has no such behavior, then mark
-its check `not_applicable` and state why.
+Add an `assertion_applicability` object with one boolean for every assertion below in each executable
+process inventory entry. Set each value to `true` when its behavior applies. Set it to `false` when
+its behavior does not apply. The validator requires each `true` assertion to pass. It requires each
+`false` assertion to be `not_applicable` with a reason.
 
 | Check kind | Required assertion |
 |---|---|
@@ -168,17 +188,20 @@ its check `not_applicable` and state why.
 | `form_resolution` | Assert each accepted or relinked form resolves for its owner. |
 
 List every repeating timer start in `recurring_timer_starts`. Run a separate timer preflight before
-deployment or process start. Record the target environment and the isolation or cleanup plan. If the
-skill cannot protect the project from repeated timer starts, then block the check. Do not use a
-shared or production cluster for this preflight. Keep its check record before deployment and
-process-start records in the manifest.
+deployment or process start. Record the target environment and a non-empty
+`isolation_or_cleanup_plan` on its check record. State how the environment is isolated or how the
+timer's deployment and instances are removed. If the skill cannot protect the project from repeated
+timer starts, then block the check. Do not use a shared or production cluster for this preflight.
+Keep its check record before deployment and process-start records in the manifest.
 
 ## Aggregate gate
 
 The validator requires all check records derived from the module, model, process, and timer
 inventories. It rejects duplicate, missing, unexpected, or malformed records. It rejects a passing
-command without exit code 0 or a non-empty evidence file. It rejects an unsafe deployment
-environment.
+command without exit code 0 or a non-empty evidence file. It rejects manual evidence for an
+unlisted check kind. It rejects evidence outside the validation log directory and reused test-suite
+commands or evidence. It rejects a timer preflight without an isolation or cleanup plan. It rejects
+an unsafe deployment environment.
 
 | Check result | Gate effect |
 |---|---|

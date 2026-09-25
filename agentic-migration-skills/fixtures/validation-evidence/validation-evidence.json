@@ -19,42 +19,82 @@
     {
       "path": "examples/account",
       "runtime_mode": "none",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/loan",
       "runtime_mode": "none",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/order",
       "runtime_mode": "none",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/invoice",
       "runtime_mode": "none",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/messaging",
       "runtime_mode": "none",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/customer",
       "runtime_mode": "none",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/runtime-api",
       "runtime_mode": "spring-boot",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     },
     {
       "path": "examples/runtime-worker",
       "runtime_mode": "spring-boot",
-      "test_suites": [{"name": "unit", "requires_docker": false}]
+      "test_suites": [
+        {
+          "name": "unit",
+          "requires_docker": false
+        }
+      ]
     }
   ],
   "models": [
@@ -70,13 +110,26 @@
           "id": "order-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": [
-        {"process_id": "order-process", "id": "repeat-start"}
+        {
+          "process_id": "order-process",
+          "id": "repeat-start"
+        }
       ]
     },
     {
@@ -91,9 +144,19 @@
           "id": "account-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -110,9 +173,19 @@
           "id": "loan-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -129,9 +202,19 @@
           "id": "invoice-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -148,9 +231,19 @@
           "id": "customer-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -167,9 +260,19 @@
           "id": "messaging-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -186,9 +289,19 @@
           "id": "customer-archive-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -205,9 +318,19 @@
           "id": "eligibility-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -224,9 +347,19 @@
           "id": "notification-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -243,9 +376,19 @@
           "id": "report-process",
           "executable": true,
           "standalone_entry_point": true,
-          "direct_start_scenarios": ["normal"],
+          "direct_start_scenarios": [
+            "normal"
+          ],
           "covering_test": null,
-          "reason": null
+          "reason": null,
+          "assertion_applicability": {
+            "user_task_type": true,
+            "downstream_message_instance": true,
+            "branch_selection": true,
+            "worker_input_output": true,
+            "incident_behavior": true,
+            "form_resolution": true
+          }
         }
       ],
       "recurring_timer_starts": []
@@ -261,7 +404,7 @@
       "command": "mvn rewrite:run ValidateCamundaClientConfigurationRecipe",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/configuration.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/configuration.txt",
       "reason": "Spring rejected camunda.client.mode=simple before worker startup.",
       "blocker_reason": null,
       "failure_class": "configuration",
@@ -276,7 +419,7 @@
       "command": "docker info",
       "exit_code": 0,
       "result": "passed",
-      "evidence_path": "evidence/docker-info.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/docker-info.txt",
       "reason": null,
       "blocker_reason": null,
       "failure_class": null,
@@ -291,7 +434,7 @@
       "command": "mvn test -Dtest=WebSmokeTest",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/web-smoke.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/web-smoke.txt",
       "reason": "Both non-Docker web tests failed during application context startup.",
       "blocker_reason": null,
       "failure_class": "application",
@@ -306,7 +449,7 @@
       "command": "mvn verify -Pintegration",
       "exit_code": 1,
       "result": "blocked",
-      "evidence_path": "evidence/testcontainers.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/testcontainers.txt",
       "reason": null,
       "blocker_reason": "Testcontainers found no valid environment although docker info succeeded.",
       "failure_class": "testcontainers",
@@ -321,7 +464,7 @@
       "command": "java -jar target/runtime-api.jar",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/executable-jar-runtime-api.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/executable-jar-runtime-api.txt",
       "reason": "The runtime entry point did not launch from the packaged JAR.",
       "blocker_reason": null,
       "failure_class": "application",
@@ -336,7 +479,7 @@
       "command": "java -jar target/runtime-worker.jar",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/executable-jar-runtime-worker.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/executable-jar-runtime-worker.txt",
       "reason": "The runtime entry point did not launch from the packaged JAR.",
       "blocker_reason": null,
       "failure_class": "application",
@@ -351,7 +494,7 @@
       "command": "npx bpmnlint models/converted-c8-order.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -366,7 +509,7 @@
       "command": "npx bpmnlint models/converted-c8-account.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -381,7 +524,7 @@
       "command": "npx bpmnlint models/converted-c8-loan.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -396,7 +539,7 @@
       "command": "npx bpmnlint models/converted-c8-invoice.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -411,7 +554,7 @@
       "command": "npx bpmnlint models/converted-c8-customer.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -426,7 +569,7 @@
       "command": "npx bpmnlint models/converted-c8-messaging.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -441,7 +584,7 @@
       "command": "npx bpmnlint models/converted-c8-customer-archive.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -456,7 +599,7 @@
       "command": "npx bpmnlint models/converted-c8-eligibility.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -471,7 +614,7 @@
       "command": "npx bpmnlint models/converted-c8-notification.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/bpmn-lint.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -486,7 +629,7 @@
       "command": "npx bpmnlint models/converted-c8-report.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "logs/bpmn-lint.log",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/bpmn-lint.txt",
       "reason": "The target-compatible lint output contains migration errors.",
       "blocker_reason": null,
       "failure_class": "compatibility",
@@ -501,7 +644,7 @@
       "command": "c8ctl deploy models/converted-c8-order.bpmn",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/order-deployment.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/order-deployment.txt",
       "reason": "The conditional definition has no ID and cannot deploy.",
       "blocker_reason": null,
       "failure_class": "application",
@@ -531,7 +674,7 @@
       "command": "mvn test -Dtest=MessageTest",
       "exit_code": 1,
       "result": "failed",
-      "evidence_path": "evidence/message-assertion.txt",
+      "evidence_path": ".camunda-migration/validation/logs/evidence/message-assertion.txt",
       "reason": "The test checks only the initiating process instance.",
       "blocker_reason": null,
       "failure_class": "behavior",
@@ -542,15 +685,16 @@
       "target": "models/converted-c8-order.bpmn#order-process#repeat-start",
       "kind": "timer_preflight",
       "scenario": null,
-      "method": "manual",
-      "command": "Manual timer-start safety preflight",
+      "method": "command",
+      "command": "Run the timer preflight in an isolated local environment",
       "exit_code": null,
       "result": "not_run",
       "evidence_path": null,
       "reason": null,
-      "blocker_reason": "No isolated timer preflight or cleanup plan was recorded.",
+      "blocker_reason": "The timer preflight was not run.",
       "failure_class": "unknown",
-      "environment": null
+      "environment": null,
+      "isolation_or_cleanup_plan": "Use a dedicated local deployment and delete all process instances after the preflight."
     }
   ]
 }

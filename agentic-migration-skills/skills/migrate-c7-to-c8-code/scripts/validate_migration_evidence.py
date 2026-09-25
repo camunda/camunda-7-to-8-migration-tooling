@@ -114,6 +114,25 @@ REPORT_END = "<!-- migration-validation-gate:end -->"
 DEFAULT_SUMMARY_PATH = (
     ".camunda-migration/validation/validation-summary.json"
 )
+DEFAULT_EVIDENCE_PATH = (
+    ".camunda-migration/validation/validation-evidence.json"
+)
+DEFAULT_REPORT_PATH = "MIGRATION_REPORT.md"
+EVIDENCE_LOG_DIRECTORY = ".camunda-migration/validation/logs"
+MANUAL_CHECKS = {
+    ("module", "migration_todos"),
+    ("module", "business_keys"),
+    ("module", "eventual_consistency"),
+    ("module", "pagination"),
+    ("module", "worker_adapters"),
+    ("module", "deployment_resources"),
+    ("model", "findings_verdicts"),
+    ("model", "generated_forms"),
+    ("model", "form_references"),
+    ("model", "form_binding"),
+    ("model", "semantic_id_references"),
+    ("model", "task_definition_types"),
+}
 
 
 def is_nonempty_string(value):
@@ -213,7 +232,7 @@ def label_for_key(key):
     return label
 
 
-def validate_manifest(data, project_root):
+def validate_manifest(data, project_root, excluded_evidence_paths=None):
     errors = []
     expected = {}
     docker_probe_needed = False
@@ -223,6 +242,18 @@ def validate_manifest(data, project_root):
 
     def error(message):
         errors.append(message)
+
+    project_root = project_root.resolve()
+    excluded_paths = {
+        (project_root / DEFAULT_EVIDENCE_PATH).resolve(),
+        (project_root / DEFAULT_SUMMARY_PATH).resolve(),
+        (project_root / DEFAULT_REPORT_PATH).resolve(),
+    }
+    for output_path in excluded_evidence_paths or ():
+        output_path = Path(output_path)
+        if not output_path.is_absolute():
+            output_path = project_root / output_path
+        excluded_paths.add(output_path.resolve())
 
     if not isinstance(data, dict):
         return {
@@ -450,6 +481,24 @@ def validate_manifest(data, project_root):
                 "file",
                 error,
             )
+            resolved_model_path = (
+                project_root.resolve() / Path(path.replace("\\", "/"))
+            ).resolve()
+            resolved_source_path = (
+                project_root.resolve() / Path(source_path.replace("\\", "/"))
+            ).resolve()
+            same_file = resolved_model_path == resolved_source_path
+            if (
+                not same_file
+                and resolved_model_path.is_file()
+                and resolved_source_path.is_file()
+            ):
+                same_file = resolved_model_path.samefile(resolved_source_path)
+            if same_file:
+                error(
+                    "{} source and converted paths identify the same file."
+                    .format(location)
+                )
         if not isinstance(model_type, str) or model_type not in {"bpmn", "dmn"}:
             error("{} type must be bpmn or dmn.".format(location))
         if not isinstance(approach, str) or approach not in {"M1", "M2", "M3", "E1"}:
@@ -511,6 +560,7 @@ def validate_manifest(data, project_root):
                     "direct_start_scenarios",
                     "covering_test",
                     "reason",
+                    "assertion_applicability",
                 },
                 process_location,
                 error,
@@ -586,6 +636,27 @@ def validate_manifest(data, project_root):
                         "it is not executable.".format(process_location)
                     )
                 continue
+
+            assertion_applicability = process.get("assertion_applicability")
+            if "assertion_applicability" not in process:
+                error(
+                    "{} needs assertion_applicability for every behavior check."
+                    .format(process_location)
+                )
+            if not isinstance(assertion_applicability, dict):
+                error(
+                    "{} assertion_applicability must be an object.".format(
+                        process_location
+                    )
+                )
+                assertion_applicability = {}
+            else:
+                reject_extra_fields(
+                    assertion_applicability,
+                    set(PROCESS_ASSERTIONS),
+                    "{} assertion_applicability".format(process_location),
+                    error,
+                )
 
             executable_process_ids.add(process_id)
             if standalone:
@@ -663,11 +734,21 @@ def validate_manifest(data, project_root):
                 process_run_keys.append(key)
 
             for kind in PROCESS_ASSERTIONS:
+                applicable = assertion_applicability.get(kind)
+                if not isinstance(applicable, bool):
+                    error(
+                        "{} assertion_applicability.{} must be true or false."
+                        .format(process_location, kind)
+                    )
+                    applicable = True
                 key = ("process", process_target, kind, None)
                 add_expected(
                     expected,
                     key,
                     label_for_key(key),
+                    allow_not_applicable=not applicable,
+                    require_pass=applicable,
+                    not_applicable_only=not applicable,
                     safe_environment=SAFE_RUNTIME_ENVIRONMENTS,
                 )
             process_start_checks[(path, process_id)] = process_run_keys
@@ -767,11 +848,15 @@ def validate_manifest(data, project_root):
     counts = Counter()
     seen = {}
     seen_indices = {}
+    test_evidence_paths = {}
+    test_commands = {}
     for index, check in enumerate(checks):
         location = "checks[{}]".format(index)
         if not isinstance(check, dict):
             error("{} must be an object.".format(location))
             continue
+        target_type = check.get("target_type")
+        kind = check.get("kind")
         required_fields = {
             "target_type",
             "target",
@@ -787,9 +872,12 @@ def validate_manifest(data, project_root):
             "failure_class",
             "environment",
         }
+        if target_type == "timer" and kind == "timer_preflight":
+            required_fields.add("isolation_or_cleanup_plan")
+        allowed_fields = required_fields | {"isolation_or_cleanup_plan"}
         reject_extra_fields(
             check,
-            required_fields,
+            allowed_fields,
             location,
             error,
         )
@@ -815,6 +903,7 @@ def validate_manifest(data, project_root):
         command = check.get("command")
         exit_code = check.get("exit_code")
         evidence_path = check.get("evidence_path")
+        isolation_or_cleanup_plan = check.get("isolation_or_cleanup_plan")
         reason = check.get("reason")
         blocker_reason = check.get("blocker_reason")
         failure_class = check.get("failure_class")
@@ -826,16 +915,85 @@ def validate_manifest(data, project_root):
             "not_applicable",
         }:
             error("{} method must be command, manual, or not_applicable.".format(location))
+        if method == "manual" and (target_type, kind) not in MANUAL_CHECKS:
+            error(
+                "{} cannot use manual method for {} {}.".format(
+                    location, target_type, kind
+                )
+            )
         if not is_nonempty_string(command):
             error("{} command must be a non-empty string.".format(location))
         if exit_code is not None and (
             not isinstance(exit_code, int) or isinstance(exit_code, bool)
         ):
             error("{} exit_code must be an integer or null.".format(location))
-        if evidence_path is not None:
-            validate_evidence_path(
-                evidence_path, project_root, "{} evidence_path".format(location), error
+        if target_type == "timer" and kind == "timer_preflight":
+            if not is_nonempty_string(isolation_or_cleanup_plan):
+                error(
+                    "{} timer_preflight needs a non-empty "
+                    "isolation_or_cleanup_plan."
+                    .format(location)
+                )
+        elif isolation_or_cleanup_plan is not None:
+            error(
+                "{} isolation_or_cleanup_plan is only valid for timer_preflight "
+                "checks."
+                .format(location)
             )
+        resolved_evidence_path = None
+        if evidence_path is not None:
+            resolved_evidence_path = validate_evidence_path(
+                evidence_path,
+                project_root,
+                "{} evidence_path".format(location),
+                error,
+                excluded_paths,
+            )
+        if (
+            target_type == "module"
+            and kind == "tests"
+            and resolved_evidence_path is not None
+        ):
+            suite_target = check.get("target")
+            previous_suites = test_evidence_paths.setdefault(suite_target, [])
+            duplicate_suite = next(
+                (
+                    previous
+                    for previous in previous_suites
+                    if resolved_evidence_path.samefile(previous[0])
+                ),
+                None,
+            )
+            if duplicate_suite is not None:
+                error(
+                    "Module {} test suites must use distinct evidence files ({} "
+                    "and {}).".format(
+                        suite_target,
+                        duplicate_suite[1],
+                        check.get("scenario"),
+                    )
+                )
+            else:
+                previous_suites.append(
+                    (resolved_evidence_path, check.get("scenario"))
+                )
+        if (
+            target_type == "module"
+            and kind == "tests"
+            and is_nonempty_string(command)
+        ):
+            command_key = (check.get("target"), command)
+            if command_key in test_commands:
+                error(
+                    "Module {} test suites must use distinct commands ({} and {})."
+                    .format(
+                        check.get("target"),
+                        test_commands[command_key],
+                        check.get("scenario"),
+                    )
+                )
+            else:
+                test_commands[command_key] = check.get("scenario")
         if environment is not None and (
             not isinstance(environment, str) or environment not in ENVIRONMENTS
         ):
@@ -1075,23 +1233,41 @@ def validate_manifest(data, project_root):
     }
 
 
-def validate_evidence_path(value, project_root, label, error):
+def validate_evidence_path(value, project_root, label, error, excluded_paths):
     if not is_nonempty_string(value):
         error("{} must be a non-empty relative path.".format(label))
-        return
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
+        return None
+    normalized = value.replace("\\", "/")
+    path = Path(normalized)
+    if (
+        path.is_absolute()
+        or (len(normalized) > 1 and normalized[1] == ":")
+        or ".." in path.parts
+    ):
         error("{} must stay inside the project root.".format(label))
-        return
+        return None
     root = project_root.resolve()
     resolved = (root / path).resolve()
     try:
         resolved.relative_to(root)
     except ValueError:
         error("{} resolves outside the project root.".format(label))
-        return
+        return None
+    logs_root = (root / EVIDENCE_LOG_DIRECTORY).resolve()
+    try:
+        resolved.relative_to(logs_root)
+    except ValueError:
+        error(
+            "{} must be inside {}.".format(label, EVIDENCE_LOG_DIRECTORY)
+        )
+        return None
+    if resolved in excluded_paths:
+        error("{} cannot reference a generated validation file.".format(label))
+        return None
     if not resolved.is_file() or resolved.stat().st_size == 0:
         error("{} must point to a non-empty evidence file.".format(label))
+        return None
+    return resolved
 
 
 def markdown_text(value):
@@ -1213,7 +1389,7 @@ def main():
     )
     parser.add_argument(
         "--evidence",
-        default=".camunda-migration/validation/validation-evidence.json",
+        default=DEFAULT_EVIDENCE_PATH,
         help="evidence manifest path relative to the project root",
     )
     parser.add_argument(
@@ -1239,7 +1415,17 @@ def main():
             resolved_evidence = (project_root / evidence_path).resolve()
             resolved_evidence.relative_to(project_root)
             data = json.loads(resolved_evidence.read_text(encoding="utf-8"))
-            summary = validate_manifest(data, project_root)
+            excluded_evidence_paths = {
+                resolved_evidence,
+                (project_root / Path(args.summary)).resolve(),
+            }
+            if args.report:
+                excluded_evidence_paths.add(
+                    (project_root / Path(args.report)).resolve()
+                )
+            summary = validate_manifest(
+                data, project_root, excluded_evidence_paths
+            )
         except (OSError, ValueError, json.JSONDecodeError) as exception:
             summary = make_input_error(
                 "The evidence manifest cannot be read: {}.".format(exception)

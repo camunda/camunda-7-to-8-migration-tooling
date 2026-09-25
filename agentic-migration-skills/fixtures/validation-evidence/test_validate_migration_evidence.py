@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 FIXTURE = Path(__file__).resolve().parent
+LOG_DIRECTORY = ".camunda-migration/validation/logs"
 SKILL_ROOT = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code"
 SCRIPT = SKILL_ROOT / "scripts" / "validate_migration_evidence.py"
 sys.path.insert(0, str(SCRIPT.parent))
@@ -65,7 +66,12 @@ def materialize_inventory(project_root, manifest):
 
 
 class ValidationEvidenceTest(unittest.TestCase):
-    def run_gate(self, project_root, evidence="validation-evidence.json"):
+    def run_gate(
+        self,
+        project_root,
+        evidence="validation-evidence.json",
+        report="MIGRATION_REPORT.md",
+    ):
         return subprocess.run(
             [
                 sys.executable,
@@ -75,7 +81,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "--evidence",
                 evidence,
                 "--report",
-                "MIGRATION_REPORT.md",
+                report,
             ],
             check=False,
             capture_output=True,
@@ -118,12 +124,278 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertIn("**Validation gate:** **NOT READY**", gate_block)
             self.assertNotIn("**Validation gate:** **READY**", gate_block)
 
+    def test_converted_model_cannot_overwrite_source_path(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            model["source_path"] = model["path"]
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "source and converted paths identify the same file"
+                    in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_converted_model_cannot_resolve_to_source_symlink(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            materialize_inventory(project_root, manifest)
+            source_file = project_root / model["source_path"]
+            converted_file = project_root / model["path"]
+            source_file.unlink()
+            source_file.symlink_to(converted_file)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "source and converted paths identify the same file"
+                    in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_process_assertions_cannot_be_waived_when_applicable(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            process = manifest["models"][0]["processes"][0]
+            process["assertion_applicability"] = {
+                kind: True for kind in gate.PROCESS_ASSERTIONS
+            }
+            process_target = "{}#{}".format(
+                manifest["models"][0]["path"], process["id"]
+            )
+            for kind in gate.PROCESS_ASSERTIONS:
+                check = next(
+                    (
+                        check
+                        for check in manifest["checks"]
+                        if check.get("target_type") == "process"
+                        and check.get("target") == process_target
+                        and check.get("kind") == kind
+                    ),
+                    None,
+                )
+                if check is None:
+                    check = not_applicable_check(
+                        "process",
+                        process_target,
+                        kind,
+                        "The test manifest incorrectly waives this assertion.",
+                    )
+                    manifest["checks"].append(check)
+                check.update(
+                    {
+                        "method": "not_applicable",
+                        "command": "N/A: test marks this assertion as applicable",
+                        "exit_code": None,
+                        "result": "not_applicable",
+                        "evidence_path": None,
+                        "reason": "The manifest incorrectly waives this assertion.",
+                        "blocker_reason": None,
+                        "failure_class": None,
+                        "environment": None,
+                    }
+                )
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            for kind in gate.PROCESS_ASSERTIONS:
+                assertion_label = "process {} / {}".format(
+                    process_target, kind
+                )
+                self.assertTrue(
+                    any(
+                        assertion_label in blocker
+                        and "must pass for this target" in blocker
+                        for blocker in summary["blockers"]
+                    ),
+                    "{} was waived despite being applicable.".format(kind),
+                )
+
+    def test_executable_check_cannot_pass_with_manual_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            lint_check = next(
+                check
+                for check in manifest["checks"]
+                if check.get("target_type") == "model"
+                and check.get("kind") == "lint"
+            )
+            lint_check.update(
+                {
+                    "method": "manual",
+                    "command": "Manual lint note",
+                    "exit_code": None,
+                }
+            )
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "cannot use manual method for model lint" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_evidence_path_must_be_a_validation_log(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            check = next(
+                check
+                for check in manifest["checks"]
+                if check.get("result") == "passed"
+            )
+            check["evidence_path"] = "MIGRATION_REPORT.md"
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "evidence_path must be inside {}".format(LOG_DIRECTORY)
+                    in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+    def test_manifest_and_report_cannot_be_used_as_evidence(self):
+        for generated_file in ("manifest", "report"):
+            with self.subTest(generated_file=generated_file):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    check = next(
+                        check
+                        for check in manifest["checks"]
+                        if check.get("result") == "passed"
+                    )
+                    if generated_file == "manifest":
+                        evidence_path = (
+                            LOG_DIRECTORY + "/validation-evidence.json"
+                        )
+                        check["evidence_path"] = evidence_path
+                        manifest_file = project_root / evidence_path
+                        manifest_file.parent.mkdir(parents=True, exist_ok=True)
+                        manifest_file.write_text(
+                            json.dumps(manifest), encoding="utf-8"
+                        )
+                        completed = self.run_gate(
+                            project_root, evidence=evidence_path
+                        )
+                    else:
+                        evidence_path = LOG_DIRECTORY + "/generated-report.md"
+                        check["evidence_path"] = evidence_path
+                        evidence_file = project_root / "validation-evidence.json"
+                        evidence_file.write_text(
+                            json.dumps(manifest), encoding="utf-8"
+                        )
+                        completed = self.run_gate(
+                            project_root,
+                            report=evidence_path,
+                        )
+
+                    summary = json.loads(completed.stdout)
+                    self.assertEqual(completed.returncode, 1)
+                    self.assertTrue(
+                        any(
+                            "cannot reference a generated validation file"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        )
+                    )
+
+    def test_timer_preflight_requires_an_isolation_or_cleanup_plan(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            timer_check = next(
+                check
+                for check in manifest["checks"]
+                if check.get("kind") == "timer_preflight"
+            )
+            timer_check.pop("isolation_or_cleanup_plan", None)
+            timer_check.update(
+                {
+                    "method": "command",
+                    "command": "Run the repeating timer preflight",
+                    "exit_code": 0,
+                    "result": "passed",
+                    "evidence_path": (
+                        LOG_DIRECTORY + "/evidence/message-assertion.txt"
+                    ),
+                    "reason": None,
+                    "blocker_reason": None,
+                    "failure_class": None,
+                    "environment": "local",
+                }
+            )
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "timer_preflight needs a non-empty "
+                    "isolation_or_cleanup_plan" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
     def test_module_gate_passes_only_with_executed_tests(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "service").mkdir()
-            (project_root / "logs").mkdir()
-            (project_root / "logs/pass.log").write_text(
+            (project_root / LOG_DIRECTORY).mkdir(parents=True)
+            (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
             )
             module_path = "service"
@@ -145,11 +417,20 @@ class ValidationEvidenceTest(unittest.TestCase):
                 else:
                     checks.append(
                         passing_check(
-                            "module", module_path, kind, "logs/pass.log"
+                            "module",
+                            module_path,
+                            kind,
+                            LOG_DIRECTORY + "/pass.log",
                         )
                     )
             checks.append(
-                passing_check("module", module_path, "tests", "logs/pass.log", "unit")
+                passing_check(
+                    "module",
+                    module_path,
+                    "tests",
+                    LOG_DIRECTORY + "/pass.log",
+                    "unit",
+                )
             )
             manifest = {
                 "schema_version": 1,
@@ -180,6 +461,66 @@ class ValidationEvidenceTest(unittest.TestCase):
                 report.read_text(encoding="utf-8"),
             )
 
+            manual_check = next(
+                check
+                for check in checks
+                if check.get("kind") == "migration_todos"
+            )
+            manual_check.update(
+                {
+                    "method": "manual",
+                    "command": "Review migration TODOs",
+                    "exit_code": None,
+                }
+            )
+            evidence.write_text(json.dumps(manifest), encoding="utf-8")
+            completed = self.run_gate(project_root, evidence.name)
+
+            self.assertEqual(completed.returncode, 0, completed.stdout)
+
+            manifest["modules"][0]["test_suites"].append(
+                {"name": "integration", "requires_docker": False}
+            )
+            checks.append(
+                passing_check(
+                    "module",
+                    module_path,
+                    "tests",
+                    LOG_DIRECTORY + "/pass.log",
+                    "integration",
+                )
+            )
+            evidence.write_text(json.dumps(manifest), encoding="utf-8")
+            completed = self.run_gate(project_root, evidence.name)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "test suites must use distinct evidence files" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
+            integration_check = checks[-1]
+            integration_check["evidence_path"] = (
+                LOG_DIRECTORY + "/integration.log"
+            )
+            (project_root / LOG_DIRECTORY / "integration.log").write_text(
+                "integration suite output\n", encoding="utf-8"
+            )
+            evidence.write_text(json.dumps(manifest), encoding="utf-8")
+            completed = self.run_gate(project_root, evidence.name)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "test suites must use distinct commands" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+
             manifest["modules"][0]["test_suites"] = []
             manifest["checks"] = [
                 check
@@ -191,7 +532,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "module",
                     module_path,
                     "tests",
-                    "logs/pass.log",
+                    LOG_DIRECTORY + "/pass.log",
                     "no-tests",
                 )
             )
@@ -212,8 +553,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "external").mkdir()
-            (project_root / "logs").mkdir()
-            (project_root / "logs/pass.log").write_text(
+            (project_root / LOG_DIRECTORY).mkdir(parents=True)
+            (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
             )
             module_path = "external"
@@ -234,18 +575,27 @@ class ValidationEvidenceTest(unittest.TestCase):
                             "module",
                             module_path,
                             kind,
-                            "logs/pass.log",
+                            LOG_DIRECTORY + "/pass.log",
                             environment="local",
                         )
                     )
                 else:
                     checks.append(
                         passing_check(
-                            "module", module_path, kind, "logs/pass.log"
+                            "module",
+                            module_path,
+                            kind,
+                            LOG_DIRECTORY + "/pass.log",
                         )
                     )
             checks.append(
-                passing_check("module", module_path, "tests", "logs/pass.log", "unit")
+                passing_check(
+                    "module",
+                    module_path,
+                    "tests",
+                    LOG_DIRECTORY + "/pass.log",
+                    "unit",
+                )
             )
             manifest = {
                 "schema_version": 1,
@@ -276,8 +626,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "service").mkdir()
-            (project_root / "logs").mkdir()
-            (project_root / "logs/pass.log").write_text(
+            (project_root / LOG_DIRECTORY).mkdir(parents=True)
+            (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check completed\n", encoding="utf-8"
             )
             checks = []
@@ -299,12 +649,19 @@ class ValidationEvidenceTest(unittest.TestCase):
                 else:
                     checks.append(
                         passing_check(
-                            "module", module_path, kind, "logs/pass.log"
+                            "module",
+                            module_path,
+                            kind,
+                            LOG_DIRECTORY + "/pass.log",
                         )
                     )
             checks.append(
                 passing_check(
-                    "module", module_path, "tests", "logs/pass.log", "container"
+                    "module",
+                    module_path,
+                    "tests",
+                    LOG_DIRECTORY + "/pass.log",
+                    "container",
                 )
             )
             manifest = {
@@ -383,11 +740,16 @@ class ValidationEvidenceTest(unittest.TestCase):
             manifest["checks"].remove(timer_check)
             timer_check.update(
                 {
-                    "method": "manual",
-                    "command": "Manual timer-start safety preflight",
-                    "exit_code": None,
+                    "method": "command",
+                    "command": "Run the repeating timer preflight",
+                    "exit_code": 0,
                     "result": "passed",
-                    "evidence_path": "logs/message-assertion.log",
+                    "evidence_path": (
+                        LOG_DIRECTORY + "/evidence/message-assertion.txt"
+                    ),
+                    "isolation_or_cleanup_plan": (
+                        "Use an isolated local environment and clean up the timer instance."
+                    ),
                     "reason": None,
                     "blocker_reason": None,
                     "failure_class": None,
@@ -413,14 +775,14 @@ class ValidationEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "models").mkdir()
-            (project_root / "logs").mkdir()
+            (project_root / LOG_DIRECTORY).mkdir(parents=True)
             (project_root / "models/decision.dmn").write_text(
                 "source\n", encoding="utf-8"
             )
             (project_root / "models/converted-c8-decision.dmn").write_text(
                 "converted\n", encoding="utf-8"
             )
-            (project_root / "logs/check.log").write_text(
+            (project_root / LOG_DIRECTORY / "check.log").write_text(
                 "check completed\n", encoding="utf-8"
             )
             model_path = "models/converted-c8-decision.dmn"
@@ -429,7 +791,10 @@ class ValidationEvidenceTest(unittest.TestCase):
             for kind in gate.MODEL_CHECKS:
                 if kind == "deployment":
                     deployment = passing_check(
-                        "model", model_path, kind, "logs/check.log"
+                        "model",
+                        model_path,
+                        kind,
+                        LOG_DIRECTORY + "/check.log",
                     )
                     deployment["environment"] = "production"
                     checks.append(deployment)
@@ -449,7 +814,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                 elif kind in gate.MODEL_CHECKS_REQUIRING_PASS:
                     checks.append(
                         passing_check(
-                            "model", model_path, kind, "logs/check.log"
+                            "model",
+                            model_path,
+                            kind,
+                            LOG_DIRECTORY + "/check.log",
                         )
                     )
                 else:
@@ -500,8 +868,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary)
             (project_root / "service").mkdir()
-            (project_root / "logs").mkdir()
-            (project_root / "logs/pass.log").write_text(
+            (project_root / LOG_DIRECTORY).mkdir(parents=True)
+            (project_root / LOG_DIRECTORY / "pass.log").write_text(
                 "check output\n", encoding="utf-8"
             )
             module_path = "service"
@@ -523,11 +891,20 @@ class ValidationEvidenceTest(unittest.TestCase):
                 else:
                     checks.append(
                         passing_check(
-                            "module", module_path, kind, "logs/pass.log"
+                            "module",
+                            module_path,
+                            kind,
+                            LOG_DIRECTORY + "/pass.log",
                         )
                     )
             checks.append(
-                passing_check("module", module_path, "tests", "logs/pass.log", "unit")
+                passing_check(
+                    "module",
+                    module_path,
+                    "tests",
+                    LOG_DIRECTORY + "/pass.log",
+                    "unit",
+                )
             )
             checks[0]["exit_code"] = 1
             manifest = {

@@ -3,6 +3,8 @@
 This fixture reproduces a migration report that claims readiness without executable evidence. The
 report describes nine modules and ten converted BPMN resources.
 
+The fixture stores captured evidence under `.camunda-migration/validation/logs/`.
+
 The recorded evidence contradicts several claims:
 
 - Spring rejects the configured client mode, and two non-Docker web tests fail.
@@ -11,6 +13,10 @@ The recorded evidence contradicts several claims:
 - The message test does not assert that the downstream process instance starts.
 - Two runtime JARs do not launch their entry point classes.
 - Other required model, process, and timer checks are missing.
+
+The tests reject source and converted paths that resolve to the same file. They reject waived
+applicable process assertions, manual executable checks, and evidence outside the logs directory.
+They also reject reused suite logs and timer preflights without a safety plan.
 
 From the repository root, run the regression test with Python 3:
 

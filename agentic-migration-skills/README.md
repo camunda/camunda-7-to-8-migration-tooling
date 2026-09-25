@@ -81,8 +81,8 @@ them.
 
 The skill also records validation evidence for each migrated module, model, and executable process.
 Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_REPORT.md` and a
-machine-readable summary under `.camunda-migration/validation/`. The
-`fixtures/validation-evidence` directory contains the gate regression test.
+machine-readable summary under `.camunda-migration/validation/`. It accepts evidence files only
+under `.camunda-migration/validation/logs/`.
 
 ## Use
 
@@ -208,7 +208,9 @@ fixtures/                                  ← sample projects for manual regres
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
-The `fixtures/validation-evidence` regression test checks a report with contradictory claims.
+The `fixtures/validation-evidence` regression test checks contradictory report claims, source and
+converted path aliases, process assertion applicability, independent suite evidence, and timer
+safety plans.
 
 ## License
 

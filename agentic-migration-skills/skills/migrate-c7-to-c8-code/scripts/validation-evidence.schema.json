@@ -117,8 +117,55 @@
                 },
                 "reason": {
                   "type": ["string", "null"]
+                },
+                "assertion_applicability": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "user_task_type",
+                    "downstream_message_instance",
+                    "branch_selection",
+                    "worker_input_output",
+                    "incident_behavior",
+                    "form_resolution"
+                  ],
+                  "properties": {
+                    "user_task_type": {
+                      "type": "boolean"
+                    },
+                    "downstream_message_instance": {
+                      "type": "boolean"
+                    },
+                    "branch_selection": {
+                      "type": "boolean"
+                    },
+                    "worker_input_output": {
+                      "type": "boolean"
+                    },
+                    "incident_behavior": {
+                      "type": "boolean"
+                    },
+                    "form_resolution": {
+                      "type": "boolean"
+                    }
+                  }
                 }
-              }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "executable": {
+                        "const": true
+                      }
+                    },
+                    "required": ["executable"]
+                  },
+                  "then": {
+                    "required": ["assertion_applicability"]
+                  }
+                }
+              ]
             }
           },
           "recurring_timer_starts": {
@@ -178,7 +225,8 @@
             "type": ["string", "null"]
           },
           "method": {
-            "enum": ["command", "manual", "not_applicable"]
+            "enum": ["command", "manual", "not_applicable"],
+            "description": "Manual evidence is limited to the check kinds documented as manual."
           },
           "command": {
             "type": "string",
@@ -198,7 +246,9 @@
             ]
           },
           "evidence_path": {
-            "type": ["string", "null"]
+            "type": ["string", "null"],
+            "pattern": "^\\.camunda-migration/validation/logs/.+",
+            "description": "A relative path under .camunda-migration/validation/logs/."
           },
           "reason": {
             "type": ["string", "null"]
@@ -218,8 +268,43 @@
               "not-deployed",
               null
             ]
+          },
+          "isolation_or_cleanup_plan": {
+            "type": ["string", "null"],
+            "description": "The isolation or cleanup plan for a timer preflight."
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "target_type": {
+                  "const": "timer"
+                },
+                "kind": {
+                  "const": "timer_preflight"
+                }
+              },
+              "required": ["target_type", "kind"]
+            },
+            "then": {
+              "required": ["isolation_or_cleanup_plan"],
+              "properties": {
+                "isolation_or_cleanup_plan": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "isolation_or_cleanup_plan": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   },
