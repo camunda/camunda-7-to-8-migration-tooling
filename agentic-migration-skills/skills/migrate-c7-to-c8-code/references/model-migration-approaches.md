@@ -60,7 +60,11 @@ The CLI is published as a self-contained executable JAR named `camunda-7-to-8-di
 4. If that JAR exists, reuse it.
 5. Otherwise download from `https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
 
-The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migration/` to `.gitignore`. Modify `.gitignore` only after the user confirms.
+The JAR is ~30 MB. The skill records its release tag and exact path with the target version in
+`MIGRATION_REPORT.md`. A latest release tag alone does not prove that the selected artifact supports
+each detected model pattern. Where the project is a git repo, the skill recommends adding
+`.camunda-migration/` to `.gitignore`. (SHOULD) The skill modifies `.gitignore` only after the user
+confirms.
 
 ### 3. Run the Converter
 
@@ -107,6 +111,23 @@ packaging, including `src/main/resources` when it exists. No findings report nam
 `analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
 `.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
 directory. Otherwise, use another explicitly non-packaged directory.
+
+### 3b. Verify selected artifact behavior
+
+The skill compares the Step 2 source inventory of start-event listeners with the selected JAR's JSON
+report and fresh converted copies. The skill matches each item by source filename and start-event
+ID. The skill requires a matching `execution-listener-on-start-event` finding for each source
+listener. The skill adds a source-derived row when the report omits a finding.
+
+The skill parses each converted copy with a namespace-aware XML parser. If a converted
+`bpmn:startEvent` still contains a direct `zeebe:executionListener` with `eventType="start"`, then
+the skill rejects the artifact. A matching worker does not make that placement deployable.
+
+If the selected artifact fails either check, then the skill resolves the latest release once more and
+repeats the check with the same target version. The skill uses the newer JAR only when it passes. If
+no published JAR passes, then the skill asks the user whether to apply the validated, manual
+follow-up in step 5d.3 to the earlier copy. The skill keeps model readiness blocked until the user
+approves that follow-up and its checks pass.
 
 ### 4. Surface Outputs
 
@@ -380,14 +401,16 @@ Rules:
 
 #### 5d.3. Relocate unsupported start-event listeners
 
-Treat `execution-listener-on-start-event` as **Blocking** and **needs review** until the user accepts
-relocation and the relocation checks pass.
+The skill treats `execution-listener-on-start-event` as **Blocking** and **needs review** until the
+user accepts relocation and the relocation checks pass.
 
-Use the finding's `filename` and `elementId` to resolve the affected `bpmn:startEvent` in the original
-C7 source. Read the original source because the converter omits this unsupported listener from the
-fresh converted copy.
+The skill uses the source inventory's file and start-event ID to resolve each affected
+`bpmn:startEvent` in the original C7 source. The skill applies this procedure when the JSON report
+contains the finding and when the selected artifact omits it. The skill reads the original source
+because an unsupported converter release may omit the finding, drop the listener, or emit an
+invalid listener placement.
 
-Find the nearest enclosing target in the original source:
+The skill finds the nearest enclosing target in the original source:
 
 | Source shape | Target |
 |---|---|
@@ -414,6 +437,9 @@ Do not edit the original C7 source.
 Do not edit a converted copy before the user accepts the move.
 When the user accepts the move, edit only the fresh converted copy.
 Use a namespace-aware XML parser or XML tooling, never regular expressions.
+The skill removes an invalid listener that the converter emitted on the selected start event before
+adding the approved listener to its target. The skill does not remove listeners from another start
+event.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
 Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
 Set `eventType="start"`.
@@ -447,7 +473,8 @@ Keep the category **needs review** until every applicable check passes.
 Record the source path, start-event ID, target process or subprocess ID and name, listener
 implementations, user decision, converted-copy path, and verification evidence in
 `MIGRATION_REPORT.md`. Set the verdict to **no action** only after the relocation checks and any
-applicable verification gate pass.
+applicable verification gate pass. If the user declines, the target has no safe alternative, or a
+required check cannot run, then the skill keeps model readiness **blocked**.
 
 #### 5e. Strip converter annotations from converted models
 

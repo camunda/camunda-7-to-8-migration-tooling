@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_MessageDecision"
+             name="Message decision"
+             namespace="http://camunda.org/examples">
+  <decision id="Decision_Message" name="Message decision">
+    <decisionTable id="DecisionTable_Message" hitPolicy="UNIQUE">
+      <input id="Input_Message" label="Message">
+        <inputExpression id="InputExpression_Message" typeRef="string">
+          <text>message</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Message" name="result" label="Result" typeRef="string" />
+      <rule id="Rule_Message">
+        <inputEntry id="InputEntry_Message">
+          <text>"hello"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Message">
+          <text>"accepted"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

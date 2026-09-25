@@ -200,10 +200,29 @@ similar category.
 
 ## Deployment Wiring
 
-After both complete, ask whether to wire deployment of converted files in application code:
+When both migrations complete, the skill asks whether to wire deployment of converted files in
+application code.
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - build a deployment inventory from this run's recorded converted-file paths and accepted generated forms. Add or update `@Deployment(resources = ...)` with explicit recursive classpath patterns for that inventory. Use a recursive pattern only when its packaged matches are a non-empty subset of that inventory. Otherwise, use explicit resource paths. Add a BPMN, DMN, or form pattern only when the inventory contains that resource type. Never target original diagrams, draft forms, or declined forms.
-- **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+- **Yes, add or update `@Deployment` for converted files** (MAY). The skill recommends this choice
+  when code scope includes a Spring Boot app. (SHOULD) The skill builds a deployment inventory from
+  this run's recorded converted-file paths and accepted generated forms. The skill adds one
+  `resources` array entry for each included resource type. The skill never joins patterns with
+  commas inside one string. For BPMN and DMN resources, the skill uses this shape:
+
+  ```java
+  @Deployment(
+      resources = {"classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"})
+  ```
+
+  The skill uses a recursive classpath pattern only when its packaged matches form a non-empty
+  subset of the inventory. Otherwise, the skill uses explicit resource paths. The skill adds a
+  BPMN, DMN, or form pattern only when the inventory contains that resource type. The skill never
+  targets original diagrams, draft forms, or declined forms. The skill resolves each pattern with
+  Spring's `PathMatchingResourcePatternResolver` against packaged resources. Each pattern must
+  resolve a non-empty subset of the inventory, and their union must equal the inventory. A test that
+  disables annotation deployment does not validate this wiring.
+- **No, I will handle deployment outside app startup** (MAY) — the skill leaves code unchanged and
+  records this decision in `MIGRATION_REPORT.md`.
 
 When the skill creates or keeps a `@SpringBootApplication` class in a Maven module, apply "Maven
 build wiring" in `references/code-transform-checklist.md`.

@@ -203,6 +203,11 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+For every original BPMN, the skill records each `camunda:executionListener` with `event="start"`
+attached directly to a `bpmn:startEvent`. The skill records the source path, start-event ID, and
+listener implementation. The skill keeps this inventory when a converter report omits the matching
+finding.
+
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
 
@@ -291,10 +296,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
-12. **Deployment resources** — when `@Deployment` is present after migration, build the
-    deployment inventory from this run's recorded converted-file paths and accepted generated forms.
-    Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
-    deployment inventory. Each inventory item must match a deployment pattern.
+12. **Deployment resources** — where the application declares `@Deployment`, the skill builds the
+    inventory from this run's converted-file paths and accepted generated forms. The skill creates
+    one annotation entry per included resource type. The skill resolves each entry with Spring's
+    `PathMatchingResourcePatternResolver` against packaged resources. Each entry must match a
+    non-empty subset of the inventory, and their union must equal it. A test that disables
+    annotation deployment does not validate this wiring.
 13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
@@ -376,6 +383,19 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
+21. When the user selects M1, the skill records the CLI release tag, JAR path, and target version.
+    The skill compares each source-inventoried start listener with the converter finding and
+    converted copy. If either check fails, then the skill adds a source-derived blocking row and
+    marks compatibility **blocked**. A worker does not satisfy this check. The skill re-resolves
+    the latest release before using an earlier result. The skill requires explicit user approval for
+    the manual follow-up in `references/model-migration-approaches.md`.
+22. Where the user authorizes deployment to a test target matching the declared Camunda 8 version,
+    the skill deploys every converted BPMN and DMN. When c8ctl is configured, the skill checks
+    `c8ctl which profile` and runs `c8ctl deploy <converted-file> --profile=<name>`. The skill uses
+    an authorized deployment client when c8ctl is unavailable. The skill records one result per
+    resource and confirms before using a shared target. If authorization is absent, the target is
+    missing, deployment fails, or listener relocation is unapproved, then the skill blocks model
+    readiness.
 
 #### Summary
 
@@ -402,6 +422,8 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
+| Deployment patterns | Each `@Deployment` entry resolves to a non-empty subset of the packaged inventory. The union equals the inventory. | Each pattern and its resolved resources |
+| Target deployment | Every converted BPMN and DMN deploys to the declared target version. | Target version, resource path, and deployment result |
 
 Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
@@ -492,5 +514,7 @@ The skill reports a complete migration only when no unresolved migration TODO, f
 issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
 An open item is a team decision, so an `open` status does not block completion, but the summary
 always lists every open item.
+The skill does not report model readiness when an artifact, resource-pattern, or target-deployment
+check fails.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
 Where the root is confirmed, follow `references/final-change-summary.md` before the final response.
