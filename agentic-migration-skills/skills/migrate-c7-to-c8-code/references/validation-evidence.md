@@ -60,6 +60,7 @@ Keep the summary path distinct from the Step 2 inventory and `MIGRATION_REPORT.m
 Keep the report path distinct from the Step 2 inventory.
 The validator reserves the default evidence and summary paths from custom outputs.
 Use each default path only for its matching output.
+Keep the summary and report paths outside `.camunda-migration/validation/logs`.
 Keep the summary and report paths distinct from every evidence file.
 The validator rejects output paths that identify a manifest evidence file.
 The validator checks file identity, including hard links, before it writes output.

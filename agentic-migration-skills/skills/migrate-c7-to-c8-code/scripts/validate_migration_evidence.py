@@ -1034,6 +1034,20 @@ def validate_cli_outputs_against_evidence(data, output_paths, project_root):
                 )
 
 
+def validate_cli_outputs_outside_evidence_log_directory(
+    output_paths, project_root
+):
+    evidence_log_directory = (
+        project_root / EVIDENCE_LOG_DIRECTORY
+    ).resolve()
+    for output_name, output_path in output_paths:
+        if path_is_within_root(output_path, evidence_log_directory):
+            raise ValueError(
+                "The {} path must stay outside the validation evidence "
+                "log directory.".format(output_name)
+            )
+
+
 def load_step2_inventory(project_root, error):
     inventory_path = project_root / DEFAULT_INVENTORY_PATH
     resolved_inventory_path = inventory_path.resolve()
@@ -2756,7 +2770,8 @@ def remove_malformed_report_gate(contents):
             break
         start, end = legacy_gate
         if end == len(contents):
-            return original, False
+            contents = remove_report_region(contents, start, end)
+            continue
         contents = remove_report_region(contents, start, end)
 
     marker_regions = find_report_marker_regions(contents)
@@ -2943,14 +2958,14 @@ def main():
             "The validation paths cannot be used: {}.".format(cli_path_error)
         )
     else:
+        output_paths = [("summary", resolved_summary)]
+        if resolved_report is not None:
+            output_paths.append(("report", resolved_report))
         try:
             resolved_evidence = resolve_evidence_path(
                 args.evidence, project_root
             )
             data = json.loads(resolved_evidence.read_text(encoding="utf-8"))
-            output_paths = [("summary", resolved_summary)]
-            if resolved_report is not None:
-                output_paths.append(("report", resolved_report))
             try:
                 validate_cli_outputs_against_evidence(
                     data, output_paths, project_root
@@ -2976,6 +2991,13 @@ def main():
                 "The evidence manifest or one of its inputs cannot be "
                 "validated: {}.".format(exception)
             )
+        if output_path_error is None:
+            try:
+                validate_cli_outputs_outside_evidence_log_directory(
+                    output_paths, project_root
+                )
+            except (OSError, ValueError, RuntimeError) as exception:
+                output_path_error = exception
         if output_path_error is not None:
             cli_path_error = output_path_error
             summary["readiness"] = "not_ready"

@@ -492,6 +492,37 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertIn("**Validation gate:** **NOT READY**", report_text)
             self.assertNotIn("**Validation gate:** **READY**", report_text)
 
+    def test_markerless_validation_status_at_eof_without_newline_is_removed(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            report = project_root / "MIGRATION_REPORT.md"
+            report.write_text(
+                "Migration findings.\n\n**Validation gate:** **READY**",
+                encoding="utf-8",
+            )
+
+            completed = self.run_gate(project_root)
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "malformed validation gate block" in blocker
+                    for blocker in summary["blockers"]
+                )
+            )
+            report_text = report.read_text(encoding="utf-8")
+            self.assertIn("Migration findings.", report_text)
+            self.assertIn("**Validation gate:** **NOT READY**", report_text)
+            self.assertNotIn("**Validation gate:** **READY**", report_text)
+
     def test_duplicate_report_gate_pairs_preserve_intervening_sections(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary) / "project"
@@ -1394,6 +1425,100 @@ class ValidationEvidenceTest(unittest.TestCase):
                         ),
                         "An output alias of a manifest evidence file was accepted.",
                     )
+
+    def test_cli_rejects_outputs_inside_evidence_log_directory(self):
+        malformed_manifests = {
+            "invalid-json": "{",
+            "checks-not-array": '{"checks": {}}',
+        }
+        for malformed_kind, manifest_contents in malformed_manifests.items():
+            for output_kind in ("summary", "report"):
+                with self.subTest(
+                    malformed_kind=malformed_kind, output_kind=output_kind
+                ):
+                    with tempfile.TemporaryDirectory(
+                        prefix="migration-evidence-"
+                    ) as temporary:
+                        project_root = Path(temporary) / "project"
+                        project_root.mkdir()
+                        (project_root / "validation-evidence.json").write_text(
+                            manifest_contents, encoding="utf-8"
+                        )
+                        output_file = (
+                            project_root
+                            / LOG_DIRECTORY
+                            / "captured-evidence.log"
+                        )
+                        output_file.parent.mkdir(parents=True)
+                        original_contents = b"captured evidence\n"
+                        output_file.write_bytes(original_contents)
+                        output_path = output_file.relative_to(
+                            project_root
+                        ).as_posix()
+
+                        if output_kind == "summary":
+                            completed = self.run_gate(
+                                project_root,
+                                report=None,
+                                summary=output_path,
+                            )
+                        else:
+                            completed = self.run_gate(
+                                project_root,
+                                report=output_path,
+                                summary="custom-validation-summary.json",
+                            )
+
+                        self.assertEqual(completed.returncode, 1)
+                        self.assertEqual(
+                            output_file.read_bytes(), original_contents
+                        )
+                        summary = json.loads(completed.stdout)
+                        self.assertTrue(
+                            any(
+                                "must stay outside the validation evidence "
+                                "log directory" in blocker
+                                for blocker in summary["blockers"]
+                            ),
+                            "The output inside the evidence log directory "
+                            "was not rejected.",
+                        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="migration-evidence-"
+        ) as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            output_file = (
+                project_root / LOG_DIRECTORY / "unreferenced-output.log"
+            )
+            original_contents = b"captured evidence\n"
+            output_file.write_bytes(original_contents)
+
+            completed = self.run_gate(
+                project_root,
+                report=None,
+                summary=output_file.relative_to(project_root).as_posix(),
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            self.assertEqual(output_file.read_bytes(), original_contents)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "must stay outside the validation evidence log directory"
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "An unreferenced output inside the evidence log directory "
+                "was not rejected.",
+            )
 
     def test_cli_reports_looped_input_symlinks_as_not_ready(self):
         for input_kind in ("module", "model", "evidence"):
