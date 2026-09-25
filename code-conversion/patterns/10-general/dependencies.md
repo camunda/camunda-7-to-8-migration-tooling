@@ -25,17 +25,22 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 **BOM alignment**: Preserve existing parent dependency management and imported BOMs unless
 inspection supports an explicit change. Inspect `mvn help:effective-pom -Dverbose` and
 `mvn dependency:tree -Dverbose` for the Camunda starter and existing cloud libraries before changing
-dependency management. Trace each imported BOM's resolved version to the POM or property that
+dependency management. Trace each imported BOM's effective version to the POM or property that
 supplies it. If a BOM does not resolve, record its coordinates and the exact Maven error. Check its
 coordinates, inherited version source, and configured repositories before replacing or removing it.
 Never comment out an unresolved BOM and replace selected managed artifacts with isolated version
 pins.
 
-For gRPC, inspect every resolved `io.grpc` artifact. Manage an incompatible gRPC family through a
-compatible `io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`,
-or `grpc-core`. Remove a conflicting direct dependency only after source, configuration, and test
-searches show that the project does not use it. Record before-and-after resolved versions and the
-remediation in `MIGRATION_REPORT.md`.
+Check explicit `<version>` values on direct dependencies managed by an imported BOM. A direct
+version overrides BOM management. Remove an unexplained override. Record the compatibility reason
+for any retained override.
+
+Run the same inspections after POM changes. For gRPC, inspect every resolved `io.grpc` artifact, its
+dependency path, and its version source. Manage an incompatible gRPC family through a compatible
+`io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`, or
+`grpc-core`. Remove a conflicting direct dependency only after source, configuration, and test
+searches show that the project does not use it. Record before-and-after versions, dependency paths,
+version sources, and the remediation in `MIGRATION_REPORT.md`.
 
 **Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
 that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this

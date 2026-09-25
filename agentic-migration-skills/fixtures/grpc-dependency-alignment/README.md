@@ -17,6 +17,10 @@ The resulting runtime graph included:
 | `io.grpc:grpc-util` | `1.79.0` |
 | `io.grpc:grpc-core` | `1.79.0` |
 
+The available pilot record does not include the BOM coordinates, exact Maven resolution error, or
+dependency paths. Do not infer them from these versions. Capture those details from the effective
+POM and dependency tree in the project's `MIGRATION_REPORT.md`.
+
 The focused startup trace reported an `IncompatibleClassChangeError`. An xDS weighted round-robin
 load balancer could not inherit from a class that the selected gRPC util version marked as final.
 This evidence proves a gRPC compatibility defect. It does not explain every test error.
@@ -31,10 +35,12 @@ This evidence proves a gRPC compatibility defect. It does not explain every test
    documented dependency decision supports changing it. If Maven cannot resolve the BOM, record the
    exact coordinates and error. Check the inherited version source and repository configuration
    before changing the BOM.
-3. Inspect the dependency paths for the Camunda starter, Google Cloud libraries, and every
-   `io.grpc` artifact. Use a compatible BOM in `<dependencyManagement>` to align an incompatible
-   gRPC family. Remove a direct dependency only after source, configuration, and test searches show
-   that the project does not use it. Never pin one transitive artifact.
+3. Inspect and record dependency paths and version sources for the Camunda starter, Google Cloud
+   libraries, and every `io.grpc` artifact before and after POM changes.
+   Check for explicit versions on direct dependencies that override BOM management. Use a compatible
+   BOM in `<dependencyManagement>` to align an incompatible gRPC family. Remove a direct dependency
+   only after source, configuration, and test searches show that the project does not use it. Never
+   pin one transitive artifact.
 4. Add a focused test that creates the real `CamundaClient` bean without mocking it or calling a
    cluster API. A minimal Spring application context can use local addresses and no authentication:
 
