@@ -18,7 +18,7 @@ uses this file to produce the aggregate validation gate in `MIGRATION_REPORT.md`
 8. Never use the inventory, manifest, generated summary, or `MIGRATION_REPORT.md` as evidence.
 9. Remove credentials and secret values from every command and log.
 10. List every independent test suite for each module.
-11. List every executable process and every repeating timer start.
+11. List every process in each converted BPMN model, including non-executable processes. List every repeating timer start.
 12. Use project-relative paths for every target and evidence file.
 
 Use `../scripts/validation-inventory.schema.json` for the Step 2 inventory. Use
@@ -47,6 +47,9 @@ The validator writes its full JSON summary to
 not-ready gate returns exit code 1. With `--report`, the validator writes the matching gate block.
 An unreadable manifest returns exit code 1. Do not treat a nonzero exit code as a successful
 validation.
+
+The evidence, JSON summary, and report paths must identify different files. The validator checks
+path identity before it writes output.
 
 Each check record gives its target type, target, check kind, scenario, method, command, exit code,
 result, evidence path, reason, blocker reason, failure class, and environment. A timer preflight
@@ -114,6 +117,10 @@ List every process, including non-executable processes. Set `executable` to `fal
 reason for a non-executable process. List `normal` and every missing-worker-input scenario in
 `direct_start_scenarios`. For a process that is not a standalone entry point, list no direct-start
 scenarios. Give its reason and covering test.
+
+The validator reads each converted BPMN model. Its `processes` array must match every top-level
+`bpmn:process` ID and `isExecutable` value. Include non-executable process definitions. Keep the
+array empty when a BPMN model has no process definitions or when the model is DMN.
 
 ## Required module checks
 

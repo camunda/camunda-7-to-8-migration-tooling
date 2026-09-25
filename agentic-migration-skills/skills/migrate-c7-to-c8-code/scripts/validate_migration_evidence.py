@@ -4,11 +4,13 @@
 import argparse
 import json
 import sys
+import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
 
 
 SCHEMA_VERSION = 1
+BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 RESULTS = {
     "passed",
     "failed",
@@ -236,6 +238,128 @@ def validate_project_path(value, project_root, label, expected_type, error):
         error("{} must point to an existing directory.".format(label))
     if expected_type == "file" and not resolved.is_file():
         error("{} must point to an existing file.".format(label))
+
+
+def paths_identify_same_file(left, right):
+    if left == right:
+        return True
+    return left.is_file() and right.is_file() and left.samefile(right)
+
+
+def read_bpmn_process_inventory(path, location, error):
+    try:
+        root = ET.parse(str(path)).getroot()
+    except (OSError, ET.ParseError) as exception:
+        error(
+            "{} converted BPMN cannot be parsed for process inventory: {}."
+            .format(location, exception)
+        )
+        return None
+
+    definitions_tag = "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
+    if root.tag != definitions_tag:
+        error(
+            "{} converted BPMN must have a BPMN definitions root."
+            .format(location)
+        )
+        return None
+
+    process_tag = "{{{}}}process".format(BPMN_MODEL_NAMESPACE)
+    processes = {}
+    for index, process in enumerate(root.findall(process_tag)):
+        process_location = "{} converted BPMN process[{}]".format(
+            location, index
+        )
+        process_id = process.get("id")
+        if not is_nonempty_string(process_id):
+            error("{} must have a non-empty id.".format(process_location))
+            continue
+        if process_id in processes:
+            error(
+                "{} has duplicate process id {}.".format(location, process_id)
+            )
+            continue
+
+        executable_value = process.get("isExecutable", "false").strip().lower()
+        if executable_value in {"true", "1"}:
+            executable = True
+        elif executable_value in {"false", "0"}:
+            executable = False
+        else:
+            error(
+                "{} isExecutable must be a valid XML boolean.".format(
+                    process_location
+                )
+            )
+            continue
+        processes[process_id] = executable
+    return processes
+
+
+def resolve_contained_path(value, project_root, label):
+    path = Path(value)
+    resolved = (
+        path.resolve()
+        if path.is_absolute()
+        else (project_root / path).resolve()
+    )
+    try:
+        resolved.relative_to(project_root)
+    except ValueError:
+        raise ValueError("{} must stay inside the project root.".format(label))
+    return resolved
+
+
+def resolve_evidence_path(value, project_root):
+    if not is_nonempty_string(value):
+        raise ValueError("The evidence path must be a non-empty relative path.")
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError("The evidence path must stay inside the project root.")
+    return resolve_contained_path(path, project_root, "The evidence path")
+
+
+def resolve_summary_path(value, project_root):
+    if not is_nonempty_string(value):
+        raise ValueError("The summary path must be a non-empty relative path.")
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError("The summary path must stay inside the project root.")
+    return resolve_contained_path(path, project_root, "The summary path")
+
+
+def resolve_report_path(value, project_root):
+    if not is_nonempty_string(value):
+        raise ValueError("The report path must be a non-empty path.")
+    return resolve_contained_path(value, project_root, "The report path")
+
+
+def validate_cli_paths(evidence_path, summary_path, report_path, project_root):
+    evidence_candidate = Path(evidence_path)
+    if not evidence_candidate.is_absolute():
+        evidence_candidate = project_root / evidence_candidate
+    evidence_candidate = evidence_candidate.resolve()
+    resolved_summary = resolve_summary_path(summary_path, project_root)
+    resolved_report = (
+        resolve_report_path(report_path, project_root)
+        if report_path
+        else None
+    )
+    destinations = [
+        ("evidence", evidence_candidate),
+        ("summary", resolved_summary),
+    ]
+    if resolved_report is not None:
+        destinations.append(("report", resolved_report))
+
+    for index, (left_name, left_path) in enumerate(destinations):
+        for right_name, right_path in destinations[index + 1 :]:
+            if paths_identify_same_file(left_path, right_path):
+                raise ValueError(
+                    "The {} and {} paths must not identify the same file."
+                    .format(left_name, right_name)
+                )
+    return resolved_summary, resolved_report
 
 
 def load_step2_inventory(project_root, error):
@@ -514,8 +638,10 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             if requires_docker is True:
                 docker_test_keys.add(key)
 
-    model_paths = set()
+    model_paths = []
     model_source_paths = set()
+    model_source_file_paths = []
+    converted_model_file_paths = []
     for index, model in enumerate(models):
         location = "models[{}]".format(index)
         if not isinstance(model, dict):
@@ -555,9 +681,19 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             "file",
             error,
         )
-        if path in model_paths:
-            error("The model path {} appears more than once.".format(path))
-        model_paths.add(path)
+        resolved_model_path = (
+            project_root / Path(path.replace("\\", "/"))
+        ).resolve()
+        if any(
+            paths_identify_same_file(resolved_model_path, previous_path)
+            for previous_path in model_paths
+        ):
+            error(
+                "The converted model path {} appears more than once."
+                .format(path)
+            )
+        model_paths.append(resolved_model_path)
+        converted_model_file_paths.append((resolved_model_path, location))
         if not is_nonempty_string(source_path):
             error("{} must have a non-empty source_path.".format(location))
         else:
@@ -575,20 +711,13 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     .format(source_path)
                 )
             model_source_paths.add(normalized_source_path)
-            resolved_model_path = (
-                project_root.resolve() / Path(path.replace("\\", "/"))
-            ).resolve()
             resolved_source_path = (
                 project_root.resolve() / Path(source_path.replace("\\", "/"))
             ).resolve()
-            same_file = resolved_model_path == resolved_source_path
-            if (
-                not same_file
-                and resolved_model_path.is_file()
-                and resolved_source_path.is_file()
+            model_source_file_paths.append((resolved_source_path, location))
+            if paths_identify_same_file(
+                resolved_model_path, resolved_source_path
             ):
-                same_file = resolved_model_path.samefile(resolved_source_path)
-            if same_file:
                 error(
                     "{} source and converted paths identify the same file."
                     .format(location)
@@ -604,6 +733,11 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
         if not isinstance(processes, list):
             error("{} processes must be an array.".format(location))
             processes = []
+        bpmn_process_inventory = None
+        if model_type == "bpmn" and resolved_model_path.is_file():
+            bpmn_process_inventory = read_bpmn_process_inventory(
+                resolved_model_path, location, error
+            )
         if not isinstance(timer_starts, list):
             error("{} recurring_timer_starts must be an array.".format(location))
             timer_starts = []
@@ -730,6 +864,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             )
 
         process_ids = set()
+        process_executability = {}
         executable_process_ids = set()
         for process_index, process in enumerate(processes):
             process_location = "{} processes[{}]".format(location, process_index)
@@ -778,6 +913,8 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     "{} has duplicate process id {}.".format(location, process_id)
                 )
             process_ids.add(process_id)
+            if isinstance(executable, bool):
+                process_executability[process_id] = executable
             if not isinstance(executable, bool):
                 error("{} executable must be true or false.".format(process_location))
                 continue
@@ -929,6 +1066,29 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 )
             process_start_checks[(path, process_id)] = process_run_keys
 
+        if bpmn_process_inventory is not None:
+            actual_process_ids = set(bpmn_process_inventory)
+            for process_id in sorted(actual_process_ids - process_ids):
+                error(
+                    "{} process inventory omits BPMN process {}."
+                    .format(location, process_id)
+                )
+            for process_id in sorted(process_ids - actual_process_ids):
+                error(
+                    "{} process inventory includes unknown BPMN process {}."
+                    .format(location, process_id)
+                )
+            for process_id in sorted(actual_process_ids & process_ids):
+                if (
+                    process_id in process_executability
+                    and process_executability[process_id]
+                    != bpmn_process_inventory[process_id]
+                ):
+                    error(
+                        "{} process {} executable value does not match BPMN."
+                        .format(location, process_id)
+                    )
+
         timer_ids = set()
         for timer_index, timer in enumerate(timer_starts):
             timer_location = "{} recurring_timer_starts[{}]".format(
@@ -985,6 +1145,16 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     process_start_checks.get((path, process_id), []),
                 )
             )
+
+    for converted_path, converted_location in converted_model_file_paths:
+        for source_path, source_location in model_source_file_paths:
+            if converted_location == source_location:
+                continue
+            if paths_identify_same_file(converted_path, source_path):
+                error(
+                    "{} converted model path identifies source model {}."
+                    .format(converted_location, source_location)
+                )
 
     if step2_inventory is not None:
         omitted_modules = sorted(step2_inventory["modules"] - module_paths)
@@ -1525,17 +1695,7 @@ def render_report_block(summary, summary_path):
 
 
 def write_report(report_path, summary, project_root, summary_path):
-    path = Path(report_path)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        resolved = (project_root / path).resolve()
-    root = project_root.resolve()
-    try:
-        resolved.relative_to(root)
-    except ValueError:
-        raise ValueError("The report path must stay inside the project root.")
-
+    resolved = resolve_report_path(report_path, project_root)
     if resolved.exists():
         contents = resolved.read_text(encoding="utf-8")
     else:
@@ -1559,15 +1719,7 @@ def write_report(report_path, summary, project_root, summary_path):
 
 
 def write_summary(summary_path, summary, project_root):
-    path = Path(summary_path)
-    if path.is_absolute() or ".." in path.parts:
-        raise ValueError("The summary path must stay inside the project root.")
-    resolved = (project_root / path).resolve()
-    root = project_root.resolve()
-    try:
-        resolved.relative_to(root)
-    except ValueError:
-        raise ValueError("The summary path must stay inside the project root.")
+    resolved = resolve_summary_path(summary_path, project_root)
     resolved.parent.mkdir(parents=True, exist_ok=True)
     resolved.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -1615,24 +1767,38 @@ def main():
 
     project_root = Path(args.project_root).resolve()
     project_root_exists = project_root.is_dir()
+    resolved_summary = None
+    resolved_report = None
+    cli_path_error = None
+    if project_root_exists:
+        try:
+            resolved_summary, resolved_report = validate_cli_paths(
+                args.evidence,
+                args.summary,
+                args.report,
+                project_root,
+            )
+        except (OSError, ValueError) as exception:
+            cli_path_error = exception
+
     if not project_root_exists:
         summary = make_input_error("The project root does not exist.")
+    elif cli_path_error is not None:
+        summary = make_input_error(
+            "The validation paths cannot be used: {}.".format(cli_path_error)
+        )
     else:
         try:
-            evidence_path = Path(args.evidence)
-            if evidence_path.is_absolute() or ".." in evidence_path.parts:
-                raise ValueError("The evidence path must stay inside the project root.")
-            resolved_evidence = (project_root / evidence_path).resolve()
-            resolved_evidence.relative_to(project_root)
+            resolved_evidence = resolve_evidence_path(
+                args.evidence, project_root
+            )
             data = json.loads(resolved_evidence.read_text(encoding="utf-8"))
             excluded_evidence_paths = {
                 resolved_evidence,
-                (project_root / Path(args.summary)).resolve(),
+                resolved_summary,
             }
-            if args.report:
-                excluded_evidence_paths.add(
-                    (project_root / Path(args.report)).resolve()
-                )
+            if resolved_report is not None:
+                excluded_evidence_paths.add(resolved_report)
             summary = validate_manifest(
                 data, project_root, excluded_evidence_paths
             )
@@ -1642,7 +1808,7 @@ def main():
             )
 
     summary_written = False
-    if project_root_exists:
+    if project_root_exists and cli_path_error is None:
         try:
             write_summary(args.summary, summary, project_root)
             summary_written = True
@@ -1654,7 +1820,7 @@ def main():
             )
 
     report_failed = False
-    if args.report and project_root_exists:
+    if args.report and project_root_exists and cli_path_error is None:
         try:
             write_report(args.report, summary, project_root, args.summary)
         except (OSError, ValueError) as exception:

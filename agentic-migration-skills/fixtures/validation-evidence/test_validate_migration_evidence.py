@@ -7,11 +7,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
 FIXTURE = Path(__file__).resolve().parent
 LOG_DIRECTORY = ".camunda-migration/validation/logs"
+BPMN_MODEL_NAMESPACE = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 STEP2_INVENTORY_PATH = (
     ".camunda-migration/validation/step2-inventory.json"
 )
@@ -133,6 +135,22 @@ def passing_module_manifest(module_path):
     }
 
 
+def write_bpmn_file(path, processes):
+    root = ET.Element(
+        "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
+    )
+    for process in processes:
+        if not isinstance(process, dict) or not isinstance(process.get("id"), str):
+            continue
+        executable = str(process.get("executable", False)).lower()
+        ET.SubElement(
+            root,
+            "{{{}}}process".format(BPMN_MODEL_NAMESPACE),
+            {"id": process["id"], "isExecutable": executable},
+        )
+    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
+
+
 def materialize_inventory(project_root, manifest):
     for module in manifest["modules"]:
         (project_root / module["path"]).mkdir(parents=True, exist_ok=True)
@@ -140,7 +158,10 @@ def materialize_inventory(project_root, manifest):
         for key in ("source_path", "path"):
             model_file = project_root / model[key]
             model_file.parent.mkdir(parents=True, exist_ok=True)
-            model_file.write_text("fixture model\n", encoding="utf-8")
+            if model.get("type") == "bpmn":
+                write_bpmn_file(model_file, model.get("processes", []))
+            else:
+                model_file.write_text("<definitions />\n", encoding="utf-8")
 
 
 class ValidationEvidenceTest(unittest.TestCase):
@@ -149,18 +170,22 @@ class ValidationEvidenceTest(unittest.TestCase):
         project_root,
         evidence="validation-evidence.json",
         report="MIGRATION_REPORT.md",
+        summary=None,
     ):
+        command = [
+            sys.executable,
+            str(SCRIPT),
+            "--project-root",
+            str(project_root),
+            "--evidence",
+            evidence,
+        ]
+        if report is not None:
+            command.extend(["--report", report])
+        if summary is not None:
+            command.extend(["--summary", summary])
         return subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT),
-                "--project-root",
-                str(project_root),
-                "--evidence",
-                evidence,
-                "--report",
-                report,
-            ],
+            command,
             check=False,
             capture_output=True,
             text=True,
@@ -250,6 +275,255 @@ class ValidationEvidenceTest(unittest.TestCase):
                     for blocker in summary["blockers"]
                 )
             )
+
+    def test_converted_models_cannot_alias_other_source_files(self):
+        for alias_type in ("cycle", "hard_link"):
+            with self.subTest(alias_type=alias_type):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    models = [
+                        model
+                        for model in manifest["models"]
+                        if model["type"] == "bpmn"
+                    ][:3]
+                    self.assertEqual(len(models), 3)
+                    materialize_inventory(project_root, manifest)
+
+                    if alias_type == "cycle":
+                        source_paths = [
+                            model["source_path"] for model in models
+                        ]
+                        for index, model in enumerate(models):
+                            model["path"] = source_paths[
+                                (index + 1) % len(source_paths)
+                            ]
+                    else:
+                        converted_file = project_root / models[0]["path"]
+                        other_source_file = (
+                            project_root / models[1]["source_path"]
+                        )
+                        converted_file.unlink()
+                        os.link(other_source_file, converted_file)
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "converted model path" in blocker
+                            and "source model" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "The cross-model source collision was not rejected.",
+                    )
+
+    def test_duplicate_converted_model_paths_are_normalized(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            models = [
+                model
+                for model in manifest["models"]
+                if model["type"] == "bpmn"
+            ][:2]
+            models[1]["path"] = models[0]["path"].replace(
+                "/", "/./", 1
+            )
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "converted model path" in blocker
+                    and "appears more than once" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The normalized converted-path alias was not rejected.",
+            )
+
+    def test_process_inventory_cannot_omit_bpmn_processes(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = next(
+                model
+                for model in manifest["models"]
+                if model["type"] == "bpmn" and model["processes"]
+            )
+            process_id = model["processes"][0]["id"]
+            materialize_inventory(project_root, manifest)
+            model["processes"] = []
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "process inventory omits BPMN process {}".format(process_id)
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The omitted BPMN process was not reported.",
+            )
+
+    def test_process_executability_must_match_bpmn(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = next(
+                model
+                for model in manifest["models"]
+                if model["type"] == "bpmn" and model["processes"]
+            )
+            process = model["processes"][0]
+            process_id = process["id"]
+            materialize_inventory(project_root, manifest)
+            process.update(
+                {
+                    "executable": False,
+                    "standalone_entry_point": False,
+                    "direct_start_scenarios": [],
+                    "covering_test": None,
+                    "reason": "The manifest incorrectly marks this process as non-executable.",
+                }
+            )
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "process {} executable value does not match BPMN".format(
+                        process_id
+                    )
+                    in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The process executability mismatch was not reported.",
+            )
+
+    def test_cli_rejects_output_paths_that_overwrite_inputs_or_each_other(self):
+        cases = (
+            (
+                "summary",
+                "validation-evidence.json",
+                "MIGRATION_REPORT.md",
+                "validation-evidence.json",
+            ),
+            (
+                "report",
+                None,
+                "validation-evidence.json",
+                "validation-evidence.json",
+            ),
+            (
+                "outputs",
+                "MIGRATION_REPORT.md",
+                "MIGRATION_REPORT.md",
+                None,
+            ),
+        )
+        for name, summary_path, report_path, overwritten_input in cases:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    materialize_inventory(project_root, manifest)
+                    original_files = {
+                        path: (project_root / path).read_bytes()
+                        for path in (
+                            "validation-evidence.json",
+                            "MIGRATION_REPORT.md",
+                        )
+                    }
+
+                    completed = self.run_gate(
+                        project_root,
+                        report=report_path,
+                        summary=summary_path,
+                    )
+
+                    self.assertEqual(completed.returncode, 1)
+                    summary = json.loads(completed.stdout)
+                    self.assertTrue(
+                        any(
+                            "must not identify the same file" in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "Colliding output paths were not rejected.",
+                    )
+                    paths_to_check = (
+                        (overwritten_input,)
+                        if overwritten_input
+                        else ("MIGRATION_REPORT.md",)
+                    )
+                    for path in paths_to_check:
+                        self.assertEqual(
+                            (project_root / path).read_bytes(),
+                            original_files[path],
+                        )
+
+    def test_cli_rejects_hard_link_output_aliases(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            materialize_inventory(project_root, manifest)
+            evidence_file = project_root / "validation-evidence.json"
+            summary_alias = (
+                project_root
+                / ".camunda-migration/validation/evidence-alias.json"
+            )
+            os.link(evidence_file, summary_alias)
+            original_evidence = evidence_file.read_bytes()
+
+            completed = self.run_gate(
+                project_root,
+                summary=".camunda-migration/validation/evidence-alias.json",
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            summary = json.loads(completed.stdout)
+            self.assertTrue(
+                any(
+                    "must not identify the same file" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The hard-linked output alias was not rejected.",
+            )
+            self.assertEqual(evidence_file.read_bytes(), original_evidence)
 
     def test_process_assertions_cannot_be_waived_when_applicable(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
