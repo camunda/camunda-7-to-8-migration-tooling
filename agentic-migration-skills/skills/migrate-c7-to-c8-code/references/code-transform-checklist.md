@@ -283,16 +283,20 @@ and `30-glue-code/outbound-http-rest-connector.md`.
 
 Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path to the delegate.
 The skill includes paths that start the process and paths that continue from a wait state through
-synchronous activities. The skill identifies every asynchronous transaction boundary before the
-delegate runs, including predecessor `camunda:asyncAfter` boundaries. The skill checks exception
-paths in the delegate and its invoked services. The skill checks `camunda:asyncBefore`,
-predecessor `camunda:asyncAfter`, Spring transaction synchronization, `SecurityContextHolder`,
-`ThreadLocal`, and caller-identity access.
+synchronous activities. The skill partitions each path into C7 command segments at wait states and
+asynchronous boundaries. `camunda:asyncBefore` starts a segment before its activity.
+`camunda:asyncAfter` starts a segment after its activity. An `asyncAfter` marker on the delegate
+does not split the segment that runs it.
+For each path, the skill records the segment that runs the delegate and its synchronous activities.
+The skill records only the rollback effects of that segment. The skill checks exception paths in the
+delegate and its invoked services. The skill checks `camunda:asyncBefore`, `camunda:asyncAfter`,
+Spring transaction synchronization, `SecurityContextHolder`, `ThreadLocal`, and caller-identity
+access.
 
 | Source evidence | Required action | User decision |
 |---|---|---|
 | The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `open` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
-| At least one incoming BPMN path reaches the delegate without `camunda:asyncBefore`, predecessor `camunda:asyncAfter`, or another asynchronous transaction boundary. | Record each affected path and the C7 command that runs the delegate. Record each failure path and the process-state changes that the C7 command rolls back. Mark that rollback behavior as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
+| At least one incoming path places process start, a wait-state completion, or a synchronous predecessor in the same C7 command segment as the delegate. | Record that segment, its activities, exception paths, and the process-state changes it rolls back. Mark those rollback effects as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
 If the first row matches, then the skill stops the transformation and asks the user to supply
