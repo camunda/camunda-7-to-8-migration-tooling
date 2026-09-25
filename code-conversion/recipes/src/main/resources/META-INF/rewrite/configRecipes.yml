@@ -51,7 +51,7 @@ description: >-
   prevent declared @JobWorker methods from registering, without contacting a Camunda cluster.
 preconditions:
   - org.openrewrite.FindSourceFiles:
-      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
+      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml;**/src/main/java/**/*.java"
 recipeList:
   - io.camunda.migration.code.recipes.config.ValidateCamundaClientProperties
   - io.camunda.migration.code.recipes.config.ValidateCamundaClientYaml

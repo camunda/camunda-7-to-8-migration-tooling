@@ -80,6 +80,33 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
+  void flagsAnnotationDisabledWorkersWithoutApplicationConfiguration() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResource(
+                "/META-INF/rewrite/configRecipes.yml",
+                "io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe"),
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment", enabled = false)
+                void handle() {}
+            }
+            """,
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                /*~~(The job worker is disabled by the @JobWorker `enabled=false` attribute. Verify its runtime registration before marking workers ready.)~~>*/@JobWorker(type = "process-payment", enabled = false)
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/com/example/PaymentWorker.java")));
+  }
+
+  @Test
   void detectsInvalidNestedYamlConfiguration() {
     rewriteRun(
         yaml(
