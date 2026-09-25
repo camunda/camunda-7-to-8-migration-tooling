@@ -30,5 +30,6 @@ They also verify that both paths update directory membership.
 
 Tell the skill that the library is incompatible with the target runtime and that no replacement has
 project-owner approval. Compare the generated `MIGRATION_REPORT.md` with
-`expected-blocked/MIGRATION_REPORT.md`. The report must list both call sites as blockers. The skill
-must not replace either path with an exception or fabricated license material.
+`expected-blocked/MIGRATION_REPORT.md`. The report must record the dependency's uses, target
+compatibility, classification, and decision. It must mark both call sites as blocking/manual. The
+skill must not replace either path with an exception or fabricated license material.

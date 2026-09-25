@@ -44,7 +44,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The dependency catalog must require a blocker when no replacement is approved.",
         )
 
-        blocked_report = " ".join(BLOCKED_REPORT_PATH.read_text().lower().split())
+        blocked_report_source = BLOCKED_REPORT_PATH.read_text().lower()
+        blocked_report = " ".join(blocked_report_source.split())
         self.assertTrue(
             "licenseprovisioningservice.createlicense" in blocked_report,
             "The blocked report must name the create call site.",
@@ -54,9 +55,62 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The blocked report must name the update call site.",
         )
         self.assertTrue(
-            "blocks both license flows" in blocked_report,
+            "block both license flows" in blocked_report,
             "The blocked report must state that both flows remain blocked.",
         )
+
+        self.assertIn(
+            "## dependency inventory",
+            blocked_report,
+            "The blocked report must inventory the dependency before its open items.",
+        )
+        self.assertLess(
+            blocked_report.index("## dependency inventory"),
+            blocked_report.index("## open items"),
+            "The dependency inventory must precede the open items.",
+        )
+        self.assertIn(
+            "| dependency | uses | target compatibility | classification | decision |",
+            blocked_report,
+            "The dependency inventory must record every required field.",
+        )
+        dependency_rows = [
+            [cell.strip() for cell in row.strip("|").split("|")]
+            for row in blocked_report_source.splitlines()
+            if row.startswith("| `org.camunda.bpm:license-generator-fixture` |")
+        ]
+        self.assertEqual(
+            len(dependency_rows),
+            1,
+            "The blocked report must contain one inventory row for the active dependency.",
+        )
+        dependency, uses, compatibility, classification, decision = dependency_rows[0]
+        self.assertIn("licenseprovisioningservice.createlicense", uses)
+        self.assertIn("licenseprovisioningservice.updatelicense", uses)
+        self.assertIn("license type", uses)
+        self.assertIn("membership", uses)
+        self.assertIn("incompatible with the target runtime", compatibility)
+        self.assertIn("active domain library", classification)
+        self.assertIn("review signal", classification)
+        self.assertIn("no project-owner-approved replacement", decision)
+        self.assertIn("blocking/manual", decision)
+        self.assertIn("do not report either flow as migrated", decision)
+        self.assertEqual(
+            dependency,
+            "`org.camunda.bpm:license-generator-fixture`",
+        )
+
+        open_items = blocked_report_source.split("## open items", maxsplit=1)[1]
+        for call_site in (
+            "licenseprovisioningservice.createlicense",
+            "licenseprovisioningservice.updatelicense",
+        ):
+            with self.subTest(call_site=call_site):
+                rows = [
+                    row for row in open_items.splitlines() if f"`{call_site}`" in row
+                ]
+                self.assertEqual(len(rows), 1, f"Expected one open item for {call_site}.")
+                self.assertIn("`blocking/manual`", rows[0])
 
 
 if __name__ == "__main__":
