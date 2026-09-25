@@ -4,14 +4,20 @@ This fixture checks that the migration flow keeps custom incident notifications 
 
 ## Source behavior
 
-The Camunda 7 application has two classes:
+The Camunda 7 default handler stores failed-job incidents. The custom handler adds a synchronous email notification.
 
 | Source file | Behavior |
 |---|---|
-| `incident/IncidentHandlerProcessEnginePlugin.java` | Registers `ErrorNotificationIncidentHandler`. |
-| `incident/ErrorNotificationIncidentHandler.java` | Creates an incident for a failed job and sends an error notification to configured recipients. |
+| `pom.xml` | Declares the Camunda 7 engine and JavaMail dependencies. |
+| `src/main/java/org/camunda/bpm/example/incident/EngineConfigurationFactory.java` | Adds the incident handler plugin to the process engine configuration. |
+| `src/main/java/org/camunda/bpm/example/incident/IncidentHandlerProcessEnginePlugin.java` | Enables composite handlers and registers the custom `failedJob` handler. |
+| `src/main/java/org/camunda/bpm/example/incident/ErrorNotificationIncidentHandler.java` | Sends an email for each failed-job handler invocation. |
+| `src/main/java/org/camunda/bpm/example/incident/EmailNotificationClient.java` | Sends SMTP email with the failure message and incident context. |
+| `src/main/resources/incident-notifications.properties` | Defines the SMTP settings and recipient addresses. |
 
-The incident and notification are separate observable behaviors. Both belong to the application's operational behavior.
+The email includes the process definition, execution, activity, job definition, and failure message.
+The handler does not deduplicate notifications or retry failed deliveries.
+Compile the sample with `mvn test` from this directory. The command does not start the engine or send email.
 
 ## Expected assessment
 
@@ -21,9 +27,9 @@ The migration flow must ask the project owner to choose one path:
 
 | Project decision | Expected result |
 |---|---|
-| Implement a Camunda 8-compatible integration | Keep the flow blocked until disposable-target verification passes. |
+| Implement a Camunda 8-compatible integration | Allow handler replacement after approval. Keep the finding `blocked` until disposable-target verification passes. |
 | Waive notification behavior | Record the approver, date, reason, accepted behavior loss, and decision reference. Resolve the finding as `waived`, not `verified`. |
-| No decision recorded | Mark the finding `blocked`, add an open report item, and stop before conversion or deployment. |
+| No decision recorded | Mark the finding `blocked`, add an open report item, and stop before Step 3 confirmation or deployment. |
 
 The finding is not resolved because a worker registers, a Camunda 8 incident appears, or Operate displays the incident.
 
@@ -53,4 +59,4 @@ Keep these results separate in the migration report:
 
 Compilation, worker registration, and incident visibility do not prove notification parity.
 
-This fixture defines a migration assessment and test plan. It does not provide an alerting integration or claim that notification delivery was tested.
+This fixture provides a Camunda 7 sample handler and SMTP notification client. It does not provide a Camunda 8 integration or claim that notification delivery was tested.

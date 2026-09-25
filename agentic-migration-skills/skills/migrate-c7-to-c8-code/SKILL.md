@@ -52,8 +52,9 @@ model in `MIGRATION_REPORT.md`.
 
 1. The project declares Camunda 7 (camunda-bpm) dependencies in Maven or Gradle.
 2. The project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers,
-   ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
-   `camunda:` namespace, or application config with `camunda.*` keys.
+   ProcessEngine/RuntimeService client code, execution/task listeners, implementations of
+   `org.camunda.bpm.engine.impl.incident.IncidentHandler`, `ProcessEnginePlugin` registrations,
+   BPMN/DMN files with the `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
 4. Where the user selects OpenRewrite, require Maven or Gradle.
 5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
@@ -231,10 +232,10 @@ Present one required project decision for each finding:
 | Implement and verify a Camunda 8-compatible integration | Target, integration, owner, recipients, approved context, duplicate policy, and redaction rules | Keep the flow `blocked` until target checks pass |
 | Waive notification behavior | Approver, date, reason, accepted behavior loss, and decision reference | Resolve the finding as `waived`. Do not claim parity. |
 
-If no decision is recorded, mark the finding `blocked`.
-Add an `open` item to `MIGRATION_REPORT.md` with the source call site and decision question.
-Stop before Step 3 confirmation or deployment.
-Do not remove or replace the handler while the finding is blocked.
+If the project has no decision, then mark the finding `blocked`.
+If the project has no decision, then add an `open` item to `MIGRATION_REPORT.md` with the source call site and decision question.
+If the project has no decision, then stop before Step 3 confirmation or deployment.
+Before the project records a decision, do not remove or replace the handler.
 
 For Camunda 8.9, [Console alerts](https://docs.camunda.io/docs/components/console/manage-clusters/manage-alerts/)
 can send email or webhook alerts when a process instance stops with an error.
