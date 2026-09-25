@@ -34,6 +34,10 @@ They reject summary and report paths inside the evidence log directory, includin
 They reject summary and report hard links to log files when the manifest is malformed or its `checks` field is invalid.
 They reject `deployable: false` waivers and passed test, lint, deployment, process, or timer commands
 that omit their target or check selector.
+They reject target and selector values that match only by substring, altered path punctuation, or
+an unrelated command option.
+They reject commands with CR/LF and test commands that skip or exclude tests, use dry-run options,
+or ignore test failures.
 They also reject standalone processes without passing worker-input inventory evidence, omitted
 missing-input direct-start scenarios, and malformed report gates that leave stale `READY` claims.
 The tests reject executed checks that reuse evidence files.

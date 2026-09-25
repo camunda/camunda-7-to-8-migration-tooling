@@ -74,10 +74,27 @@ Set `command` to the exact invocation for each command check. Use one direct com
 shell no-op, inline interpreter code, or shell operators. The validator rejects these forms for every
 passed command check.
 
+The validator rejects carriage returns and line feeds in passed commands. It matches module and
+model targets by exact relative paths or absolute paths with exact target components at the end.
+Path comparisons use platform case rules. The validator matches process IDs, timer-start IDs, and
+process or timer check selectors by exact argument values.
+
 For module tests, include the module path and test suite name. For model lint and deployment, include
 the model path and operation. For process checks, include the process ID and check selector. For
 timer preflights, include the process ID, timer-start ID, and check selector. The validator checks
 these targets and selectors before it accepts a passed result.
+
+For Maven tests, select a module with `-pl` or `--projects`, or select its `pom.xml` with `-f` or
+`--file`. For Gradle tests, select a project with `-p` or `--project-dir`, or use a qualified test
+task. Record the module suite scenario as an exact profile, scenario value, or test selector. A test
+class selector can use the scenario name with `Test`, `Tests`, or `IT` appended. The validator accepts
+a test pattern only when it selects a class name derived from the scenario. Omit the test selector
+only for the default Maven `unit` suite.
+
+Never mark a test, process, or timer check as passed when its command skips tests, excludes a test
+task, requests a dry run, or ignores test failures. Maven suppression options include `-DskipTests`,
+`-Dmaven.test.skip`, `-DskipITs`, and `-Dmaven.test.failure.ignore`. Gradle suppression options
+include `-x`, `--exclude-task`, `--dry-run`, and `--test-dry-run`.
 
 | Result | Meaning | Required evidence |
 |---|---|---|

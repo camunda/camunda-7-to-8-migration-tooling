@@ -505,6 +505,437 @@ class ValidationEvidenceTest(unittest.TestCase):
                 module_test["command"] = invalid_command
                 self.assertIsNotNone(gate.passed_command_error(module_test))
 
+    def test_passed_command_targets_require_exact_values(self):
+        cases = (
+            (
+                "module path selector",
+                {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                },
+                (
+                    "mvn -pl examples/web2 -Dnote=examples/web test "
+                    "-Dtest=WebSmokeTest"
+                ),
+            ),
+            (
+                "module path with unrelated relative prefix",
+                {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                },
+                (
+                    "mvn -pl other/examples/web test "
+                    "-Dtest=WebSmokeTest"
+                ),
+            ),
+            (
+                "module test suite",
+                {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                },
+                "mvn -pl examples/web test -Dtest=WebSmokeTestExtra",
+            ),
+            (
+                "module test suite with different casing",
+                {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                },
+                "mvn -pl examples/web test -Dtest=WebSmoketest",
+            ),
+            (
+                "module suite mentioned outside a selector",
+                {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                },
+                "mvn -pl examples/web test -Dnote=web-smoke",
+            ),
+            (
+                "model path",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "lint",
+                    "scenario": None,
+                },
+                "npx bpmnlint models/converted-c8-order.bpmn.backup",
+            ),
+            (
+                "model path with unrelated relative prefix",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "lint",
+                    "scenario": None,
+                },
+                "npx bpmnlint other/models/converted-c8-order.bpmn",
+            ),
+            (
+                "model path with trailing component",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "lint",
+                    "scenario": None,
+                },
+                "npx bpmnlint models/converted-c8-order.bpmn/backup",
+            ),
+            (
+                "model path with altered punctuation",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "lint",
+                    "scenario": None,
+                },
+                "npx bpmnlint models/converted-c8-order-bpmn",
+            ),
+            (
+                "model path mentioned in an unrelated option",
+                {
+                    "target_type": "model",
+                    "target": "models/converted-c8-order.bpmn",
+                    "kind": "lint",
+                    "scenario": None,
+                },
+                (
+                    "npx bpmnlint models/other-order.bpmn "
+                    "-Dnote=models/converted-c8-order.bpmn"
+                ),
+            ),
+            (
+                "process ID",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=order-process-extra "
+                    "-DvalidationCheck=downstream_message_instance"
+                ),
+            ),
+            (
+                "process ID with altered punctuation",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=orderprocess "
+                    "-DvalidationCheck=downstream_message_instance"
+                ),
+            ),
+            (
+                "process ID with different casing",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=Order-Process "
+                    "-DvalidationCheck=downstream_message_instance"
+                ),
+            ),
+            (
+                "process ID mentioned outside its option",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-Dnote=order-process "
+                    "-DvalidationCheck=downstream_message_instance"
+                ),
+            ),
+            (
+                "process check selector",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=order-process "
+                    "-DvalidationCheck=downstream_message_instance_retry"
+                ),
+            ),
+            (
+                "process selector with altered punctuation",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=order-process "
+                    "-DvalidationCheck=downstreammessageinstance"
+                ),
+            ),
+            (
+                "process selector with different casing",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=order-process "
+                    "-DvalidationCheck=Downstream_message_instance"
+                ),
+            ),
+            (
+                "process selector mentioned outside its option",
+                {
+                    "target_type": "process",
+                    "target": "models/converted-c8-order.bpmn#order-process",
+                    "kind": "downstream_message_instance",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTest "
+                    "-DprocessId=order-process "
+                    "-Dnote=downstream_message_instance"
+                ),
+            ),
+            (
+                "timer-start ID",
+                {
+                    "target_type": "timer",
+                    "target": (
+                        "models/converted-c8-order.bpmn#order-process"
+                        "#repeat-start"
+                    ),
+                    "kind": "timer_preflight",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTimerPreflightTest "
+                    "-DprocessId=order-process "
+                    "-DtimerStartId=repeat-start-extra "
+                    "-DvalidationCheck=timer_preflight"
+                ),
+            ),
+            (
+                "timer-start ID mentioned outside its option",
+                {
+                    "target_type": "timer",
+                    "target": (
+                        "models/converted-c8-order.bpmn#order-process"
+                        "#repeat-start"
+                    ),
+                    "kind": "timer_preflight",
+                    "scenario": None,
+                },
+                (
+                    "mvn test -Dtest=OrderProcessTimerPreflightTest "
+                    "-DprocessId=order-process "
+                    "-Dnote=repeat-start "
+                    "-DvalidationCheck=timer_preflight"
+                ),
+            ),
+        )
+        for name, check, command in cases:
+            with self.subTest(name=name):
+                check.update({"method": "command", "result": "passed"})
+                check["command"] = command
+                self.assertIsNotNone(gate.passed_command_error(check))
+
+    def test_passed_command_target_matching_accepts_build_tool_selectors(self):
+        cases = (
+            (
+                "Maven project list",
+                "mvn --projects=examples/web,examples/api test "
+                "-Dtest=WebSmokeTest",
+            ),
+            (
+                "Maven POM selection",
+                "mvn -f examples/web/pom.xml test -Dtest=WebSmokeTest",
+            ),
+            (
+                "absolute Maven POM selection",
+                (
+                    "mvn -f /workspace/examples/web/pom.xml "
+                    "test -Dtest=WebSmokeTest"
+                ),
+            ),
+            (
+                "absolute Maven project selection",
+                (
+                    "mvn -pl /workspace/examples/web test "
+                    "-Dtest=WebSmokeTest"
+                ),
+            ),
+            (
+                "Gradle project directory",
+                "./gradlew -p examples/web test --tests WebSmokeTest",
+            ),
+            (
+                "Gradle qualified task",
+                "./gradlew :examples:web:test --tests WebSmokeTest",
+            ),
+            (
+                "absolute Gradle project directory",
+                "./gradlew -p /workspace/examples/web test "
+                "--tests WebSmokeTest",
+            ),
+        )
+        for name, command in cases:
+            with self.subTest(name=name):
+                check = {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": "web-smoke",
+                    "method": "command",
+                    "result": "passed",
+                    "command": command,
+                }
+                self.assertIsNone(gate.passed_command_error(check))
+
+        for scenario, command in (
+            ("unit", "mvn -pl examples/web test"),
+            (
+                "container-integration",
+                "mvn -pl examples/web verify -Pintegration "
+                "-Dtest=ContainerIntegrationTest",
+            ),
+            (
+                "web-smoke",
+                "mvn -pl examples/web test -Dtest=WebSmokeTest",
+            ),
+        ):
+            with self.subTest(scenario=scenario):
+                check = {
+                    "target_type": "module",
+                    "target": "examples/web",
+                    "kind": "tests",
+                    "scenario": scenario,
+                    "method": "command",
+                    "result": "passed",
+                    "command": command,
+                }
+                self.assertIsNone(gate.passed_command_error(check))
+
+        profile_check = {
+            "target_type": "module",
+            "target": "examples/web",
+            "kind": "tests",
+            "scenario": "web-smoke",
+            "method": "command",
+            "result": "passed",
+            "command": (
+                "mvn -pl examples/web test -PWeb-Smoke "
+                "-Dtest=GenericTest"
+            ),
+        }
+        self.assertIsNotNone(gate.passed_command_error(profile_check))
+
+    def test_passed_commands_reject_newline_characters(self):
+        check = {
+            "target_type": "module",
+            "target": "examples/web",
+            "kind": "tests",
+            "scenario": "web-smoke",
+            "method": "command",
+            "result": "passed",
+            "command": "",
+        }
+        command = "mvn -pl examples/web test -Dtest=WebSmokeTest"
+        for separator in ("\n", "\r", "\r\n"):
+            with self.subTest(separator=repr(separator)):
+                check["command"] = command + separator + "true"
+                self.assertIsNotNone(gate.passed_command_error(check))
+
+    def test_passed_test_commands_reject_execution_suppression(self):
+        module_check = {
+            "target_type": "module",
+            "target": "examples/web",
+            "kind": "tests",
+            "scenario": "web-smoke",
+            "method": "command",
+            "result": "passed",
+            "command": "",
+        }
+        suppressed_commands = (
+            "mvn -pl examples/web test -Dtest=WebSmokeTest -DskipTests",
+            "mvn -pl examples/web test -Dtest=WebSmokeTest "
+            "-Dmaven.test.skip=true",
+            "mvn -pl examples/web verify -Pintegration "
+            "-Dit.test=WebSmokeIT -DskipITs",
+            "mvn -pl examples/web test -Dtest=WebSmokeTest "
+            "-Dmaven.test.failure.ignore=true",
+            "./gradlew -p examples/web test --tests WebSmokeTest -x test",
+            "./gradlew -p examples/web test --tests WebSmokeTest "
+            "--exclude-task=test",
+            "./gradlew -p examples/web test --tests WebSmokeTest --dry-run",
+            "./gradlew -p examples/web test --tests WebSmokeTest "
+            "--test-dry-run",
+            "./gradlew -p examples/web test --tests WebSmokeTest "
+            "-PskipTests=true",
+        )
+        for command in suppressed_commands:
+            with self.subTest(command=command):
+                module_check["command"] = command
+                self.assertIsNotNone(gate.passed_command_error(module_check))
+
+        for command in (
+            "mvn -pl examples/web test -Dtest=WebSmokeTest "
+            "-DskipTests=false",
+            "mvn -pl examples/web test -Dtest=WebSmokeTest "
+            "-Dmaven.test.skip=false",
+            "./gradlew -p examples/web test --tests WebSmokeTest "
+            "-PskipTests=false",
+        ):
+            with self.subTest(command=command):
+                module_check["command"] = command
+                self.assertIsNone(gate.passed_command_error(module_check))
+
+        process_check = {
+            "target_type": "process",
+            "target": "models/converted-c8-order.bpmn#order-process",
+            "kind": "downstream_message_instance",
+            "scenario": None,
+            "method": "command",
+            "result": "passed",
+            "command": (
+                "mvn test -Dtest=OrderProcessTest "
+                "-DprocessId=order-process "
+                "-DvalidationCheck=downstream_message_instance -DskipTests"
+            ),
+        }
+        self.assertIsNotNone(gate.passed_command_error(process_check))
+
     def test_contradictory_report_is_not_ready(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary) / "project"

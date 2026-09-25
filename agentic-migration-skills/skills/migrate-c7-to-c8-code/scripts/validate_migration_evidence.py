@@ -2,6 +2,7 @@
 """Validate migration check evidence and write the aggregate gate summary."""
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -409,13 +410,318 @@ def normalize_command_value(value):
     return re.sub(r"[^a-z0-9]", "", value.casefold())
 
 
+TEST_ACTIONS = {
+    "test",
+    "tests",
+    "verify",
+    "integrationtest",
+    "check",
+    "unittest",
+    "pytest",
+    "vitest",
+    "jest",
+}
+
+
+def command_path_components(value):
+    if not isinstance(value, str):
+        return []
+    components = []
+    for component in re.split(r"[/\\:]", value):
+        if component in {"", "."}:
+            continue
+        if component == "..":
+            components.append(component)
+            continue
+        normalized = os.path.normcase(component)
+        if normalized:
+            components.append(normalized)
+    return components
+
+
+def command_option_values(tokens, options):
+    for index, token in enumerate(tokens):
+        for option in options:
+            if token == option and index + 1 < len(tokens):
+                yield tokens[index + 1]
+            elif token.startswith(option + "="):
+                yield token[len(option) + 1 :]
+
+
+def command_property_entries(tokens):
+    for index, token in enumerate(tokens):
+        if token in {"-D", "-P"}:
+            if index + 1 >= len(tokens):
+                continue
+            property_value = tokens[index + 1]
+        elif token.startswith("-D") or token.startswith("-P"):
+            property_value = token[2:]
+        else:
+            continue
+        if "=" in property_value:
+            name, value = property_value.split("=", 1)
+        else:
+            name, value = property_value, None
+        if name:
+            yield normalize_command_value(name), value
+
+
+def command_named_value_matches(
+    tokens, property_names, option_names, expected_value
+):
+    if not is_nonempty_string(expected_value):
+        return False
+    expected = expected_value.strip()
+    normalized_names = {
+        normalize_command_value(name) for name in property_names
+    }
+    for name, value in command_property_entries(tokens):
+        if (
+            name in normalized_names
+            and value is not None
+            and value.strip() == expected
+        ):
+            return True
+    return any(
+        value.strip() == expected
+        for value in command_option_values(tokens, option_names)
+    )
+
+
+def command_profile_values(tokens):
+    for index, token in enumerate(tokens):
+        if token == "-P":
+            if index + 1 >= len(tokens):
+                continue
+            profile_list = tokens[index + 1]
+        elif token.startswith("-P") and len(token) > 2:
+            profile_list = token[2:]
+        else:
+            continue
+        for profile in profile_list.split(","):
+            profile_name = profile.split("=", 1)[0].strip()
+            if profile_name:
+                yield profile_name
+
+
 def command_has_action(tokens, actions):
-    return any(normalize_command_value(token) in actions for token in tokens)
+    for token in tokens:
+        if normalize_command_value(token) in actions:
+            return True
+        path_components = command_path_components(token)
+        if (
+            path_components
+            and normalize_command_value(path_components[-1]) in actions
+        ):
+            return True
+    return False
 
 
-def command_includes(command_text, value):
-    normalized_value = normalize_command_value(value)
-    return bool(normalized_value) and normalized_value in command_text
+def command_path_is_absolute(value):
+    normalized = value.replace("\\", "/")
+    return normalized.startswith("/") or bool(
+        re.match(r"^[A-Za-z]:/", normalized)
+    )
+
+
+def command_path_matches_suffix(value, target):
+    path_components = command_path_components(value)
+    target_components = command_path_components(target)
+    if not target_components or ".." in path_components:
+        return False
+    if path_components == target_components:
+        return True
+    return (
+        command_path_is_absolute(value)
+        and len(path_components) > len(target_components)
+        and path_components[-len(target_components) :] == target_components
+    )
+
+
+def command_includes_model_path(tokens, target):
+    path_options = {"-f", "--file", "--model", "--path", "--resource"}
+    path_values = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token in path_options:
+            index += 2
+            continue
+        if token.startswith("-"):
+            for option in path_options:
+                if token.startswith(option + "="):
+                    path_values.append(token[len(option) + 1 :])
+                    break
+        else:
+            path_values.append(token)
+        index += 1
+    return any(
+        command_path_matches_suffix(path, target) for path in path_values
+    )
+
+
+def command_includes_module_target(tokens, target, executable):
+    target_components = command_path_components(target)
+    if not target_components:
+        return False
+    maven_commands = {"mvn", "mvnw", "mvn.cmd", "mvnw.cmd"}
+    gradle_commands = {"gradle", "gradlew", "gradle.bat", "gradlew.bat"}
+    if executable in maven_commands:
+        for project_list in command_option_values(
+            tokens, {"-pl", "--projects"}
+        ):
+            for project in project_list.split(","):
+                project = project.strip()
+                if project.startswith(("!", "-")):
+                    continue
+                if command_path_matches_suffix(project, target):
+                    return True
+        for pom_file in command_option_values(tokens, {"-f", "--file"}):
+            pom_components = command_path_components(pom_file)
+            pom_directory = pom_components[:-1]
+            if (
+                ".." not in pom_components
+                and len(pom_components) > 1
+                and pom_components[-1] == "pom.xml"
+                and (
+                    pom_directory == target_components
+                    or (
+                        command_path_is_absolute(pom_file)
+                        and len(pom_directory) > len(target_components)
+                        and pom_directory[-len(target_components) :]
+                        == target_components
+                    )
+                )
+            ):
+                return True
+        return False
+    if executable in gradle_commands:
+        for project_directory in command_option_values(
+            tokens, {"-p", "--project-dir"}
+        ):
+            if command_path_matches_suffix(project_directory, target):
+                return True
+        target_components = command_path_components(target)
+        for token in tokens:
+            task_components = command_path_components(token)
+            if (
+                token.startswith(":")
+                and len(task_components) > len(target_components)
+                and task_components[: len(target_components)]
+                == target_components
+                and normalize_command_value(task_components[-1])
+                in TEST_ACTIONS
+            ):
+                return True
+        return False
+    return any(
+        command_path_matches_suffix(token, target)
+        for token in tokens
+        if not token.startswith("-")
+    )
+
+
+def command_test_suite_values(tokens):
+    for name, value in command_property_entries(tokens):
+        if name in {"test", "ittest"} and value is not None:
+            yield from value.split(",")
+    yield from command_option_values(tokens, {"--tests"})
+
+
+def command_test_suite_matches(value, scenario):
+    suite_pattern = value.split("#", 1)[0].strip()
+    if not suite_pattern:
+        return False
+    suite_name = re.split(r"[/\\.:]", suite_pattern)[-1]
+    scenario_name = "".join(
+        part[:1].upper() + part[1:]
+        for part in re.split(r"[-_./\s]+", scenario.strip())
+        if part
+    )
+    expected_suite_names = {
+        scenario.strip(),
+        scenario_name,
+        scenario_name + "Test",
+        scenario_name + "Tests",
+        scenario_name + "IT",
+    }
+    return any(
+        fnmatch.fnmatchcase(expected_name, suite_name)
+        for expected_name in expected_suite_names
+    )
+
+
+def command_selects_test_suite(tokens, scenario, executable):
+    if not is_nonempty_string(scenario):
+        return True
+    if command_named_value_matches(
+        tokens, {"scenario"}, {"--scenario"}, scenario
+    ):
+        return True
+    if any(
+        profile == scenario.strip()
+        for profile in command_profile_values(tokens)
+    ):
+        return True
+    normalized_scenario = normalize_command_value(scenario)
+    if normalized_scenario in TEST_ACTIONS and command_has_action(
+        tokens, {normalized_scenario}
+    ):
+        return True
+    if any(
+        command_test_suite_matches(value, scenario)
+        for value in command_test_suite_values(tokens)
+    ):
+        return True
+    maven_commands = {"mvn", "mvnw", "mvn.cmd", "mvnw.cmd"}
+    has_explicit_suite = any(command_test_suite_values(tokens))
+    return (
+        normalize_command_value(scenario) == "unit"
+        and executable in maven_commands
+        and command_has_action(tokens, {"test"})
+        and not has_explicit_suite
+    )
+
+
+def command_suppresses_test_execution(tokens, executable):
+    suppressed_properties = {
+        "skiptest",
+        "skiptests",
+        "skipits",
+        "skipintegrationtests",
+        "testskip",
+        "gradletestskip",
+        "maventestskip",
+        "maventestskipexec",
+        "surefiresskip",
+        "failsafeskip",
+        "itskip",
+    }
+    failure_ignore_properties = {
+        "maventestfailureignore",
+        "testfailureignore",
+    }
+    false_values = {"", "false", "no", "off", "0"}
+    for name, value in command_property_entries(tokens):
+        if name in suppressed_properties | failure_ignore_properties:
+            if value is None or value.strip().casefold() not in false_values:
+                return True
+
+    gradle_commands = {"gradle", "gradlew", "gradle.bat", "gradlew.bat"}
+    if executable not in gradle_commands:
+        return False
+    if any(token in {"-m", "--dry-run", "--test-dry-run"} for token in tokens):
+        return True
+    for excluded_task in command_option_values(
+        tokens, {"-x", "--exclude-task"}
+    ):
+        task_components = command_path_components(excluded_task)
+        if (
+            task_components
+            and normalize_command_value(task_components[-1]) in TEST_ACTIONS
+        ):
+            return True
+    return False
 
 
 def passed_command_error(check):
@@ -424,6 +730,8 @@ def passed_command_error(check):
     command = check.get("command")
     if not is_nonempty_string(command):
         return "command must be an executable validation invocation"
+    if "\n" in command or "\r" in command:
+        return "command must be a single direct invocation without newlines"
     try:
         lexer = shlex.shlex(
             command,
@@ -480,7 +788,9 @@ def passed_command_error(check):
     if not executable_tokens:
         return "command must be an executable validation invocation"
 
-    executable = Path(executable_tokens[0]).name.casefold()
+    executable = executable_tokens[0].replace("\\", "/").rsplit("/", 1)[
+        -1
+    ].casefold()
     if executable in {
         "true",
         "false",
@@ -517,75 +827,112 @@ def passed_command_error(check):
     ):
         return "command must not use inline interpreter code"
 
-    command_text = normalize_command_value(" ".join(tokens))
     target_type = check.get("target_type")
     target = check.get("target")
     kind = check.get("kind")
     scenario = check.get("scenario")
-    test_actions = {
-        "test",
-        "tests",
-        "verify",
-        "integrationtest",
-        "check",
-        "unittest",
-        "pytest",
-        "vitest",
-        "jest",
-    }
 
     if target_type == "module" and kind == "tests":
-        if not command_includes(command_text, target):
+        if not command_includes_module_target(tokens, target, executable):
             return "command must include the declared module target"
-        if not command_has_action(tokens, test_actions):
+        if not command_has_action(tokens, TEST_ACTIONS):
             return "command must invoke a test suite"
-        if scenario and not command_includes(command_text, scenario):
+        if scenario and not command_selects_test_suite(
+            tokens, scenario, executable
+        ):
             return "command must select the declared test suite"
+        if command_suppresses_test_execution(tokens, executable):
+            return "command must not disable, skip, or ignore test execution"
     elif target_type == "model" and kind in {"lint", "deployment"}:
-        if not command_includes(command_text, target):
+        if not command_includes_model_path(tokens, target):
             return "command must include the declared model path"
-        if kind == "lint" and not command_includes(command_text, "lint"):
+        if kind == "lint" and not any(
+            normalize_command_value(token) in {"lint", "bpmnlint"}
+            for token in tokens
+        ):
             return "command must invoke model lint"
         if kind == "deployment" and not (
             command_has_action(tokens, {"deploy", "deployment"})
             or (
-                command_has_action(tokens, test_actions)
-                and command_includes(command_text, "deployment")
+                command_has_action(tokens, TEST_ACTIONS)
+                and command_named_value_matches(
+                    tokens,
+                    {"validationCheck"},
+                    {"--validation-check", "--validationCheck"},
+                    "deployment",
+                )
             )
         ):
             return "command must invoke model deployment"
+        if (
+            kind == "deployment"
+            and command_has_action(tokens, TEST_ACTIONS)
+            and command_suppresses_test_execution(tokens, executable)
+        ):
+            return "command must not disable, skip, or ignore test execution"
     elif target_type == "process":
         target_parts = target.split("#") if isinstance(target, str) else []
-        if len(target_parts) < 2 or not command_includes(
-            command_text, target_parts[1]
+        if len(target_parts) < 2 or not command_named_value_matches(
+            tokens,
+            {"processId"},
+            {"--process-id", "--processId"},
+            target_parts[1],
         ):
             return "command must include the declared process ID"
-        if not command_includes(command_text, kind):
+        if not command_named_value_matches(
+            tokens,
+            {"validationCheck"},
+            {"--validation-check", "--validationCheck"},
+            kind,
+        ):
             return "command must select the declared process check"
         if not command_has_action(
             tokens,
-            test_actions
+            TEST_ACTIONS
             | {"start", "run", "correlate", "publish", "complete", "deploy"},
         ):
             return "command must invoke a process test or operation"
-        if kind == "direct_start" and scenario and not command_includes(
-            command_text, scenario
+        if (
+            command_has_action(tokens, TEST_ACTIONS)
+            and command_suppresses_test_execution(tokens, executable)
+        ):
+            return "command must not disable, skip, or ignore test execution"
+        if kind == "direct_start" and scenario and not command_named_value_matches(
+            tokens, {"scenario"}, {"--scenario"}, scenario
         ):
             return "command must select the declared process-start scenario"
     elif target_type == "timer" and kind == "timer_preflight":
         target_parts = target.split("#") if isinstance(target, str) else []
         if (
             len(target_parts) != 3
-            or not command_includes(command_text, target_parts[1])
-            or not command_includes(command_text, target_parts[2])
+            or not command_named_value_matches(
+                tokens,
+                {"processId"},
+                {"--process-id", "--processId"},
+                target_parts[1],
+            )
+            or not command_named_value_matches(
+                tokens,
+                {"timerStartId"},
+                {"--timer-start-id", "--timerStartId"},
+                target_parts[2],
+            )
         ):
             return "command must include the declared process and timer-start IDs"
-        if not command_includes(command_text, kind):
-            return "command must select the timer preflight"
-        if not command_has_action(
-            tokens, test_actions | {"start", "run", "deploy"}
+        if not command_named_value_matches(
+            tokens,
+            {"validationCheck"},
+            {"--validation-check", "--validationCheck"},
+            kind,
         ):
+            return "command must select the timer preflight"
+        if not command_has_action(tokens, TEST_ACTIONS | {"start", "run", "deploy"}):
             return "command must invoke a timer test or operation"
+        if (
+            command_has_action(tokens, TEST_ACTIONS)
+            and command_suppresses_test_execution(tokens, executable)
+        ):
+            return "command must not disable, skip, or ignore test execution"
     return None
 
 

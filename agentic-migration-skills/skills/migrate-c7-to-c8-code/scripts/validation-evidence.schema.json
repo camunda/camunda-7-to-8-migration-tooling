@@ -331,7 +331,7 @@
           "command": {
             "type": "string",
             "minLength": 1,
-            "description": "For method=command, record the exact invocation. Passed commands must not use shell no-ops or inline code. Target and check selectors are enforced for module tests, model lint or deployment, process, and timer checks."
+            "description": "For method=command, record one exact invocation. Passed commands must not use shell no-ops, inline code, shell operators, or CR/LF. The validator matches paths by exact path components, process and check selectors by exact argument values, and test selectors only when they select the scenario-derived class. It rejects recognized Maven/Gradle test-suppression options."
           },
           "exit_code": {
             "type": ["integer", "null"]

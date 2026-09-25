@@ -94,6 +94,10 @@ applicability from converted BPMN and accepted form inventory. It rejects passed
 inline interpreter code.
 It checks targets and selectors for test, lint, deployment, process, and timer checks. It checks
 output file identity against every evidence log, even when the manifest is malformed.
+It matches paths by exact path components and process selectors by exact values, not substrings. It
+checks that test selectors include a class derived from the declared suite. It rejects carriage
+returns and line feeds in passed commands. It rejects test commands that skip or exclude tests, use
+dry-run options, or ignore test failures.
 
 ## Use
 
