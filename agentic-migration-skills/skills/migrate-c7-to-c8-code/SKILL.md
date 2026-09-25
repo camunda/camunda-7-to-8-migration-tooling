@@ -298,9 +298,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
 12. **Deployment resources** — where the application declares `@Deployment`, the skill builds the
     inventory from this run's converted-file paths and accepted generated forms. The skill creates
-    one annotation entry per included resource type. The skill resolves each entry with Spring's
-    `PathMatchingResourcePatternResolver` against packaged resources. Each entry must match a
-    non-empty subset of the inventory, and their union must equal it. A test that disables
+    one annotation entry per included resource type. It resolves each entry with Spring's
+    `PathMatchingResourcePatternResolver` against the build classpath. Each entry must match a
+    non-empty subset of the inventory, and their union must equal it. After packaging, the skill
+    confirms every matched resource exists in the application artifact. A test that disables
     annotation deployment does not validate this wiring.
 13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
@@ -384,11 +385,13 @@ target version. See the linting section in `references/model-migration-approache
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
 21. When the user selects M1, the skill records the CLI release tag, JAR path, and target version.
-    The skill compares each source-inventoried start listener with the converter finding and
-    converted copy. If either check fails, then the skill adds a source-derived blocking row and
-    marks compatibility **blocked**. A worker does not satisfy this check. The skill re-resolves
-    the latest release before using an earlier result. The skill requires explicit user approval for
-    the manual follow-up in `references/model-migration-approaches.md`.
+    The skill matches each finding by the CLI `filename` and source start-event ID. If a finding
+    cannot map to one source start event, then the skill marks compatibility **blocked**. A worker
+    does not satisfy this check. If the report omits a finding, then the skill adds a source-derived
+    row. If either artifact check fails, then the skill marks compatibility **blocked** and follows
+    the replacement-run procedure in `references/model-migration-approaches.md` before treating any
+    reports or converted copies as authoritative. The skill requires explicit user approval for the
+    manual follow-up.
 22. Where the user authorizes deployment to a test target matching the declared Camunda 8 version,
     the skill deploys every converted BPMN and DMN. When c8ctl is configured, the skill checks
     `c8ctl which profile` and runs `c8ctl deploy <converted-file> --profile=<name>`. The skill uses
@@ -422,7 +425,8 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
-| Deployment patterns | Each `@Deployment` entry resolves to a non-empty subset of the packaged inventory. The union equals the inventory. | Each pattern and its resolved resources |
+| Deployment patterns | Each `@Deployment` entry resolves to a non-empty subset of the inventory. Their union equals the inventory. | Each pattern and its resolved resources |
+| Packaged resources | The final application artifact contains every resource resolved by those patterns. | Artifact path and packaged resource entries |
 | Target deployment | Every converted BPMN and DMN deploys to the declared target version. | Target version, resource path, and deployment result |
 
 Record one verification row per category/impact row with its check results and `pending`, `passed`, or

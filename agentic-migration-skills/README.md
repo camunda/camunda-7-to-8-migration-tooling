@@ -205,8 +205,9 @@ fixtures/                                  ← sample projects for manual regres
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
 The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment
-patterns with Spring's resource resolver. The `fixtures/start-event-listener-artifact`
-walkthrough checks a selected converter JAR against a start-listener case and a control case.
+patterns with Spring's resource resolver and verifies the packaged JAR inventory.
+The `fixtures/start-event-listener-artifact` walkthrough checks a selected converter
+JAR against an exact start-listener finding and a no-listener control.
 
 ## License
 

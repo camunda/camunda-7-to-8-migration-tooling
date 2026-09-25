@@ -114,20 +114,35 @@ directory. Otherwise, use another explicitly non-packaged directory.
 
 ### 3b. Verify selected artifact behavior
 
-The skill compares the Step 2 source inventory of start-event listeners with the selected JAR's JSON
-report and fresh converted copies. The skill matches each item by source filename and start-event
-ID. The skill requires a matching `execution-listener-on-start-event` finding for each source
-listener. The skill adds a source-derived row when the report omits a finding.
+The skill compares the Step 2 source inventory with the selected JAR's JSON report and fresh
+converted copies. It matches the report's `filename` value to the source path and the report's
+`elementId` value to the start-event ID. For directory input, the CLI reports a path relative to the
+input directory. For single-file input, the CLI reports the filename. The skill uses the report path
+exactly. If this pair does not identify exactly one source start event, then the skill blocks
+compatibility and asks the user to resolve the mapping. The skill requires a matching
+`execution-listener-on-start-event` finding for each source listener. If the report omits a finding,
+the skill adds a source-derived blocking row. That row does not count as a converter match.
 
 The skill parses each converted copy with a namespace-aware XML parser. If a converted
 `bpmn:startEvent` still contains a direct `zeebe:executionListener` with `eventType="start"`, then
 the skill rejects the artifact. A matching worker does not make that placement deployable.
 
-If the selected artifact fails either check, then the skill resolves the latest release once more and
-repeats the check with the same target version. The skill uses the newer JAR only when it passes. If
-no published JAR passes, then the skill asks the user whether to apply the validated, manual
-follow-up in step 5d.3 to the earlier copy. The skill keeps model readiness blocked until the user
-approves that follow-up and its checks pass.
+If either artifact check fails, then the skill resolves the latest release once. The skill copies
+every original in-scope model into a clean staging directory and preserves each model's relative path.
+It runs the replacement JAR with the same target version and converter options as the failed run. The
+skill captures the replacement run's report paths and relocates those reports under step 3a. It
+repeats both artifact checks against the replacement run.
+
+If the replacement run passes both checks, then the skill archives the failed run's fresh converted
+copies outside packaged resource directories. The skill moves each replacement copy beside its
+matching original without overwriting any file. It uses only the replacement run's reports and
+converted copies for later validation and deployment. It records the replacement release tag, JAR
+path, target version, report paths, and converted-copy paths. If an archive or destination path
+conflicts, the skill keeps model readiness blocked and asks the user to resolve the conflict.
+
+If no published JAR passes both checks, then the skill asks whether to apply the manual follow-up in
+step 5d.3. The skill applies it only to the initial run's converted copy after user approval. The
+skill keeps model readiness blocked until that follow-up passes its checks.
 
 ### 4. Surface Outputs
 

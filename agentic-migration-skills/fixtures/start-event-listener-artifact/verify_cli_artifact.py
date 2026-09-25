@@ -56,13 +56,35 @@ def convert_case(java, jar, source, target_version, work_directory):
     return json.loads(report_file.read_text(encoding="utf-8")), converted_file
 
 
-def find_start_listener(report, source_name):
+def find_start_listener(report):
+    require(isinstance(report, list), "The converter JSON report must be an array.")
+    require(
+        all(isinstance(finding, dict) for finding in report),
+        "Every converter JSON report entry must be an object.",
+    )
     return [
         finding
         for finding in report
         if finding.get("messageId") == CATEGORY
-        and Path(finding.get("filename") or "").name == source_name
     ]
+
+
+def require_listener_finding(report, source_name):
+    findings = find_start_listener(report)
+    require(
+        len(findings) == 1
+        and findings[0].get("filename") == source_name
+        and findings[0].get("elementId") == "Start_Listener",
+        f"The listener model must report exactly one matching {CATEGORY} "
+        f"finding for {source_name} at Start_Listener.",
+    )
+
+
+def require_no_listener_findings(report):
+    require(
+        not find_start_listener(report),
+        f"The no-listener control must not report {CATEGORY}.",
+    )
 
 
 def has_unsupported_start_listener(converted_file):
@@ -108,18 +130,8 @@ def main():
             temporary_directory / "control",
         )
 
-        listener_findings = find_start_listener(listener_report, listener_source.name)
-        require(
-            len(listener_findings) == 1
-            and listener_findings[0].get("elementId") == "Start_Listener",
-            "The listener model must report exactly one matching "
-            "execution-listener-on-start-event finding.",
-        )
-        require(
-            not find_start_listener(control_report, control_source.name),
-            "The no-listener control must not report "
-            "execution-listener-on-start-event.",
-        )
+        require_listener_finding(listener_report, listener_source.name)
+        require_no_listener_findings(control_report)
         require(
             not has_unsupported_start_listener(listener_copy),
             "The converted listener model retains an unsupported start listener.",

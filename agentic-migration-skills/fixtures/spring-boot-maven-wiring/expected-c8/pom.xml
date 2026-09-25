@@ -25,6 +25,12 @@
       <groupId>io.camunda</groupId>
       <artifactId>camunda-spring-boot-3-starter</artifactId>
       <version>${camunda.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-logging</groupId>
+          <artifactId>commons-logging</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

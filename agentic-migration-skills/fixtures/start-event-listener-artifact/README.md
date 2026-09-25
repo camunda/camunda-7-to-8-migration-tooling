@@ -6,18 +6,20 @@ It includes one Camunda 7 start-event listener and one no-listener control.
 
 ## Check the selected artifact
 
-Pass the same CLI JAR and target version that the migration run selected:
+From this directory, pass the same CLI JAR and target version that the migration run selected:
 
 ```sh
+python3 -m unittest -v test_verify_cli_artifact.py
 python3 verify_cli_artifact.py \
   --jar /path/to/camunda-7-to-8-diagram-converter-cli-<tag>.jar \
   --target-version 8.9
 ```
 
 The script runs both fixture models in fresh temporary directories. It requires
-the listener model to report `execution-listener-on-start-event`. It also requires
-the converted copy to omit a `start` execution listener directly on a BPMN start
-event. The control model must not report that finding. A release that predates
+the listener model to report `execution-listener-on-start-event` for the exact
+input filename and `Start_Listener` event. It also requires the converted copy to
+omit a `start` execution listener directly on a BPMN start event. The control
+model must not report that finding for any filename. A release that predates
 the fix in #2841 fails this check.
 
 ## Check the migration workflow
@@ -32,7 +34,10 @@ the fix in #2841 fails this check.
 5. Deploy both converted copies to an authorized Camunda 8.9 test target after
    follow-up. Record a result for each model.
 
-If the artifact check fails, the skill must re-resolve the latest release. Use an
-earlier artifact only with an explicit user-approved follow-up. If the user
-declines relocation, the target version has no safe alternative, or deployment
+If the artifact check fails, re-resolve the latest release and rerun conversion
+on a clean copy of the original inputs. Use only the replacement run's reports
+and converted copies when both checks pass. Archive the failed run's converted
+copies outside packaged directories before promoting replacements. Use an
+earlier artifact only after the user approves the manual follow-up. If the user
+declines relocation, no artifact passes, a destination conflicts, or deployment
 cannot run, keep model readiness blocked.
