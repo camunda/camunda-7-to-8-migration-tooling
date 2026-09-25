@@ -221,10 +221,23 @@ Catalog: `30-glue-code/10-java-spring-delegate/` (`adjusting-the-java-class`,
 `handling-process-variables`, `handling-a-bpmn-error`, `handling-a-failure`, `handling-an-incident`)
 and `30-glue-code/outbound-http-rest-connector.md`.
 
-These items are not in the catalog:
+### Synchronous transaction and security semantics
 
-- Keep worker behavior unchanged. A migrated worker keeps the same inputs and outputs. Never add a new
-  feature to an existing worker during migration. New logic belongs in a new, separate worker.
+Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path from its preceding wait state. The skill inspects the delegate and its invoked services. The skill checks exception paths, `camunda:asyncBefore`, Spring transaction synchronization, `SecurityContextHolder`, `ThreadLocal`, and caller-identity access.
+
+| Source evidence | Required action | User decision |
+|---|---|---|
+| A synchronous delegate can fail after a user task or other wait state completes, with no `camunda:asyncBefore` or other intervening asynchronous transaction boundary. | Record the exact wait state, failure path, and effects that C7 rolls back. Mark that rollback behavior as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
+| The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
+
+If either row matches, then the skill adds an open item to `MIGRATION_REPORT.md` and asks for the listed decision before transforming the delegate. A C8 job worker cannot roll back a preceding wait state. It does not inherit the C7 engine transaction or thread-bound security context.
+
+The skill never describes the worker as preserving synchronous behavior. The skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision log. The skill resolves the open item only after an explicit user decision.
+
+### Worker behavior
+
+Keep worker behavior unchanged. A migrated worker keeps the same inputs and outputs. Never add a new
+feature to an existing worker during migration. New logic belongs in a new, separate worker.
 
 ---
 

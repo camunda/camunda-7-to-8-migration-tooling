@@ -291,6 +291,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
+    For each delegate adapter, also run the transaction and security review in
+    `references/code-transform-checklist.md`. Keep every identified gap open until the user decides.
+    Record the accepted parity gap in the `MIGRATION_REPORT.md` decision log.
 12. **Deployment resources** — when `@Deployment` is present after migration, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
