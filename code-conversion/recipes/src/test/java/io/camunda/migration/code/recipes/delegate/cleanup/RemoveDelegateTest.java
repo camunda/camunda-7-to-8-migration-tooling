@@ -80,7 +80,7 @@ public class RetrievePaymentAdapter {
   }
 
   @Test
-  void RemoveDelegateNotExtendedTest() {
+  void preservesExecuteOnClassWithoutDelegateInterface() {
     rewriteRun(
         spec -> spec.recipe(new CleanupDelegateRecipe()),
         java(
@@ -107,21 +107,76 @@ public class RetrievePaymentAdapterNotExtended  {
         execution.setVariable("transactionId", typedTransactionId);
     }
 }
-""",
-"""
-package org.camunda.conversion.java_delegates.handling_process_variables;
+"""));
+  }
 
-import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.client.annotation.JobWorker;
-import org.camunda.bpm.engine.variable.Variables;
-import org.camunda.bpm.engine.variable.value.IntegerValue;
-import org.camunda.bpm.engine.variable.value.StringValue;
-import org.springframework.stereotype.Component;
+  @Test
+  void preservesExecuteOverloadsInsideNestedDelegates() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
 
-@Component
-public class RetrievePaymentAdapterNotExtended  {
-}
-"""
-        ));
+            class Holder {
+                void execute() {}
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void execute() {}
+
+                    void execute(String value) {}
+                }
+            }
+            """,
+            """
+            class Holder {
+                void execute() {}
+
+                class Nested {
+
+                    void execute() {}
+
+                    void execute(String value) {}
+                }
+            }
+            """));
+  }
+
+  @Test
+  void keepsDelegateExecutionImportForSurvivingMethods() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            class Holder {
+                void use(DelegateExecution execution) {}
+
+                class Nested implements JavaDelegate {
+                    @Override
+                    public void execute(DelegateExecution execution) {}
+
+                    void execute(DelegateExecution execution, String value) {}
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class Holder {
+                void use(DelegateExecution execution) {}
+
+                class Nested {
+
+                    void execute(DelegateExecution execution, String value) {}
+                }
+            }
+            """));
   }
 }
