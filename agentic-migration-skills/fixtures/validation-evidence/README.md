@@ -29,7 +29,7 @@ and Docker probe commands that only mention `docker info`. They reject timer pre
 safety plan and output paths that identify the evidence input, each other, evidence logs, or
 reserved validation files. They reject converted model symlinks that resolve outside the project
 root without parsing the linked files.
-They reject summary and report paths inside the evidence log directory before they read the manifest.
+They reject summary and report paths inside the evidence log directory, including when the manifest is malformed.
 They also reject standalone processes without passing worker-input inventory evidence, omitted
 missing-input direct-start scenarios, and malformed report gates that leave stale `READY` claims.
 The tests reject executed checks that reuse evidence files.
