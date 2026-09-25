@@ -185,12 +185,41 @@ For approach B, run only the validation recipe after migration:
 Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
 `code-migration-approaches.md` temporarily. Restore the build file after validation.
 
-The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
-It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
-does not start an application or connect to a Camunda cluster.
+The recipe scans production Java sources for `@JobWorker` declarations. It scans every
+`application*.properties`, `application*.yml`, and `application*.yaml` file and groups workers and
+settings by module. It marks unsupported client modes, unsupported authentication properties,
+deprecated aliases, and settings that disable or make worker registration conditional. It resolves
+legacy aliases with the selected starter mappings. It does not read the host environment, start an
+application, or connect to a Camunda cluster.
 
-Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
-record credential values.
+### Worker readiness
+
+Treat each migrated `@JobWorker` declaration as required unless the user records it as optional or
+disabled. When a disabled or conditional setting affects a declaration with an unresolved job type,
+the validator marks the finding as conditional. The skill keeps unresolved required types unverified.
+
+Do not map a C7 subscription's `auto-open: false` to a global C8 worker setting. Ask the user whether
+to disable a specific C8 worker, then record the decision and setting.
+
+The skill applies this verdict table:
+
+| Worker inventory | Effective settings and runtime evidence | User decision | Worker verdict | Required action |
+|---|---|---|---|---|
+| Every required job type is resolved | Startup evidence or a local runtime test confirms each type registers under the effective profile and environment | None | **READY** | Record the evidence and each job type in `MIGRATION_REPORT.md`. |
+| A required worker is disabled by the client, global defaults, or a matching per-worker override | Registration is not verified | None | **BLOCKED** | Keep the migration incomplete. Enable the worker or ask the user to approve disabling it. |
+| A job type or effective setting depends on a placeholder, profile, conflicting source, or unresolved worker-name override | Registration is not verified | None | **UNVERIFIED** | Resolve the effective deployment value. Verify each required type at startup or with a local test that runs a job and confirms completion. |
+| No `@JobWorker` declaration is found | The user has not confirmed that the module needs no workers | None | **BLOCKED** | Check for missing worker adapters. Ask whether the module is intentionally workerless. |
+| No `@JobWorker` declaration is found | The user confirms that the module is intentionally workerless | Explicit workerless approval | **WORKERLESS (APPROVED)** | Record the decision. Do not report **READY**. |
+| A required worker is recorded as optional | The user records the reason and affected job type | Explicit optional-worker decision | **OPTIONAL (APPROVED)** | Exclude the job type from the required inventory. Record the decision in `MIGRATION_REPORT.md`. |
+| A user approves disabling one or more required job types | The approved module, job types, and setting are recorded | Explicit disablement approval | **APPROVED DISABLED** | Record the decision. Do not report **READY**. |
+
+The skill reports **READY** only after runtime evidence confirms every required job type registers.
+Static configuration alone does not prove worker registration. Record the module, job types,
+configuration sources, environment and profile names, evidence, and verdicts in `MIGRATION_REPORT.md`.
+Never record credential values.
+
+Resolve each configuration error finding. Record errors, deprecated aliases, and worker-readiness
+findings in `MIGRATION_REPORT.md`. Never record credential values.
 
 ---
 

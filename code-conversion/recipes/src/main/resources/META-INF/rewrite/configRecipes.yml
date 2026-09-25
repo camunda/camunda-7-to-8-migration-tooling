@@ -47,10 +47,12 @@ displayName: Validate Camunda client configuration
 description: >-
   Marks unsupported Camunda client modes and authentication property shapes in
   application.properties and application.yml/application.yaml files. It also marks legacy
-  camunda.client.zeebe.* aliases as deprecated without contacting a Camunda cluster.
+  camunda.client.zeebe.* aliases as deprecated and flags worker enablement settings that can
+  prevent declared @JobWorker methods from registering, without contacting a Camunda cluster.
 preconditions:
   - org.openrewrite.FindSourceFiles:
       filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
 recipeList:
   - io.camunda.migration.code.recipes.config.ValidateCamundaClientProperties
   - io.camunda.migration.code.recipes.config.ValidateCamundaClientYaml
+  - io.camunda.migration.code.recipes.config.ValidateCamundaClientWorkerEnablement
