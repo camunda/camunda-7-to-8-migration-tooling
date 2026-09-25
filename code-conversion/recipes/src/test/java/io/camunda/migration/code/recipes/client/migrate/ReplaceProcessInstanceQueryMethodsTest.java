@@ -103,19 +103,14 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .join()
                 .items();
 
-        // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
-        camundaClient
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter
-                        .state(ProcessInstanceState.ACTIVE))
-                .send()
-                .join()
-                .items();
+        engine.getRuntimeService().createProcessInstanceQuery()
+               .processInstanceBusinessKey(businessKey)
+               .active()
+               .list();
 
-        // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
-        camundaClient
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter.processDefinitionId(processDefinitionKey));
+        engine.getRuntimeService().createProcessInstanceQuery()
+               .processInstanceBusinessKey(businessKey)
+               .processDefinitionKey(processDefinitionKey);
 
         engine.getRuntimeService().createProcessInstanceQuery()
                .processDefinitionKey(processDefinitionKey)
@@ -1112,7 +1107,115 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
-  void warnsWhenBusinessKeyIsCombinedWithProcessDefinitionKey() {
+  void leavesProcessInstanceListStreamOperationsForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstance;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceListStreams {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search() {
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active()
+                            .list()
+                            .stream()
+                            .filter(instance -> instance.getId() != null)
+                            .count();
+
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active()
+                            .list()
+                            .parallelStream()
+                            .count();
+
+                    java.util.List<ProcessInstance> instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active()
+                            .list();
+                    instances.stream()
+                            .filter(instance -> instance.getId() != null)
+                            .count();
+
+                    java.util.List<ProcessInstance> assignedInstances;
+                    assignedInstances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active()
+                            .list();
+                    assignedInstances.parallelStream().count();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void leavesActiveBusinessKeyQueriesForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceBusinessKeyQueries {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String businessKey) {
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processInstanceBusinessKey(businessKey)
+                            .active()
+                            .list();
+                }
+
+                public long count(String businessKey) {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processInstanceBusinessKey(businessKey)
+                            .active()
+                            .count();
+                }
+
+                public long countForDefinition(String businessKey, String processDefinitionKey) {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processInstanceBusinessKey(businessKey)
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .count();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void leavesBusinessKeyQueriesCombinedWithProcessDefinitionKeyForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -1141,39 +1244,6 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .processDefinitionKey(processDefinitionKey)
                             .active()
                             .list();
-                }
-            }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            import java.util.List;
-
-            @Component
-            public class CombinedQueryTestClass {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void combinedQuery(String businessKey, String processDefinitionKey) {
-                    // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items();
                 }
             }
             """));
@@ -1357,7 +1427,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
-  void preservesFiltersAcrossParenthesizedBuilderReceivers() {
+  void leavesParenthesizedBusinessKeyQueriesForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -1385,37 +1455,6 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .active()
                             .processDefinitionKey(processDefinitionKey)
                             .list();
-                }
-            }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            @Component
-            public class ParenthesizedProcessInstanceQueryFilters {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void search(String businessKey, String processDefinitionKey) {
-                    // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items();
                 }
             }
             """));

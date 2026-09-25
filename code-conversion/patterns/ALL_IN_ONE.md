@@ -321,7 +321,7 @@ Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, 
 
 | Camunda 7              | Camunda 8                                                                 |
 | ---------------------- | ------------------------------------------------------------------------- |
-| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable, optional cluster-level uniqueness enforcement |
+| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable in process-instance queries from 8.10+, optional cluster-level uniqueness enforcement |
 | (no equivalent)        | `tags` (8.8+) — up to 10 immutable labels per instance, included in search responses and activated jobs |
 
 If your target version is **8.8**, use tags (for example, `order:1234`) or store the identifier as a regular process variable and filter by variable in searches.
@@ -369,7 +369,9 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
-###### CamundaClient (Camunda 8.9+)
+###### CamundaClient (Camunda 8.10+)
+
+Business IDs can be set in Camunda 8.9, but process-instance search filtering by business ID is supported starting in 8.10.
 
 ```java
     public List<ProcessInstance> findByBusinessId(String businessId) {
@@ -1254,6 +1256,8 @@ public ProcessInstance findSingleActiveByVariable(
 The Orchestration Cluster REST API's `POST /v2/process-instances/search` contract does not define a variable field in `ProcessInstanceFilter`. Do not emit `.variables(...)` on `newProcessInstanceSearchRequest()`; the client builder may compile, but the server cannot enforce that predicate. The query migration recipe leaves chains containing `variableValueEquals(...)` unchanged, including `list()`, `count()`, and `singleResult()` queries. It also leaves list/count chains through a `ProcessInstanceQuery` parameter or alias with an untraceable origin unchanged, because the recipe cannot prove that the query has no variable filters. These guards avoid partially converting a query and dropping its predicate.
 
 Camunda 7 `RuntimeService` queries exclude completed instances. Without `.active()`, they can include suspended instances; `.active()` excludes suspended instances. The recipe only converts supported `list()` and `count()` chains that call `.active()`, filtering them to `ACTIVE`. The recipe has no target-version setting, and `SUSPENDED` is not part of the Camunda 8.9 process-instance state enum. Queries without `.active()` therefore remain unchanged for manual migration rather than emitting code that does not compile for Camunda 8.9 or dropping suspended instances on a target that supports them. For a manual default-query migration to Camunda 8.10+, include both `ACTIVE` and `SUSPENDED` where needed. Queries with an explicit `.suspended()` filter also remain manual.
+
+The recipe leaves queries with `processInstanceBusinessKey(...)` unchanged. Business IDs can be set in Camunda 8.9, but process-instance search filtering by `businessId` is supported starting in 8.10; because the recipe has no target-version setting, it does not emit that filter. List queries followed by stream transformations such as `.filter()` or `.map()` also remain unchanged: the generated `.items()` call returns one search page and cannot preserve the complete Camunda 7 list semantics. A direct `.list().stream().count()` can be converted to a search count.
 
 For a manual migration, use `POST /v2/variables/search` to find candidate variables by name and JSON-serialized value, then use their process-instance keys to apply the remaining process-definition and state filters. Preserve pagination and account for the variable search endpoint's scope and consistency semantics. Do not drop the variable predicate when migrating the other filters.
 

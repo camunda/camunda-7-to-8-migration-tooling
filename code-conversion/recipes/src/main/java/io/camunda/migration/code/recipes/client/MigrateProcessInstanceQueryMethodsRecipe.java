@@ -50,7 +50,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   private static final MethodMatcher SUSPENDED_QUERY_MATCHER =
       new MethodMatcher(PROCESS_INSTANCE_QUERY + " suspended()");
   private static final Set<String> SUPPORTED_QUERY_FILTER_METHODS =
-      Set.of("active", "activityIdIn", "processDefinitionKey", "processInstanceBusinessKey");
+      Set.of("active", "activityIdIn", "processDefinitionKey");
   private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
       Set.of(
           "active",
@@ -58,10 +58,10 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           "count",
           "createProcessInstanceQuery",
           "list",
-          "processDefinitionKey",
-          "processInstanceBusinessKey");
+          "processDefinitionKey");
   private static final Set<String> UNSUPPORTED_QUERY_TERMINALS =
       Set.of("listPage", "singleResult", "unlimitedList");
+  private static final Set<String> COLLECTION_STREAM_METHODS = Set.of("stream", "parallelStream");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -70,7 +70,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves queries with unsupported filters, aliases with pre-applied filters, suspended/default state, or unsupported terminals for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves queries with unsupported filters, business-key filters, aliases with pre-applied filters, suspended/default state, unsupported terminals, or list results transformed by downstream stream operations for manual migration.";
   }
 
   @Override
@@ -83,8 +83,25 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         // Keep field assignments manual because the generic visitor cannot update the field type.
         return true;
       }
+      if (value instanceof J.VariableDeclarations declarations
+          && declarations.getVariables().stream()
+              .anyMatch(
+                  variable ->
+                      variable.getInitializer() != null
+                          && containsProcessInstanceListQuery(variable.getInitializer())
+                          && hasStreamOperationForVariable(cursor, variable.getName()))) {
+        return true;
+      }
+      if (value instanceof J.Assignment assignment
+          && assignment.getVariable() instanceof J.Identifier identifier
+          && containsProcessInstanceListQuery(assignment.getAssignment())
+          && hasStreamOperationForVariable(cursor, identifier)) {
+        return true;
+      }
       if (value instanceof J.MethodInvocation invocation
-          && (hasUnsupportedQueryMethodInReceiverChain(invocation)
+          && (isProcessInstanceListInvocation(invocation)
+                  && hasStreamOperationAfterList(cursor)
+              || hasUnsupportedQueryMethodInReceiverChain(invocation)
               || isManualDefaultStateQuery(invocation)
               || isIncompleteActiveQueryChain(cursor, invocation))) {
         return true;
@@ -501,15 +518,60 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     while (current != null) {
       current = unwrapParentheses(current);
       if (current instanceof J.MethodInvocation invocation) {
-        if (invocation.getSimpleName().equals("list")
-            && invocation.getSelect() != null
-            && isProcessInstanceQueryType(invocation.getSelect().getType())) {
+        if (isProcessInstanceListInvocation(invocation)) {
           return true;
         }
         current = invocation.getSelect();
       } else {
         return false;
       }
+    }
+    return false;
+  }
+
+  private static boolean isProcessInstanceListInvocation(J.MethodInvocation invocation) {
+    return invocation.getSimpleName().equals("list")
+        && invocation.getSelect() != null
+        && isProcessInstanceQueryType(invocation.getSelect().getType());
+  }
+
+  private static boolean hasStreamOperationAfterList(Cursor cursor) {
+    Cursor current = cursor.getParent();
+    while (current != null) {
+      if (current.getValue() instanceof J.MethodInvocation invocation
+          && COLLECTION_STREAM_METHODS.contains(invocation.getSimpleName())
+          && containsProcessInstanceListQuery(invocation.getSelect())) {
+        return true;
+      }
+      current = current.getParent();
+    }
+    return false;
+  }
+
+  private static boolean hasStreamOperationForVariable(Cursor cursor, J.Identifier variable) {
+    Cursor current = cursor;
+    while (current != null) {
+      if (current.getValue() instanceof J.ClassDeclaration classDeclaration) {
+        AtomicBoolean found = new AtomicBoolean();
+        new JavaIsoVisitor<AtomicBoolean>() {
+          @Override
+          public J.MethodInvocation visitMethodInvocation(
+              J.MethodInvocation invocation, AtomicBoolean streamOperationFound) {
+            J.Identifier receiver = rootReceiverIdentifier(invocation);
+            if (COLLECTION_STREAM_METHODS.contains(invocation.getSimpleName())
+                && receiver != null
+                && refersToSameVariable(receiver, variable)) {
+              streamOperationFound.set(true);
+              return invocation;
+            }
+            return streamOperationFound.get()
+                ? invocation
+                : super.visitMethodInvocation(invocation, streamOperationFound);
+          }
+        }.visit(classDeclaration.getBody(), found);
+        return found.get();
+      }
+      current = current.getParent();
     }
     return false;
   }
@@ -559,24 +621,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
-            List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Set.of("processInstanceBusinessKey")),
-        new ReplacementUtils.SimpleReplacementSpec(
-            new MethodMatcher("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processDefinitionKey(java.lang.String)"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
-                #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newProcessInstanceSearchRequest()
-                    .filter(filter -> filter.processDefinitionId(#{processDefinitionKey:any(java.lang.String)}))
-                """,
-                "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
-                "io.camunda.client.api.search.filter.ProcessInstanceFilter"),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
@@ -590,8 +634,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     JavaTemplate activityListWithActive =
         processInstanceSearchTemplate(
             List.of("elementId(#{activityIdIn:any(java.lang.String)})"), false);
-    JavaTemplate unfilteredListWithActive =
-        processInstanceSearchTemplate(Collections.emptyList(), false);
     JavaTemplate processDefinitionListWithActive =
         processInstanceSearchTemplate(
             List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
@@ -609,29 +651,11 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     addActiveStateVariant(
         specs,
         listMatcher,
-        Set.of("processInstanceBusinessKey"),
-        Collections.emptyList(),
-        unfilteredListWithActive,
-        "List<io.camunda.client.api.search.response.ProcessInstance>",
-        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
-        Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    addActiveStateVariant(
-        specs,
-        listMatcher,
         Set.of("processDefinitionKey"),
         List.of("processDefinitionKey"),
         processDefinitionListWithActive,
         "List<io.camunda.client.api.search.response.ProcessInstance>",
         Collections.emptyList(),
-        Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    addActiveStateVariant(
-        specs,
-        listMatcher,
-        Set.of("processInstanceBusinessKey", "processDefinitionKey"),
-        List.of("processDefinitionKey"),
-        processDefinitionListWithActive,
-        "List<io.camunda.client.api.search.response.ProcessInstance>",
-        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
     return specs;
   }
@@ -662,22 +686,10 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         Collections.emptyList());
     addCountSpecs(
         specs,
-        Set.of("processInstanceBusinessKey"),
-        Collections.emptyList(),
-        unfilteredCountWithActive,
-        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
-    addCountSpecs(
-        specs,
         Set.of("processDefinitionKey"),
         List.of("processDefinitionKey"),
         processDefinitionCountWithActive,
         Collections.emptyList());
-    addCountSpecs(
-        specs,
-        Set.of("processInstanceBusinessKey", "processDefinitionKey"),
-        List.of("processDefinitionKey"),
-        processDefinitionCountWithActive,
-        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")));
     return specs;
   }
 
@@ -808,7 +820,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   private static boolean hasSupportedQueryMethodArguments(J.MethodInvocation invocation) {
     return switch (invocation.getSimpleName()) {
       case "active" -> invocation.getArguments().stream().allMatch(argument -> argument instanceof J.Empty);
-      case "activityIdIn", "processDefinitionKey", "processInstanceBusinessKey" ->
+      case "activityIdIn", "processDefinitionKey" ->
           hasSingleStringArgument(invocation);
       default -> false;
     };
