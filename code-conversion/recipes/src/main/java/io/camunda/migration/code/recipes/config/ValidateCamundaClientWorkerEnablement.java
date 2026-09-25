@@ -45,6 +45,8 @@ public class ValidateCamundaClientWorkerEnablement
   private static final String CLIENT_ENABLED_PROPERTY = "camunda.client.enabled";
   private static final String WORKER_DEFAULT_ENABLED_PROPERTY =
       "camunda.client.worker.defaults.enabled";
+  private static final String WORKER_DEFAULT_TYPE_PROPERTY =
+      "camunda.client.worker.defaults.type";
   private static final String ENABLED_SUFFIX = ".enabled";
   private static final Set<String> JOB_WORKER_ANNOTATION_TYPES =
       Set.of(
@@ -202,15 +204,22 @@ public class ValidateCamundaClientWorkerEnablement
         J.MethodDeclaration visited = super.visitMethodDeclaration(method, ctx);
         for (J.Annotation annotation : visited.getLeadingAnnotations()) {
           if (isJobWorker(annotation, imports)) {
+            Optional<String> annotationType =
+                annotationString(annotation, "type", stringConstants);
             String type =
-                annotationString(annotation, "type", stringConstants)
+                annotationType
                     .filter(ValidateCamundaClientWorkerEnablement::isResolvedAnnotationValue)
                     .orElse(null);
+            boolean unresolvedType =
+                hasAnnotationArgument(annotation, "type")
+                    && annotationType
+                        .map(value -> !value.isBlank() && !isResolvedAnnotationValue(value))
+                        .orElse(true);
             String name =
                 annotationString(annotation, "name", stringConstants)
                     .filter(ValidateCamundaClientWorkerEnablement::isResolvedAnnotationValue)
                     .orElse(null);
-            state.addWorker(sourcePath, type, name);
+            state.addWorker(sourcePath, type, name, visited.getSimpleName(), unresolvedType);
           }
         }
         return visited;
@@ -251,14 +260,23 @@ public class ValidateCamundaClientWorkerEnablement
 
   private static Optional<String> annotationString(
       J.Annotation annotation, String argumentName, Map<String, List<Expression>> constants) {
+    return annotationArgument(annotation, argumentName)
+        .flatMap(argument -> resolveString(argument, constants, new HashSet<>()));
+  }
+
+  private static boolean hasAnnotationArgument(J.Annotation annotation, String argumentName) {
+    return annotationArgument(annotation, argumentName).isPresent();
+  }
+
+  private static Optional<Expression> annotationArgument(J.Annotation annotation, String name) {
     if (annotation.getArguments() == null) {
       return Optional.empty();
     }
     for (Expression argument : annotation.getArguments()) {
       if (argument instanceof J.Assignment assignment
           && assignment.getVariable() instanceof J.Identifier identifier
-          && argumentName.equals(identifier.getSimpleName())) {
-        return resolveString(assignment.getAssignment(), constants, new HashSet<>());
+          && name.equals(identifier.getSimpleName())) {
+        return Optional.of(assignment.getAssignment());
       }
     }
     return Optional.empty();
@@ -392,7 +410,8 @@ public class ValidateCamundaClientWorkerEnablement
     WORKER_OVERRIDE
   }
 
-  private record WorkerDeclaration(String sourcePath, String type, String name) {}
+  private record WorkerDeclaration(
+      String sourcePath, String type, String name, String methodName, boolean unresolvedType) {}
 
   private record WorkerSetting(
       String sourcePath,
@@ -401,9 +420,21 @@ public class ValidateCamundaClientWorkerEnablement
       String target,
       SettingKind kind) {}
 
+  private record WorkerTypeSetting(String sourcePath, String key, String value) {}
+
   private record EntryKey(String sourcePath, String key, String value) {}
 
   private record ParsedBoolean(Boolean value, boolean conditional) {}
+
+  private record EffectiveWorkerType(
+      String value, Set<String> possibleValues, boolean conditional) {}
+
+  private record EffectiveString(
+      String value,
+      Set<String> possibleValues,
+      boolean hasBlankValue,
+      boolean conditional,
+      boolean configured) {}
 
   private record EffectiveBoolean(
       Boolean value, boolean conditional, List<WorkerSetting> sources) {}
@@ -413,18 +444,21 @@ public class ValidateCamundaClientWorkerEnablement
   public static final class WorkerEnablementState {
     private final List<WorkerDeclaration> workers = new ArrayList<>();
     private final List<WorkerSetting> settings = new ArrayList<>();
+    private final List<WorkerTypeSetting> workerTypeSettings = new ArrayList<>();
     private final Set<String> moduleRoots = new LinkedHashSet<>();
 
     private synchronized void addModuleRoot(String moduleRoot) {
       moduleRoots.add(moduleRoot);
     }
 
-    private synchronized void addWorker(String sourcePath, String type, String name) {
-      workers.add(new WorkerDeclaration(sourcePath, type, name));
+    private synchronized void addWorker(
+        String sourcePath, String type, String name, String methodName, boolean unresolvedType) {
+      workers.add(new WorkerDeclaration(sourcePath, type, name, methodName, unresolvedType));
     }
 
     private synchronized void addSetting(String sourcePath, String key, String value) {
       setting(sourcePath, key, value).ifPresent(settings::add);
+      workerTypeSetting(sourcePath, key, value).ifPresent(workerTypeSettings::add);
     }
 
     private synchronized Map<EntryKey, List<String>> findings() {
@@ -440,6 +474,12 @@ public class ValidateCamundaClientWorkerEnablement
         settingsByModule.computeIfAbsent(module, unused -> new ArrayList<>()).add(setting);
       }
 
+      Map<String, List<WorkerTypeSetting>> workerTypeSettingsByModule = new HashMap<>();
+      for (WorkerTypeSetting setting : workerTypeSettings) {
+        String module = moduleKey(setting.sourcePath(), moduleRoots);
+        workerTypeSettingsByModule.computeIfAbsent(module, unused -> new ArrayList<>()).add(setting);
+      }
+
       Map<EntryKey, LinkedHashSet<String>> findings = new LinkedHashMap<>();
       workersByModule.entrySet().stream()
           .sorted(Map.Entry.comparingByKey())
@@ -448,6 +488,7 @@ public class ValidateCamundaClientWorkerEnablement
                   analyzeModule(
                       entry.getValue(),
                       settingsByModule.getOrDefault(entry.getKey(), List.of()),
+                      workerTypeSettingsByModule.getOrDefault(entry.getKey(), List.of()),
                       findings));
 
       Map<EntryKey, List<String>> result = new LinkedHashMap<>();
@@ -458,6 +499,7 @@ public class ValidateCamundaClientWorkerEnablement
     private static void analyzeModule(
         List<WorkerDeclaration> workers,
         List<WorkerSetting> moduleSettings,
+        List<WorkerTypeSetting> moduleWorkerTypeSettings,
         Map<EntryKey, LinkedHashSet<String>> findings) {
       List<WorkerSetting> clientSettings =
           moduleSettings.stream()
@@ -471,20 +513,23 @@ public class ValidateCamundaClientWorkerEnablement
           moduleSettings.stream()
               .filter(setting -> setting.kind() == SettingKind.WORKER_OVERRIDE)
               .toList();
+      List<WorkerTypeSetting> defaultTypeSettings = moduleWorkerTypeSettings;
 
       EffectiveBoolean clientEnabled = effectiveBoolean(clientSettings, true);
       for (WorkerDeclaration worker : workers) {
+        EffectiveWorkerType workerType = effectiveWorkerType(worker, defaultTypeSettings);
         if (isConditionalOrDisabled(clientEnabled)) {
           addFinding(
               findings,
               clientEnabled.sources(),
               worker,
+              workerType,
               SettingKind.CLIENT,
               clientEnabled);
           continue;
         }
 
-        OverrideSelection overrides = selectOverrides(worker, overrideSettings);
+        OverrideSelection overrides = selectOverrides(worker, workerType, overrideSettings);
         if (!overrides.settings().isEmpty()) {
           EffectiveBoolean workerEnabled = effectiveBoolean(overrides.settings(), true);
           if (overrides.targetConditional()) {
@@ -500,6 +545,7 @@ public class ValidateCamundaClientWorkerEnablement
                 findings,
                 relatedSettings,
                 worker,
+                workerType,
                 SettingKind.WORKER_OVERRIDE,
                 workerEnabled);
           }
@@ -510,6 +556,7 @@ public class ValidateCamundaClientWorkerEnablement
                 findings,
                 workersEnabled.sources(),
                 worker,
+                workerType,
                 SettingKind.WORKER_DEFAULTS,
                 workersEnabled);
           }
@@ -517,8 +564,66 @@ public class ValidateCamundaClientWorkerEnablement
       }
     }
 
+    private static EffectiveWorkerType effectiveWorkerType(
+        WorkerDeclaration worker, List<WorkerTypeSetting> defaultTypeSettings) {
+      if (worker.type() != null) {
+        return new EffectiveWorkerType(worker.type(), Set.of(worker.type()), false);
+      }
+      if (worker.unresolvedType()) {
+        return new EffectiveWorkerType(null, Set.of(), true);
+      }
+
+      EffectiveString configuredType = effectiveString(defaultTypeSettings);
+      if (!configuredType.configured()) {
+        return new EffectiveWorkerType(worker.methodName(), Set.of(worker.methodName()), false);
+      }
+      Set<String> possibleTypes = new HashSet<>(configuredType.possibleValues());
+      if (configuredType.hasBlankValue()) {
+        possibleTypes.add(worker.methodName());
+      }
+      if (!configuredType.conditional() && possibleTypes.isEmpty()) {
+        return new EffectiveWorkerType(worker.methodName(), Set.of(worker.methodName()), false);
+      }
+      return new EffectiveWorkerType(
+          configuredType.value(), Set.copyOf(possibleTypes), configuredType.conditional());
+    }
+
+    private static EffectiveString effectiveString(List<WorkerTypeSetting> settings) {
+      if (settings.isEmpty()) {
+        return new EffectiveString(null, Set.of(), false, false, false);
+      }
+
+      Set<String> values = new HashSet<>();
+      boolean hasBlankValue = false;
+      boolean unknownValue = false;
+      boolean conditional = false;
+      for (WorkerTypeSetting setting : settings) {
+        Optional<String> candidate =
+            CamundaClientConfigurationValidation.bindingCandidate(setting.value());
+        if (candidate.isEmpty()) {
+          unknownValue = true;
+        } else if (candidate.get().isBlank()) {
+          hasBlankValue = true;
+        } else {
+          values.add(candidate.get());
+        }
+        conditional |=
+            setting.value().contains("${") || profileSpecific(setting.sourcePath());
+      }
+      if (values.size() > 1 || unknownValue || (hasBlankValue && !values.isEmpty())) {
+        conditional = true;
+      }
+      String value =
+          values.size() == 1 && !unknownValue && !hasBlankValue
+              ? values.iterator().next()
+              : null;
+      return new EffectiveString(value, Set.copyOf(values), hasBlankValue, conditional, true);
+    }
+
     private static OverrideSelection selectOverrides(
-        WorkerDeclaration worker, List<WorkerSetting> overrideSettings) {
+        WorkerDeclaration worker,
+        EffectiveWorkerType workerType,
+        List<WorkerSetting> overrideSettings) {
       List<WorkerSetting> selected = new ArrayList<>();
       boolean targetConditional = false;
       for (WorkerSetting setting : overrideSettings) {
@@ -526,11 +631,12 @@ public class ValidateCamundaClientWorkerEnablement
         if (target.contains("${")) {
           selected.add(setting);
           targetConditional = true;
-        } else if (target.equals(worker.type()) || target.equals(worker.name())) {
+        } else if (workerType.possibleValues().contains(target)) {
           selected.add(setting);
-        } else if (worker.type() == null || worker.name() == null) {
+          targetConditional |=
+              workerType.conditional() || workerType.value() == null;
+        } else if (worker.name() != null && target.equals(worker.name())) {
           selected.add(setting);
-          targetConditional = true;
         }
       }
       return new OverrideSelection(List.copyOf(selected), targetConditional);
@@ -603,12 +709,13 @@ public class ValidateCamundaClientWorkerEnablement
         Map<EntryKey, LinkedHashSet<String>> findings,
         List<WorkerSetting> sources,
         WorkerDeclaration worker,
+        EffectiveWorkerType workerType,
         SettingKind kind,
         EffectiveBoolean enabled) {
       if (sources.isEmpty()) {
         return;
       }
-      String message = findingMessage(worker, kind, enabled);
+      String message = findingMessage(worker, workerType, kind, enabled);
       for (WorkerSetting source : sources) {
         EntryKey entryKey = new EntryKey(source.sourcePath(), source.key(), source.value());
         findings.computeIfAbsent(entryKey, unused -> new LinkedHashSet<>()).add(message);
@@ -616,26 +723,29 @@ public class ValidateCamundaClientWorkerEnablement
     }
 
     private static String findingMessage(
-        WorkerDeclaration worker, SettingKind kind, EffectiveBoolean enabled) {
+        WorkerDeclaration worker,
+        EffectiveWorkerType workerType,
+        SettingKind kind,
+        EffectiveBoolean enabled) {
       boolean definitelyDisabled =
           Boolean.FALSE.equals(enabled.value()) && !enabled.conditional();
       if (definitelyDisabled && kind == SettingKind.CLIENT) {
         return "The "
-            + workerDescription(worker)
+            + workerDescription(worker, workerType)
             + " is disabled because 'camunda.client.enabled=false' prevents client creation. "
             + "Verify the effective runtime configuration and job worker registration before "
             + "marking workers ready.";
       }
       if (definitelyDisabled && kind == SettingKind.WORKER_DEFAULTS) {
         return "The "
-            + workerDescription(worker)
+            + workerDescription(worker, workerType)
             + " is disabled by 'camunda.client.worker.defaults.enabled=false'. Verify the "
             + "effective runtime configuration and job worker registration before marking "
             + "workers ready.";
       }
       if (definitelyDisabled && kind == SettingKind.WORKER_OVERRIDE) {
         return "The "
-            + workerDescription(worker)
+            + workerDescription(worker, workerType)
             + " is disabled by its per-worker 'enabled=false' setting. Verify the effective "
             + "runtime configuration and job worker registration before marking workers ready.";
       }
@@ -650,13 +760,14 @@ public class ValidateCamundaClientWorkerEnablement
           + settingDescription
           + " may disable "
           + "the "
-          + workerDescription(worker)
+          + workerDescription(worker, workerType)
           + ". Resolve profile and environment overrides, then verify its registration at runtime.";
     }
 
-    private static String workerDescription(WorkerDeclaration worker) {
-      if (worker.type() != null) {
-        return "worker for job type '" + worker.type() + "'";
+    private static String workerDescription(
+        WorkerDeclaration worker, EffectiveWorkerType workerType) {
+      if (workerType.value() != null) {
+        return "worker for job type '" + workerType.value() + "'";
       }
       if (worker.name() != null) {
         return "worker named '" + worker.name() + "'";
@@ -709,6 +820,15 @@ public class ValidateCamundaClientWorkerEnablement
                 SettingKind.WORKER_DEFAULTS));
       }
       return Optional.empty();
+    }
+
+    private static Optional<WorkerTypeSetting> workerTypeSetting(
+        String sourcePath, String key, String value) {
+      String effectiveKey = CamundaClientConfigurationValidation.effectivePropertyName(key);
+      if (!effectiveKey.equals(WORKER_DEFAULT_TYPE_PROPERTY)) {
+        return Optional.empty();
+      }
+      return Optional.of(new WorkerTypeSetting(sourcePath, key, value));
     }
 
     private static Optional<String> overrideTarget(String key) {

@@ -225,6 +225,63 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
   }
 
   @Test
+  void matchesPerWorkerOverridesByDefaultMethodJobType() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker
+                void processPayment() {}
+
+                @JobWorker(type = "")
+                void refundPayment() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            camunda.client.worker.override.processPayment.enabled=false
+            camunda.client.worker.override.refundPayment.enabled=false
+            camunda.client.worker.override.unrelated.enabled=false
+            """,
+            """
+            ~~(The worker for job type 'processPayment' is disabled by its per-worker 'enabled=false' setting. Verify the effective runtime configuration and job worker registration before marking workers ready.)~~>camunda.client.worker.override.processPayment.enabled=false
+            ~~(The worker for job type 'refundPayment' is disabled by its per-worker 'enabled=false' setting. Verify the effective runtime configuration and job worker registration before marking workers ready.)~~>camunda.client.worker.override.refundPayment.enabled=false
+            camunda.client.worker.override.unrelated.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void usesConfiguredDefaultTypeForPerWorkerOverrides() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker
+                void processPayment() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            camunda.client.worker.defaults.type=shared-worker-type
+            camunda.client.worker.override.shared-worker-type.enabled=false
+            camunda.client.worker.override.processPayment.enabled=false
+            """,
+            """
+            camunda.client.worker.defaults.type=shared-worker-type
+            ~~(The worker for job type 'shared-worker-type' is disabled by its per-worker 'enabled=false' setting. Verify the effective runtime configuration and job worker registration before marking workers ready.)~~>camunda.client.worker.override.shared-worker-type.enabled=false
+            camunda.client.worker.override.processPayment.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void flagsProfileSpecificWorkerDisablementAsConditional() {
     rewriteRun(
         java(

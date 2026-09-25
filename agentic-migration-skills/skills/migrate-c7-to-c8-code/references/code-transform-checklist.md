@@ -195,8 +195,11 @@ application, or connect to a Camunda cluster.
 ### Worker readiness
 
 Treat each migrated `@JobWorker` declaration as required unless the user records it as optional or
-disabled. When a disabled or conditional setting affects a declaration with an unresolved job type,
-the validator marks the finding as conditional. The skill keeps unresolved required types unverified.
+disabled. When a literal `enabled: false` setting applies to a worker, the validator reports definite
+disablement, even if its job type is unresolved. When an `enabled` setting can disable a worker only
+under a placeholder, active profile, conflicting source, or unresolved per-worker override target,
+the validator reports a conditional finding. The skill keeps unresolved required job types
+unverified.
 
 Do not map a C7 subscription's `auto-open: false` to a global C8 worker setting. Ask the user whether
 to disable a specific C8 worker, then record the decision and setting.
