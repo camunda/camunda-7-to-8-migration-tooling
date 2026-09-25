@@ -21,7 +21,9 @@ import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
+@SpringBootTest(
+    classes = ExampleWebApplication.class,
+    webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 class WebTopologyIntegrationTest {
 
   @Autowired private TestRestTemplate restTemplate;

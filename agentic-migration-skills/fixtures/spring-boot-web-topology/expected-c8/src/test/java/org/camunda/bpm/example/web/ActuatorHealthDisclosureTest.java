@@ -10,13 +10,13 @@ package org.camunda.bpm.example.web;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -40,7 +40,7 @@ class ActuatorHealthDisclosureTest {
     assertThat(response.getBody().toString()).doesNotContain("internal-camunda-cluster");
   }
 
-  @SpringBootConfiguration
+  @Configuration
   @EnableAutoConfiguration(
       excludeName = "io.camunda.client.spring.configuration.CamundaAutoConfiguration")
   static class TestApplication {
