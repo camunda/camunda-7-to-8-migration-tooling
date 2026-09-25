@@ -14,7 +14,8 @@ cluster uses REST port `8080`. The application does not recreate or proxy
 1. Copy `c7-source` to a temporary project and migrate it with the
    `migrate-c7-to-c8-code` skill. Inventory both application and Engine REST
    routes, then answer Question 7. Record the application port, cluster REST
-   address, health dependencies, and every Engine REST consumer.
+   base address, authentication mode, endpoint decisions, health dependencies,
+   and every Engine REST consumer.
 2. Start a Camunda 8.9.21 self-managed cluster with REST at
    `http://localhost:8080` and gRPC at `http://localhost:26500`. Confirm the
    REST API is reachable:
