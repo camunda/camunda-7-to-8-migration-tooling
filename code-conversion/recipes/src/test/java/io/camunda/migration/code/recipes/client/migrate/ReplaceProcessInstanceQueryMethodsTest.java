@@ -424,6 +424,46 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
+  void leavesQueryAliasesWithPreAppliedActiveStateForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstance;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceQueryWithPreAppliedActiveState {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey) {
+                    ProcessInstanceQuery query = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .active();
+                    List<ProcessInstance> result =
+                            query.processDefinitionKey(processDefinitionKey).list();
+
+                    List<ProcessInstance> assignmentTarget = null;
+                    assignmentTarget =
+                            query.processDefinitionKey(processDefinitionKey).list();
+                }
+            }
+            """));
+  }
+
+  @Test
   void leavesUntraceableQueryAliasListResultTypesForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
@@ -452,6 +492,43 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     assignmentTarget =
                             query.active().processDefinitionKey(processDefinitionKey).list();
                     ProcessInstance instanceFromAssignment = assignmentTarget.get(0);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void leavesProcessInstanceListFieldAssignmentsForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstance;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceListFieldAssignment {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                private List<ProcessInstance> instances;
+
+                public void search(String processDefinitionKey) {
+                    this.instances = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
                 }
             }
             """));

@@ -77,6 +77,12 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
   protected Predicate<Cursor> visitorSkipCondition() {
     return cursor -> {
       Object value = cursor.getValue();
+      if (value instanceof J.Assignment assignment
+          && assignment.getVariable() instanceof J.FieldAccess
+          && containsProcessInstanceListQuery(assignment.getAssignment())) {
+        // Keep field assignments manual because the generic visitor cannot update the field type.
+        return true;
+      }
       if (value instanceof J.MethodInvocation invocation
           && (hasUnsupportedQueryMethodInReceiverChain(invocation)
               || isManualDefaultStateQuery(invocation))) {
@@ -222,7 +228,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
                     refersToSameVariable(variable.getName(), queryVariable)
                         && variable.getInitializer() != null
                         && (containsVariableFilter(variable.getInitializer())
-                            || containsNonActiveQueryFilter(variable.getInitializer())))) {
+                        || containsNonActiveQueryFilter(variable.getInitializer())
+                        || containsActiveQueryFilter(variable.getInitializer())))) {
           unpreservedFilter.set(true);
           return declarations;
         }
@@ -242,7 +249,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         if (assignedVariable != null
             && refersToSameVariable(assignedVariable, queryVariable)
             && (containsVariableFilter(assignment.getAssignment())
-                || containsNonActiveQueryFilter(assignment.getAssignment()))) {
+                || containsNonActiveQueryFilter(assignment.getAssignment())
+                || containsActiveQueryFilter(assignment.getAssignment()))) {
           unpreservedFilter.set(true);
           return assignment;
         }
@@ -258,7 +266,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         if ((isVariableFilterMethod(candidate)
                 || (receiver != null
                     && isProcessInstanceQueryType(receiver.getType())
-                    && isNonActiveQueryFilter(candidate)
+                    && (isNonActiveQueryFilter(candidate)
+                        || ACTIVE_QUERY_MATCHER.matches(candidate))
                     && !isPartOfListOrCountQuery(getCursor(), queryVariable)))
             && receiver != null
             && refersToSameVariable(receiver, queryVariable)) {
@@ -435,6 +444,40 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       current = unwrapParentheses(current);
       if (current instanceof J.MethodInvocation invocation) {
         if (isNonActiveQueryFilter(invocation)) {
+          return true;
+        }
+        current = invocation.getSelect();
+      } else {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  private static boolean containsActiveQueryFilter(Expression expression) {
+    Expression current = expression;
+    while (current != null) {
+      current = unwrapParentheses(current);
+      if (current instanceof J.MethodInvocation invocation) {
+        if (ACTIVE_QUERY_MATCHER.matches(invocation)) {
+          return true;
+        }
+        current = invocation.getSelect();
+      } else {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  private static boolean containsProcessInstanceListQuery(Expression expression) {
+    Expression current = expression;
+    while (current != null) {
+      current = unwrapParentheses(current);
+      if (current instanceof J.MethodInvocation invocation) {
+        if (invocation.getSimpleName().equals("list")
+            && invocation.getSelect() != null
+            && isProcessInstanceQueryType(invocation.getSelect().getType())) {
           return true;
         }
         current = invocation.getSelect();
