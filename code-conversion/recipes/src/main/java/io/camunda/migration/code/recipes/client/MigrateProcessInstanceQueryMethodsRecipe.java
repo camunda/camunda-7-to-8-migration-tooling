@@ -78,7 +78,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return cursor -> {
       Object value = cursor.getValue();
       if (value instanceof J.Assignment assignment
-          && assignment.getVariable() instanceof J.FieldAccess
+          && isFieldAssignmentTarget(assignment.getVariable())
           && containsProcessInstanceListQuery(assignment.getAssignment())) {
         // Keep field assignments manual because the generic visitor cannot update the field type.
         return true;
@@ -486,6 +486,11 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
     }
     return false;
+  }
+
+  private static boolean isFieldAssignmentTarget(Expression target) {
+    return target instanceof J.FieldAccess
+        || target instanceof J.Identifier identifier && identifier.getFieldType() != null;
   }
 
   private static boolean isProcessInstanceQueryType(JavaType type) {

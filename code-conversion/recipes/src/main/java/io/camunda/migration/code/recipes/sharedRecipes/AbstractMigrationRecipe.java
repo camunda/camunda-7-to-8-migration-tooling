@@ -95,8 +95,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             J.Identifier originalName = firstVar.getName();
             Expression originalInitializer = firstVar.getInitializer();
 
-            // work with initializer that is a method invocation
-            if (originalInitializer instanceof J.MethodInvocation invocation) {
+            Expression unwrappedInitializer = unwrapParentheses(originalInitializer);
+            if (unwrappedInitializer instanceof J.MethodInvocation invocation) {
 
               // run through prepared migration rules
               for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
@@ -141,7 +141,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                                   + originalName.getSimpleName()
                                   + " = #{any(java.lang.Object)}",
                               genericLongName)
-                          .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
+                          .apply(
+                                  getCursor(),
+                                  declarations.getCoordinates().replace(),
+                                  originalInitializer);
 
                   maybeAddImport(genericLongName);
 
