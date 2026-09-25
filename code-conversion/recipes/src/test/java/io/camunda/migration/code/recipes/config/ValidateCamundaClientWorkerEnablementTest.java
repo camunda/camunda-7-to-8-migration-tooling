@@ -547,6 +547,31 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
   }
 
   @Test
+  void flagsPerWorkerOverrideConditionallyWhenDefaultTypeIsUnresolved() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker
+                void processPayment() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            camunda.client.worker.defaults.type=${WORKER_TYPE}
+            camunda.client.worker.override.actual-type.enabled=false
+            """,
+            """
+            camunda.client.worker.defaults.type=${WORKER_TYPE}
+            ~~(Job-worker readiness is conditional because a per-worker 'enabled' override may disable the worker with an unresolved job type. Resolve profile and environment overrides, then verify its registration at runtime.)~~>camunda.client.worker.override.actual-type.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void matchesMethodNameFallbackWhenDefaultTypeIsProfileScoped() {
     rewriteRun(
         java(

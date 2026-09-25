@@ -560,14 +560,15 @@ public class ValidateCamundaClientWorkerEnablement
   private record ParsedBoolean(Boolean value, boolean conditional) {}
 
   private record EffectiveWorkerType(
-      String value, Set<String> possibleValues, boolean conditional) {}
+      String value, Set<String> possibleValues, boolean conditional, boolean hasUnknownValue) {}
 
   private record EffectiveString(
       String value,
       Set<String> possibleValues,
       boolean hasBlankValue,
       boolean conditional,
-      boolean configured) {}
+      boolean configured,
+      boolean hasUnknownValue) {}
 
   private record EffectiveBoolean(
       Boolean value, boolean conditional, List<WorkerSetting> sources) {}
@@ -708,15 +709,16 @@ public class ValidateCamundaClientWorkerEnablement
     private static EffectiveWorkerType effectiveWorkerType(
         WorkerDeclaration worker, List<WorkerTypeSetting> defaultTypeSettings) {
       if (worker.type() != null) {
-        return new EffectiveWorkerType(worker.type(), Set.of(worker.type()), false);
+        return new EffectiveWorkerType(worker.type(), Set.of(worker.type()), false, false);
       }
       if (worker.unresolvedType()) {
-        return new EffectiveWorkerType(null, Set.of(), true);
+        return new EffectiveWorkerType(null, Set.of(), true, true);
       }
 
       EffectiveString configuredType = effectiveString(defaultTypeSettings);
       if (!configuredType.configured()) {
-        return new EffectiveWorkerType(worker.methodName(), Set.of(worker.methodName()), false);
+        return new EffectiveWorkerType(
+            worker.methodName(), Set.of(worker.methodName()), false, false);
       }
       Set<String> possibleTypes = new HashSet<>(configuredType.possibleValues());
       boolean hasUnconditionallyActiveType =
@@ -725,15 +727,19 @@ public class ValidateCamundaClientWorkerEnablement
         possibleTypes.add(worker.methodName());
       }
       if (!configuredType.conditional() && possibleTypes.isEmpty()) {
-        return new EffectiveWorkerType(worker.methodName(), Set.of(worker.methodName()), false);
+        return new EffectiveWorkerType(
+            worker.methodName(), Set.of(worker.methodName()), false, false);
       }
       return new EffectiveWorkerType(
-          configuredType.value(), Set.copyOf(possibleTypes), configuredType.conditional());
+          configuredType.value(),
+          Set.copyOf(possibleTypes),
+          configuredType.conditional(),
+          configuredType.hasUnknownValue());
     }
 
     private static EffectiveString effectiveString(List<WorkerTypeSetting> settings) {
       if (settings.isEmpty()) {
-        return new EffectiveString(null, Set.of(), false, false, false);
+        return new EffectiveString(null, Set.of(), false, false, false, false);
       }
 
       Set<String> values = new HashSet<>();
@@ -760,7 +766,8 @@ public class ValidateCamundaClientWorkerEnablement
           values.size() == 1 && !unknownValue && !hasBlankValue
               ? values.iterator().next()
               : null;
-      return new EffectiveString(value, Set.copyOf(values), hasBlankValue, conditional, true);
+      return new EffectiveString(
+          value, Set.copyOf(values), hasBlankValue, conditional, true, unknownValue);
     }
 
     private static OverrideSelection selectOverrides(
@@ -782,6 +789,9 @@ public class ValidateCamundaClientWorkerEnablement
               workerType.conditional() || workerType.value() == null;
         } else if (worker.name() != null && target.equals(worker.name())) {
           nameOverrides.add(setting);
+        } else if (workerType.hasUnknownValue()) {
+          typeOverrides.add(setting);
+          targetConditional = true;
         }
       }
 
