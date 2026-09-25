@@ -103,6 +103,18 @@ class ConditionalEventDefinitionIdTests(unittest.TestCase):
             failures,
         )
 
+    def test_rejects_a_converted_definition_id_used_by_another_bpmn_element(self):
+        failures = self.check_documents(
+            (None, "Definition_Keep"),
+            ("Boundary_1", "Definition_Keep"),
+        )
+
+        self.assertIn(
+            "conditional event definition 1 ID 'Boundary_1' "
+            "is not unique in the XML document",
+            failures,
+        )
+
     def test_rejects_renaming_a_unique_source_definition_id(self):
         failures = self.check_documents(
             (None, "Definition_Keep_One", "Definition_Keep_Two"),
