@@ -114,6 +114,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -149,6 +150,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -179,6 +181,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -209,6 +212,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -239,6 +243,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -269,6 +274,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -299,6 +305,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -329,6 +336,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -359,6 +367,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -389,6 +398,7 @@
           "direct_start_scenarios": [
             "normal"
           ],
+          "missing_worker_input_scenarios": [],
           "covering_test": null,
           "reason": null,
           "assertion_applicability": {
@@ -705,6 +715,156 @@
       "failure_class": "unknown",
       "environment": null,
       "isolation_or_cleanup_plan": "Use a dedicated local deployment and delete all process instances after the preflight."
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-order.bpmn#order-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-account.bpmn#account-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-loan.bpmn#loan-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-invoice.bpmn#invoice-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-customer.bpmn#customer-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-messaging.bpmn#messaging-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-customer-archive.bpmn#customer-archive-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-eligibility.bpmn#eligibility-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-notification.bpmn#notification-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
+    },
+    {
+      "target_type": "process",
+      "target": "models/converted-c8-report.bpmn#report-process",
+      "kind": "worker_input_inventory",
+      "scenario": null,
+      "method": "manual",
+      "command": "Manual review of BPMN worker inputs and declarations.",
+      "exit_code": null,
+      "result": "not_run",
+      "evidence_path": null,
+      "reason": null,
+      "blocker_reason": "The worker-input inventory has not been reviewed.",
+      "failure_class": "unknown",
+      "environment": null
     }
   ]
 }

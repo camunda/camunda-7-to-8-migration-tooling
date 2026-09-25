@@ -29,6 +29,8 @@ and Docker probe commands that only mention `docker info`. They reject timer pre
 safety plan and output paths that identify the evidence input, each other, evidence logs, or
 reserved validation files. They reject converted model symlinks that resolve outside the project
 root without parsing the linked files.
+They also reject standalone processes without passing worker-input inventory evidence, omitted
+missing-input direct-start scenarios, and malformed report gates that leave stale `READY` claims.
 The tests reject symlink and hard-link source aliases, XML type mismatches, and non-empty DMN
 process or timer inventories. They reject `runtime_mode: none` when `src/main`, `pom.xml`, or a JAR
 in `target/` exposes runtime entry-point markers, including qualified Spring Boot annotations and

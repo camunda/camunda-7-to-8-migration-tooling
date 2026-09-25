@@ -255,6 +255,7 @@ MANUAL_CHECKS = {
     ("model", "form_binding"),
     ("model", "semantic_id_references"),
     ("model", "task_definition_types"),
+    ("process", "worker_input_inventory"),
 }
 
 
@@ -1645,6 +1646,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     "executable",
                     "standalone_entry_point",
                     "direct_start_scenarios",
+                    "missing_worker_input_scenarios",
                     "covering_test",
                     "reason",
                     "assertion_applicability",
@@ -1657,6 +1659,7 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                 "executable",
                 "standalone_entry_point",
                 "direct_start_scenarios",
+                "missing_worker_input_scenarios",
                 "covering_test",
                 "reason",
             ):
@@ -1666,6 +1669,9 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             executable = process.get("executable")
             standalone = process.get("standalone_entry_point")
             scenarios = process.get("direct_start_scenarios")
+            missing_worker_input_scenarios = process.get(
+                "missing_worker_input_scenarios"
+            )
             covering_test = process.get("covering_test")
             process_reason = process.get("reason")
             if not is_nonempty_string(process_id) or "#" in process_id:
@@ -1699,6 +1705,12 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     )
                 )
                 scenarios = []
+            if not isinstance(missing_worker_input_scenarios, list):
+                error(
+                    "{} missing_worker_input_scenarios must be an array."
+                    .format(process_location)
+                )
+                missing_worker_input_scenarios = []
             if covering_test is not None and not isinstance(covering_test, str):
                 error(
                     "{} covering_test must be a string or null.".format(
@@ -1712,6 +1724,26 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
 
             process_target = "{}#{}".format(path, process_id)
             process_run_keys = []
+            missing_worker_input_scenario_names = set()
+            for scenario in missing_worker_input_scenarios:
+                if not is_nonempty_string(scenario):
+                    error(
+                        "{} has an empty missing-worker-input scenario."
+                        .format(process_location)
+                    )
+                    continue
+                if scenario == "normal":
+                    error(
+                        "{} missing_worker_input_scenarios cannot include "
+                        "normal.".format(process_location)
+                    )
+                    continue
+                if scenario in missing_worker_input_scenario_names:
+                    error(
+                        "{} has a duplicate missing-worker-input scenario {}."
+                        .format(process_location, scenario)
+                    )
+                missing_worker_input_scenario_names.add(scenario)
             if not executable:
                 if not is_nonempty_string(process_reason):
                     error(
@@ -1719,10 +1751,16 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                             process_location
                         )
                     )
-                if standalone or scenarios or covering_test is not None:
+                if (
+                    standalone
+                    or scenarios
+                    or missing_worker_input_scenarios
+                    or covering_test is not None
+                ):
                     error(
-                        "{} cannot list start scenarios or a covering test when "
-                        "it is not executable.".format(process_location)
+                        "{} cannot list start scenarios, worker-input scenarios, "
+                        "or a covering test when it is not executable."
+                        .format(process_location)
                     )
                 continue
 
@@ -1776,6 +1814,33 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                             )
                         )
                     scenario_names.add(scenario)
+                if not (
+                    {"normal"} | missing_worker_input_scenario_names
+                ).issubset(scenario_names):
+                    error(
+                        "{} direct_start_scenarios must include normal and "
+                        "every worker-input inventory scenario."
+                        .format(process_location)
+                    )
+                inventory_key = (
+                    "process",
+                    process_target,
+                    "worker_input_inventory",
+                    None,
+                )
+                add_expected(
+                    expected,
+                    inventory_key,
+                    label_for_key(inventory_key),
+                    allow_not_applicable=False,
+                    require_pass=True,
+                )
+                required_scenarios = (
+                    scenario_names
+                    | missing_worker_input_scenario_names
+                    | {"normal"}
+                )
+                for scenario in sorted(required_scenarios):
                     key = ("process", process_target, "direct_start", scenario)
                     add_expected(
                         expected,
@@ -1791,6 +1856,13 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     error(
                         "{} must not list direct-start scenarios when it is not "
                         "a standalone entry point.".format(process_location)
+                    )
+                if missing_worker_input_scenarios:
+                    error(
+                        "{} must not list missing-worker-input scenarios when "
+                        "it is not a standalone entry point.".format(
+                            process_location
+                        )
                     )
                 if not is_nonempty_string(process_reason):
                     error(
@@ -2499,6 +2571,46 @@ def render_report_block(summary, summary_path):
     return "\n".join(lines)
 
 
+def remove_malformed_report_gate(contents):
+    start_positions = [
+        match.start() for match in re.finditer(re.escape(REPORT_START), contents)
+    ]
+    end_positions = [
+        match.start() for match in re.finditer(re.escape(REPORT_END), contents)
+    ]
+    marker_positions = start_positions + end_positions
+    if not marker_positions:
+        return contents
+
+    first_marker = min(marker_positions)
+    gate_heading = contents.rfind(
+        "## Aggregate validation gate", 0, first_marker
+    )
+    gate_status = contents.rfind("**Validation gate:**", 0, first_marker)
+    if gate_heading >= 0:
+        start = gate_heading
+    elif gate_status >= 0:
+        start = contents.rfind("\n", 0, gate_status) + 1
+    else:
+        start = first_marker
+
+    balanced = (
+        len(start_positions) == len(end_positions)
+        and bool(start_positions)
+        and start_positions[-1] < end_positions[-1]
+    )
+    if balanced:
+        end = end_positions[-1] + len(REPORT_END)
+        suffix = contents[end:]
+    else:
+        suffix = ""
+    prefix = contents[:start].rstrip()
+    suffix = suffix.lstrip()
+    if prefix and suffix:
+        return prefix + "\n\n" + suffix
+    return prefix or suffix
+
+
 def write_report(report_path, summary, project_root, summary_path):
     resolved = resolve_report_path(report_path, project_root)
     if resolved.exists():
@@ -2507,8 +2619,26 @@ def write_report(report_path, summary, project_root, summary_path):
         contents = ""
     has_start = REPORT_START in contents
     has_end = REPORT_END in contents
-    if has_start != has_end or contents.count(REPORT_START) > 1 or contents.count(REPORT_END) > 1:
-        raise ValueError("The report contains an incomplete validation gate block.")
+    markers_in_order = (
+        has_start
+        and has_end
+        and contents.index(REPORT_START) < contents.index(REPORT_END)
+    )
+    malformed = (
+        has_start != has_end
+        or contents.count(REPORT_START) > 1
+        or contents.count(REPORT_END) > 1
+        or (has_start and has_end and not markers_in_order)
+    )
+    if malformed:
+        summary["readiness"] = "not_ready"
+        summary["counts"]["invalid"] += 1
+        summary["blockers"].append(
+            "The report contains a malformed validation gate block."
+        )
+        contents = remove_malformed_report_gate(contents)
+        has_start = False
+        has_end = False
 
     block = render_report_block(summary, summary_path)
     if has_start:
@@ -2521,6 +2651,7 @@ def write_report(report_path, summary, project_root, summary_path):
             contents += "\n\n"
         contents += block + "\n"
     resolved.write_text(contents, encoding="utf-8")
+    return malformed
 
 
 def write_summary(summary_path, summary, project_root):
@@ -2659,7 +2790,9 @@ def main():
     report_failed = False
     if args.report and project_root_exists and cli_path_error is None:
         try:
-            write_report(args.report, summary, project_root, args.summary)
+            report_failed = write_report(
+                args.report, summary, project_root, args.summary
+            )
         except (OSError, ValueError, RuntimeError) as exception:
             summary["readiness"] = "not_ready"
             summary["counts"]["invalid"] += 1

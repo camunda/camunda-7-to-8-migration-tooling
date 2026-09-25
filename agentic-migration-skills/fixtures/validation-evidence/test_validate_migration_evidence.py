@@ -319,6 +319,85 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertIn("**Validation gate:** **NOT READY**", gate_block)
             self.assertNotIn("**Validation gate:** **READY**", gate_block)
 
+    def test_malformed_existing_report_gate_is_replaced_with_not_ready(self):
+        malformed_gates = {
+            "incomplete": (
+                "{}\n**Validation gate:** **READY**\n".format(
+                    gate.REPORT_START
+                )
+            ),
+            "duplicate": (
+                "{}\n**Validation gate:** **READY**\n{}\n\n"
+                "{}\n**Validation gate:** **READY**\n{}".format(
+                    gate.REPORT_START,
+                    gate.REPORT_END,
+                    gate.REPORT_START,
+                    gate.REPORT_END,
+                )
+            ),
+            "missing-start": (
+                "## Aggregate validation gate\n\n"
+                "**Validation gate:** **READY**\n\n{}".format(
+                    gate.REPORT_END
+                )
+            ),
+            "reversed-markers": (
+                "{}\n**Validation gate:** **READY**\n{}".format(
+                    gate.REPORT_END,
+                    gate.REPORT_START,
+                )
+            ),
+        }
+        for malformed_kind, malformed_gate in malformed_gates.items():
+            with self.subTest(malformed_kind=malformed_kind):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary) / "project"
+                    shutil.copytree(FIXTURE, project_root)
+                    manifest = json.loads(
+                        (project_root / "validation-evidence.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    materialize_inventory(project_root, manifest)
+                    report = project_root / "MIGRATION_REPORT.md"
+                    report.write_text(
+                        "Migration findings.\n\n" + malformed_gate,
+                        encoding="utf-8",
+                    )
+
+                    completed = self.run_gate(project_root)
+
+                    self.assertEqual(completed.returncode, 1)
+                    summary = json.loads(completed.stdout)
+                    self.assertTrue(
+                        any(
+                            "malformed validation gate block"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        )
+                    )
+                    report_text = report.read_text(encoding="utf-8")
+                    self.assertIn("Migration findings.", report_text)
+                    self.assertIn(
+                        "**Validation gate:** **NOT READY**", report_text
+                    )
+                    self.assertNotIn(
+                        "**Validation gate:** **READY**", report_text
+                    )
+                    self.assertEqual(
+                        report_text.count(gate.REPORT_START), 1
+                    )
+                    self.assertEqual(report_text.count(gate.REPORT_END), 1)
+                    saved_summary = json.loads(
+                        (
+                            project_root
+                            / ".camunda-migration/validation/validation-summary.json"
+                        ).read_text(encoding="utf-8")
+                    )
+                    self.assertEqual(saved_summary, summary)
+
     def test_converted_model_cannot_overwrite_source_path(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary) / "project"
@@ -832,6 +911,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "executable": True,
                     "standalone_entry_point": True,
                     "direct_start_scenarios": ["normal"],
+                    "missing_worker_input_scenarios": [],
                     "covering_test": None,
                     "reason": None,
                     "assertion_applicability": {
@@ -1426,7 +1506,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                 if not (
                     check.get("target_type") == "process"
                     and check.get("target") == process_target
-                    and check.get("kind") == "direct_start"
+                    and check.get("kind")
+                    in {"direct_start", "worker_input_inventory"}
                 )
             ]
             materialize_inventory(project_root, manifest)
@@ -1446,6 +1527,106 @@ class ValidationEvidenceTest(unittest.TestCase):
                     and process_target in blocker
                     for blocker in summary["blockers"]
                 )
+            )
+
+    def test_standalone_process_requires_worker_input_inventory_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            process = model["processes"][0]
+            process["missing_worker_input_scenarios"] = []
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            inventory_label = "process {}#{} / worker_input_inventory".format(
+                model["path"], process["id"]
+            )
+            self.assertTrue(
+                any(
+                    inventory_label in blocker
+                    and ("not_run" in blocker or "must pass" in blocker)
+                    for blocker in summary["blockers"]
+                ),
+                "A standalone process passed without completed worker-input inventory evidence.",
+            )
+
+    def test_standalone_process_requires_each_inventoried_missing_input_scenario(
+        self,
+    ):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = manifest["models"][0]
+            process = model["processes"][0]
+            process["missing_worker_input_scenarios"] = [
+                "missing-customer-id"
+            ]
+            process_target = "{}#{}".format(model["path"], process["id"])
+            inventory_evidence = (
+                LOG_DIRECTORY + "/order-worker-input-inventory.log"
+            )
+            inventory_file = project_root / inventory_evidence
+            inventory_file.parent.mkdir(parents=True, exist_ok=True)
+            inventory_file.write_text(
+                "Reviewed worker input mappings and implementations. "
+                "missing-customer-id omits customerId.\n",
+                encoding="utf-8",
+            )
+            inventory_check = passing_check(
+                "process",
+                process_target,
+                "worker_input_inventory",
+                inventory_evidence,
+            )
+            inventory_check.update(
+                {
+                    "method": "manual",
+                    "command": "Manual review of BPMN worker inputs.",
+                    "exit_code": None,
+                }
+            )
+            manifest["checks"] = [
+                check
+                for check in manifest["checks"]
+                if not (
+                    check.get("target_type") == "process"
+                    and check.get("target") == process_target
+                    and check.get("kind") == "worker_input_inventory"
+                )
+            ]
+            manifest["checks"].append(inventory_check)
+            materialize_inventory(project_root, manifest)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "direct_start_scenarios must include normal and "
+                    "every worker-input inventory scenario." in blocker
+                    and "processes[0]" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The process omitted an inventoried missing-input scenario.",
+            )
+            self.assertTrue(
+                any(
+                    "Missing required evidence for process {} / direct_start "
+                    "(missing-customer-id)".format(process_target) in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "No direct-start check was derived from the independent worker-input inventory.",
             )
 
     def test_step2_inventory_prevents_omitted_modules_and_models(self):

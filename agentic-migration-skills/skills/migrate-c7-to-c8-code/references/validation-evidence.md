@@ -88,6 +88,7 @@ Pass a manual check only after completing its review and saving non-empty eviden
 |---|---|
 | Module | `migration_todos`, `business_keys`, `eventual_consistency`, `pagination`, `worker_adapters`, `deployment_resources` |
 | Model | `findings_verdicts`, `generated_forms`, `form_references`, `form_binding`, `semantic_id_references`, `task_definition_types` |
+| Process | `worker_input_inventory` |
 
 Set `exit_code` to null for a manual check. Save the manual review evidence under
 `.camunda-migration/validation/logs/`.
@@ -100,7 +101,7 @@ Use the fields below to build the required check set.
 |---|---|
 | Module | `path`, `runtime_mode`, and each `test_suites` name with its `requires_docker` value. |
 | Model | Converted `path`, original `source_path`, `type`, `approach`, `deployable`, `source_has_di`, and `form_inventory`. |
-| Process | Every process ID, its `executable` value, its standalone-entry-point value, direct-start scenarios, and assertion applicability for each executable process. |
+| Process | Every process ID, its `executable` value, its standalone-entry-point value, direct-start scenarios, a reviewed worker-input inventory, and assertion applicability for each executable process. |
 | Repeating timer | The process ID and timer-start ID for each repeating timer start. |
 | Form | Every Generated Task Form, referenced form, and form-free owner for each model. |
 
@@ -132,8 +133,18 @@ reason. Set `accepted` and all applicability fields to `false` for a `form-free-
 `false`.
 
 List every process, including non-executable processes. Set `executable` to `false` and give a
-reason for a non-executable process. List `normal` and every missing-worker-input scenario in
-`direct_start_scenarios`. For a process that is not a standalone entry point, list no direct-start
+reason for a non-executable process. For each standalone executable process, list every scenario
+that omits a worker input in `missing_worker_input_scenarios`. Use the same scenario names in
+`direct_start_scenarios`, with `normal` included. Use an empty array when the inventory has no
+missing-input scenarios.
+
+Add one passing `worker_input_inventory` check for each standalone executable process. Review the
+converted BPMN worker mappings and worker declarations. Save the input-to-scenario mapping in the
+check evidence log. The validator requires direct-start checks for `normal`, every inventoried
+scenario, and every additional declared scenario. It rejects an inventory scenario that is absent
+from `direct_start_scenarios`.
+
+For a process that is not a standalone entry point, list no direct-start or missing-worker-input
 scenarios. Give its reason and covering test.
 
 The validator detects each converted model type from its XML definitions root. Reject any `type`
@@ -248,10 +259,11 @@ deployment check. Never deploy to production to validate a migration.
 Run process-start and behavior checks only in a local or non-production environment. Record the
 target environment on each applicable check.
 
-For every executable process, add one `direct_start` record for each declared start scenario. Include
-the normal inputs and each worker input that the process may not receive. Where a process is not a
-standalone entry point, record its reason and a separate `process_coverage` check for its covering
-test. Do not add a `direct_start` record for a process that is not a standalone entry point.
+For every standalone executable process, add one `direct_start` record for `normal` and each
+scenario in `missing_worker_input_scenarios`. The `worker_input_inventory` check must pass before
+the validator accepts these scenarios. Where a process is not a standalone entry point, record its
+reason and a separate `process_coverage` check for its covering test. Do not add a `direct_start`
+record for a process that is not a standalone entry point.
 
 Add an `assertion_applicability` object with one boolean for every assertion below in each executable
 process inventory entry. Set each value to `true` when its behavior applies. Set it to `false` when

@@ -179,6 +179,7 @@
                 "executable",
                 "standalone_entry_point",
                 "direct_start_scenarios",
+                "missing_worker_input_scenarios",
                 "covering_test",
                 "reason"
               ],
@@ -195,6 +196,14 @@
                 },
                 "direct_start_scenarios": {
                   "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "missing_worker_input_scenarios": {
+                  "type": "array",
+                  "description": "Independently reviewed worker-input omission scenarios for a standalone process.",
                   "items": {
                     "type": "string",
                     "minLength": 1
