@@ -393,12 +393,14 @@ target version. See the linting section in `references/model-migration-approache
     reports or converted copies as authoritative. The skill requires explicit user approval for the
     manual follow-up.
 22. Where the user authorizes deployment to a test target matching the declared Camunda 8 version,
-    the skill deploys every converted BPMN and DMN. When c8ctl is configured, the skill checks
-    `c8ctl which profile` and runs `c8ctl deploy <converted-file> --profile=<name>`. The skill uses
-    an authorized deployment client when c8ctl is unavailable. The skill records one result per
-    resource and confirms before using a shared target. If authorization is absent, the target is
-    missing, deployment fails, or listener relocation is unapproved, then the skill blocks model
-    readiness.
+    the skill deploys every converted BPMN and DMN. The skill deploys each accepted `.form` with its
+    owning BPMN. When c8ctl is configured, the skill checks `c8ctl which profile`. The skill stages
+    only converted BPMN and DMN files and accepted `.form` files in one directory. The skill runs
+    `c8ctl deploy <deployment-directory> --profile=<name>` on that directory. The skill uses an
+    authorized deployment client when c8ctl is unavailable. The skill records one result per
+    resource path. The skill links each form result to its owning BPMN. The skill confirms before
+    using a shared target. If authorization is absent, the target is missing, any resource
+    deployment fails, or listener relocation is unapproved, then the skill blocks model readiness.
 
 #### Summary
 
@@ -427,7 +429,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
 | Deployment patterns | Each `@Deployment` entry resolves to a non-empty subset of the inventory. Their union equals the inventory. | Each pattern and its resolved resources |
 | Packaged resources | The final application artifact contains every resource resolved by those patterns. | Artifact path and packaged resource entries |
-| Target deployment | Every converted BPMN and DMN deploys to the declared target version. | Target version, resource path, and deployment result |
+| Target deployment | Every converted BPMN and DMN deploys to the declared target version. Each accepted `.form` deploys with its owning BPMN. | Target version, resource path, owning BPMN for each form, and deployment result for every resource |
 
 Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
