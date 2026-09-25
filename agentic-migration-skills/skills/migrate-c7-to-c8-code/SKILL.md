@@ -273,11 +273,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
 8. **Dependency compatibility and client startup** — for each Maven module that uses a Camunda
    Spring Boot starter, run the BOM and dependency-family checks in
    `references/code-transform-checklist.md`. Run a focused context test that creates the real
-   `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. A
-   `LinkageError`, incompatible runtime dependency graph, or unresolved BOM without a verified
-   replacement blocks readiness. Record the failing and final dependency coordinates and versions in
-   `MIGRATION_REPORT.md`. Record the evidence and chosen remediation there. Record the test command
-   and its exit code there.
+   `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. The skill
+   applies the readiness verdicts in the checklist. Record the failing and final dependency
+   coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
+   there. Record the test command and its exit code there.
 9. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
    documented with an explanation.
 10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
