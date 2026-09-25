@@ -9,17 +9,23 @@ uses this file to produce the aggregate validation gate in `MIGRATION_REPORT.md`
 ## Evidence files
 
 1. Before conversion, save the confirmed Step 2 scope in `.camunda-migration/validation/step2-inventory.json`.
-2. List every migrated code module path in the inventory `modules` array.
+2. List every migrated code module directory once in the inventory `modules` array.
 3. List every in-scope original model path in the inventory `models` array.
 4. Keep the Step 2 inventory separate from the evidence manifest. The validator requires exact path-set equality.
-5. Create `.camunda-migration/validation/validation-evidence.json` in the confirmed project root.
-6. Capture command output under `.camunda-migration/validation/logs/`.
-7. Use files under `.camunda-migration/validation/logs/` for every `evidence_path`.
-8. Never use the inventory, manifest, generated summary, or `MIGRATION_REPORT.md` as evidence.
-9. Remove credentials and secret values from every command and log.
-10. List every independent test suite for each module.
-11. List every process in each converted BPMN model, including non-executable processes. List every repeating timer start.
-12. Use project-relative paths for every target and evidence file.
+5. Use one canonical path for each module directory. The validator resolves module paths before it checks uniqueness and inventory completeness.
+6. Create `.camunda-migration/validation/validation-evidence.json` in the confirmed project root.
+7. Capture command output under `.camunda-migration/validation/logs/`.
+8. Use files under `.camunda-migration/validation/logs/` for every `evidence_path`.
+9. Never use the inventory, manifest, generated summary, or `MIGRATION_REPORT.md` as evidence.
+10. Remove credentials and secret values from every command and log.
+11. List every independent test suite for each module.
+12. List every process in each converted BPMN model, including non-executable processes.
+13. List every repeating timer start in each converted BPMN model.
+14. Use project-relative paths for every target and evidence file.
+
+The validator checks process IDs and executable values against each converted BPMN model. The
+validator checks each timer process ID and timer-start ID against the converted BPMN. It requires a
+timer preflight for each repeating timer in an executable process.
 
 Use `../scripts/validation-inventory.schema.json` for the Step 2 inventory. Use
 `../scripts/validation-evidence.schema.json` for the evidence manifest.

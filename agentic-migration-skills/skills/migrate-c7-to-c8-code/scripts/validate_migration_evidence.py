@@ -240,18 +240,27 @@ def validate_project_path(value, project_root, label, expected_type, error):
         error("{} must point to an existing file.".format(label))
 
 
+def canonical_project_path(value, project_root):
+    root = project_root.resolve()
+    resolved = (root / Path(value.replace("\\", "/"))).resolve()
+    try:
+        return resolved.relative_to(root).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
 def paths_identify_same_file(left, right):
     if left == right:
         return True
     return left.is_file() and right.is_file() and left.samefile(right)
 
 
-def read_bpmn_process_inventory(path, location, error):
+def read_bpmn_inventory(path, location, error):
     try:
         root = ET.parse(str(path)).getroot()
     except (OSError, ET.ParseError) as exception:
         error(
-            "{} converted BPMN cannot be parsed for process inventory: {}."
+            "{} converted BPMN cannot be parsed for process or timer inventory: {}."
             .format(location, exception)
         )
         return None
@@ -265,7 +274,13 @@ def read_bpmn_process_inventory(path, location, error):
         return None
 
     process_tag = "{{{}}}process".format(BPMN_MODEL_NAMESPACE)
+    start_event_tag = "{{{}}}startEvent".format(BPMN_MODEL_NAMESPACE)
+    timer_definition_tag = (
+        "{{{}}}timerEventDefinition".format(BPMN_MODEL_NAMESPACE)
+    )
+    time_cycle_tag = "{{{}}}timeCycle".format(BPMN_MODEL_NAMESPACE)
     processes = {}
+    repeating_timer_starts = set()
     for index, process in enumerate(root.findall(process_tag)):
         process_location = "{} converted BPMN process[{}]".format(
             location, index
@@ -293,7 +308,32 @@ def read_bpmn_process_inventory(path, location, error):
             )
             continue
         processes[process_id] = executable
-    return processes
+        for start_index, start_event in enumerate(
+            process.iter(start_event_tag)
+        ):
+            if not any(
+                timer_definition.find(time_cycle_tag) is not None
+                for timer_definition in start_event.findall(
+                    timer_definition_tag
+                )
+            ):
+                continue
+            timer_id = start_event.get("id")
+            timer_location = "{} repeating timer start[{}]".format(
+                process_location, start_index
+            )
+            if not is_nonempty_string(timer_id):
+                error("{} must have a non-empty id.".format(timer_location))
+                continue
+            timer_key = (process_id, timer_id)
+            if timer_key in repeating_timer_starts:
+                error(
+                    "{} has duplicate repeating timer start id {}."
+                    .format(process_location, timer_id)
+                )
+                continue
+            repeating_timer_starts.add(timer_key)
+    return processes, repeating_timer_starts
 
 
 def resolve_contained_path(value, project_root, label):
@@ -420,6 +460,8 @@ def load_step2_inventory(project_root, error):
                 continue
             validate_project_path(path, project_root, location, expected_type, error)
             normalized_path = path.replace("\\", "/")
+            if field == "modules":
+                normalized_path = canonical_project_path(path, project_root)
             if normalized_path in normalized_paths:
                 error("{} duplicates a path.".format(location))
             normalized_paths.add(normalized_path)
@@ -540,10 +582,13 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             "directory",
             error,
         )
-        normalized_path = path.replace("\\", "/")
-        if normalized_path in module_paths:
-            error("The module path {} appears more than once.".format(path))
-        module_paths.add(normalized_path)
+        canonical_path = canonical_project_path(path, project_root)
+        if canonical_path in module_paths:
+            error(
+                "The module path {} appears more than once after resolving "
+                "the path.".format(path)
+            )
+        module_paths.add(canonical_path)
         if not isinstance(runtime_mode, str) or runtime_mode not in {
             "spring-boot",
             "external-launcher",
@@ -734,10 +779,16 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             error("{} processes must be an array.".format(location))
             processes = []
         bpmn_process_inventory = None
+        bpmn_timer_start_inventory = None
         if model_type == "bpmn" and resolved_model_path.is_file():
-            bpmn_process_inventory = read_bpmn_process_inventory(
+            bpmn_inventory = read_bpmn_inventory(
                 resolved_model_path, location, error
             )
+            if bpmn_inventory is not None:
+                (
+                    bpmn_process_inventory,
+                    bpmn_timer_start_inventory,
+                ) = bpmn_inventory
         if not isinstance(timer_starts, list):
             error("{} recurring_timer_starts must be an array.".format(location))
             timer_starts = []
@@ -1107,10 +1158,10 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
             timer_id = timer.get("id")
             if (
                 not isinstance(process_id, str)
-                or process_id not in executable_process_ids
+                or process_id not in process_ids
             ):
                 error(
-                    "{} refers to an unknown or non-executable process {}.".format(
+                    "{} refers to an unknown process {}.".format(
                         timer_location, process_id
                     )
                 )
@@ -1128,6 +1179,8 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     "{} duplicates a repeating timer start.".format(timer_location)
                 )
             timer_ids.add(timer_key)
+            if process_id not in executable_process_ids:
+                continue
             timer_target = "{}#{}#{}".format(path, process_id, timer_id)
             key = ("timer", timer_target, "timer_preflight", None)
             add_expected(
@@ -1145,6 +1198,24 @@ def validate_manifest(data, project_root, excluded_evidence_paths=None):
                     process_start_checks.get((path, process_id), []),
                 )
             )
+
+        if bpmn_timer_start_inventory is not None:
+            for process_id, timer_id in sorted(
+                bpmn_timer_start_inventory - timer_ids
+            ):
+                error(
+                    "{} recurring_timer_starts omits converted BPMN "
+                    "repeating timer start {} in process {}."
+                    .format(location, timer_id, process_id)
+                )
+            for process_id, timer_id in sorted(
+                timer_ids - bpmn_timer_start_inventory
+            ):
+                error(
+                    "{} recurring_timer_starts includes unknown converted "
+                    "BPMN repeating timer start {} in process {}."
+                    .format(location, timer_id, process_id)
+                )
 
     for converted_path, converted_location in converted_model_file_paths:
         for source_path, source_location in model_source_file_paths:

@@ -16,12 +16,13 @@ The recorded evidence contradicts several claims:
 - Other required model, process, and timer checks are missing.
 
 The tests reject source and converted paths that resolve to the same file. They reject converted
-paths that alias another model's source or duplicate another converted path. They reject manifests
-that omit Step 2 modules, models, or BPMN processes, or misstate process executability. They also
-reject form-check waivers that conflict with the form inventory, synthetic direct-start checks for
-non-standalone processes, waived applicable process assertions, manual executable checks, evidence
-outside the logs directory, reused suite logs, timer preflights without a safety plan, and output
-paths that identify the evidence input or each other.
+paths that alias another model's source or duplicate another converted path. They reject duplicate
+module paths after path resolution. They reject manifests that omit Step 2 modules, models, or BPMN
+processes, or misstate process executability. They reject timer inventories that omit or invent
+repeating starts in converted BPMN. They also reject form-check waivers that conflict with the form
+inventory, synthetic direct-start checks for non-standalone processes, waived applicable process
+assertions, manual executable checks, evidence outside the logs directory, reused suite logs, timer
+preflights without a safety plan, and output paths that identify the evidence input or each other.
 
 From the repository root, run the regression test with Python 3:
 

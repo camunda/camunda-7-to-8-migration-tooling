@@ -135,19 +135,41 @@ def passing_module_manifest(module_path):
     }
 
 
-def write_bpmn_file(path, processes):
+def write_bpmn_file(path, processes, timer_starts):
     root = ET.Element(
         "{{{}}}definitions".format(BPMN_MODEL_NAMESPACE)
     )
+    process_elements = {}
     for process in processes:
         if not isinstance(process, dict) or not isinstance(process.get("id"), str):
             continue
         executable = str(process.get("executable", False)).lower()
-        ET.SubElement(
+        process_element = ET.SubElement(
             root,
             "{{{}}}process".format(BPMN_MODEL_NAMESPACE),
             {"id": process["id"], "isExecutable": executable},
         )
+        process_elements[process["id"]] = process_element
+    for timer in timer_starts:
+        if not isinstance(timer, dict):
+            continue
+        process_element = process_elements.get(timer.get("process_id"))
+        timer_id = timer.get("id")
+        if process_element is None or not isinstance(timer_id, str):
+            continue
+        start_event = ET.SubElement(
+            process_element,
+            "{{{}}}startEvent".format(BPMN_MODEL_NAMESPACE),
+            {"id": timer_id},
+        )
+        timer_definition = ET.SubElement(
+            start_event,
+            "{{{}}}timerEventDefinition".format(BPMN_MODEL_NAMESPACE),
+        )
+        ET.SubElement(
+            timer_definition,
+            "{{{}}}timeCycle".format(BPMN_MODEL_NAMESPACE),
+        ).text = "R/PT1M"
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
@@ -159,7 +181,11 @@ def materialize_inventory(project_root, manifest):
             model_file = project_root / model[key]
             model_file.parent.mkdir(parents=True, exist_ok=True)
             if model.get("type") == "bpmn":
-                write_bpmn_file(model_file, model.get("processes", []))
+                write_bpmn_file(
+                    model_file,
+                    model.get("processes", []),
+                    model.get("recurring_timer_starts", []),
+                )
             else:
                 model_file.write_text("<definitions />\n", encoding="utf-8")
 
@@ -324,6 +350,52 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "The cross-model source collision was not rejected.",
                     )
 
+    def test_module_inventory_rejects_canonical_directory_aliases(self):
+        aliases = ("examples/./web", "examples/web-alias")
+        for alias in aliases:
+            with self.subTest(alias=alias):
+                with tempfile.TemporaryDirectory(
+                    prefix="migration-evidence-"
+                ) as temporary:
+                    project_root = Path(temporary)
+                    module_directory = project_root / "examples/web"
+                    module_directory.mkdir(parents=True)
+                    if alias == "examples/web-alias":
+                        (project_root / alias).symlink_to("web")
+                    log_directory = project_root / LOG_DIRECTORY
+                    log_directory.mkdir(parents=True)
+                    (log_directory / "pass.log").write_text(
+                        "check completed\n", encoding="utf-8"
+                    )
+                    manifest = passing_module_manifest("examples/web")
+                    duplicate_module = dict(manifest["modules"][0])
+                    duplicate_module["path"] = alias
+                    manifest["modules"].append(duplicate_module)
+                    manifest["checks"].extend(
+                        dict(check, target=alias)
+                        for check in list(manifest["checks"])
+                        if check.get("target_type") == "module"
+                    )
+                    write_step2_inventory(
+                        project_root,
+                        ["examples/web", alias],
+                        [],
+                    )
+
+                    summary = gate.validate_manifest(manifest, project_root)
+
+                    self.assertTrue(
+                        any(
+                            "module path" in blocker
+                            and "appears more than once after resolving the path"
+                            in blocker
+                            for blocker in summary["blockers"]
+                        ),
+                        "The module directory alias was not rejected: {}".format(
+                            alias
+                        ),
+                    )
+
     def test_duplicate_converted_model_paths_are_normalized(self):
         with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
             project_root = Path(temporary) / "project"
@@ -352,6 +424,108 @@ class ValidationEvidenceTest(unittest.TestCase):
                     for blocker in summary["blockers"]
                 ),
                 "The normalized converted-path alias was not rejected.",
+            )
+
+    def test_timer_inventory_cannot_omit_repeating_bpmn_start_events(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = next(
+                model
+                for model in manifest["models"]
+                if model["type"] == "bpmn" and model["recurring_timer_starts"]
+            )
+            timer = model["recurring_timer_starts"][0]
+            materialize_inventory(project_root, manifest)
+            timer_target = "{}#{}#{}".format(
+                model["path"], timer["process_id"], timer["id"]
+            )
+            manifest["checks"] = [
+                check
+                for check in manifest["checks"]
+                if not (
+                    check.get("target_type") == "timer"
+                    and check.get("target") == timer_target
+                    and check.get("kind") == "timer_preflight"
+                )
+            ]
+            model["recurring_timer_starts"] = []
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "recurring_timer_starts omits converted BPMN repeating timer"
+                    in blocker
+                    and timer["id"] in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The missing repeating timer inventory entry was not rejected.",
+            )
+
+    def test_timer_inventory_rejects_unknown_repeating_bpmn_start_events(self):
+        with tempfile.TemporaryDirectory(prefix="migration-evidence-") as temporary:
+            project_root = Path(temporary) / "project"
+            shutil.copytree(FIXTURE, project_root)
+            manifest = json.loads(
+                (project_root / "validation-evidence.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            model = next(
+                model
+                for model in manifest["models"]
+                if model["type"] == "bpmn" and model["recurring_timer_starts"]
+            )
+            timer = model["recurring_timer_starts"][0]
+            materialize_inventory(project_root, manifest)
+            unknown_timer_id = "unlisted-start"
+            model["recurring_timer_starts"] = [
+                {
+                    "process_id": timer["process_id"],
+                    "id": unknown_timer_id,
+                }
+            ]
+            timer_check = next(
+                check
+                for check in manifest["checks"]
+                if check.get("target_type") == "timer"
+                and check.get("kind") == "timer_preflight"
+            )
+            timer_check["target"] = "{}#{}#{}".format(
+                model["path"], timer["process_id"], unknown_timer_id
+            )
+            timer_check.update(
+                {
+                    "exit_code": 0,
+                    "result": "passed",
+                    "evidence_path": (
+                        LOG_DIRECTORY + "/evidence/message-assertion.txt"
+                    ),
+                    "reason": None,
+                    "blocker_reason": None,
+                    "failure_class": None,
+                    "environment": "local",
+                }
+            )
+            manifest["checks"].remove(timer_check)
+            manifest["checks"].insert(0, timer_check)
+
+            summary = gate.validate_manifest(manifest, project_root)
+
+            self.assertTrue(
+                any(
+                    "recurring_timer_starts includes unknown converted BPMN "
+                    "repeating timer" in blocker
+                    and "unlisted-start" in blocker
+                    for blocker in summary["blockers"]
+                ),
+                "The unknown repeating timer inventory entry was not rejected.",
             )
 
     def test_process_inventory_cannot_omit_bpmn_processes(self):
