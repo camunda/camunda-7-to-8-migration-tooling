@@ -202,6 +202,8 @@ fixtures/                                  ← sample projects for manual regres
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
+a runtime module without a usable SLF4J provider cannot pass logging validation.
 
 ## License
 

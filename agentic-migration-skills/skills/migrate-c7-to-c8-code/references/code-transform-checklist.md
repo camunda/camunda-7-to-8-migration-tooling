@@ -104,6 +104,42 @@ These items are not in the catalog:
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
 
+### SLF4J provider validation
+
+A runtime module is a Maven or Gradle module whose migrated application runs in a JVM process. Use
+the recorded launch path to identify each runtime module. Exclude test-only modules and libraries
+without their own launch path.
+
+Check each runtime module independently. Do not use a parent or sibling module's runtime path as
+evidence. Resolve the module's runtime classpath or module path, excluding test dependencies. For
+Maven, run `mvn -f <module>/pom.xml dependency:build-classpath -Dmdep.includeScope=runtime`. For
+Gradle, inspect the module's `runtimeClasspath`.
+
+Inspect the resolved classpath for the SLF4J API and compatible providers. For SLF4J 2.x, count
+provider classes declared in `META-INF/services/org.slf4j.spi.SLF4JServiceProvider`. When the
+application uses JPMS, count providers declared by `provides` in `module-info.class`. For SLF4J 1.x,
+count `org/slf4j/impl/StaticLoggerBinder.class` resources. Do not count an incompatible provider or
+an ignored legacy binding as usable.
+
+Run a diagnostic with the same runtime classpath or module path that calls
+`org.slf4j.LoggerFactory.getILoggerFactory()`. Record the selected factory class and any provider or
+version warnings. Record `none` when the runtime path has no provider. Record each incompatible
+provider candidate and why it is unusable.
+
+Record the module location, inspection command, resolved SLF4J API version, all provider candidates,
+compatible-provider count, selected factory class, and diagnostic result in `MIGRATION_REPORT.md`.
+Write `none` when the runtime path has no provider candidates. The skill applies this outcome table:
+
+| Provider evidence | User decision | Report status | Required action |
+|---|---|---|---|
+| One compatible provider initializes. The factory is not `NOPLoggerFactory`. No conflict appears. | None | **PASS** | Record the evidence. |
+| The API is missing, no compatible provider initializes, the factory is `NOPLoggerFactory`, or initialization fails. | None | Open finding | Leave the finding open. Fix dependencies or ask the user for an explicit logging decision. |
+| Multiple compatible providers initialize or the diagnostic reports a conflict. | None | Open finding | Leave the finding open. Fix dependencies or ask the user for an explicit logging decision. |
+| The provider check fails. | The user explicitly approves an exception. | Approved exception | Record approval and resolve the finding. Never mark logging or startup readiness **PASS**. |
+| The runtime path or provider evidence is unverified. | None | Blocking finding | Keep the finding open and the migration incomplete. |
+
+Do not skip this check when application source has no SLF4J imports.
+
 ### Maven build wiring
 
 Apply this section to each migrated Maven module. Do not apply it to Gradle modules. Inspect
