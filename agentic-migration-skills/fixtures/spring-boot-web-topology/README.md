@@ -18,10 +18,10 @@ cluster uses REST port `8080`. The application does not recreate or proxy
    and every Engine REST consumer.
 2. Start a Camunda 8.9.21 self-managed cluster with REST at
    `http://localhost:8080` and gRPC at `http://localhost:26500`. Confirm the
-   REST API is reachable:
+   cluster health endpoint reports healthy:
 
    ```bash
-   curl --fail http://localhost:8080/v2/topology
+   curl --fail http://localhost:8080/v2/status
    ```
 
 3. Run the expected project's test suite:
@@ -35,8 +35,8 @@ cluster uses REST port `8080`. The application does not recreate or proxy
    checks the cluster health component, starts that process through the
    application API, and confirms that `/engine-rest` returns `404`.
 4. Run `CamundaClusterHealthIndicatorTest` without a cluster. It confirms that
-   the health check reports `UP` and `DOWN` for reachable and unavailable
-   cluster API responses:
+   the health check maps `/v2/status` responses `204` and `503` to `UP` and
+   `DOWN`. It also confirms that an unavailable endpoint reports `DOWN`:
 
    ```bash
    mvn -f agentic-migration-skills/fixtures/spring-boot-web-topology/expected-c8/pom.xml \

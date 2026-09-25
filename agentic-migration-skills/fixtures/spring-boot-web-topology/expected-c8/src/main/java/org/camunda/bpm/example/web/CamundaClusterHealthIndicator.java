@@ -27,7 +27,7 @@ public class CamundaClusterHealthIndicator implements HealthIndicator {
   @Override
   public Health health() {
     try {
-      restClient.get().uri("/v2/topology").retrieve().toBodilessEntity();
+      restClient.get().uri("/v2/status").retrieve().toBodilessEntity();
       return Health.up().build();
     } catch (RestClientException exception) {
       return Health.down(exception).build();

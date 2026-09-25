@@ -10,28 +10,45 @@ package org.camunda.bpm.example.web;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withNoContent;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 class CamundaClusterHealthIndicatorTest {
 
   @Test
-  void reportsUpWhenTheClusterTopologyEndpointResponds() {
+  void reportsUpWhenTheClusterStatusEndpointReturnsNoContent() {
     RestClient.Builder builder = RestClient.builder();
     MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    server.expect(requestTo("http://localhost:8080/v2/topology"))
+    server.expect(requestTo("http://localhost:8080/v2/status"))
         .andExpect(method(HttpMethod.GET))
-        .andRespond(withSuccess());
+        .andRespond(withNoContent());
 
     CamundaClusterHealthIndicator indicator =
         new CamundaClusterHealthIndicator(builder, "http://localhost:8080");
 
     assertThat(indicator.health().getStatus()).isEqualTo(Status.UP);
+    server.verify();
+  }
+
+  @Test
+  void reportsDownWhenTheClusterStatusEndpointReportsServiceUnavailable() {
+    RestClient.Builder builder = RestClient.builder();
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    server.expect(requestTo("http://localhost:8080/v2/status"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+    CamundaClusterHealthIndicator indicator =
+        new CamundaClusterHealthIndicator(builder, "http://localhost:8080");
+
+    assertThat(indicator.health().getStatus()).isEqualTo(Status.DOWN);
     server.verify();
   }
 
