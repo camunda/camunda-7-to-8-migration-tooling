@@ -224,6 +224,55 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
   }
 
   @Test
+  void addsBlockingGuidanceForActiveTimerDueDateUpdates() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import java.util.Date;
+            import java.util.function.BiConsumer;
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class TimerDueDateUpdate {
+
+                public void update(ManagementService managementService, String jobId, Date dueDate) {
+                    managementService.setJobDuedate(jobId, dueDate);
+                }
+
+                public BiConsumer<String, Date> updater(ManagementService managementService) {
+                    return managementService::setJobDuedate;
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import java.util.Date;
+            import java.util.function.BiConsumer;
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class TimerDueDateUpdate {
+
+                public void update(ManagementService managementService, String jobId, Date dueDate) {
+                    // TODO: ManagementService timer due-date update needs target-version verification in Camunda 8 (setJobDuedate()).
+                    // Trace every caller and affected BPMN timer. Confirm a target-supported replacement with the project and test repeated changes on an active instance. If none is confirmed, mark the flow as blocking manual work. Do not leave a reachable UnsupportedOperationException placeholder.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobDuedate(jobId, dueDate);
+                }
+
+                public BiConsumer<String, Date> updater(ManagementService managementService) {
+                    // TODO: ManagementService timer due-date update needs target-version verification in Camunda 8 (setJobDuedate()).
+                    // Trace every caller and affected BPMN timer. Confirm a target-supported replacement with the project and test repeated changes on an active instance. If none is confirmed, mark the flow as blocking manual work. Do not leave a reachable UnsupportedOperationException placeholder.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    return managementService::setJobDuedate;
+                }
+            }
+            """));
+  }
+
+  @Test
   void addsProcessInstanceRetryGuidance() {
     rewriteRun(
         // language=java

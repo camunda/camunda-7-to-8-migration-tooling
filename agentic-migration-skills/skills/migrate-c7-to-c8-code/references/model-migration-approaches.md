@@ -11,6 +11,9 @@ Use the assessment model scan before choosing a path.
 
 Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
+Run `deployment-and-timer-preflight.md` for the intended deployment set during Step 2. Repeat its target-version checks before deployment and readiness claims.
+After E1 acquires models, run the inventory again for the acquired deployment set.
+
 ## Pre-flight: Leftover Artifacts
 
 Before any local approach (M1, M2, E1), scan for outputs of previous migration attempts:
@@ -227,6 +230,9 @@ The current dedicated cross-check categories are:
 | `conditional-flow` | Verify target support for the converted flow and condition |
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
 | `execution-listener-on-start-event` | Ask for confirmed relocation to the nearest enclosing process or subprocess, then verify the converted listener |
+| `recurring-timer-start` | Check the deployment-set decision and disposable-target test in `deployment-and-timer-preflight.md` |
+| `duplicate-bpmn-process-id` | Match every definition to its `latestVersion()` callers and confirmed deployment decision in `deployment-and-timer-preflight.md` |
+| `active-timer-due-date-update` | Trace all callers and affected BPMN timers, then verify the approved target-version behavior in `deployment-and-timer-preflight.md` |
 
 The form procedures in 5f and 5g are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
@@ -241,9 +247,15 @@ Where a documented converter runtime-impact field is present, use its value. Rec
 value in `Impact evidence`. Do not infer an undocumented field. Otherwise, apply the first matching
 rule in this table.
 
-For target support, deploy every fresh converted copy named by the row. Record each target,
-deployment identifier, and result in `Impact evidence`. After a deployment succeeds, start
-instances that reach every Element list ID from that copy. Record each execution result.
+Before a target-support test, complete `deployment-and-timer-preflight.md` for the exact deployment
+set. When a converted copy has a recurring timer start, test it only on a disposable target with a
+written cleanup plan. Never deploy it to a shared target to validate syntax.
+
+For target support, deploy every fresh converted copy named by the row after the preflight passes.
+Record each target, deployment identifier, and result in `Impact evidence`. After a deployment
+succeeds, start instances that reach every Element list ID from that copy. Record each execution
+result. If a disposable target or cleanup plan is unavailable, keep the row **needs review** with
+**Blocking** runtime impact. Do not deploy the recurring timer copy.
 
 For `element-not-supported-hint` and `conditional-flow`, use **Advisory** and **no action** only
 after the target-support test and verification gate pass. If a test failure identifies an affected

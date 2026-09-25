@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="orderDefinitions"
+                  targetNamespace="http://camunda.org/examples/order">
+  <bpmn:process id="Sample" name="Order cycle" isExecutable="true">
+    <bpmn:startEvent id="orderStart" name="Order start" />
+    <bpmn:sequenceFlow id="orderStartToEnd" sourceRef="orderStart" targetRef="orderEnd" />
+    <bpmn:endEvent id="orderEnd" name="Order complete" />
+  </bpmn:process>
+</bpmn:definitions>

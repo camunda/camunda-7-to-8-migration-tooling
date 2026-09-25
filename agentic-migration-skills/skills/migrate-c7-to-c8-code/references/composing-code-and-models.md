@@ -167,6 +167,14 @@ For every `c7-embedded-html-form`, `c7-external-form-reference`, `c7-camunda-for
 
 Use `form-reference-migration.md` to collect decisions. A category stays **needs review** until its procedure-specific decision or prerequisite is complete. Embedded, external, and generic forms need a remediation decision. Camunda Form references need form discovery and a binding decision. Dynamic references need possible-value enumeration before a decision. The category is then **needs fix** until the relevant work is finished: a rebuilt form is accepted and linked, a custom-application integration is confirmed by a named owner, or a Camunda Form is converted, relinked, and deployed. If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the category at **needs review** until the user resolves that prerequisite. A kept reference is never **no action** on the strength of the converter having copied it.
 
+### 4b. Timer behavior and deployment-set collisions
+
+Run `deployment-and-timer-preflight.md` after both inventories and before any target deployment.
+The procedure traces active timer due-date updates through every caller and affected BPMN timer.
+It also checks recurring timer starts, duplicate process IDs, and `latestVersion()` callers across
+the intended deployment set. Keep unresolved decisions and reachable throwing placeholders as
+blocking manual work.
+
 ### 5. Now-redundant workaround code (deletion candidates)
 
 Some findings describe the opposite of missing support: a C7-side workaround is obsolete because Zeebe now provides the capability natively. Detect this family primarily by `messageId`. Fall back to `message` content for rows whose `message` contains "now natively possible with Zeebe". This catches future family members whose `messageId` is not yet known. Today the family has one member: `collection-hint` ("Collecting results in a multi instance is now natively possible with Zeebe. Please review.", TASK), emitted once per converted multi-instance `camunda:collection`.

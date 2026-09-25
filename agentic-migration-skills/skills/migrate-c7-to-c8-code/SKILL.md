@@ -102,6 +102,8 @@ These rules apply to every later step.
 
 - Before the first change, check for uncommitted changes. If the working tree is dirty, then ask the
   user to commit or stash.
+- Before a target deployment or a readiness claim, run
+  `references/deployment-and-timer-preflight.md`.
 - Never commit without an explicit user request.
 - Write each converted model to a `converted-c8-*` copy. Leave every original file unchanged.
 - Where the target is a separate location, such as a sibling Camunda 8 project, treat the Camunda 7
@@ -184,7 +186,7 @@ classifications.
 Record the original Java source baseline used for migration with the Code Inventory. Record each
 class by its fully qualified class name, including its package and class name. Include every domain
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
-APIs.
+APIs. Include every helper and caller that changes an active timer due date.
 
 #### Model Inventory
 
@@ -203,6 +205,10 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+Run `references/deployment-and-timer-preflight.md` for every intended deployment set. Record
+recurring timer starts, duplicate process IDs, `latestVersion()` callers, and active timer due-date
+updates in `MIGRATION_REPORT.md`.
+
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
 
@@ -210,6 +216,7 @@ model was found and that E1 was offered.
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
 State whether recipes help, hurt, or are neutral. Present blockers that need a manual decision.
+Include the deployment-set and timer preflight findings.
 Include the Step 0 preflight result and any user acknowledgment. State that running instances, history,
 and audit data are out of scope. Point the user to the Data Migrator.
 
@@ -303,6 +310,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
+14. **Active timer due-date updates** — apply
+    `references/deployment-and-timer-preflight.md` to every direct update and helper call chain.
+    A reachable `UnsupportedOperationException` placeholder keeps the flow blocked.
 
 Check these pitfalls as well:
 
@@ -376,12 +386,17 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
+21. The deployment-set preflight has an explicit decision for every recurring timer start and
+    duplicate process ID before deployment. An unresolved decision blocks readiness.
+22. Every active timer due-date update has complete caller, BPMN timer, target-version, and test
+    evidence, or remains blocking manual work.
 
 #### Summary
 
 Present a validation summary that states the status of compilation, configuration binding,
 remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the open items, tests,
-converted models, and the findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
+converted models, timer preflight, and the findings that still need follow-up. Record it in
+`MIGRATION_REPORT.md`.
 
 ### Step 5: AI Follow-up (offer after validation)
 
