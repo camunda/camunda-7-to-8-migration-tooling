@@ -25,15 +25,20 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeUtils;
 
 public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationRecipe {
 
   private static final String PROCESS_INSTANCE_STATE = "io.camunda.client.api.search.enums.ProcessInstanceState";
   private static final String PROCESS_INSTANCE_FILTER =
       "io.camunda.client.api.search.filter.ProcessInstanceFilter";
+  private static final String PROCESS_INSTANCE_QUERY =
+      "org.camunda.bpm.engine.runtime.ProcessInstanceQuery";
   private static final MethodMatcher VARIABLE_VALUE_EQUALS_MATCHER =
       new MethodMatcher(
-          "org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueEquals(..)");
+          PROCESS_INSTANCE_QUERY + " variableValueEquals(..)");
+  private static final MethodMatcher SUSPENDED_QUERY_MATCHER =
+      new MethodMatcher(PROCESS_INSTANCE_QUERY + " suspended()");
   private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
       Set.of(
           "active",
@@ -51,23 +56,29 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves variable-filtered queries for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves variable-filtered or suspended-state queries for manual migration.";
   }
 
   @Override
   protected Predicate<Cursor> visitorSkipCondition() {
     return cursor -> {
-      // Preserve the entire chain because the 8.9 process-instance search API has no variable filter.
+      // Preserve variable-filtered and suspended chains that these specs cannot map safely.
+      Object value = cursor.getValue();
+      if (value instanceof J.MethodInvocation invocation
+          && hasUnsupportedQueryFilterInReceiverChain(invocation)) {
+        return true;
+      }
+
       Cursor current = cursor;
       while (current != null) {
         if (current.getValue() instanceof J.MethodInvocation invocation
-            && VARIABLE_VALUE_EQUALS_MATCHER.matches(invocation)) {
+            && (VARIABLE_VALUE_EQUALS_MATCHER.matches(invocation)
+                || SUSPENDED_QUERY_MATCHER.matches(invocation))) {
           return true;
         }
         current = current.getParent();
       }
 
-      Object value = cursor.getValue();
       if (value instanceof J.VariableDeclarations declarations
           && declarations.getVariables().stream()
               .anyMatch(
@@ -88,11 +99,29 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     };
   }
 
+  private static boolean hasUnsupportedQueryFilterInReceiverChain(J.MethodInvocation invocation) {
+    Expression current = invocation.getSelect();
+    while (current != null) {
+      current = unwrapParentheses(current);
+      if (current instanceof J.MethodInvocation receiver) {
+        if (VARIABLE_VALUE_EQUALS_MATCHER.matches(receiver)
+            || SUSPENDED_QUERY_MATCHER.matches(receiver)) {
+          return true;
+        }
+        current = receiver.getSelect();
+      } else {
+        return false;
+      }
+    }
+    return false;
+  }
+
   private static boolean hasVariableFilteredQueryAlias(
       Cursor cursor, J.MethodInvocation invocation) {
     J.Identifier queryVariable = rootReceiverIdentifier(invocation);
-    if (queryVariable == null) {
-      return false;
+    if (queryVariable == null || queryVariable.getSimpleName().equals("this")) {
+      Expression receiver = invocation.getSelect();
+      return receiver != null && TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY);
     }
 
     Cursor current = cursor;
@@ -129,7 +158,13 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
       @Override
       public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean hasVariableFilter) {
-        if (assignment.getVariable() instanceof J.Identifier assignedVariable
+        J.Identifier assignedVariable =
+            assignment.getVariable() instanceof J.Identifier identifier
+                ? identifier
+                : assignment.getVariable() instanceof J.FieldAccess fieldAccess
+                    ? fieldAccess.getName()
+                    : null;
+        if (assignedVariable != null
             && refersToSameVariable(assignedVariable, queryVariable)
             && containsVariableValueEquals(assignment.getAssignment())) {
           hasVariableFilter.set(true);
@@ -383,12 +418,13 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     List<String> methods = new ArrayList<>(filterMethods);
     if (active) {
       methods.add("state(ProcessInstanceState.ACTIVE)");
+    } else {
+      methods.add(
+          "state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED))");
     }
     String filter =
-        methods.isEmpty()
-            ? ""
-            : methods.size() == 1 && !(active && !count)
-                ? "\n    .filter(filter -> filter." + methods.get(0) + ")"
+        methods.size() == 1 && !(active && !count)
+            ? "\n    .filter(filter -> filter." + methods.get(0) + ")"
             : "\n    .filter(filter -> filter\n        ."
                 + String.join("\n        .", methods)
                 + ")";
@@ -404,12 +440,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             .formatted(filter, result);
 
     List<String> templateTypes = new ArrayList<>();
-    if (!methods.isEmpty()) {
-      templateTypes.add(PROCESS_INSTANCE_FILTER);
-    }
-    if (active) {
-      templateTypes.add(PROCESS_INSTANCE_STATE);
-    }
+    templateTypes.add(PROCESS_INSTANCE_FILTER);
+    templateTypes.add(PROCESS_INSTANCE_STATE);
     if (!count) {
       templateTypes.add("io.camunda.client.api.search.response.ProcessInstance");
     }
@@ -467,7 +499,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
         textComments,
         Collections.emptyList(),
-        requiresActive ? List.of(PROCESS_INSTANCE_STATE) : Collections.emptyList(),
+        List.of(PROCESS_INSTANCE_STATE),
         receiverType,
         requiresActive ? Set.of("active") : Collections.emptySet());
   }

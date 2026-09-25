@@ -321,6 +321,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
           public J.MethodInvocation visitMethodInvocation(
               J.MethodInvocation invocation, ExecutionContext ctx) {
 
+            // Skip unsupported queries before the counted-query branch so aliases cannot bypass
+            // the recipe-specific guard.
+            if (visitorSkipCondition().test(getCursor())) {
+              return invocation;
+            }
+
             J.MethodInvocation countedQuery = findCountedQuery(invocation);
             if (countedQuery != null && hasCountBuilderSpec(countedQuery)) {
               J.MethodInvocation countReplacement =
@@ -332,11 +338,6 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 // Do not partially migrate an unsupported count chain.
                 return invocation;
               }
-            }
-
-            // test to skip visitor
-            if (visitorSkipCondition().test(getCursor())) {
-              return invocation;
             }
 
             // visit simple method invocations

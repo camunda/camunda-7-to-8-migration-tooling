@@ -114,7 +114,9 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
         camundaClient
                 .newProcessInstanceSearchRequest()
-                .filter(filter -> filter.processDefinitionId(processDefinitionKey))
+                .filter(filter -> filter
+                        .processDefinitionId(processDefinitionKey)
+                        .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                 .send()
                 .join()
                 .items();
@@ -214,6 +216,8 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .createProcessInstanceQuery()
                             .variableValueEquals(variableName, variableValue);
                     query.processDefinitionKey(processDefinitionKey).list();
+                    query.processDefinitionKey(processDefinitionKey).count();
+                    query.processDefinitionKey(processDefinitionKey).list().size();
                 }
             }
             """));
@@ -245,20 +249,59 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 private ProcessInstanceQuery query;
 
                 public void setQuery(String variableName, Object variableValue) {
-                    query = engine.getRuntimeService()
+                    this.query = engine.getRuntimeService()
                             .createProcessInstanceQuery()
                             .variableValueEquals(variableName, variableValue);
                 }
 
                 public void search(String processDefinitionKey) {
-                    query.processDefinitionKey(processDefinitionKey).list();
+                    this.query.processDefinitionKey(processDefinitionKey).list();
+                    this.query.processDefinitionKey(processDefinitionKey).count();
+                    this.query.processDefinitionKey(processDefinitionKey).list().size();
                 }
             }
             """));
   }
 
   @Test
-  void onlyAddsActiveStateWhenActiveWasRequested() {
+  void leavesHelperReturnedVariableFilteredQueriesForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ProcessInstanceVariableQueryHelper {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                private ProcessInstanceQuery query(String variableName, Object variableValue) {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .variableValueEquals(variableName, variableValue);
+                }
+
+                public void search(String processDefinitionKey, String variableName, Object variableValue) {
+                    query(variableName, variableValue).processDefinitionKey(processDefinitionKey).list();
+                    query(variableName, variableValue).processDefinitionKey(processDefinitionKey).count();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void preservesRuntimeStateSemanticsForDefaultAndActiveQueries() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -320,7 +363,9 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 public void search(String processDefinitionKey) {
                     camundaClient
                             .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter.processDefinitionId(processDefinitionKey))
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .items();
@@ -336,6 +381,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
                     camundaClient
                             .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter.state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .page()
@@ -348,6 +394,43 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .join()
                             .page()
                             .totalItems().longValue();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void leavesSuspendedQueriesForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class SuspendedProcessInstanceQueries {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void search(String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .suspended()
+                            .list();
+
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .suspended()
+                            .count();
                 }
             }
             """));
@@ -425,7 +508,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
             """,
             """
             package org.camunda.community.migration.example;
-
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
             import org.camunda.bpm.engine.ProcessEngine;
             import io.camunda.client.CamundaClient;
             import org.springframework.beans.factory.annotation.Autowired;
@@ -445,7 +528,9 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 public void mixedQueries(String processDefinitionKey) {
                     camundaClient
                             .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter.processDefinitionId(processDefinitionKey))
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .items();
@@ -494,6 +579,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
             package org.camunda.community.migration.example;
 
             import io.camunda.client.CamundaClient;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
             import org.camunda.bpm.engine.ProcessEngine;
             import org.springframework.beans.factory.annotation.Autowired;
             import org.springframework.stereotype.Component;
@@ -513,7 +599,9 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
                     camundaClient
                             .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter.processDefinitionId(processDefinitionKey))
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .items();
@@ -587,6 +675,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 public void count(String processDefinitionKey, String activityId) {
                     int sizeCount = camundaClient
                             .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter.state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .page()
@@ -600,14 +689,18 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .totalItems().longValue();
                     long streamCount = camundaClient
                             .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter.processDefinitionId(processDefinitionKey))
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .page()
                             .totalItems().longValue();
                     long directCount = camundaClient
                             .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter.elementId(activityId))
+                            .filter(filter -> filter
+                                    .elementId(activityId)
+                                    .state(state -> state.in(ProcessInstanceState.ACTIVE, ProcessInstanceState.SUSPENDED)))
                             .send()
                             .join()
                             .page()
