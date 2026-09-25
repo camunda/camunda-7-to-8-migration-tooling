@@ -202,6 +202,10 @@ fixtures/                                  ← sample projects for manual regres
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/spring-boot-web-topology` walkthrough checks an application on
+port `8081` while its Camunda 8 cluster uses port `8080`. It tests application
+health, process start through an application endpoint, and the absence of the
+old Camunda 7 Engine REST route.
 
 ## License
 

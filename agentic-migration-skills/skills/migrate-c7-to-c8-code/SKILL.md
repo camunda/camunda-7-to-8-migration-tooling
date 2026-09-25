@@ -186,6 +186,12 @@ class by its fully qualified class name, including its package and class name. I
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
 
+When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
+Engine REST call, inventory its HTTP topology. Follow
+`references/http-topology-migration.md`. Ask Question 7 from
+`references/interview-questions.md` before Step 3. Record the target application port, Camunda REST
+base address, endpoint decisions, and consumer actions.
+
 #### Model Inventory
 
 Glob for the model files. Record each one in a table with the columns File, Type, Uses `camunda:` ns,
@@ -303,6 +309,11 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
+14. **HTTP topology** — when the migration includes application HTTP endpoints, health checks, or
+    Camunda 7 Engine REST calls, follow `references/http-topology-migration.md`. Confirm that the
+    application and cluster use distinct ports when they share a host. Test the application health
+    endpoint and each replacement API while the cluster is reachable. Confirm that the application
+    does not expose or proxy `/engine-rest`. A context-load test alone does not pass this check.
 
 Check these pitfalls as well:
 

@@ -158,6 +158,15 @@ record credential values.
 
 ---
 
+## HTTP application and engine REST topology
+
+When the source has application HTTP endpoints, health checks, or Camunda 7 Engine REST calls, apply
+[`http-topology-migration.md`](http-topology-migration.md) before changing code. Record the endpoint
+owners, consumers, health dependencies, target application port, and Camunda REST base address in
+`MIGRATION_REPORT.md`. Run the endpoint checks in that reference.
+
+---
+
 ## 2. Client Code (ProcessEngine to CamundaClient)
 
 Catalog: `20-client-code/10-process-engine/`. One file per mapping: `starting-process-instances`,

@@ -16,6 +16,9 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 - Every question with `options` must have at least 2 options
 - Batch: Prompt 1 = Q1, then re-scan, Prompt 2 = Q2+Q3, Prompt 3 = conditional Q4/Q5/Q5a/Q6
 
+Ask Question 7 in a separate prompt after Step 2 identifies an HTTP topology. Do not add it to
+Prompt 3 because that prompt can already contain four questions.
+
 ---
 
 ## Question 1 - Project Location
@@ -87,3 +90,23 @@ Options:
 ## Question 6 - Build Tool
 
 Include only if scope includes code, approach is A, and detection was ambiguous (both Maven and Gradle found, or neither). If exactly one detected, state it rather than asking.
+
+## Question 7 - Application and Engine HTTP Topology
+
+Ask after the Step 2 code inventory only when the project has a Spring web server, an application
+HTTP endpoint, a health check, or a Camunda 7 Engine REST call.
+
+Show the application and management ports, application-owned routes, Engine REST routes, outbound
+Engine REST call sites, health dependencies, and known consumers from the inventory. Ask the user to
+confirm the target application port, Camunda REST base address, and authentication mode.
+
+For every application endpoint or Engine REST call, ask the user to select a target:
+
+| Target | Use when |
+|---|---|
+| Camunda 8 Orchestration Cluster API | A documented C8 operation replaces the C7 Engine REST call. |
+| Deliberate application API | The route is part of the application's own contract. |
+| Manual migration follow-up | The replacement or endpoint-removal plan needs a decision. |
+
+Do not offer a proxy or recreation of the C7 `/engine-rest` API. See
+`http-topology-migration.md` for the inventory, decision record, and validation.
