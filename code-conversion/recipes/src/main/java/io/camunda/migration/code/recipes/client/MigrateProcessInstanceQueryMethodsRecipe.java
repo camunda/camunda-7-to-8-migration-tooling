@@ -43,6 +43,8 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLessThan(..)"),
           new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLessThanOrEqual(..)"),
           new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLike(..)"));
+  private static final MethodMatcher CREATE_PROCESS_INSTANCE_QUERY_MATCHER =
+      new MethodMatcher("org.camunda.bpm.engine.RuntimeService createProcessInstanceQuery()");
   private static final MethodMatcher ACTIVE_QUERY_MATCHER =
       new MethodMatcher(PROCESS_INSTANCE_QUERY + " active()");
   private static final MethodMatcher SUSPENDED_QUERY_MATCHER =
@@ -100,7 +102,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         return true;
       }
       if (value instanceof J.MethodInvocation invocation
-          && hasVariableFilteredQueryAlias(cursor, invocation)) {
+          && hasUnsafeQueryAlias(cursor, invocation)) {
         return true;
       }
       return false;
@@ -148,23 +150,26 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return false;
   }
 
-  private static boolean hasVariableFilteredQueryAlias(
-      Cursor cursor, J.MethodInvocation invocation) {
+  private static boolean hasUnsafeQueryAlias(Cursor cursor, J.MethodInvocation invocation) {
     J.Identifier queryVariable = rootReceiverIdentifier(invocation);
     if (queryVariable == null || queryVariable.getSimpleName().equals("this")) {
       Expression receiver = invocation.getSelect();
       return receiver != null && TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY);
     }
 
+    boolean processInstanceQueryVariable =
+        TypeUtils.isOfClassType(queryVariable.getType(), PROCESS_INSTANCE_QUERY);
     Cursor current = cursor;
     while (current != null) {
-      if (current.getValue() instanceof J.ClassDeclaration classDeclaration
-          && hasVariableFilteredQuery(classDeclaration.getBody(), queryVariable)) {
-        return true;
+      if (current.getValue() instanceof J.ClassDeclaration classDeclaration) {
+        J.Block classBody = classDeclaration.getBody();
+        return hasVariableFilteredQuery(classBody, queryVariable)
+            || (processInstanceQueryVariable
+                && hasUntraceableProcessInstanceQueryAlias(classBody, queryVariable));
       }
       current = current.getParent();
     }
-    return false;
+    return processInstanceQueryVariable;
   }
 
   private static boolean hasVariableFilteredQuery(
@@ -223,6 +228,69 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
       }
     }.visit(classBody, found);
     return found.get();
+  }
+
+  private static boolean hasUntraceableProcessInstanceQueryAlias(
+      J.Block classBody, J.Identifier queryVariable) {
+    AtomicBoolean hasKnownQueryCreation = new AtomicBoolean();
+    AtomicBoolean hasUnknownSource = new AtomicBoolean();
+    new JavaIsoVisitor<AtomicBoolean>() {
+      @Override
+      public J.VariableDeclarations visitVariableDeclarations(
+          J.VariableDeclarations declarations, AtomicBoolean unknownSource) {
+        for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
+          if (!refersToSameVariable(variable.getName(), queryVariable)) {
+            continue;
+          }
+          Expression initializer = variable.getInitializer();
+          if (initializer == null || !hasProcessInstanceQueryCreation(initializer)) {
+            unknownSource.set(true);
+          } else {
+            hasKnownQueryCreation.set(true);
+          }
+        }
+        return unknownSource.get()
+            ? declarations
+            : super.visitVariableDeclarations(declarations, unknownSource);
+      }
+
+      @Override
+      public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean unknownSource) {
+        J.Identifier assignedVariable =
+            assignment.getVariable() instanceof J.Identifier identifier
+                ? identifier
+                : assignment.getVariable() instanceof J.FieldAccess fieldAccess
+                    ? fieldAccess.getName()
+                    : null;
+        if (assignedVariable != null && refersToSameVariable(assignedVariable, queryVariable)) {
+          if (hasProcessInstanceQueryCreation(assignment.getAssignment())) {
+            hasKnownQueryCreation.set(true);
+          } else {
+            unknownSource.set(true);
+          }
+        }
+        return unknownSource.get()
+            ? assignment
+            : super.visitAssignment(assignment, unknownSource);
+      }
+    }.visit(classBody, hasUnknownSource);
+    return !hasKnownQueryCreation.get() || hasUnknownSource.get();
+  }
+
+  private static boolean hasProcessInstanceQueryCreation(Expression expression) {
+    Expression current = expression;
+    while (current != null) {
+      current = unwrapParentheses(current);
+      if (current instanceof J.MethodInvocation invocation) {
+        if (CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation)) {
+          return true;
+        }
+        current = invocation.getSelect();
+      } else {
+        return false;
+      }
+    }
+    return false;
   }
 
   private static J.Identifier rootReceiverIdentifier(J.MethodInvocation invocation) {
