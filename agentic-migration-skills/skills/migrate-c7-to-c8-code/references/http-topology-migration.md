@@ -17,7 +17,7 @@ Complete this inventory before changing code. Record it in `MIGRATION_REPORT.md`
 | Application routes | HTTP method, path, controller or handler, authentication, consumers, and tests. |
 | Camunda 7 Engine routes | Every `/engine-rest` or webapp route and the owning engine module. |
 | Engine REST clients | HTTP method, path, request, response, authentication, caller, and business purpose. |
-| Health checks | Every checked dependency, including the engine, database, and external services. |
+| Health checks | Each checked dependency and its health-check client's connection and response timeouts. Include the engine, database, and external services. |
 
 Search Java and Kotlin sources, application configuration, build files, test sources, scripts, and
 deployment configuration. Search for route annotations, servlet registrations, `RestTemplate`,
@@ -76,9 +76,10 @@ Test each changed application endpoint through the application server. Test each
 Camunda operation through the selected C8 API. Assert the intended response or process behavior.
 Do not accept a test that only loads the Spring context.
 
-When a source health check covered the engine or database, test that it reports healthy while those
-dependencies respond and unhealthy when a dependency is unavailable. Never preserve a constant
-`engineRest=ok` value.
+Configure finite connection and response timeouts for every remote HTTP health-check client.
+When the source includes a health check, test each dependency while it responds and while it is
+unavailable or timed out. Require the health check to report healthy and unhealthy, respectively.
+Never preserve a constant `engineRest=ok` value.
 
 Confirm that the application does not serve or proxy the old `/engine-rest` routes. Record the
 commands, results, and any blocked checks in `MIGRATION_REPORT.md`. Leave a blocked check open when

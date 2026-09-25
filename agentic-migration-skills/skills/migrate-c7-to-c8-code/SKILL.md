@@ -316,9 +316,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
     health checks, or Camunda 7 Engine REST calls, follow
     `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
     ports when they share a host. Test every discovered application endpoint and replacement API
-    while the cluster is reachable. When the source includes a health check, test it while each
-    dependency is available and while one dependency is unavailable. Confirm that the application
-    does not expose or proxy `/engine-rest`. A context-load test alone does not pass this check.
+    while the cluster is reachable. When the source includes a health check, verify each remote
+    client uses finite connection and response timeouts. Test each dependency while it responds and
+    while it is unavailable or timed out. Confirm that the application does not expose or proxy
+    `/engine-rest`. A context-load test alone does not pass this check.
 
 Check these pitfalls as well:
 
