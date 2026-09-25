@@ -8,6 +8,17 @@ checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
 
+## Worker contract verification
+
+For every migrated worker, compare its Camunda 8 contract with the Camunda 7 source.
+The skill checks each input name, Java type, absent-value behavior, output, exception, and completion mode.
+The skill scans every worker signature for `@Variable` without an explicit `name`.
+The skill rejects `@Variable` when the source requires the complete process-variable map.
+The skill verifies that a complete-map worker sets `fetchAllVariables = true`.
+The skill runs runtime tests with normal and absent inputs.
+If runtime evidence does not verify an input, then the skill marks that input **blocked** in `MIGRATION_REPORT.md`.
+The skill does not report a migration as complete while a worker input remains blocked.
+
 ---
 
 ## OpenRewrite output: de-recipe cleanup
@@ -25,11 +36,13 @@ Inspect every generated `@JobWorker` method. Apply each matching rule:
 | Recipe artifact | Cleanup |
 |---|---|
 | A method name ends in `Migrated` or starts with `executeJob` | Rename the method to the worker's job type or the original delegate's intent. Preserve the explicit `@JobWorker(type = "...")` value. If the job type came from the method name, set it explicitly before renaming. |
-| The method reads one or more variables through `ActivatedJob` | Replace `job.getVariable(...)` or `job.getVariablesAsMap()` with typed `@Variable` parameters. Use `@VariablesAsType` for a cohesive variable object. Keep `ActivatedJob` only when the method uses its metadata or the job key (`job.getKey()`). |
+| The method reads individual variables through `ActivatedJob` | Bind each required variable to a typed parameter with `@Variable(name = "<exact source variable>")`. Never rely on Java parameter-name metadata. Keep a nullable source read as a map lookup. |
+| The method needs the complete process-variable map | Keep an `ActivatedJob` parameter. Set `@JobWorker(fetchAllVariables = true)`. Read the map with `job.getVariablesAsMap()`. Never use `@Variable` to request the complete map. |
+| Several related variables form one input object | Use `@VariablesAsType` only when the source contract is that object. |
 | The method has `throws Exception` after variable cleanup | Remove the declaration when the method no longer throws a checked exception. Preserve a specific checked exception when the worker still requires it. |
 | The method returns one output through a mutable map | Return `Map.of(...)` when the output has non-null values and callers do not mutate the map. Keep a mutable map when the worker needs mutation or supports nullable values. |
 | A `@JobWorker` annotation contains `autoComplete = true` | Remove the attribute because `true` is the default. Keep it only when the project documents the explicit setting as part of its configuration contract. |
-| An input can be absent | Mark the matching input `@Variable(optional = true)` and use a nullable or optional-compatible Java type. Do not mark required inputs optional. |
+| The source accepts an absent input | Preserve that behavior with `@Variable(name = "<exact source variable>", optional = true)` and a nullable or optional-compatible Java type. Keep a map lookup when the source depends on its absent-value behavior. |
 | The source was a Camunda 7 delegate or external task worker | Preserve a short migration Javadoc. Add one when the generated method has no provenance note and the source origin is known. |
 
 Do not change a job type, variable name, output name, exception behavior, or worker completion mode
@@ -59,7 +72,7 @@ The cleanup produces an idiomatic worker without changing the job type or variab
  * Migrated from the Camunda 7 SampleJavaDelegate.
  */
 @JobWorker(type = "sampleJavaDelegate")
-public Map<String, Object> sampleJavaDelegate(@Variable Object x) {
+public Map<String, Object> sampleJavaDelegate(@Variable(name = "x") Object x) {
   System.out.println("SampleJavaDelegate " + x);
   return Map.of("y", "hello world");
 }
@@ -69,8 +82,17 @@ When an input is optional, retain that semantic explicitly:
 
 ```java
 @JobWorker(type = "sampleJavaDelegate")
-public void sampleJavaDelegate(@Variable(optional = true) String comment) {
+public void sampleJavaDelegate(@Variable(name = "comment", optional = true) String comment) {
   // worker logic
+}
+```
+
+When the source worker reads every process variable, keep the activated job:
+
+```java
+@JobWorker(type = "persist-project", fetchAllVariables = true)
+public Map<String, Object> persistProject(ActivatedJob job) {
+  return projectDelegate.persist(job.getVariablesAsMap());
 }
 ```
 

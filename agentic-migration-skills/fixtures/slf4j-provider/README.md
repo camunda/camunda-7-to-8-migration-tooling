@@ -8,9 +8,9 @@ client and the SLF4J API, but no SLF4J provider.
 
 1. Copy `c7-source` to a temporary project and run the
    `migrate-c7-to-c8-code` skill. Select code migration and target Camunda 8.9.
-2. Run the skill's Step 4 validation against `expected-c8` as the migrated runtime
-   module. Do not change its POM or approve a logging exception before the skill
-   reports the gap.
+2. Run the skill's SLF4J provider validation against `expected-c8` as the
+   migrated runtime module. Do not change its POM or approve a logging
+   exception before the skill reports the gap.
 3. From the repository root, inspect the runtime dependencies:
 
    ```sh
