@@ -213,7 +213,7 @@ Search README files and runbooks for C7 APIs, embedded-engine claims, legacy for
 Inspect profiles, ports, worker startup instructions, forms, and process-test commands for in-scope components.
 Inspect existing CI workflows for packaging, configuration validation, BPMN lint, process tests, and a working C8/Docker runtime.
 Classify each document as in-scope, mixed, retained C7-only, or unknown. See `references/project-readiness.md`.
-Do not edit project files during assessment.
+Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 
 #### Summary
 

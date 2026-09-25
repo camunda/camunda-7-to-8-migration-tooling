@@ -57,7 +57,9 @@ When the user approves a CI change, select the workflow with this table:
 | A pull-request workflow can run every readiness check. | Add the checks there. |
 | No suitable pull-request workflow exists. | Create a project-specific pull-request workflow. |
 
-When a workflow publishes an image or deploys the application, run the readiness job first.
+When a workflow publishes an image or deploys the application, ask the user to approve gating those jobs on readiness.
+After approval, add the readiness job to the `needs` list of each publish or deploy job.
+Run each publish or deploy job only when the readiness job succeeds.
 Keep unrelated build and deployment jobs unchanged.
 Never change deployment triggers, credentials, or release gates without explicit user approval.
 
