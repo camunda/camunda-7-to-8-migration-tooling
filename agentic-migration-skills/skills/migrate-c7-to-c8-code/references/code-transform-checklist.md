@@ -2,9 +2,9 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-This checklist defines every code transformation item. Approach A runs OpenRewrite first (it covers
-items 3, 4, and partially item 2), then uses this checklist for the rest. Approach B works the full
-checklist by hand.
+This checklist defines every code transformation item. Approach A runs OpenRewrite only after the
+skill passes every delegate gate or the user decides each open item. The skill uses this checklist
+to clean the recipe output. In Approach B, the skill applies the full checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
 
@@ -304,12 +304,14 @@ evidence or make the listed decision.
 When the user supplies evidence, the skill reruns the gate.
 The skill resolves the missing-evidence item when the gate passes or the user makes the explicit
 decision.
-If either remaining row matches, then the skill adds an open item to `MIGRATION_REPORT.md` and asks
-for the listed decision before it transforms the delegate.
+If either remaining row matches and `MIGRATION_REPORT.md` has no user decision, then the skill adds
+an open item and asks for the listed decision before it transforms the delegate.
 A C8 job worker cannot roll back the C7 command that started or advanced the process. It does not
 inherit the C7 engine transaction or thread-bound security context.
 
-The skill never describes the worker as preserving synchronous behavior. The skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision log. The skill resolves a behavior-gap item only after an explicit user decision.
+The skill never describes the worker as preserving synchronous behavior. When the user decides, the
+skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision
+log. The skill resolves the behavior-gap item only after that decision.
 
 ### Worker behavior
 

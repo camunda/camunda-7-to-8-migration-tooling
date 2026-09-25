@@ -10,8 +10,8 @@ Both paths continue to the same JavaDelegate.
 1. Copy this directory into a temporary project and keep the original files unchanged.
 2. Run `python3 verify_async_after_path.py` to check the fixture paths.
    On Windows, run `py -3 verify_async_after_path.py`.
-3. Run the `migrate-c7-to-c8-code` skill with code-only scope. Give the skill
-   `c7-source/src/main/resources/async-after-boundary-c7.bpmn` as path evidence.
+3. Run the `migrate-c7-to-c8-code` skill with code-only scope and Approach A.
+   Give the skill `c7-source/src/main/resources/async-after-boundary-c7.bpmn` as path evidence.
    Evaluate both values of `useAsyncAfterPath`.
 4. Stop after the skill records its pre-transform gate result in
    `MIGRATION_REPORT.md`.
@@ -26,3 +26,4 @@ Both paths continue to the same JavaDelegate.
 The gate records both paths and the `camunda:asyncAfter` boundary.
 It marks the rollback gap on the synchronous path as **not preserved** in C8.
 It asks the user to choose C8 failure handling before it transforms the delegate.
+The skill does not run OpenRewrite while that decision remains open.

@@ -230,13 +230,13 @@ For Code + models, see `references/composing-code-and-models.md`.
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
 
-The skill runs the transaction and security gate in `references/code-transform-checklist.md` before
-each C7 JavaDelegate transformation.
-The gate treats a predecessor `camunda:asyncAfter` as an asynchronous boundary when it commits before
-the delegate.
-If the gate identifies a gap or lacks path evidence, then the skill stops that delegate's
-transformation. The skill asks the user to provide evidence or make the listed decision.
-When the user supplies evidence, the skill reruns the gate.
+For Approach A, the skill runs this gate for every C7 JavaDelegate before `REWRITE_COMMAND`.
+For Approach B, the skill runs the gate before each C7 JavaDelegate transformation.
+The gate treats `camunda:asyncAfter` on a preceding activity as a boundary after that activity.
+If the gate blocks migration or has an undecided gap, then the skill stops that delegate's
+transformation and, for Approach A, OpenRewrite. The skill asks the user for the missing evidence or
+listed decision.
+When the user supplies evidence or makes a decision, the skill reruns the gate.
 The skill resumes only after the gate passes or `MIGRATION_REPORT.md` records the user's decision for
 every open item. The skill records each accepted parity gap in `MIGRATION_REPORT.md` before it
 resumes.

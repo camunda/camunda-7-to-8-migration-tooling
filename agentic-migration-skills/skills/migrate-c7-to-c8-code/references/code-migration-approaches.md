@@ -25,6 +25,16 @@ One class does not predict the rest of the project.
 Use this approach for repeated, supported, primarily syntactic transformations or a deterministic
 first diff.
 
+### Delegate transaction gate
+
+Before `REWRITE_COMMAND`, the skill runs the transaction and security gate in item 3 of
+`code-transform-checklist.md` for every C7 JavaDelegate.
+When the gate blocks migration or an open item lacks a user decision, the skill stops OpenRewrite
+and asks the user for the required evidence or decision.
+The skill reruns the gate after the user supplies evidence or decisions.
+The skill runs `REWRITE_COMMAND` only after every gate passes or every open item has a recorded user
+decision in `MIGRATION_REPORT.md`.
+
 ### Run OpenRewrite
 
 Use the latest recipe version in the target minor:
