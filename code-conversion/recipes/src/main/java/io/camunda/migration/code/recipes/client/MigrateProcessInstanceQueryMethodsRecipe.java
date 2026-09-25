@@ -69,7 +69,10 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves unbounded process-instance list results, queries with unsupported filters, business-key filters, aliases with pre-applied filters, suspended/default state, or unsupported terminals for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods "
+        + "and leaves unbounded process-instance list results, non-terminal query chains, queries "
+        + "with unsupported filters, business-key filters, aliases with pre-applied filters, "
+        + "suspended/default state, or unsupported terminals for manual migration.";
   }
 
   @Override
@@ -98,7 +101,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           && (isProcessInstanceListInvocation(invocation)
               || hasUnsupportedQueryMethodInReceiverChain(invocation)
               || isManualDefaultStateQuery(invocation)
-              || isIncompleteActiveQueryChain(cursor, invocation))) {
+              || isIncompleteProcessInstanceQueryChain(cursor, invocation))) {
         return true;
       }
 
@@ -193,10 +196,9 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
     return true;
   }
 
-  private static boolean isIncompleteActiveQueryChain(
+  private static boolean isIncompleteProcessInstanceQueryChain(
       Cursor cursor, J.MethodInvocation invocation) {
     return isProcessInstanceQueryType(invocation.getType())
-        && containsActiveQueryFilter(invocation)
         && !hasProcessInstanceListOrCountTerminal(cursor);
   }
 

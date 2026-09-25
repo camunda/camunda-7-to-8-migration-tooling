@@ -640,6 +640,44 @@ public class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
   }
 
   @Test
+  void leavesIncompleteProcessInstanceQueryChainsForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class IncompleteProcessInstanceQueryChains {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public ProcessInstanceQuery query(String processDefinitionKey) {
+                    return engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey);
+                }
+
+                public void discard(String processDefinitionKey) {
+                    engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey);
+                }
+            }
+            """));
+  }
+
+  @Test
   void leavesFieldsAssignedFromHelperReturnedVariableFilteredQueriesForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
