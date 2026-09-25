@@ -35,3 +35,5 @@ Use `page().totalItems().intValue()` when the original `list().size()` result ty
 Do not use `items().size()` or `items().stream().count()` for a complete result count.
 The `items()` list contains only the current page and can be limited by the configured page size.
 Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
+The migration recipe converts supported count-only queries to `page().totalItems()` but leaves
+process-instance `list()` results manual unless pagination is handled explicitly.

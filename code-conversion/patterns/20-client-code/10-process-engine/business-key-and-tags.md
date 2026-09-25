@@ -59,7 +59,7 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
 Business IDs can be set in Camunda 8.9, but process-instance search filtering by business ID is supported starting in 8.10.
 
 ```java
-    public List<ProcessInstance> findByBusinessId(String businessId) {
+    public List<ProcessInstance> findFirstPageByBusinessId(String businessId) {
         return camundaClient.newProcessInstanceSearchRequest()
                 .filter(filter -> filter.businessId(businessId))
                 .send()
@@ -67,6 +67,8 @@ Business IDs can be set in Camunda 8.9, but process-instance search filtering by
                 .items();
     }
 ```
+
+`items()` returns only the current page. Add pagination when the application must process every match.
 
 ### Assigning a Business ID after creation (Camunda 8.10+)
 

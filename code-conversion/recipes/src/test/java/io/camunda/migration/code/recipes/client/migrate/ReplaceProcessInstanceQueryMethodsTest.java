@@ -7,118 +7,101 @@
  */
 package io.camunda.migration.code.recipes.client.migrate;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.openrewrite.java.Assertions.java;
 
 import io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe;
 import org.junit.jupiter.api.Test;
-import org.openrewrite.ExecutionContext;
-import org.openrewrite.InMemoryExecutionContext;
-import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.tree.J;
 import org.openrewrite.test.RewriteTest;
 
 public class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
 
   @Test
-  void replaceProcessInstanceQueryMethods() {
-    rewriteRun(spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+  void leavesActiveProcessInstanceListsForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
-"""
-package org.camunda.community.migration.example;
+            """
+            package org.camunda.community.migration.example;
 
-import org.camunda.bpm.engine.ProcessEngine;
-import org.camunda.bpm.engine.runtime.ProcessInstance;
-import io.camunda.client.CamundaClient;
-import org.camunda.bpm.engine.task.Task;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
 
-import java.util.Date;
-import java.util.Map;
-import java.util.List;
+            @Component
+            public class ProcessInstanceQueryMethods {
 
-@Component
-public class HandleProcessInstanceQueryMethodsTestClass {
+                @Autowired
+                private ProcessEngine engine;
 
-    @Autowired
-    private ProcessEngine engine;
+                @Autowired
+                private CamundaClient camundaClient;
 
-    @Autowired
-    private CamundaClient camundaClient;
+                public void search(String activityId, String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .activityIdIn(activityId)
+                            .active()
+                            .list();
 
-    public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
+                }
+            }
+            """));
+  }
 
-        engine.getRuntimeService().createProcessInstanceQuery()
-                .activityIdIn(activityIdIn)
-                .active()
-                .list();
+  @Test
+  void leavesUnboundedProcessInstanceListsForManualMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
 
-        engine.getRuntimeService().createProcessInstanceQuery()
-               .processInstanceBusinessKey(businessKey)
-               .active()
-               .list();
+            import io.camunda.client.CamundaClient;
+            import java.util.List;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.camunda.bpm.engine.runtime.ProcessInstance;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
 
-        engine.getRuntimeService().createProcessInstanceQuery()
-               .processInstanceBusinessKey(businessKey)
-               .processDefinitionKey(processDefinitionKey);
+            @Component
+            public class UnboundedProcessInstanceLists {
 
-        engine.getRuntimeService().createProcessInstanceQuery()
-               .processDefinitionKey(processDefinitionKey)
-               .list();
-    }
-}
-""",
-"""
-package org.camunda.community.migration.example;
-import io.camunda.client.api.search.enums.ProcessInstanceState;
-import org.camunda.bpm.engine.ProcessEngine;
-import org.camunda.bpm.engine.runtime.ProcessInstance;
-import io.camunda.client.CamundaClient;
-import org.camunda.bpm.engine.task.Task;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+                @Autowired
+                private ProcessEngine engine;
 
-import java.util.Date;
-import java.util.Map;
-import java.util.List;
+                @Autowired
+                private CamundaClient camundaClient;
 
-@Component
-public class HandleProcessInstanceQueryMethodsTestClass {
+                public List<ProcessInstance> search(String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
 
-    @Autowired
-    private ProcessEngine engine;
+                    List<ProcessInstance> declared = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
 
-    @Autowired
-    private CamundaClient camundaClient;
+                    List<ProcessInstance> assigned;
+                    assigned = engine.getRuntimeService()
+                            .createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
 
-    public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
-
-        camundaClient
-                .newProcessInstanceSearchRequest()
-                .filter(filter -> filter
-                        .elementId(activityIdIn)
-                        .state(ProcessInstanceState.ACTIVE))
-                .send()
-                .join()
-                .items();
-
-        engine.getRuntimeService().createProcessInstanceQuery()
-               .processInstanceBusinessKey(businessKey)
-               .active()
-               .list();
-
-        engine.getRuntimeService().createProcessInstanceQuery()
-               .processInstanceBusinessKey(businessKey)
-               .processDefinitionKey(processDefinitionKey);
-
-        engine.getRuntimeService().createProcessInstanceQuery()
-               .processDefinitionKey(processDefinitionKey)
-               .list();
-    }
-}
-"""
-        ));
+                    return engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
+                }
+            }
+            """));
   }
 
   @Test
@@ -547,7 +530,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
-  void convertsParenthesizedProcessInstanceListDeclarations() {
+  void leavesParenthesizedProcessInstanceListDeclarationsForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -579,43 +562,11 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                                     .list());
                 }
             }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-
-            import java.util.List;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            @Component
-            public class ParenthesizedProcessInstanceList {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void search(String processDefinitionKey) {
-                    List<io.camunda.client.api.search.response.ProcessInstance> result = (camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items());
-                }
-            }
             """));
   }
 
   @Test
-  void convertsParenthesizedProcessInstanceListAssignments() {
+  void leavesParenthesizedProcessInstanceListAssignmentsForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -648,79 +599,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                                     .list());
                 }
             }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import io.camunda.client.api.search.response.ProcessInstance;
-
-            import java.util.List;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            @Component
-            public class ParenthesizedProcessInstanceListAssignment {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void search(String processDefinitionKey) {
-                    List<ProcessInstance> result = null;
-                    result = (
-                            camundaClient
-                                    .newProcessInstanceSearchRequest()
-                                    .filter(filter -> filter
-                                            .processDefinitionId(processDefinitionKey)
-                                            .state(ProcessInstanceState.ACTIVE))
-                                    .send()
-                                    .join()
-                                    .items());
-                }
-            }
-            """,
-            spec ->
-                spec.afterRecipe(
-                    cu ->
-                        new JavaIsoVisitor<ExecutionContext>() {
-                          @Override
-                          public J.VariableDeclarations visitVariableDeclarations(
-                              J.VariableDeclarations declarations, ExecutionContext ctx) {
-                            if (declarations.getVariables().stream()
-                                .anyMatch(
-                                    variable ->
-                                        variable.getSimpleName().equals("result"))) {
-                              assertTrue(
-                                  declarations
-                                      .getTypeAsFullyQualified()
-                                      .toString()
-                                      .contains(
-                                          "io.camunda.client.api.search.response.ProcessInstance"));
-                            }
-                            return super.visitVariableDeclarations(declarations, ctx);
-                          }
-
-                          @Override
-                          public J.Assignment visitAssignment(
-                              J.Assignment assignment, ExecutionContext ctx) {
-                            if (assignment.getVariable() instanceof J.Identifier identifier
-                                && identifier.getSimpleName().equals("result")) {
-                              assertTrue(
-                                  assignment
-                                      .getVariable()
-                                      .getType()
-                                      .toString()
-                                      .contains(
-                                          "io.camunda.client.api.search.response.ProcessInstance"));
-                            }
-                            return super.visitAssignment(assignment, ctx);
-                          }
-                        }.visit(cu, new InMemoryExecutionContext()))));
+            """));
   }
 
   @Test
@@ -801,7 +680,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
-  void convertsTraceableProcessInstanceQueryAliases() {
+  void leavesTraceableProcessInstanceQueryAliasesForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -828,43 +707,11 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     query.active().processDefinitionKey(processDefinitionKey).list();
                 }
             }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            @Component
-            public class TraceableProcessInstanceQueryAlias {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void search(String processDefinitionKey) {
-                    ProcessInstanceQuery query = engine.getRuntimeService().createProcessInstanceQuery();
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items();
-                }
-            }
             """));
   }
 
   @Test
-  void leavesDefaultStateQueriesManualAndConvertsActiveQueries() {
+  void leavesDefaultStateAndUnboundedListQueriesManualAndConvertsCounts() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -932,14 +779,10 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                             .processDefinitionKey(processDefinitionKey)
                             .list();
 
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items();
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .active()
+                            .list();
 
                     engine.getRuntimeService().createProcessInstanceQuery()
                             .list()
@@ -1061,7 +904,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     engine.getRuntimeService().createProcessInstanceQuery()
                             .processDefinitionKey(processDefinitionKey)
                             .active()
-                            .list();
+                            .count();
 
                     engine.getTaskService().createTaskQuery()
                             .processDefinitionKey(processDefinitionKey)
@@ -1096,7 +939,8 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                                     .state(ProcessInstanceState.ACTIVE))
                             .send()
                             .join()
-                            .items();
+                            .page()
+                            .totalItems().longValue();
 
                     engine.getTaskService().createTaskQuery()
                             .processDefinitionKey(processDefinitionKey)
@@ -1749,7 +1593,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
   }
 
   @Test
-  void replacesActiveQueriesWithParenthesizedReceivers() {
+  void leavesActiveQueriesWithParenthesizedReceiversForManualMigration() {
     rewriteRun(
         spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
@@ -1774,36 +1618,6 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                     (engine.getRuntimeService().createProcessInstanceQuery().active())
                             .processDefinitionKey(processDefinitionKey)
                             .list();
-                }
-            }
-            """,
-            """
-            package org.camunda.community.migration.example;
-
-            import io.camunda.client.CamundaClient;
-            import io.camunda.client.api.search.enums.ProcessInstanceState;
-            import org.camunda.bpm.engine.ProcessEngine;
-            import org.springframework.beans.factory.annotation.Autowired;
-            import org.springframework.stereotype.Component;
-
-            @Component
-            public class ParenthesizedProcessInstanceQuery {
-
-                @Autowired
-                private ProcessEngine engine;
-
-                @Autowired
-                private CamundaClient camundaClient;
-
-                public void search(String processDefinitionKey) {
-                    camundaClient
-                            .newProcessInstanceSearchRequest()
-                            .filter(filter -> filter
-                                    .processDefinitionId(processDefinitionKey)
-                                    .state(ProcessInstanceState.ACTIVE))
-                            .send()
-                            .join()
-                            .items();
                 }
             }
             """));

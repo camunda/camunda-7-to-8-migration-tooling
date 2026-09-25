@@ -61,7 +61,6 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
           "processDefinitionKey");
   private static final Set<String> UNSUPPORTED_QUERY_TERMINALS =
       Set.of("listPage", "singleResult", "unlimitedList");
-  private static final Set<String> COLLECTION_STREAM_METHODS = Set.of("stream", "parallelStream");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -70,7 +69,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves queries with unsupported filters, business-key filters, aliases with pre-applied filters, suspended/default state, unsupported terminals, or list results transformed by downstream stream operations for manual migration.";
+    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods and leaves unbounded process-instance list results, queries with unsupported filters, business-key filters, aliases with pre-applied filters, suspended/default state, or unsupported terminals for manual migration.";
   }
 
   @Override
@@ -88,19 +87,15 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
               .anyMatch(
                   variable ->
                       variable.getInitializer() != null
-                          && containsProcessInstanceListQuery(variable.getInitializer())
-                          && hasStreamOperationForVariable(cursor, variable.getName()))) {
+                          && isProcessInstanceListResult(variable.getInitializer()))) {
         return true;
       }
       if (value instanceof J.Assignment assignment
-          && assignment.getVariable() instanceof J.Identifier identifier
-          && containsProcessInstanceListQuery(assignment.getAssignment())
-          && hasStreamOperationForVariable(cursor, identifier)) {
+          && isProcessInstanceListResult(assignment.getAssignment())) {
         return true;
       }
       if (value instanceof J.MethodInvocation invocation
           && (isProcessInstanceListInvocation(invocation)
-                  && hasStreamOperationAfterList(cursor)
               || hasUnsupportedQueryMethodInReceiverChain(invocation)
               || isManualDefaultStateQuery(invocation)
               || isIncompleteActiveQueryChain(cursor, invocation))) {
@@ -535,45 +530,10 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         && isProcessInstanceQueryType(invocation.getSelect().getType());
   }
 
-  private static boolean hasStreamOperationAfterList(Cursor cursor) {
-    Cursor current = cursor.getParent();
-    while (current != null) {
-      if (current.getValue() instanceof J.MethodInvocation invocation
-          && COLLECTION_STREAM_METHODS.contains(invocation.getSimpleName())
-          && containsProcessInstanceListQuery(invocation.getSelect())) {
-        return true;
-      }
-      current = current.getParent();
-    }
-    return false;
-  }
-
-  private static boolean hasStreamOperationForVariable(Cursor cursor, J.Identifier variable) {
-    Cursor current = cursor;
-    while (current != null) {
-      if (current.getValue() instanceof J.ClassDeclaration classDeclaration) {
-        AtomicBoolean found = new AtomicBoolean();
-        new JavaIsoVisitor<AtomicBoolean>() {
-          @Override
-          public J.MethodInvocation visitMethodInvocation(
-              J.MethodInvocation invocation, AtomicBoolean streamOperationFound) {
-            J.Identifier receiver = rootReceiverIdentifier(invocation);
-            if (COLLECTION_STREAM_METHODS.contains(invocation.getSimpleName())
-                && receiver != null
-                && refersToSameVariable(receiver, variable)) {
-              streamOperationFound.set(true);
-              return invocation;
-            }
-            return streamOperationFound.get()
-                ? invocation
-                : super.visitMethodInvocation(invocation, streamOperationFound);
-          }
-        }.visit(classDeclaration.getBody(), found);
-        return found.get();
-      }
-      current = current.getParent();
-    }
-    return false;
+  private static boolean isProcessInstanceListResult(Expression expression) {
+    Expression unwrapped = unwrapParentheses(expression);
+    return unwrapped instanceof J.MethodInvocation invocation
+        && isProcessInstanceListInvocation(invocation);
   }
 
   private static boolean isFieldAssignmentTarget(Expression target) {
