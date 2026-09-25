@@ -232,12 +232,12 @@ in Question 4. See `references/code-migration-approaches.md` for all three.
 
 The skill runs the transaction and security gate in `references/code-transform-checklist.md` before
 each C7 JavaDelegate transformation.
-If the gate identifies a gap, then the skill stops that delegate's transformation. The skill asks
-the user for the listed decision.
-When the user makes the listed decision, the skill records it and any accepted parity gap in
-`MIGRATION_REPORT.md`.
-The skill resumes that transformation only after it records the decision and any accepted parity
-gap.
+If the gate identifies a gap or lacks path evidence, then the skill stops that delegate's
+transformation. The skill asks the user to provide evidence or make the listed decision.
+When the user supplies evidence, the skill reruns the gate.
+The skill resumes only after the gate passes or `MIGRATION_REPORT.md` records the user's decision for
+every open item. The skill records each accepted parity gap in `MIGRATION_REPORT.md` before it
+resumes.
 
 - **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
   source-to-output review.
@@ -303,7 +303,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
     For each delegate adapter, check that `MIGRATION_REPORT.md` records the pre-transform gate
     result. Check that the report records each affected incoming path, C7 rollback effects, and
     every user decision. Check that undecided gaps remain open and accepted parity gaps appear in
-    the decision log.
+    the decision log. If model/path evidence is missing and the user has not decided, check that the
+    report marks the gate **blocked** and records the missing evidence and unknown rollback effects
+    in an open item with status `open`.
 12. **Deployment resources** — when `@Deployment` is present after migration, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged

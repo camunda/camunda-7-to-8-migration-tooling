@@ -290,15 +290,21 @@ checks `camunda:asyncBefore`, Spring transaction synchronization, `SecurityConte
 
 | Source evidence | Required action | User decision |
 |---|---|---|
+| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `open` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
 | At least one incoming BPMN path reaches the delegate without `camunda:asyncBefore` or another asynchronous transaction boundary. | Record each affected path and the C7 command that runs the delegate. Record each failure path and the process-state changes that the C7 command rolls back. Mark that rollback behavior as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
-If either row matches, then the skill adds an open item to `MIGRATION_REPORT.md`.
-The skill asks for the listed decision before it transforms the delegate. A C8 job worker cannot
-roll back the C7 command that started or advanced the process. It does not inherit the C7 engine
-transaction or thread-bound security context.
+If the first row matches, then the skill stops the transformation and asks the user to supply
+evidence or make the listed decision.
+When the user supplies evidence, the skill reruns the gate.
+The skill resolves the missing-evidence item when the gate passes or the user makes the explicit
+decision.
+If either remaining row matches, then the skill adds an open item to `MIGRATION_REPORT.md` and asks
+for the listed decision before it transforms the delegate.
+A C8 job worker cannot roll back the C7 command that started or advanced the process. It does not
+inherit the C7 engine transaction or thread-bound security context.
 
-The skill never describes the worker as preserving synchronous behavior. The skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision log. The skill resolves the open item only after an explicit user decision.
+The skill never describes the worker as preserving synchronous behavior. The skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision log. The skill resolves a behavior-gap item only after an explicit user decision.
 
 ### Worker behavior
 
