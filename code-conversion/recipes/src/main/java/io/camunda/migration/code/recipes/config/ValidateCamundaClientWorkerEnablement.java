@@ -909,7 +909,8 @@ public class ValidateCamundaClientWorkerEnablement
           List.of(
               "camunda.client.worker.override",
               "camunda.client.zeebe.override",
-              "camunda.client.zeebe.worker.override");
+              "camunda.client.zeebe.worker.override",
+              "zeebe.client.worker.override");
       for (String prefix : prefixes) {
         if (!key.regionMatches(true, 0, prefix, 0, prefix.length())) {
           continue;

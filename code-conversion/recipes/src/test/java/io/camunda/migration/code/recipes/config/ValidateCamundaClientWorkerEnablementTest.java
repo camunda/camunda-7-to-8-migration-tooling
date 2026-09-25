@@ -308,6 +308,29 @@ class ValidateCamundaClientWorkerEnablementTest implements RewriteTest {
   }
 
   @Test
+  void matchesPerWorkerOverridesByLegacyZeebePrefix() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment", name = "payment-handler")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        properties(
+            """
+            zeebe.client.worker.override.payment-handler.enabled=false
+            """,
+            """
+            ~~(The worker for job type 'process-payment' is disabled by its per-worker 'enabled=false' setting. Verify the effective runtime configuration and job worker registration before marking workers ready.)~~>zeebe.client.worker.override.payment-handler.enabled=false
+            """,
+            spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
   void prefersTypeOverrideToWorkerNameOverride() {
     rewriteRun(
         java(
