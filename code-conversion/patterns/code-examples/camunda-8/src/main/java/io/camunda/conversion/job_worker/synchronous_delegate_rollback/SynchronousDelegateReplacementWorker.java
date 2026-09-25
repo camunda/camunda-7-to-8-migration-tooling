@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 public class SynchronousDelegateReplacementWorker {
 
     @JobWorker(type = "synchronous-delegate-replacement")
-    public void handleJob(ActivatedJob job, @Variable("shouldFail") Boolean shouldFail) {
+    public void handleJob(ActivatedJob job, @Variable(name = "shouldFail") Boolean shouldFail) {
         if (Boolean.TRUE.equals(shouldFail)) {
             throw CamundaError.jobError(
                     "Expected failure after the preceding user task completed",
