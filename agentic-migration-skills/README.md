@@ -207,6 +207,10 @@ fixtures/                                  ← sample projects and executable re
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/spring-boot-web-topology` walkthrough checks an application on
+port `8081` while its Camunda 8 cluster uses port `8080`. It tests application
+health, process start through an application endpoint, and the absence of the
+old Camunda 7 Engine REST route.
 The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
 project documentation, CI checks, and readiness reporting.
 The `fixtures/project-readiness` walkthrough checks in-scope documentation,
@@ -217,11 +221,12 @@ The `fixtures/worker-input-bindings` fixture tests explicit single-variable
 bindings and complete-map access without retained Java parameter names.
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
-
-The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture checks that a
-compatible active library under an `org.camunda.bpm` group survives migration. Its tests cover both
-synthetic license types and the downstream membership update. Its blocked-case report shows the
-blocked finding and manual follow-up required when the project owner has not approved a replacement.
+The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture
+checks that a compatible active library under an `org.camunda.bpm` group
+survives migration. Its tests cover both synthetic license types and the
+downstream membership update. Its blocked-case report shows the blocked finding
+and manual follow-up required when the project owner has not approved a
+replacement.
 
 ## License
 

@@ -71,7 +71,9 @@ See `references/interview-questions.md` for the question set and the batching ru
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6, including Question 5a where it applies.
-6. When the user accepts the defaults, continue without further questions.
+6. When the user accepts the defaults, continue without repeating Questions 1 to 6.
+   After Step 2, ask Question 7 whenever its trigger applies, even if the user accepted those defaults.
+   When Question 7 applies, do not continue to Step 3 until the user confirms every decision.
 
 #### Shared rules
 
@@ -185,6 +187,13 @@ Record the original Java source baseline used for migration with the Code Invent
 class by its fully qualified class name, including its package and class name. Include every domain
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
+
+When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
+Engine REST call, inventory its HTTP topology. Follow
+`references/http-topology-migration.md`. Ask Question 7 from
+`references/interview-questions.md` before Step 3. Record the target application bind address and
+port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
+consumer actions. Where the management server uses a separate bind address or port, record both.
 
 #### Model Inventory
 
@@ -347,7 +356,15 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
-14. **SLF4J providers** — the skill runs the provider check in
+14. **HTTP topology** — when the project contains a Spring web server, application HTTP endpoints,
+    health checks, or Camunda 7 Engine REST calls, follow
+    `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
+    ports when they share a host. Test every discovered application endpoint and replacement API
+    while the cluster is reachable. When the source includes a health check, verify each remote
+    client uses finite connection and response timeouts. Test each dependency while it responds and
+    while it is unavailable or timed out. Confirm that the application does not expose or proxy
+    `/engine-rest`. A context-load test alone does not pass this check.
+15. **SLF4J providers** — the skill runs the provider check in
     `references/code-transform-checklist.md` for every runtime module. The skill records the runtime
     dependency evidence and provider initialization result in `MIGRATION_REPORT.md`. The skill
     reports a complete migration only after a provider **PASS** or a user-approved exception resolves
