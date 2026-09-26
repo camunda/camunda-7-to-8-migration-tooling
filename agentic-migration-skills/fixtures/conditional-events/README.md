@@ -2,8 +2,8 @@
 
 This M2 regression fixture covers a Camunda 7 conditional boundary event whose
 nested `bpmn:conditionalEventDefinition` has no `id`. The expected Camunda 8
-copy adds a unique definition ID and keeps the original event, sequence-flow,
-and BPMN DI IDs.
+copy adds a unique definition ID under the same boundary event and keeps the
+original event, sequence-flow, and BPMN DI IDs.
 
 ## Run the M2 evaluation
 
@@ -58,6 +58,7 @@ behavior.
 |---|---|
 | Source conditional definition | At least one definition has no `id`. |
 | Converted conditional definitions | Every definition has a nonempty, unique `id`. |
+| Conditional definition owners | Each converted definition remains under the event that owns its source definition. |
 | Existing conditional definition IDs | Each unique source ID remains on its original event. |
 | Nonunique source definition IDs | Conditional definitions do not retain nonunique source IDs. |
 | Existing BPMN IDs | Event and sequence-flow IDs remain unchanged. |

@@ -572,13 +572,16 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events are native only on 8.9+. Otherwise flag them.
 - Where the target is Camunda 8.9 or later, the converter assigns each
   `bpmn:conditionalEventDefinition` a nonempty, document-unique ID.
+- The converter keeps each converted conditional event definition under the same
+  event ID that owns the source definition.
 - When the converter reads a nonempty definition ID that is unique in the source document, it
   preserves that ID.
 - If the converter finds an empty or nonunique definition ID, then it generates a collision-free ID
   without changing existing event IDs, sequence-flow IDs, or BPMN DI references.
 - Run the conditional-event ID check in `SKILL.md` Step 5 independently of BPMN lint.
 - Reject the converted copy if the ID check fails, even when lint reports no ID error.
-- Record failed definition IDs and the validator result in `MIGRATION_REPORT.md`.
+- Record source and converted definition IDs, their owning event IDs, and the validator result in
+  `MIGRATION_REPORT.md`.
 - Use the fixture's Python verifier only for regression tests. Apply the Step 5 checks to each
   migration project's source and converted copies.
 - For a conditional-event verdict row, require an execution test that triggers the event before
