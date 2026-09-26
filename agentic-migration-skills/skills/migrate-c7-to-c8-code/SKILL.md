@@ -41,7 +41,7 @@ These apply throughout — referenced below instead of repeated.
 - **Ask before High-complexity files and edge cases.** Auto-apply only unambiguous 1:1 mappings. For anything else — JUEL invoking beans, BPMN error mapping, async/correlation, IdentityService/FormService, custom batches, multi-instance listeners, ambiguous TODOs or findings, compile errors without a direct catalog match — propose via `AskUserQuestion` first. When unsure, ask.
 - **Keep changes minimal.** No refactors, renames, or improvements beyond the migration.
 - **Keep `MIGRATION_REPORT.md` current** — both inventories, decisions, phase status, validation results.
-- Set each open item to status `open`, `blocked`, or `resolved`.
+- Set each open item to status `open`, `blocked`, `deferred`, or `resolved`.
 
 ## Step 1: Gather inputs
 

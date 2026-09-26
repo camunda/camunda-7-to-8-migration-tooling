@@ -136,7 +136,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         report = " ".join(BLOCKED_REPORT_PATH.read_text().lower().split())
 
         self.assertIn(
-            "set each open item to status `open`, `blocked`, or `resolved`",
+            "set each open item to status `open`, `blocked`, `deferred`, or `resolved`",
             skill,
         )
         self.assertIn("set each query follow-up to status `open`", checklist)
