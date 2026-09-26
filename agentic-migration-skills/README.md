@@ -167,6 +167,11 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
+During model follow-up, the skill compares each call activity's selected inputs and outputs with
+Camunda 8 variable propagation. It does not replace selected parent inputs with all-parent
+propagation without a user decision. In Camunda 8.9, the parent Business ID propagates to called
+child instances independently of process variables.
+
 For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
 Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible
 assignments, schedules, forms, and listeners, records unsupported semantics, and does not create a

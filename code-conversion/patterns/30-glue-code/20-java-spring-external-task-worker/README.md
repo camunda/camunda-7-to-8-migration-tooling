@@ -2,9 +2,10 @@
 
 In Camunda 7, external task workers are a way to implement glue code. They are deployed independently from the engine. Thus, they cannot access the engine's services.
 
-The code conversion patterns for the external task workers cover the most important methods how an external task worker can interact with the running process instance:
+The code conversion patterns for external task workers show how a worker can interact with the running process instance:
 
 -   getting and setting process variables
+-   completing with process variables, task-local variables, or both
 -   reporting a failure
 -   raising an incident
 -   throwing a BPMN error

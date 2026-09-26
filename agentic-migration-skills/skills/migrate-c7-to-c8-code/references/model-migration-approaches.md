@@ -11,6 +11,53 @@ Use the assessment model scan before choosing a path.
 
 Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
+## Call-Activity Variable Scope
+
+For each C7 call activity, record the called process, every `camunda:in` and `camunda:out` mapping,
+and the child business-key intent. Keep parent-to-child inputs separate from child-to-parent outputs.
+`propagateAllParentVariables` controls the first direction. `propagateAllChildVariables` controls
+the second. Verify target syntax in the [call-activity variable-mapping docs](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings)
+and the [variable-scope docs](https://docs.camunda.io/docs/components/concepts/variables/).
+
+| C7 call contract | Camunda 8 mapping |
+|---|---|
+| The call selects parent inputs | Where the target supports this option, set `propagateAllParentVariables="false"`. Add one `zeebe:input` for each selected value. |
+| The call selects child outputs | Add a `zeebe:output` mapping for each selected value. Do not use `propagateAllChildVariables` to restrict parent inputs. |
+| The call propagates every parent input | Keep all-parent propagation only when the C7 contract has the same scope. Record the source evidence. |
+| The target cannot express the source contract | Keep the category **needs review** and record the semantic difference. Never replace selected inputs with broad propagation. |
+
+Use this Camunda 8.9 shape for selected parent inputs:
+
+```xml
+<zeebe:calledElement processId="child-process" propagateAllParentVariables="false" />
+<zeebe:ioMapping>
+  <zeebe:input source="=selectedInput" target="selectedInput" />
+</zeebe:ioMapping>
+```
+
+Camunda 8.9 supports this mapping. Verify support in the official docs for every other target version.
+When a finding says a call-activity mapping is unavailable, apply this target-version check before
+changing it. Never remove selected inputs or enable broad propagation to clear the finding.
+If the target cannot deploy an equivalent mapping, then keep the category **needs review** and ask
+the user for a scope decision. Record the difference as blocked pending that decision.
+
+Record child business-key intent separately from process variables. Where the target is Camunda 8.9
+or later, the parent Business ID propagates to call-activity children independently of variable
+propagation. See the
+[Business ID docs](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id).
+Do not enable broad parent-variable propagation to carry the Business ID. If the C7 call expects a
+distinct child business key, then keep that difference **needs review** until a target-compatible
+mapping is confirmed.
+
+Add one row per call activity to `MIGRATION_REPORT.md`. Record its ID and called process. Record
+selected C7 inputs and outputs. Record C8 mappings and both propagation flags. Record child
+business-key or Business ID intent and validation evidence.
+
+The skill deploys and starts a parent/child fixture with a parent-only variable and selected inputs.
+The child receives the selected inputs but not the parent-only variable. The skill checks the child
+Business ID separately. If a deployment blocker prevents this test, then record the blocker and keep
+the category **needs review**.
+
 ## Pre-flight: Leftover Artifacts
 
 Before any local approach (M1, M2, E1), scan for outputs of previous migration attempts:
