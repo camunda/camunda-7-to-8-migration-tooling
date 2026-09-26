@@ -13,17 +13,30 @@ DC = "http://www.omg.org/spec/DD/20100524/DC"
 DI = "http://www.omg.org/spec/DD/20100524/DI"
 
 
-def document(definition_ids):
-    events = []
-    for index, definition_id in enumerate(definition_ids, start=1):
-        id_attribute = f' id="{definition_id}"' if definition_id is not None else ""
-        events.append(
-            f"""<bpmn:boundaryEvent id="Boundary_{index}" attachedToRef="Task">
-          <bpmn:conditionalEventDefinition{id_attribute}>
-            <bpmn:condition />
-          </bpmn:conditionalEventDefinition>
-        </bpmn:boundaryEvent>"""
+def document(definition_ids, definition_owners=None):
+    if definition_owners is None:
+        definition_owners = tuple(
+            f"Boundary_{index}" for index in range(1, len(definition_ids) + 1)
         )
+    if len(definition_owners) != len(definition_ids):
+        raise ValueError("each conditional event definition must have an owner")
+
+    events_by_owner = {
+        f"Boundary_{index}": [] for index in range(1, len(definition_ids) + 1)
+    }
+    for definition_id, owner_id in zip(definition_ids, definition_owners):
+        id_attribute = f' id="{definition_id}"' if definition_id is not None else ""
+        events_by_owner[owner_id].append(
+            f"""<bpmn:conditionalEventDefinition{id_attribute}>
+            <bpmn:condition />
+          </bpmn:conditionalEventDefinition>"""
+        )
+    events = [
+        f"""<bpmn:boundaryEvent id="{owner_id}" attachedToRef="Task">
+          {"".join(definitions)}
+        </bpmn:boundaryEvent>"""
+        for owner_id, definitions in events_by_owner.items()
+    ]
     return f"""<bpmn:definitions xmlns:bpmn="{BPMN}" xmlns:bpmndi="{BPMN_DI}"
     xmlns:dc="{DC}" xmlns:di="{DI}" id="Definitions">
   <bpmn:process id="Process">
@@ -37,12 +50,14 @@ def document(definition_ids):
 
 
 class ConditionalEventDefinitionIdTests(unittest.TestCase):
-    def check_documents(self, source_ids, converted_ids):
+    def check_documents(self, source_ids, converted_ids, converted_owners=None):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory:
             source_path = Path(directory) / "source.bpmn"
             converted_path = Path(directory) / "converted.bpmn"
             source_path.write_text(document(source_ids), encoding="utf-8")
-            converted_path.write_text(document(converted_ids), encoding="utf-8")
+            converted_path.write_text(
+                document(converted_ids, converted_owners), encoding="utf-8"
+            )
             return verify_conditional_event_ids.check(source_path, converted_path)
 
     def test_generates_id_for_idless_source_and_preserves_unique_source_ids(self):
@@ -137,6 +152,19 @@ class ConditionalEventDefinitionIdTests(unittest.TestCase):
             "unique source conditional event definition ID "
             "'Definition_Keep_One' moved from event 'Boundary_2' to event "
             "'Boundary_3'",
+            failures,
+        )
+
+    def test_rejects_moving_an_idless_definition_to_another_event(self):
+        failures = self.check_documents(
+            (None, "Definition_Keep"),
+            ("Definition_Generated", "Definition_Keep"),
+            ("Boundary_2", "Boundary_2"),
+        )
+
+        self.assertIn(
+            "conditional event definition count for owning event "
+            "'Boundary_1': expected 1, found 0",
             failures,
         )
 

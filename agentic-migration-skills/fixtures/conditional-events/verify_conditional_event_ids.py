@@ -107,6 +107,19 @@ def check(source_path, converted_path):
             f"found {len(converted_definitions)}"
         )
 
+    source_owner_counts = Counter(source_owner_ids)
+    converted_owner_counts = Counter(converted_owner_ids)
+    for owner_id in sorted(
+        set(source_owner_counts) | set(converted_owner_counts), key=repr
+    ):
+        expected = source_owner_counts[owner_id]
+        found = converted_owner_counts[owner_id]
+        if expected != found:
+            failures.append(
+                f"conditional event definition count for owning event "
+                f"{owner_id!r}: expected {expected}, found {found}"
+            )
+
     source_id_counts = Counter(
         element_id.strip()
         for element in source_root.iter()
