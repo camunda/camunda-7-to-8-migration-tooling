@@ -148,6 +148,10 @@ class MigrationGuidanceTest(unittest.TestCase):
             skill,
         )
         self.assertIn("the summary always lists every open item", skill)
+        self.assertIn(
+            "open items: [none, or list every open item with status]",
+            skill,
+        )
         self.assertIn("| call site | manual follow-up | status |", report)
         self.assertNotIn("`blocking/manual`", report)
 

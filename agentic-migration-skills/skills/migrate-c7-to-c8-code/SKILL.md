@@ -708,6 +708,7 @@ Validation Summary
 ✅ Tests: 42 passed, 0 failed
 ✅ Models converted: 4 → [list converted-c8-* files]
 ⚠️  Model findings needing follow-up: 6 (2 REVIEW, 3 TASK, 1 WARNING) → [see analysis report]
+Open items: [none, or list every open item with status]
 ```
 
 Record the summary in `MIGRATION_REPORT.md`.
