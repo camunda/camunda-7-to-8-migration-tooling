@@ -41,6 +41,7 @@ These apply throughout — referenced below instead of repeated.
 - **Ask before High-complexity files and edge cases.** Auto-apply only unambiguous 1:1 mappings. For anything else — JUEL invoking beans, BPMN error mapping, async/correlation, IdentityService/FormService, custom batches, multi-instance listeners, ambiguous TODOs or findings, compile errors without a direct catalog match — propose via `AskUserQuestion` first. When unsure, ask.
 - **Keep changes minimal.** No refactors, renames, or improvements beyond the migration.
 - **Keep `MIGRATION_REPORT.md` current** — both inventories, decisions, phase status, validation results.
+- Set each open item to status `open`, `blocked`, or `resolved`.
 
 ## Step 1: Gather inputs
 
@@ -626,18 +627,29 @@ When the scope is **Code + models**:
 ### Code validation (if code was migrated)
 
 1. **Compile**: `mvn compile` or `./gradlew compileJava` — fix all errors
-2. **Check for remaining C7 references**: Search for `org.camunda.bpm` imports — each is a missed migration
-3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
-4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
-5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Configuration binding**: Confirm that configuration validation ran. When the user selects Approach B, run the recipe in `references/code-transform-checklist.md`.
-7. **Run tests**: `mvn test` or `./gradlew test` — fix failures
-8. **Check query counts and pagination**:
+2. **Camunda 7 dependencies** — inventory every dependency and its uses before removal. Record
+   each dependency, use, classification, and decision in `MIGRATION_REPORT.md`. Treat a group ID
+   starting with `org.camunda.bpm` as a review signal, not proof that a dependency is engine-only.
+   Follow `references/code-transform-checklist.md`. If target compatibility remains unconfirmed,
+   then leave the active code unchanged. Record each affected call site as `blocked` with a manual
+   follow-up in `MIGRATION_REPORT.md`. Do not report an affected flow as migrated.
+3. **Camunda 7 imports** — search `org.camunda.bpm` and classify each match. Replace imports that
+   depend on Camunda 7 engine APIs. Keep imports required by a retained, compatible domain library.
+   Record unresolved behavior as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`.
+4. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
+5. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
+6. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
+7. **Configuration binding**: Confirm that configuration validation ran. When the user selects Approach B, run the recipe in `references/code-transform-checklist.md`.
+8. **Run tests**: `mvn test` or `./gradlew test`. Test each retained domain-library behavior
+   for every supported type and downstream call path. Use synthetic fixture values, never
+   production keys or credentials. A successful compile alone does not prove that behavior works.
+   Fix failures or document each one.
+9. **Check query counts and pagination**:
   - Search for `.items().size()` and `.items().stream().count()` after migrated query calls.
   - Trace query results assigned to variables before checking later count uses.
   - Replace complete counts with `.page().totalItems()`, using `.intValue()` for `int` or `Integer` results.
   - Review `.page().hasMoreTotalItems()` when a search can exceed cluster result limits.
-9. **Check common pitfalls**:
+10. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling
   - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
@@ -671,6 +683,8 @@ open item with status `open`.
 5. **Excluded processes**: If a process is not a valid standalone entry point, then the skill records the exclusion in `MIGRATION_REPORT.md`. The exclusion lists the process ID, reason, and covering test.
 6. **Completeness**: If a process has neither required direct-start coverage nor a documented exclusion, then the skill fails validation.
 7. **Failing scenarios**: For each failing scenario, the skill records the process ID, inputs, failing element, job type, and incident message.
+
+The skill reports completion only when no item has `deferred` or `blocked` status.
 
 Present a summary:
 ```

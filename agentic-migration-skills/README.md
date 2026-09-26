@@ -66,6 +66,11 @@ skills/
 The `fixtures/delegate-transaction-boundaries` path test checks C7
 `camunda:asyncAfter` boundaries before a JavaDelegate.
 
+The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture checks that a
+compatible active library under an `org.camunda.bpm` group survives migration. Its tests cover both
+synthetic license types and the downstream membership update. Its blocked-case report shows the
+blocked finding and manual follow-up required when the project owner has not approved a replacement.
+
 ## License
 
 [Camunda License 1.0](../CAMUNDA-LICENSE-1.0.txt)
