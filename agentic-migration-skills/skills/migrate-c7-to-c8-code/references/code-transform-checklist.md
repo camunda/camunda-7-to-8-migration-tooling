@@ -96,7 +96,13 @@ These items are not in the catalog:
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
-- Remove dependencies with groupId `org.camunda.bpm` or a groupId that starts with `org.camunda.bpm.`. Remove `camunda-bom` and the embedded-engine deps (H2, JDBC starter).
+- Before removing a dependency, follow the inventory and classification rules in
+  `10-general/dependencies.md`. Record its uses, target compatibility, and action in
+  `MIGRATION_REPORT.md`. A `org.camunda.bpm` group or package prefix does not prove that a
+  dependency is engine-only.
+- If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
+  affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
+  an affected flow as migrated.
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
@@ -170,8 +176,9 @@ record its wording. Replace `<call site>` with the class and the method.
 | The C7 code read its own recent write inside a worker (read-after-write) | `<call site>` relied on a C7 transaction boundary for read-after-write. The C8 search is asynchronous. Confirm the logic does not depend on immediate visibility. |
 | The C7 project relied on `historyTimeToLive` for data availability or cleanup | `<call site>` relied on `historyTimeToLive`. Camunda 8 controls retention on the cluster, not per query. Confirm the cluster retention matches the old expectation. |
 
-Set each open item to status `open`. Resolve it only on an explicit user decision, and record that
-decision in `MIGRATION_REPORT.md`.
+Set each query follow-up to status `open`.
+Set its status to `resolved` only after an explicit user decision.
+Record that decision in `MIGRATION_REPORT.md`.
 
 ### Query counts and pagination
 
@@ -210,7 +217,7 @@ access.
 
 | Source evidence | Required action | User decision |
 |---|---|---|
-| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `open` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
+| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `blocked` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
 | At least one incoming path places process start, a wait-state completion, or a synchronous predecessor in the same C7 command segment as the delegate. | Record that segment, its activities, exception paths, and the process-state changes it rolls back. Mark those rollback effects as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
