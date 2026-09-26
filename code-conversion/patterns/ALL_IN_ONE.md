@@ -1435,9 +1435,10 @@ public void sampleJavaDelegate(ActivatedJob job) {
 
 ###### Inject variables
 
-Replace required variable reads with typed `@Variable` parameters. Use `@VariablesAsType` when
-several variables form one input object. Keep `ActivatedJob` for job metadata, the job key
-(`job.getKey()`), or nullable variable reads.
+Bind each required variable with a typed `@Variable(name = "...")` parameter. Use the exact source
+variable name, even when it matches the Java parameter name. Do not rely on retained Java parameter
+names. Use `@VariablesAsType` when several variables form one input object.
+Keep `ActivatedJob` when the worker reads job metadata or its key.
 
 ```java
 // Before
@@ -1446,19 +1447,33 @@ public void sampleJavaDelegate(ActivatedJob job) {
 }
 
 // After
-public void sampleJavaDelegate(@Variable Object x) {
+public void sampleJavaDelegate(@Variable(name = "x") Object x) {
 }
 ```
 
 Mark an injected input optional only when the source worker accepts its absence:
 
 ```java
-public void sampleJavaDelegate(@Variable(optional = true) String comment) {
+public void sampleJavaDelegate(@Variable(name = "comment", optional = true) String comment) {
 }
 ```
 
-Keep nullable reads as `job.getVariablesAsMap().get(...)` when the source accepted a missing
-variable; do not turn them into required `@Variable` parameters or strict `job.getVariable(...)`.
+Keep a nullable source read as `job.getVariablesAsMap().get("comment")` when the source accepts an
+absent variable. Fetch that variable with `fetchVariables` or set `fetchAllVariables = true`.
+Do not replace the nullable read with strict `job.getVariable("comment")`.
+
+Use the activated job to pass the complete process-variable map to a delegate:
+
+```java
+@JobWorker(type = "persist-project", fetchAllVariables = true)
+public Map<String, Object> persistProject(ActivatedJob job) {
+  return projectDelegate.persist(job.getVariablesAsMap());
+}
+```
+
+Never use `@Variable` to request the complete process-variable map. Bind a single map-valued process
+variable with its explicit variable name. An `ActivatedJob` parameter disables implicit variable
+fetching, so set `fetchAllVariables = true` when the worker needs every process variable.
 
 Remove `throws Exception` when the cleaned method no longer throws a checked exception. Keep a
 specific checked exception when the worker still requires it.
@@ -1491,7 +1506,7 @@ known and the generated worker has no provenance note.
  * Migrated from the Camunda 7 SampleJavaDelegate.
  */
 @JobWorker(type = "sampleJavaDelegate")
-public Map<String, Object> sampleJavaDelegate(@Variable Object x) {
+public Map<String, Object> sampleJavaDelegate(@Variable(name = "x") Object x) {
   return Map.of("y", "hello world");
 }
 ```
@@ -1531,6 +1546,24 @@ The code conversion patterns for the JavaDelegate cover the most important metho
 - throwing a BPMN error
 
 There are often multiple methods that achieve the same result. The patterns try to capture as many examples as possible. Delegate code that accesses the engine services is not covered here. Please refer to the patterns for the engine services. In general, delegate code that utilizes engines services is more difficult to migrate to Camunda 8.
+
+###### Transaction and security semantics
+
+In Camunda 7, `camunda:asyncBefore` starts a command segment before its activity.
+`camunda:asyncAfter` starts a continuation segment after its activity. A failure rolls back the
+synchronous work in the command segment that runs the delegate.
+
+Without a boundary between a wait state and the JavaDelegate, the command that completes the wait
+state can also run the delegate. If the delegate fails, that command rolls back and the wait state
+remains incomplete. A preceding `camunda:asyncAfter` boundary commits its activity before downstream
+work continues. Synchronous activities after that boundary can still share the delegate's command.
+See [Camunda 7 asynchronous continuations](https://docs.camunda.org/manual/7.14/user-guide/process-engine/transactions-in-processes/#asynchronous-continuations).
+
+A C8 job worker runs outside the engine transaction. Its failure can consume retries and raise an
+incident after the preceding user task has completed. The worker does not share the C7 engine
+transaction or its thread-bound security context.
+
+Do not describe moving the same Java body to a worker as equivalent synchronous behavior. Ask the user to choose C8 retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. Ask the user to choose a worker-side transaction or security mechanism, or a code refactor, when the source relies on those contexts. Record the chosen behavior and accepted parity gap in `MIGRATION_REPORT.md`. The `SynchronousDelegateTransactionBoundaryTest` in the C8 code examples demonstrates the resulting process state. See the Handling a Failure pattern for additional guidance.
 
 
 #### Class-level Changes
@@ -1677,6 +1710,14 @@ Execution code can fail, promting the engine to try again or raise an incident i
 
 Check the [README](./README.md) for more details on class-level changes.
 
+###### Transaction boundary
+
+Without `camunda:asyncBefore` or another intervening asynchronous boundary, C7 runs a JavaDelegate in the command that completes the preceding wait state. If the delegate fails, the command rolls back and the wait state remains incomplete.
+
+C8 runs the worker after the engine creates a job. A failed job consumes retries and can raise an incident when retries are exhausted. The worker cannot roll back the completed wait state or share the C7 engine transaction and thread-bound security context.
+
+Do not describe the same Java body in a worker as equivalent synchronous behavior. If the source relies on rollback, ask the user to choose C8 retry and incident handling, a BPMN error or compensation flow, or an explicit manual step. If the source relies on thread-bound context, ask the user to choose a worker-side replacement mechanism or a code refactor. Record the exact gap and selected behavior in `MIGRATION_REPORT.md`.
+
 ###### JavaDelegate (Spring) - (Camunda 7)
 
 ```java
@@ -1692,11 +1733,9 @@ Check the [README](./README.md) for more details on class-level changes.
 ```
 
 -   variables cannot be added to the _ProcessEngineException_ and need to be set separately
--   the engine registers the exeception and either retries or raises an incident
--   JavaDelegates are run synchronously by default. On failure, the engine goes back to the last wait state, e.g., an async configuration or external task worker
--   to retry a specific JavaDelegate on failure, it needs to be set to asnyc before in the BPMN. With this, a retry time cycle can be specified for the executed delegate code, for example: R3/PT30S
--   the engine decrements the number of retries itself
--   once the retries are depleted, an incident is raised by the engine
+-   When a synchronous JavaDelegate follows a user task without an intervening asynchronous boundary, a failure rolls back the transaction that completes the user task.
+-   Configure `camunda:asyncBefore` to run the delegate as an asynchronous job. The engine then decrements retries and raises an incident when none remain.
+-   Set a retry time cycle on the asynchronous delegate, for example: R3/PT30S
 -   engine configurations can be used to set a default retry behavior
 
 ###### Job Worker (Spring) - (Camunda 8)
@@ -2393,6 +2432,21 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+###### Complete process-variable map
+
+When the Camunda 7 source reads the complete execution-variable map, keep `ActivatedJob` and pass
+`job.getVariablesAsMap()` to the delegate:
+
+```java
+    @JobWorker(type = "persistProject", fetchAllVariables = true)
+    public Map<String, Object> handleJob(ActivatedJob job) {
+        return projectDelegate.persist(job.getVariablesAsMap());
+    }
+```
+
+An `ActivatedJob` parameter disables implicit variable fetching. Set `fetchAllVariables = true` when
+the delegate needs every variable. Never use `@Variable` to request the complete process-variable map.
+
 ###### autoComplete = false (blocking)
 
 ```java
@@ -2501,12 +2555,14 @@ Implement the listener as a regular `@JobWorker` — listener jobs use the same 
 public class LogStartListenerWorker {
 
     @JobWorker(type = "log-start-listener")
-    public Map<String, Object> handle(@Variable String orderId) {
+    public Map<String, Object> handle(@Variable(name = "orderId") String orderId) {
         // custom logic, e.g. audit log entry
         return Map.of("auditedAt", Instant.now().toString());
     }
 }
 ```
+
+Set the source variable name explicitly. Do not rely on retained Java parameter names.
 
 -   `event="start"` maps to `eventType="start"`, `event="end"` maps to `eventType="end"`; the C7 `take` event on sequence flows has no equivalent — move the logic into a `start` listener of the target element or a dedicated service task
 -   the listener is blocking: the element is not entered/left until the job completes; failures create incidents

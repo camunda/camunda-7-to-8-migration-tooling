@@ -239,6 +239,17 @@ For Code + models, see `references/composing-code-and-models.md`.
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
 
+For Approach A, the skill runs this gate for every C7 JavaDelegate before `REWRITE_COMMAND`.
+For Approach B, the skill runs the gate before each C7 JavaDelegate transformation.
+The gate treats `camunda:asyncAfter` on a preceding activity as a boundary after that activity.
+If the gate blocks migration or has an undecided gap, then the skill stops that delegate's
+transformation and, for Approach A, OpenRewrite. The skill asks the user for the missing evidence or
+listed decision.
+When the user supplies evidence or makes a decision, the skill reruns the gate.
+The skill resumes only after the gate passes or `MIGRATION_REPORT.md` records the user's decision for
+every open item. The skill records each accepted parity gap in `MIGRATION_REPORT.md` before it
+resumes.
+
 - **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
   source-to-output review.
 - **B. AI only** — use a pattern-guided, AI-first migration for semantic, mixed, or complex code
@@ -309,6 +320,13 @@ Each item below is a check to run and a condition that must hold at exit. Record
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
+    For each delegate adapter, check that `MIGRATION_REPORT.md` records the pre-transform gate
+    result, every incoming path, and the C7 command segment that runs the delegate. Check that the
+    report records each `asyncBefore` and `asyncAfter` boundary, rollback effects, and every user
+    decision. Check that undecided gaps remain open and accepted parity gaps appear in the decision
+    log. If model/path evidence is missing and the user has not decided, check that the report marks
+    the gate **blocked** and records the missing evidence and unknown rollback effects in an open
+    item with status `open`.
 12. **Deployment resources** — when `@Deployment` is present after migration, build the
     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
     Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
@@ -321,6 +339,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
+14. **SLF4J providers** — the skill runs the provider check in
+    `references/code-transform-checklist.md` for every runtime module. The skill records the runtime
+    dependency evidence and provider initialization result in `MIGRATION_REPORT.md`. The skill
+    reports a complete migration only after a provider **PASS** or a user-approved exception resolves
+    the finding. The skill keeps the migration incomplete while the finding remains open. The skill
+    never marks logging or startup readiness **PASS** without a passing provider result.
 
 Check these pitfalls as well:
 

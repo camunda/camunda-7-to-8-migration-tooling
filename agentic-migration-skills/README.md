@@ -202,7 +202,7 @@ skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
     └── references/                        ← procedures loaded on demand
-fixtures/                                  ← sample projects for manual regression walkthroughs
+fixtures/                                  ← sample projects and executable regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
@@ -211,6 +211,12 @@ The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
 project documentation, CI checks, and readiness reporting.
 The `fixtures/project-readiness` walkthrough checks in-scope documentation,
 retained C7-only examples, and CI readiness gaps.
+The `fixtures/delegate-transaction-boundaries` path test checks C7
+`camunda:asyncAfter` boundaries before a JavaDelegate.
+The `fixtures/worker-input-bindings` fixture tests explicit single-variable
+bindings and complete-map access without retained Java parameter names.
+The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
+a runtime module without a usable SLF4J provider cannot pass logging validation.
 
 ## License
 
