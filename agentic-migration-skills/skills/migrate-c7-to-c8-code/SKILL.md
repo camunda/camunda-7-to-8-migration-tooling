@@ -144,7 +144,7 @@ These rules apply to every later step.
   answer.
 - Name the call site in each open item.
 - State the question in each open item.
-- Set each open item to status `open` or `resolved`.
+- Set each open item to status `open`, `blocked`, or `resolved`.
 - Create an open item for every migrated query against secondary storage, regardless of the running
   model.
 - See `references/code-transform-checklist.md` for the mandatory triggers and the wording.
@@ -288,9 +288,15 @@ Each item below is a check to run and a condition that must hold at exit. Record
 #### Code checks, when code was migrated
 
 1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
-2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files. No dependency with a groupId that starts with `org.camunda.bpm.` remains either.
-3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
-   migration.
+2. **Camunda 7 dependencies** — inventory every dependency and its uses before removal. Record
+   each dependency, use, classification, and decision in `MIGRATION_REPORT.md`. Treat a group ID
+   starting with `org.camunda.bpm` as a review signal, not proof that a dependency is engine-only.
+   Follow `references/code-transform-checklist.md`. If target compatibility remains unconfirmed,
+   then leave the active code unchanged. Record each affected call site as `blocked` with a manual
+   follow-up in `MIGRATION_REPORT.md`. Do not report an affected flow as migrated.
+3. **Camunda 7 imports** — search `org.camunda.bpm` and classify each match. Replace imports that
+   depend on Camunda 7 engine APIs. Keep imports required by a retained, compatible domain library.
+   Record unresolved behavior as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`.
 4. **Migration TODOs** — search for `// TODO` comments that OpenRewrite inserted or that mark
    migration work. Review each matching TODO and resolve or record it.
 5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.
@@ -299,8 +305,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
 7. **Configuration** — run the configuration validation in
    `references/code-transform-checklist.md`.
-8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
-   documented with an explanation.
+8. **Tests** — run `mvn test` or the Gradle test task. Test each retained domain-library behavior
+   for every supported type and downstream call path. Use synthetic fixture values, never
+   production keys or credentials. A successful compile alone does not prove that behavior works.
+   Every test passes, or each failure is documented with an explanation.
 9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A

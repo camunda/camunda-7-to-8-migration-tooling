@@ -218,6 +218,11 @@ bindings and complete-map access without retained Java parameter names.
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
 
+The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture checks that a
+compatible active library under an `org.camunda.bpm` group survives migration. Its tests cover both
+synthetic license types and the downstream membership update. Its blocked-case report shows the
+blocked finding and manual follow-up required when the project owner has not approved a replacement.
+
 ## License
 
 [Camunda License 1.0](../CAMUNDA-LICENSE-1.0.txt)
