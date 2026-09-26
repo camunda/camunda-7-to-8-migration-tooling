@@ -49,6 +49,7 @@ Patterns:
 - [Query History](20-client-code/10-process-engine/query-history.md)
 - [Raise Incidents](20-client-code/10-process-engine/raise-incidents.md)
 - [Search Process Definitions](20-client-code/10-process-engine/search-process-definitions.md)
+- [Search Process Instances](20-client-code/10-process-engine/search-process-instances.md)
 - [Starting Process Instances](20-client-code/10-process-engine/starting-process-instances.md)
 
 ## Glue code

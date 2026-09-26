@@ -47,6 +47,7 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                 public void execute(DelegateExecution execution) throws Exception {
                     boolean proceed = runtimeService.createProcessInstanceQuery()
                             .processDefinitionKey("example-workflow-process")
+                            .active()
                             .list()
                             .size() % 2 == 0;
 

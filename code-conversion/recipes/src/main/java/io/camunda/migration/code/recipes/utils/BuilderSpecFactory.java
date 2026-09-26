@@ -77,6 +77,30 @@ public class BuilderSpecFactory {
       String returnTypeFqn,
       List<String> additionalTextComments,
       Map<String, String> maybeImport) {
+    return createBuilderFilterSpecs(
+        methodPattern,
+        baseMethodName,
+        matchableMethodNames,
+        extractableMethodNames,
+        prefix,
+        suffix,
+        returnTypeFqn,
+        additionalTextComments,
+        maybeImport,
+        Optional.empty());
+  }
+
+  public static List<ReplacementUtils.BuilderReplacementSpec> createBuilderFilterSpecs(
+      String methodPattern,
+      String baseMethodName,
+      List<String> matchableMethodNames,
+      Map<String, String> extractableMethodNames,
+      String prefix,
+      String suffix,
+      String returnTypeFqn,
+      List<String> additionalTextComments,
+      Map<String, String> maybeImport,
+      Optional<String> receiverTypeFqn) {
     List<List<String>> allOrderedCombinations =
         generateAllOrderedCombinations(baseMethodName, matchableMethodNames);
 
@@ -126,7 +150,9 @@ public class BuilderSpecFactory {
                           additionalTextComments.stream())
                       .toList(),
                   Collections.emptyList(),
-                  imports);
+                  imports,
+                  receiverTypeFqn,
+                  Collections.emptySet());
             })
         .toList();
   }

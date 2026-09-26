@@ -6,7 +6,7 @@ Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, 
 
 | Camunda 7              | Camunda 8                                                                 |
 | ---------------------- | ------------------------------------------------------------------------- |
-| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable, optional cluster-level uniqueness enforcement |
+| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable in process-instance queries from 8.10+, optional cluster-level uniqueness enforcement |
 | (no equivalent)        | `tags` (8.8+) — up to 10 immutable labels per instance, included in search responses and activated jobs |
 
 If your target version is **8.8**, use tags (for example, `order:1234`) or store the identifier as a regular process variable and filter by variable in searches.
@@ -54,10 +54,12 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
-### CamundaClient (Camunda 8.9+)
+### CamundaClient (Camunda 8.10+)
+
+Business IDs can be set in Camunda 8.9, but process-instance search filtering by business ID is supported starting in 8.10.
 
 ```java
-    public List<ProcessInstance> findByBusinessId(String businessId) {
+    public List<ProcessInstance> findFirstPageByBusinessId(String businessId) {
         return camundaClient.newProcessInstanceSearchRequest()
                 .filter(filter -> filter.businessId(businessId))
                 .send()
@@ -65,6 +67,8 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
                 .items();
     }
 ```
+
+`items()` returns only the current page. Add pagination when the application must process every match.
 
 ### Assigning a Business ID after creation (Camunda 8.10+)
 
