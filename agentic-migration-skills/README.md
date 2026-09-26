@@ -191,8 +191,10 @@ supported extractor.
 At run time the skill fetches only the [pattern-catalog files required by the code
 inventory](skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md), with `ALL_IN_ONE.md`
 as a fallback. It also fetches the diagram-converter docs and resolves the latest Diagram Converter
-CLI release automatically. It describes what the agent must inspect, download, and run, instead of
-prescribing one shell dialect.
+CLI release automatically. The skill checks selected-artifact behavior against source-derived
+compatibility findings, verifies deployment patterns against packaged resources, and blocks model
+readiness until every converted model deploys to the declared target. It describes what the agent
+must inspect, download, and run, instead of prescribing one shell dialect.
 
 ## Structure
 
@@ -207,6 +209,10 @@ fixtures/                                  ← sample projects and executable re
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment
+patterns with Spring's resource resolver and verifies the packaged JAR inventory.
+The `fixtures/start-event-listener-artifact` walkthrough checks a selected converter
+JAR against an exact start-listener finding and a no-listener control.
 The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
 project documentation, CI checks, and readiness reporting.
 The `fixtures/project-readiness` walkthrough checks in-scope documentation,

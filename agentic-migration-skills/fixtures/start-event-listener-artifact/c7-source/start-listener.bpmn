@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_StartListener"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="Process_StartListener" name="Start listener" isExecutable="true">
+    <bpmn:startEvent id="Start_Listener" name="Start">
+      <bpmn:extensionElements>
+        <camunda:executionListener delegateExpression="${startListener}" event="start" />
+        <camunda:executionListener class="com.example.StartListener" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_StartToEnd</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="End_Listener" name="End">
+      <bpmn:incoming>Flow_StartToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_StartToEnd" sourceRef="Start_Listener" targetRef="End_Listener" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_StartListener">
+    <bpmndi:BPMNPlane id="BPMNPlane_StartListener" bpmnElement="Process_StartListener">
+      <bpmndi:BPMNShape id="Start_Listener_di" bpmnElement="Start_Listener">
+        <dc:Bounds x="160" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_StartToEnd_di" bpmnElement="Flow_StartToEnd">
+        <di:waypoint x="196" y="118" />
+        <di:waypoint x="300" y="118" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="End_Listener_di" bpmnElement="End_Listener">
+        <dc:Bounds x="300" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

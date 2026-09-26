@@ -60,7 +60,11 @@ The CLI is published as a self-contained executable JAR named `camunda-7-to-8-di
 4. If that JAR exists, reuse it.
 5. Otherwise download from `https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
 
-The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migration/` to `.gitignore`. Modify `.gitignore` only after the user confirms.
+The JAR is ~30 MB. The skill records its release tag and exact path with the target version in
+`MIGRATION_REPORT.md`. A latest release tag alone does not prove that the selected artifact supports
+each detected model pattern. Where the project is a git repo, the skill recommends adding
+`.camunda-migration/` to `.gitignore`. (SHOULD) The skill modifies `.gitignore` only after the user
+confirms.
 
 ### 3. Run the Converter
 
@@ -107,6 +111,42 @@ packaging, including `src/main/resources` when it exists. No findings report nam
 `analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
 `.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
 directory. Otherwise, use another explicitly non-packaged directory.
+
+### 3b. Verify selected artifact behavior
+
+The skill compares the Step 2 source inventory with the selected JAR's JSON report and fresh
+converted copies. It matches the report's `filename` value to the source path and the report's
+`elementId` value to the start-event ID. For directory input, the CLI reports a path relative to the
+input directory. For single-file input, the CLI reports the filename. The skill uses the report path
+exactly. If this pair does not identify exactly one source start event, then the skill blocks
+compatibility and asks the user to resolve the mapping.
+
+The skill matches each finding to one source listener entry by implementation attribute and value in
+the finding's `message`. Each finding matches only one source entry. The skill requires one finding
+per source entry, including repeated implementations. If a source entry lacks a finding, then the
+skill adds a source-derived blocking row. That row does not count as a converter match. If a finding
+has no source match or the counts differ, then the skill blocks compatibility.
+
+The skill parses each converted copy with a namespace-aware XML parser. If a converted
+`bpmn:startEvent` still contains a direct `zeebe:executionListener` with `eventType="start"`, then
+the skill rejects the artifact. A matching worker does not make that placement deployable.
+
+If either artifact check fails, then the skill resolves the latest release once. The skill copies
+every original in-scope model into a clean staging directory and preserves each model's relative path.
+It runs the replacement JAR with the same target version and converter options as the failed run. The
+skill captures the replacement run's report paths and relocates those reports under step 3a. It
+repeats both artifact checks against the replacement run.
+
+If the replacement run passes both checks, then the skill archives the failed run's fresh converted
+copies outside packaged resource directories. The skill moves each replacement copy beside its
+matching original without overwriting any file. It uses only the replacement run's reports and
+converted copies for later validation and deployment. It records the replacement release tag, JAR
+path, target version, report paths, and converted-copy paths. If an archive or destination path
+conflicts, the skill keeps model readiness blocked and asks the user to resolve the conflict.
+
+If no published JAR passes both checks, then the skill asks whether to apply the manual follow-up in
+step 5d.3. The skill applies it only to the initial run's converted copy after user approval. The
+skill keeps model readiness blocked until that follow-up passes its checks.
 
 ### 4. Surface Outputs
 
@@ -380,14 +420,16 @@ Rules:
 
 #### 5d.3. Relocate unsupported start-event listeners
 
-Treat `execution-listener-on-start-event` as **Blocking** and **needs review** until the user accepts
-relocation and the relocation checks pass.
+The skill treats `execution-listener-on-start-event` as **Blocking** and **needs review** until the
+user accepts relocation and the relocation checks pass.
 
-Use the finding's `filename` and `elementId` to resolve the affected `bpmn:startEvent` in the original
-C7 source. Read the original source because the converter omits this unsupported listener from the
-fresh converted copy.
+The skill uses the source inventory's file and start-event ID to resolve each affected
+`bpmn:startEvent` in the original C7 source. The skill applies this procedure when the JSON report
+contains the finding and when the selected artifact omits it. The skill reads the original source
+because an unsupported converter release may omit the finding, drop the listener, or emit an
+invalid listener placement.
 
-Find the nearest enclosing target in the original source:
+The skill finds the nearest enclosing target in the original source:
 
 | Source shape | Target |
 |---|---|
@@ -414,6 +456,9 @@ Do not edit the original C7 source.
 Do not edit a converted copy before the user accepts the move.
 When the user accepts the move, edit only the fresh converted copy.
 Use a namespace-aware XML parser or XML tooling, never regular expressions.
+The skill removes an invalid listener that the converter emitted on the selected start event before
+adding the approved listener to its target. The skill does not remove listeners from another start
+event.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
 Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
 Set `eventType="start"`.
@@ -447,7 +492,8 @@ Keep the category **needs review** until every applicable check passes.
 Record the source path, start-event ID, target process or subprocess ID and name, listener
 implementations, user decision, converted-copy path, and verification evidence in
 `MIGRATION_REPORT.md`. Set the verdict to **no action** only after the relocation checks and any
-applicable verification gate pass.
+applicable verification gate pass. If the user declines, the target has no safe alternative, or a
+required check cannot run, then the skill keeps model readiness **blocked**.
 
 #### 5e. Strip converter annotations from converted models
 
