@@ -692,6 +692,9 @@ open item with status `open`.
 7. **Failing scenarios**: For each failing scenario, the skill records the process ID, inputs, failing element, job type, and incident message.
 
 The skill reports completion only when no item has `deferred` or `blocked` status.
+An `open` item is a team decision. It does not block completion unless it prevents an in-scope
+documentation change or a required readiness check.
+The summary always lists every open item.
 
 Present a summary:
 ```

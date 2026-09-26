@@ -141,6 +141,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("set each query follow-up to status `open`", checklist)
         self.assertIn("no item has `deferred` or `blocked` status", skill)
+        self.assertIn("an `open` item is a team decision", skill)
+        self.assertIn(
+            "it does not block completion unless it prevents an in-scope documentation change "
+            "or a required readiness check",
+            skill,
+        )
+        self.assertIn("the summary always lists every open item", skill)
         self.assertIn("| call site | manual follow-up | status |", report)
         self.assertNotIn("`blocking/manual`", report)
 
