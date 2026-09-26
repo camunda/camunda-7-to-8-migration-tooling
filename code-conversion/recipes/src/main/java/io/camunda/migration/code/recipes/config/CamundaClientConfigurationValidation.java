@@ -73,6 +73,14 @@ final class CamundaClientConfigurationValidation {
         replacement);
   }
 
+  static String effectivePropertyName(String key) {
+    PropertyReference propertyReference = propertyReference(key);
+    String replacement = LEGACY_PROPERTY_MAPPINGS.get(propertyReference.propertyName());
+    return replacement == null
+        ? propertyReference.propertyName().toString()
+        : propertyName(replacement).toString();
+  }
+
   static Optional<String> shapeFinding(String key, ValueShape valueShape) {
     PropertyReference propertyReference = propertyReference(key);
     ConfigurationPropertyName propertyName = propertyReference.propertyName();
@@ -331,7 +339,7 @@ final class CamundaClientConfigurationValidation {
     }
   }
 
-  private static Optional<String> bindingCandidate(String value) {
+  static Optional<String> bindingCandidate(String value) {
     String candidate = value.trim();
     if (!candidate.contains("${")) {
       return Optional.of(candidate);
