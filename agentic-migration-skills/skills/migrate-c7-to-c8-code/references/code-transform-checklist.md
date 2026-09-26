@@ -2,11 +2,22 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-This checklist defines every code transformation item. Approach A runs OpenRewrite first (it covers
-items 3, 4, and partially item 2), then uses this checklist for the rest. Approach B works the full
-checklist by hand.
+This checklist defines every code transformation item. Approach A runs OpenRewrite only after the
+skill passes every delegate gate or the user decides each open item. The skill uses this checklist
+to clean the recipe output. In Approach B, the skill applies the full checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
+
+## Worker contract verification
+
+For every migrated worker, compare its Camunda 8 contract with the Camunda 7 source.
+The skill checks each input name, Java type, absent-value behavior, output, exception, and completion mode.
+The skill scans every worker signature for `@Variable` without an explicit `name`.
+The skill rejects `@Variable` when the source requires the complete process-variable map.
+The skill verifies that a complete-map worker sets `fetchAllVariables = true`.
+The skill runs runtime tests with normal and absent inputs.
+If runtime evidence does not verify an input, then the skill marks that input **blocked** in `MIGRATION_REPORT.md`.
+The skill does not report a migration as complete while a worker input remains blocked.
 
 ---
 
@@ -25,11 +36,13 @@ Inspect every generated `@JobWorker` method. Apply each matching rule:
 | Recipe artifact | Cleanup |
 |---|---|
 | A method name ends in `Migrated` or starts with `executeJob` | Rename the method to the worker's job type or the original delegate's intent. Preserve the explicit `@JobWorker(type = "...")` value. If the job type came from the method name, set it explicitly before renaming. |
-| The method reads one or more variables through `ActivatedJob` | Replace `job.getVariable(...)` or `job.getVariablesAsMap()` with typed `@Variable` parameters. Use `@VariablesAsType` for a cohesive variable object. Keep `ActivatedJob` only when the method uses its metadata or the job key (`job.getKey()`). |
+| The method reads individual variables through `ActivatedJob` | Bind each required variable to a typed parameter with `@Variable(name = "<exact source variable>")`. Never rely on Java parameter-name metadata. Keep a nullable source read as a map lookup. |
+| The method needs the complete process-variable map | Keep an `ActivatedJob` parameter. Set `@JobWorker(fetchAllVariables = true)`. Read the map with `job.getVariablesAsMap()`. Never use `@Variable` to request the complete map. |
+| Several related variables form one input object | Use `@VariablesAsType` only when the source contract is that object. |
 | The method has `throws Exception` after variable cleanup | Remove the declaration when the method no longer throws a checked exception. Preserve a specific checked exception when the worker still requires it. |
 | The method returns one output through a mutable map | Return `Map.of(...)` when the output has non-null values and callers do not mutate the map. Keep a mutable map when the worker needs mutation or supports nullable values. |
 | A `@JobWorker` annotation contains `autoComplete = true` | Remove the attribute because `true` is the default. Keep it only when the project documents the explicit setting as part of its configuration contract. |
-| An input can be absent | Mark the matching input `@Variable(optional = true)` and use a nullable or optional-compatible Java type. Do not mark required inputs optional. |
+| The source accepts an absent input | Preserve that behavior with `@Variable(name = "<exact source variable>", optional = true)` and a nullable or optional-compatible Java type. Keep a map lookup when the source depends on its absent-value behavior. |
 | The source was a Camunda 7 delegate or external task worker | Preserve a short migration Javadoc. Add one when the generated method has no provenance note and the source origin is known. |
 
 Do not change a job type, variable name, output name, exception behavior, or worker completion mode
@@ -59,7 +72,7 @@ The cleanup produces an idiomatic worker without changing the job type or variab
  * Migrated from the Camunda 7 SampleJavaDelegate.
  */
 @JobWorker(type = "sampleJavaDelegate")
-public Map<String, Object> sampleJavaDelegate(@Variable Object x) {
+public Map<String, Object> sampleJavaDelegate(@Variable(name = "x") Object x) {
   System.out.println("SampleJavaDelegate " + x);
   return Map.of("y", "hello world");
 }
@@ -69,8 +82,17 @@ When an input is optional, retain that semantic explicitly:
 
 ```java
 @JobWorker(type = "sampleJavaDelegate")
-public void sampleJavaDelegate(@Variable(optional = true) String comment) {
+public void sampleJavaDelegate(@Variable(name = "comment", optional = true) String comment) {
   // worker logic
+}
+```
+
+When the source worker reads every process variable, keep the activated job:
+
+```java
+@JobWorker(type = "persist-project", fetchAllVariables = true)
+public Map<String, Object> persistProject(ActivatedJob job) {
+  return projectDelegate.persist(job.getVariablesAsMap());
 }
 ```
 
@@ -97,7 +119,13 @@ These items are not in the catalog:
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
-- Remove dependencies with groupId `org.camunda.bpm` or a groupId that starts with `org.camunda.bpm.`. Remove `camunda-bom` and the embedded-engine deps (H2, JDBC starter).
+- Before removing a dependency, follow the inventory and classification rules in
+  `10-general/dependencies.md`. Record its uses, target compatibility, and action in
+  `MIGRATION_REPORT.md`. A `org.camunda.bpm` group or package prefix does not prove that a
+  dependency is engine-only.
+- If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
+  affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
+  an affected flow as migrated.
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
@@ -142,6 +170,42 @@ For each migrated Maven module that uses a Camunda Spring Boot starter:
 | The client context reports a `LinkageError` or a verified incompatible dependency family | Record a blocking finding. |
 | The focused client-context test fails or cannot run | Block readiness until it passes. Record the command, exit code, and error. Do not assign a classpath cause without evidence. |
 | The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
+
+### SLF4J provider validation
+
+A runtime module is a Maven or Gradle module whose migrated application runs in a JVM process. Use
+the recorded launch path to identify each runtime module. Exclude test-only modules and libraries
+without their own launch path.
+
+Check each runtime module independently. Do not use a parent or sibling module's runtime path as
+evidence. Resolve the module's runtime classpath or module path, excluding test dependencies. For
+Maven, run `mvn -f <module>/pom.xml dependency:build-classpath -Dmdep.includeScope=runtime`. For
+Gradle, inspect the module's `runtimeClasspath`.
+
+Inspect the resolved classpath for the SLF4J API and compatible providers. For SLF4J 2.x, count
+provider classes declared in `META-INF/services/org.slf4j.spi.SLF4JServiceProvider`. When the
+application uses JPMS, count providers declared by `provides` in `module-info.class`. For SLF4J 1.x,
+count `org/slf4j/impl/StaticLoggerBinder.class` resources. Do not count an incompatible provider or
+an ignored legacy binding as usable.
+
+Run a diagnostic with the same runtime classpath or module path that calls
+`org.slf4j.LoggerFactory.getILoggerFactory()`. Record the selected factory class and any provider or
+version warnings. Record `none` when the runtime path has no provider. Record each incompatible
+provider candidate and why it is unusable.
+
+Record the module location, inspection command, resolved SLF4J API version, all provider candidates,
+compatible-provider count, selected factory class, and diagnostic result in `MIGRATION_REPORT.md`.
+Write `none` when the runtime path has no provider candidates. The skill applies this outcome table:
+
+| Provider evidence | User decision | Report status | Required action |
+|---|---|---|---|
+| The compatible-provider count is exactly one. The provider initializes. The factory is not `NOPLoggerFactory`. No conflict appears. | None | **PASS** | Record the evidence. |
+| The API is missing, no compatible provider initializes, the factory is `NOPLoggerFactory`, or initialization fails. | None | Open finding | Leave the finding open. Fix dependencies or ask the user for an explicit logging decision. |
+| Multiple compatible providers initialize or the diagnostic reports a conflict. | None | Open finding | Leave the finding open. Fix dependencies or ask the user for an explicit logging decision. |
+| The provider check fails. | The user explicitly approves an exception. | Approved exception | Record approval and resolve the finding. Never mark logging or startup readiness **PASS**. |
+| The runtime path or provider evidence is unverified. | None | Blocking finding | Keep the finding open and the migration incomplete. |
+
+Do not skip this check when application source has no SLF4J imports.
 
 ### Maven build wiring
 
@@ -236,8 +300,9 @@ record its wording. Replace `<call site>` with the class and the method.
 | The C7 code read its own recent write inside a worker (read-after-write) | `<call site>` relied on a C7 transaction boundary for read-after-write. The C8 search is asynchronous. Confirm the logic does not depend on immediate visibility. |
 | The C7 project relied on `historyTimeToLive` for data availability or cleanup | `<call site>` relied on `historyTimeToLive`. Camunda 8 controls retention on the cluster, not per query. Confirm the cluster retention matches the old expectation. |
 
-Set each open item to status `open`. Resolve it only on an explicit user decision, and record that
-decision in `MIGRATION_REPORT.md`.
+Set each query follow-up to status `open`.
+Set its status to `resolved` only after an explicit user decision.
+Record that decision in `MIGRATION_REPORT.md`.
 
 ### Query counts and pagination
 
@@ -260,10 +325,44 @@ Catalog: `30-glue-code/10-java-spring-delegate/` (`adjusting-the-java-class`,
 `handling-process-variables`, `handling-a-bpmn-error`, `handling-a-failure`, `handling-an-incident`)
 and `30-glue-code/outbound-http-rest-connector.md`.
 
-These items are not in the catalog:
+### Synchronous transaction and security semantics
 
-- Keep worker behavior unchanged. A migrated worker keeps the same inputs and outputs. Never add a new
-  feature to an existing worker during migration. New logic belongs in a new, separate worker.
+Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path to the delegate.
+The skill includes paths that start the process and paths that continue from a wait state through
+synchronous activities. The skill partitions each path into C7 command segments at wait states and
+asynchronous boundaries. `camunda:asyncBefore` starts a segment before its activity.
+`camunda:asyncAfter` starts a segment after its activity. An `asyncAfter` marker on the delegate
+does not split the segment that runs it.
+For each path, the skill records the segment that runs the delegate and its synchronous activities.
+The skill records only the rollback effects of that segment. The skill checks exception paths in the
+delegate and its invoked services. The skill checks `camunda:asyncBefore`, `camunda:asyncAfter`,
+Spring transaction synchronization, `SecurityContextHolder`, `ThreadLocal`, and caller-identity
+access.
+
+| Source evidence | Required action | User decision |
+|---|---|---|
+| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `open` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
+| At least one incoming path places process start, a wait-state completion, or a synchronous predecessor in the same C7 command segment as the delegate. | Record that segment, its activities, exception paths, and the process-state changes it rolls back. Mark those rollback effects as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
+| The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
+
+If the first row matches, then the skill stops the transformation and asks the user to supply
+evidence or make the listed decision.
+When the user supplies evidence, the skill reruns the gate.
+The skill resolves the missing-evidence item when the gate passes or the user makes the explicit
+decision.
+If either remaining row matches and `MIGRATION_REPORT.md` has no user decision, then the skill adds
+an open item and asks for the listed decision before it transforms the delegate.
+A C8 job worker cannot roll back the C7 command that started or advanced the process. It does not
+inherit the C7 engine transaction or thread-bound security context.
+
+The skill never describes the worker as preserving synchronous behavior. When the user decides, the
+skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision
+log. The skill resolves the behavior-gap item only after that decision.
+
+### Worker behavior
+
+Keep worker behavior unchanged. A migrated worker keeps the same inputs and outputs. Never add a new
+feature to an existing worker during migration. New logic belongs in a new, separate worker.
 
 ---
 
