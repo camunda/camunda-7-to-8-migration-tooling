@@ -1049,6 +1049,24 @@ The code conversion patterns for the JavaDelegate cover the most important metho
 
 There are often multiple methods that achieve the same result. The patterns try to capture as many examples as possible. Delegate code that accesses the engine services is not covered here. Please refer to the patterns for the engine services. In general, delegate code that utilizes engines services is more difficult to migrate to Camunda 8.
 
+###### Transaction and security semantics
+
+In Camunda 7, `camunda:asyncBefore` starts a command segment before its activity.
+`camunda:asyncAfter` starts a continuation segment after its activity. A failure rolls back the
+synchronous work in the command segment that runs the delegate.
+
+Without a boundary between a wait state and the JavaDelegate, the command that completes the wait
+state can also run the delegate. If the delegate fails, that command rolls back and the wait state
+remains incomplete. A preceding `camunda:asyncAfter` boundary commits its activity before downstream
+work continues. Synchronous activities after that boundary can still share the delegate's command.
+See [Camunda 7 asynchronous continuations](https://docs.camunda.org/manual/7.14/user-guide/process-engine/transactions-in-processes/#asynchronous-continuations).
+
+A C8 job worker runs outside the engine transaction. Its failure can consume retries and raise an
+incident after the preceding user task has completed. The worker does not share the C7 engine
+transaction or its thread-bound security context.
+
+Do not describe moving the same Java body to a worker as equivalent synchronous behavior. Ask the user to choose C8 retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. Ask the user to choose a worker-side transaction or security mechanism, or a code refactor, when the source relies on those contexts. Record the chosen behavior and accepted parity gap in `MIGRATION_REPORT.md`. The `SynchronousDelegateTransactionBoundaryTest` in the C8 code examples demonstrates the resulting process state. See the Handling a Failure pattern for additional guidance.
+
 
 #### Class-level Changes
 
@@ -1194,6 +1212,14 @@ Execution code can fail, promting the engine to try again or raise an incident i
 
 Check the [README](./README.md) for more details on class-level changes.
 
+###### Transaction boundary
+
+Without `camunda:asyncBefore` or another intervening asynchronous boundary, C7 runs a JavaDelegate in the command that completes the preceding wait state. If the delegate fails, the command rolls back and the wait state remains incomplete.
+
+C8 runs the worker after the engine creates a job. A failed job consumes retries and can raise an incident when retries are exhausted. The worker cannot roll back the completed wait state or share the C7 engine transaction and thread-bound security context.
+
+Do not describe the same Java body in a worker as equivalent synchronous behavior. If the source relies on rollback, ask the user to choose C8 retry and incident handling, a BPMN error or compensation flow, or an explicit manual step. If the source relies on thread-bound context, ask the user to choose a worker-side replacement mechanism or a code refactor. Record the exact gap and selected behavior in `MIGRATION_REPORT.md`.
+
 ###### JavaDelegate (Spring) - (Camunda 7)
 
 ```java
@@ -1209,11 +1235,9 @@ Check the [README](./README.md) for more details on class-level changes.
 ```
 
 -   variables cannot be added to the _ProcessEngineException_ and need to be set separately
--   the engine registers the exeception and either retries or raises an incident
--   JavaDelegates are run synchronously by default. On failure, the engine goes back to the last wait state, e.g., an async configuration or external task worker
--   to retry a specific JavaDelegate on failure, it needs to be set to asnyc before in the BPMN. With this, a retry time cycle can be specified for the executed delegate code, for example: R3/PT30S
--   the engine decrements the number of retries itself
--   once the retries are depleted, an incident is raised by the engine
+-   When a synchronous JavaDelegate follows a user task without an intervening asynchronous boundary, a failure rolls back the transaction that completes the user task.
+-   Configure `camunda:asyncBefore` to run the delegate as an asynchronous job. The engine then decrements retries and raises an incident when none remain.
+-   Set a retry time cycle on the asynchronous delegate, for example: R3/PT30S
 -   engine configurations can be used to set a default retry behavior
 
 ###### Job Worker (Spring) - (Camunda 8)
