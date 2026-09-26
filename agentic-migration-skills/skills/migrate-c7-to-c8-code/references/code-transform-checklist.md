@@ -100,9 +100,10 @@ public Map<String, Object> persistProject(ActivatedJob job) {
 
 ## 1. Dependencies and Configuration
 
-Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the startup validation, the SLF4J binding, the
-`@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
+The `10-general/dependencies.md` catalog owns GA version resolution from Maven Central and starter
+selection by Spring Boot version. It also owns BOM alignment, startup validation, and the SLF4J
+binding. It defines the `@PostConstruct` to
+`@EventListener(CamundaPostDeploymentEvent.class)` migration. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
 Never restate a version number from memory.
@@ -131,6 +132,44 @@ These items are not in the catalog:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
+
+### Runtime dependency validation
+
+For each migrated Maven module that uses a Camunda Spring Boot starter:
+
+1. Before editing the POM, run `mvn help:effective-pom -Dverbose` and
+   `mvn dependency:tree -Dverbose`. Record each imported BOM's coordinates and effective version.
+   Trace each BOM's version to the POM or property that supplies it. Record the relevant dependency
+   paths and resolved family versions.
+2. If an imported BOM does not resolve, record its coordinates and the exact Maven error. Check the
+   coordinates, inherited version source, and configured repositories before changing the BOM.
+   Never comment out a failing BOM or replace selected managed artifacts with individual version pins
+   to make the build pass.
+3. After editing the POM, run `mvn help:effective-pom -Dverbose`.
+   Run `mvn dependency:tree -Dverbose` for the starter and existing cloud libraries.
+   Inspect every resolved `io.grpc` artifact, its dependency path, and its version-management source.
+4. Manage an incompatible gRPC family through a compatible `io.grpc:grpc-bom` in
+   `<dependencyManagement>`. Check direct dependencies for explicit `<version>` declarations that
+   override imported BOM management. Remove an unexplained override. Record the compatibility reason
+   for any retained override. Remove a conflicting direct dependency only after source, configuration,
+   and test searches show that the project does not use it. Never pin only `grpc-xds`, `grpc-util`, or
+   `grpc-core`.
+5. Run a focused Spring application-context test that creates the actual `CamundaClient` bean. Do
+   not mock the bean or issue a cluster request in this test. The test does not require a reachable
+   cluster.
+6. Record before-and-after `groupId:artifactId:version` values, dependency paths, and version-
+   management sources in `MIGRATION_REPORT.md`. Record the BOM coordinates, version source,
+   resolution error, decision, and remediation there. Record the focused test command and exit code.
+   Never copy the full effective POM into the report.
+
+| Evidence | Required verdict |
+|---|---|
+| An unresolved BOM has no verified replacement | Block readiness. Fix the coordinates or repository. Ask the user before selecting a replacement. |
+| An imported BOM's effective version cannot be traced to the POM or property that supplies it | Block readiness until the version source is verified. |
+| A direct dependency version overrides an imported BOM without a documented compatibility reason | Block readiness until the override is removed or justified. |
+| The client context reports a `LinkageError` or a verified incompatible dependency family | Record a blocking finding. |
+| The focused client-context test fails or cannot run | Block readiness until it passes. Record the command, exit code, and error. Do not assign a classpath cause without evidence. |
+| The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
 
 ### SLF4J provider validation
 
