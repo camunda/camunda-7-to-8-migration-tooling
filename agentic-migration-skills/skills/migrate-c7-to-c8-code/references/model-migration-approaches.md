@@ -566,6 +566,10 @@ The baseline comparison is authoritative. A class that existed in the C7 source 
 even when its name ends with `Worker`. Record the baseline match and the replacement adapter in
 `MIGRATION_REPORT.md`.
 
+The class-name and job-type checks do not verify variable binding. The skill also compares each
+adapter input, output, and absent-value behavior with the C7 source. Apply the worker contract checks
+in `code-transform-checklist.md`.
+
 Apply this rule to JUEL method-invocation findings in M1, M2, M3, and E1. E1 uses the M1 local
 conversion flow after it acquires the source models.
 

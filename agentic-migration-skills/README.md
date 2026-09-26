@@ -1,6 +1,6 @@
 # Agentic Migration Skills
 
-[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8 — both Java code and BPMN/DMN models. The skill is written in intent-first, platform-agnostic terms so compatible AI coding agents can adapt execution to Windows, macOS, or Linux.
+[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8. The skill covers Java code, BPMN/DMN models, project documentation, and migration-readiness checks for CI. It uses platform-agnostic instructions for compatible agents on Windows, macOS, and Linux.
 
 ## Install
 
@@ -95,7 +95,7 @@ The skill separates assessment, model analysis, model conversion, and complete m
 
 | Goal | Select or ask for | Result |
 |---|---|---|
-| Inventory a Camunda 7 project | **Assessment only** | The skill inventories code and models. It writes `MIGRATION_REPORT.md`, but does not edit source code or models. |
+| Inventory a Camunda 7 project | **Assessment only** | The skill inventories code, models, project documentation, and CI workflows. It writes `MIGRATION_REPORT.md`. It leaves all other project files, including source, models, documentation, and CI, unchanged. |
 | Analyze BPMN/DMN models | **Models only**, **Diagram Converter CLI** or **Agentic AI**, then **Analyze-only** | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
 | Convert BPMN/DMN models | **Models only** | Select the Diagram Converter CLI (recommended), Agentic AI, or Online Converter. Each path preserves source models and produces reviewable converted copies. |
 | Migrate Java/Spring code | **Code only** | The skill uses a pattern-guided AI-first approach, or a recipe-assisted OpenRewrite + AI approach. |
@@ -103,6 +103,9 @@ The skill separates assessment, model analysis, model conversion, and complete m
 
 Analyze-only is available only with **Models only** and the Diagram Converter CLI or Agentic AI.
 Select **Assessment only** to inspect code and models without editing source code or models.
+Assessment-only and analyze-only runs write `MIGRATION_REPORT.md` but do not edit any other project files.
+Every assessment also inventories project documentation and existing CI workflows.
+Full migrations update only approved in-scope documentation and assess project readiness.
 
 The Diagram Converter CLI needs Java 21 or later. See the
 [Diagram Converter guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)
@@ -120,7 +123,9 @@ Use this workflow to move a Camunda 7 project with Java code and BPMN/DMN models
 5. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
 6. After converted model copies are available, the skill applies the selected code path, resolves
    remaining code work, and cross-checks the code with the models.
-7. Review `MIGRATION_REPORT.md`, resolve findings that need a decision, and run the recorded validation checks.
+7. Review `MIGRATION_REPORT.md` and resolve findings that need a decision.
+   Update approved in-scope project instructions.
+   Run the recorded readiness checks.
 
 ### Model recommendation
 
@@ -199,7 +204,7 @@ skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
     └── references/                        ← procedures loaded on demand
-fixtures/                                  ← sample projects for manual regression walkthroughs
+fixtures/                                  ← sample projects and executable regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
@@ -208,6 +213,21 @@ The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployme
 patterns with Spring's resource resolver and verifies the packaged JAR inventory.
 The `fixtures/start-event-listener-artifact` walkthrough checks a selected converter
 JAR against an exact start-listener finding and a no-listener control.
+The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
+project documentation, CI checks, and readiness reporting.
+The `fixtures/project-readiness` walkthrough checks in-scope documentation,
+retained C7-only examples, and CI readiness gaps.
+The `fixtures/delegate-transaction-boundaries` path test checks C7
+`camunda:asyncAfter` boundaries before a JavaDelegate.
+The `fixtures/worker-input-bindings` fixture tests explicit single-variable
+bindings and complete-map access without retained Java parameter names.
+The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
+a runtime module without a usable SLF4J provider cannot pass logging validation.
+
+The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture checks that a
+compatible active library under an `org.camunda.bpm` group survives migration. Its tests cover both
+synthetic license types and the downstream membership update. Its blocked-case report shows the
+blocked finding and manual follow-up required when the project owner has not approved a replacement.
 
 ## License
 
