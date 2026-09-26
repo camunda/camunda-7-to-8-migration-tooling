@@ -191,6 +191,18 @@ Commit policy and reference loading: see Shared rules. Run **Part A** if the sco
 
 Both code approaches apply the same **Transform checklist** below. Approach A runs recipes for repeated, supported syntax changes before AI cleanup. Approach B applies the checklist with patterns and AI.
 
+Before the skill runs OpenRewrite in Approach A, it runs the synchronous transaction and security
+gate in item 3 for every C7 JavaDelegate. In Approach B, the skill runs the gate before each C7
+JavaDelegate transformation. The gate treats `camunda:asyncAfter` on a preceding activity as a
+boundary after that activity.
+If any gate blocks migration or has an undecided gap, then the skill stops the delegate
+transformation and all OpenRewrite work. The skill asks the user for the missing evidence or listed
+decision.
+When the user supplies evidence or makes a decision, the skill reruns the gate.
+The skill resumes only after every gate passes or `MIGRATION_REPORT.md` records the user's decision
+for every open item. The skill records each accepted parity gap in `MIGRATION_REPORT.md` before it
+resumes.
+
 ### Transform checklist
 
 Confirm each item before the next (commit policy: Shared rules). Tags mark what OpenRewrite already handles.
@@ -631,6 +643,19 @@ When the scope is **Code + models**:
   - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
   - `HistoryService` references — map to Orchestration Cluster search endpoints (eventually consistent — no read-after-write inside workers); historic *data* needs the History Data Migrator (8.9, RDBMS)
   - Batch operations — available since 8.8 via the Orchestration Cluster API (cancel/resolve/migrate/modify; delete since 8.9); only *custom* batch handlers need manual design
+
+#### Delegate transaction evidence
+
+For each delegate adapter, the skill checks `MIGRATION_REPORT.md` for the pre-transform gate result,
+every incoming path, and the C7 command segment that runs the delegate.
+The skill checks that the report records each `asyncBefore` and `asyncAfter` boundary, rollback
+effects, and every user decision.
+The skill checks that undecided gaps remain open and accepted parity gaps appear in the decision
+log.
+If model/path evidence is missing and the user has not decided, then the skill checks that the report
+marks the gate **blocked**.
+The skill checks that the report records the missing evidence and unknown rollback effects in an
+open item with status `open`.
 
 ### Model validation (if models were migrated)
 
