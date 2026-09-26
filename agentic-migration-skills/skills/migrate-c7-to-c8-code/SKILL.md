@@ -674,7 +674,7 @@ log.
 If model/path evidence is missing and the user has not decided, then the skill checks that the report
 marks the gate **blocked**.
 The skill checks that the report records the missing evidence and unknown rollback effects in an
-open item with status `open`.
+open item with status `blocked`.
 
 ### Model validation (if models were migrated)
 

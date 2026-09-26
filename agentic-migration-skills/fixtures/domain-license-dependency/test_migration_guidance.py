@@ -140,6 +140,15 @@ class MigrationGuidanceTest(unittest.TestCase):
             skill,
         )
         self.assertIn("set each query follow-up to status `open`", checklist)
+        self.assertIn(
+            "add an open item with status `blocked` to `migration_report.md`",
+            checklist,
+        )
+        self.assertIn(
+            "the report records the missing evidence and unknown rollback effects in an "
+            "open item with status `blocked`",
+            skill,
+        )
         self.assertIn("no item has `deferred` or `blocked` status", skill)
         self.assertIn("an `open` item is a team decision", skill)
         self.assertIn(

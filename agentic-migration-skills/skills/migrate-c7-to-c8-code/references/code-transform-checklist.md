@@ -217,7 +217,7 @@ access.
 
 | Source evidence | Required action | User decision |
 |---|---|---|
-| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `open` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
+| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `blocked` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
 | At least one incoming path places process start, a wait-state completion, or a synchronous predecessor in the same C7 command segment as the delegate. | Record that segment, its activities, exception paths, and the process-state changes it rolls back. Mark those rollback effects as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
