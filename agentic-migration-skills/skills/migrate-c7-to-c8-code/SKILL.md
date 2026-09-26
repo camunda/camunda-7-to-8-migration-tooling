@@ -214,7 +214,14 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
 - Add the Camunda public repo if artifacts aren't on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
-- Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
+- Classify every dependency before removal. Follow the inventory and classification rules in
+  `10-general/dependencies.md`. Record each dependency's uses, target compatibility, and action in
+  `MIGRATION_REPORT.md`.
+- Remove a Camunda 7 engine or embedded-engine dependency only when no active required use remains.
+- Keep compatible domain libraries, including libraries whose group IDs start with
+  `org.camunda.bpm`.
+- If target compatibility is unconfirmed or no owner-approved replacement exists, leave active code
+  unchanged. Record affected call sites as `blocked` with manual follow-up in `MIGRATION_REPORT.md`.
 - Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
 - Ensure Spring Boot dependency management is set (parent or BOM); don't add `spring-boot-starter` just for jakarta.annotation.
 - Replace `@EnableProcessApplication` with `@Deployment`. If the C7 app relied on implicit classpath auto-deployment (no `@EnableProcessApplication` present), still add explicit `@Deployment(resources = ...)` for BPMN/DMN files because C8 has no equivalent implicit deployment.
