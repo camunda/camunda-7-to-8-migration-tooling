@@ -202,6 +202,8 @@ fixtures/                                  ← sample projects and executable re
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/delegate-transaction-boundaries` path test checks C7
+`camunda:asyncAfter` boundaries before a JavaDelegate.
 The `fixtures/worker-input-bindings` fixture tests explicit single-variable
 bindings and complete-map access without retained Java parameter names.
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that

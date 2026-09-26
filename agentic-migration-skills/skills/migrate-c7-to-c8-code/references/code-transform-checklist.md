@@ -2,9 +2,9 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-This checklist defines every code transformation item. Approach A runs OpenRewrite first (it covers
-items 3, 4, and partially item 2), then uses this checklist for the rest. Approach B works the full
-checklist by hand.
+This checklist defines every code transformation item. Approach A runs OpenRewrite only after the
+skill passes every delegate gate or the user decides each open item. The skill uses this checklist
+to clean the recipe output. In Approach B, the skill applies the full checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
 
@@ -279,10 +279,44 @@ Catalog: `30-glue-code/10-java-spring-delegate/` (`adjusting-the-java-class`,
 `handling-process-variables`, `handling-a-bpmn-error`, `handling-a-failure`, `handling-an-incident`)
 and `30-glue-code/outbound-http-rest-connector.md`.
 
-These items are not in the catalog:
+### Synchronous transaction and security semantics
 
-- Keep worker behavior unchanged. A migrated worker keeps the same inputs and outputs. Never add a new
-  feature to an existing worker during migration. New logic belongs in a new, separate worker.
+Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path to the delegate.
+The skill includes paths that start the process and paths that continue from a wait state through
+synchronous activities. The skill partitions each path into C7 command segments at wait states and
+asynchronous boundaries. `camunda:asyncBefore` starts a segment before its activity.
+`camunda:asyncAfter` starts a segment after its activity. An `asyncAfter` marker on the delegate
+does not split the segment that runs it.
+For each path, the skill records the segment that runs the delegate and its synchronous activities.
+The skill records only the rollback effects of that segment. The skill checks exception paths in the
+delegate and its invoked services. The skill checks `camunda:asyncBefore`, `camunda:asyncAfter`,
+Spring transaction synchronization, `SecurityContextHolder`, `ThreadLocal`, and caller-identity
+access.
+
+| Source evidence | Required action | User decision |
+|---|---|---|
+| The project has no BPMN model for this delegate, or the skill cannot resolve an incoming path or asynchronous boundary. | Add an open item with status `open` to `MIGRATION_REPORT.md`. Record the missing model/path evidence and unknown rollback effects. Mark the gate **blocked**. | Supply the model/path evidence, or explicitly choose a C8 failure behavior and accept the unknown C7 rollback boundary. |
+| At least one incoming path places process start, a wait-state completion, or a synchronous predecessor in the same C7 command segment as the delegate. | Record that segment, its activities, exception paths, and the process-state changes it rolls back. Mark those rollback effects as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
+| The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
+
+If the first row matches, then the skill stops the transformation and asks the user to supply
+evidence or make the listed decision.
+When the user supplies evidence, the skill reruns the gate.
+The skill resolves the missing-evidence item when the gate passes or the user makes the explicit
+decision.
+If either remaining row matches and `MIGRATION_REPORT.md` has no user decision, then the skill adds
+an open item and asks for the listed decision before it transforms the delegate.
+A C8 job worker cannot roll back the C7 command that started or advanced the process. It does not
+inherit the C7 engine transaction or thread-bound security context.
+
+The skill never describes the worker as preserving synchronous behavior. When the user decides, the
+skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision
+log. The skill resolves the behavior-gap item only after that decision.
+
+### Worker behavior
+
+Keep worker behavior unchanged. A migrated worker keeps the same inputs and outputs. Never add a new
+feature to an existing worker during migration. New logic belongs in a new, separate worker.
 
 ---
 
