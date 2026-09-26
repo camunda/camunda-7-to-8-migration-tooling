@@ -63,6 +63,9 @@ skills/
     └── SKILL.md    ← skill definition (agentskills.io format)
 ```
 
+The `fixtures/delegate-transaction-boundaries` path test checks C7
+`camunda:asyncAfter` boundaries before a JavaDelegate.
+
 ## License
 
 [Camunda License 1.0](../CAMUNDA-LICENSE-1.0.txt)
