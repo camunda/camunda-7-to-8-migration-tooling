@@ -207,6 +207,8 @@ fixtures/                                  ← sample projects and executable re
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/conditional-events` walkthrough covers M2 conditional-event IDs,
+BPMN DI preservation, and a Camunda 8.9+ runtime check.
 The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
 project documentation, CI checks, and readiness reporting.
 The `fixtures/project-readiness` walkthrough checks in-scope documentation,
