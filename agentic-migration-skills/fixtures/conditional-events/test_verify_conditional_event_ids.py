@@ -21,9 +21,7 @@ def document(definition_ids, definition_owners=None):
     if len(definition_owners) != len(definition_ids):
         raise ValueError("each conditional event definition must have an owner")
 
-    events_by_owner = {
-        f"Boundary_{index}": [] for index in range(1, len(definition_ids) + 1)
-    }
+    events_by_owner = {owner_id: [] for owner_id in dict.fromkeys(definition_owners)}
     for definition_id, owner_id in zip(definition_ids, definition_owners):
         id_attribute = f' id="{definition_id}"' if definition_id is not None else ""
         events_by_owner[owner_id].append(
@@ -50,11 +48,19 @@ def document(definition_ids, definition_owners=None):
 
 
 class ConditionalEventDefinitionIdTests(unittest.TestCase):
-    def check_documents(self, source_ids, converted_ids, converted_owners=None):
+    def check_documents(
+        self,
+        source_ids,
+        converted_ids,
+        converted_owners=None,
+        source_owners=None,
+    ):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory:
             source_path = Path(directory) / "source.bpmn"
             converted_path = Path(directory) / "converted.bpmn"
-            source_path.write_text(document(source_ids), encoding="utf-8")
+            source_path.write_text(
+                document(source_ids, source_owners), encoding="utf-8"
+            )
             converted_path.write_text(
                 document(converted_ids, converted_owners), encoding="utf-8"
             )
@@ -167,6 +173,16 @@ class ConditionalEventDefinitionIdTests(unittest.TestCase):
             "'Boundary_1': expected 1, found 0",
             failures,
         )
+
+    def test_accepts_custom_owning_event_ids(self):
+        failures = self.check_documents(
+            (None, "Definition_Keep"),
+            ("Definition_Generated", "Definition_Keep"),
+            converted_owners=("EscalationBoundary", "ReviewBoundary"),
+            source_owners=("EscalationBoundary", "ReviewBoundary"),
+        )
+
+        self.assertEqual([], failures)
 
 
 if __name__ == "__main__":
