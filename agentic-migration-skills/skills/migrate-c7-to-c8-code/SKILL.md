@@ -476,10 +476,13 @@ target version. See the linting section in `references/model-migration-approache
     `references/model-migration-approaches.md`. The skill deploys every converted BPMN and DMN to
     that verified target. The skill deploys each accepted `.form` with its owning BPMN. The skill
     stages only converted BPMN and DMN files and accepted `.form` files in one directory. The skill
-    runs `c8ctl deploy <deployment-directory> --profile=<name>` on that directory. The skill uses
-    the same authorized deployment client when c8ctl is unavailable. The skill records one result
-    per resource path. The skill links each form result to its owning BPMN. The skill confirms
-    before using a shared target. If authorization is absent, the target version is unverified, any
+    calculates a destination path for every deployment resource before staging. If two deployment
+    resources map to the same destination path, then the skill blocks deployment and model
+    readiness. The skill never overwrites a staged resource. The skill runs
+    `c8ctl deploy <deployment-directory> --profile=<name>` on that directory. The skill uses the
+    same authorized deployment client when c8ctl is unavailable. The skill records one result per
+    resource path. The skill links each form result to its owning BPMN. The skill confirms before
+    using a shared target. If authorization is absent, the target version is unverified, any
     resource deployment fails, or listener relocation is unapproved, then the skill blocks model
     readiness.
 

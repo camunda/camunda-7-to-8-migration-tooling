@@ -293,6 +293,18 @@ class CliFindingValidationTest(unittest.TestCase):
             approaches,
         )
 
+    def test_target_deployment_blocks_duplicate_staging_paths(self):
+        skill = " ".join(SKILL_PATH.read_text(encoding="utf-8").lower().split())
+        for sentence in (
+            "the skill calculates a destination path for every deployment resource "
+            "before staging.",
+            "if two deployment resources map to the same destination path, then the skill blocks "
+            "deployment and model readiness.",
+            "the skill never overwrites a staged resource.",
+        ):
+            with self.subTest(sentence=sentence):
+                self.assertIn(sentence, skill)
+
     def test_artifact_probe_requires_an_explicit_java_path(self):
         with redirect_stderr(StringIO()):
             with self.assertRaises(SystemExit) as failure:
