@@ -66,6 +66,13 @@ class SelectedArtifactTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 verify_converted_copy(converted)
 
+            unwrapped = model.replace("<zeebe:executionListeners>", "").replace(
+                "</zeebe:executionListeners>", ""
+            )
+            converted.write_text(unwrapped, encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                verify_converted_copy(converted)
+
             converted.write_text(model.replace('eventType="start"', 'eventType="end"'), encoding="utf-8")
             verify_converted_copy(converted)
 

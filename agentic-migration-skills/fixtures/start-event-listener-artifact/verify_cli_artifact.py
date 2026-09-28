@@ -60,8 +60,7 @@ def verify_findings(report):
 def verify_converted_copy(path):
     root = ElementTree.parse(path).getroot()
     invalid = root.findall(
-        ".//bpmn:startEvent/bpmn:extensionElements/zeebe:executionListeners/"
-        "zeebe:executionListener[@eventType='start']",
+        ".//bpmn:startEvent//zeebe:executionListener[@eventType='start']",
         NAMESPACES,
     )
     require(not invalid, f"The converted copy retains a start listener on a start event: {path}")
