@@ -23,6 +23,8 @@ event, implementation attribute, and implementation value. The converted copy
 must omit a `start` execution listener directly on a BPMN start event. The
 control model must not report that finding for any filename. A release that
 predates the fix in #2841 fails this check.
+The fixture tests the output guard with a direct start listener, a non-start event
+type, and a listener on another BPMN element.
 
 ## Check the migration workflow
 

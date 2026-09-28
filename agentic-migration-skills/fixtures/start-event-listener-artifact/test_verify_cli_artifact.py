@@ -1,11 +1,14 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from verify_cli_artifact import (
     CATEGORY,
+    NAMESPACES,
     START_EVENT_ID,
     find_start_listener,
     get_source_listener_implementations,
+    has_unsupported_start_listener,
     require_listener_findings,
     require_no_listener_findings,
 )
@@ -23,6 +26,27 @@ MODEL_MIGRATION_APPROACHES_PATH = (
     Path(__file__).resolve().parents[2]
     / "skills/migrate-c7-to-c8-code/references/model-migration-approaches.md"
 )
+
+
+def write_converted_model(directory, bpmn_element, event_type):
+    listener = ""
+    if event_type is not None:
+        listener = (
+            "<bpmn:extensionElements><zeebe:executionListeners>"
+            f'<zeebe:executionListener eventType="{event_type}" />'
+            "</zeebe:executionListeners></bpmn:extensionElements>"
+        )
+    bpmn_namespace = NAMESPACES["bpmn"]
+    zeebe_namespace = NAMESPACES["zeebe"]
+    model = Path(directory) / "converted.bpmn"
+    model.write_text(
+        f'<bpmn:definitions xmlns:bpmn="{bpmn_namespace}" '
+        f'xmlns:zeebe="{zeebe_namespace}"><bpmn:process id="Process_1">'
+        f'<bpmn:{bpmn_element} id="Element_1">{listener}</bpmn:{bpmn_element}>'
+        "</bpmn:process></bpmn:definitions>",
+        encoding="utf-8",
+    )
+    return model
 
 
 def listener_finding(implementation_attribute, implementation_value, **overrides):
@@ -164,6 +188,23 @@ class CliFindingValidationTest(unittest.TestCase):
                         guidance,
                         f"{path} is missing {sentence!r}",
                     )
+
+    def test_detects_direct_start_listener_on_start_event(self):
+        with TemporaryDirectory() as directory:
+            model = write_converted_model(directory, "startEvent", "start")
+            self.assertTrue(has_unsupported_start_listener(model))
+
+    def test_ignores_other_listener_placements(self):
+        cases = (
+            ("startEvent", "end"),
+            ("serviceTask", "start"),
+            ("startEvent", None),
+        )
+        for bpmn_element, event_type in cases:
+            with self.subTest(bpmn_element=bpmn_element, event_type=event_type):
+                with TemporaryDirectory() as directory:
+                    model = write_converted_model(directory, bpmn_element, event_type)
+                    self.assertFalse(has_unsupported_start_listener(model))
 
     def test_rejects_message_without_source_listener_implementation(self):
         for message in ("Execution Listener cannot be transformed.", None):
