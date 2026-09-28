@@ -14,8 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.camunda.client.annotation.Deployment;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -42,12 +43,21 @@ class DeploymentResourcesTest {
     Set<String> resolvedTypes = new HashSet<>();
     PathMatchingResourcePatternResolver resolver =
         new PathMatchingResourcePatternResolver(MessageStartApplication.class.getClassLoader());
+    String applicationRoot =
+        MessageStartApplication.class
+            .getProtectionDomain()
+            .getCodeSource()
+            .getLocation()
+            .toExternalForm();
     for (String pattern : patterns) {
       assertFalse(pattern.contains(","), "Do not combine patterns in one resource string");
 
       Resource[] resources = resolver.getResources(pattern);
-      Set<String> matches =
-          Arrays.stream(resources).map(Resource::getFilename).collect(Collectors.toSet());
+      List<String> resourceLocations = new ArrayList<>(resources.length);
+      for (Resource resource : resources) {
+        resourceLocations.add(resource.getURL().toExternalForm());
+      }
+      Set<String> matches = applicationResourceNames(applicationRoot, resourceLocations);
       assertFalse(matches.isEmpty(), "Pattern must resolve packaged resources: " + pattern);
       assertEquals(matches.size(), resources.length, "Pattern must not resolve duplicate resources");
       assertTrue(
@@ -77,6 +87,30 @@ class DeploymentResourcesTest {
     assertThrows(
         AssertionFailedError.class,
         () -> addMatches(resolvedResources, matches));
+  }
+
+  @Test
+  void rejectsDependencyResourcesWithAnInventoryBasename() {
+    assertThrows(
+        AssertionFailedError.class,
+        () ->
+            applicationResourceNames(
+                "file:/application/classes/",
+                List.of("jar:file:/dependency.jar!/converted-c8-message-start.bpmn")));
+  }
+
+  private static Set<String> applicationResourceNames(
+      String applicationRoot, List<String> resourceLocations) {
+    Set<String> names = new HashSet<>();
+    for (String location : resourceLocations) {
+      assertTrue(
+          location.startsWith(applicationRoot),
+          "Resource must resolve from the application resource root: " + location);
+      String name = location.substring(applicationRoot.length());
+      assertFalse(name.isBlank(), "Resource location must identify a file: " + location);
+      assertTrue(names.add(name), "Application resource location must be unique: " + location);
+    }
+    return names;
   }
 
   private static void addMatches(Set<String> resolvedResources, Set<String> matches) {

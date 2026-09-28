@@ -214,7 +214,7 @@ columns.
 
 For every original BPMN, the skill records each `camunda:executionListener` with `event="start"`
 attached directly to a `bpmn:startEvent` as a separate inventory entry. Each entry records the
-source path, start-event ID, implementation attribute, and value. The skill keeps this inventory
+source path, start-event ID, implementation type, and value. The skill keeps this inventory
 when a converter report omits a matching finding.
 
 If the model inventory is empty and the user selected model migration, then record that no local
@@ -460,9 +460,10 @@ target version. See the linting section in `references/model-migration-approache
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
 21. When the user selects M1, the skill records the CLI release tag, JAR path, exact Java executable
-    path, and target version. The skill matches each finding by the exact CLI `filename` and source
-    start-event ID. For directory input, the filename is relative to the input directory. If a
-    finding cannot map to one source start event, then the skill marks compatibility **blocked**.
+    path, and target version. The skill matches each finding by the exact CLI `filename`, source
+    start-event ID, implementation type, and value. For directory input, the filename is relative
+    to the input directory. If a finding cannot map to one source start event, then the skill marks
+    compatibility **blocked**.
     A worker does not satisfy this check. The skill accepts a start-listener finding as a converter match
     only when its severity is `TASK`. If its severity is missing or different, then the skill marks
     compatibility **blocked**. The mismatched finding does not count as a converter match. If a

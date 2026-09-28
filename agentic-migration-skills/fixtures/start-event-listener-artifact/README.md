@@ -2,7 +2,8 @@
 
 This fixture checks the selected Diagram Converter CLI artifact and the
 `migrate-c7-to-c8-code` workflow against the start-listener regression from #2825.
-It includes two Camunda 7 start-event listeners on `Start_Listener` and one
+It includes four Camunda 7 start-event listeners on `Start_Listener`: delegate
+expression, class, script, and no implementation. It also includes one
 no-listener control.
 
 ## Check the selected artifact
@@ -23,7 +24,7 @@ runtime check. The script supplies each model through a directory input with a
 nested relative path, using fresh temporary directories. It requires one
 blocking `TASK` `execution-listener-on-start-event` finding for each source
 listener. Each finding must match the exact relative input path,
-`Start_Listener` event, implementation attribute, and implementation value.
+`Start_Listener` event, implementation type, and implementation value.
 The converted copy must omit a `start` execution listener directly on any BPMN
 start event. The control model must not report that finding for any filename.
 A release that predates the fix in #2841 fails this check.

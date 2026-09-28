@@ -11,6 +11,10 @@
       <bpmn:extensionElements>
         <camunda:executionListener delegateExpression="${startListener}" event="start" />
         <camunda:executionListener class="com.example.StartListener" event="start" />
+        <camunda:executionListener event="start">
+          <camunda:script scriptFormat="groovy">println 'start'</camunda:script>
+        </camunda:executionListener>
+        <camunda:executionListener event="start" />
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_StartToEnd</bpmn:outgoing>
     </bpmn:startEvent>

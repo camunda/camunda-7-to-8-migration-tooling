@@ -22,6 +22,8 @@ DIRECTORY_SOURCE_NAME = str(Path("models") / SOURCE_NAME)
 SOURCE_LISTENERS = (
     ("delegateExpression", "${startListener}"),
     ("class", "com.example.StartListener"),
+    ("script", "groovy"),
+    ("null", "null"),
 )
 SKILL_PATH = (
     Path(__file__).resolve().parents[2]
@@ -61,7 +63,7 @@ def write_bpmn_model(directory, process_contents):
     return model
 
 
-def listener_finding(implementation_attribute, implementation_value, **overrides):
+def listener_finding(implementation_type, implementation_value, **overrides):
     return {
         "filename": SOURCE_NAME,
         "elementId": START_EVENT_ID,
@@ -69,7 +71,7 @@ def listener_finding(implementation_attribute, implementation_value, **overrides
         "severity": "TASK",
         "message": (
             "Execution Listener at 'start' with implementation "
-            f"'{implementation_attribute}' '{implementation_value}' "
+            f"'{implementation_type}' '{implementation_value}' "
             "cannot be transformed."
         ),
         **overrides,
@@ -98,63 +100,61 @@ class CliFindingValidationTest(unittest.TestCase):
         )
 
     def test_rejects_same_basename_from_a_different_path(self):
+        findings = [
+            listener_finding(*listener, filename=DIRECTORY_SOURCE_NAME)
+            for listener in SOURCE_LISTENERS
+        ]
+        findings[0]["filename"] = str(Path("other") / SOURCE_NAME)
         with self.assertRaises(SystemExit):
             require_listener_findings(
-                [
-                    listener_finding(
-                        *SOURCE_LISTENERS[0],
-                        filename=str(Path("other") / SOURCE_NAME),
-                    ),
-                    listener_finding(
-                        *SOURCE_LISTENERS[1],
-                        filename=DIRECTORY_SOURCE_NAME,
-                    ),
-                ],
+                findings,
                 DIRECTORY_SOURCE_NAME,
                 START_EVENT_ID,
                 SOURCE_LISTENERS,
             )
 
     def test_rejects_wrong_start_event_id(self):
+        findings = [listener_finding(*listener) for listener in SOURCE_LISTENERS]
+        findings[0]["elementId"] = "Other_Start"
         with self.assertRaises(SystemExit):
             require_listener_findings(
-                [
-                    listener_finding(*SOURCE_LISTENERS[0], elementId="Other_Start"),
-                    listener_finding(*SOURCE_LISTENERS[1]),
-                ],
+                findings,
                 SOURCE_NAME,
                 START_EVENT_ID,
                 SOURCE_LISTENERS,
             )
 
     def test_rejects_a_report_missing_one_source_listener(self):
+        findings = [
+            listener_finding(*listener)
+            for listener in SOURCE_LISTENERS
+            if listener != ("script", "groovy")
+        ]
         with self.assertRaises(SystemExit):
             require_listener_findings(
-                [listener_finding(*SOURCE_LISTENERS[0])],
+                findings,
                 SOURCE_NAME,
                 START_EVENT_ID,
                 SOURCE_LISTENERS,
             )
 
     def test_rejects_duplicate_finding_instead_of_missing_listener(self):
+        findings = [listener_finding(*listener) for listener in SOURCE_LISTENERS]
+        findings[-1] = listener_finding(*SOURCE_LISTENERS[0])
         with self.assertRaises(SystemExit):
             require_listener_findings(
-                [
-                    listener_finding(*SOURCE_LISTENERS[0]),
-                    listener_finding(*SOURCE_LISTENERS[0]),
-                ],
+                findings,
                 SOURCE_NAME,
                 START_EVENT_ID,
                 SOURCE_LISTENERS,
             )
 
     def test_rejects_finding_for_an_unknown_implementation(self):
+        findings = [listener_finding(*listener) for listener in SOURCE_LISTENERS]
+        findings[0] = listener_finding("delegateExpression", "${otherListener}")
         with self.assertRaises(SystemExit):
             require_listener_findings(
-                [
-                    listener_finding("delegateExpression", "${otherListener}"),
-                    listener_finding(*SOURCE_LISTENERS[1]),
-                ],
+                findings,
                 SOURCE_NAME,
                 START_EVENT_ID,
                 SOURCE_LISTENERS,
@@ -180,10 +180,7 @@ class CliFindingValidationTest(unittest.TestCase):
     def test_rejects_downgraded_or_missing_severity(self):
         for severity in ("WARNING", "REVIEW", "INFO", None):
             with self.subTest(severity=severity):
-                findings = [
-                    listener_finding(*SOURCE_LISTENERS[0]),
-                    listener_finding(*SOURCE_LISTENERS[1]),
-                ]
+                findings = [listener_finding(*listener) for listener in SOURCE_LISTENERS]
                 if severity is None:
                     findings[0].pop("severity")
                 else:
@@ -215,6 +212,28 @@ class CliFindingValidationTest(unittest.TestCase):
                         guidance,
                         f"{path} is missing {sentence!r}",
                     )
+
+    def test_m1_guidance_normalizes_script_and_null_listener_implementations(self):
+        skill = " ".join(SKILL_PATH.read_text(encoding="utf-8").lower().split())
+        approaches = " ".join(
+            MODEL_MIGRATION_APPROACHES_PATH.read_text(encoding="utf-8").lower().split()
+        )
+        self.assertIn(
+            "source path, start-event id, implementation type, and value.",
+            skill,
+        )
+        script_mapping = (
+            '| nested `camunda:script` with `scriptformat="value"` | '
+            "`script` | script format |"
+        )
+        self.assertIn(
+            script_mapping,
+            approaches,
+        )
+        self.assertIn(
+            "| no implementation attribute or nested script | `null` | `null` |",
+            approaches,
+        )
 
     def test_m1_uses_the_same_validated_java_executable(self):
         guidance = " ".join(
@@ -359,14 +378,13 @@ class CliFindingValidationTest(unittest.TestCase):
     def test_rejects_message_without_source_listener_implementation(self):
         for message in ("Execution Listener cannot be transformed.", None):
             with self.subTest(message=message):
+                findings = [
+                    listener_finding(*listener) for listener in SOURCE_LISTENERS
+                ]
+                findings[0]["message"] = message
                 with self.assertRaises(SystemExit):
                     require_listener_findings(
-                        [
-                            listener_finding(
-                                *SOURCE_LISTENERS[0], message=message
-                            ),
-                            listener_finding(*SOURCE_LISTENERS[1]),
-                        ],
+                        findings,
                         SOURCE_NAME,
                         START_EVENT_ID,
                         SOURCE_LISTENERS,

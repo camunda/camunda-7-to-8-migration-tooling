@@ -12,7 +12,7 @@ from xml.etree import ElementTree
 
 CATEGORY = "execution-listener-on-start-event"
 START_EVENT_ID = "Start_Listener"
-IMPLEMENTATION_ATTRIBUTES = ("class", "expression", "delegateExpression")
+IMPLEMENTATION_ATTRIBUTES = ("delegateExpression", "class", "expression")
 NAMESPACES = {
     "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
     "camunda": "http://camunda.org/schema/1.0/bpmn",
@@ -79,8 +79,20 @@ def get_source_listener_implementations(source):
         implementations = [
             (attribute, listener.get(attribute))
             for attribute in IMPLEMENTATION_ATTRIBUTES
-            if listener.get(attribute)
+            if listener.get(attribute) is not None
         ]
+        scripts = listener.findall("camunda:script", NAMESPACES)
+        if scripts:
+            require(
+                len(scripts) == 1,
+                "Each source listener must have exactly one implementation.",
+            )
+            script_format = scripts[0].get("scriptFormat")
+            implementations.append(
+                ("script", "null" if script_format is None else script_format)
+            )
+        if not implementations:
+            implementations.append(("null", "null"))
         require(
             len(implementations) == 1,
             "Each source listener must have exactly one implementation.",
