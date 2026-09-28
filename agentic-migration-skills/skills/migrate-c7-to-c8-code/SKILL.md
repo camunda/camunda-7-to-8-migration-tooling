@@ -71,7 +71,9 @@ See `references/interview-questions.md` for the question set and the batching ru
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6, including Question 5a where it applies.
-6. When the user accepts the defaults, continue without further questions.
+6. When the user accepts the defaults, continue without repeating Questions 1 to 6.
+   After Step 2, ask Question 7 whenever its trigger applies, even if the user accepted those defaults.
+   When Question 7 applies, do not continue to Step 3 until the user confirms every decision.
 
 #### Shared rules
 
@@ -185,6 +187,13 @@ Record the original Java source baseline used for migration with the Code Invent
 class by its fully qualified class name, including its package and class name. Include every domain
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
+
+When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
+Engine REST call, inventory its HTTP topology. Follow
+`references/http-topology-migration.md`. Ask Question 7 from
+`references/interview-questions.md` before Step 3. Record the target application bind address and
+port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
+consumer actions. Where the management server uses a separate bind address or port, record both.
 
 #### Model Inventory
 
@@ -310,16 +319,23 @@ Each item below is a check to run and a condition that must hold at exit. Record
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
 7. **Configuration** — run the configuration validation in
    `references/code-transform-checklist.md`.
-8. **Tests** — run `mvn test` or the Gradle test task. Test each retained domain-library behavior
-   for every supported type and downstream call path. Use synthetic fixture values, never
-   production keys or credentials. A successful compile alone does not prove that behavior works.
-   Every test passes, or each failure is documented with an explanation.
-9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
+8. **Dependency compatibility and client startup** — for each Maven module that uses a Camunda
+  Spring Boot starter, run the BOM and dependency-family checks in
+  `references/code-transform-checklist.md`. Run a focused context test that creates the real
+  `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. The skill
+  applies the readiness verdicts in the checklist. Record the failing and final dependency
+  coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
+  there. Record the test command and its exit code there.
+9. **Tests** — run `mvn test` or the Gradle test task. Test each retained domain-library behavior
+  for every supported type and downstream call path. Use synthetic fixture values, never
+  production keys or credentials. A successful compile alone does not prove that behavior works.
+  Every test passes, or each failure is documented with an explanation.
+10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
    missing entry fails the check. See the mandatory open items in
    `references/code-transform-checklist.md`.
-10. **Query counts and pagination**
+11. **Query counts and pagination**
     - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.size()`.
     - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.stream()` and `.count()`.
     - Trace search results assigned to variables before checking later `.size()` or `.stream().count()` uses.
@@ -327,7 +343,7 @@ Each item below is a check to run and a condition that must hold at exit. Record
     - Confirm that each migrated C7 `list().size()`, `list().stream().count()`, or `count()` uses
       `.page().totalItems()`.
     - If a search can exceed cluster result limits, then review `.page().hasMoreTotalItems()`.
-11. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
+12. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
@@ -340,14 +356,15 @@ Each item below is a check to run and a condition that must hold at exit. Record
     log. If model/path evidence is missing and the user has not decided, check that the report marks
     the gate **blocked** and records the missing evidence and unknown rollback effects in an open
     item with status `open`.
-12. **Deployment resources** — where the application declares `@Deployment`, the skill builds the
+13. **Deployment resources** — when `@Deployment` is present after migration, build the
     inventory from this run's recorded converted-file paths and accepted generated forms. The skill
-    creates at least one annotation entry for each included resource type. The skill resolves each
-    entry with Spring's `PathMatchingResourcePatternResolver` against the build classpath. Each
-    entry must match a non-empty subset of the inventory, and their union must equal it. After
-    packaging, the skill confirms every matched resource exists in the application artifact. A test
-    that disables annotation deployment does not validate this wiring.
-13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
+    creates at least one annotation entry for each included resource type and can create multiple
+    entries for one type. The skill resolves each entry with Spring's
+    `PathMatchingResourcePatternResolver` against the build classpath. Each pattern must match a
+    non-empty subset of the packaged deployment inventory, and every inventory item must match a
+    pattern. After packaging, the skill confirms every matched resource exists in the application
+    artifact. A test that disables annotation deployment does not validate this wiring.
+14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
     class. Stop each started process after the launch. The migration adds no
@@ -355,7 +372,15 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
-14. **SLF4J providers** — the skill runs the provider check in
+15. **HTTP topology** — when the project contains a Spring web server, application HTTP endpoints,
+    health checks, or Camunda 7 Engine REST calls, follow
+    `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
+    ports when they share a host. Test every discovered application endpoint and replacement API
+    while the cluster is reachable. When the source includes a health check, verify each remote
+    client uses finite connection and response timeouts. Test each dependency while it responds and
+    while it is unavailable or timed out. Confirm that the application does not expose or proxy
+    `/engine-rest`. A context-load test alone does not pass this check.
+16. **SLF4J providers** — the skill runs the provider check in
     `references/code-transform-checklist.md` for every runtime module. The skill records the runtime
     dependency evidence and provider initialization result in `MIGRATION_REPORT.md`. The skill
     reports a complete migration only after a provider **PASS** or a user-approved exception resolves
@@ -481,6 +506,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | Check | Pass condition | Record |
 |---|---|---|
 | XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
+| Conditional-event IDs | Where the target is Camunda 8.9 or later, each converted `bpmn:conditionalEventDefinition` has a nonempty `id` that does not match another XML ID. Each converted definition remains under the same event ID as its source definition. When the converter reads a nonempty source definition ID that is unique in the source document, the converted definition retains that ID. | Paths, source and converted definition IDs and owning event IDs, and validator result |
 | Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
 | Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |

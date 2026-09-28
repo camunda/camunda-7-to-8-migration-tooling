@@ -106,9 +106,33 @@ credentials in fixtures.
 </dependency>
 ```
 
+**BOM alignment**: Preserve existing parent dependency management and imported BOMs unless
+inspection supports an explicit change. Inspect `mvn help:effective-pom -Dverbose` and
+`mvn dependency:tree -Dverbose` for the Camunda starter and existing cloud libraries before changing
+dependency management. Trace each imported BOM's effective version to the POM or property that
+supplies it. If a BOM does not resolve, record its coordinates and the exact Maven error. Check its
+coordinates, inherited version source, and configured repositories before replacing or removing it.
+Never comment out an unresolved BOM and replace selected managed artifacts with isolated version
+pins.
+
+Check explicit `<version>` values on direct dependencies managed by an imported BOM. A direct
+version overrides BOM management. Remove an unexplained override. Record the compatibility reason
+for any retained override.
+
+Run the same inspections after POM changes. For gRPC, inspect every resolved `io.grpc` artifact, its
+dependency path, and its version source. Manage an incompatible gRPC family through a compatible
+`io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`, or
+`grpc-core`. Remove a conflicting direct dependency only after source, configuration, and test
+searches show that the project does not use it. Record before-and-after versions, dependency paths,
+version sources, and the remediation in `MIGRATION_REPORT.md`.
+
 **Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
-that creates `CamundaClient`. If startup fails, record a blocking finding. Do not override individual
-transitive dependencies to force startup.
+that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this
+focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,
+block readiness and record its command, exit code, and error. Classify the failure as a classpath
+incompatibility only when it reports a `LinkageError` or the resolved dependency graph proves an
+incompatible family. A cluster connection failure during an API command is separate evidence and
+never proves that the classpath is compatible.
 
 **Version resolution**: Resolve the latest released GA version from Maven Central's direct artifact metadata, for example `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available). From `<versions>`, select the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release. Do not use `search.maven.org`'s search API or the Camunda public repository metadata for this lookup.
 
@@ -642,10 +666,29 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
     }
 ```
 
+`Map.of` rejects null values. If the C7 `VariableMap` can contain nulls, preserve every input key and value in a mutable map:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+Map<String, Object> variableMap = new HashMap<>();
+variableMap.put("timezone", timezone);
+variableMap.put("sla", sla);
+variableMap.put("tier", tier);
+variableMap.put("account", account);
+```
+
+Preserve any source guard that skips evaluation when a required input is absent. Do not assume that an explicit null and an omitted variable have the same DMN meaning. Verify that behavior with the target decision. If you cannot match the C7 null behavior, flag the input for user review instead of omitting it or adding a default.
+
 -   naming follows the same swap as process definitions: the C7 *decision definition key* (the id in the DMN XML) is the C8 `decisionId`; the C8 `decisionKey` is the unique key assigned on deployment
 -   using `decisionId` evaluates the latest deployed version
--   the result is returned as JSON: `response.getDecisionOutput()` contains the output, `response.getEvaluatedDecisions()` the details of all evaluated (required) decisions
+-   `response.getDecisionOutput()` is a JSON-encoded string; parse it using the output shape of the target decision
+-   when the target decision returns an empty object or array for no matching rules, return `null` and keep validating non-empty outputs against the expected shape
+-   `response.getEvaluatedDecisions()` contains details of all evaluated (required) decisions
 -   `DmnDecisionTableResult` convenience methods like `getSingleEntry()` have no direct equivalent — parse the JSON output instead
+-   test a missing required input, each nullable input, the complete input set, matching and nonmatching rules, and the expected return value against the target Camunda version
+-   assert the actual JSON `decisionOutput` and `evaluatedDecisions` response in a target-version test
 -   decisions evaluated *inside* a process should be modeled as a BPMN business rule task instead of being evaluated from glue code; the task's binding (`latest`, `deployment`, `versionTag`) controls version selection
 
 ---
