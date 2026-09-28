@@ -216,53 +216,35 @@ and audit data are out of scope. Point the user to the Data Migrator.
 
 #### Custom incident notifications
 
-Inspect source code and configuration for custom Camunda 7 incident handlers.
-Search for `org.camunda.bpm.engine.impl.incident.IncidentHandler` implementations and
-`ProcessEnginePlugin` registrations.
-Trace each handler from registration to every observable action.
-Record the trigger, channel, recipients, message context, duplicate policy, and exposed data.
-Treat each handler as a separate `incident-notification` finding.
-Do not combine this finding with job-worker failure handling.
-Worker registration, incident creation, and Operate visibility do not prove notification parity.
+Find `org.camunda.bpm.engine.impl.incident.IncidentHandler` implementations and
+`ProcessEnginePlugin` registrations in the source and configuration.
+Trace each handler's registration and observable actions.
+When a handler sends notifications, record a separate `incident-notification` finding in
+`MIGRATION_REPORT.md`. Capture its trigger, channel, recipients, context, duplicate behavior, and
+exposed data. Keep the finding separate from job-worker migration.
 
-Present one required project decision for each finding:
+Ask the project owner to choose a Camunda 8-compatible integration or explicitly waive notifications
+for each finding. Never remove or replace the handler before the project records its decision.
 
-| Decision | Required record | Result |
+| Project decision | Action | Notification parity |
 |---|---|---|
-| Implement and verify a Camunda 8-compatible integration | Target, integration, owner, recipients, approved context, duplicate policy, and redaction rules | Keep the flow `blocked` until target checks pass |
-| Waive notification behavior | Approver, date, reason, accepted behavior loss, and decision reference | Resolve the finding as `waived`. Do not claim parity. |
+| Not recorded | Keep the finding `blocked`. Record the call site and decision question as an `open` item. Stop before Step 3 confirmation or deployment. | `blocked` |
+| Approved integration | Record the target, integration, channel, recipients, approved context, duplicate policy, and privacy requirements. Keep the finding `blocked` until Step 4 verification passes, then resolve it. | `blocked` until Step 4 passes, then `verified` |
+| Explicit waiver | Record the approver, reason, and accepted behavior loss. Resolve the finding. | `waived` (not parity) |
 
-If the project has no decision, then mark the finding `blocked`.
-If the project has no decision, then add an `open` item to `MIGRATION_REPORT.md` with the source call site and decision question.
-If the project has no decision, then stop before Step 3 confirmation or deployment.
-Before the project records a decision, do not remove or replace the handler.
+When the project approves an integration, test it in a disposable Camunda 8 target with synthetic
+data during Step 4. Fail a test job with zero remaining retries and verify the expected incident.
+Verify notification delivery through the approved channel to the approved recipients.
+Verify that the notification includes useful context approved by the project.
+Verify that the notification contains no secrets or sensitive business data.
+Verify the agreed duplicate policy for one failed-job event.
+Where delivery can retry, verify redelivery does not create an unwanted duplicate.
+Record the target version, integration, incident, expected and actual delivery counts, and redacted
+evidence in `MIGRATION_REPORT.md`.
 
-For Camunda 8.9, [Console alerts](https://docs.camunda.io/docs/components/console/manage-clusters/manage-alerts/)
-can send email or webhook alerts when a process instance stops with an error.
-Treat this feature as a candidate only.
-Compare it with the source recipients, message, duplicate policy, and privacy requirements.
-
-During Step 4, verify each approved integration in a disposable target:
-
-1. Use synthetic data. Start a test process with a job worker that fails with zero remaining retries.
-2. Confirm that the target creates the expected incident.
-3. Confirm that the integration sends a notification through the approved channel to the approved recipients.
-4. Check that the notification contains the approved useful context.
-5. Check that the notification does not contain secrets or sensitive business data.
-6. Check the selected duplicate policy for one failed-job event.
-7. If delivery can retry, check that redelivery does not create an unwanted duplicate.
-8. Record the target version, integration, process, job, incident, expected and actual delivery counts,
-   and test evidence. Remove sensitive values from the report.
-
-Add a separate `Notification parity` row to the validation summary in `MIGRATION_REPORT.md`.
-Keep this row separate from compilation, worker registration, and incident visibility in Operate.
-Use one of these statuses:
-
-| Status | Use when |
-|---|---|
-| `blocked` | The decision is missing or the integration has not passed disposable-target verification. |
-| `verified` | The approved integration passes all disposable-target checks. |
-| `waived` | The project records an explicit waiver. This status records accepted behavior loss, not parity. |
+Where a notification finding exists, include a separate `Notification parity` row for each finding
+in the validation summary. Compilation, worker registration, and Operate visibility do not prove
+notification parity.
 
 Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3.
 
@@ -543,13 +525,6 @@ The skill reports a complete migration only when no unresolved migration TODO, f
 issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
 An open item is a team decision, so an `open` status does not block completion, but the summary
 always lists every open item.
-
-A custom incident-notification finding overrides this general open-item rule.
-If the project has not recorded a decision, keep the flow `blocked`.
-If the project selects an integration, keep the finding `blocked` until disposable-target checks pass.
-When the integration passes, resolve the finding and set notification parity to `verified`.
-If the project records a waiver, resolve the finding and set notification parity to `waived`.
-A waiver records accepted behavior loss. It does not prove notification parity.
 
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
 Where the root is confirmed, follow `references/final-change-summary.md` before the final response.
