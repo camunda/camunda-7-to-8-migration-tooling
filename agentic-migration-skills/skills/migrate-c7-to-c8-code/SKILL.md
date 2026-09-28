@@ -363,7 +363,7 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
-14. **HTTP topology** — when the project contains a Spring web server, application HTTP endpoints,
+15. **HTTP topology** — when the project contains a Spring web server, application HTTP endpoints,
     health checks, or Camunda 7 Engine REST calls, follow
     `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
     ports when they share a host. Test every discovered application endpoint and replacement API
@@ -371,7 +371,7 @@ Each item below is a check to run and a condition that must hold at exit. Record
     client uses finite connection and response timeouts. Test each dependency while it responds and
     while it is unavailable or timed out. Confirm that the application does not expose or proxy
     `/engine-rest`. A context-load test alone does not pass this check.
-15. **SLF4J providers** — the skill runs the provider check in
+16. **SLF4J providers** — the skill runs the provider check in
     `references/code-transform-checklist.md` for every runtime module. The skill records the runtime
     dependency evidence and provider initialization result in `MIGRATION_REPORT.md`. The skill
     reports a complete migration only after a provider **PASS** or a user-approved exception resolves
