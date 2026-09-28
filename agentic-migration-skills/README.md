@@ -71,6 +71,11 @@ compatible active library under an `org.camunda.bpm` group survives migration. I
 synthetic license types and the downstream membership update. Its blocked-case report shows the
 blocked finding and manual follow-up required when the project owner has not approved a replacement.
 
+The [`grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthrough checks BOM
+resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
+`MIGRATION_REPORT.md`. It also includes a runnable documentation test for the dependency workflow
+and blocked-item contract. The test does not run an application migration.
+
 ## License
 
 [Camunda License 1.0](../CAMUNDA-LICENSE-1.0.txt)
