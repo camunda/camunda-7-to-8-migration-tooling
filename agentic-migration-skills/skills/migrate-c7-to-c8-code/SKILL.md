@@ -256,24 +256,19 @@ For every approach, once each original BPMN is paired with its converted copy, r
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
 ### Step 4: Validation (always runs)
 
-Each item below is a check to run and a condition that must hold at exit. Record every result in
-`MIGRATION_REPORT.md` and `.camunda-migration/validation/validation-evidence.json`. Follow
-`references/validation-evidence.md`.
+Each item below is a validation requirement. Follow `references/validation-evidence.md` to record
+command output and exit codes at execution time. Never write a passing command result by hand.
+Run the readiness gate only after a full migration. Assessment-only and analyze-only runs do not
+claim readiness.
 
-Run every independent check, even when another module or test suite fails. Record each command,
-exit code, target, result, evidence path, and blocker reason. Run `docker info` as a direct command
-before a Docker-dependent suite. Never classify a test failure as Docker-unavailable without that
-probe. Use `unit` for the default Maven Surefire suite. Use `test` for Gradle's default task. Use
-Maven Failsafe execution IDs and Gradle task names for other suites. Keep the summary and report
-destinations distinct from every evidence file.
+Run every independent check, even after another module or suite fails. Probe Docker with `docker
+info` before Docker-dependent suites. Never claim Docker is unavailable without a failed probe.
+Use `unit` for Maven Surefire and `test` for Gradle's default task. Inventory Maven Failsafe
+executions and additional Gradle test tasks as separate suites.
 
-For each passed command check, record the exact executable invocation with its declared target and
-selector. Follow the command-validation rules in `references/validation-evidence.md`.
-
-Lint every in-scope model. Deploy every converted model to a local or non-production environment.
-Do not use `deployable: false` to waive deployment. Check every executable process path and run the
-separate preflight for every repeating timer start. See `references/validation-evidence.md` for the
-required assertions and evidence format.
+Lint every in-scope model. Deploy every converted copy to a confirmed local or non-production
+cluster. Check every executable process path. Preflight repeating timer starts before deployment.
+The evidence gate rejects missing or non-passing checks.
 
 #### Code checks, when code was migrated
 
@@ -391,25 +386,23 @@ in `references/model-migration-approaches.md`.
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
-20. Every standalone executable process has an independently reviewed
-    `missing_worker_input_scenarios` inventory and a passing `worker_input_inventory` check with
-    evidence. The gate requires a direct-start check for `normal` and every inventoried scenario.
-    Coverage through a call activity does not count, because the parent can supply variables that a
-    direct start lacks. If a process is not a valid standalone entry point, then
-    `MIGRATION_REPORT.md` records the process ID, the reason, and the covering test. A process with
-    neither fails validation. For each failing scenario, record the process ID, inputs, failing
-    element, job type, and incident message.
+20. Review each standalone executable process's missing-worker-input scenarios. Record `normal`
+    and each scenario in its evidence inventory. Complete the `worker_input_inventory` review
+    before the direct-start tests. A parent call activity cannot prove a direct start works because
+    it can supply missing variables. For a non-standalone process, record the reason and covering
+    test in `MIGRATION_REPORT.md` and the evidence inventory. Record the inputs, failing element,
+    job type, and incident for each failing scenario.
 
 #### Process behavior and timer safety
 
 For every executable process, record assertions for user-task type, downstream message instances,
 branch selection, worker input and output values, incidents, and form resolution. Mark an
-assertion `not_applicable` only with a reason. The validator derives applicability from converted
-BPMN and accepted form inventory. Match every `assertion_applicability` flag to that derived value.
-Record the command and evidence for each applicable assertion.
+assertion not applicable in `MIGRATION_REPORT.md` only with a reason. The gate derives minimum
+applicability from the converted BPMN. Add assertions when source forms or code make them relevant.
+Run each applicable assertion through the recorder.
 
 Inspect every repeating timer start before deployment or process start. Record a separate timer
-preflight and its isolation or cleanup plan. Do not test repeating timers on a shared or production
+preflight and its isolation or cleanup plan. Never test repeating timers on a shared or production
 cluster. If the skill cannot isolate timer starts or clean them up, then block the check.
 
 #### Summary

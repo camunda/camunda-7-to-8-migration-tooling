@@ -1,1 +1,0 @@
-The packaged JAR does not launch the runtime entry point.

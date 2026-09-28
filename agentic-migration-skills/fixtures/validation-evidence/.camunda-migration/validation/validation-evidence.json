@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {"path": "examples/web", "runtime_mode": "none", "test_suites": [{"name": "web-smoke", "requires_docker": false}, {"name": "container-integration", "requires_docker": true}]},
+    {"path": "examples/account", "runtime_mode": "none", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/loan", "runtime_mode": "none", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/order", "runtime_mode": "none", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/invoice", "runtime_mode": "none", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/messaging", "runtime_mode": "none", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/customer", "runtime_mode": "none", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/runtime-api", "runtime_mode": "spring-boot", "test_suites": [{"name": "unit", "requires_docker": false}]},
+    {"path": "examples/runtime-worker", "runtime_mode": "spring-boot", "test_suites": [{"name": "unit", "requires_docker": false}]}
+  ],
+  "models": [
+    {"source_path": "models/order.bpmn", "path": "models/converted-c8-order.bpmn", "processes": [{"id": "order-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/account.bpmn", "path": "models/converted-c8-account.bpmn", "processes": [{"id": "account-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/loan.bpmn", "path": "models/converted-c8-loan.bpmn", "processes": [{"id": "loan-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/invoice.bpmn", "path": "models/converted-c8-invoice.bpmn", "processes": [{"id": "invoice-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/customer.bpmn", "path": "models/converted-c8-customer.bpmn", "processes": [{"id": "customer-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/messaging.bpmn", "path": "models/converted-c8-messaging.bpmn", "processes": [{"id": "messaging-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/customer-archive.bpmn", "path": "models/converted-c8-customer-archive.bpmn", "processes": [{"id": "customer-archive-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/eligibility.bpmn", "path": "models/converted-c8-eligibility.bpmn", "processes": [{"id": "eligibility-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/notification.bpmn", "path": "models/converted-c8-notification.bpmn", "processes": [{"id": "notification-process", "standalone": true, "scenarios": ["normal"]}]},
+    {"source_path": "models/report.bpmn", "path": "models/converted-c8-report.bpmn", "processes": [{"id": "report-process", "standalone": true, "scenarios": ["normal"]}]}
+  ],
+  "checks": [
+    ".camunda-migration/validation/logs/docker.json",
+    ".camunda-migration/validation/logs/web-smoke.json",
+    ".camunda-migration/validation/logs/testcontainers.json",
+    ".camunda-migration/validation/logs/configuration.json",
+    ".camunda-migration/validation/logs/order-lint.json",
+    ".camunda-migration/validation/logs/order-deployment.json",
+    ".camunda-migration/validation/logs/runtime-api-jar.json",
+    ".camunda-migration/validation/logs/runtime-worker-jar.json"
+  ]
+}

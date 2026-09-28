@@ -1,2 +1,0 @@
-Docker daemon probe succeeded.
-Testcontainers reported no valid container environment.

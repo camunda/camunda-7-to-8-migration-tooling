@@ -1,0 +1,1 @@
+{"type":"module","target":"examples/runtime-api","kind":"executable_jar","scenario":null,"method":"command","command":["java","-jar","examples/runtime-api/target/runtime-api.jar"],"exit_code":1,"result":"failed","reason":"Packaged JAR has no executable entry point","failure_class":"application","environment":"local","output":"No main manifest attribute."}

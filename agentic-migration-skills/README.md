@@ -79,25 +79,13 @@ estimating. It shows them in the `atx` conversation and in `MIGRATION_REPORT.md`
 local run data, not AWS dashboard metrics. AWS documents no result schema or CLI option to submit
 them.
 
-The skill also records validation evidence for each migrated module, model, and executable process.
-Its bundled validator writes a `READY` or `NOT READY` gate block in `MIGRATION_REPORT.md` and a
-machine-readable summary under `.camunda-migration/validation/`. It accepts evidence files only
-under `.camunda-migration/validation/logs/`. It requires a distinct evidence file for each executed
-check. It rejects unmarked validation-status claims. It preserves report sections between duplicate
-gate blocks. It parses source and converted BPMN or DMN models. It verifies diagram interchange and
-form inventories for BPMN sources. It detects default Maven
-Surefire and Gradle `test` suites, plus Maven Failsafe and explicit Gradle suites. It checks each
-suite against the inventory and rejects missing or undeclared suites. It
-skips model files that resolve outside the project root, including paths reached through symlinks.
-It requires safe deployment evidence for every converted model. It derives process assertion
-applicability from converted BPMN and accepted form inventory. It rejects passed shell no-ops and
-inline interpreter code.
-It checks targets and selectors for test, lint, deployment, process, and timer checks. It checks
-output file identity against every evidence log, even when the manifest is malformed.
-It matches paths by exact path components and process selectors by exact values, not substrings. It
-checks that test selectors include a class derived from the declared suite. It rejects carriage
-returns and line feeds in passed commands. It rejects test commands that skip or exclude tests, use
-dry-run options, or ignore test failures.
+The skill records validation evidence for each migrated module, model, and executable process. Its
+Python recorder runs each command and saves its arguments, exit code, and output. The gate checks
+that required results cover the confirmed scope, including model lint, safe deployment, process
+paths, and repeating timer preflights. It writes a machine-readable summary and a `READY` or
+`NOT READY` block in `MIGRATION_REPORT.md`. A failed, blocked, or missing check prevents `READY`.
+Manual reviews remain explicit. The gate cannot verify the meaning of an arbitrary command or
+review note. See the [validation evidence procedure](skills/migrate-c7-to-c8-code/references/validation-evidence.md).
 
 ## Use
 
@@ -217,17 +205,15 @@ skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
     ├── references/                        ← procedures loaded on demand
-    └── scripts/                           ← inventory schemas and aggregate gate validator
+    └── scripts/                           ← validation recorder and gate
 fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
-The `fixtures/validation-evidence` regression test checks contradictory report claims, XML parsing,
-source DI provenance, path aliases, and reserved output paths. It also checks runtime detection,
-Step 2 inventory completeness, form-check applicability, process assertions, suite evidence, and
-timer safety plans. It checks derived process applicability, deployment waivers, target-specific
-commands, and hard-linked outputs against evidence logs.
+The `fixtures/validation-evidence` regression test preserves a nine-module, ten-model report that
+claimed readiness despite failed and missing checks. It also tests command capture, scope and
+process coverage, timer safety, and report repair.
 
 ## License
 

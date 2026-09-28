@@ -1,1 +1,0 @@
-Target-compatible lint reported errors for models/converted-c8-account.bpmn.
