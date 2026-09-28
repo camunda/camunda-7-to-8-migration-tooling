@@ -15,6 +15,14 @@ SOURCE_LISTENERS = (
     ("delegateExpression", "${startListener}"),
     ("class", "com.example.StartListener"),
 )
+SKILL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "skills/migrate-c7-to-c8-code/SKILL.md"
+)
+MODEL_MIGRATION_APPROACHES_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "skills/migrate-c7-to-c8-code/references/model-migration-approaches.md"
+)
 
 
 def listener_finding(implementation_attribute, implementation_value, **overrides):
@@ -135,6 +143,26 @@ class CliFindingValidationTest(unittest.TestCase):
                         SOURCE_NAME,
                         START_EVENT_ID,
                         SOURCE_LISTENERS,
+                    )
+
+    def test_m1_guidance_requires_task_severity_for_listener_matches(self):
+        required_sentences = (
+            "the skill accepts a start-listener finding as a converter match only when "
+            "its severity is `task`.",
+            "if its severity is missing or different, then the skill marks compatibility **blocked**.",
+            "the mismatched finding does not count as a converter match.",
+            "if a source listener entry lacks a matching `task` finding, then the skill adds a "
+            "source-derived `task` row.",
+            "that row does not count as a converter match.",
+        )
+        for path in (SKILL_PATH, MODEL_MIGRATION_APPROACHES_PATH):
+            guidance = " ".join(path.read_text(encoding="utf-8").lower().split())
+            with self.subTest(path=path):
+                for sentence in required_sentences:
+                    self.assertIn(
+                        sentence,
+                        guidance,
+                        f"{path} is missing {sentence!r}",
                     )
 
     def test_rejects_message_without_source_listener_implementation(self):

@@ -30,7 +30,7 @@ predates the fix in #2841 fails this check.
 2. Confirm `MIGRATION_REPORT.md` records the selected release tag and the source
    listener at `Start_Listener`.
 3. Confirm the report contains a blocking `execution-listener-on-start-event`
-   row, even when the selected artifact omits that finding.
+   row, even when the selected artifact omits or downgrades that finding.
 4. Accept or decline the listener relocation when the skill asks. Do not treat a
    matching worker as evidence that the original placement deploys.
 5. Deploy both converted copies to an authorized Camunda 8.9 test target after

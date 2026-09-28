@@ -462,11 +462,14 @@ target version. See the linting section in `references/model-migration-approache
 21. When the user selects M1, the skill records the CLI release tag, JAR path, and target version.
     The skill matches each finding by the CLI `filename` and source start-event ID. If a finding
     cannot map to one source start event, then the skill marks compatibility **blocked**. A worker
-    does not satisfy this check. If the report omits a finding, then the skill adds a source-derived
-    row. If either artifact check fails, then the skill marks compatibility **blocked** and follows
-    the replacement-run procedure in `references/model-migration-approaches.md` before treating any
-    reports or converted copies as authoritative. The skill requires explicit user approval for the
-    manual follow-up.
+    does not satisfy this check. The skill accepts a start-listener finding as a converter match
+    only when its severity is `TASK`. If its severity is missing or different, then the skill marks
+    compatibility **blocked**. The mismatched finding does not count as a converter match. If a
+    source listener entry lacks a matching `TASK` finding, then the skill adds a source-derived
+    `TASK` row. That row does not count as a converter match. If either artifact check fails, then
+    the skill marks compatibility **blocked** and follows the replacement-run procedure in
+    `references/model-migration-approaches.md` before treating any reports or converted copies as
+    authoritative. The skill requires explicit user approval for the manual follow-up.
 22. Where the user authorizes deployment to a test target matching the declared Camunda 8 version,
     the skill deploys every converted BPMN and DMN. The skill deploys each accepted `.form` with its
     owning BPMN. When c8ctl is configured, the skill checks `c8ctl which profile`. The skill stages
