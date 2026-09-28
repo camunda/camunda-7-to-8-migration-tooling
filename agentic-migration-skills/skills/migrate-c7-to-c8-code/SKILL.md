@@ -220,6 +220,7 @@ and audit data are out of scope. Point the user to the Data Migrator.
 
 #### Custom incident notifications
 
+Where the scope includes code migration, run this assessment and decision gate.
 Find `org.camunda.bpm.engine.impl.incident.IncidentHandler` implementations and
 `ProcessEnginePlugin` registrations in the source and configuration.
 Trace each handler's registration and observable actions.

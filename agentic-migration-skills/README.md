@@ -140,9 +140,9 @@ delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
 Review and validation remain mandatory for both migration paths.
 
-For custom Camunda 7 incident notifications, the skill asks the project to approve a Camunda 8
-integration or explicitly waive the alerts. It verifies approved notifications before claiming
-parity, separately from compilation, worker registration, and incident visibility.
+For code migrations with custom Camunda 7 incident notifications, the skill asks the project to
+approve a Camunda 8 integration or explicitly waive the alerts. It verifies approved notifications
+before claiming parity, separately from compilation, worker registration, and incident visibility.
 
 **Model migration (BPMN/DMN):**
 
