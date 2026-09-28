@@ -1,7 +1,7 @@
 # Start-event listener artifact fixture
 
 This fixture checks the selected Diagram Converter CLI artifact against #2825.
-It includes four Camunda 7 start listeners on `Start_Listener` and a no-listener control.
+It includes five Camunda 7 start listeners on `Start_Listener` and a no-listener control.
 
 ## Check the selected artifact
 

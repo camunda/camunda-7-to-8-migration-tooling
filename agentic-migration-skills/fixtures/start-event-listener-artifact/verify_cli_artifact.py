@@ -13,6 +13,7 @@ CATEGORY = "execution-listener-on-start-event"
 EXPECTED_MESSAGES = (
     "'delegateExpression' '${startListener}'",
     "'class' 'com.example.StartListener'",
+    "'expression' '${startExpression}'",
     "'script' 'groovy'",
     "'null' 'null'",
 )
