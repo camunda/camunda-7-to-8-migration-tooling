@@ -74,7 +74,7 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
               client:
                 worker:
                   defaults:
-                    ~~(The worker for job type 'process-payment' is disabled by 'camunda.client.worker.defaults.enabled=false'. Verify the effective runtime configuration and job worker registration before marking workers ready.)~~>enabled: false
+                    ~~(This setting may disable a declared job worker. Resolve the effective configuration. Verify worker registration at runtime.)~~>enabled: false
             """,
             spec -> spec.path("src/main/resources/application.yml")));
   }
@@ -99,7 +99,7 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
             import io.camunda.client.annotation.JobWorker;
 
             class PaymentWorker {
-                /*~~(The job worker is disabled by the @JobWorker `enabled=false` attribute. Verify its runtime registration before marking workers ready.)~~>*/@JobWorker(type = "process-payment", enabled = false)
+                /*~~(This @JobWorker is disabled unless configuration overrides it. Verify registration at runtime.)~~>*/@JobWorker(type = "process-payment", enabled = false)
                 void handle() {}
             }
             """,

@@ -185,44 +185,37 @@ For approach B, run only the validation recipe after migration:
 Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
 `code-migration-approaches.md` temporarily. Restore the build file after validation.
 
-The recipe scans production Java sources for `@JobWorker` declarations. It scans every
-`application*.properties`, `application*.yml`, and `application*.yaml` file and groups workers and
-settings by module. It marks unsupported client modes, unsupported authentication properties,
-deprecated aliases, and settings that disable or make worker registration conditional. It resolves
-legacy aliases with the selected starter mappings. It does not read the host environment, start an
-application, or connect to a Camunda cluster.
+The recipe scans production `@JobWorker` declarations and application configuration in each module.
+It marks invalid settings and deprecated aliases. Where a module declares workers, it also marks
+client-wide and worker-default `enabled` settings that can disable them, including legacy aliases
+and environment placeholders. It marks disabled or unresolved `@JobWorker.enabled` values.
+These findings are potential blockers, not a calculation of effective Spring configuration.
+The recipe does not resolve profiles, environment variables, or per-worker overrides.
 
 ### Worker readiness
 
-Treat each migrated `@JobWorker` declaration as required unless the user records it as optional or
-disabled. When a literal `enabled: false` setting applies to a worker, the validator reports definite
-disablement, even if its job type is unresolved. When an `enabled` setting can disable a worker only
-under a placeholder, active profile, conflicting source, or unresolved per-worker override target,
-the validator reports a conditional finding. The skill keeps unresolved required job types
-unverified.
+Inventory required job types from each runnable module's `@JobWorker` declarations.
+Treat a type as required until the user approves it as optional or disabled.
+Resolve the active client, worker-default, and per-worker `enabled` settings for each type.
+Include legacy aliases, annotation values, profile-specific files, and environment overrides.
+A per-worker override can enable a worker even when worker defaults disable it.
+Do not treat a static finding as proof of disablement or an absence of findings as proof of readiness.
 
-Do not map a C7 subscription's `auto-open: false` to a global C8 worker setting. Ask the user whether
-to disable a specific C8 worker, then record the decision and setting.
+Do not map a C7 subscription's `auto-open: false` to a global C8 worker setting.
+Ask the user whether to disable a specific C8 worker and record the decision.
 
-The skill applies this verdict table:
+| Evidence | Worker verdict | Required action |
+|---|---|---|
+| The active configuration disables a required worker | **BLOCKED** | Enable it or request explicit approval to disable it. |
+| A module has no workers and no user approval | **BLOCKED** | Inspect worker adapters. Ask whether the module is intentionally workerless. |
+| A job type, active setting, or registration is unknown | **UNVERIFIED** | Resolve unknowns. Verify registration at startup or with a local runtime test. |
+| The user approves an optional job type | **OPTIONAL (APPROVED)** | Record the reason and exclude that type from the required inventory. |
+| The user approves a disabled worker or workerless module | **APPROVED DISABLED / WORKERLESS** | Record the scope and decision. Do not report **READY** for it. |
+| Every required job type registers under the active profile and environment | **READY** | Record runtime evidence for every required type. |
 
-| Worker inventory | Effective settings and runtime evidence | User decision | Worker verdict | Required action |
-|---|---|---|---|---|
-| Every required job type is resolved | Startup evidence or a local runtime test confirms each type registers under the effective profile and environment | None | **READY** | Record the evidence and each job type in `MIGRATION_REPORT.md`. |
-| A required worker is disabled by the client, global defaults, or a matching per-worker override | Registration is not verified | None | **BLOCKED** | Keep the migration incomplete. Enable the worker or ask the user to approve disabling it. |
-| A job type or effective setting depends on a placeholder, profile, conflicting source, or unresolved worker-name override | Registration is not verified | None | **UNVERIFIED** | Resolve the effective deployment value. Verify each required type at startup or with a local test that runs a job and confirms completion. |
-| No `@JobWorker` declaration is found | The user has not confirmed that the module needs no workers | None | **BLOCKED** | Check for missing worker adapters. Ask whether the module is intentionally workerless. |
-| No `@JobWorker` declaration is found | The user confirms that the module is intentionally workerless | Explicit workerless approval | **WORKERLESS (APPROVED)** | Record the decision. Do not report **READY**. |
-| A required worker is recorded as optional | The user records the reason and affected job type | Explicit optional-worker decision | **OPTIONAL (APPROVED)** | Exclude the job type from the required inventory. Record the decision in `MIGRATION_REPORT.md`. |
-| A user approves disabling one or more required job types | The approved module, job types, and setting are recorded | Explicit disablement approval | **APPROVED DISABLED** | Record the decision. Do not report **READY**. |
-
-The skill reports **READY** only after runtime evidence confirms every required job type registers.
-Static configuration alone does not prove worker registration. Record the module, job types,
-configuration sources, environment and profile names, evidence, and verdicts in `MIGRATION_REPORT.md`.
-Never record credential values.
-
-Resolve each configuration error finding. Record errors, deprecated aliases, and worker-readiness
-findings in `MIGRATION_REPORT.md`. Never record credential values.
+Record each module, job type, configuration source, profile and environment name, decision, and
+runtime evidence in `MIGRATION_REPORT.md`. Never record credential values.
+Resolve configuration errors and record those findings and deprecated aliases.
 
 ---
 

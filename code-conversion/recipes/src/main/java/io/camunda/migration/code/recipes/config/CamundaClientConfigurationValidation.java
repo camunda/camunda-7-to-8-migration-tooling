@@ -339,7 +339,7 @@ final class CamundaClientConfigurationValidation {
     }
   }
 
-  static Optional<String> bindingCandidate(String value) {
+  private static Optional<String> bindingCandidate(String value) {
     String candidate = value.trim();
     if (!candidate.contains("${")) {
       return Optional.of(candidate);
