@@ -221,7 +221,8 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
         """,
         "List<io.camunda.client.api.search.response.UserTask>",
         Collections.emptyList(),
-        Map.ofEntries(Map.entry("dueBefore", "java.time.ZoneOffset"))));
+        Map.ofEntries(Map.entry("dueBefore", "java.time.ZoneOffset")),
+        Optional.of("org.camunda.bpm.engine.task.TaskQuery")));
 
     specs.add(new ReplacementUtils.BuilderReplacementSpec(
         new MethodMatcher("org.camunda.bpm.engine.task.Task getTaskDefinitionKey()"),

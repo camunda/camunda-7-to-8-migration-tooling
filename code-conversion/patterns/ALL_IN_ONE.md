@@ -26,6 +26,7 @@ Patterns:
     - [Query History](#query-history)
     - [Raise Incidents](#raise-incidents)
     - [Search Process Definitions](#search-process-definitions)
+    - [Search Process Instances](#search-process-instances)
     - [Starting Process Instances](#starting-process-instances)
 - [Glue code](#glue-code)
   - [Idiomatic Job Worker Cleanup](#idiomatic-job-worker-cleanup)
@@ -366,7 +367,7 @@ Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, 
 
 | Camunda 7              | Camunda 8                                                                 |
 | ---------------------- | ------------------------------------------------------------------------- |
-| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable, optional cluster-level uniqueness enforcement |
+| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable in process-instance queries from 8.10+, optional cluster-level uniqueness enforcement |
 | (no equivalent)        | `tags` (8.8+) — up to 10 immutable labels per instance, included in search responses and activated jobs |
 
 If your target version is **8.8**, use tags (for example, `order:1234`) or store the identifier as a regular process variable and filter by variable in searches.
@@ -414,10 +415,12 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
-###### CamundaClient (Camunda 8.9+)
+###### CamundaClient (Camunda 8.10+)
+
+Business IDs can be set in Camunda 8.9, but process-instance search filtering by business ID is supported starting in 8.10.
 
 ```java
-    public List<ProcessInstance> findByBusinessId(String businessId) {
+    public List<ProcessInstance> findFirstPageByBusinessId(String businessId) {
         return camundaClient.newProcessInstanceSearchRequest()
                 .filter(filter -> filter.businessId(businessId))
                 .send()
@@ -425,6 +428,8 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
                 .items();
     }
 ```
+
+`items()` returns only the current page. Add pagination when the application must process every match.
 
 ###### Assigning a Business ID after creation (Camunda 8.10+)
 
@@ -599,6 +604,7 @@ The first two forms count the complete in-memory list returned by the engine.
 long runningInstances = engine.getRuntimeService()
         .createProcessInstanceQuery()
         .processDefinitionKey("order-process")
+        .active()
         .list()
         .stream()
         .count();
@@ -608,23 +614,30 @@ long runningInstances = engine.getRuntimeService()
 
 ```java
 import io.camunda.client.api.search.enums.ProcessInstanceState;
+import java.util.Optional;
 
-long runningInstances = camundaClient.newProcessInstanceSearchRequest()
+long runningInstances = Optional.of(camundaClient.newProcessInstanceSearchRequest()
         .filter(filter -> filter
                 .processDefinitionId("order-process")
                 .state(ProcessInstanceState.ACTIVE))
         .send()
         .join()
-        .page()
-        .totalItems();
+        .page())
+        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+        .orElseThrow(() -> new IllegalStateException(
+                "Process-instance count exceeds search limit; paginate to count exactly"))
+        .totalItems().longValue();
 ```
 
-Use `page().totalItems()` when the result drives a count, guard, or business decision.
-Use `page().totalItems().intValue()` when the original `list().size()` result type is `int` or
-`Integer`.
+`totalItems()` is only an exact count when `hasMoreTotalItems()` is `false`. When it is `true`,
+the total is capped and is a lower bound; fail rather than using it for a count, guard, or business
+decision. To obtain an exact count in that case, paginate through all matching results.
+Use `.intValue()` when the original `list().size()` result type is `int` or `Integer`.
 Do not use `items().size()` or `items().stream().count()` for a complete result count.
 The `items()` list contains only the current page and can be limited by the configured page size.
-Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
+The migration recipe converts only complete, inline `.active()` counts with no additional filter
+or a single `processDefinitionKey(...)`. It flags other process-instance queries for manual migration;
+see [Search Process Instances](search-process-instances.md).
 
 ---
 
@@ -1292,6 +1305,52 @@ The following patterns focus on methods how to search for process definitions in
                 .items();
     }
 ```
+
+---
+
+#### Search Process Instances
+
+Camunda 7 `RuntimeService` process-instance queries return runtime instances and can filter process variables. Preserve those semantics when migrating the query.
+
+###### Camunda 7
+
+```java
+public ProcessInstance findSingleActiveByVariable(
+        String processDefinitionKey, String variableName, Object variableValue) {
+    return engine.getRuntimeService()
+            .createProcessInstanceQuery()
+            .processDefinitionKey(processDefinitionKey)
+            .variableValueEquals(variableName, variableValue)
+            .active()
+            .singleResult();
+}
+```
+
+###### Recipe boundary
+
+The recipe converts only complete, inline `.active()` counts (`count()`, `list().size()`, and `list().stream().count()`) with no other filter or a single `processDefinitionKey(...)`. It marks all other process-instance queries with a manual-migration TODO **without changing the query or its result type**. This includes variable predicates, business keys, `activityIdIn(...)`, default/suspended state, query aliases, `singleResult()`, and `list()` results. A Camunda 8 search page's `.items()` is not equivalent to Camunda 7's unbounded `list()`.
+
+###### Camunda 8.9+ manual lookup
+
+For an exact active name/value match, Camunda 8.9's `POST /v2/process-instances/search` supports a server-side `variables` filter:
+
+```http
+POST /v2/process-instances/search
+Content-Type: application/json
+
+{
+  "filter": {
+    "processDefinitionId": "orders",
+    "state": "ACTIVE",
+    "variables": [{ "name": "projectId", "value": "\"project-42\"" }]
+  },
+  "page": { "limit": 2 }
+}
+```
+
+The variable value is JSON-serialized (a string therefore includes escaped quotation marks). Verify that C7 comparison and variable-scope semantics match before substituting this filter. Use the filtered result to distinguish zero, one, and multiple matches; do not check an unfiltered count or assume the first page contains every match. For complete lists, follow the search cursor until no further pages remain. Search data is [eventually consistent](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-data-fetching/#data-consistency), so an immediate lookup may miss a newly started instance.
+
+Camunda 7's default runtime query can include suspended instances; explicit `.active()` excludes them. The Camunda 8.9 state filter has no `SUSPENDED` value, so default/suspended queries need a target-version-specific design. Business ID filtering in process-instance search starts in 8.10; business-key queries also remain manual.
 
 ---
 
