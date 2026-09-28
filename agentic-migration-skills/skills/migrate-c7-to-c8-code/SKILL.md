@@ -212,10 +212,9 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
-For every original BPMN, the skill records each `camunda:executionListener` with `event="start"`
-attached directly to a `bpmn:startEvent` as a separate inventory entry. Each entry records the
-source path, start-event ID, implementation type, and value. The skill keeps this inventory
-when a converter report omits a matching finding.
+For each original BPMN, record every `camunda:executionListener event="start"` directly on a
+`bpmn:startEvent`. Record its source path, event ID, and implementation even if the converter omits
+its finding.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
@@ -357,13 +356,12 @@ Each item below is a check to run and a condition that must hold at exit. Record
     the gate **blocked** and records the missing evidence and unknown rollback effects in an open
     item with status `open`.
 13. **Deployment resources** — when `@Deployment` is present after migration, build the
-    inventory from this run's recorded converted-file paths and accepted generated forms. The skill
-    creates at least one annotation entry for each included resource type and can create multiple
-    entries for one type. The skill resolves each entry with Spring's
-    `PathMatchingResourcePatternResolver` against the build classpath. Each pattern must match a
-    non-empty subset of the packaged deployment inventory. Each inventory item must match exactly
-    one pattern. After packaging, the skill confirms every matched resource exists in the
-    application artifact. A test that disables annotation deployment does not validate this wiring.
+    inventory from this run's converted copies and accepted forms. Create separate `resources`
+    entries for each included type, allowing multiple entries per type. Resolve the actual annotation
+    entries with Spring's `PathMatchingResourcePatternResolver`. Require each entry to match at
+    least one inventory resource and each resource to match exactly one entry. Confirm that the
+    packaged application contains every match. A test that disables annotation deployment does
+    not validate this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
@@ -459,33 +457,23 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
-21. When the user selects M1, the skill records the CLI release tag, JAR path, exact Java executable
-    path, and target version. The skill matches each finding by the exact CLI `filename`, source
-    start-event ID, implementation type, and value. For directory input, the filename is relative
-    to the input directory. If a finding cannot map to one source start event, then the skill marks
-    compatibility **blocked**.
-    A worker does not satisfy this check. The skill accepts a start-listener finding as a converter match
-    only when its severity is `TASK`. If its severity is missing or different, then the skill marks
-    compatibility **blocked**. The mismatched finding does not count as a converter match. If a
-    source listener entry lacks a matching `TASK` finding, then the skill marks compatibility
-    **blocked**. The skill adds a source-derived `TASK` row for that listener. That row does not
-    count as a converter match. If either artifact check fails, then
-    the skill marks compatibility **blocked** and follows the replacement-run procedure in
-    `references/model-migration-approaches.md` before treating any reports or converted copies as
-    authoritative. The skill requires explicit user approval for the manual follow-up.
-22. Where the user authorizes a test-target deployment, the skill verifies the target version first.
-    The skill follows `Target deployment: verify the target version` in
-    `references/model-migration-approaches.md`. The skill deploys every converted BPMN and DMN to
-    that verified target. The skill deploys each accepted `.form` with its owning BPMN. The skill
-    stages only converted BPMN and DMN files and accepted `.form` files in one directory. The skill
-    calculates a destination path for every deployment resource before staging. If two deployment
-    resources map to the same destination path, then the skill blocks deployment and model
-    readiness. The skill never overwrites a staged resource. The skill runs
-    `c8ctl deploy <deployment-directory> --profile=<name>` on that directory. The skill uses the
-    same authorized deployment client when c8ctl is unavailable. The skill records one result per
-    resource path. The skill links each form result to its owning BPMN. The skill confirms before
-    using a shared target. If authorization is absent, the target version is unverified, any
-    resource deployment fails, or listener relocation is unapproved, then the skill blocks model
+21. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+    version. Apply step 3b in `references/model-migration-approaches.md` to every source start
+    listener and converted copy.
+
+    | Artifact evidence | Action |
+    |---|---|
+    | One matching `TASK` finding per source listener and no invalid placement | Complete any user-approved relocation and target validation. |
+    | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
+    | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
+
+22. **Target deployment** — when the user authorizes a test target, verify its profile and version
+    as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
+    DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
+    `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
+    If two resources would share a deployment name, then block deployment until their names differ.
+    Record a result for every resource path and each form's owner. If authorization, target-version
+    evidence, deployment success, or an approved listener follow-up is missing, then block model
     readiness.
 
 #### Project readiness checks, when code or models were migrated
@@ -523,9 +511,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
-| Deployment patterns | Each `@Deployment` entry resolves to a non-empty subset of the inventory. Their union equals the inventory. | Each pattern and its resolved resources |
-| Packaged resources | The final application artifact contains every resource resolved by those patterns. | Artifact path and packaged resource entries |
-| Target deployment | Every converted BPMN and DMN deploys to the declared target version. Each accepted `.form` deploys with its owning BPMN. | Target version, resource path, owning BPMN for each form, and deployment result for every resource |
+| Deployment readiness | After a model or deployment change, repeat Step 4's resource and target checks before reporting model readiness. | Resolved patterns, packaged entries, target version, and per-resource results |
 
 Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
@@ -578,7 +564,7 @@ Within each impact, process rows with a severity before source-derived rows with
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
+- When the source inventory or M1 findings report identifies a start listener, use the relocation procedure in
   `references/model-migration-approaches.md`.
 - Never relocate this listener automatically.
 - Confirm that the chosen target still supports execution listeners on the enclosing process or
@@ -617,7 +603,5 @@ The skill also requires that no unresolved migration TODO, finding, compilation 
 or project-readiness blocker remains. No item can have `deferred` or `blocked` status.
 An open item is a team decision. It does not block completion unless it prevents an in-scope documentation change
 or a required readiness check. The summary always lists every open item.
-The skill does not report model readiness when an artifact, resource-pattern, or target-deployment
-check fails.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
 Where the root is confirmed, follow `references/final-change-summary.md` before the final response.

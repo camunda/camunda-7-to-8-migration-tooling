@@ -13,29 +13,21 @@ Spring Boot deployment application. It adds the Camunda 8 starter,
    application, so the skill creates `MessageStartApplication`. Accept
    `@Deployment` wiring.
 2. Compare the result with `expected-c8`.
-3. Run `mvn package` in `expected-c8`. This runs `DeploymentResourcesTest`, which
-   resolves the annotation patterns with Spring's
-   `PathMatchingResourcePatternResolver`. It checks full resource URLs and
-   requires every match to come from the application resource root. Each pattern
-   must match a non-empty subset of the application inventory. Each resource
-   must match exactly one pattern. This test does not inspect the packaged JAR
-   or connect to a cluster.
-4. From `spring-boot-maven-wiring`, run
-   `python3 -m unittest -v test_verify_packaged_resources.py`, then run
-   `python3 verify_packaged_resources.py --jar expected-c8/target/message-start-1.0-SNAPSHOT.jar`.
-   The script reads the actual `@Deployment` patterns from
-   `MessageStartApplication.java` and checks the matching BPMN and DMN entries
-   in the executable JAR.
-5. Run `npx --yes dmnlint src/main/resources/converted-c8-message-decision.dmn`
+3. Run `mvn verify` in `expected-c8`. After packaging, `DeploymentResourcesIT`
+   reads the application's `@Deployment` entries and resolves them with Spring.
+   It requires each entry to match one resource type, their union to equal the
+   BPMN and DMN inventory, and every match to exist in the executable JAR.
+   This test does not connect to a cluster.
+4. Run `npx --yes dmnlint src/main/resources/converted-c8-message-decision.dmn`
    in `expected-c8`.
-6. Configure a Camunda 8 connection. Confirm that `mvn spring-boot:run` launches
+5. Configure a Camunda 8 connection. Confirm that `mvn spring-boot:run` launches
    `MessageStartApplication`, then stop it. Confirm that
    `java -jar target/message-start-1.0-SNAPSHOT.jar` launches the same class,
    then stop it.
-7. Negative case: migrate a second copy as a test-only module. Confirm that the
+6. Negative case: migrate a second copy as a test-only module. Confirm that the
    migration adds no `@SpringBootApplication` class and no
    `spring-boot-maven-plugin` declaration.
 
 Without a reachable cluster, startup fails after Spring Boot launches
-`MessageStartApplication`. The launch in step 6 still counts as evidence that
+`MessageStartApplication`. The launch in step 5 still counts as evidence that
 the plugin and executable JAR work.

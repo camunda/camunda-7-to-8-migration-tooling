@@ -123,21 +123,18 @@ packaging, including `src/main/resources` when it exists. No findings report nam
 `.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
 directory. Otherwise, use another explicitly non-packaged directory.
 
-### 3b. Verify selected artifact behavior
+### 3b. Check the selected artifact
 
-The skill compares the Step 2 source inventory with the selected JAR's JSON report and fresh
-converted copies. The skill records the exact input path for each CLI run.
-For directory input, the CLI reports each path relative to the input directory.
-For single-file input, the CLI reports the filename.
-The skill derives each expected report filename from the exact CLI input path.
-For directory input, the skill relativizes each source path against the input directory.
-For single-file input, the skill uses the source filename.
-The skill uses each report path exactly and never falls back to a basename match.
-If a source model is outside the selected input directory, then the skill blocks compatibility.
-If the report filename and start-event ID do not identify exactly one source event, then the skill
-blocks compatibility and asks the user to resolve the mapping.
+Match the source start-listener inventory against the selected JAR's JSON report.
+For directory input, match the exact path relative to the input directory.
+For single-file input, match the filename.
+Never use a basename match for a directory input.
+Require `messageId` `execution-listener-on-start-event` and `TASK` severity.
+Match the start-event ID and implementation type/value in the finding message.
+Count repeated implementations separately.
+If a finding cannot map to one source listener, then block automatic compatibility.
 
-The skill normalizes each listener implementation before matching.
+Use these values when matching a source listener to a finding:
 
 | Source listener implementation | Finding message type | Finding message value |
 |---|---|---|
@@ -147,35 +144,23 @@ The skill normalizes each listener implementation before matching.
 | Nested `camunda:script` with `scriptFormat="value"` | `script` | Script format |
 | No implementation attribute or nested script | `null` | `null` |
 
-The skill matches each finding to one source listener entry by type and value in the finding's
-`message`. Each finding matches only one source entry. The skill requires one finding per source
-entry, including repeated implementations. The skill accepts a start-listener finding as a converter
-match only when its severity is `TASK`. If its severity is missing or different, then the skill marks
-compatibility **blocked**. The mismatched finding does not count as a converter match. If a source
-listener entry lacks a matching `TASK` finding, then the skill marks compatibility **blocked**. The
-skill adds a source-derived `TASK` row for that listener. That row does not count as a converter
-match. If a finding has no source match or the counts differ, then the skill blocks compatibility.
+Parse every fresh converted copy with a namespace-aware XML parser.
+Reject a direct `zeebe:executionListener eventType="start"` on any `bpmn:startEvent`.
 
-The skill parses each converted copy with a namespace-aware XML parser. If a converted
-`bpmn:startEvent` still contains a direct `zeebe:executionListener` with `eventType="start"`, then
-the skill rejects the artifact. A matching worker does not make that placement deployable.
+| Evidence from this run | Action |
+|---|---|
+| One matching `TASK` finding per source listener and no invalid placement | Complete step 5d.3 for affected listeners, then validate the target. |
+| A finding is missing, downgraded, duplicated, or unmatched | Block automatic compatibility. Add a source-derived `TASK` finding in `MIGRATION_REPORT.md` for each uncovered listener. Do not add it to the converter JSON report or count it as a converter match. |
+| Invalid placement has no matching C7 source listener | Block model readiness. Manual relocation cannot repair an unknown source listener. |
+| A converted copy retains invalid placement | Block automatic compatibility even when a worker exists. |
 
-If either artifact check fails, then the skill resolves the latest release once. The skill copies
-every original in-scope model into a clean staging directory and preserves each model's relative path.
-It runs the replacement JAR with the same target version and converter options as the failed run. The
-skill captures the replacement run's report paths and relocates those reports under step 3a. It
-repeats both artifact checks against the replacement run.
-
-If the replacement run passes both checks, then the skill archives the failed run's fresh converted
-copies outside packaged resource directories. The skill moves each replacement copy beside its
-matching original without overwriting any file. It uses only the replacement run's reports and
-converted copies for later validation and deployment. It records the replacement release tag, JAR
-path, target version, report paths, and converted-copy paths. If an archive or destination path
-conflicts, the skill keeps model readiness blocked and asks the user to resolve the conflict.
-
-If no published JAR passes both checks, then the skill asks whether to apply the manual follow-up in
-step 5d.3. The skill applies it only to the initial run's converted copy after user approval. The
-skill keeps model readiness blocked until that follow-up passes its checks.
+If either check fails, then keep model readiness blocked and offer a patched release or manual follow-up.
+For a patched release, move this run's copies outside packaged directories before reconversion.
+Follow the leftover-artifact pre-flight and rerun all original models with the same target and options.
+Repeat these checks and use only the new run's findings reports and converted copies.
+Never overwrite existing files or mix results from different releases.
+Apply step 5d.3 only to inventoried listeners after user approval.
+Keep model readiness blocked until that follow-up and target validation pass.
 
 ### 4. Surface Outputs
 
@@ -193,7 +178,10 @@ Severity counts are only a headline. Never start per-finding work from them. Par
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
 
-Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
+Trust the converter's output for what it did NOT flag, except source start listeners from step 3b.
+The job types and listener wiring it emitted are authoritative elsewhere.
+Apply manual fixes only for flagged or inventoried start listeners.
+Never second-guess or re-derive other converted structures.
 
 #### Verification gate
 
@@ -455,16 +443,12 @@ Rules:
 
 #### 5d.3. Relocate unsupported start-event listeners
 
-The skill treats `execution-listener-on-start-event` as **Blocking** and **needs review** until the
-user accepts relocation and the relocation checks pass.
+Treat each source `event="start"` listener on a `bpmn:startEvent` as **Blocking** and **needs review**
+until the user accepts relocation and its checks pass.
+Resolve its source path and event ID from the inventory, even if the selected JAR omitted its finding.
+Read the original C7 source because an older JAR may drop the listener or emit invalid placement.
 
-The skill uses the source inventory's file and start-event ID to resolve each affected
-`bpmn:startEvent` in the original C7 source. The skill applies this procedure when the JSON report
-contains the finding and when the selected artifact omits it. The skill reads the original source
-because an unsupported converter release may omit the finding, drop the listener, or emit an
-invalid listener placement.
-
-The skill finds the nearest enclosing target in the original source:
+Find the nearest enclosing target in the original source:
 
 | Source shape | Target |
 |---|---|
@@ -491,9 +475,8 @@ Do not edit the original C7 source.
 Do not edit a converted copy before the user accepts the move.
 When the user accepts the move, edit only the fresh converted copy.
 Use a namespace-aware XML parser or XML tooling, never regular expressions.
-The skill removes an invalid listener that the converter emitted on the selected start event before
-adding the approved listener to its target. The skill does not remove listeners from another start
-event.
+Remove any invalid listener on the selected start event before adding its approved replacement.
+Never remove listeners from another start event.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
 Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
 Set `eventType="start"`.
@@ -527,8 +510,8 @@ Keep the category **needs review** until every applicable check passes.
 Record the source path, start-event ID, target process or subprocess ID and name, listener
 implementations, user decision, converted-copy path, and verification evidence in
 `MIGRATION_REPORT.md`. Set the verdict to **no action** only after the relocation checks and any
-applicable verification gate pass. If the user declines, the target has no safe alternative, or a
-required check cannot run, then the skill keeps model readiness **blocked**.
+applicable verification gate pass. If the user declines or a required check cannot run, then keep
+model readiness **blocked**.
 
 #### 5e. Strip converter annotations from converted models
 
@@ -727,21 +710,19 @@ Treat an unreachable endpoint, a TLS/DNS failure, a 401/403, malformed XML, or a
 
 ## Target deployment: verify the target version
 
-Before deployment, confirm the selected target and profile with the user.
-When c8ctl is configured, run `c8ctl which profile` and confirm the returned profile with the user.
+Confirm the target and profile with the user before deployment.
+When c8ctl is configured, run `c8ctl which profile` and confirm the returned profile.
 Run `c8ctl get topology --profile=<name> --json` with that profile.
-Read `gatewayVersion` and every `brokers[].version` from the
+Otherwise, use an authorized deployment client to read the same topology metadata.
+Compare `gatewayVersion` and every `brokers[].version` with the declared target's major and minor
+version. Read those fields from the
 [Orchestration Cluster REST API topology response](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-swagger/).
-The skill uses the confirmed profile or deployment client for both topology verification and deployment.
-
-When c8ctl is unavailable, use an authorized deployment client to read the same topology metadata.
-If that client cannot return the topology versions, then the skill blocks deployment and model readiness.
-Compare the major and minor numbers of every reported version with the declared target.
+Use the confirmed profile or client for both this check and deployment.
 
 | Verification result | Action |
 |---|---|
-| The target's reported major and minor version match the declared target. | Record the non-secret target identifier, all reported versions, and the comparison result in `MIGRATION_REPORT.md`. Continue with deployment. |
-| A version is missing or malformed, the topology has no brokers, or any major or minor number differs. | Block deployment and model readiness. Ask the user to select or confirm a matching target. |
+| Every reported version matches the declared target. | Record the non-secret target identifier and all reported versions in `MIGRATION_REPORT.md`. Continue with deployment. |
+| A version is missing or malformed, no brokers exist, or any major or minor version differs. | Block deployment and model readiness. Ask the user to select a matching target. |
 
 ## Linting Converted BPMN (M1 and M2)
 

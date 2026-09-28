@@ -1,10 +1,7 @@
 # Start-event listener artifact fixture
 
-This fixture checks the selected Diagram Converter CLI artifact and the
-`migrate-c7-to-c8-code` workflow against the start-listener regression from #2825.
-It includes four Camunda 7 start-event listeners on `Start_Listener`: delegate
-expression, class, script, and no implementation. It also includes one
-no-listener control.
+This fixture checks the selected Diagram Converter CLI artifact against #2825.
+It includes four Camunda 7 start listeners on `Start_Listener` and a no-listener control.
 
 ## Check the selected artifact
 
@@ -19,37 +16,25 @@ python3 verify_cli_artifact.py \
   --target-version 8.9
 ```
 
-Use an absolute path to the same Java executable that passed the migration
-runtime check. The script supplies each model through a directory input with a
-nested relative path, using fresh temporary directories. It requires one
-blocking `TASK` `execution-listener-on-start-event` finding for each source
-listener. Each finding must match the exact relative input path,
-`Start_Listener` event, implementation type, and implementation value.
-The converted copy must omit a `start` execution listener directly on any BPMN
-start event. The control model must not report that finding for any filename.
-A release that predates the fix in #2841 fails this check.
-
-The fixture tests the output guard with a direct start listener, a nested start
-event after another start event, a non-start event type, a listener on another
-BPMN element, and no listener.
+Use the Java executable, JAR, and target version selected by the migration run.
+The probe runs both models from one directory. It requires a distinct, blocking
+`TASK` finding for each source implementation and none for the control.
+It also rejects a converted copy with a `start` listener on any start event.
+Release 0.3.8 predates the fix in #2841 and fails this check.
 
 ## Check the migration workflow
 
 1. Run the migration skill on `c7-source` with target version 8.9 and M1 selected.
-2. Confirm `MIGRATION_REPORT.md` records the Java executable, selected release tag,
+2. Confirm `MIGRATION_REPORT.md` records the selected JAR, Java executable,
    target version, and source listener at `Start_Listener`.
-3. Confirm the report contains a blocking `execution-listener-on-start-event`
-   row, even when the selected artifact omits or downgrades that finding.
+3. If the CLI omits or downgrades a finding, record a source-derived blocking
+   finding. Do not count it as proof that the CLI contains the fix.
 4. Accept or decline the listener relocation when the skill asks. Do not treat a
    matching worker as evidence that the original placement deploys.
-5. Verify the authorized target and profile. Confirm the gateway and every broker
-   report version 8.9 before deployment. Deploy both converted copies after
-   follow-up, and record a result for each model.
+5. Verify the authorized target and its version. Deploy both converted copies
+   after follow-up and record a result for each model.
 
-If the artifact check fails, re-resolve the latest release and rerun conversion
-on a clean copy of the original inputs. Use only the replacement run's reports
-and converted copies when both checks pass. Archive the failed run's converted
-copies outside packaged directories before promoting replacements. Use an
-earlier artifact only after the user approves the manual follow-up. If the user
-declines relocation, no artifact passes, a destination conflicts, or deployment
-cannot run, keep model readiness blocked.
+If the selected artifact fails, retry with a patched release on clean copies of
+all original models. Use only the replacement run's reports and converted copies.
+Where no patched release exists, request approval for a manual follow-up.
+Keep readiness blocked until the follow-up and target deployment pass.

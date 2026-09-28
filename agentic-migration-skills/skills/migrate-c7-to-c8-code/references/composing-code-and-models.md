@@ -200,29 +200,22 @@ similar category.
 
 ## Deployment Wiring
 
-When both migrations complete, the skill asks whether to wire deployment of converted files in
-application code.
+When both migrations complete, ask whether to wire converted files into application deployment:
 
-- **Yes, add or update `@Deployment` for converted files** (MAY). The skill recommends this choice
-  when code scope includes a Spring Boot app. (SHOULD) The skill builds a deployment inventory from
-  this run's recorded converted-file paths and accepted generated forms. The skill adds at least
-  one `resources` array entry for each included resource type. The skill never joins patterns with
-  commas inside one string. For BPMN and DMN resources, the skill uses this shape:
+- **Yes, add or update `@Deployment`** (MAY) — recommend this for Spring Boot applications. (SHOULD)
+  Use this run's converted copies and accepted forms as the inventory. Add separate `resources`
+  entries for each included type. Never join patterns with a comma inside one string. For example:
 
   ```java
   @Deployment(
       resources = {"classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"})
   ```
 
-  The skill uses a recursive classpath pattern only when its packaged matches form a non-empty
-  subset of the inventory. Otherwise, the skill uses explicit resource paths. The skill adds a
-  BPMN, DMN, or form pattern only when the inventory contains that resource type. The skill never
-  targets original diagrams, draft forms, or declined forms. The skill resolves each pattern with
-  Spring's `PathMatchingResourcePatternResolver` against packaged resources. Each pattern must
-  resolve a non-empty subset of the inventory. Each inventory resource must match exactly one
-  pattern. A test that disables annotation deployment does not validate this wiring.
-- **No, I will handle deployment outside app startup** (MAY) — the skill leaves code unchanged and
-  records this decision in `MIGRATION_REPORT.md`.
+  Use a recursive pattern only when it selects inventory resources and no others. Otherwise, use
+  explicit paths. Never include original diagrams or unaccepted forms. Apply Step 4's deployment
+  resource check from `SKILL.md` to the built application.
+- **No, I will handle deployment outside app startup** (MAY) — leave code unchanged and record the
+  decision in `MIGRATION_REPORT.md`.
 
 When the skill creates or keeps a `@SpringBootApplication` class in a Maven module, apply "Maven
 build wiring" in `references/code-transform-checklist.md`.
