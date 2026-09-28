@@ -8,6 +8,7 @@
 package io.camunda.conversion.process_instance;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.client.CamundaClient;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class EvaluateDecisionService {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER =
+            new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final String DECISION_ID = "sla_package_id";
     private final CamundaClient camundaClient;
 

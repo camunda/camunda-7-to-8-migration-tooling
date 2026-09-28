@@ -51,6 +51,13 @@ class EvaluateDecisionServiceTest {
         assertThat(EvaluateDecisionService.extractSlaPackageIdFromOutput(decisionOutput)).isNull();
     }
 
+    @Test
+    void shouldRejectTrailingContentAfterDecisionOutput() {
+        assertThatThrownBy(() -> EvaluateDecisionService.extractSlaPackageIdFromOutput(
+                        "{\"slaPackageId\":\"complete\"} false"))
+                .isInstanceOf(JsonProcessingException.class);
+    }
+
     @ParameterizedTest
     @MethodSource("malformedDecisionOutputs")
     void shouldRejectMalformedNonEmptyDecisionOutput(String decisionOutput, String message) {
