@@ -239,11 +239,12 @@ before the project records its decision.
 | Explicit waiver | Record the approver, reason, and accepted behavior loss. Resolve the finding. | `waived` (not parity) |
 
 When the project approves an integration, test it in a disposable Camunda 8 target with synthetic
-data during Step 4. Fail a test job with zero remaining retries and verify the expected incident.
+data during Step 4. Verify each handler using its recorded trigger.
+For failed-job handlers, fail a test job with zero remaining retries and verify the expected incident.
 Verify notification delivery through the approved channel to the approved recipients.
 Verify that the notification includes useful context approved by the project.
 Verify that the notification contains no secrets or sensitive business data.
-Verify the agreed duplicate policy for one failed-job event.
+Verify the agreed duplicate policy for one triggering event.
 Where delivery can retry, verify redelivery does not create an unwanted duplicate.
 Record the target version, integration, incident, expected and actual delivery counts, and redacted
 evidence in `MIGRATION_REPORT.md`.
