@@ -80,14 +80,16 @@ public class JavaDelegateWithClientQueryRecipesTest implements RewriteTest {
                 @JobWorker(type = "exampleWorkflowDelegate", autoComplete = true)
                 public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                     Map<String, Object> resultMap = new HashMap<>();
-                    boolean proceed = camundaClient
+                    boolean proceed = java.util.Optional.of(camundaClient
                             .newProcessInstanceSearchRequest()
                             .filter(filter -> filter
                                     .processDefinitionId("example-workflow-process")
                                     .state(ProcessInstanceState.ACTIVE))
                             .send()
                             .join()
-                            .page()
+                            .page())
+                            .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                            .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                             .totalItems().intValue() % 2 == 0;
 
                     Object inputValue = job.getVariablesAsMap().get("inputValue");

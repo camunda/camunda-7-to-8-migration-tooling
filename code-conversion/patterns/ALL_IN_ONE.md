@@ -568,23 +568,27 @@ long runningInstances = engine.getRuntimeService()
 
 ```java
 import io.camunda.client.api.search.enums.ProcessInstanceState;
+import java.util.Optional;
 
-long runningInstances = camundaClient.newProcessInstanceSearchRequest()
+long runningInstances = Optional.of(camundaClient.newProcessInstanceSearchRequest()
         .filter(filter -> filter
                 .processDefinitionId("order-process")
                 .state(ProcessInstanceState.ACTIVE))
         .send()
         .join()
-        .page()
-        .totalItems();
+        .page())
+        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+        .orElseThrow(() -> new IllegalStateException(
+                "Process-instance count exceeds search limit; paginate to count exactly"))
+        .totalItems().longValue();
 ```
 
-Use `page().totalItems()` when the result drives a count, guard, or business decision.
-Use `page().totalItems().intValue()` when the original `list().size()` result type is `int` or
-`Integer`.
+`totalItems()` is only an exact count when `hasMoreTotalItems()` is `false`. When it is `true`,
+the total is capped and is a lower bound; fail rather than using it for a count, guard, or business
+decision. To obtain an exact count in that case, paginate through all matching results.
+Use `.intValue()` when the original `list().size()` result type is `int` or `Integer`.
 Do not use `items().size()` or `items().stream().count()` for a complete result count.
 The `items()` list contains only the current page and can be limited by the configured page size.
-Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
 The migration recipe converts only complete, inline `.active()` counts with no additional filter
 or a single `processDefinitionKey(...)`. It flags other process-instance queries for manual migration;
 see [Search Process Instances](search-process-instances.md).

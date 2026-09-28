@@ -7,8 +7,11 @@
  */
 package io.camunda.migration.code.recipes.client.migrate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.openrewrite.java.Assertions.java;
 
+import io.camunda.client.impl.search.response.SearchResponsePageImpl;
 import io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,30 +51,56 @@ class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
                         .processDefinitionKey(processId).active().list().stream().count();
         """,
         """
-                int size = camundaClient
+                int size = java.util.Optional.of(camundaClient
                         .newProcessInstanceSearchRequest()
                         .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
                         .send()
                         .join()
-                        .page()
+                        .page())
+                        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                        .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                         .totalItems().intValue();
-                long count = camundaClient
+                long count = java.util.Optional.of(camundaClient
                         .newProcessInstanceSearchRequest()
                         .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
                         .send()
                         .join()
-                        .page()
+                        .page())
+                        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                        .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                         .totalItems().longValue();
-                long streamCount = camundaClient
+                long streamCount = java.util.Optional.of(camundaClient
                         .newProcessInstanceSearchRequest()
                         .filter(filter -> filter
                                 .processDefinitionId(processId)
                                 .state(ProcessInstanceState.ACTIVE))
                         .send()
                         .join()
-                        .page()
+                        .page())
+                        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                        .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                         .totalItems().longValue();
         """);
+  }
+
+  @Test
+  void rejectsCappedTotalInsteadOfReturningTheLowerBound() {
+    var page = new SearchResponsePageImpl(10_000L, true, null, null);
+    var error =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                java.util.Optional.of(page)
+                    .filter(candidate -> Boolean.FALSE.equals(candidate.hasMoreTotalItems()))
+                    .orElseThrow(
+                        () ->
+                            new IllegalStateException(
+                                "Process-instance count exceeds search limit; paginate to count exactly"))
+                    .totalItems()
+                    .longValue());
+    assertEquals(
+        "Process-instance count exceeds search limit; paginate to count exactly",
+        error.getMessage());
   }
 
   @Test
@@ -82,14 +111,16 @@ class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
                         .processDefinitionKey(processId).list()).size();
         """,
         """
-                int size = camundaClient
+                int size = java.util.Optional.of(camundaClient
                         .newProcessInstanceSearchRequest()
                         .filter(filter -> filter
                                 .processDefinitionId(processId)
                                 .state(ProcessInstanceState.ACTIVE))
                         .send()
                         .join()
-                        .page()
+                        .page())
+                        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                        .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                         .totalItems().intValue();
         """);
   }
@@ -179,12 +210,14 @@ class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
                 .formatted(
                     MANUAL_HINT,
                     """
-                            long active = camundaClient
+                            long active = java.util.Optional.of(camundaClient
                                     .newProcessInstanceSearchRequest()
                                     .filter(filter -> filter.state(ProcessInstanceState.ACTIVE))
                                     .send()
                                     .join()
-                                    .page()
+                                    .page())
+                                    .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                                    .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                                     .totalItems().longValue();
                             long filtered = runtimeService.createProcessInstanceQuery()
                                     .variableValueEquals(variableName, value).active().count();

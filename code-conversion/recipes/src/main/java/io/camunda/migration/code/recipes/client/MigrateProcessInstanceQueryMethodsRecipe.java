@@ -78,12 +78,14 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends Recipe {
             JavaTemplate template =
                 RecipeUtils.createSimpleJavaTemplate(
                     """
-                    #{any(io.camunda.client.CamundaClient)}
+                    java.util.Optional.of(#{any(io.camunda.client.CamundaClient)}
                         .newProcessInstanceSearchRequest()
                         .filter(filter -> filter%s)
                         .send()
                         .join()
-                        .page()
+                        .page())
+                        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+                        .orElseThrow(() -> new IllegalStateException("Process-instance count exceeds search limit; paginate to count exactly"))
                         .totalItems().%s()
                     """
                         .formatted(filter, accessor),
