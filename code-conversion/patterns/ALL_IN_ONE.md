@@ -89,7 +89,33 @@ credentials in fixtures.
 
 **Spring Boot version**: Select the starter from the [Camunda Spring Boot version compatibility matrix](https://docs.camunda.io/docs/8.8/apis-tools/camunda-spring-boot-starter/getting-started/#version-compatibility). For Camunda 8.8, `camunda-spring-boot-starter` is bundled with Spring Boot 3.5.x. Use `camunda-spring-boot-4-starter` from 8.8.9 for Spring Boot 4.0.x. Use `camunda-spring-boot-3-starter` from 8.8.15 when staying on Spring Boot 3.x.
 
-**Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context that creates `CamundaClient`. If startup fails, record a blocking finding. Do not override individual transitive dependencies to force startup.
+**BOM alignment**: Preserve existing parent dependency management and imported BOMs unless
+inspection supports an explicit change. Inspect `mvn help:effective-pom -Dverbose` and
+`mvn dependency:tree -Dverbose` for the Camunda starter and existing cloud libraries before changing
+dependency management. Trace each imported BOM's effective version to the POM or property that
+supplies it. If a BOM does not resolve, record its coordinates and the exact Maven error. Check its
+coordinates, inherited version source, and configured repositories before replacing or removing it.
+Never comment out an unresolved BOM and replace selected managed artifacts with isolated version
+pins.
+
+Check explicit `<version>` values on direct dependencies managed by an imported BOM. A direct
+version overrides BOM management. Remove an unexplained override. Record the compatibility reason
+for any retained override.
+
+Run the same inspections after POM changes. For gRPC, inspect every resolved `io.grpc` artifact, its
+dependency path, and its version source. Manage an incompatible gRPC family through a compatible
+`io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`, or
+`grpc-core`. Remove a conflicting direct dependency only after source, configuration, and test
+searches show that the project does not use it. Record before-and-after versions, dependency paths,
+version sources, and the remediation in `MIGRATION_REPORT.md`.
+
+**Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
+that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this
+focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,
+block readiness and record its command, exit code, and error. Classify the failure as a classpath
+incompatibility only when it reports a `LinkageError` or the resolved dependency graph proves an
+incompatible family. A cluster connection failure during an API command is separate evidence and
+never proves that the classpath is compatible.
 
 ---
 
