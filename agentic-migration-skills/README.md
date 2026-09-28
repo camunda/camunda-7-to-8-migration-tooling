@@ -216,7 +216,8 @@ form-free user task and a user task carrying assignment and form metadata.
 The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment
 patterns with Spring's resource resolver and verifies the packaged JAR inventory.
 The `fixtures/start-event-listener-artifact` walkthrough checks a selected converter
-JAR against an exact start-listener finding and a no-listener control.
+JAR with the validated Java executable, nested directory-relative paths, exact
+start-listener findings, and a no-listener control.
 The `fixtures/spring-boot-web-topology` walkthrough checks an application on
 port `8081` while its Camunda 8 cluster uses port `8080`. It tests application
 health, process start through an application endpoint, and the absence of the

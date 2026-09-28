@@ -459,10 +459,11 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
-21. When the user selects M1, the skill records the CLI release tag, JAR path, and target version.
-    The skill matches each finding by the CLI `filename` and source start-event ID. If a finding
-    cannot map to one source start event, then the skill marks compatibility **blocked**. A worker
-    does not satisfy this check. The skill accepts a start-listener finding as a converter match
+21. When the user selects M1, the skill records the CLI release tag, JAR path, exact Java executable
+    path, and target version. The skill matches each finding by the exact CLI `filename` and source
+    start-event ID. For directory input, the filename is relative to the input directory. If a
+    finding cannot map to one source start event, then the skill marks compatibility **blocked**.
+    A worker does not satisfy this check. The skill accepts a start-listener finding as a converter match
     only when its severity is `TASK`. If its severity is missing or different, then the skill marks
     compatibility **blocked**. The mismatched finding does not count as a converter match. If a
     source listener entry lacks a matching `TASK` finding, then the skill adds a source-derived
@@ -470,15 +471,17 @@ target version. See the linting section in `references/model-migration-approache
     the skill marks compatibility **blocked** and follows the replacement-run procedure in
     `references/model-migration-approaches.md` before treating any reports or converted copies as
     authoritative. The skill requires explicit user approval for the manual follow-up.
-22. Where the user authorizes deployment to a test target matching the declared Camunda 8 version,
-    the skill deploys every converted BPMN and DMN. The skill deploys each accepted `.form` with its
-    owning BPMN. When c8ctl is configured, the skill checks `c8ctl which profile`. The skill stages
-    only converted BPMN and DMN files and accepted `.form` files in one directory. The skill runs
-    `c8ctl deploy <deployment-directory> --profile=<name>` on that directory. The skill uses an
-    authorized deployment client when c8ctl is unavailable. The skill records one result per
-    resource path. The skill links each form result to its owning BPMN. The skill confirms before
-    using a shared target. If authorization is absent, the target is missing, any resource
-    deployment fails, or listener relocation is unapproved, then the skill blocks model readiness.
+22. Where the user authorizes a test-target deployment, the skill verifies the target version first.
+    The skill follows `Target deployment: verify the target version` in
+    `references/model-migration-approaches.md`. The skill deploys every converted BPMN and DMN to
+    that verified target. The skill deploys each accepted `.form` with its owning BPMN. The skill
+    stages only converted BPMN and DMN files and accepted `.form` files in one directory. The skill
+    runs `c8ctl deploy <deployment-directory> --profile=<name>` on that directory. The skill uses
+    the same authorized deployment client when c8ctl is unavailable. The skill records one result
+    per resource path. The skill links each form result to its owning BPMN. The skill confirms
+    before using a shared target. If authorization is absent, the target version is unverified, any
+    resource deployment fails, or listener relocation is unapproved, then the skill blocks model
+    readiness.
 
 #### Project readiness checks, when code or models were migrated
 

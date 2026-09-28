@@ -44,7 +44,18 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Run `java -version` from `PATH`, capture stderr, and record the actual major version. The Diagram Converter CLI requires major version `21` or higher. Do not apply the OpenRewrite upper bound. If `java` is missing or below 21, ask the user for an alternate JDK home. Validate its `bin/java` (Windows: `bin/java.exe`) and check its actual version first. If several validated compatible homes exist, choose the lowest. Prefer 21 for reproducible runs. (SHOULD) Use the validated executable and home only for the converter invocation.
+Resolve the `java` executable selected from `PATH` to an absolute path.
+Run `-version` on that path.
+Record its absolute path and actual major version.
+The Diagram Converter CLI requires major version `21` or higher.
+Do not apply the OpenRewrite upper bound.
+If `PATH` has no Java executable or its major version is below 21, ask the user for another JDK home.
+Resolve that home to `bin/java` (Windows: `bin/java.exe`).
+Run `-version` on that exact path.
+If several compatible JDK homes exist, choose the lowest version.
+Prefer Java 21 for reproducible runs. (SHOULD)
+Use the validated absolute executable for every converter invocation.
+Never replace it with bare `java` or a different executable.
 
 > The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
@@ -71,10 +82,10 @@ confirms.
 The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
 
 ```
-"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
+"<java-executable>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
 ```
 
-On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Replace `<java-cmd>` with the validated `bin/java` path. After an alternate executable is selected, never use a bare `java` command.
+On Windows PowerShell, prefix the command with the call operator: `& "<java-executable>" ...`. Set `<java-executable>` to the validated absolute path from step 1.
 
 Recommended flags:
 - `--json` - always pass this. The JSON report is the machine-readable input for step 5. It needs a CLI release with the flag (0.3.6 or later). If the run fails with `Unknown option: '--json'`, the JAR predates it. Re-resolve the latest release (step 2).
@@ -115,11 +126,16 @@ directory. Otherwise, use another explicitly non-packaged directory.
 ### 3b. Verify selected artifact behavior
 
 The skill compares the Step 2 source inventory with the selected JAR's JSON report and fresh
-converted copies. It matches the report's `filename` value to the source path and the report's
-`elementId` value to the start-event ID. For directory input, the CLI reports a path relative to the
-input directory. For single-file input, the CLI reports the filename. The skill uses the report path
-exactly. If this pair does not identify exactly one source start event, then the skill blocks
-compatibility and asks the user to resolve the mapping.
+converted copies. The skill records the exact input path for each CLI run.
+For directory input, the CLI reports each path relative to the input directory.
+For single-file input, the CLI reports the filename.
+The skill derives each expected report filename from the exact CLI input path.
+For directory input, the skill relativizes each source path against the input directory.
+For single-file input, the skill uses the source filename.
+The skill uses each report path exactly and never falls back to a basename match.
+If a source model is outside the selected input directory, then the skill blocks compatibility.
+If the report filename and start-event ID do not identify exactly one source event, then the skill
+blocks compatibility and asks the user to resolve the mapping.
 
 The skill matches each finding to one source listener entry by implementation attribute and value in
 the finding's `message`. Each finding matches only one source entry. The skill requires one finding
@@ -698,6 +714,24 @@ Treat the fetched XML as the original source for `form-migration.md` and `form-r
 ### 3. Handle Failures
 
 Treat an unreachable endpoint, a TLS/DNS failure, a 401/403, malformed XML, or an empty response as a blocking error. Report the URL, the operation, the status/error, and the concrete next action. Never silently continue or report success when any requested definition failed.
+
+## Target deployment: verify the target version
+
+Before deployment, confirm the selected target and profile with the user.
+When c8ctl is configured, run `c8ctl which profile` and confirm the returned profile with the user.
+Run `c8ctl get topology --profile=<name> --json` with that profile.
+Read `gatewayVersion` and every `brokers[].version` from the
+[Orchestration Cluster REST API topology response](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-swagger/).
+The skill uses the confirmed profile or deployment client for both topology verification and deployment.
+
+When c8ctl is unavailable, use an authorized deployment client to read the same topology metadata.
+If that client cannot return the topology versions, then the skill blocks deployment and model readiness.
+Compare the major and minor numbers of every reported version with the declared target.
+
+| Verification result | Action |
+|---|---|
+| The target's reported major and minor version match the declared target. | Record the non-secret target identifier, all reported versions, and the comparison result in `MIGRATION_REPORT.md`. Continue with deployment. |
+| A version is missing or malformed, the topology has no brokers, or any major or minor number differs. | Block deployment and model readiness. Ask the user to select or confirm a matching target. |
 
 ## Linting Converted BPMN (M1 and M2)
 

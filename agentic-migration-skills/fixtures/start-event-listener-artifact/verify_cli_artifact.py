@@ -25,9 +25,12 @@ def require(condition, message):
         raise SystemExit(message)
 
 
-def convert_case(java, jar, source, target_version, work_directory):
+def convert_case(java, jar, source, target_version, work_directory, relative_path):
     work_directory.mkdir()
-    input_file = work_directory / source.name
+    input_directory = work_directory / "input"
+    input_directory.mkdir()
+    input_file = input_directory / relative_path
+    input_file.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, input_file)
     command = [
         java,
@@ -35,7 +38,7 @@ def convert_case(java, jar, source, target_version, work_directory):
         "-jar",
         str(jar),
         "local",
-        str(input_file),
+        str(input_directory),
         "--platform-version",
         target_version,
         "--json",
@@ -53,8 +56,8 @@ def convert_case(java, jar, source, target_version, work_directory):
         f"Converter exited with {result.returncode}:\n{output}",
     )
 
-    report_file = work_directory / "analysis-results.json"
-    converted_file = work_directory / f"converted-c8-{source.name}"
+    report_file = input_directory / "analysis-results.json"
+    converted_file = input_file.parent / f"converted-c8-{source.name}"
     require(report_file.is_file(), f"Converter did not create {report_file}")
     require(converted_file.is_file(), f"Converter did not create {converted_file}")
     return json.loads(report_file.read_text(encoding="utf-8")), converted_file
@@ -170,40 +173,65 @@ def has_unsupported_start_listener(converted_file):
     return False
 
 
-def main():
+def parse_arguments(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--jar", required=True, type=Path)
     parser.add_argument("--target-version", required=True)
-    parser.add_argument("--java", default="java")
-    arguments = parser.parse_args()
+    parser.add_argument(
+        "--java",
+        required=True,
+        type=Path,
+        help="Absolute path to the Java executable checked by the migration run",
+    )
+    return parser.parse_args(argv)
 
+
+def resolve_java_executable(java):
+    java = java.expanduser()
+    require(
+        java.is_absolute(),
+        f"The Java executable path must be absolute: {java}",
+    )
+    java = java.resolve()
+    require(java.is_file(), f"The Java executable does not exist: {java}")
+    return str(java)
+
+
+def main():
+    arguments = parse_arguments()
+
+    java = resolve_java_executable(arguments.java)
     jar = arguments.jar.resolve()
     require(jar.is_file(), f"CLI JAR does not exist: {jar}")
     fixture_directory = Path(__file__).resolve().parent / "c7-source"
     listener_source = fixture_directory / "start-listener.bpmn"
     control_source = fixture_directory / "no-listener.bpmn"
+    listener_relative_path = Path("models") / listener_source.name
+    control_relative_path = Path("controls") / control_source.name
     implementations = get_source_listener_implementations(listener_source)
 
     with tempfile.TemporaryDirectory(prefix="camunda-cli-artifact-check-") as temporary:
         temporary_directory = Path(temporary)
         listener_report, listener_copy = convert_case(
-            arguments.java,
+            java,
             jar,
             listener_source,
             arguments.target_version,
             temporary_directory / "listener",
+            listener_relative_path,
         )
         control_report, control_copy = convert_case(
-            arguments.java,
+            java,
             jar,
             control_source,
             arguments.target_version,
             temporary_directory / "control",
+            control_relative_path,
         )
 
         require_listener_findings(
             listener_report,
-            listener_source.name,
+            str(listener_relative_path),
             START_EVENT_ID,
             implementations,
         )
