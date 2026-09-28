@@ -13,10 +13,10 @@ Before conversion, namespace-parse the exact original BPMN and inventory every C
 
 ## Call-Activity Variable Scope
 
-Compare each C7 call's `camunda:in` inputs and `camunda:out` outputs with the converted copy.
-Camunda 8.9 supports these [call-activity mappings](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings).
+Compare each C7 call's `camunda:in`, `camunda:out`, and delegated variable mappings with the converted copy.
+Camunda 8.9 supports [call-activity input/output mappings](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings).
 Check the target's support before removing a mapping flagged as unavailable.
-Without `camunda:in` or `camunda:out`, C7 passes no variables in that direction.
+Without any variable mappings, C7 passes no variables in either direction.
 Camunda 8 copies all variables by default.
 
 | C7 contract | Camunda 8 mapping |

@@ -212,7 +212,7 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
-For each call activity, inventory its called process, `camunda:in` and `camunda:out` mappings,
+For each call activity, inventory its called process, input/output mappings (including delegates),
 and child business-key intent. See `references/model-migration-approaches.md` for scope rules.
 
 For each original BPMN, record every `camunda:executionListener event="start"` directly on a
