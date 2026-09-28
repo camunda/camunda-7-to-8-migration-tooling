@@ -73,7 +73,8 @@ blocked finding and manual follow-up required when the project owner has not app
 
 The [`grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthrough checks BOM
 resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
-`MIGRATION_REPORT.md`.
+`MIGRATION_REPORT.md`. It also includes a runnable documentation test for the dependency workflow
+and blocked-item contract. The test does not run an application migration.
 
 ## License
 

@@ -64,6 +64,9 @@ dependency path, and its version source. Manage an incompatible gRPC family thro
 searches show that the project does not use it. Record before-and-after versions, dependency paths,
 version sources, and the remediation in `MIGRATION_REPORT.md`.
 
+For each readiness-blocking finding, add an open item with status `blocked` to
+`MIGRATION_REPORT.md`. Record the evidence and the required follow-up.
+
 **Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
 that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this
 focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,

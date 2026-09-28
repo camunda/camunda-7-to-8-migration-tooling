@@ -3,6 +3,17 @@
 This manual regression fixture records a dependency mismatch found during an agentic migration. It
 does not claim that this mismatch explains every test error in the migrated project.
 
+## Run the guidance check
+
+From the repository root, run:
+
+```bash
+python3 agentic-migration-skills/fixtures/grpc-dependency-alignment/test_migration_guidance.py
+```
+
+The test checks that the dependency workflow and blocked-item contract are documented. It does not
+run an application migration.
+
 ## Red evidence
 
 The target used `camunda-spring-boot-3-starter:8.9.21`. The source POM imported a Google Cloud BOM,

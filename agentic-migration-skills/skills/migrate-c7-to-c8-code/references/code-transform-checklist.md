@@ -174,6 +174,9 @@ For each migrated Maven module that uses a Camunda Spring Boot starter:
 | The focused client-context test fails or cannot run | Block readiness until it passes. Record the command, exit code, and error. Do not assign a classpath cause without evidence. |
 | The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
 
+For each readiness-blocking finding, the skill adds an open item with status `blocked` to
+`MIGRATION_REPORT.md`. Each item records the evidence and the required follow-up.
+
 ---
 
 ## 2. Client Code (ProcessEngine to CamundaClient)
