@@ -647,16 +647,23 @@ When the scope is **Code + models**:
 5. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 6. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
 7. **Configuration binding**: Confirm that configuration validation ran. When the user selects Approach B, run the recipe in `references/code-transform-checklist.md`.
-8. **Run tests**: `mvn test` or `./gradlew test`. Test each retained domain-library behavior
+8. **Dependency compatibility and client startup** — for each Maven module that uses a Camunda
+   Spring Boot starter, run the BOM and dependency-family checks in
+   `references/code-transform-checklist.md`. Run a focused context test that creates the real
+   `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. The skill
+   applies the readiness verdicts in the checklist. Record the failing and final dependency
+   coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
+   there. Record the test command and its exit code there.
+9. **Run tests**: `mvn test` or `./gradlew test`. Test each retained domain-library behavior
    for every supported type and downstream call path. Use synthetic fixture values, never
    production keys or credentials. A successful compile alone does not prove that behavior works.
    Fix failures or document each one.
-9. **Check query counts and pagination**:
+10. **Check query counts and pagination**:
   - Search for `.items().size()` and `.items().stream().count()` after migrated query calls.
   - Trace query results assigned to variables before checking later count uses.
   - Replace complete counts with `.page().totalItems()`, using `.intValue()` for `int` or `Integer` results.
   - Review `.page().hasMoreTotalItems()` when a search can exceed cluster result limits.
-10. **Check common pitfalls**:
+11. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling
   - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
