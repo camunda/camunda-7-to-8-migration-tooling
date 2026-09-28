@@ -229,7 +229,8 @@ When a handler sends notifications, record a separate `incident-notification` fi
 exposed data. Keep the finding separate from job-worker migration.
 
 Ask the project owner to choose a Camunda 8-compatible integration or explicitly waive notifications
-for each finding. Never remove or replace the handler before the project records its decision.
+for each finding. Never remove or replace the handler, its registration, or its configuration
+before the project records its decision.
 
 | Project decision | Action | Notification parity |
 |---|---|---|
