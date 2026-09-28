@@ -467,8 +467,9 @@ target version. See the linting section in `references/model-migration-approache
     A worker does not satisfy this check. The skill accepts a start-listener finding as a converter match
     only when its severity is `TASK`. If its severity is missing or different, then the skill marks
     compatibility **blocked**. The mismatched finding does not count as a converter match. If a
-    source listener entry lacks a matching `TASK` finding, then the skill adds a source-derived
-    `TASK` row. That row does not count as a converter match. If either artifact check fails, then
+    source listener entry lacks a matching `TASK` finding, then the skill marks compatibility
+    **blocked**. The skill adds a source-derived `TASK` row for that listener. That row does not
+    count as a converter match. If either artifact check fails, then
     the skill marks compatibility **blocked** and follows the replacement-run procedure in
     `references/model-migration-approaches.md` before treating any reports or converted copies as
     authoritative. The skill requires explicit user approval for the manual follow-up.

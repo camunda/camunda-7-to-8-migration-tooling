@@ -152,9 +152,9 @@ The skill matches each finding to one source listener entry by type and value in
 entry, including repeated implementations. The skill accepts a start-listener finding as a converter
 match only when its severity is `TASK`. If its severity is missing or different, then the skill marks
 compatibility **blocked**. The mismatched finding does not count as a converter match. If a source
-listener entry lacks a matching `TASK` finding, then the skill adds a source-derived `TASK` row. That
-row does not count as a converter match. If a finding has no source match or the counts differ, then
-the skill blocks compatibility.
+listener entry lacks a matching `TASK` finding, then the skill marks compatibility **blocked**. The
+skill adds a source-derived `TASK` row for that listener. That row does not count as a converter
+match. If a finding has no source match or the counts differ, then the skill blocks compatibility.
 
 The skill parses each converted copy with a namespace-aware XML parser. If a converted
 `bpmn:startEvent` still contains a direct `zeebe:executionListener` with `eventType="start"`, then

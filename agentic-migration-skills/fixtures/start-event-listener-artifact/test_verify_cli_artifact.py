@@ -199,8 +199,9 @@ class CliFindingValidationTest(unittest.TestCase):
             "its severity is `task`.",
             "if its severity is missing or different, then the skill marks compatibility **blocked**.",
             "the mismatched finding does not count as a converter match.",
-            "if a source listener entry lacks a matching `task` finding, then the skill adds a "
-            "source-derived `task` row.",
+            "the skill adds a source-derived `task` row for that listener.",
+            "if a source listener entry lacks a matching `task` finding, then the skill marks "
+            "compatibility **blocked**.",
             "that row does not count as a converter match.",
         )
         for path in (SKILL_PATH, MODEL_MIGRATION_APPROACHES_PATH):
