@@ -358,10 +358,10 @@ Each item below is a check to run and a condition that must hold at exit. Record
 13. **Deployment resources** — when `@Deployment` is present after migration, build the
     inventory from this run's converted copies and accepted forms. Create separate `resources`
     entries for each included type, allowing multiple entries per type. Resolve the actual annotation
-    entries with Spring's `PathMatchingResourcePatternResolver`. Require each entry to match at
-    least one inventory resource and each resource to match exactly one entry. Confirm that the
-    packaged application contains every match. A test that disables annotation deployment does
-    not validate this wiring.
+    entries with Spring's `PathMatchingResourcePatternResolver`. Require each entry to match a
+    non-empty subset of the inventory. Reject any match outside the inventory. Require each
+    inventory resource to match exactly one entry. Confirm that the packaged application contains
+    every match. A test that disables annotation deployment does not validate this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same

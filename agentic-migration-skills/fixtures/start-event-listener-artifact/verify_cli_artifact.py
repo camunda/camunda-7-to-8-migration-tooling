@@ -35,9 +35,11 @@ def verify_findings(report):
     findings = [finding for finding in report if finding.get("messageId") == CATEGORY]
     matched = []
     for finding in findings:
+        filename = finding.get("filename")
+        require(isinstance(filename, str), "The finding must identify its source path.")
         require(
             (
-                finding.get("filename"),
+                filename.replace("\\", "/"),
                 finding.get("elementId"),
                 finding.get("severity"),
             )

@@ -19,6 +19,7 @@ python3 verify_cli_artifact.py \
 Use the Java executable, JAR, and target version selected by the migration run.
 The probe runs both models from one directory. It requires a distinct, blocking
 `TASK` finding for each source implementation and none for the control.
+It accepts platform path separators but requires the complete relative path.
 It also rejects a converted copy with a `start` listener on any start event.
 Release 0.3.8 predates the fix in #2841 and fails this check.
 

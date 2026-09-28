@@ -126,7 +126,7 @@ directory. Otherwise, use another explicitly non-packaged directory.
 ### 3b. Check the selected artifact
 
 Match the source start-listener inventory against the selected JAR's JSON report.
-For directory input, match the exact path relative to the input directory.
+For directory input, normalize path separators before matching the full path relative to the input directory.
 For single-file input, match the filename.
 Never use a basename match for a directory input.
 Require `messageId` `execution-listener-on-start-event` and `TASK` severity.

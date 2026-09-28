@@ -25,6 +25,12 @@ def findings():
 
 
 class SelectedArtifactTest(unittest.TestCase):
+    def test_accepts_windows_relative_path(self):
+        report = findings()
+        for finding in report:
+            finding["filename"] = r"models\start-listener.bpmn"
+        verify_findings(report)
+
     def test_requires_one_blocking_finding_per_source_listener(self):
         verify_findings(findings())
 
@@ -33,6 +39,7 @@ class SelectedArtifactTest(unittest.TestCase):
             lambda rows: rows[0].update(severity="WARNING"),
             lambda rows: rows[0].pop("severity"),
             lambda rows: rows[0].update(filename="other/start-listener.bpmn"),
+            lambda rows: rows[0].update(filename=r"other\start-listener.bpmn"),
             lambda rows: rows[0].update(message="Execution Listener cannot be transformed."),
             lambda rows: rows.append(rows[0].copy()),
             lambda rows: rows[0].update(filename="controls/no-listener.bpmn"),
