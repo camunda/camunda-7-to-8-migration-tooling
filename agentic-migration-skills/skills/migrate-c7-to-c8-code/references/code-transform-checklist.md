@@ -170,7 +170,7 @@ For each migrated Maven module that uses a Camunda Spring Boot starter:
 | An unresolved BOM has no verified replacement | Block readiness. Fix the coordinates or repository. Ask the user before selecting a replacement. |
 | An imported BOM's effective version cannot be traced to the POM or property that supplies it | Block readiness until the version source is verified. |
 | A direct dependency version overrides an imported BOM without a documented compatibility reason | Block readiness until the override is removed or justified. |
-| The client context reports a `LinkageError` or a verified incompatible dependency family | Record a blocking finding. |
+| The client context reports a `LinkageError` or a verified incompatible dependency family | Add an open item with status `blocked` to `MIGRATION_REPORT.md` and mark readiness blocked. Record the blocking finding there. |
 | The focused client-context test fails or cannot run | Block readiness until it passes. Record the command, exit code, and error. Do not assign a classpath cause without evidence. |
 | The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
 

@@ -69,5 +69,7 @@ that creates the real `CamundaClient` bean. Do not mock the bean or issue an API
 focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,
 block readiness and record its command, exit code, and error. Classify the failure as a classpath
 incompatibility only when it reports a `LinkageError` or the resolved dependency graph proves an
-incompatible family. A cluster connection failure during an API command is separate evidence and
-never proves that the classpath is compatible.
+incompatible family. If startup reports a `LinkageError` or the resolved dependency graph proves an
+incompatible family, add an open item with status `blocked` to `MIGRATION_REPORT.md` and mark
+readiness blocked. A cluster connection failure during an API command is separate evidence and never
+proves that the classpath is compatible.

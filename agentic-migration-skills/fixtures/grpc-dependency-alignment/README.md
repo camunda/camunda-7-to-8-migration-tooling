@@ -48,10 +48,11 @@ This evidence proves a gRPC compatibility defect. It does not explain every test
    import static org.junit.jupiter.api.Assertions.assertNotNull;
 
    import io.camunda.client.CamundaClient;
+   import io.camunda.spring.boot.starter.client.CamundaClientAutoConfiguration;
    import org.junit.jupiter.api.Test;
    import org.springframework.beans.factory.annotation.Autowired;
+   import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
    import org.springframework.boot.SpringBootConfiguration;
-   import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
    import org.springframework.boot.test.context.SpringBootTest;
 
    @SpringBootTest(
@@ -71,15 +72,16 @@ This evidence proves a gRPC compatibility defect. It does not explain every test
      }
 
      @SpringBootConfiguration
-     @EnableAutoConfiguration
+     @ImportAutoConfiguration(CamundaClientAutoConfiguration.class)
      static class TestApplication {}
    }
    ```
 
-5. Fail migration readiness if the focused test fails or cannot run. Record its command, exit code,
-   and error. Classify a dependency incompatibility only when the test reports a `LinkageError` or
-   the dependency tree proves an incompatible family. A cluster that is unavailable during a
-   separate API call is a connectivity finding, not a passing startup test.
+5. Fail migration readiness if the focused test fails or cannot run. Add an open item with status
+   `blocked` to `MIGRATION_REPORT.md`. Record the test command, exit code, and error there.
+   Classify a dependency incompatibility only when the test reports a `LinkageError` or the
+   dependency tree proves an incompatible family. A cluster that is unavailable during a separate
+   API call is a connectivity finding, not a passing startup test.
 6. Record the failing and final artifact versions, the BOM resolution error, and the selected
    remediation in `MIGRATION_REPORT.md`. Record the focused test command and exit code there.
    Keep unrelated test failures separate from the gRPC finding.
