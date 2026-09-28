@@ -151,8 +151,7 @@ public class BuilderSpecFactory {
                       .toList(),
                   Collections.emptyList(),
                   imports,
-                  receiverTypeFqn,
-                  Collections.emptySet());
+                  receiverTypeFqn);
             })
         .toList();
   }

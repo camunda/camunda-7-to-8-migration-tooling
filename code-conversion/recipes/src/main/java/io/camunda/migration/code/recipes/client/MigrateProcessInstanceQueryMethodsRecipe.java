@@ -7,60 +7,39 @@
  */
 package io.camunda.migration.code.recipes.client;
 
-import io.camunda.migration.code.recipes.sharedRecipes.AbstractMigrationRecipe;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
-import io.camunda.migration.code.recipes.utils.ReplacementUtils;
-import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
+import java.util.stream.Stream;
 import org.jspecify.annotations.NonNull;
-import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
+import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TextComment;
 import org.openrewrite.java.tree.TypeUtils;
 
-public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationRecipe {
+public class MigrateProcessInstanceQueryMethodsRecipe extends Recipe {
 
-  private static final String PROCESS_INSTANCE_STATE = "io.camunda.client.api.search.enums.ProcessInstanceState";
-  private static final String PROCESS_INSTANCE_FILTER =
-      "io.camunda.client.api.search.filter.ProcessInstanceFilter";
   private static final String PROCESS_INSTANCE_QUERY =
       "org.camunda.bpm.engine.runtime.ProcessInstanceQuery";
-  private static final List<MethodMatcher> VARIABLE_FILTER_MATCHERS =
-      List.of(
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueEquals(..)"),
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueNotEquals(..)"),
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueGreaterThan(..)"),
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueGreaterThanOrEqual(..)"),
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLessThan(..)"),
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLessThanOrEqual(..)"),
-          new MethodMatcher(PROCESS_INSTANCE_QUERY + " variableValueLike(..)"));
-  private static final MethodMatcher CREATE_PROCESS_INSTANCE_QUERY_MATCHER =
-      new MethodMatcher("org.camunda.bpm.engine.RuntimeService createProcessInstanceQuery()");
-  private static final MethodMatcher ACTIVE_QUERY_MATCHER =
-      new MethodMatcher(PROCESS_INSTANCE_QUERY + " active()");
-  private static final MethodMatcher SUSPENDED_QUERY_MATCHER =
-      new MethodMatcher(PROCESS_INSTANCE_QUERY + " suspended()");
-  private static final Set<String> SUPPORTED_QUERY_FILTER_METHODS =
-      Set.of("active", "activityIdIn", "processDefinitionKey");
-  private static final Set<String> SUPPORTED_COUNT_QUERY_METHODS =
-      Set.of(
-          "active",
-          "activityIdIn",
-          "count",
-          "createProcessInstanceQuery",
-          "list",
-          "processDefinitionKey");
-  private static final Set<String> UNSUPPORTED_QUERY_TERMINALS =
-      Set.of("listPage", "singleResult", "unlimitedList");
+  private static final String PROCESS_INSTANCE_STATE =
+      "io.camunda.client.api.search.enums.ProcessInstanceState";
+  private static final String CREATE_QUERY_PATTERN =
+      "org.camunda.bpm.engine.RuntimeService createProcessInstanceQuery()";
+  private static final MethodMatcher CREATE_QUERY = new MethodMatcher(CREATE_QUERY_PATTERN);
+  private static final String MANUAL_HINT =
+      " TODO: Migrate this Camunda 7 process-instance query manually; preserve its filters,"
+          + " runtime state and complete results (including pagination).";
+
+  private record Filters(Expression processDefinition) {}
 
   @Override
   public @NonNull String getDisplayName() {
@@ -69,737 +48,198 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
 
   @Override
   public @NonNull String getDescription() {
-    return "Replaces supported Camunda 7 process instance query methods with Camunda 8 client methods "
-        + "and leaves unbounded process-instance list results, non-terminal query chains, queries "
-        + "with unsupported filters, business-key filters, aliases with pre-applied filters, "
-        + "suspended/default state, or unsupported terminals for manual migration.";
+    return "Converts complete inline active process-instance counts and marks all other"
+        + " process-instance queries for manual migration.";
   }
 
   @Override
-  protected Predicate<Cursor> visitorSkipCondition() {
-    return cursor -> {
-      Object value = cursor.getValue();
-      if (value instanceof J.Assignment assignment
-          && isFieldAssignmentTarget(assignment.getVariable())
-          && containsProcessInstanceListQuery(assignment.getAssignment())) {
-        // Keep field assignments manual because the generic visitor cannot update the field type.
-        return true;
-      }
-      if (value instanceof J.VariableDeclarations declarations
-          && declarations.getVariables().stream()
-              .anyMatch(
-                  variable ->
-                      variable.getInitializer() != null
-                          && isProcessInstanceListResult(variable.getInitializer()))) {
-        return true;
-      }
-      if (value instanceof J.Assignment assignment
-          && isProcessInstanceListResult(assignment.getAssignment())) {
-        return true;
-      }
-      if (value instanceof J.MethodInvocation invocation
-          && (isProcessInstanceListInvocation(invocation)
-              || hasUnsupportedQueryMethodInReceiverChain(invocation)
-              || isManualDefaultStateQuery(invocation)
-              || isIncompleteProcessInstanceQueryChain(cursor, invocation))) {
-        return true;
-      }
+  public TreeVisitor<?, ExecutionContext> getVisitor() {
+    return Preconditions.check(
+        Preconditions.or(
+            new UsesMethod<>(CREATE_QUERY_PATTERN, true),
+            new UsesType<>(PROCESS_INSTANCE_QUERY, true)),
+        new JavaIsoVisitor<ExecutionContext>() {
+          @Override
+          public J.MethodInvocation visitMethodInvocation(
+              J.MethodInvocation invocation, ExecutionContext ctx) {
+            J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
+            J.MethodInvocation terminal = countedQuery(visited);
+            Filters filters = terminal == null ? null : filters(terminal);
+            if (filters == null) {
+              return visited;
+            }
 
-      Cursor current = cursor;
-      while (current != null) {
-        if (current.getValue() instanceof J.MethodInvocation invocation
-            && (isUnsupportedQueryMethod(invocation) || isUnsupportedQueryTerminal(invocation))) {
-          return true;
-        }
-        current = current.getParent();
-      }
+            String filter =
+                filters.processDefinition() == null
+                    ? ".state(ProcessInstanceState.ACTIVE)"
+                    : "\n        .processDefinitionId(#{any(java.lang.String)})"
+                        + "\n        .state(ProcessInstanceState.ACTIVE)";
+            String accessor = visited.getSimpleName().equals("size") ? "intValue" : "longValue";
+            JavaTemplate template =
+                RecipeUtils.createSimpleJavaTemplate(
+                    """
+                    #{any(io.camunda.client.CamundaClient)}
+                        .newProcessInstanceSearchRequest()
+                        .filter(filter -> filter%s)
+                        .send()
+                        .join()
+                        .page()
+                        .totalItems().%s()
+                    """
+                        .formatted(filter, accessor),
+                    PROCESS_INSTANCE_STATE,
+                    "io.camunda.client.api.search.filter.ProcessInstanceFilter");
+            maybeAddImport(PROCESS_INSTANCE_STATE);
+            J.Identifier client =
+                RecipeUtils.createSimpleIdentifier(
+                    "camundaClient", "io.camunda.client.CamundaClient");
+            return template.apply(
+                getCursor(),
+                visited.getCoordinates().replace(),
+                filters.processDefinition() == null
+                    ? new Object[] {client}
+                    : new Object[] {client, filters.processDefinition()});
+          }
 
-      if (value instanceof J.VariableDeclarations declarations
-          && isProcessInstanceQueryType(declarations.getTypeAsFullyQualified())
-          && declarations.getVariables().stream()
-              .anyMatch(
-                  variable ->
-                      variable.getInitializer() != null
-                          && containsNonActiveQueryFilter(variable.getInitializer()))) {
-        return true;
-      }
-      if (value instanceof J.Assignment assignment
-          && isProcessInstanceQueryType(assignment.getVariable().getType())
-          && containsNonActiveQueryFilter(assignment.getAssignment())) {
-        return true;
-      }
-      if (value instanceof J.VariableDeclarations declarations
-          && declarations.getVariables().stream()
-              .anyMatch(
-                  variable ->
-                      variable.getInitializer() != null
-                          && containsUnsupportedQueryMethod(variable.getInitializer()))) {
-        return true;
-      }
-      if (value instanceof J.Assignment assignment
-          && containsUnsupportedQueryMethod(assignment.getAssignment())) {
-        return true;
-      }
-      if (value instanceof J.MethodInvocation invocation
-          && hasUnsafeQueryAlias(cursor, invocation)) {
-        return true;
-      }
-      if (value instanceof J.VariableDeclarations declarations
-          && declarations.getVariables().stream()
-              .anyMatch(
-                  variable ->
-                      variable.getInitializer() != null
-                          && unwrapParentheses(variable.getInitializer())
-                              instanceof J.MethodInvocation invocation
-                          && hasUnsafeQueryAlias(cursor, invocation))) {
-        return true;
-      }
-      if (value instanceof J.Assignment assignment
-          && unwrapParentheses(assignment.getAssignment())
-              instanceof J.MethodInvocation invocation
-          && hasUnsafeQueryAlias(cursor, invocation)) {
-        return true;
-      }
-      return false;
-    };
+          @Override
+          public J.MethodDeclaration visitMethodDeclaration(
+              J.MethodDeclaration method, ExecutionContext ctx) {
+            J.MethodDeclaration visited = super.visitMethodDeclaration(method, ctx);
+            if (visited.getBody() == null
+                || hasManualHint(visited)
+                || !containsUnconvertedQuery(visited.getBody())) {
+              return visited;
+            }
+            return visited.withComments(
+                Stream.concat(
+                        visited.getComments().stream(),
+                        Stream.of(RecipeUtils.createSimpleComment(visited, MANUAL_HINT)))
+                    .toList());
+          }
+
+          @Override
+          public J.VariableDeclarations visitVariableDeclarations(
+              J.VariableDeclarations declarations, ExecutionContext ctx) {
+            J.VariableDeclarations visited = super.visitVariableDeclarations(declarations, ctx);
+            if (getCursor().firstEnclosing(J.MethodDeclaration.class) != null
+                || hasManualHint(visited)
+                || !containsUnconvertedQuery(visited)) {
+              return visited;
+            }
+            return visited.withComments(
+                Stream.concat(
+                        visited.getComments().stream(),
+                        Stream.of(RecipeUtils.createSimpleComment(visited, MANUAL_HINT)))
+                    .toList());
+          }
+        });
   }
 
-  private static boolean isUnsupportedQueryTerminal(J.MethodInvocation invocation) {
-    Expression receiver = invocation.getSelect();
-    return UNSUPPORTED_QUERY_TERMINALS.contains(invocation.getSimpleName())
-        && receiver != null
-        && TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY);
+  private static boolean hasManualHint(J tree) {
+    return tree.getComments().stream()
+        .anyMatch(
+            comment ->
+                comment instanceof TextComment text && text.getText().contains(MANUAL_HINT.trim()));
   }
 
-  private static boolean isManualDefaultStateQuery(J.MethodInvocation invocation) {
-    String methodName = invocation.getSimpleName();
-    if (!methodName.equals("list") && !methodName.equals("count")) {
-      return false;
-    }
-
-    Expression receiver = invocation.getSelect();
-    if (receiver == null || !TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY)) {
-      return false;
-    }
-
-    while (receiver != null) {
-      receiver = unwrapParentheses(receiver);
-      if (receiver instanceof J.MethodInvocation methodInvocation) {
-        if (ACTIVE_QUERY_MATCHER.matches(methodInvocation)) {
-          return false;
-        }
-        receiver = methodInvocation.getSelect();
-      } else {
-        break;
-      }
-    }
-    return true;
-  }
-
-  private static boolean isIncompleteProcessInstanceQueryChain(
-      Cursor cursor, J.MethodInvocation invocation) {
-    return isProcessInstanceQueryType(invocation.getType())
-        && !hasProcessInstanceListOrCountTerminal(cursor);
-  }
-
-  private static boolean hasProcessInstanceListOrCountTerminal(Cursor cursor) {
-    Cursor current = cursor;
-    while (current != null) {
-      if (current.getValue() instanceof J.MethodInvocation invocation
-          && (invocation.getSimpleName().equals("list")
-              || invocation.getSimpleName().equals("count"))
-          && invocation.getSelect() != null
-          && isProcessInstanceQueryType(invocation.getSelect().getType())) {
-        return true;
-      }
-      current = current.getParent();
-    }
-    return false;
-  }
-
-  private static boolean hasUnsupportedQueryMethodInReceiverChain(J.MethodInvocation invocation) {
-    Expression current = invocation.getSelect();
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation receiver) {
-        if (isUnsupportedQueryMethod(receiver)) {
-          return true;
-        }
-        current = receiver.getSelect();
-      } else {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasUnsafeQueryAlias(Cursor cursor, J.MethodInvocation invocation) {
-    J.Identifier queryVariable = rootReceiverIdentifier(invocation);
-    if (queryVariable == null || queryVariable.getSimpleName().equals("this")) {
-      Expression receiver = invocation.getSelect();
-      return receiver != null && TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY);
-    }
-
-    boolean processInstanceQueryVariable =
-        TypeUtils.isOfClassType(queryVariable.getType(), PROCESS_INSTANCE_QUERY);
-    Cursor current = cursor;
-    while (current != null) {
-      if (current.getValue() instanceof J.ClassDeclaration classDeclaration) {
-        J.Block classBody = classDeclaration.getBody();
-        return hasUnpreservedQueryFilter(classBody, queryVariable)
-            || (processInstanceQueryVariable
-                && hasUntraceableProcessInstanceQueryAlias(classBody, queryVariable));
-      }
-      current = current.getParent();
-    }
-    return processInstanceQueryVariable;
-  }
-
-  private static boolean hasUnpreservedQueryFilter(
-      J.Block classBody, J.Identifier queryVariable) {
+  private static boolean containsUnconvertedQuery(J tree) {
     AtomicBoolean found = new AtomicBoolean();
     new JavaIsoVisitor<AtomicBoolean>() {
       @Override
-      public J.VariableDeclarations visitVariableDeclarations(
-          J.VariableDeclarations declarations, AtomicBoolean unpreservedFilter) {
-        if (declarations.getVariables().stream()
-            .anyMatch(
-                variable ->
-                    refersToSameVariable(variable.getName(), queryVariable)
-                        && variable.getInitializer() != null
-                        && (containsVariableFilter(variable.getInitializer())
-                        || containsNonActiveQueryFilter(variable.getInitializer())
-                        || containsActiveQueryFilter(variable.getInitializer())))) {
-          unpreservedFilter.set(true);
-          return declarations;
-        }
-        return unpreservedFilter.get()
-            ? declarations
-            : super.visitVariableDeclarations(declarations, unpreservedFilter);
-      }
-
-      @Override
-      public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean unpreservedFilter) {
-        J.Identifier assignedVariable =
-            assignment.getVariable() instanceof J.Identifier identifier
-                ? identifier
-                : assignment.getVariable() instanceof J.FieldAccess fieldAccess
-                    ? fieldAccess.getName()
-                    : null;
-        if (assignedVariable != null
-            && refersToSameVariable(assignedVariable, queryVariable)
-            && (containsVariableFilter(assignment.getAssignment())
-                || containsNonActiveQueryFilter(assignment.getAssignment())
-                || containsActiveQueryFilter(assignment.getAssignment()))) {
-          unpreservedFilter.set(true);
-          return assignment;
-        }
-        return unpreservedFilter.get()
-            ? assignment
-            : super.visitAssignment(assignment, unpreservedFilter);
-      }
-
-      @Override
       public J.MethodInvocation visitMethodInvocation(
-          J.MethodInvocation candidate, AtomicBoolean unpreservedFilter) {
-        J.Identifier receiver = rootReceiverIdentifier(candidate);
-        if ((isVariableFilterMethod(candidate)
-                || (receiver != null
-                    && isProcessInstanceQueryType(receiver.getType())
-                    && (isNonActiveQueryFilter(candidate)
-                        || ACTIVE_QUERY_MATCHER.matches(candidate))
-                    && !isPartOfListOrCountQuery(getCursor(), queryVariable)))
-            && receiver != null
-            && refersToSameVariable(receiver, queryVariable)) {
-          unpreservedFilter.set(true);
-          return candidate;
+          J.MethodInvocation invocation, AtomicBoolean result) {
+        if (CREATE_QUERY.matches(invocation)
+            || (invocation.getSelect() != null
+                && TypeUtils.isOfClassType(
+                    invocation.getSelect().getType(), PROCESS_INSTANCE_QUERY))) {
+          result.set(true);
+          return invocation;
         }
-        return unpreservedFilter.get()
-            ? candidate
-            : super.visitMethodInvocation(candidate, unpreservedFilter);
+        return result.get() ? invocation : super.visitMethodInvocation(invocation, result);
       }
-    }.visit(classBody, found);
+    }.visit(tree, found);
     return found.get();
   }
 
-  private static boolean hasUntraceableProcessInstanceQueryAlias(
-      J.Block classBody, J.Identifier queryVariable) {
-    AtomicBoolean hasKnownQueryCreation = new AtomicBoolean();
-    AtomicBoolean hasUnknownSource = new AtomicBoolean();
-    new JavaIsoVisitor<AtomicBoolean>() {
-      @Override
-      public J.VariableDeclarations visitVariableDeclarations(
-          J.VariableDeclarations declarations, AtomicBoolean unknownSource) {
-        for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-          if (!refersToSameVariable(variable.getName(), queryVariable)) {
-            continue;
-          }
-          Expression initializer = variable.getInitializer();
-          if (initializer == null || !hasProcessInstanceQueryCreation(initializer)) {
-            unknownSource.set(true);
-          } else {
-            hasKnownQueryCreation.set(true);
-          }
-        }
-        return unknownSource.get()
-            ? declarations
-            : super.visitVariableDeclarations(declarations, unknownSource);
-      }
-
-      @Override
-      public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean unknownSource) {
-        J.Identifier assignedVariable =
-            assignment.getVariable() instanceof J.Identifier identifier
-                ? identifier
-                : assignment.getVariable() instanceof J.FieldAccess fieldAccess
-                    ? fieldAccess.getName()
-                    : null;
-        if (assignedVariable != null && refersToSameVariable(assignedVariable, queryVariable)) {
-          if (hasProcessInstanceQueryCreation(assignment.getAssignment())) {
-            hasKnownQueryCreation.set(true);
-          } else {
-            unknownSource.set(true);
-          }
-        }
-        return unknownSource.get()
-            ? assignment
-            : super.visitAssignment(assignment, unknownSource);
-      }
-    }.visit(classBody, hasUnknownSource);
-    return !hasKnownQueryCreation.get() || hasUnknownSource.get();
-  }
-
-  private static boolean hasProcessInstanceQueryCreation(Expression expression) {
-    Expression current = expression;
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation invocation) {
-        if (CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation)) {
-          return true;
-        }
-        current = invocation.getSelect();
-      } else {
-        return false;
-      }
+  private static J.MethodInvocation countedQuery(J.MethodInvocation invocation) {
+    if (!hasNoArguments(invocation)) {
+      return null;
     }
-    return false;
-  }
-
-  private static J.Identifier rootReceiverIdentifier(J.MethodInvocation invocation) {
-    Expression receiver = invocation.getSelect();
-    while (receiver != null) {
-      receiver = unwrapParentheses(receiver);
-      if (receiver instanceof J.MethodInvocation methodInvocation) {
-        receiver = methodInvocation.getSelect();
-      } else if (receiver instanceof J.FieldAccess fieldAccess) {
-        return fieldAccess.getName();
-      } else {
-        return receiver instanceof J.Identifier identifier ? identifier : null;
-      }
+    Expression receiver = unwrap(invocation.getSelect());
+    if (invocation.getSimpleName().equals("count")
+        && receiver != null
+        && TypeUtils.isOfClassType(receiver.getType(), PROCESS_INSTANCE_QUERY)) {
+      return invocation;
+    }
+    if (invocation.getSimpleName().equals("count")
+        && receiver instanceof J.MethodInvocation stream
+        && stream.getSimpleName().equals("stream")
+        && hasNoArguments(stream)) {
+      receiver = unwrap(stream.getSelect());
+    }
+    if ((invocation.getSimpleName().equals("size")
+            || invocation.getSimpleName().equals("count"))
+        && receiver instanceof J.MethodInvocation list
+        && list.getSimpleName().equals("list")
+        && hasNoArguments(list)
+        && list.getSelect() != null
+        && TypeUtils.isOfClassType(list.getSelect().getType(), PROCESS_INSTANCE_QUERY)) {
+      return list;
     }
     return null;
   }
 
-  private static boolean refersToSameVariable(J.Identifier candidate, J.Identifier target) {
-    JavaType.Variable candidateVariable = candidate.getFieldType();
-    JavaType.Variable targetVariable = target.getFieldType();
-    return candidateVariable != null && targetVariable != null
-        ? candidateVariable.equals(targetVariable)
-        : candidate.getSimpleName().equals(target.getSimpleName());
-  }
-
-  private static boolean isVariableFilterMethod(J.MethodInvocation invocation) {
-    return VARIABLE_FILTER_MATCHERS.stream().anyMatch(matcher -> matcher.matches(invocation));
-  }
-
-  private static boolean isNonActiveQueryFilter(J.MethodInvocation invocation) {
-    return TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)
-        && !ACTIVE_QUERY_MATCHER.matches(invocation)
-        && !CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation);
-  }
-
-  private static boolean isPartOfListOrCountQuery(Cursor cursor, J.Identifier queryVariable) {
-    Cursor current = cursor.getParent();
-    while (current != null) {
-      if (current.getValue() instanceof J.MethodInvocation invocation
-          && (invocation.getSimpleName().equals("list")
-              || invocation.getSimpleName().equals("count"))) {
-        J.Identifier receiver = rootReceiverIdentifier(invocation);
-        if (receiver != null && refersToSameVariable(receiver, queryVariable)) {
-          return true;
+  private static Filters filters(J.MethodInvocation terminal) {
+    Expression receiver = unwrap(terminal.getSelect());
+    Expression processDefinition = null;
+    boolean active = false;
+    while (receiver instanceof J.MethodInvocation method) {
+      if (CREATE_QUERY.matches(method)) {
+        return active ? new Filters(processDefinition) : null;
+      }
+      if (!TypeUtils.isOfClassType(method.getType(), PROCESS_INSTANCE_QUERY)) {
+        return null;
+      }
+      switch (method.getSimpleName()) {
+        case "active" -> {
+          if (active || !hasNoArguments(method)) {
+            return null;
+          }
+          active = true;
+        }
+        case "processDefinitionKey" -> {
+          if (processDefinition != null || !hasSingleStringArgument(method)) {
+            return null;
+          }
+          processDefinition = method.getArguments().get(0);
+        }
+        default -> {
+          return null;
         }
       }
-      current = current.getParent();
+      receiver = unwrap(method.getSelect());
     }
-    return false;
+    return null;
   }
 
-  private static boolean isUnsupportedQueryMethod(J.MethodInvocation invocation) {
-    if (isVariableFilterMethod(invocation) || SUSPENDED_QUERY_MATCHER.matches(invocation)) {
-      return true;
-    }
-    if (CREATE_PROCESS_INSTANCE_QUERY_MATCHER.matches(invocation)
-        || !TypeUtils.isOfClassType(invocation.getType(), PROCESS_INSTANCE_QUERY)) {
-      return false;
-    }
-    return !SUPPORTED_QUERY_FILTER_METHODS.contains(invocation.getSimpleName())
-        || !hasSupportedQueryMethodArguments(invocation);
-  }
-
-  private static boolean containsUnsupportedQueryMethod(Expression expression) {
-    Expression current = expression;
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation invocation) {
-        if (isUnsupportedQueryMethod(invocation)) {
-          return true;
-        }
-        current = invocation.getSelect();
-      } else {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private static boolean containsVariableFilter(Expression expression) {
-    Expression current = expression;
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation invocation) {
-        if (isVariableFilterMethod(invocation)) {
-          return true;
-        }
-        current = invocation.getSelect();
-      } else {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private static boolean containsNonActiveQueryFilter(Expression expression) {
-    Expression current = expression;
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation invocation) {
-        if (isNonActiveQueryFilter(invocation)) {
-          return true;
-        }
-        current = invocation.getSelect();
-      } else {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private static boolean containsActiveQueryFilter(Expression expression) {
-    Expression current = expression;
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation invocation) {
-        if (ACTIVE_QUERY_MATCHER.matches(invocation)) {
-          return true;
-        }
-        current = invocation.getSelect();
-      } else {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private static boolean containsProcessInstanceListQuery(Expression expression) {
-    Expression current = expression;
-    while (current != null) {
-      current = unwrapParentheses(current);
-      if (current instanceof J.MethodInvocation invocation) {
-        if (isProcessInstanceListInvocation(invocation)) {
-          return true;
-        }
-        current = invocation.getSelect();
-      } else {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private static boolean isProcessInstanceListInvocation(J.MethodInvocation invocation) {
-    return invocation.getSimpleName().equals("list")
-        && invocation.getSelect() != null
-        && isProcessInstanceQueryType(invocation.getSelect().getType());
-  }
-
-  private static boolean isProcessInstanceListResult(Expression expression) {
-    Expression unwrapped = unwrapParentheses(expression);
-    return unwrapped instanceof J.MethodInvocation invocation
-        && isProcessInstanceListInvocation(invocation);
-  }
-
-  private static boolean isFieldAssignmentTarget(Expression target) {
-    return target instanceof J.FieldAccess
-        || target instanceof J.Identifier identifier
-            && identifier.getFieldType() != null
-            && identifier.getFieldType().getOwner() instanceof JavaType.FullyQualified;
-  }
-
-  private static boolean isProcessInstanceQueryType(JavaType type) {
-    return TypeUtils.isOfClassType(type, PROCESS_INSTANCE_QUERY);
-  }
-
-  @Override
-  protected TreeVisitor<?, ExecutionContext> preconditions() {
-    return Preconditions.or(
-        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService createProcessInstanceQuery()", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery activityIdIn(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processInstanceBusinessKey(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processDefinitionKey(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueEquals(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueNotEquals(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueGreaterThan(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueGreaterThanOrEqual(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueLessThan(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueLessThanOrEqual(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery variableValueLike(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.runtime.ProcessInstanceQuery active()", true));
-  }
-
-  @Override
-  protected List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations() {
-    return List.of(
-        new ReplacementUtils.SimpleReplacementSpec(
-            new MethodMatcher("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processDefinitionKey(java.lang.String)"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
-                #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newProcessInstanceSearchRequest()
-                    .filter(filter -> filter.processDefinitionId(#{processDefinitionKey:any(java.lang.String)}))
-                """,
-                "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
-                "io.camunda.client.api.search.filter.ProcessInstanceFilter"),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptySet()));
-  }
-
-  @Override
-  protected List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations() {
-    List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
-    MethodMatcher listMatcher = new MethodMatcher("org.camunda.bpm.engine.query.Query list()");
-    JavaTemplate activityListWithActive =
-        processInstanceSearchTemplate(
-            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), false);
-    JavaTemplate processDefinitionListWithActive =
-        processInstanceSearchTemplate(
-            List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
-            false);
-
-    addActiveStateVariant(
-        specs,
-        listMatcher,
-        Set.of("activityIdIn"),
-        List.of("activityIdIn"),
-        activityListWithActive,
-        "List<io.camunda.client.api.search.response.ProcessInstance>",
-        Collections.emptyList(),
-        Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    addActiveStateVariant(
-        specs,
-        listMatcher,
-        Set.of("processDefinitionKey"),
-        List.of("processDefinitionKey"),
-        processDefinitionListWithActive,
-        "List<io.camunda.client.api.search.response.ProcessInstance>",
-        Collections.emptyList(),
-        Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    return specs;
-  }
-
-  @Override
-  protected List<ReplacementUtils.BuilderReplacementSpec> countBuilderMethodInvocations() {
-    List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
-    JavaTemplate activityCountWithActive =
-        processInstanceSearchTemplate(
-            List.of("elementId(#{activityIdIn:any(java.lang.String)})"), true);
-    JavaTemplate unfilteredCountWithActive =
-        processInstanceSearchTemplate(Collections.emptyList(), true);
-    JavaTemplate processDefinitionCountWithActive =
-        processInstanceSearchTemplate(
-            List.of("processDefinitionId(#{processDefinitionKey:any(java.lang.String)})"),
-            true);
-    addCountSpecs(
-        specs,
-        Set.of("activityIdIn"),
-        List.of("activityIdIn"),
-        activityCountWithActive,
-        Collections.emptyList());
-    addCountSpecs(
-        specs,
-        Set.of(),
-        Collections.emptyList(),
-        unfilteredCountWithActive,
-        Collections.emptyList());
-    addCountSpecs(
-        specs,
-        Set.of("processDefinitionKey"),
-        List.of("processDefinitionKey"),
-        processDefinitionCountWithActive,
-        Collections.emptyList());
-    return specs;
-  }
-
-  private static JavaTemplate processInstanceSearchTemplate(
-      List<String> filterMethods, boolean count) {
-    List<String> methods = new ArrayList<>(filterMethods);
-    methods.add("state(ProcessInstanceState.ACTIVE)");
-    String filter =
-        methods.size() == 1 && count
-            ? "\n    .filter(filter -> filter." + methods.get(0) + ")"
-            : "\n    .filter(filter -> filter\n        ."
-                + String.join("\n        .", methods)
-                + ")";
-    String result = count ? ".page()\n    .totalItems()" : ".items()";
-    String template =
-        """
-        #{camundaClient:any(io.camunda.client.CamundaClient)}
-            .newProcessInstanceSearchRequest()%s
-            .send()
-            .join()
-            %s
-        """
-            .formatted(filter, result);
-
-    List<String> templateTypes = new ArrayList<>();
-    templateTypes.add(PROCESS_INSTANCE_FILTER);
-    templateTypes.add(PROCESS_INSTANCE_STATE);
-    if (!count) {
-      templateTypes.add("io.camunda.client.api.search.response.ProcessInstance");
-    }
-    return RecipeUtils.createSimpleJavaTemplate(template, templateTypes.toArray(String[]::new));
-  }
-
-  private void addActiveStateVariant(
-      List<ReplacementUtils.BuilderReplacementSpec> specs,
-      MethodMatcher matcher,
-      Set<String> methodNamesToExtractParameters,
-      List<String> extractedParametersToApply,
-      JavaTemplate activeTemplate,
-      String returnType,
-      List<String> textComments,
-      Optional<String> receiverType) {
-    specs.add(
-        new ReplacementUtils.BuilderReplacementSpec(
-            matcher,
-            methodNamesToExtractParameters,
-            extractedParametersToApply,
-            activeTemplate,
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            returnType,
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            textComments,
-            Collections.emptyList(),
-            List.of(PROCESS_INSTANCE_STATE),
-            receiverType,
-            Set.of("active")));
-  }
-
-  private void addCountSpecs(
-      List<ReplacementUtils.BuilderReplacementSpec> specs,
-      Set<String> methodNamesToExtractParameters,
-      List<String> extractedParametersToApply,
-      JavaTemplate activeTemplate,
-      List<String> textComments) {
-    for (String terminalMethod : List.of("list", "count")) {
-      addActiveStateVariant(
-          specs,
-          new MethodMatcher("org.camunda.bpm.engine.query.Query " + terminalMethod + "()"),
-          methodNamesToExtractParameters,
-          extractedParametersToApply,
-          activeTemplate,
-          "java.lang.Long",
-          textComments,
-          Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery"));
-    }
-  }
-
-  @Override
-  protected boolean supportsCountedQuery(J.MethodInvocation queryTerminal) {
-    Set<String> seenFilters = new HashSet<>();
-    Expression current = queryTerminal;
-
-    while (current instanceof J.MethodInvocation invocation) {
-      if (invocation.getSimpleName().equals("createProcessInstanceQuery")) {
-        return true;
-      }
-
-      String methodName = invocation.getSimpleName();
-      if (!SUPPORTED_COUNT_QUERY_METHODS.contains(methodName)) {
-        return false;
-      }
-      if (SUPPORTED_QUERY_FILTER_METHODS.contains(methodName)
-          && !hasSupportedQueryMethodArguments(invocation)) {
-        return false;
-      }
-      if (!invocation.getArguments().isEmpty() && !seenFilters.add(methodName)) {
-        return false;
-      }
-      current = unwrapParentheses(invocation.getSelect());
-    }
-    return false;
-  }
-
-  @Override
-  protected J.MethodInvocation adjustCountBuilderReplacement(
-      J.MethodInvocation replacement, J.MethodInvocation replacementTarget, Cursor cursor) {
-    String accessor = replacementTarget.getSimpleName().equals("size") ? "intValue" : "longValue";
-    return (J.MethodInvocation)
-        RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Long)}." + accessor + "()")
-            .apply(cursor, replacementTarget.getCoordinates().replace(), replacement);
-  }
-
-  @Override
-  protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
-    return List.of();
-  }
-
-  @Override
-  protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
-    return List.of();
+  private static boolean hasNoArguments(J.MethodInvocation invocation) {
+    return invocation.getArguments().isEmpty()
+        || invocation.getArguments().size() == 1
+            && invocation.getArguments().get(0) instanceof J.Empty;
   }
 
   private static boolean hasSingleStringArgument(J.MethodInvocation invocation) {
     return invocation.getArguments().size() == 1
-        && isStringType(invocation.getArguments().get(0).getType());
+        && (invocation.getArguments().get(0).getType() == JavaType.Primitive.String
+            || TypeUtils.isOfClassType(
+                invocation.getArguments().get(0).getType(), "java.lang.String"));
   }
 
-  private static boolean hasSupportedQueryMethodArguments(J.MethodInvocation invocation) {
-    return switch (invocation.getSimpleName()) {
-      case "active" -> invocation.getArguments().stream().allMatch(argument -> argument instanceof J.Empty);
-      case "activityIdIn", "processDefinitionKey" ->
-          hasSingleStringArgument(invocation);
-      default -> false;
-    };
-  }
-
-  private static boolean isStringType(JavaType type) {
-    return type == JavaType.Primitive.String
-        || (type instanceof JavaType.FullyQualified fqn
-            && fqn.getFullyQualifiedName().equals("java.lang.String"));
-  }
-
-  private static Expression unwrapParentheses(Expression expression) {
+  private static Expression unwrap(Expression expression) {
     while (expression instanceof J.Parentheses<?> parentheses
         && parentheses.getTree() instanceof Expression nested) {
       expression = nested;
     }
     return expression;
   }
-
 }

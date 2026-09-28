@@ -95,33 +95,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             J.Identifier originalName = firstVar.getName();
             Expression originalInitializer = firstVar.getInitializer();
 
-            // A local declared for later assignment must receive the migrated return type too.
-            String assignedReturnType = assignedLocalVariableReturnType(declarations, ctx);
-            if (assignedReturnType != null && declarations.getTypeExpression() != null) {
-              String genericLongName = RecipeUtils.getGenericLongName(assignedReturnType);
-              J.VariableDeclarations typeTemplate =
-                  (J.VariableDeclarations)
-                      RecipeUtils.createSimpleJavaTemplate(
-                              RecipeUtils.getShortName(assignedReturnType)
-                                  + " "
-                                  + originalName.getSimpleName(),
-                              genericLongName)
-                          .apply(getCursor(), declarations.getCoordinates().replace());
-              J.VariableDeclarations modifiedDeclarations =
-                  declarations
-                      .withTypeExpression(typeTemplate.getTypeExpression())
-                      .withType(JavaType.buildType(assignedReturnType));
-              JavaType.FullyQualified originalType = declarations.getTypeAsFullyQualified();
-              if (originalType != null) {
-                maybeRemoveImport(RecipeUtils.getGenericLongName(originalType.toString()));
-              }
-              maybeAddImport(genericLongName);
-              return maybeAutoFormat(
-                  declarations, super.visitVariableDeclarations(modifiedDeclarations, ctx), ctx);
-            }
-
-            Expression unwrappedInitializer = unwrapParentheses(originalInitializer);
-            if (unwrappedInitializer instanceof J.MethodInvocation invocation) {
+            // work with initializer that is a method invocation
+            if (originalInitializer instanceof J.MethodInvocation invocation) {
 
               // run through prepared migration rules
               for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
@@ -166,10 +141,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                                   + originalName.getSimpleName()
                                   + " = #{any(java.lang.Object)}",
                               genericLongName)
-                          .apply(
-                                  getCursor(),
-                                  declarations.getCoordinates().replace(),
-                                  originalInitializer);
+                          .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
                   maybeAddImport(genericLongName);
 
@@ -247,87 +219,6 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             return super.visitVariableDeclarations(declarations, ctx);
           }
 
-          private String assignedLocalVariableReturnType(
-              J.VariableDeclarations declarations, ExecutionContext ctx) {
-            if (declarations.getVariables().size() != 1) {
-              return null;
-            }
-
-            J.VariableDeclarations.NamedVariable declared = declarations.getVariables().get(0);
-            Expression initializer = declared.getInitializer();
-            JavaType.Variable declaredVariable = declared.getName().getFieldType();
-            if ((initializer != null
-                    && (!(initializer instanceof J.Literal literal)
-                        || literal.getValue() != null))
-                || declaredVariable == null) {
-              return null;
-            }
-
-            J.MethodDeclaration methodDeclaration = null;
-            J.ClassDeclaration classDeclaration = null;
-            boolean insideBlock = false;
-            Cursor current = getCursor();
-            while (current != null) {
-              if (current.getValue() instanceof J.Block) {
-                insideBlock = true;
-              }
-              if (current.getValue() instanceof J.MethodDeclaration method) {
-                methodDeclaration = method;
-              }
-              if (current.getValue() instanceof J.ClassDeclaration type) {
-                classDeclaration = type;
-              }
-              if (methodDeclaration != null && classDeclaration != null) {
-                break;
-              }
-              current = current.getParent();
-            }
-            if (!insideBlock
-                || methodDeclaration == null
-                || methodDeclaration.getBody() == null
-                || classDeclaration == null) {
-              return null;
-            }
-
-            String[] assignedReturnType = {null};
-            boolean[] hasUnsupportedAssignment = {false};
-            new JavaIsoVisitor<ExecutionContext>() {
-              @Override
-              public J.Assignment visitAssignment(
-                  J.Assignment assignment, ExecutionContext nestedCtx) {
-                if (assignment.getVariable() instanceof J.Identifier identifier
-                    && declaredVariable.equals(identifier.getFieldType())) {
-                  Expression assignmentValue = unwrapParentheses(assignment.getAssignment());
-                  if (assignmentValue instanceof J.Literal literal && literal.getValue() == null) {
-                    return assignment;
-                  }
-                  if (!(assignmentValue instanceof J.MethodInvocation invocation)
-                      || visitorSkipCondition().test(getCursor())) {
-                    hasUnsupportedAssignment[0] = true;
-                    return assignment;
-                  }
-                  for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
-                    if (spec.matcher().matches(invocation)
-                        && receiverTypeMatches(spec, invocation)
-                        && spec.returnTypeStrategy()
-                            == ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE) {
-                      if (assignedReturnType[0] == null) {
-                        assignedReturnType[0] = spec.returnTypeFqn();
-                      } else if (!assignedReturnType[0].equals(spec.returnTypeFqn())) {
-                        hasUnsupportedAssignment[0] = true;
-                      }
-                      return assignment;
-                    }
-                  }
-                  hasUnsupportedAssignment[0] = true;
-                  return assignment;
-                }
-                return super.visitAssignment(assignment, nestedCtx);
-              }
-            }.visit(classDeclaration, ctx);
-            return hasUnsupportedAssignment[0] ? null : assignedReturnType[0];
-          }
-
           /** Replace initializers of assignments */
           @Override
           public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
@@ -341,8 +232,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
-            Expression originalAssignment = assignment.getAssignment();
-            if (!(unwrapParentheses(originalAssignment) instanceof J.MethodInvocation invocation)) {
+            if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -372,10 +262,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
                             originalName.getSimpleName() + " = #{any()}", resolvedFqn)
-                        .apply(
-                            getCursor(),
-                            assignment.getCoordinates().replace(),
-                            originalAssignment);
+                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
 
                 assert resolvedFqn != null;
                 modifiedAssignment =
@@ -383,17 +270,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                         modifiedAssignment.getVariable().withType(JavaType.buildType(resolvedFqn)));
                 modifiedAssignment = modifiedAssignment.withType(JavaType.buildType(resolvedFqn));
 
-                String newImport = RecipeUtils.getGenericLongName(resolvedFqn);
-                String oldImport =
-                    originalName.getFieldType() == null
-                        || originalName.getFieldType().getType() == null
-                        ? null
-                        : RecipeUtils.getGenericLongName(
-                            originalName.getFieldType().getType().toString());
-                if (oldImport != null && !oldImport.equals(newImport)) {
-                  maybeRemoveImport(oldImport);
-                }
-                maybeAddImport(newImport);
+                maybeAddImport(resolvedFqn);
 
                 // ensure comments are added here, not on method invocation
                 getCursor().putMessage(invocation.getId().toString(), "comments added");
@@ -444,12 +321,6 @@ public abstract class AbstractMigrationRecipe extends Recipe {
           public J.MethodInvocation visitMethodInvocation(
               J.MethodInvocation invocation, ExecutionContext ctx) {
 
-            // Skip unsupported queries before the counted-query branch so aliases cannot bypass
-            // the recipe-specific guard.
-            if (visitorSkipCondition().test(getCursor())) {
-              return invocation;
-            }
-
             J.MethodInvocation countedQuery = findCountedQuery(invocation);
             if (countedQuery != null && hasCountBuilderSpec(countedQuery)) {
               J.MethodInvocation countReplacement =
@@ -463,11 +334,17 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               }
             }
 
+            // test to skip visitor
+            if (visitorSkipCondition().test(getCursor())) {
+              return invocation;
+            }
+
             // visit simple method invocations
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
 
               if (spec.matcher().matches(invocation)
-                  && receiverTypeMatches(spec, invocation)) {
+                  && (spec.requiredReceiverMethodNames().isEmpty()
+                      || hasAnyMethodInReceiverChain(invocation, spec.requiredReceiverMethodNames()))) {
 
                 spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                 spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -490,20 +367,27 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             }
 
             // loop through builder pattern groups
-            boolean hasMatchingBuilderReceiver = false;
             for (Map.Entry<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>> entry :
                 builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
-                Map<String, Expression> collectedArgs = collectBuilderArguments(invocation);
+                Map<String, Expression> collectedArgs = new HashMap<>();
+                Expression current = invocation.getSelect();
+
+                // extract arguments
+                while (current instanceof J.MethodInvocation mi) {
+                  String name = mi.getSimpleName();
+                  if (!mi.getArguments().isEmpty()
+                      && !(mi.getArguments().get(0) instanceof J.Empty)) {
+                    collectedArgs.put(name, mi.getArguments().get(0));
+                  }
+                  current = mi.getSelect();
+                }
 
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
-                  if (receiverTypeMatches(spec, invocation)) {
-                    hasMatchingBuilderReceiver = true;
-                    if (!collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())) {
-                      continue;
-                    }
+                  if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
+                      && receiverTypeMatches(spec, invocation)) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -530,9 +414,6 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   }
                 }
               }
-            }
-            if (hasMatchingBuilderReceiver) {
-              return invocation;
             }
 
             // migrate methods based on returned variable declaration identifier
@@ -621,10 +502,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                     fqn ->
                         invocation.getSelect() != null
                             && TypeUtils.isOfClassType(invocation.getSelect().getType(), fqn))
-                .orElse(true)
-                && (spec.requiredReceiverMethodNames().isEmpty()
-                    || hasAnyMethodInReceiverChain(
-                        invocation, spec.requiredReceiverMethodNames()));
+                .orElse(true);
           }
 
           private J.MethodInvocation replaceCountBuilderInvocation(
@@ -678,31 +556,21 @@ public abstract class AbstractMigrationRecipe extends Recipe {
           private Map<String, Expression> collectBuilderArguments(
               J.MethodInvocation invocation) {
             Map<String, Expression> collectedArguments = new HashMap<>();
-            Expression current = unwrapParentheses(invocation.getSelect());
+            Expression current = invocation.getSelect();
 
             while (current instanceof J.MethodInvocation methodInvocation) {
-              List<Expression> arguments = methodInvocation.getArguments();
-              for (int i = 0; i < arguments.size(); i++) {
-                Expression argument = arguments.get(i);
-                if (argument instanceof J.Empty) {
-                  continue;
-                }
-
-                String argumentName =
-                    i == 0
-                        ? methodInvocation.getSimpleName()
-                        : methodInvocation.getSimpleName() + "Arg" + i;
-                if (collectedArguments.putIfAbsent(argumentName, argument) != null) {
-                  collectedArguments.put(argumentName + "Duplicate", argument);
-                }
+              if (!methodInvocation.getArguments().isEmpty()
+                  && !(methodInvocation.getArguments().get(0) instanceof J.Empty)) {
+                collectedArguments.put(
+                    methodInvocation.getSimpleName(), methodInvocation.getArguments().get(0));
               }
-              current = unwrapParentheses(methodInvocation.getSelect());
+              current = methodInvocation.getSelect();
             }
             return collectedArguments;
           }
 
           private J.MethodInvocation findCountedQuery(J.MethodInvocation invocation) {
-            Expression select = unwrapParentheses(invocation.getSelect());
+            Expression select = invocation.getSelect();
             if (invocation.getSimpleName().equals("size")
                 && select instanceof J.MethodInvocation query) {
               return query;
@@ -711,7 +579,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             if (invocation.getSimpleName().equals("count")
                 && select instanceof J.MethodInvocation stream
                 && stream.getSimpleName().equals("stream")
-                && unwrapParentheses(stream.getSelect()) instanceof J.MethodInvocation query) {
+                && stream.getSelect() instanceof J.MethodInvocation query) {
               return query;
             }
             return invocation.getSimpleName().equals("count") ? invocation : null;
@@ -719,12 +587,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
           private boolean hasAnyMethodInReceiverChain(
               J.MethodInvocation invocation, Set<String> methodNames) {
-            Expression current = unwrapParentheses(invocation.getSelect());
+            Expression current = invocation.getSelect();
             while (current instanceof J.MethodInvocation mi) {
               if (methodNames.contains(mi.getSimpleName())) {
                 return true;
               }
-              current = unwrapParentheses(mi.getSelect());
+              current = mi.getSelect();
             }
             return false;
           }
@@ -735,13 +603,5 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);
           }
         });
-  }
-
-  private static Expression unwrapParentheses(Expression expression) {
-    while (expression instanceof J.Parentheses<?> parentheses
-        && parentheses.getTree() instanceof Expression nested) {
-      expression = nested;
-    }
-    return expression;
   }
 }

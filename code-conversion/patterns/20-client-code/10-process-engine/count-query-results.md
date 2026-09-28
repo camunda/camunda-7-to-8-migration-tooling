@@ -9,6 +9,7 @@ The first two forms count the complete in-memory list returned by the engine.
 long runningInstances = engine.getRuntimeService()
         .createProcessInstanceQuery()
         .processDefinitionKey("order-process")
+        .active()
         .list()
         .stream()
         .count();
@@ -35,5 +36,6 @@ Use `page().totalItems().intValue()` when the original `list().size()` result ty
 Do not use `items().size()` or `items().stream().count()` for a complete result count.
 The `items()` list contains only the current page and can be limited by the configured page size.
 Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
-The migration recipe converts supported count-only queries to `page().totalItems()` but leaves
-process-instance `list()` results manual unless pagination is handled explicitly.
+The migration recipe converts only complete, inline `.active()` counts with no additional filter
+or a single `processDefinitionKey(...)`. It flags other process-instance queries for manual migration;
+see [Search Process Instances](search-process-instances.md).

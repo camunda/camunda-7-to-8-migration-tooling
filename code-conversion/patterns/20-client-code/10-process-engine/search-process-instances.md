@@ -16,12 +16,28 @@ public ProcessInstance findSingleActiveByVariable(
 }
 ```
 
-## Camunda 8.9+ (manual migration for variable filters)
+## Recipe boundary
 
-Camunda 8.9's `ProcessInstanceFilter` includes a `variables` array. Each entry requires a variable `name` and a JSON-serialized `value`, so process-instance search can match a variable by name and value. The recipe intentionally leaves all seven Camunda 7 `variableValue...(...)` predicates unchanged because it does not yet map their full comparison semantics to equivalent C8 filters. This applies to `list()`, `count()`, and `singleResult()` queries. It also leaves list/count chains through a `ProcessInstanceQuery` parameter or alias with an untraceable origin unchanged, because the recipe cannot prove that the query has no variable filters. These guards avoid partially converting a query and dropping its predicate.
+The recipe converts only complete, inline `.active()` counts (`count()`, `list().size()`, and `list().stream().count()`) with no other filter or a single `processDefinitionKey(...)`. It marks all other process-instance queries with a manual-migration TODO **without changing the query or its result type**. This includes variable predicates, business keys, `activityIdIn(...)`, default/suspended state, query aliases, `singleResult()`, and `list()` results. A Camunda 8 search page's `.items()` is not equivalent to Camunda 7's unbounded `list()`.
 
-Camunda 7 `RuntimeService` queries exclude completed instances. Without `.active()`, they can include suspended instances; `.active()` excludes suspended instances. The recipe only converts supported count queries that call `.active()`, filtering them to `ACTIVE`. The recipe has no target-version setting, and `SUSPENDED` is not part of the Camunda 8.9 process-instance state enum. Queries without `.active()` therefore remain unchanged for manual migration rather than emitting code that does not compile for Camunda 8.9 or dropping suspended instances on a target that supports them. For a manual default-query migration to Camunda 8.10+, include both `ACTIVE` and `SUSPENDED` where needed. Queries with an explicit `.suspended()` filter also remain manual.
+## Camunda 8.9+ manual lookup
 
-The recipe leaves queries with `processInstanceBusinessKey(...)` unchanged. Business IDs can be set in Camunda 8.9, but process-instance search filtering by `businessId` is supported starting in 8.10; because the recipe has no target-version setting, it does not emit that filter. It also leaves every process-instance `list()` result unchanged: the search API is paginated, and `.items()` returns only the current page, while Camunda 7 `list()` returns all matches. This applies to direct results, declarations, assignments, and downstream stream operations. Supported count-only forms, including `.count()`, `.list().size()`, and `.list().stream().count()`, can still be converted to `.page().totalItems()` when the query calls `.active()`.
+For an exact active name/value match, Camunda 8.9's `POST /v2/process-instances/search` supports a server-side `variables` filter:
 
-For an exact name/value match, use the `variables` filter on `POST /v2/process-instances/search` with the variable name and JSON-serialized value. For C7 comparison predicates that do not map directly to equivalent C8 filters, keep the query manual and preserve its semantics; do not drop the variable predicate while migrating other filters. If a separate variable search is needed, use `POST /v2/variables/search`, then apply remaining filters to the returned process-instance keys while preserving pagination and accounting for the endpoint's scope and consistency semantics.
+```http
+POST /v2/process-instances/search
+Content-Type: application/json
+
+{
+  "filter": {
+    "processDefinitionId": "orders",
+    "state": "ACTIVE",
+    "variables": [{ "name": "projectId", "value": "\"project-42\"" }]
+  },
+  "page": { "limit": 2 }
+}
+```
+
+The variable value is JSON-serialized (a string therefore includes escaped quotation marks). Verify that C7 comparison and variable-scope semantics match before substituting this filter. Use the filtered result to distinguish zero, one, and multiple matches; do not check an unfiltered count or assume the first page contains every match. For complete lists, follow the search cursor until no further pages remain. Search data is [eventually consistent](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-data-fetching/#data-consistency), so an immediate lookup may miss a newly started instance.
+
+Camunda 7's default runtime query can include suspended instances; explicit `.active()` excludes them. The Camunda 8.9 state filter has no `SUSPENDED` value, so default/suspended queries need a target-version-specific design. Business ID filtering in process-instance search starts in 8.10; business-key queries also remain manual.
