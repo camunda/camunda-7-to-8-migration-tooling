@@ -49,6 +49,21 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+### Complete process-variable map
+
+When the Camunda 7 source reads the complete execution-variable map, keep `ActivatedJob` and pass
+`job.getVariablesAsMap()` to the delegate:
+
+```java
+    @JobWorker(type = "persistProject", fetchAllVariables = true)
+    public Map<String, Object> handleJob(ActivatedJob job) {
+        return projectDelegate.persist(job.getVariablesAsMap());
+    }
+```
+
+An `ActivatedJob` parameter disables implicit variable fetching. Set `fetchAllVariables = true` when
+the delegate needs every variable. Never use `@Variable` to request the complete process-variable map.
+
 ### autoComplete = false (blocking)
 
 ```java
@@ -86,30 +101,14 @@ Check the [README](./README.md) for more details on class-level changes.
 
 ## Completion variable scope
 
-Camunda 7 external-task completion separates process variables from task-local variables. Inspect
-the overload and both maps because downstream activities can depend on their different scopes.
+Camunda 7 `complete(id, processVariables, localVariables)` writes each map at its own scope.
+The two-argument overload writes only process variables. Passing `null` skips either map.
+Inspect each call, its branch conditions, and downstream reads.
 
-| C7 completion call | Process variables | Task-local variables |
-|---|---|---|
-| `complete(id, processVariables)` or `complete(id, processVariables, null)` | Writes the supplied map | None |
-| `complete(id, processVariables, localVariables)` | Writes the supplied map | Writes the supplied map |
-| `complete(id, null, localVariables)` | None | Writes the supplied map |
+Camunda 8 completion accepts one result map. [BPMN mappings](https://docs.camunda.io/docs/components/modeler/bpmn/data-handling/)
+control the variables' [scope and propagation](https://docs.camunda.io/docs/components/concepts/variables/).
+A worker result alone cannot preserve the separate C7 scopes.
 
-Camunda 8 Spring auto-completion and `CompleteJobCommand.variables(...)` send one job-result map.
-Neither call has a separate argument for C7 task-local variables. Camunda 8 applies BPMN variable
-scope and propagation rules when the job completes. See the
-[variable-scope docs](https://docs.camunda.io/docs/components/concepts/variables/).
-
-An input mapping can create a local variable scope. An output mapping controls which local values
-propagate when the activity completes. A worker result map alone does not prove that a C7 completion
-keeps the same scope. See the
-[input/output mapping docs](https://docs.camunda.io/docs/components/modeler/bpmn/data-handling/).
-
-Inspect every C7 completion branch and every downstream read. Preserve each branch only when the
-C8 worker and BPMN mappings preserve its scope. If no faithful mapping exists, then ask the user for
-a manual BPMN/worker-scoping decision. Never leave the source branch unused and report parity.
-
-When a condition such as `isRandomSample` selects the completion scope, test both outcomes. For
-example, assert where `invoiceId` and `invoice` are visible and whether the archiver executes. If a
-separate deployment blocker prevents the test, then record that blocker and keep parity unresolved.
-After the blocker closes, run both outcomes before reporting parity.
+Test each branch's process and local visibility and its downstream consumers. If no faithful mapping
+exists, then ask the user for a BPMN/worker-scoping decision. Never discard a branch and claim
+parity. If deployment blocks testing, then record the blocker and keep parity unresolved.
