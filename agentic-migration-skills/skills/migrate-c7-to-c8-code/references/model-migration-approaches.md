@@ -16,14 +16,16 @@ Before conversion, namespace-parse the exact original BPMN and inventory every C
 Compare each C7 call's `camunda:in` inputs and `camunda:out` outputs with the converted copy.
 Camunda 8.9 supports these [call-activity mappings](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings).
 Check the target's support before removing a mapping flagged as unavailable.
+Without `camunda:in` or `camunda:out`, C7 passes no variables in that direction.
+Camunda 8 copies all variables by default.
 
 | C7 contract | Camunda 8 mapping |
 |---|---|
 | Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each selected value. |
-| No parent inputs | Set `propagateAllParentVariables="false"` without input mappings. |
+| No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
 | All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
 | Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each returned value. |
-| No child outputs | Set `propagateAllChildVariables="false"` when no child variables should return. |
+| No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
 | All child outputs | Keep all-child propagation only when C7 returns the same scope. |
 | No compatible mapping | Keep the category **needs review**. Ask the user to decide the scope rather than widening selected inputs. |
 
