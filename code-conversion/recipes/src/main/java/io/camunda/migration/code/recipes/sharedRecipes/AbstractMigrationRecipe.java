@@ -103,7 +103,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // if match is found for the invocation, check returnTypeFqn to adjust variable
                 // declaration type
-                if (spec.matcher().matches(invocation)) {
+                if (spec.matcher().matches(invocation) && receiverTypeMatches(spec, invocation)) {
 
                   // nothing to do if type stays the same
                   if (spec.returnTypeStrategy()
@@ -241,7 +241,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
               // if match is found for the invocation, check returnTypeFqn to adjust variable
               // declaration type
-              if (spec.matcher().matches(invocation)) {
+              if (spec.matcher().matches(invocation) && receiverTypeMatches(spec, invocation)) {
 
                 // nothing to do if type stays the same
                 if (spec.returnTypeStrategy()
@@ -387,13 +387,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                   if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
-                      && spec.receiverTypeFqn()
-                          .map(
-                              fqn ->
-                                  invocation.getSelect() != null
-                                      && TypeUtils.isOfClassType(
-                                          invocation.getSelect().getType(), fqn))
-                          .orElse(true)) {
+                      && receiverTypeMatches(spec, invocation)) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -501,6 +495,16 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 .anyMatch(matcher -> matcher.matches(queryTerminal));
           }
 
+          private boolean receiverTypeMatches(
+              ReplacementUtils.ReplacementSpec spec, J.MethodInvocation invocation) {
+            return spec.receiverTypeFqn()
+                .map(
+                    fqn ->
+                        invocation.getSelect() != null
+                            && TypeUtils.isOfClassType(invocation.getSelect().getType(), fqn))
+                .orElse(true);
+          }
+
           private J.MethodInvocation replaceCountBuilderInvocation(
               J.MethodInvocation replacementTarget,
               J.MethodInvocation queryTerminal,
@@ -516,13 +520,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                 if (!collectedArguments.keySet().equals(spec.methodNamesToExtractParameters())
                     || !supportsCountedQuery(queryTerminal)
-                    || !spec.receiverTypeFqn()
-                        .map(
-                            fqn ->
-                                queryTerminal.getSelect() != null
-                                    && TypeUtils.isOfClassType(
-                                        queryTerminal.getSelect().getType(), fqn))
-                        .orElse(true)) {
+                    || !receiverTypeMatches(spec, queryTerminal)) {
                   continue;
                 }
 

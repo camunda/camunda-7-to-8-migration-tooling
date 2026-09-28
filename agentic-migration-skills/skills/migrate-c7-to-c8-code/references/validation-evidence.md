@@ -10,12 +10,14 @@ readiness.
 
 ## Prepare the scope
 
-Before conversion, save the in-scope Step 2 paths in
-`.camunda-migration/validation/step2-inventory.json`:
+After the user confirms a full migration, save the in-scope Step 2 paths in
+`.camunda-migration/validation/step2-inventory.json` before conversion:
 
 ```json
 {"schema_version":1,"modules":["examples/web"],"models":["models/order.bpmn"]}
 ```
+
+Where E1 fetches a model, add its original path after retrieval and before conversion.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 
@@ -36,6 +38,7 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
 
 Use project-relative paths. List every migrated module and every in-scope original BPMN/DMN.
 Include all independent test suites from each module's build. Set `requires_docker` for each suite.
+Where a module uses a Camunda Spring Boot starter, include its real-client context test as a suite.
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
 module to skip runtime checks.
 
@@ -102,11 +105,11 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Each applicable behavior | A command check named in the assertion table below. |
 | Each repeating timer start in an executable process | A separate `preflight` before model deployment or process execution. |
 
-The module review covers the code checks in Step 4 of `SKILL.md`: remaining Camunda 7 dependencies
-and imports, TODOs, business keys, client usage, queries, adapters, and packaged resources. The model
-review covers source integrity, converter findings, accepted and referenced forms, form parsing and
-deployment, BPMN DI, and task-definition types. Record unresolved decisions as failures or blockers,
-not as a passing review.
+The module review covers the code checks in Step 4 of `SKILL.md`: dependencies and their
+compatibility, imports, TODOs, business keys, client usage, queries, adapters, and packaged resources.
+The model review covers source integrity, converter findings, accepted and referenced forms, BPMN
+DI, and task-definition types. Where M1 applies, review the selected CLI artifact and listener
+findings. Record unresolved decisions as failures or blockers, not as a passing review.
 
 The worker-input review records the expected inputs and all direct-start scenarios. A process-path
 command must assert the process ID and behavior. An active initiating instance does not prove that
@@ -127,6 +130,9 @@ derives the minimum set from the converted BPMN. It cannot infer every behavior 
 Before any deployment, inspect the configured connection for a local or non-production
 cluster. Supply `--environment local` or `--environment non-production` to deployment and process
 commands. The flag records the selected environment. It does not inspect the remote cluster.
+Use the user-authorized profile and selected target version from
+`model-migration-approaches.md`. Include accepted forms with their owning BPMN in
+the deployment request. Block resources whose deployment names collide.
 Use the same restriction for runtime checks. Never start a production worker as a validation
 probe. Deploy every converted model. Never deploy a validation probe to production.
 
@@ -156,3 +162,6 @@ The gate verifies recorded execution and coverage, not the meaning of arbitrary 
 manual reviews. Inspect the commands, assertions, logs, and cluster target before claiming
 migration readiness. Never claim readiness elsewhere in `MIGRATION_REPORT.md` when the gate says
 `NOT READY`.
+
+The project-readiness verdict in `project-readiness.md` is separate. Report a complete
+migration only when that verdict is `ready` and the evidence gate reports `READY`.

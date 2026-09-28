@@ -49,6 +49,21 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+### Complete process-variable map
+
+When the Camunda 7 source reads the complete execution-variable map, keep `ActivatedJob` and pass
+`job.getVariablesAsMap()` to the delegate:
+
+```java
+    @JobWorker(type = "persistProject", fetchAllVariables = true)
+    public Map<String, Object> handleJob(ActivatedJob job) {
+        return projectDelegate.persist(job.getVariablesAsMap());
+    }
+```
+
+An `ActivatedJob` parameter disables implicit variable fetching. Set `fetchAllVariables = true` when
+the delegate needs every variable. Never use `@Variable` to request the complete process-variable map.
+
 ### autoComplete = false (blocking)
 
 ```java

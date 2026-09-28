@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_AsyncAfterBoundary"
+                  targetNamespace="http://camunda.org/examples/transaction-boundaries">
+  <bpmn:process id="async-after-boundary" name="Async after transaction boundary" isExecutable="true">
+    <bpmn:startEvent id="StartEvent" name="Start">
+      <bpmn:outgoing>Flow_StartToRoute</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_StartToRoute" sourceRef="StartEvent" targetRef="RoutePath" />
+    <bpmn:exclusiveGateway id="RoutePath" name="Choose wait state" default="Flow_RouteToSynchronous">
+      <bpmn:incoming>Flow_StartToRoute</bpmn:incoming>
+      <bpmn:outgoing>Flow_RouteToAsyncAfter</bpmn:outgoing>
+      <bpmn:outgoing>Flow_RouteToSynchronous</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_RouteToAsyncAfter" sourceRef="RoutePath" targetRef="WaitStateAsyncAfter">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${useAsyncAfterPath}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_RouteToSynchronous" sourceRef="RoutePath" targetRef="WaitStateSynchronous" />
+    <bpmn:userTask id="WaitStateAsyncAfter" name="Wait with asyncAfter" camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_RouteToAsyncAfter</bpmn:incoming>
+      <bpmn:outgoing>Flow_AsyncAfterToDelegate</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_AsyncAfterToDelegate" sourceRef="WaitStateAsyncAfter" targetRef="SynchronousDelegate" />
+    <bpmn:userTask id="WaitStateSynchronous" name="Wait without asyncAfter">
+      <bpmn:incoming>Flow_RouteToSynchronous</bpmn:incoming>
+      <bpmn:outgoing>Flow_SynchronousToDelegate</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_SynchronousToDelegate" sourceRef="WaitStateSynchronous" targetRef="SynchronousDelegate" />
+    <bpmn:serviceTask id="SynchronousDelegate" name="Run JavaDelegate" camunda:class="org.camunda.example.SynchronousDelegate">
+      <bpmn:incoming>Flow_AsyncAfterToDelegate</bpmn:incoming>
+      <bpmn:incoming>Flow_SynchronousToDelegate</bpmn:incoming>
+      <bpmn:outgoing>Flow_DelegateToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_DelegateToEnd" sourceRef="SynchronousDelegate" targetRef="EndEvent" />
+    <bpmn:endEvent id="EndEvent" name="End">
+      <bpmn:incoming>Flow_DelegateToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>

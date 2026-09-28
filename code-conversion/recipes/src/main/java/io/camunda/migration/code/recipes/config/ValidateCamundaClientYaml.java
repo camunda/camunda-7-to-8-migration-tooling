@@ -88,7 +88,7 @@ public class ValidateCamundaClientYaml extends Recipe {
     };
   }
 
-  private static String ancestorPath(Cursor mappingCursor) {
+  static String ancestorPath(Cursor mappingCursor) {
     Deque<String> parts = new ArrayDeque<>();
     Cursor cursor = mappingCursor.getParent();
     while (cursor != null) {
@@ -100,7 +100,7 @@ public class ValidateCamundaClientYaml extends Recipe {
     return String.join(".", parts);
   }
 
-  private static String join(String parentPath, String key) {
+  static String join(String parentPath, String key) {
     return parentPath.isEmpty() ? key : parentPath + "." + key;
   }
 }
