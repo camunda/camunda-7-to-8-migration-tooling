@@ -211,6 +211,8 @@ The `fixtures/spring-boot-web-topology` walkthrough checks an application on
 port `8081` while its Camunda 8 cluster uses port `8080`. It tests application
 health, process start through an application endpoint, and the absence of the
 old Camunda 7 Engine REST route.
+The `fixtures/conditional-events` walkthrough covers M2 conditional-event IDs,
+BPMN DI preservation, and a Camunda 8.9+ runtime check.
 The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
 project documentation, CI checks, and readiness reporting.
 The `fixtures/project-readiness` walkthrough checks in-scope documentation,
