@@ -24,8 +24,9 @@ def resources_for_pattern(entries, pattern):
     return resources
 
 
-def verify_packaged_resources(entries):
-    for pattern, expected in DEPLOYMENT_PATTERNS.items():
+def verify_packaged_resources(entries, patterns=DEPLOYMENT_PATTERNS):
+    resolved_resources = set()
+    for pattern, expected in patterns.items():
         matches = resources_for_pattern(entries, pattern)
         if not matches:
             raise ValueError(f"Packaged resource pattern {pattern!r} matches no resources.")
@@ -42,6 +43,14 @@ def verify_packaged_resources(entries):
             if unexpected:
                 details.append(f"unexpected: {', '.join(unexpected)}")
             raise ValueError(f"Packaged resource pattern {pattern!r} has {'; '.join(details)}.")
+
+        overlap = actual & resolved_resources
+        if overlap:
+            names = ", ".join(sorted(overlap))
+            raise ValueError(
+                f"Packaged resources match multiple deployment patterns: {names}."
+            )
+        resolved_resources.update(actual)
 
 
 def main():

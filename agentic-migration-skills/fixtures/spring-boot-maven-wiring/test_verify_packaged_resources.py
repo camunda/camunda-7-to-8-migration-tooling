@@ -41,6 +41,18 @@ class PackagedResourcesValidationTest(unittest.TestCase):
                 ]
             )
 
+    def test_rejects_resources_matched_by_multiple_patterns(self):
+        patterns = {
+            "converted-c8-*.bpmn": {"converted-c8-message-start.bpmn"},
+            "converted-c8-message-*.bpmn": {"converted-c8-message-start.bpmn"},
+        }
+
+        with self.assertRaisesRegex(ValueError, "multiple deployment patterns"):
+            verify_packaged_resources(
+                [f"{CLASS_ROOT}converted-c8-message-start.bpmn"],
+                patterns,
+            )
+
     def test_ignores_resources_outside_the_classpath_root(self):
         with self.assertRaisesRegex(ValueError, "matches no resources"):
             verify_packaged_resources(

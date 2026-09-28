@@ -9,6 +9,7 @@ package org.camunda.bpm.example.event.message;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.camunda.client.annotation.Deployment;
@@ -18,6 +19,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
@@ -58,12 +60,31 @@ class DeploymentResourcesTest {
           includedTypes.containsAll(resourceTypes),
           "Patterns must select only included resource types");
       resolvedTypes.addAll(resourceTypes);
-      resolvedResources.addAll(matches);
+      addMatches(resolvedResources, matches);
     }
 
     assertEquals(DEPLOYMENT_INVENTORY, resolvedResources);
     assertEquals(
         includedTypes, resolvedTypes, "Each included type must have at least one pattern");
+  }
+
+  @Test
+  void rejectsAResourceMatchedByMultiplePatterns() {
+    Set<String> resolvedResources = new HashSet<>();
+    Set<String> matches = Set.of("converted-c8-message-start.bpmn");
+
+    addMatches(resolvedResources, matches);
+    assertThrows(
+        AssertionFailedError.class,
+        () -> addMatches(resolvedResources, matches));
+  }
+
+  private static void addMatches(Set<String> resolvedResources, Set<String> matches) {
+    for (String match : matches) {
+      assertTrue(
+          resolvedResources.add(match),
+          "A resource must match only one deployment pattern: " + match);
+    }
   }
 
   private static String resourceType(String filename) {

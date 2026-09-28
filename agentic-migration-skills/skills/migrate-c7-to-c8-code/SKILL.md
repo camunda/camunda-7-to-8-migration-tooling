@@ -361,9 +361,9 @@ Each item below is a check to run and a condition that must hold at exit. Record
     creates at least one annotation entry for each included resource type and can create multiple
     entries for one type. The skill resolves each entry with Spring's
     `PathMatchingResourcePatternResolver` against the build classpath. Each pattern must match a
-    non-empty subset of the packaged deployment inventory, and every inventory item must match a
-    pattern. After packaging, the skill confirms every matched resource exists in the application
-    artifact. A test that disables annotation deployment does not validate this wiring.
+    non-empty subset of the packaged deployment inventory. Each inventory item must match exactly
+    one pattern. After packaging, the skill confirms every matched resource exists in the
+    application artifact. A test that disables annotation deployment does not validate this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same

@@ -16,8 +16,8 @@ Spring Boot deployment application. It adds the Camunda 8 starter,
 3. Run `mvn package` in `expected-c8`. This runs `DeploymentResourcesTest`, which
    resolves the annotation patterns with Spring's
    `PathMatchingResourcePatternResolver`. Each pattern must match a non-empty
-   subset of the test classpath inventory. Their union must equal the BPMN and
-   DMN files. This test does not inspect the packaged JAR or connect to a cluster.
+   subset of the test classpath inventory. Each resource must match exactly one
+   pattern. This test does not inspect the packaged JAR or connect to a cluster.
 4. From `spring-boot-maven-wiring`, run
    `python3 -m unittest -v test_verify_packaged_resources.py`, then run
    `python3 verify_packaged_resources.py --jar expected-c8/target/message-start-1.0-SNAPSHOT.jar`.

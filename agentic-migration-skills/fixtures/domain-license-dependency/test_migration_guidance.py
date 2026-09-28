@@ -140,7 +140,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             skill,
         )
         self.assertIn("set each query follow-up to status `open`", checklist)
-        self.assertIn("no item has `deferred` or `blocked` status", skill)
+        self.assertIn("a `deferred` or `blocked` item stays open follow-up work", skill)
         self.assertIn("| call site | manual follow-up | status |", report)
         self.assertNotIn("`blocking/manual`", report)
 

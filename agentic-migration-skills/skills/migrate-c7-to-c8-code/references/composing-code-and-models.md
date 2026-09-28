@@ -219,8 +219,8 @@ application code.
   BPMN, DMN, or form pattern only when the inventory contains that resource type. The skill never
   targets original diagrams, draft forms, or declined forms. The skill resolves each pattern with
   Spring's `PathMatchingResourcePatternResolver` against packaged resources. Each pattern must
-  resolve a non-empty subset of the inventory, and their union must equal the inventory. A test that
-  disables annotation deployment does not validate this wiring.
+  resolve a non-empty subset of the inventory. Each inventory resource must match exactly one
+  pattern. A test that disables annotation deployment does not validate this wiring.
 - **No, I will handle deployment outside app startup** (MAY) — the skill leaves code unchanged and
   records this decision in `MIGRATION_REPORT.md`.
 
