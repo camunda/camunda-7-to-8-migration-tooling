@@ -212,6 +212,10 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+For each original BPMN, record every `camunda:executionListener event="start"` directly on a
+`bpmn:startEvent`. Record its source path, event ID, and implementation even if the converter omits
+its finding.
+
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
 
@@ -352,9 +356,13 @@ Each item below is a check to run and a condition that must hold at exit. Record
     the gate **blocked** and records the missing evidence and unknown rollback effects in an open
     item with status `open`.
 13. **Deployment resources** — when `@Deployment` is present after migration, build the
-     deployment inventory from this run's recorded converted-file paths and accepted generated forms.
-    Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
-    deployment inventory. Each inventory item must match a deployment pattern.
+    inventory from this run's converted copies and accepted forms. Create separate `resources`
+    entries for each included type, allowing multiple entries per type. Resolve the actual annotation
+    entries with Spring's `PathMatchingResourcePatternResolver`. Require each entry to match a
+    non-empty subset of one resource type in the inventory. Reject any match outside the inventory.
+    Require each inventory resource to match exactly one entry. Confirm that the packaged
+    application contains every match. A test that disables annotation deployment does not validate
+    this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
@@ -450,6 +458,24 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
+21. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+    version. Apply step 3b in `references/model-migration-approaches.md` to every source start
+    listener and converted copy.
+
+    | Artifact evidence | Action |
+    |---|---|
+    | One matching `TASK` finding per source listener and no invalid placement | Complete any user-approved relocation and target validation. |
+    | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
+    | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
+
+22. **Target deployment** — when the user authorizes a test target, verify its profile and version
+    as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
+    DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
+    `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
+    If two resources would share a deployment name, then block deployment until their names differ.
+    Record a result for every resource path and each form's owner. If authorization, target-version
+    evidence, deployment success, or an approved listener follow-up is missing, then block model
+    readiness.
 
 #### Project readiness checks, when code or models were migrated
 
@@ -486,6 +512,7 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
+| Deployment readiness | After a model or deployment change, repeat Step 4's resource and target checks before reporting model readiness. | Resolved patterns, packaged entries, target version, and per-resource results |
 
 Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
@@ -538,7 +565,7 @@ Within each impact, process rows with a severity before source-derived rows with
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
+- When the source inventory or M1 findings report identifies a start listener, use the relocation procedure in
   `references/model-migration-approaches.md`.
 - Never relocate this listener automatically.
 - Confirm that the chosen target still supports execution listeners on the enclosing process or
