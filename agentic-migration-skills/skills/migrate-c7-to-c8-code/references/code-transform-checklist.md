@@ -252,12 +252,37 @@ For approach B, run only the validation recipe after migration:
 Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
 `code-migration-approaches.md` temporarily. Restore the build file after validation.
 
-The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
-It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
-does not start an application or connect to a Camunda cluster.
+The recipe scans production `@JobWorker` declarations and application configuration in each module.
+It marks invalid settings and deprecated aliases. Where a module declares workers, it also marks
+client-wide and worker-default `enabled` settings that can disable them, including legacy aliases
+and environment placeholders. It marks disabled or unresolved `@JobWorker.enabled` values.
+These findings are potential blockers, not a calculation of effective Spring configuration.
+The recipe does not resolve profiles, environment variables, or per-worker overrides.
 
-Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
-record credential values.
+### Worker readiness
+
+Inventory required job types from each runnable module's `@JobWorker` declarations.
+Treat a type as required until the user approves it as optional or disabled.
+Resolve the active client, worker-default, and per-worker `enabled` settings for each type.
+Include legacy aliases, annotation values, profile-specific files, and environment overrides.
+A per-worker override can enable a worker even when worker defaults disable it.
+Do not treat a static finding as proof of disablement or an absence of findings as proof of readiness.
+
+Do not map a C7 subscription's `auto-open: false` to a global C8 worker setting.
+Ask the user whether to disable a specific C8 worker and record the decision.
+
+| Evidence | Worker verdict | Required action |
+|---|---|---|
+| The active configuration disables a required worker | **BLOCKED** | Enable it or request explicit approval to disable it. |
+| A module has no workers and no user approval | **BLOCKED** | Inspect worker adapters. Ask whether the module is intentionally workerless. |
+| A job type, active setting, or registration is unknown | **UNVERIFIED** | Resolve unknowns. Verify registration at startup or with a local runtime test. |
+| The user approves an optional job type | **OPTIONAL (APPROVED)** | Record the reason and exclude that type from the required inventory. |
+| The user approves a disabled worker or workerless module | **APPROVED DISABLED / WORKERLESS** | Record the scope and decision. Do not report **READY** for it. |
+| Every required job type registers under the active profile and environment | **READY** | Record runtime evidence for every required type. |
+
+Record each module, job type, configuration source, profile and environment name, decision, and
+runtime evidence in `MIGRATION_REPORT.md`. Never record credential values.
+Resolve configuration errors and record those findings and deprecated aliases.
 
 ---
 
