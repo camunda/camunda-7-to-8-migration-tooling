@@ -76,6 +76,19 @@ The recipes are organized by code type and transformation phase:
 | **Cleanup** | AllClientCleanupRecipes | AllDelegateCleanupRecipes | AllExternalWorkerCleanupRecipes |
 | **Combined** | AllClientRecipes | AllDelegateRecipes | AllExternalWorkerRecipes |
 
+### Camunda Spin variables
+
+`AllClientMigrateRecipes` adds TODOs for Spin imports, `JSON(...)`, `XML(...)`, and
+`SpinJsonNode.prop(...).stringValue()`. The JSON hint distinguishes parsing existing JSON text or
+streams with Jackson from passing a POJO/Map directly; `String.valueOf(pojo)` is not JSON
+serialization. The hints do not embed source expressions or automatically replace Spin calls.
+
+The typed-value prepare recipe unwraps known JSON `ObjectValue` builders only in direct
+object-accepting call arguments or declarations/assignments it has migrated. Unknown formats,
+fields, multiple declarations, later-reassigned variables, and other expression contexts remain
+for manual migration. Cleanup removes Spin dependencies after unused-import removal only when no
+Spin types remain in source.
+
 See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
 
 ## Contributing
