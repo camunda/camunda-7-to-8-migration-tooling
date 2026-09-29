@@ -1,0 +1,12 @@
+{
+  "components": [],
+  "executionPlatform": "Camunda Cloud",
+  "executionPlatformVersion": "8.8.0",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.34.0"
+  },
+  "schemaVersion": 18,
+  "id": "synchronous-delegate-rollback-form",
+  "type": "default"
+}

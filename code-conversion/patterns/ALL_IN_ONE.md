@@ -15,6 +15,7 @@ Patterns:
     - [Broadcast Signals](#broadcast-signals)
     - [Cancel Process Instance](#cancel-process-instance)
     - [Correlate Messages](#correlate-messages)
+    - [Count Query Results](#count-query-results)
     - [Handle Variables](#handle-variables)
     - [Handle Resources](#handle-resources)
     - [Handle User Tasks](#handle-user-tasks)
@@ -52,7 +53,9 @@ Some changes need to happen on a development-project-wide level.
 
 ### Maven dependency and configuration
 
-As part of the code migration, remove all Camunda 7 dependencies. Import the **Camunda Spring SDK**:
+As part of the code migration, classify every dependency before removal. Remove a Camunda 7 engine
+dependency only when the project has no active use for it. Keep compatible domain libraries even
+when their group ID starts with `org.camunda.bpm`. Import the **Camunda Spring SDK**:
 
 ```
 <dependency>
@@ -64,9 +67,55 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 
 Also, configure your connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
+**Dependency inventory and classification**:
+
+Inventory every dependency before classification. Check its imports, configuration, reflection,
+service-provider registrations, and runtime call sites. Record each dependency, its uses, target
+compatibility, and decision in `MIGRATION_REPORT.md`. Treat a group ID or package under
+`org.camunda.bpm` as a review signal, not proof that the dependency is engine-only.
+
+| Finding | Action |
+|---|---|
+| Camunda 7 engine or embedded-engine dependency with no Camunda 8 equivalent and no remaining required use | Remove it and record the reason. This can include `camunda-bom` or database dependencies used only by the embedded engine. |
+| Active domain library that is compatible with the target runtime | Keep it, even when its group ID or package starts with `org.camunda.bpm`. |
+| Active library with unknown target compatibility | Check its documented target support and test its required behavior. Ask the project owner to confirm compatibility or approve a replacement before changing behavior. If compatibility remains unconfirmed, then leave the active code unchanged. Record each affected call site as `blocked` with manual follow-up in `MIGRATION_REPORT.md`. Do not report those flows as migrated. |
+| Active library is incompatible, and the project owner approves a replacement | Replace the library and its call sites only after recording the approval. Test the required behavior for every supported type and downstream call path. |
+| Active library is incompatible and has no owner-approved replacement | Leave the active code unchanged. Record each affected call site as `blocked` with manual follow-up in `MIGRATION_REPORT.md`. Do not replace behavior with an exception or fabricated result. Do not report those flows as migrated. |
+
+For active license-generation behavior, test every supported license type and downstream call path
+with synthetic fixture values. A successful compile alone does not prove that the behavior still
+works. Never invent license keys or other business data. Never include production keys or
+credentials in fixtures.
+
 **Spring Boot version**: Select the starter from the [Camunda Spring Boot version compatibility matrix](https://docs.camunda.io/docs/8.8/apis-tools/camunda-spring-boot-starter/getting-started/#version-compatibility). For Camunda 8.8, `camunda-spring-boot-starter` is bundled with Spring Boot 3.5.x. Use `camunda-spring-boot-4-starter` from 8.8.9 for Spring Boot 4.0.x. Use `camunda-spring-boot-3-starter` from 8.8.15 when staying on Spring Boot 3.x.
 
-**Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context that creates `CamundaClient`. If startup fails, record a blocking finding. Do not override individual transitive dependencies to force startup.
+**BOM alignment**: Preserve existing parent dependency management and imported BOMs unless
+inspection supports an explicit change. Inspect `mvn help:effective-pom -Dverbose` and
+`mvn dependency:tree -Dverbose` for the Camunda starter and existing cloud libraries before changing
+dependency management. Trace each imported BOM's effective version to the POM or property that
+supplies it. If a BOM does not resolve, record its coordinates and the exact Maven error. Check its
+coordinates, inherited version source, and configured repositories before replacing or removing it.
+Never comment out an unresolved BOM and replace selected managed artifacts with isolated version
+pins.
+
+Check explicit `<version>` values on direct dependencies managed by an imported BOM. A direct
+version overrides BOM management. Remove an unexplained override. Record the compatibility reason
+for any retained override.
+
+Run the same inspections after POM changes. For gRPC, inspect every resolved `io.grpc` artifact, its
+dependency path, and its version source. Manage an incompatible gRPC family through a compatible
+`io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`, or
+`grpc-core`. Remove a conflicting direct dependency only after source, configuration, and test
+searches show that the project does not use it. Record before-and-after versions, dependency paths,
+version sources, and the remediation in `MIGRATION_REPORT.md`.
+
+**Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
+that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this
+focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,
+block readiness and record its command, exit code, and error. Classify the failure as a classpath
+incompatibility only when it reports a `LinkageError` or the resolved dependency graph proves an
+incompatible family. A cluster connection failure during an API command is separate evidence and
+never proves that the classpath is compatible.
 
 ---
 
@@ -77,6 +126,25 @@ Handling of process variables in Camunda 7 is a complex topic. The engine suppor
 In Camunda 8, all common value types are stored in JSON representation. This simplifies various aspects about handling process variables in client code and glue code.
 
 The code conversion examples cover both Camunda 7 approaches to handle process variables. Naturally, both approaches are converted into the simplified JSON representation approach in Camunda 8.
+
+###### Call-activity variable scope
+
+Compare each C7 call's `camunda:in`, `camunda:out`, and delegated mappings with the converted copy.
+Without mappings or a variable-mapping delegate, C7 passes no variables in either direction.
+Camunda 8.8 copies all parent and child variables by default.
+
+| C7 contract | Camunda 8 mapping |
+|---|---|
+| Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each value. |
+| No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
+| All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
+| Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each value. |
+| No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
+| All child outputs | Keep all-child propagation only when C7 returns the same scope. |
+| Custom mapping delegate | Compare its behavior with C8 mappings; keep mismatches unresolved. |
+
+Camunda 8.8 supports [call-activity variable mappings](https://docs.camunda.io/docs/8.8/components/modeler/bpmn/call-activities/#variable-mappings).
+Keep calls with unsupported or untested behavior unresolved.
 
 TODO: Add proper links to:
 
@@ -335,6 +403,47 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
 -   the messageId can be used to differentiate between different buffered message
 -   messages are correlated once to a process based on BPMN process id (processDefinitionId), but can be correlated to different processes
 -   for more information, see [the docs](https://docs.camunda.io/docs/next/components/concepts/messages)
+
+---
+
+#### Count Query Results
+
+Camunda 7 query results can be counted with `list().size()`, `list().stream().count()`, or `count()`.
+The first two forms count the complete in-memory list returned by the engine.
+
+###### Camunda 7
+
+```java
+long runningInstances = engine.getRuntimeService()
+        .createProcessInstanceQuery()
+        .processDefinitionKey("order-process")
+        .list()
+        .stream()
+        .count();
+```
+
+###### Camunda 8
+
+```java
+import io.camunda.client.api.search.enums.ProcessInstanceState;
+
+long runningInstances = camundaClient.newProcessInstanceSearchRequest()
+        .filter(filter -> filter
+                .processDefinitionId("order-process")
+                .state(ProcessInstanceState.ACTIVE))
+        .send()
+        .join()
+        .page()
+        .totalItems();
+```
+
+Use `page().totalItems()` when the result drives a count, guard, or business decision.
+Use `page().totalItems().intValue()` when the original `list().size()` result type is `int` or
+`Integer`.
+Do not use `items().size()` or `items().stream().count()` for a complete result count.
+The `items()` list contains only the current page and can be limited by the configured page size.
+When using Elasticsearch or OpenSearch, `totalItems` is capped at 10,000. Do not treat it as an
+exact count when more matching results may exist.
 
 ---
 
@@ -1011,6 +1120,24 @@ review them separately if they still use Camunda 7 APIs.
 
 There are often multiple methods that achieve the same result. The patterns try to capture as many examples as possible. Delegate code that accesses the engine services is not covered here. Please refer to the patterns for the engine services. In general, delegate code that utilizes engines services is more difficult to migrate to Camunda 8.
 
+###### Transaction and security semantics
+
+In Camunda 7, `camunda:asyncBefore` starts a command segment before its activity.
+`camunda:asyncAfter` starts a continuation segment after its activity. A failure rolls back the
+synchronous work in the command segment that runs the delegate.
+
+Without a boundary between a wait state and the JavaDelegate, the command that completes the wait
+state can also run the delegate. If the delegate fails, that command rolls back and the wait state
+remains incomplete. A preceding `camunda:asyncAfter` boundary commits its activity before downstream
+work continues. Synchronous activities after that boundary can still share the delegate's command.
+See [Camunda 7 asynchronous continuations](https://docs.camunda.org/manual/7.14/user-guide/process-engine/transactions-in-processes/#asynchronous-continuations).
+
+A C8 job worker runs outside the engine transaction. Its failure can consume retries and raise an
+incident after the preceding user task has completed. The worker does not share the C7 engine
+transaction or its thread-bound security context.
+
+Do not describe moving the same Java body to a worker as equivalent synchronous behavior. Ask the user to choose C8 retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. Ask the user to choose a worker-side transaction or security mechanism, or a code refactor, when the source relies on those contexts. Record the chosen behavior and accepted parity gap in `MIGRATION_REPORT.md`. The `SynchronousDelegateTransactionBoundaryTest` in the C8 code examples demonstrates the resulting process state. See the Handling a Failure pattern for additional guidance.
+
 
 #### Class-level Changes
 
@@ -1156,6 +1283,14 @@ Execution code can fail, promting the engine to try again or raise an incident i
 
 Check the [README](./README.md) for more details on class-level changes.
 
+###### Transaction boundary
+
+Without `camunda:asyncBefore` or another intervening asynchronous boundary, C7 runs a JavaDelegate in the command that completes the preceding wait state. If the delegate fails, the command rolls back and the wait state remains incomplete.
+
+C8 runs the worker after the engine creates a job. A failed job consumes retries and can raise an incident when retries are exhausted. The worker cannot roll back the completed wait state or share the C7 engine transaction and thread-bound security context.
+
+Do not describe the same Java body in a worker as equivalent synchronous behavior. If the source relies on rollback, ask the user to choose C8 retry and incident handling, a BPMN error or compensation flow, or an explicit manual step. If the source relies on thread-bound context, ask the user to choose a worker-side replacement mechanism or a code refactor. Record the exact gap and selected behavior in `MIGRATION_REPORT.md`.
+
 ###### JavaDelegate (Spring) - (Camunda 7)
 
 ```java
@@ -1171,11 +1306,9 @@ Check the [README](./README.md) for more details on class-level changes.
 ```
 
 -   variables cannot be added to the _ProcessEngineException_ and need to be set separately
--   the engine registers the exeception and either retries or raises an incident
--   JavaDelegates are run synchronously by default. On failure, the engine goes back to the last wait state, e.g., an async configuration or external task worker
--   to retry a specific JavaDelegate on failure, it needs to be set to asnyc before in the BPMN. With this, a retry time cycle can be specified for the executed delegate code, for example: R3/PT30S
--   the engine decrements the number of retries itself
--   once the retries are depleted, an incident is raised by the engine
+-   When a synchronous JavaDelegate follows a user task without an intervening asynchronous boundary, a failure rolls back the transaction that completes the user task.
+-   Configure `camunda:asyncBefore` to run the delegate as an asynchronous job. The engine then decrements retries and raises an incident when none remain.
+-   Set a retry time cycle on the asynchronous delegate, for example: R3/PT30S
 -   engine configurations can be used to set a default retry behavior
 
 ###### Job Worker (Spring) - (Camunda 8)
@@ -1519,9 +1652,10 @@ Then you can set the job type to
 
 In Camunda 7, external task workers are a way to implement glue code. They are deployed independently from the engine. Thus, they cannot access the engine's services.
 
-The code conversion patterns for the external task workers cover the most important methods how an external task worker can interact with the running process instance:
+The code conversion patterns for external task workers show how a worker can interact with the running process instance:
 
 -   getting and setting process variables
+-   completing with process variables, task-local variables, or both
 -   reporting a failure
 -   raising an incident
 -   throwing a BPMN error
@@ -1940,6 +2074,20 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   without _.join()_, the method _.send()_ returns a non-blocking _CamundaFuture_. With _thenApply()_ and _exceptionally()_ the response can be processed
 -   this non-blocking programming style is **recommended** by Camunda
+
+###### Completion variable scope
+
+Camunda 7 `complete(id, processVariables, localVariables)` writes each map at its own scope.
+The two-argument overload writes only process variables. Passing `null` skips either map.
+Inspect each call, its branch conditions, and downstream reads.
+
+Camunda 8 completion accepts one result map. [BPMN mappings](https://docs.camunda.io/docs/components/modeler/bpmn/data-handling/)
+control the variables' [scope and propagation](https://docs.camunda.io/docs/components/concepts/variables/).
+A worker result alone cannot preserve the separate C7 scopes.
+
+Test each branch's process and local visibility and its downstream consumers. If no faithful mapping
+exists, then ask the user for a BPMN/worker-scoping decision. Never discard a branch and claim
+parity. If deployment blocks testing, then record the blocker and keep parity unresolved.
 
 ---
 

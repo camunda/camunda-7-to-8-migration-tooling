@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions_SynchronousDelegateRollback" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.34.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.8.0">
+  <bpmn:process id="synchronous-delegate-rollback" name="Synchronous delegate rollback gap" isExecutable="true">
+    <bpmn:startEvent id="StartEvent" name="Start">
+      <bpmn:outgoing>Flow_StartToWaitState</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_StartToWaitState" sourceRef="StartEvent" targetRef="WaitStateBefore" />
+    <bpmn:userTask id="WaitStateBefore" name="Complete predecessor user task">
+      <bpmn:extensionElements>
+        <zeebe:formDefinition formId="synchronous-delegate-rollback-form" />
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_StartToWaitState</bpmn:incoming>
+      <bpmn:outgoing>Flow_WaitStateToWorker</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_WaitStateToWorker" sourceRef="WaitStateBefore" targetRef="SynchronousDelegateReplacement" />
+    <bpmn:serviceTask id="SynchronousDelegateReplacement" name="Run migrated delegate">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="synchronous-delegate-replacement" retries="1" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_WaitStateToWorker</bpmn:incoming>
+      <bpmn:outgoing>Flow_WorkerToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_WorkerToEnd" sourceRef="SynchronousDelegateReplacement" targetRef="EndEvent" />
+    <bpmn:endEvent id="EndEvent" name="Finish">
+      <bpmn:incoming>Flow_WorkerToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_SynchronousDelegateRollback">
+    <bpmndi:BPMNPlane id="BPMNPlane_SynchronousDelegateRollback" bpmnElement="synchronous-delegate-rollback">
+      <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent">
+        <dc:Bounds x="179" y="121" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="WaitStateBefore_di" bpmnElement="WaitStateBefore">
+        <dc:Bounds x="270" y="99" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SynchronousDelegateReplacement_di" bpmnElement="SynchronousDelegateReplacement">
+        <dc:Bounds x="450" y="99" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent">
+        <dc:Bounds x="630" y="121" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_StartToWaitState_di" bpmnElement="Flow_StartToWaitState">
+        <di:waypoint x="215" y="139" />
+        <di:waypoint x="270" y="139" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_WaitStateToWorker_di" bpmnElement="Flow_WaitStateToWorker">
+        <di:waypoint x="370" y="139" />
+        <di:waypoint x="450" y="139" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_WorkerToEnd_di" bpmnElement="Flow_WorkerToEnd">
+        <di:waypoint x="550" y="139" />
+        <di:waypoint x="630" y="139" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
