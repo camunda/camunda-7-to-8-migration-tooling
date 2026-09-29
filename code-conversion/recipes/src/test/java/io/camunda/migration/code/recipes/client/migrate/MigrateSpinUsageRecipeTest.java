@@ -159,4 +159,61 @@ class MigrateSpinUsageRecipeTest implements RewriteTest {
                 }
                 """));
   }
+
+  @Test
+  void readerInputsUseJacksonReaderOverload() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateSpinUsageRecipe()),
+        // language=java
+        java(
+            """
+                import static org.camunda.spin.Spin.JSON;
+
+                import java.io.Reader;
+                import org.camunda.spin.json.SpinJsonNode;
+
+                class SpinReaderMigration {
+                    static class CustomReader extends Reader {
+                        @Override
+                        public int read(char[] buffer, int offset, int length) {
+                            return -1;
+                        }
+
+                        @Override
+                        public void close() {}
+                    }
+
+                    void convert(Reader reader, CustomReader customReader) {
+                        SpinJsonNode json = JSON(reader);
+                        SpinJsonNode customJson = JSON(customReader);
+                    }
+                }
+                """,
+            """
+                import static org.camunda.spin.Spin.JSON;
+
+                import java.io.Reader;
+                import org.camunda.spin.json.SpinJsonNode;
+
+                // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
+                class SpinReaderMigration {
+                    static class CustomReader extends Reader {
+                        @Override
+                        public int read(char[] buffer, int offset, int length) {
+                            return -1;
+                        }
+
+                        @Override
+                        public void close() {}
+                    }
+
+                    void convert(Reader reader, CustomReader customReader) {
+                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use Jackson's Reader overload objectMapper.readValue(reader, Map.class) to parse the JSON text before setting a JSON process variable.
+                        SpinJsonNode json = JSON(reader);
+                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use Jackson's Reader overload objectMapper.readValue(customReader, Map.class) to parse the JSON text before setting a JSON process variable.
+                        SpinJsonNode customJson = JSON(customReader);
+                    }
+                }
+                """));
+  }
 }

@@ -156,6 +156,13 @@ public class MigrateSpinUsageRecipe extends Recipe {
               + " objectMapper.writeValueAsString(pojo) when a JSON string is required.";
         }
 
+        if (RecipeUtils.isAssignableTo(argument.getType(), "java.io.Reader")) {
+          return " TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use"
+              + " Jackson's Reader overload objectMapper.readValue("
+              + expression
+              + ", Map.class) to parse the JSON text before setting a JSON process variable.";
+        }
+
         return " TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Pass "
             + expression
             + " as a plain POJO/Map JSON variable; use objectMapper.writeValueAsString("
