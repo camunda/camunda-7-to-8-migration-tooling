@@ -87,10 +87,11 @@ unused Spin import does not leave a migration warning after cleanup.
 The typed-value prepare recipe unwraps known JSON `ObjectValue` builders only in direct
 object-accepting call arguments or declarations/assignments it has migrated. Unknown formats,
 builder-backed fields, multiple declarations, later-reassigned variables, and other expression
-contexts remain for manual migration. An uninitialized `ObjectValue` field becomes `Object` only
-when every assignment to that field is a recognized Camunda 7 typed-variable getter; fields also
-assigned builders stay `ObjectValue`. Cleanup removes Spin dependencies after unused-import
-removal only when no Spin types remain in source.
+contexts remain for manual migration. A `private`, uninitialized `ObjectValue` field becomes
+`Object` only when every assignment in its compilation unit uses a Camunda 7 typed-variable
+getter with an equivalent untyped call. Fields accessible from other compilation units, fields
+also assigned builders, and unsupported getter overloads stay `ObjectValue`. Cleanup removes
+Spin dependencies after unused-import removal only when no Spin types remain in source.
 
 See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
 

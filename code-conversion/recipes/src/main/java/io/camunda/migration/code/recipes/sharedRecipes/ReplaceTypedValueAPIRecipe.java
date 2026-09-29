@@ -194,6 +194,35 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               builderMethodInvocations.stream()
                   .collect(Collectors.groupingBy(ReplacementUtils.BuilderReplacementSpec::matcher));
 
+          @Override
+          public J visitCompilationUnit(J.CompilationUnit source, ExecutionContext ctx) {
+            List<J.VariableDeclarations.NamedVariable> privateFields = new ArrayList<>();
+            // Only private fields have no source writers outside this compilation unit.
+            new JavaIsoVisitor<List<J.VariableDeclarations.NamedVariable>>() {
+              @Override
+              public J.VariableDeclarations visitVariableDeclarations(
+                  J.VariableDeclarations declarations,
+                  List<J.VariableDeclarations.NamedVariable> candidates) {
+                Object parent = getCursor().getParentTreeCursor().getParentTreeCursor().getValue();
+                if ((parent instanceof J.ClassDeclaration || parent instanceof J.NewClass)
+                    && declarations.getVariables().size() == 1
+                    && declarations.getVariables().get(0).getInitializer() == null
+                    && declarations.getModifiers().stream()
+                        .anyMatch(modifier -> modifier.getType() == J.Modifier.Type.Private)
+                    && TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
+                  candidates.add(declarations.getVariables().get(0));
+                }
+                return super.visitVariableDeclarations(declarations, candidates);
+              }
+            }.visit(source, privateFields);
+            for (J.VariableDeclarations.NamedVariable field : privateFields) {
+              if (isAssignedOnlyTypedGetters(source, field)) {
+                recordConvertedField(field.getVariableType());
+              }
+            }
+            return super.visitCompilationUnit(source, ctx);
+          }
+
           public static String mapTypedValueToNewFqn(JavaType type) {
             if (!(type instanceof JavaType.FullyQualified fqType)) {
               return "java.lang.Object"; // Default fallback
@@ -873,6 +902,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     .matches(invocation);
           }
 
+          private boolean isConvertibleTypedGetter(J.MethodInvocation invocation) {
+            if (!isTypedVariableGetter(invocation)
+                || invocation.getSimpleName().equals("getAllVariablesTyped")) {
+              return false;
+            }
+            boolean taskService =
+                new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableTyped(..)")
+                        .matches(invocation)
+                    || new MethodMatcher(
+                            "org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)")
+                        .matches(invocation);
+            return invocation.getArguments().size() == (taskService ? 2 : 1);
+          }
+
           private boolean canUnwrapBuilder(J.MethodInvocation invocation) {
             if (getCursor().firstEnclosing(J.Ternary.class) != null
                 || getCursor().firstEnclosing(J.SwitchExpression.class) != null) {
@@ -916,30 +959,22 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private void recordConvertedField(JavaType.Variable field) {
             // Match by resolved symbol so a same-named builder-backed local cannot mask this field.
-            Cursor classBody = getCursor();
-            Set<JavaType.Variable> converted = classBody.getMessage(GETTER_ONLY_FIELDS);
+            Cursor compilationUnit = getCursor();
+            Set<JavaType.Variable> converted = compilationUnit.getMessage(GETTER_ONLY_FIELDS);
             if (converted == null) {
               converted = new HashSet<>();
-              classBody.putMessage(GETTER_ONLY_FIELDS, converted);
+              compilationUnit.putMessage(GETTER_ONLY_FIELDS, converted);
             }
             converted.add(field);
           }
 
           private boolean isConvertedField(JavaType.Variable field) {
-            if (field == null) {
-              return false;
-            }
-            for (Cursor cursor = getCursor(); cursor != null; cursor = cursor.getParent()) {
-              Set<JavaType.Variable> converted = cursor.getMessage(GETTER_ONLY_FIELDS);
-              if (converted != null && converted.contains(field)) {
-                return true;
-              }
-            }
-            return false;
+            Set<JavaType.Variable> converted = getCursor().getNearestMessage(GETTER_ONLY_FIELDS);
+            return field != null && converted != null && converted.contains(field);
           }
 
           private boolean isAssignedOnlyTypedGetters(
-              J.Block classBody, J.VariableDeclarations.NamedVariable variable) {
+              J.CompilationUnit compilationUnit, J.VariableDeclarations.NamedVariable variable) {
             JavaType.Variable field = variable.getVariableType();
             if (field == null) {
               return false;
@@ -961,11 +996,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   Expression value = unwrapParentheses(assignment.getAssignment());
                   assignments.add(
                       value instanceof J.MethodInvocation invocation
-                          && isTypedVariableGetter(invocation));
+                          && isConvertibleTypedGetter(invocation));
                 }
                 return super.visitAssignment(assignment, assignments);
               }
-            }.visit(classBody, getterAssignments);
+            }.visit(compilationUnit, getterAssignments);
 
             return !getterAssignments.isEmpty()
                 && getterAssignments.stream().allMatch(Boolean::booleanValue);
@@ -1042,23 +1077,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            */
           @Override
           public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
-            J directParent = getCursor().getParentTreeCursor().getValue();
-            if (directParent instanceof J.NewClass || directParent instanceof J.ClassDeclaration) {
-              // Class members can use fields declared later in the source.
-              for (Statement member : block.getStatements()) {
-                if (member instanceof J.VariableDeclarations field
-                    && field.getVariables().size() == 1
-                    && TypeUtils.isOfClassType(field.getType(), OBJECT_VALUE_FQN)) {
-                  J.VariableDeclarations.NamedVariable variable = field.getVariables().get(0);
-                  if (variable.getInitializer() == null
-                      && isAssignedOnlyTypedGetters(block, variable)) {
-                    recordConvertedField(variable.getVariableType());
-                  }
-                }
-              }
-            }
-
             J.Block bl = (J.Block) super.visitBlock(block, ctx);
+            J directParent = getCursor().getParentTreeCursor().getValue();
             if (directParent instanceof J.NewClass || directParent instanceof J.ClassDeclaration) {
               // If the direct parent is an initializer block or a static block, skip it
               return bl;
