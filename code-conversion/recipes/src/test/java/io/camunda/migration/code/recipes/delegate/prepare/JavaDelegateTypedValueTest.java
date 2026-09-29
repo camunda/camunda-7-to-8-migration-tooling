@@ -176,6 +176,72 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void nonDelegateTypedGetterDeclarationsKeepEveryCast() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.client.task.ExternalTask;
+            import org.camunda.bpm.engine.TaskService;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class OtherGetterReads {
+                void read(ExternalTask externalTask, TaskService taskService) {
+                    DateValue fromExternal = externalTask.getVariableTyped("date"), fromTask = taskService.getVariableTyped("task", "date");
+                    BytesValue bytes = taskService.getVariableTyped("task", "bytes");
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.client.task.ExternalTask;
+            import org.camunda.bpm.engine.TaskService;
+
+            class OtherGetterReads {
+                void read(ExternalTask externalTask, TaskService taskService) {
+                    // please check type
+                    Date fromExternal = (Date) externalTask.getVariable("date"), fromTask = (Date) taskService.getVariable("task", "date");
+                    // please check type
+                    byte[] bytes = (byte[]) taskService.getVariable("task", "bytes");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void mixedTypedGetterDeclarationsRetainEachInitializer() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class MixedValues {
+                void read(DelegateExecution execution) {
+                    DateValue first = Variables.dateValue(new Date(0)), second = execution.getVariableTyped("second");
+                    DateValue empty = null, later = execution.getVariableTyped("later");
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class MixedValues {
+                void read(DelegateExecution execution) {
+                    // please check type
+                    Date first = new Date(0), second = (Date) execution.getVariable("second");
+                    // please check type
+                    Date empty = null, later = (Date) execution.getVariable("later");
+                }
+            }
+            """));
+  }
+
+  @Test
   void groupedTypedGetterFieldsConvertBeforeReads() {
     rewriteRun(
         java(
@@ -360,6 +426,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.DateValue;
 
             class InitializedValues {
+                @Deprecated
                 private DateValue date = Variables.dateValue(new Date(0)), otherDate = Variables.dateValue(new Date(1));
                 private BytesValue bytes = Variables.byteArrayValue(new byte[] {1}), otherBytes = Variables.byteArrayValue(new byte[] {2});
             }
@@ -368,6 +435,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import java.util.Date;
 
             class InitializedValues {
+                @Deprecated
                 private Date date = new Date(0), otherDate = new Date(1);
                 private byte[] bytes = new byte[]{1}, otherBytes = new byte[]{2};
             }
@@ -577,6 +645,71 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void inheritedTypedFieldsFollowConvertedSuperclassDeclarations() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class EarlyChild extends BaseValues {
+                Date readDate() { return this.date.getValue(); }
+                byte[] readBytes() { return this.bytes.getValue(); }
+                Date readRetained() { return this.untouched.getValue(); }
+
+                void update(DelegateExecution execution) {
+                    this.date = execution.getVariableTyped("date");
+                    this.bytes = execution.getVariableTyped("bytes");
+                    this.untouched = execution.getVariableTyped("untouched");
+                }
+            }
+
+            abstract class BaseValues {
+                protected DateValue date = Variables.dateValue(new Date(0));
+                protected BytesValue bytes = Variables.byteArrayValue(new byte[] {1});
+                protected DateValue untouched = loadDate();
+                abstract DateValue loadDate();
+            }
+
+            abstract class LateChild extends BaseValues {
+                Date readDate() { return this.date.getValue(); }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class EarlyChild extends BaseValues {
+                Date readDate() { return this.date; }
+                byte[] readBytes() { return this.bytes; }
+                Date readRetained() { return this.untouched.getValue(); }
+
+                void update(DelegateExecution execution) {
+                    this.date = (Date) execution.getVariable("date");
+                    this.bytes = (byte[]) execution.getVariable("bytes");
+                    this.untouched = execution.getVariableTyped("untouched");
+                }
+            }
+
+            abstract class BaseValues {
+                protected Date date = new Date(0);
+                protected byte[] bytes = new byte[]{1};
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                protected DateValue untouched = loadDate();
+                abstract DateValue loadDate();
+            }
+
+            abstract class LateChild extends BaseValues {
+                Date readDate() { return this.date; }
+            }
+            """));
+  }
+
+  @Test
   void qualifiedReadsBeforeConvertedFieldDeclarationsAreUnwrapped() {
     rewriteRun(
         java(
@@ -756,6 +889,39 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     // TODO: migrate Camunda 7 typed-value initializer manually
                     DateValue localDate = loadDate();
                     localDate = execution.getVariableTyped("localDate");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void nestedByteFactoriesKeepPrimitiveArrayValues() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class ByteVariables {
+                void publish(DelegateExecution execution, boolean transientFlag) {
+                    execution.setVariable("one", Variables.byteArrayValue(new byte[]{1}));
+                    execution.setVariable("two", Variables.byteArrayValue(new byte[]{2}, false));
+                    execution.setVariable("transient", Variables.byteArrayValue(new byte[]{3}, true));
+                    execution.setVariable("computed", Variables.byteArrayValue(new byte[]{4}, transientFlag));
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class ByteVariables {
+                void publish(DelegateExecution execution, boolean transientFlag) {
+                    execution.setVariable("one", new byte[]{1});
+                    execution.setVariable("two", new byte[]{2});
+                    execution.setVariable("transient", // TODO: review Camunda 7 transient variable semantics for migrated values
+                            new byte[]{3});
+                    execution.setVariable("computed", // TODO: review Camunda 7 transient variable semantics for migrated values
+                            new byte[]{4});
                 }
             }
             """));
