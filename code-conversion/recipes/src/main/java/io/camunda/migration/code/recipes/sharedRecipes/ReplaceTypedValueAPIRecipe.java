@@ -34,8 +34,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
       new MethodMatcher(VARIABLES_FQN + " dateValue(..)");
   private static final MethodMatcher BYTE_ARRAY_VALUE_FACTORY =
       new MethodMatcher(VARIABLES_FQN + " byteArrayValue(..)");
-  private static final MethodMatcher DELEGATE_TYPED_GETTER =
-      new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)");
+  private static final MethodMatcher EXTERNAL_TASK_TYPED_GETTER =
+      new MethodMatcher("org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)");
   private static final MethodMatcher GET_ALL_VARIABLES_TYPED =
       new MethodMatcher("org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)");
   private static final List<MethodMatcher> TYPED_VALUE_GETTERS =
@@ -43,7 +43,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)"),
           new MethodMatcher(
               "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)"),
-          new MethodMatcher("org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)"),
+          EXTERNAL_TASK_TYPED_GETTER,
           new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableTyped(..)"),
           new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)"));
 
@@ -176,6 +176,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                       List.of(
                           new ReplacementUtils.SimpleReplacementSpec.NamedArg("byteArrayValue", 0)),
+                      Collections.emptyList()),
+                  new ReplacementUtils.SimpleReplacementSpec(
+                      DATE_VALUE_FACTORY,
+                      RecipeUtils.createSimpleJavaTemplate("#{any(java.util.Date)}"),
+                      null,
+                      "java.util.Date",
+                      ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                      List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("dateValue", 0)),
                       Collections.emptyList()),
                   new ReplacementUtils.SimpleReplacementSpec(
                       new MethodMatcher(
@@ -360,14 +368,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                   // merge comments
                   modifiedDeclarations =
-                      modifiedDeclarations.withComments(
-                          Stream.concat(
-                                  declarations.getComments().stream(),
-                                  spec.textComments().stream()
-                                      .map(
-                                          text ->
-                                              RecipeUtils.createSimpleComment(declarations, text)))
-                              .toList());
+                      keepLeadingAnnotations(declarations, modifiedDeclarations)
+                          .withComments(
+                              Stream.concat(
+                                      declarations.getComments().stream(),
+                                      replacementComments(spec, invocation).stream()
+                                          .map(
+                                              text ->
+                                                  RecipeUtils.createSimpleComment(
+                                                      declarations, text)))
+                                  .toList());
 
                   // visit method invocations
                   modifiedDeclarations =
@@ -380,7 +390,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
               }
 
-              boolean delegateTypedVariable = DELEGATE_TYPED_GETTER.matches(invocation);
+              boolean castTypedVariable = requiresGetterCast(invocation);
               if (matchesTypedVariableGetter(invocation)
                   || GET_ALL_VARIABLES_TYPED.matches(invocation)) {
 
@@ -406,11 +416,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 + " "
                                 + originalName.getSimpleName()
                                 + " = "
-                                + (delegateTypedVariable && !newFqn.equals("java.lang.Object")
+                                + (castTypedVariable && !newFqn.equals("java.lang.Object")
                                     ? "(" + RecipeUtils.getShortName(newFqn) + ") "
                                     : "")
                                 + "#{any()}",
-                            "java.lang.Object")
+                            "java.util.Date".equals(newFqn) ? newFqn : "java.lang.Object")
                         .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
                 maybeAddImport(newFqn);
@@ -422,7 +432,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                 // merge comments
                 modifiedDeclarations =
-                    modifiedDeclarations.withComments(
+                    keepLeadingAnnotations(declarations, modifiedDeclarations)
+                        .withComments(
                         Stream.concat(
                                 declarations.getComments().stream(),
                                 Stream.of(
@@ -561,7 +572,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               if (initializer != null) {
                 code.append(" = ");
                 if (unwrapParentheses(initializer) instanceof J.MethodInvocation getter
-                    && DELEGATE_TYPED_GETTER.matches(getter)
+                    && requiresGetterCast(getter)
                     && !"java.lang.Object".equals(newFqn)) {
                   code.append('(').append(RecipeUtils.getShortName(newFqn)).append(") ");
                 }
@@ -576,11 +587,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             maybeRemoveImport(declarations.getTypeAsFullyQualified());
             J.VariableDeclarations modifiedDeclarations =
-                RecipeUtils.createSimpleJavaTemplate(code.toString(), imports)
-                    .apply(
-                        getCursor(),
-                        declarations.getCoordinates().replace(),
-                        initializers.toArray());
+                keepLeadingAnnotations(
+                    declarations,
+                    RecipeUtils.createSimpleJavaTemplate(code.toString(), imports)
+                        .apply(
+                            getCursor(),
+                            declarations.getCoordinates().replace(),
+                            initializers.toArray()));
             if (reviewTransientVariable) {
               modifiedDeclarations =
                   modifiedDeclarations.withComments(
@@ -617,7 +630,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 code.append(", ");
               }
               code.append(variable.getSimpleName()).append(" = ");
-              if (DELEGATE_TYPED_GETTER.matches(getter) && !"java.lang.Object".equals(newFqn)) {
+              if (requiresGetterCast(getter) && !"java.lang.Object".equals(newFqn)) {
                 code.append('(').append(RecipeUtils.getShortName(newFqn)).append(") ");
               }
               code.append("#{any()}");
@@ -626,12 +639,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             String[] imports = "byte[]".equals(newFqn) ? new String[0] : new String[] {newFqn};
+            if (imports.length > 0) {
+              maybeAddImport(newFqn);
+            }
             J.VariableDeclarations modifiedDeclarations =
                 RecipeUtils.createSimpleJavaTemplate(code.toString(), imports)
                     .apply(getCursor(), declarations.getCoordinates().replace(), getters.toArray());
             modifiedDeclarations =
-                modifiedDeclarations
-                    .withLeadingAnnotations(declarations.getLeadingAnnotations())
+                keepLeadingAnnotations(declarations, modifiedDeclarations)
                     .withComments(
                         Stream.concat(
                                 declarations.getComments().stream(),
@@ -796,7 +811,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     modifiedAssignment.withComments(
                         Stream.concat(
                                 assignment.getComments().stream(),
-                                spec.textComments().stream()
+                                replacementComments(spec, invocation).stream()
                                     .map(text -> RecipeUtils.createSimpleComment(assignment, text)))
                             .toList());
 
@@ -835,14 +850,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                             .toArray(),
                         getCursor().getNearestMessage(invocation.getId().toString()) != null
                             ? Collections.emptyList()
-                            : spec.textComments());
-
+                            : replacementComments(spec, invocation));
                 if (modifiedInvocation instanceof J.MethodInvocation) {
                   modifiedInvocation =
                       (Expression)
                           super.visitMethodInvocation((J.MethodInvocation) modifiedInvocation, ctx);
                 }
-                return maybeAutoFormat(invocation, modifiedInvocation, ctx);
+                J formatted = maybeAutoFormat(invocation, modifiedInvocation, ctx);
+                // a bare argument template would otherwise drop the invocation's leading space
+                return formatted.withPrefix(
+                    formatted.getPrefix().withWhitespace(invocation.getPrefix().getWhitespace()));
               }
             }
 
@@ -1114,6 +1131,42 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private boolean matchesTypedVariableGetter(J.MethodInvocation invocation) {
             return TYPED_VALUE_GETTERS.stream().anyMatch(matcher -> matcher.matches(invocation));
+          }
+
+          /** ExternalTask#getVariable is generic; the other migrated getters return Object. */
+          private boolean requiresGetterCast(J.MethodInvocation getter) {
+            return matchesTypedVariableGetter(getter) && !EXTERNAL_TASK_TYPED_GETTER.matches(getter);
+          }
+
+          private List<String> replacementComments(
+              ReplacementUtils.ReplacementSpec spec, J.MethodInvocation invocation) {
+            if ((DATE_VALUE_FACTORY.matches(invocation)
+                    || BYTE_ARRAY_VALUE_FACTORY.matches(invocation))
+                && requiresTransientReview(invocation)) {
+              return Stream.concat(spec.textComments().stream(), Stream.of(TRANSIENT_REVIEW_HINT))
+                  .toList();
+            }
+            return spec.textComments();
+          }
+
+          /** Templates rebuild declarations from modifiers, so restore leading annotations. */
+          private J.VariableDeclarations keepLeadingAnnotations(
+              J.VariableDeclarations original, J.VariableDeclarations modified) {
+            if (original.getLeadingAnnotations().isEmpty()) {
+              return modified;
+            }
+            modified = modified.withLeadingAnnotations(original.getLeadingAnnotations());
+            if (!modified.getModifiers().isEmpty() && !original.getModifiers().isEmpty()) {
+              Space modifierPrefix = original.getModifiers().get(0).getPrefix();
+              return modified.withModifiers(
+                  ListUtils.mapFirst(
+                      modified.getModifiers(), modifier -> modifier.withPrefix(modifierPrefix)));
+            }
+            if (modified.getTypeExpression() != null && original.getTypeExpression() != null) {
+              return modified.withTypeExpression(
+                  modified.getTypeExpression().withPrefix(original.getTypeExpression().getPrefix()));
+            }
+            return modified;
           }
 
           /** Finds the class body that declares the field, including anonymous classes. */

@@ -1541,6 +1541,10 @@ Grouped typed-getter declarations keep every variable and required cast; groups
 with incompatible initializers stay at their Camunda 7 types with a TODO.
 Assignments through another instance of the same class use converted field
 types, while unrelated owners and retained local values keep their typed calls.
+Nested factory calls, such as `execution.setVariable("date", Variables.dateValue(date))`,
+pass the raw value and get the same transient-flag TODO.
+Converted declarations keep their annotations. Typed getters whose untyped form
+returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
 
 ###### autoComplete = false (blocking)
 
