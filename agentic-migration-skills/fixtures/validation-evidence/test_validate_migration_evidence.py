@@ -1167,6 +1167,27 @@ class ValidationEvidenceTest(unittest.TestCase):
             "Missing module active_timer_update_runtime",
             "\n".join(self.summary()["issues"]),
         )
+        observation = self.active_timer_observation()
+        observation["observation"]["timers"] = [
+            timer
+            for timer in observation["observation"]["timers"]
+            if timer["timer_id"] == "sample-timer"
+        ]
+        observation["observation"]["timers"][0]["source_locations"] = [
+            "app/src/main/java/TimerUpdates.java:1"
+        ]
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "active_timer_update_runtime", None),
+                environment="local",
+                target_version="8.9.21",
+                target_disposable=True,
+                cleanup_plan="Delete the test deployment and generated instances.",
+                active_timer_update_observation_json=json.dumps(observation),
+            ),
+        )
+        self.assertEqual(0, self.audit())
 
     def test_timer_preflight_requires_explicit_disposable_target_and_cleanup(self):
         self.write_scope(timer=True)
@@ -1505,6 +1526,13 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIsNone(inventory["repetitions"])
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
+
+    def test_iso_8601_cycles_reject_empty_or_missing_time_components(self):
+        for cycle in ("R/PT", "R/P1DT"):
+            with self.subTest(cycle=cycle):
+                self.assertIsNone(gate.cycle_details(cycle))
+        self.assertEqual("iso_8601", gate.cycle_details("R/PT1S")["cycle_type"])
+        self.assertEqual("iso_8601", gate.cycle_details("R/P1DT1H")["cycle_type"])
 
     def test_fixture_import_is_independent_of_the_current_working_directory(self):
         result = subprocess.run(

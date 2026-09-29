@@ -84,7 +84,8 @@ observed starts, and completed cleanup. Without this test, record `not run` and 
 deployment blocked.
 The gate requires a disposition review for each repeating timer. It also requires a runtime preflight
 for each repeating timer retained in a converted model. It records ISO 8601 cycles with an interval
-and repetition count. It records cron cycles without fixed interval or repetition values.
+and repetition count. It rejects ISO cycles without a numeric component or with an empty time
+section after `T`. It records cron cycles without fixed interval or repetition values.
 Record the target version and cleanup plan. Pass a structured `--timer-observation-json` record to
 the preflight check. Deployment and process commands revalidate the timer disposition and observation
 before they execute.

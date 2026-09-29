@@ -106,8 +106,9 @@ The gate blocks interpolated strings that contain process or timer call patterns
 
 Review each repeating timer's exact disposition before deployment. Use `add`, `change`, `preserve`,
 or `remove`. The gate records both cycles, cycle type, module, deployment set, and automatic-start
-effect. ISO 8601 cycles also record the interval and repetition count. Cron cycles do not have
-fixed interval or repetition values. Run a disposable-target preflight for each retained timer.
+effect. ISO 8601 cycles also record the interval and repetition count. The gate rejects an empty
+duration or an empty time section after `T`. Cron cycles do not have fixed interval or repetition
+values. Run a disposable-target preflight for each retained timer.
 A removed timer needs a disposition review but no runtime preflight.
 
 The gate requires an `active_timer_updates` review for each module. Review all direct C7

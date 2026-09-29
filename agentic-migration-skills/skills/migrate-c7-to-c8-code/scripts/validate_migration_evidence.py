@@ -77,12 +77,12 @@ INTERPOLATED_SOURCE_CALL = re.compile(
     r"latestVersion|setJobDuedate)\b"
 )
 DURATION = re.compile(
-    r"P(?=.)"
+    r"P(?=.*\d)"
     r"(?:\d+(?:[.,]\d+)?Y)?"
     r"(?:\d+(?:[.,]\d+)?M)?"
     r"(?:\d+(?:[.,]\d+)?W)?"
     r"(?:\d+(?:[.,]\d+)?D)?"
-    r"(?:T(?:\d+(?:[.,]\d+)?H)?"
+    r"(?:T(?=\d)(?:\d+(?:[.,]\d+)?H)?"
     r"(?:\d+(?:[.,]\d+)?M)?"
     r"(?:\d+(?:[.,]\d+)?S)?)?"
 )
@@ -2097,10 +2097,14 @@ def check_matches_current_inputs(plan, key, check):
         ):
             return False
         try:
+            _, active_hits = normalize_non_timer_update_evidence(
+                check.get("non_timer_update_evidence", []),
+                hits,
+            )
             inventory = normalize_affected_timer_inventory(
                 check.get("active_timer_update_inventory"),
-                hits,
-                plan.timer_elements_by_model,
+                active_hits,
+                timer_elements_for_module(plan, key[1]),
             )
         except EvidenceError:
             return False
