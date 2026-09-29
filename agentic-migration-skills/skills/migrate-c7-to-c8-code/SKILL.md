@@ -110,6 +110,8 @@ These rules apply to every later step.
 
 - Before the first change, check for uncommitted changes. If the working tree is dirty, then ask the
   user to commit or stash.
+- Before a target deployment or a readiness claim, repeat
+  `references/deployment-and-timer-preflight.md` against the final code and converted copies.
 - Never commit without an explicit user request.
 - Write each converted model to a `converted-c8-*` copy. Leave every original file unchanged.
 - Where the target is a separate location, such as a sibling Camunda 8 project, treat the Camunda 7
@@ -230,6 +232,9 @@ and child business-key intent. See `references/model-migration-approaches.md` fo
 For each original BPMN, record every `camunda:executionListener event="start"` directly on a
 `bpmn:startEvent`. Record its source path, event ID, and implementation even if the converter omits
 its finding.
+
+Run `references/deployment-and-timer-preflight.md` after the code and model inventories. Record its
+findings and decisions in `MIGRATION_REPORT.md`.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
@@ -668,5 +673,7 @@ issue, deletion candidate, or project-readiness blocker remains. No item can hav
 `blocked` status.
 An open item is a team decision. It does not block completion unless it prevents an in-scope
 documentation change or a required readiness check. The summary always lists every open item.
+Unresolved deployment/timer preflight findings are `blocked` readiness checks, not non-blocking
+`open` team decisions.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
 Where the root is confirmed, follow `references/final-change-summary.md` before the final response.

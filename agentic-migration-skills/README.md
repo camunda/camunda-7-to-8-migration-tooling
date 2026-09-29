@@ -180,6 +180,10 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
+Before deployment, the skill checks recurring timer starts and duplicate process IDs across the
+intended target. It traces start callers and active timer due-date updates, keeping unresolved
+behavior blocked rather than claiming the migration is ready.
+
 The skill preserves selected call-activity inputs instead of enabling all-parent propagation.
 In Camunda 8.9, children inherit the parent's Business ID independently of process variables.
 

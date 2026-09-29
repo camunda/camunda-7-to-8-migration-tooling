@@ -122,6 +122,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           "executeJob",
               "Camunda 8 has no operation to execute an arbitrary job by ID. In timer tests, use processTestContext.increaseTime(Duration); production work must run in a job worker that activates jobs by type.",
           "createIncidentQuery", "Use POST /v2/incidents/search.",
+          "setJobDuedate",
+              "Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.",
           "getRegisteredDeployments",
               "Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.",
           "updateJobSuspensionState",
@@ -135,7 +137,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
   @Override
   public @NonNull String getDescription() {
     return "Adds migration TODO comments for Camunda 7 IdentityService and ManagementService "
-        + "usage, including guidance for migrating ManagementService.setJobRetries.";
+        + "usage, including guidance for migrating ManagementService.setJobRetries and "
+        + "setJobDuedate.";
   }
 
   @Override

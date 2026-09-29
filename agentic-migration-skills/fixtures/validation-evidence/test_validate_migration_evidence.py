@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 
 FIXTURE = Path(__file__).resolve().parent
-SCRIPT_DIR = FIXTURE.parents[2] / "skills" / "migrate-c7-to-c8-code" / "scripts"
+SCRIPT_DIR = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 import validate_migration_evidence as gate  # noqa: E402
 
