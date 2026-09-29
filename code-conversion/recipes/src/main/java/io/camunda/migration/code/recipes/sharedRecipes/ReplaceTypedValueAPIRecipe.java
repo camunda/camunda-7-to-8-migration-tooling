@@ -768,8 +768,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             if (format instanceof J.FieldAccess fieldAccess) {
-              return isSerializationDataFormatsJson(fieldAccess.getName())
-                  || fieldAccess.toString().endsWith("SerializationDataFormats.JSON");
+              return isSerializationDataFormatsJson(fieldAccess.getName());
             }
 
             return format instanceof J.Identifier identifier
@@ -797,7 +796,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             JavaType.Variable fieldType = identifier.getFieldType();
             return fieldType != null
                 && fieldType.getOwner() instanceof JavaType.FullyQualified owner
-                && owner.getFullyQualifiedName().endsWith(".SerializationDataFormats");
+                && owner
+                    .getFullyQualifiedName()
+                    .equals(
+                        "org.camunda.bpm.engine.variable.Variables$SerializationDataFormats");
           }
 
           @Override

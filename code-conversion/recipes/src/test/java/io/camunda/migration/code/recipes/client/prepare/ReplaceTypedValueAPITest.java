@@ -132,7 +132,7 @@ public class TypeValueTestClass {
 
                 class SpinPayloadTest {
                     static class SerializationDataFormats {
-                        static final String JSON = "application/json";
+                        static final String JSON = "application/xml";
                         static final String JSON_XML = "application/json_xml";
                     }
 
@@ -140,10 +140,13 @@ public class TypeValueTestClass {
 
                     void submit(Payload payload) {
                         ObjectValue serialized = Variables.objectValue(payload)
-                            .serializationDataFormat(SerializationDataFormats.JSON)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON)
                             .create();
                         ObjectValue literalSerialized = Variables.objectValue(payload)
                             .serializationDataFormat("application/json")
+                            .create();
+                        ObjectValue customSerialized = Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON)
                             .create();
                         ObjectValue jsonXmlSerialized = Variables.objectValue(payload)
                             .serializationDataFormat(SerializationDataFormats.JSON_XML)
@@ -166,7 +169,7 @@ public class TypeValueTestClass {
 
                 class SpinPayloadTest {
                     static class SerializationDataFormats {
-                        static final String JSON = "application/json";
+                        static final String JSON = "application/xml";
                         static final String JSON_XML = "application/json_xml";
                     }
 
@@ -177,6 +180,9 @@ public class TypeValueTestClass {
                         Object serialized = payload;
                         // type set to java.lang.Object
                         Object literalSerialized = payload;
+                        ObjectValue customSerialized = Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON)
+                            .create();
                         ObjectValue jsonXmlSerialized = Variables.objectValue(payload)
                             .serializationDataFormat(SerializationDataFormats.JSON_XML)
                             .create();
