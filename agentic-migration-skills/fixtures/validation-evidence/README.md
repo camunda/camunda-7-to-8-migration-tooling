@@ -11,9 +11,12 @@ The tests cover these cases:
 
 - Complete and incomplete evidence scopes.
 - Runtime modules, process assertions, Docker classification, and timer ordering.
-- Cross-model process IDs, C7 by-key calls, static/interpolated template IDs, and caller blockers.
-- Timer dispositions, event-subprocess starts, method references, and direct/concatenated/builder REST paths.
+- Cross-model process IDs, C7 by-key calls, same-line version selections,
+  static/interpolated template IDs, and caller blockers.
+- Configuration apostrophes, timer dispositions, event-subprocess starts, method
+  references, and direct/concatenated/builder REST paths.
 - Exact affected-timer observations, repeated updates, cleanup evidence, and stale dependent-command guards.
+- Semantically invalid caller inventories blocking deployment and process commands before execution.
 - Stale source snapshots, path safety, and cwd-independent imports.
 - Report replacement.
 

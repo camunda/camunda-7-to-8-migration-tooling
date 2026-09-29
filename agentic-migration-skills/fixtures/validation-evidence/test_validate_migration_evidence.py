@@ -267,7 +267,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 caller_inventory_json=None,
             )
 
-        self.complete_required_checks()
+        self.complete_required_checks(skip_keys=self.deployment_execution_keys())
         self.assertEqual(1, self.audit())
         self.assertIn(
             "non-empty caller inventory",
@@ -309,7 +309,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        self.complete_required_checks()
+        self.complete_required_checks(skip_keys=self.deployment_execution_keys())
         self.assertEqual(1, self.audit())
         issues = "\n".join(self.summary()["issues"])
         self.assertIn("detected process caller is missing", issues)
@@ -336,7 +336,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "operation": "bpmnProcessId",
                     "version_selection": "explicit_version",
                 }
-            ]
+            ],
+            skip_keys=self.deployment_execution_keys(),
         )
         self.assertEqual(1, self.audit())
         issues = "\n".join(self.summary()["issues"])
@@ -420,6 +421,34 @@ class ValidationEvidenceTest(unittest.TestCase):
         interpolated_call = next(hit for hit in callers if hit["process_id"] == "unknown")
         self.assertEqual("latest_version", interpolated_call["version_selection"])
 
+    def test_caller_inventory_distinguishes_same_line_version_selections(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/typescript/Caller.ts"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample").latestVersion(); '
+            'client.bpmnProcessId("Sample").version(1);\n',
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+        hits = plan.process_callers["modules/c7-client"]
+        self.assertEqual(2, len(hits))
+        self.assertEqual(
+            ["explicit_version", "latest_version"],
+            sorted(hit["version_selection"] for hit in hits),
+        )
+        issues = []
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": hits},
+            {},
+            issues,
+        )
+        self.assertEqual([], issues)
+
     def test_active_timer_scan_covers_method_references_and_rest_paths_only(self):
         source = self.root / "app/src/main/java/TimerUpdates.java"
         source.parent.mkdir(parents=True, exist_ok=True)
@@ -473,6 +502,14 @@ class ValidationEvidenceTest(unittest.TestCase):
             ],
             sorted(hit["location"] for hit in updates),
         )
+
+    def test_configuration_apostrophes_do_not_break_module_scanning(self):
+        config = self.root / "app/src/main/resources/application.yml"
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text("message=Don't retry\n", encoding="utf-8")
+
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
 
     def test_deployment_set_preflight_covers_cross_module_duplicate_process_ids(self):
         modules = ["examples/loan", "clients/java/order-handling"]
@@ -537,9 +574,45 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIn("duplicate process ID", issues)
         self.assertIn("deployment_set preflight", issues)
         self.assertIn("timer disposition", issues)
-        self.complete_required_checks()
+        self.complete_required_checks(skip_keys=self.deployment_execution_keys())
         self.assertEqual(1, self.audit())
         self.assertIn("latestVersion caller is missing", "\n".join(self.summary()["issues"]))
+
+    def test_invalid_deployment_set_evidence_blocks_commands_before_execution(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'runtimeService.startProcessInstanceByKey("Sample");\n',
+            encoding="utf-8",
+        )
+        required = gate.requirements(self.root, self.plan).required
+        dependent = {
+            key for key in required if key[2] in ("deployment", "process_path")
+        }
+        self.complete_required_checks(skip_keys=dependent)
+
+        marker = self.root / "deployment-ran"
+        command = [
+            sys.executable,
+            "-c",
+            "from pathlib import Path; Path('deployment-ran').touch()",
+        ]
+        deployment = ("model", "models/converted-one.bpmn", "deployment", None)
+        with self.assertRaisesRegex(gate.EvidenceError, "caller"):
+            self.submit(deployment, environment="local", command=command)
+        self.assertFalse(marker.exists())
+
+        callers = gate.requirements(self.root, self.plan).process_callers["modules/c7-client"]
+        self.submit(
+            ("deployment_set", "shared", "preflight", None),
+            action="review",
+            caller_inventory_json=json.dumps(callers),
+            note="Recorded the detected caller, which still selects the latest version.",
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "latestVersion"):
+            self.submit(deployment, environment="local", command=command)
+        self.assertFalse(marker.exists())
 
     def test_active_timer_updates_and_repeated_calls_cannot_report_ready(self):
         source = self.root / "app/src/main/java/TimerUpdates.java"
@@ -689,6 +762,19 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
         self.assertEqual(1, self.audit())
         self.assertIn("remains blocked", "\n".join(self.summary()["issues"]))
+
+    def test_active_timer_decision_rejects_punctuation_only_references(self):
+        decision = {
+            "status": "approved",
+            "approval_reference": "fixture-approval",
+            "alternative_evidence_reference": "fixture-support",
+            "target_version": "8.9.21",
+        }
+        for field in ("approval_reference", "alternative_evidence_reference"):
+            with self.subTest(field=field):
+                invalid = dict(decision)
+                invalid[field] = "---"
+                self.assertFalse(gate.active_timer_decision_is_approved(invalid))
 
     def test_active_timer_runtime_requires_observation_and_completed_cleanup(self):
         self.add_active_timer_model()
@@ -1116,9 +1202,10 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, result.stderr)
 
-    def complete_required_checks(self, caller_inventory=None):
+    def complete_required_checks(self, caller_inventory=None, skip_keys=None):
         requirements = gate.requirements(self.root, self.plan)
         required = requirements.required
+        skip_keys = set(skip_keys or ())
         self.assertEqual([], requirements.issues)
         priorities = {
             "project": 0, "module": 1, "deployment_set": 2, "timer": 3, "model": 4, "process": 5,
@@ -1137,6 +1224,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                 item[3] or "",
             ),
         ):
+            if key in skip_keys:
+                continue
             if key == ("project", ".", "docker_info", None):
                 continue
             environment = (
@@ -1197,6 +1286,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                 expected_result,
                 self.submit(key, action=action, **options),
             )
+
+    def deployment_execution_keys(self):
+        required = gate.requirements(self.root, self.plan).required
+        return {key for key in required if key[2] in ("deployment", "process_path")}
 
     def summary(self):
         return json.loads((self.root / gate.SUMMARY).read_text(encoding="utf-8"))

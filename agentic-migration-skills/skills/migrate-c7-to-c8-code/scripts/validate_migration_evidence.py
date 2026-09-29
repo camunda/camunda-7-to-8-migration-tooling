@@ -560,11 +560,14 @@ def scan_module_sources(root, module):
                 continue
             relative = path.relative_to(root).as_posix()
             source_snapshot[relative] = hashlib.sha256(content).hexdigest()
+            is_caller_source = path.suffix.lower() in CALLER_SOURCE_SUFFIXES
             code_text, comment_free_text, lexical_issues = mask_source_text(text, path.suffix.lower())
             issues.extend(
-                f"{relative}: {issue}" for issue in lexical_issues
+                f"{relative}: {issue}"
+                for issue in lexical_issues
+                if is_caller_source or issue != "Unterminated string literal in source"
             )
-            if path.suffix.lower() in CALLER_SOURCE_SUFFIXES:
+            if is_caller_source:
                 for match in DUE_DATE_METHOD.finditer(code_text):
                     line_number = code_text.count("\n", 0, match.start()) + 1
                     updates.append({
@@ -735,7 +738,7 @@ def concrete_reference(value):
     if not isinstance(value, str) or not value.strip():
         return False
     normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().casefold()).strip("-")
-    return normalized not in {
+    return bool(normalized) and normalized not in {
         "none",
         "n-a",
         "not-approved",
@@ -1523,7 +1526,7 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
                 issues.append(f"{name}: caller names an unknown process ID {process_id}")
         if selection == "unknown" or process_id == "unknown":
             issues.append(f"{name}: unresolved process caller at {location}")
-        identity = (module, location, process_id)
+        identity = (module, location, process_id, operation, selection)
         if identity in seen:
             issues.append(f"{name}: duplicate caller record at {location}")
         seen.add(identity)
@@ -1563,8 +1566,12 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
     return validated
 
 
-def validate_deployment_set_evidence(root, plan, checks, issues):
-    for name in plan.deployment_sets:
+def validate_deployment_set_evidence(root, plan, checks, issues, deployment_set=None):
+    names = [deployment_set] if deployment_set is not None else plan.deployment_sets
+    for name in names:
+        if name not in plan.deployment_sets:
+            issues.append(f"{name}: unknown deployment set")
+            continue
         key = ("deployment_set", name, "preflight", None)
         recorded = checks.get(key)
         callers = []
@@ -2063,6 +2070,19 @@ def record(root, args):
                 timer_key,
                 plan,
                 "Timer preflight must pass before deployment or process execution",
+            )
+        deployment_issues = []
+        validate_deployment_set_evidence(
+            root,
+            plan,
+            previous,
+            deployment_issues,
+            deployment_set=set_name,
+        )
+        if deployment_issues:
+            raise EvidenceError(
+                "Deployment-set evidence is invalid before execution: "
+                + "; ".join(deployment_issues)
             )
     if args.action == "run" and args.type == "process" and args.kind == "process_path":
         inventory = ("process", args.target, "worker_input_inventory", None)

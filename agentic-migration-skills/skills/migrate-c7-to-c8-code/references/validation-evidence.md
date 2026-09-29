@@ -140,7 +140,9 @@ Timer preflights require a current timer disposition.
 Active-timer runtime checks require a current approved review.
 Model deployments require current model lint.
 Deployments and process starts require current deployment-set preflight, duplicate process ID
-decisions, and retained-timer checks.
+decisions, and retained-timer checks. Before executing either command, the recorder revalidates
+caller completeness and duplicate-ID dispositions; a current but semantically incomplete review
+cannot authorize deployment or process execution.
 Where a process has a worker-input review, its start command requires current evidence.
 If a prerequisite is stale, refresh it before running its dependent command.
 The recorder allows you to rerun a stale prerequisite.
