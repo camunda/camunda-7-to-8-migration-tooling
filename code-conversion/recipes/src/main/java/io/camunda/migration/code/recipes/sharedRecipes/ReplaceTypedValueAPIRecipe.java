@@ -635,7 +635,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
-                if (isUnconvertedBuilderContext()) {
+                if (!canUnwrapBuilder(invocation)) {
                   return super.visitMethodInvocation(invocation, ctx);
                 }
                 Map<String, Expression> collectedArgs = new HashMap<>();
@@ -830,32 +830,34 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 .anyMatch(spec -> spec.matcher().matches(invocation));
           }
 
-          private boolean isUnconvertedBuilderContext() {
+          private boolean canUnwrapBuilder(J.MethodInvocation invocation) {
             if (getCursor().firstEnclosing(J.Ternary.class) != null
                 || getCursor().firstEnclosing(J.SwitchExpression.class) != null) {
-              return true;
+              return false;
             }
             Cursor parent = getCursor().getParentTreeCursor();
             while (parent.getValue() instanceof J.Parentheses<?>) {
               parent = parent.getParentTreeCursor();
             }
-            if (parent.getValue() instanceof J.MethodInvocation call) {
-              if (call.getSelect() == getCursor().getValue()) {
-                return true;
-              }
-              JavaType.Method methodType = call.getMethodType();
-              if (methodType != null
-                  && methodType.getParameterTypes().stream().anyMatch(this::isLegacyTypedValue)) {
-                return true;
-              }
-              return call.getSelect() != null
-                  && call.getSelect().getType() instanceof JavaType.Parameterized receiver
-                  && receiver.getTypeParameters().stream().anyMatch(this::isLegacyTypedValue);
+            if (parent.getValue() instanceof J.VariableDeclarations.NamedVariable
+                || parent.getValue() instanceof J.Assignment) {
+              return getCursor().getNearestMessage(invocation.getId().toString()) != null;
             }
-            return parent.getValue() instanceof J.Return
-                || parent.getValue() instanceof J.NewArray
-                || parent.getValue() instanceof J.TypeCast
-                || parent.getValue() instanceof J.Block;
+            if (!(parent.getValue() instanceof J.MethodInvocation call)
+                || call.getSelect() == invocation
+                || call.getMethodType() == null
+                || (call.getSelect() != null
+                    && call.getSelect().getType() instanceof JavaType.Parameterized receiver
+                    && receiver.getTypeParameters().stream().anyMatch(this::isLegacyTypedValue))) {
+              return false;
+            }
+            List<JavaType> parameterTypes = call.getMethodType().getParameterTypes();
+            for (int i = 0; i < call.getArguments().size() && i < parameterTypes.size(); i++) {
+              if (unwrapParentheses(call.getArguments().get(i)) == invocation) {
+                return TypeUtils.isOfClassType(parameterTypes.get(i), "java.lang.Object");
+              }
+            }
+            return false;
           }
 
           private boolean isLegacyTypedValue(JavaType type) {
