@@ -234,7 +234,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             // Analyze first variable
             J.VariableDeclarations.NamedVariable firstVar = declarations.getVariables().get(0);
             J.Identifier originalName = firstVar.getName();
-            if (isPreservedObjectValueVariable(originalName.getSimpleName())) {
+            if (isPreservedObjectValueVariable(originalName)) {
               return declarations;
             }
             Expression originalInitializer = firstVar.getInitializer();
@@ -491,16 +491,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
 
-            if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
-              return super.visitAssignment(assignment, ctx);
-            }
-
             if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
-            if (isPreservedObjectValueVariable(originalName.getSimpleName())
-                || isUnsupportedBuilderInvocation(invocation)) {
+            J.Identifier assignedVariable = getAssignedVariable(assignment);
+            if (assignedVariable != null && isPreservedObjectValueVariable(assignedVariable)) {
+              return assignment;
+            }
+
+            if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
+              return super.visitAssignment(assignment, ctx);
+            }
+
+            if (isUnsupportedBuilderInvocation(invocation)) {
               return assignment;
             }
 
@@ -738,7 +742,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (invocation.getSimpleName().equals("getValue")
                 && invocation.getSelect() instanceof J.Identifier select) {
 
-              if (isPreservedObjectValueVariable(select.getSimpleName())) {
+              if (isPreservedObjectValueVariable(select)) {
                 return invocation;
               }
 
@@ -807,10 +811,63 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 && hasUnsupportedSerializationDataFormat(invocation);
           }
 
-          private boolean isPreservedObjectValueVariable(String variableName) {
-            return Boolean.TRUE.equals(
-                getCursor()
-                    .getNearestMessage(PRESERVED_OBJECT_VALUE_MESSAGE_PREFIX + variableName));
+          private boolean isPreservedObjectValueVariable(J.Identifier variable) {
+            String variableKey = objectValueVariableKey(getCursor(), variable);
+            return variableKey != null
+                && Boolean.TRUE.equals(
+                    getCursor()
+                        .getNearestMessage(PRESERVED_OBJECT_VALUE_MESSAGE_PREFIX + variableKey));
+          }
+
+          private String objectValueVariableKey(Cursor cursor, J.Identifier variable) {
+            JavaType.Variable fieldType = variable.getFieldType();
+            if (fieldType == null) {
+              return null;
+            }
+
+            String variableName = variable.getSimpleName();
+            // Scans include descendants, so bind preservation state to the declaring scope.
+            Cursor current = cursor;
+            while (current != null) {
+              Object value = current.getValue();
+              if (value instanceof J.Block block
+                  && declaresVariable(block.getStatements(), fieldType, variableName)) {
+                return block.getId() + ":" + variableName;
+              }
+              if (value instanceof J.MethodDeclaration method
+                  && method.getBody() != null
+                  && declaresVariable(method.getParameters(), fieldType, variableName)) {
+                return method.getBody().getId() + ":" + variableName;
+              }
+              current = current.getParent();
+            }
+
+            return fieldType + ":" + variableName;
+          }
+
+          private boolean declaresVariable(
+              List<Statement> statements, JavaType.Variable fieldType, String variableName) {
+            return statements.stream()
+                .filter(J.VariableDeclarations.class::isInstance)
+                .map(J.VariableDeclarations.class::cast)
+                .flatMap(declarations -> declarations.getVariables().stream())
+                .map(J.VariableDeclarations.NamedVariable::getName)
+                .anyMatch(
+                    identifier ->
+                        identifier.getSimpleName().equals(variableName)
+                            && identifier.getFieldType() != null
+                            && Objects.equals(
+                                identifier.getFieldType().getOwner(), fieldType.getOwner()));
+          }
+
+          private J.Identifier getAssignedVariable(J.Assignment assignment) {
+            if (assignment.getVariable() instanceof J.Identifier identifier) {
+              return identifier;
+            }
+            if (assignment.getVariable() instanceof J.FieldAccess fieldAccess) {
+              return fieldAccess.getName();
+            }
+            return null;
           }
 
           private boolean isSerializationDataFormatsJson(J.Identifier identifier) {
@@ -839,9 +896,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            */
           @Override
           public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
-            for (String variableName : findUnsupportedObjectValueVariables(block)) {
+            for (String variableKey : findUnsupportedObjectValueVariables(block)) {
               getCursor()
-                  .putMessage(PRESERVED_OBJECT_VALUE_MESSAGE_PREFIX + variableName, Boolean.TRUE);
+                  .putMessage(PRESERVED_OBJECT_VALUE_MESSAGE_PREFIX + variableKey, Boolean.TRUE);
             }
 
             J.Block bl = (J.Block) super.visitBlock(block, ctx);
@@ -863,7 +920,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
                   if (variable.getInitializer() instanceof J.MethodInvocation invocation
                       && isUnsupportedBuilderInvocation(invocation)) {
-                    variables.add(variable.getSimpleName());
+                    addPreservedObjectValueVariable(variables, getCursor(), variable.getName());
                   }
                 }
                 return super.visitVariableDeclarations(declarations, variables);
@@ -871,15 +928,24 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
               @Override
               public J.Assignment visitAssignment(J.Assignment assignment, Set<String> variables) {
-                if (assignment.getVariable() instanceof J.Identifier identifier
+                J.Identifier identifier = getAssignedVariable(assignment);
+                if (identifier != null
                     && assignment.getAssignment() instanceof J.MethodInvocation invocation
                     && isUnsupportedBuilderInvocation(invocation)) {
-                  variables.add(identifier.getSimpleName());
+                  addPreservedObjectValueVariable(variables, getCursor(), identifier);
                 }
                 return super.visitAssignment(assignment, variables);
               }
             }.visit(block, preservedVariables, getCursor());
             return preservedVariables;
+          }
+
+          private void addPreservedObjectValueVariable(
+              Set<String> variables, Cursor cursor, J.Identifier identifier) {
+            String variableKey = objectValueVariableKey(cursor, identifier);
+            if (variableKey != null) {
+              variables.add(variableKey);
+            }
           }
 
           private J.Block maybeInlineBlock(J.Block block, ExecutionContext ctx) {

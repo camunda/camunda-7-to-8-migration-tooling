@@ -235,6 +235,132 @@ public class TypeValueTestClass {
   }
 
   @Test
+  void preservesUnsupportedObjectValueAssignmentsOnlyForMatchingVariable() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        // language=java
+        java(
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    ObjectValue fieldValue;
+
+                    void keepUnsupportedFormat(Payload payload) {
+                        ObjectValue serialized;
+                        serialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create();
+                        Object value = serialized.getValue();
+                        consume(value);
+                    }
+
+                    void keepUnsupportedQualifiedField(Payload payload) {
+                        this.fieldValue = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create();
+                        Object value = fieldValue.getValue();
+                        consume(value);
+                    }
+
+                    void migrateSameNameInAnotherMethod(Payload payload) {
+                        ObjectValue serialized;
+                        serialized = Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON)
+                            .create();
+                        Object value = serialized.getValue();
+                        consume(value);
+                    }
+
+                    void migrateSameNameInSiblingScopes(Payload payload) {
+                        if (payload != null) {
+                            ObjectValue sibling;
+                            sibling = Variables.objectValue(payload)
+                                .serializationDataFormat("application/xml")
+                                .create();
+                            Object value = sibling.getValue();
+                            consume(value);
+                        }
+                        if (payload != null) {
+                            ObjectValue sibling;
+                            sibling = Variables.objectValue(payload)
+                                .serializationDataFormat(Variables.SerializationDataFormats.JSON)
+                                .create();
+                            Object value = sibling.getValue();
+                            consume(value);
+                        }
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """,
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    ObjectValue fieldValue;
+
+                    void keepUnsupportedFormat(Payload payload) {
+                        ObjectValue serialized;
+                        serialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create();
+                        Object value = serialized.getValue();
+                        consume(value);
+                    }
+
+                    void keepUnsupportedQualifiedField(Payload payload) {
+                        this.fieldValue = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create();
+                        Object value = fieldValue.getValue();
+                        consume(value);
+                    }
+
+                    void migrateSameNameInAnotherMethod(Payload payload) {
+                        Object serialized;
+                        // type set to java.lang.Object
+                        serialized = payload;
+                        Object value = serialized;
+                        consume(value);
+                    }
+
+                    void migrateSameNameInSiblingScopes(Payload payload) {
+                        if (payload != null) {
+                            ObjectValue sibling;
+                            sibling = Variables.objectValue(payload)
+                                .serializationDataFormat("application/xml")
+                                .create();
+                            Object value = sibling.getValue();
+                            consume(value);
+                        }
+                        if (payload != null) {
+                            Object sibling;
+                            // type set to java.lang.Object
+                            sibling = payload;
+                            Object value = sibling;
+                            consume(value);
+                        }
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """));
+  }
+
+  @Test
   void replacesJsonObjectValueBuilderAssignmentWithPojo() {
     rewriteRun(
         spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
