@@ -75,6 +75,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               new MethodMatcher("org.camunda.bpm.engine.variable.Variables byteArrayValue(..)");
           private final MethodMatcher delegateTypedGetter =
               new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)");
+          private final MethodMatcher allVariablesTypedGetter =
+              new MethodMatcher("org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)");
           private final List<MethodMatcher> typedVariableGetters =
               List.of(
                   delegateTypedGetter,
@@ -191,6 +193,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       "java.lang.Float",
                       ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                       List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("floatValue", 0)),
+                      Collections.emptyList()),
+                  new ReplacementUtils.SimpleReplacementSpec(
+                      dateValueFactory,
+                      RecipeUtils.createSimpleJavaTemplate("#{any(java.util.Date)}"),
+                      null,
+                      "java.util.Date",
+                      ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                      List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("dateValue", 0)),
                       Collections.emptyList()),
                   new ReplacementUtils.SimpleReplacementSpec(
                       new MethodMatcher(
@@ -457,7 +467,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
                 reviewTransient |= requiresTransientReview((J.MethodInvocation) original);
               } else if (initializer instanceof J.MethodInvocation getter
-                  && matchesTypedVariableGetter(getter)) {
+                  && (matchesTypedVariableGetter(getter)
+                      || allVariablesTypedGetter.matches(getter))) {
                 reviewType = true;
               }
               if (initializer instanceof J.FieldAccess fieldAccess
@@ -481,7 +492,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               block.putMessage(variable.getSimpleName(), newFqn);
             }
 
-            String[] imports = "java.util.Date".equals(newFqn) ? new String[] {newFqn} : new String[0];
+            String importedType =
+                newFqn.startsWith("java.util.Map<") ? "java.util.Map" : newFqn;
+            String[] imports =
+                "java.util.Date".equals(importedType) || "java.util.Map".equals(importedType)
+                    ? new String[] {importedType}
+                    : new String[0];
             J.VariableDeclarations modified =
                 RecipeUtils.createSimpleJavaTemplate(code.toString(), imports)
                     .apply(
@@ -500,7 +516,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 modified.withLeadingAnnotations(declarations.getLeadingAnnotations())
                     .withComments(comments);
             if (imports.length > 0) {
-              maybeAddImport(newFqn);
+              maybeAddImport(importedType);
             }
             maybeRemoveImport(declarations.getTypeAsFullyQualified());
             modified = (J.VariableDeclarations) super.visitVariableDeclarations(modified, ctx);
@@ -616,70 +632,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
 
               if (matchesTypedVariableGetter(invocation)
-                  || new MethodMatcher(
-                          "org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)")
-                      .matches(invocation)) {
-
-                // get modifiers
-                List<J.Modifier> modifiers = declarations.getModifiers();
-
+                  || allVariablesTypedGetter.matches(invocation)) {
                 String newFqn = mapTypedValueToNewFqn(originalName.getType());
-
-                if (declarations.getVariables().size() > 1) {
-                  if (!allTypedGetterInitializers(declarations)) {
-                    return markUnsupportedTypedInitializer(declarations);
-                  }
-                  return rewriteTypedDeclarations(declarations, newFqn, ctx);
-                }
-
-                // Create simple java template to adjust variable declaration type, but keep
-                // invocation as is
-                J.VariableDeclarations modifiedDeclarations =
-                    RecipeUtils.createSimpleJavaTemplate(
-                            (modifiers == null || modifiers.isEmpty()
-                                    ? ""
-                                    : modifiers.stream()
-                                        .map(J.Modifier::toString)
-                                        .collect(Collectors.joining(" ", "", " ")))
-                                + newFqn.substring(newFqn.lastIndexOf('.') + 1)
-                                + " "
-                                + originalName.getSimpleName()
-                                + " = "
-                                + (matchesTypedVariableGetter(invocation)
-                                        && !newFqn.equals("java.lang.Object")
-                                    ? "(" + RecipeUtils.getShortName(newFqn) + ") "
-                                    : "")
-                                + "#{any()}",
-                            "java.lang.Object")
-                        .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
-
-                maybeAddImport(newFqn);
-
-                // record fqn of identifier for later uses
-                getCursor()
-                    .dropParentUntil(parent -> parent instanceof J.Block)
-                    .putMessage(originalName.toString(), newFqn);
-
-                // merge comments
-                modifiedDeclarations =
-                    modifiedDeclarations.withComments(
-                        Stream.concat(
-                                declarations.getComments().stream(),
-                                Stream.of(
-                                    RecipeUtils.createSimpleComment(
-                                        declarations, " please check type")))
-                            .toList());
-
-                // visit method invocations
-                modifiedDeclarations =
-                    (J.VariableDeclarations)
-                        super.visitVariableDeclarations(modifiedDeclarations, ctx);
-
-                if (originalName.getType() instanceof JavaType.FullyQualified oldFqn) {
-                  maybeRemoveImport(oldFqn);
-                }
-
-                return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
+                return declarations.getVariables().size() > 1
+                        && !allTypedGetterInitializers(declarations)
+                    ? markUnsupportedTypedInitializer(declarations)
+                    : rewriteTypedDeclarations(declarations, newFqn, ctx);
               }
             }
 
@@ -951,7 +909,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     getCursor().getNearestMessage(invocation.getId().toString()) != null
                         ? Collections.emptyList()
                         : spec.textComments();
-                if (byteArrayValueFactory.matches(invocation) && requiresTransientReview(invocation)) {
+                if ((dateValueFactory.matches(invocation)
+                        || byteArrayValueFactory.matches(invocation))
+                    && requiresTransientReview(invocation)) {
                   comments = List.of(TRANSIENT_REVIEW);
                 }
                 Expression modifiedInvocation =

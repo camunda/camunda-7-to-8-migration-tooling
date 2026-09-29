@@ -896,15 +896,20 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
-  void nestedByteFactoriesKeepPrimitiveArrayValues() {
+  void nestedTypedFactoriesKeepRawValues() {
     rewriteRun(
         java(
             """
+            import java.util.Date;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.variable.Variables;
 
-            class ByteVariables {
+            class TypedVariables {
                 void publish(DelegateExecution execution, boolean transientFlag) {
+                    execution.setVariable("date", Variables.dateValue(new Date(0)));
+                    execution.setVariable("dateFalse", Variables.dateValue(new Date(1), false));
+                    execution.setVariable("dateTransient", Variables.dateValue(new Date(2), true));
+                    execution.setVariable("dateComputed", Variables.dateValue(new Date(3), transientFlag));
                     execution.setVariable("one", Variables.byteArrayValue(new byte[]{1}));
                     execution.setVariable("two", Variables.byteArrayValue(new byte[]{2}, false));
                     execution.setVariable("transient", Variables.byteArrayValue(new byte[]{3}, true));
@@ -913,10 +918,17 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """,
             """
+            import java.util.Date;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
 
-            class ByteVariables {
+            class TypedVariables {
                 void publish(DelegateExecution execution, boolean transientFlag) {
+                    execution.setVariable("date", new Date(0));
+                    execution.setVariable("dateFalse", new Date(1));
+                    execution.setVariable("dateTransient", // TODO: review Camunda 7 transient variable semantics for migrated values
+                            new Date(2));
+                    execution.setVariable("dateComputed", // TODO: review Camunda 7 transient variable semantics for migrated values
+                            new Date(3));
                     execution.setVariable("one", new byte[]{1});
                     execution.setVariable("two", new byte[]{2});
                     execution.setVariable("transient", // TODO: review Camunda 7 transient variable semantics for migrated values

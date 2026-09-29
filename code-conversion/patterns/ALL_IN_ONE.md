@@ -2073,14 +2073,12 @@ Check local and typed variable lookups separately; they have different scope or 
 
 ###### Typed date and byte factories
 
-`DateValue` and `BytesValue` fields and locals become `Date` and `byte[]`, including
-grouped declarations with factory, null, alias, or typed-getter initializers.
-Getters from `VariableScope`, `ExternalTask`, and `TaskService` get the required
-casts; qualified reads and assignments follow converted fields in the same
-source file, including superclass fields. Unsupported typed-value initializers
-stay unchanged with a manual-migration TODO, along with their typed uses.
-Unwrapping a factory with a `true` or computed Camunda 7 `isTransient` flag adds
-a TODO: review how that value is published before assuming equivalent behavior.
+`DateValue`/`BytesValue` fields, locals, and nested factory calls become `Date`/`byte[]`.
+Grouped declarations keep all declarators and modifiers; typed getters keep
+casts. Qualified reads and writes follow converted fields, including inherited
+fields in the same source file. Unsupported initializers and their typed uses
+remain for manual migration. A `true` or computed Camunda 7 `isTransient` flag
+adds a review TODO; conversion does not imply the same persistence behavior.
 
 ###### autoComplete = false (blocking)
 
