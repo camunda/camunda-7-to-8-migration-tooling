@@ -11,7 +11,7 @@
 
   <bpmn:process id="sub-process" name="Optional Variable Sub Process" isExecutable="true">
 
-    <bpmn:startEvent id="StartEvent_sub_process">
+    <bpmn:startEvent id="StartEvent_sub_process" name="Start process">
       <bpmn:outgoing>Flow_start</bpmn:outgoing>
     </bpmn:startEvent>
 
@@ -27,7 +27,7 @@
 
     <bpmn:sequenceFlow id="Flow_end" sourceRef="Task_optional_variable" targetRef="EndEvent_sub_process" />
 
-    <bpmn:endEvent id="EndEvent_sub_process">
+    <bpmn:endEvent id="EndEvent_sub_process" name="Finish process">
       <bpmn:incoming>Flow_end</bpmn:incoming>
     </bpmn:endEvent>
 
