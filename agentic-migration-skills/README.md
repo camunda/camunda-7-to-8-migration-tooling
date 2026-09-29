@@ -154,6 +154,10 @@ delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
 Review and validation remain mandatory for both migration paths.
 
+For code migrations with custom Camunda 7 incident notifications, the skill asks the project to
+approve a Camunda 8 integration or explicitly waive the alerts. It verifies approved notifications
+before claiming parity, separately from compilation, worker registration, and incident visibility.
+
 **Model migration (BPMN/DMN):**
 
 | Approach | What it does |
@@ -175,6 +179,9 @@ decision per integration group inside each category. It relinks a Camunda Form b
 other category it offers to rebuild the form as a Camunda 8 form, and it generates one only when you
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
+
+The skill preserves selected call-activity inputs instead of enabling all-parent propagation.
+In Camunda 8.9, children inherit the parent's Business ID independently of process variables.
 
 For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
 Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_CallActivityInputScopeChild" targetNamespace="http://bpmn.io/schema/bpmn" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="call-activity-input-scope-child" name="Call activity input scope child" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Child" name="Start child">
+      <bpmn:outgoing>Flow_StartToProbe</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_StartToProbe" sourceRef="StartEvent_Child" targetRef="Task_CaptureInputs" />
+    <bpmn:serviceTask id="Task_CaptureInputs" name="Capture child inputs">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="call-activity-input-scope-probe" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_StartToProbe</bpmn:incoming>
+      <bpmn:outgoing>Flow_ProbeToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_ProbeToEnd" sourceRef="Task_CaptureInputs" targetRef="EndEvent_Child" />
+    <bpmn:endEvent id="EndEvent_Child" name="Finish child">
+      <bpmn:incoming>Flow_ProbeToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Child">
+    <bpmndi:BPMNPlane id="BPMNPlane_Child" bpmnElement="call-activity-input-scope-child">
+      <bpmndi:BPMNShape id="StartEvent_Child_di" bpmnElement="StartEvent_Child">
+        <dc:Bounds x="179" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CaptureInputs_di" bpmnElement="Task_CaptureInputs">
+        <dc:Bounds x="270" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Child_di" bpmnElement="EndEvent_Child">
+        <dc:Bounds x="450" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_StartToProbe_di" bpmnElement="Flow_StartToProbe">
+        <di:waypoint x="215" y="120" />
+        <di:waypoint x="270" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ProbeToEnd_di" bpmnElement="Flow_ProbeToEnd">
+        <di:waypoint x="370" y="120" />
+        <di:waypoint x="450" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
