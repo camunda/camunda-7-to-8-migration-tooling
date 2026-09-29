@@ -168,6 +168,59 @@ public class RetrievePaymentAdapter {
                 """));
     }
 
+    @Test
+    void objectValueFieldsFollowGetterAndBuilderAssignments() {
+        rewriteRun(
+            java(
+                """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.delegate.JavaDelegate;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+                import org.springframework.stereotype.Component;
+
+                @Component
+                public class RetrievePaymentAdapter implements JavaDelegate {
+                    private ObjectValue fromGetter;
+                    private ObjectValue fromBuilder;
+
+                    @Override
+                    public void execute(DelegateExecution execution) {
+                        fromGetter = execution.getVariableTyped("payload");
+                        fromBuilder = Variables.objectValue("payload").create();
+                    }
+                }
+                """,
+                """
+                package org.camunda.community.migration.example;
+
+                import io.camunda.client.annotation.JobWorker;
+                import io.camunda.client.api.response.ActivatedJob;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+                import org.springframework.stereotype.Component;
+
+                import java.util.HashMap;
+                import java.util.Map;
+
+                @Component
+                public class RetrievePaymentAdapter {
+                    private Object fromGetter;
+                    private ObjectValue fromBuilder;
+
+                    @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
+                    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+                        Map<String, Object> resultMap = new HashMap<>();
+                        fromGetter = job.getVariablesAsMap().get("payload");
+                        fromBuilder = Variables.objectValue("payload").create();
+                        return resultMap;
+                    }
+                }
+                """));
+    }
+
 
     @Test
     void rewriteExecuteMethodWithVariables() {

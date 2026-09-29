@@ -424,4 +424,79 @@ public class TypeValueTestClass {
                 }
                 """));
   }
+
+  @Test
+  void convertsOnlyFieldsAssignedTypedGetters() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue bareGetter;
+                    private ObjectValue qualifiedGetter;
+                    private ObjectValue bareBuilder;
+                    private ObjectValue qualifiedBuilder;
+                    private ObjectValue mixedField;
+                    private ObjectValue mixedQualifiedGetter;
+                    private ObjectValue shadowedGetter;
+
+                    void assign(DelegateExecution execution, Object payload) {
+                        bareGetter = execution.getVariableTyped("bare");
+                        this.qualifiedGetter = execution.getVariableTyped("qualified");
+                        bareBuilder = Variables.objectValue(payload).create();
+                        this.qualifiedBuilder = Variables.objectValue(payload).create();
+                        mixedField = execution.getVariableTyped("mixed");
+                        this.mixedField = Variables.objectValue(payload).create();
+                        this.mixedQualifiedGetter = execution.getVariableTyped("mixedQualified");
+                        mixedQualifiedGetter = Variables.objectValue(payload).create();
+                    }
+
+                    void shadow(DelegateExecution execution, Object payload) {
+                        ObjectValue bareGetter;
+                        bareGetter = Variables.objectValue(payload).create();
+                        ObjectValue shadowedGetter;
+                        shadowedGetter = Variables.objectValue(payload).create();
+                        this.shadowedGetter = execution.getVariableTyped("shadowed");
+                    }
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private Object bareGetter;
+                    private Object qualifiedGetter;
+                    private ObjectValue bareBuilder;
+                    private ObjectValue qualifiedBuilder;
+                    private ObjectValue mixedField;
+                    private ObjectValue mixedQualifiedGetter;
+                    private Object shadowedGetter;
+
+                    void assign(DelegateExecution execution, Object payload) {
+                        bareGetter = execution.getVariable("bare");
+                        this.qualifiedGetter = execution.getVariable("qualified");
+                        bareBuilder = Variables.objectValue(payload).create();
+                        this.qualifiedBuilder = Variables.objectValue(payload).create();
+                        mixedField = execution.getVariableTyped("mixed");
+                        this.mixedField = Variables.objectValue(payload).create();
+                        this.mixedQualifiedGetter = execution.getVariableTyped("mixedQualified");
+                        mixedQualifiedGetter = Variables.objectValue(payload).create();
+                    }
+
+                    void shadow(DelegateExecution execution, Object payload) {
+                        ObjectValue bareGetter;
+                        bareGetter = Variables.objectValue(payload).create();
+                        ObjectValue shadowedGetter;
+                        shadowedGetter = Variables.objectValue(payload).create();
+                        this.shadowedGetter = execution.getVariable("shadowed");
+                    }
+                }
+                """));
+  }
 }
