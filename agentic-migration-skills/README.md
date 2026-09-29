@@ -52,6 +52,10 @@ If no BPMN/DMN model is found under the project root, the skill can offer the Di
 
 Call-activity migration preserves the C7 input and output scopes. In Camunda 8.9, the child inherits the parent's Business ID independently of process variables.
 
+Before deployment, the skill checks recurring timer starts and duplicate process IDs on each target,
+separately for each tenant. It traces start callers and active timer due-date updates, keeping
+unresolved behavior blocked rather than claiming the migration is ready.
+
 The skill fetches the [maintenance/0.3 pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and current Diagram Converter docs at runtime.
 It resolves the latest Diagram Converter CLI release.
 It describes which files and artifacts to inspect, download, and run.
@@ -65,6 +69,7 @@ skills/
     ├── SKILL.md
     └── references/
         ├── code-transform-checklist.md
+        ├── deployment-and-timer-preflight.md
         ├── pattern-catalog-sources.md
         └── call-activity-variable-scope.md
 ```
