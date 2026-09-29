@@ -163,6 +163,9 @@ Glob for `**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`. For each,
 |------|------|--------------------|-------|
 | ... | BPMN / DMN | yes / no | e.g. JavaDelegate refs, JUEL expressions, listeners |
 
+Where a model contains a call activity, the skill records its called process and C7 `camunda:in`/`camunda:out` mappings.
+The skill records any business-key mapping and any variable-mapping delegate.
+
 If the inventory is empty and the user selected model migration, record that no local source models were found and that E1 (C7 engine source) was offered. Do not report an empty local inventory as a successful model migration.
 
 These are migrated in **Part B** (not by OpenRewrite). Do not attempt to hand-edit them here — that is the Diagram Converter's job.
@@ -693,6 +696,10 @@ open item with status `blocked`.
    - The skill repeats the direct-start test once for each worker input that may be absent, with that input omitted.
    - The skill does not count call-activity coverage as direct-start coverage.
    - When a call activity invokes a process, the skill verifies that its parent supplies each required worker input.
+   - The skill compares each call activity's C7 mappings from Step 2 with C8 propagation. See `references/call-activity-variable-scope.md`.
+   - The skill tests selected inputs with a parent-only variable.
+   - Where the target is 8.9 or later, the skill checks child Business ID inheritance separately.
+   - Where the target is 8.8, the skill skips the Business ID check.
    - While no call activity invokes a process, the skill verifies only its direct-start inputs.
 5. **Excluded processes**: If a process is not a valid standalone entry point, then the skill records the exclusion in `MIGRATION_REPORT.md`. The exclusion lists the process ID, reason, and covering test.
 6. **Completeness**: If a process has neither required direct-start coverage nor a documented exclusion, then the skill fails validation.

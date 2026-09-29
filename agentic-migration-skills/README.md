@@ -50,6 +50,8 @@ Review and validate both paths.
 
 If no BPMN/DMN model is found under the project root, the skill can offer the Diagram Converter's C7 engine source mode instead. It asks for a reachable C7 REST URL and the required authentication before fetching; when local models are present, it does not offer or request engine access. The released engine mode supports REST with optional Basic authentication and fetches latest BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
+Call-activity migration preserves the C7 input and output scopes. In Camunda 8.9, the child inherits the parent's Business ID independently of process variables.
+
 The skill fetches the [maintenance/0.3 pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and current Diagram Converter docs at runtime.
 It resolves the latest Diagram Converter CLI release.
 It describes which files and artifacts to inspect, download, and run.
@@ -60,7 +62,11 @@ It chooses commands for the current environment instead of assuming POSIX shell 
 ```
 skills/
 └── migrate-c7-to-c8-code/
-    └── SKILL.md    ← skill definition (agentskills.io format)
+    ├── SKILL.md
+    └── references/
+        ├── code-transform-checklist.md
+        ├── pattern-catalog-sources.md
+        └── call-activity-variable-scope.md
 ```
 
 The `fixtures/delegate-transaction-boundaries` path test checks C7
