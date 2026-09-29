@@ -40,7 +40,8 @@ class StandaloneProcessTest {
         CamundaAssert.assertThat(processInstance)
                 .isCompleted()
                 .hasNoActiveIncidents()
-                .hasVariable("y", "hello world");
+                .hasVariable("y", "hello world")
+                .hasVariable("observedX", 7);
     }
 
     private ProcessInstanceEvent start(Map<String, Object> variables) {
