@@ -79,6 +79,15 @@ estimating. It shows them in the `atx` conversation and in `MIGRATION_REPORT.md`
 local run data, not AWS dashboard metrics. AWS documents no result schema or CLI option to submit
 them.
 
+The skill records validation evidence for each migrated module, model, and executable process. Its
+Python recorder runs each command and saves its arguments, exit code, and output. The gate checks
+that required results cover the confirmed scope, including model lint, safe deployment, process
+paths, and repeating timer preflights. It writes a machine-readable summary and a `READY` or
+`NOT READY` block in `MIGRATION_REPORT.md`. A failed, blocked, or missing check prevents `READY`.
+Manual reviews remain explicit. The gate cannot verify the meaning of an arbitrary command or
+review note. See the [validation evidence procedure](skills/migrate-c7-to-c8-code/references/validation-evidence.md).
+A complete migration also needs a `ready` project-readiness verdict for documentation and CI checks.
+
 ## Use
 
 From your Camunda 7 project directory:
@@ -214,12 +223,16 @@ plugin.json                                ← Copilot CLI plugin manifest
 skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
-    └── references/                        ← procedures loaded on demand
+    ├── references/                        ← procedures loaded on demand
+    └── scripts/                           ← validation recorder and gate
 fixtures/                                  ← sample projects and executable regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/validation-evidence` regression test preserves a nine-module, ten-model report that
+claimed readiness despite failed and missing checks. It generates synthetic logs in a temporary
+directory, and tests command capture, run isolation, process coverage, and timer safety.
 The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment patterns
 against the executable JAR. The `fixtures/start-event-listener-artifact` walkthrough checks a
 selected converter JAR against start-listener findings and a no-listener control.
