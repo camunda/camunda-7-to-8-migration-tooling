@@ -162,9 +162,9 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
-Before deployment, the skill inventories recurring timer starts and process IDs across the intended
-deployment set. It traces `latestVersion()` callers and active timer due-date updates. Unresolved
-timer or process-ID decisions keep the migration blocked.
+Before deployment, the skill checks recurring timer starts and duplicate process IDs across the
+intended target. It traces start callers and active timer due-date updates, keeping unresolved
+behavior blocked rather than claiming the migration is ready.
 
 For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
 Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible
@@ -206,8 +206,6 @@ fixtures/                                  ← sample projects for manual regres
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
-The `fixtures/timer-preflight` walkthrough covers recurring starts, duplicate
-process IDs across Maven modules, and active timer due-date update callers.
 
 ## License
 

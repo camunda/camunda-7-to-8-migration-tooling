@@ -52,8 +52,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
       "ManagementService method has a direct Java client equivalent";
   static final String MANAGEMENT_MARKER =
       "ManagementService has no direct Java client equivalent";
-  private static final String MANAGEMENT_TIMER_DUE_DATE_MARKER =
-      "ManagementService timer due-date update needs target-version verification";
   private static final Set<String> MANAGEMENT_CLIENT_METHODS =
       Set.of(
           "createJobQuery",
@@ -124,6 +122,8 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
           "executeJob",
               "Camunda 8 has no operation to execute an arbitrary job by ID. In timer tests, use processTestContext.increaseTime(Duration); production work must run in a job worker that activates jobs by type.",
           "createIncidentQuery", "Use POST /v2/incidents/search.",
+          "setJobDuedate",
+              "Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.",
           "getRegisteredDeployments",
               "Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.",
           "updateJobSuspensionState",
@@ -523,12 +523,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               }
               return "Review the Camunda 8 identity APIs or identity provider for this operation.";
             }
-            if (isTimerDueDateUpdate(serviceCall)) {
-              return "Trace every caller and affected BPMN timer. Confirm a target-supported "
-                  + "replacement with the project and test repeated changes on an active instance. "
-                  + "If none is confirmed, mark the flow as blocking manual work. Do not leave a "
-                  + "reachable UnsupportedOperationException placeholder.";
-            }
             if (serviceCall.timerQuery()) {
               return "Camunda 8 timers are wait states, not searchable jobs. In timer tests, use processTestContext.increaseTime(Duration).";
             }
@@ -565,9 +559,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
 
           private String methodMarker(ServiceCall serviceCall) {
             if (MANAGEMENT_SERVICE_FQN.equals(serviceCall.serviceFqn())) {
-              if (isTimerDueDateUpdate(serviceCall)) {
-                return MANAGEMENT_TIMER_DUE_DATE_MARKER;
-              }
               return !serviceCall.timerQuery()
                       && MANAGEMENT_CLIENT_METHODS.contains(serviceCall.methodName())
                   ? MANAGEMENT_CLIENT_MARKER
@@ -580,11 +571,6 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               return IDENTITY_NO_DIRECT_MARKER;
             }
             return IDENTITY_MANUAL_MARKER;
-          }
-
-          private boolean isTimerDueDateUpdate(ServiceCall serviceCall) {
-            return MANAGEMENT_SERVICE_FQN.equals(serviceCall.serviceFqn())
-                && "setJobDuedate".equals(serviceCall.methodName());
           }
 
           private boolean isIdentityAuthenticationMethod(ServiceCall serviceCall) {
