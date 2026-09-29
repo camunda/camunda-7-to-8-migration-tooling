@@ -239,6 +239,9 @@ public class TypeValueTestClass {
                         ObjectValue xmlAssignedLater;
                         xmlAssignedLater = (Variables.objectValue(payload)
                             .serializationDataFormat("application/xml").create());
+                        ObjectValue initiallyNull = null;
+                        initiallyNull = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
                         ObjectValue reassigned = Variables.objectValue(payload)
                             .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
                         if (payload != null) {
@@ -250,6 +253,7 @@ public class TypeValueTestClass {
                         consume(unknown.getValue());
                         consume(assignedLater.getValue());
                         consume(xmlAssignedLater.getValue());
+                        consume(initiallyNull.getValue());
                         consume(reassigned.getValue());
                         consume(field.getValue());
                     }
@@ -311,14 +315,23 @@ public class TypeValueTestClass {
             """
                 import org.camunda.bpm.engine.variable.Variables;
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
+                import org.camunda.bpm.engine.variable.value.StringValue;
 
                 class PayloadTest {
+                    StringValue value;
+
                     void handle(ObjectValue value) {
                         consume(value.getValue());
                     }
 
                     void handleReassigned(ObjectValue value, Object payload) {
                         value = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
+                        consume(value.getValue());
+                    }
+
+                    void handleLocal(Object payload) {
+                        ObjectValue value = Variables.objectValue(payload)
                             .serializationDataFormat("application/xml").create();
                         consume(value.getValue());
                     }
@@ -331,6 +344,8 @@ public class TypeValueTestClass {
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
 
                 class PayloadTest {
+                    String value;
+
                     void handle(Object value) {
                         consume(value);
                     }
@@ -341,7 +356,42 @@ public class TypeValueTestClass {
                         consume(value.getValue());
                     }
 
+                    void handleLocal(Object payload) {
+                        ObjectValue value = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
+                        consume(value.getValue());
+                    }
+
                     void consume(Object value) {}
+                }
+                """));
+  }
+
+  @Test
+  void keepsJsonBuildersInTypedValueContexts() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    ObjectValue build(Object payload) {
+                        return Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
+                    }
+
+                    ObjectValue[] buildArray(Object payload) {
+                        return new ObjectValue[] { Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create() };
+                    }
+
+                    ObjectValue cast(Object payload) {
+                        return (ObjectValue) Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
+                    }
+
                 }
                 """));
   }
