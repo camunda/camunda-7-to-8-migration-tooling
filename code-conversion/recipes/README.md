@@ -90,8 +90,9 @@ builder-backed fields, multiple declarations, later-reassigned variables, and ot
 contexts remain for manual migration. A `private`, uninitialized `ObjectValue` field becomes
 `Object` only when every assignment in its compilation unit uses a Camunda 7 typed-variable
 getter with an equivalent untyped call. Fields accessible from other compilation units, fields
-also assigned builders, and unsupported getter overloads stay `ObjectValue`. Cleanup removes
-Spin dependencies after unused-import removal only when no Spin types remain in source.
+also assigned builders, local-only typed getter calls, and unsupported getter overloads stay
+`ObjectValue`. Cleanup removes Spin dependencies after unused-import removal only when no Spin
+types remain in source.
 
 See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
 

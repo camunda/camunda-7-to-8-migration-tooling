@@ -767,4 +767,26 @@ public class TypeValueTestClass {
                 }
                 """));
   }
+
+  @Test
+  void preservesLocalTypedGettersWithoutEquivalentMigration() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import org.camunda.bpm.engine.TaskService;
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue executionLocal;
+                    private ObjectValue taskLocal;
+
+                    void read(DelegateExecution execution, TaskService taskService) {
+                        executionLocal = execution.getVariableLocalTyped("execution");
+                        this.taskLocal = taskService.getVariableLocalTyped("task", "local");
+                    }
+                }
+                """));
+  }
 }

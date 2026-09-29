@@ -904,7 +904,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private boolean isConvertibleTypedGetter(J.MethodInvocation invocation) {
             if (!isTypedVariableGetter(invocation)
-                || invocation.getSimpleName().equals("getAllVariablesTyped")) {
+                || invocation.getSimpleName().equals("getAllVariablesTyped")
+                || invocation.getSimpleName().equals("getVariableLocalTyped")) {
               return false;
             }
             boolean taskService =
