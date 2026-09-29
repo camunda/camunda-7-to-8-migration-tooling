@@ -1,7 +1,12 @@
 ---
 name: migrate-c7-to-c8-code
 description: |-
-  Migrates Camunda 7 projects to Camunda 8. Covers Java/Spring code, BPMN/DMN models, project documentation, and CI readiness. Use during code, model, or combined migrations.
+  Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring
+  code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService clients,
+  execution/task listeners, IncidentHandler implementations, ProcessEnginePlugin
+  registrations, and application config with camunda.* keys). Handles BPMN/DMN
+  models with the camunda: namespace, project documentation, and CI readiness.
+  Use for code migration, model migration, or both.
 license: Camunda License 1.0
 ---
 
@@ -52,8 +57,9 @@ model in `MIGRATION_REPORT.md`.
 
 1. The project declares Camunda 7 (camunda-bpm) dependencies in Maven or Gradle.
 2. The project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers,
-   ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
-   `camunda:` namespace, or application config with `camunda.*` keys.
+   ProcessEngine/RuntimeService client code, execution/task listeners, implementations of
+   `org.camunda.bpm.engine.impl.incident.IncidentHandler`, `ProcessEnginePlugin` registrations,
+   BPMN/DMN files with the `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
 4. Where the user selects OpenRewrite, require Maven or Gradle.
 5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
@@ -237,6 +243,41 @@ Present the code and model file counts. Present the overall complexity and the r
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
+
+#### Custom incident notifications
+
+Where the scope includes code migration, run this assessment and decision gate.
+Find `org.camunda.bpm.engine.impl.incident.IncidentHandler` implementations and
+`ProcessEnginePlugin` registrations in the source and configuration.
+Trace each handler's registration and observable actions.
+When a handler sends notifications, record a separate `incident-notification` finding in
+`MIGRATION_REPORT.md`. Capture its trigger, channel, recipients, context, duplicate behavior, and
+exposed data. Keep the finding separate from job-worker migration.
+
+Ask the project owner to choose a Camunda 8-compatible integration or explicitly waive notifications
+for each finding. Never remove or replace the handler, its registration, or its configuration
+before the project records its decision.
+
+| Project decision | Action | Notification parity |
+|---|---|---|
+| Not recorded | Keep the finding `blocked`. Record the call site and decision question as an `open` item. Stop before Step 3 confirmation or deployment. | `blocked` |
+| Approved integration | Record the target, integration, channel, recipients, approved context, duplicate policy, and privacy requirements. Keep the finding `blocked` until Step 4 verification passes, then resolve it. | `blocked` until Step 4 passes, then `verified` |
+| Explicit waiver | Record the approver, reason, and accepted behavior loss. Resolve the finding. | `waived` (not parity) |
+
+When the project approves an integration, test it in a disposable Camunda 8 target with synthetic
+data during Step 4. Verify each handler using its recorded trigger.
+For failed-job handlers, fail a test job with zero remaining retries and verify the expected incident.
+Verify notification delivery through the approved channel to the approved recipients.
+Verify that the notification includes useful context approved by the project.
+Verify that the notification contains no secrets or sensitive business data.
+Verify the agreed duplicate policy for one triggering event.
+Where delivery can retry, verify redelivery does not create an unwanted duplicate.
+Record the target version, integration, incident, expected and actual delivery counts, and redacted
+evidence in `MIGRATION_REPORT.md`.
+
+Where a notification finding exists, include a separate `Notification parity` row for each finding
+in the validation summary. Compilation, worker registration, and Operate visibility do not prove
+notification parity.
 
 Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3.
 
