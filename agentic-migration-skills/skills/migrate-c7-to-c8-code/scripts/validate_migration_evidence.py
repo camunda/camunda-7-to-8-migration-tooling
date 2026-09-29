@@ -110,6 +110,11 @@ def initialize(root):
         project_path(root, path, "Step 2 scope")
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
+    evidence_path = root / EVIDENCE
+    if evidence_path.exists():
+        evidence = read_json(evidence_path)
+        evidence["checks"] = []
+        write_json(root, EVIDENCE, evidence)
     print("Started a new migration validation run")
     report(root)
     return 0
