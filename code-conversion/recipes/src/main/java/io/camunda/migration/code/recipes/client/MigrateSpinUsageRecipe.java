@@ -33,8 +33,8 @@ public class MigrateSpinUsageRecipe extends Recipe {
   private static final String SPIN_JSON_FQN = "org.camunda.spin.json.SpinJsonNode";
   private static final MethodMatcher JSON_METHOD =
       new MethodMatcher("org.camunda.spin.Spin JSON(..)");
-  private static final MethodMatcher STRING_VALUE_OF_METHOD =
-      new MethodMatcher("java.lang.String valueOf(..)");
+  private static final MethodMatcher STRING_VALUE_OF_OBJECT_METHOD =
+      new MethodMatcher("java.lang.String valueOf(java.lang.Object)");
   private static final MethodMatcher XML_METHOD =
       new MethodMatcher("org.camunda.spin.Spin XML(..)");
   private static final MethodMatcher SPIN_JSON_PROPERTY =
@@ -132,11 +132,11 @@ public class MigrateSpinUsageRecipe extends Recipe {
 
         Expression argument = invocation.getArguments().get(0);
         if (argument instanceof J.MethodInvocation stringValueOf
-            && STRING_VALUE_OF_METHOD.matches(stringValueOf)
+            && STRING_VALUE_OF_OBJECT_METHOD.matches(stringValueOf)
             && stringValueOf.getArguments().size() == 1
             && !TypeUtils.isOfClassType(
                 stringValueOf.getArguments().get(0).getType(), "java.lang.String")) {
-          String object = stringValueOf.getArguments().get(0).toString();
+          String object = flattenLineBreaks(stringValueOf.getArguments().get(0).toString());
           return " TODO: Camunda Spin JSON(...) receives String.valueOf("
               + object
               + "), which does not serialize a Java object as JSON. Pass "
@@ -146,7 +146,7 @@ public class MigrateSpinUsageRecipe extends Recipe {
               + ") only when a JSON string is required.";
         }
 
-        String expression = argument.toString();
+        String expression = flattenLineBreaks(argument.toString());
         if (TypeUtils.isOfClassType(argument.getType(), "java.lang.String")) {
           return " TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. If "
               + expression
@@ -174,14 +174,23 @@ public class MigrateSpinUsageRecipe extends Recipe {
         J.MethodInvocation property = (J.MethodInvocation) stringValue.getSelect();
         if (property.getArguments().get(0) instanceof J.Literal literal
             && literal.getValue() instanceof String key) {
+          String commentKey = escapeLineTerminators(key);
           return " TODO: Replace SpinJsonNode.prop(\""
-              + key
+              + commentKey
               + "\").stringValue() with JSON Map access such as map.get(\""
-              + key
+              + commentKey
               + "\").toString() or Jackson mapping.";
         }
         return " TODO: Replace SpinJsonNode.prop(...).stringValue() with JSON Map access or"
             + " Jackson mapping.";
+      }
+
+      private String flattenLineBreaks(String value) {
+        return value.replaceAll("[\\t ]*(?:\\r\\n|\\r|\\n)+[\\t ]*", " ").trim();
+      }
+
+      private String escapeLineTerminators(String value) {
+        return value.replace("\r", "\\r").replace("\n", "\\n");
       }
 
       private boolean isSpinJsonStringValue(J.MethodInvocation invocation) {

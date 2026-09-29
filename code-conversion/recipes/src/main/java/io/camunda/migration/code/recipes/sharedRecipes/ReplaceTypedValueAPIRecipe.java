@@ -244,6 +244,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 // if match is found for the invocation, check returnTypeFqn to adjust variable
                 // declaration type
                 if (spec.matcher().matches(invocation)) {
+                  if (spec instanceof ReplacementUtils.BuilderReplacementSpec
+                      && hasUnsupportedSerializationDataFormat(invocation)) {
+                    return declarations;
+                  }
 
                   // get modifiers
                   List<J.Modifier> modifiers = declarations.getModifiers();
@@ -765,11 +769,24 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (format instanceof J.FieldAccess fieldAccess) {
               return isSerializationDataFormatsJson(fieldAccess.getName())
-                  || fieldAccess.toString().contains("SerializationDataFormats.JSON");
+                  || fieldAccess.toString().endsWith("SerializationDataFormats.JSON");
             }
 
             return format instanceof J.Identifier identifier
                 && isSerializationDataFormatsJson(identifier);
+          }
+
+          private boolean hasUnsupportedSerializationDataFormat(
+              J.MethodInvocation invocation) {
+            Expression current = invocation;
+            while (current instanceof J.MethodInvocation methodInvocation) {
+              if (methodInvocation.getSimpleName().equals("serializationDataFormat")
+                  && !isJsonSerializationDataFormat(methodInvocation)) {
+                return true;
+              }
+              current = methodInvocation.getSelect();
+            }
+            return false;
           }
 
           private boolean isSerializationDataFormatsJson(J.Identifier identifier) {

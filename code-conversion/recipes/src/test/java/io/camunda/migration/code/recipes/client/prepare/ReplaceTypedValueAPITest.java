@@ -133,6 +133,7 @@ public class TypeValueTestClass {
                 class SpinPayloadTest {
                     static class SerializationDataFormats {
                         static final String JSON = "application/json";
+                        static final String JSON_XML = "application/json_xml";
                     }
 
                     record Payload(Map<String, Object> variables) {}
@@ -144,6 +145,15 @@ public class TypeValueTestClass {
                         ObjectValue literalSerialized = Variables.objectValue(payload)
                             .serializationDataFormat("application/json")
                             .create();
+                        ObjectValue jsonXmlSerialized = Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON_XML)
+                            .create();
+                        consume(Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON_XML)
+                            .create());
+                    }
+
+                    void consume(Object value) {
                     }
                 }
                 """,
@@ -151,10 +161,13 @@ public class TypeValueTestClass {
                 package org.camunda.community.migration.example;
 
                 import java.util.Map;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
 
                 class SpinPayloadTest {
                     static class SerializationDataFormats {
                         static final String JSON = "application/json";
+                        static final String JSON_XML = "application/json_xml";
                     }
 
                     record Payload(Map<String, Object> variables) {}
@@ -164,6 +177,15 @@ public class TypeValueTestClass {
                         Object serialized = payload;
                         // type set to java.lang.Object
                         Object literalSerialized = payload;
+                        ObjectValue jsonXmlSerialized = Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON_XML)
+                            .create();
+                        consume(Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON_XML)
+                            .create());
+                    }
+
+                    void consume(Object value) {
                     }
                 }
                 """));
