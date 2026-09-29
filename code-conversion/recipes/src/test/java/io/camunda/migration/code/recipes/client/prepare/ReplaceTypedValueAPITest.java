@@ -461,9 +461,7 @@ public class TypeValueTestClass {
             """
                 import org.camunda.bpm.engine.delegate.DelegateExecution;
                 import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.IntegerValue;
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
-                import org.camunda.bpm.engine.variable.value.StringValue;
 
                 class PayloadTest {
                     Integer amount;
