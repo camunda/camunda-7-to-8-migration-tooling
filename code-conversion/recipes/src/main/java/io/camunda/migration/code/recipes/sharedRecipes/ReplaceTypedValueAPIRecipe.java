@@ -238,10 +238,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             J.Identifier originalName = firstVar.getName();
             Expression originalInitializer = unwrapParentheses(firstVar.getInitializer());
             // A declaration without a value might later receive a builder we cannot unwrap.
+            Object declarationParent = getCursor().getParentTreeCursor().getValue();
             if (originalInitializer == null
                 && TypeUtils.isOfClassType(
                     declarations.getType(),
-                    "org.camunda.bpm.engine.variable.value.ObjectValue")) {
+                    "org.camunda.bpm.engine.variable.value.ObjectValue")
+                && (declarationParent instanceof J.Block
+                    || declarationParent instanceof J.ForLoop.Control
+                    || isReassigned(originalName))) {
               return declarations;
             }
 
@@ -476,9 +480,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               if (newFqn != null) {
 
                 // record fqn of identifier for later uses
-                getCursor()
-                    .dropParentUntil(parent -> parent instanceof J.Block)
-                    .putMessage(originalName.toString(), newFqn);
+                Cursor scope =
+                    declarationParent instanceof J.MethodDeclaration
+                        ? getCursor()
+                            .dropParentUntil(parent -> parent instanceof J.MethodDeclaration)
+                        : getCursor().dropParentUntil(parent -> parent instanceof J.Block);
+                scope.putMessage(originalName.toString(), newFqn);
 
                 maybeRemoveImport(declarations.getTypeAsFullyQualified());
 
@@ -832,18 +839,19 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private boolean isReassigned(J.Identifier variable) {
             J.Block block =
-                (J.Block)
-                    getCursor()
-                        .dropParentUntil(parent -> parent instanceof J.Block)
-                        .getValue();
+                getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration method
+                    ? method.getBody()
+                    : getCursor().firstEnclosing(J.Block.class);
+            if (block == null) {
+              return false;
+            }
             Set<String> assigned = new HashSet<>();
             new JavaIsoVisitor<Set<String>>() {
               @Override
               public J.Assignment visitAssignment(J.Assignment assignment, Set<String> names) {
-                if (assignment.getVariable() instanceof J.Identifier identifier) {
+                Expression target = unwrapParentheses(assignment.getVariable());
+                if (target instanceof J.Identifier identifier) {
                   names.add(identifier.getSimpleName());
-                } else if (assignment.getVariable() instanceof J.FieldAccess field) {
-                  names.add(field.getName().getSimpleName());
                 }
                 return super.visitAssignment(assignment, names);
               }

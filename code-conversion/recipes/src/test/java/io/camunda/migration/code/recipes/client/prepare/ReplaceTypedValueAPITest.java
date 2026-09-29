@@ -127,6 +127,8 @@ public class TypeValueTestClass {
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
 
                 class PayloadTest {
+                    ObjectValue json;
+
                     static class Formats {
                         static final String JSON = "application/xml";
                     }
@@ -138,6 +140,8 @@ public class TypeValueTestClass {
                             .serializationDataFormat("application/json").create();
                         ObjectValue unknown = Variables.objectValue(payload)
                             .serializationDataFormat(Formats.JSON).create();
+                        this.json = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
                         consume(Variables.objectValue(payload)
                             .serializationDataFormat(Variables.SerializationDataFormats.JSON).create());
                     }
@@ -150,6 +154,8 @@ public class TypeValueTestClass {
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
 
                 class PayloadTest {
+                    ObjectValue json;
+
                     static class Formats {
                         static final String JSON = "application/xml";
                     }
@@ -161,6 +167,8 @@ public class TypeValueTestClass {
                         Object literal = payload;
                         ObjectValue unknown = Variables.objectValue(payload)
                             .serializationDataFormat(Formats.JSON).create();
+                        this.json = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
                         consume(// type set to java.lang.Object
                                 payload);
                     }
@@ -234,7 +242,7 @@ public class TypeValueTestClass {
                         ObjectValue reassigned = Variables.objectValue(payload)
                             .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
                         if (payload != null) {
-                            reassigned = Variables.objectValue(payload)
+                            (reassigned) = Variables.objectValue(payload)
                                 .serializationDataFormat("application/xml").create();
                         }
                         this.field = Variables.objectValue(payload)
@@ -291,6 +299,49 @@ public class TypeValueTestClass {
                     Object read() {
                         return this.field.getValue();
                     }
+                }
+                """));
+  }
+
+  @Test
+  void stillMigratesObjectValueParameters() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void handle(ObjectValue value) {
+                        consume(value.getValue());
+                    }
+
+                    void handleReassigned(ObjectValue value, Object payload) {
+                        value = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
+                        consume(value.getValue());
+                    }
+
+                    void consume(Object value) {}
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void handle(Object value) {
+                        consume(value);
+                    }
+
+                    void handleReassigned(ObjectValue value, Object payload) {
+                        value = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
+                        consume(value.getValue());
+                    }
+
+                    void consume(Object value) {}
                 }
                 """));
   }
