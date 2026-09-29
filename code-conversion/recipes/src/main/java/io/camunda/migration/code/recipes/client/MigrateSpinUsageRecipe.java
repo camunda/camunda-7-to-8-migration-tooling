@@ -156,6 +156,13 @@ public class MigrateSpinUsageRecipe extends Recipe {
               + " objectMapper.writeValueAsString(pojo) when a JSON string is required.";
         }
 
+        if (RecipeUtils.isAssignableTo(argument.getType(), "java.io.InputStream")) {
+          return " TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use"
+              + " Jackson's InputStream overload objectMapper.readValue("
+              + expression
+              + ", Map.class) to parse the JSON text before setting a JSON process variable.";
+        }
+
         if (RecipeUtils.isAssignableTo(argument.getType(), "java.io.Reader")) {
           return " TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use"
               + " Jackson's Reader overload objectMapper.readValue("
@@ -181,7 +188,7 @@ public class MigrateSpinUsageRecipe extends Recipe {
         J.MethodInvocation property = (J.MethodInvocation) stringValue.getSelect();
         if (property.getArguments().get(0) instanceof J.Literal literal
             && literal.getValue() instanceof String key) {
-          String commentKey = escapeLineTerminators(key);
+          String commentKey = escapeJavaStringLiteralContent(key);
           return " TODO: Replace SpinJsonNode.prop(\""
               + commentKey
               + "\").stringValue() with JSON Map access such as map.get(\""
@@ -196,8 +203,12 @@ public class MigrateSpinUsageRecipe extends Recipe {
         return value.replaceAll("[\\t ]*(?:\\r\\n|\\r|\\n)+[\\t ]*", " ").trim();
       }
 
-      private String escapeLineTerminators(String value) {
-        return value.replace("\r", "\\r").replace("\n", "\\n");
+      private String escapeJavaStringLiteralContent(String value) {
+        return value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\r", "\\r")
+            .replace("\n", "\\n");
       }
 
       private boolean isSpinJsonStringValue(J.MethodInvocation invocation) {
