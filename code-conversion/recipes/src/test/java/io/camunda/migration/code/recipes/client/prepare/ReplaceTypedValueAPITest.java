@@ -446,7 +446,7 @@ public class TypeValueTestClass {
 
                     void assign(DelegateExecution execution, Object payload) {
                         bareGetter = execution.getVariableTyped("bare");
-                        this.qualifiedGetter = execution.getVariableTyped("qualified");
+                        (this.qualifiedGetter) = execution.getVariableTyped("qualified");
                         bareBuilder = Variables.objectValue(payload).create();
                         this.qualifiedBuilder = Variables.objectValue(payload).create();
                         mixedField = execution.getVariableTyped("mixed");
@@ -480,7 +480,7 @@ public class TypeValueTestClass {
 
                     void assign(DelegateExecution execution, Object payload) {
                         bareGetter = execution.getVariable("bare");
-                        this.qualifiedGetter = execution.getVariable("qualified");
+                        (this.qualifiedGetter) = execution.getVariable("qualified");
                         bareBuilder = Variables.objectValue(payload).create();
                         this.qualifiedBuilder = Variables.objectValue(payload).create();
                         mixedField = execution.getVariableTyped("mixed");
@@ -495,6 +495,133 @@ public class TypeValueTestClass {
                         ObjectValue shadowedGetter;
                         shadowedGetter = Variables.objectValue(payload).create();
                         this.shadowedGetter = execution.getVariable("shadowed");
+                    }
+                }
+                """));
+  }
+
+  @Test
+  void convertsFieldsUsedBeforeTheirDeclarations() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void read(DelegateExecution execution) {
+                        bare = execution.getVariableTyped("bare");
+                        Object first = bare.getValue();
+                        this.qualified = execution.getVariableTyped("qualified");
+                        Object second = (this.qualified).getValue();
+                    }
+
+                    private ObjectValue bare;
+                    private ObjectValue qualified;
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void read(DelegateExecution execution) {
+                        bare = execution.getVariable("bare");
+                        Object first = bare;
+                        this.qualified = execution.getVariable("qualified");
+                        Object second = this.qualified;
+                    }
+
+                    private Object bare;
+                    private Object qualified;
+                }
+                """));
+  }
+
+  @Test
+  void convertsFieldsInNestedAndAnonymousClassesBeforeTheirDeclarations() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    class Nested {
+                        void read(DelegateExecution execution) {
+                            value = execution.getVariableTyped("nested");
+                            Object nested = value.getValue();
+                            PayloadTest.this.outer = execution.getVariableTyped("outer");
+                            Object outside = PayloadTest.this.outer.getValue();
+                        }
+
+                        private ObjectValue value;
+                    }
+
+                    Runnable anonymous(DelegateExecution execution) {
+                        return new Runnable() {
+                            @Override public void run() {
+                                field = execution.getVariableTyped("anonymous");
+                                Object result = field.getValue();
+                            }
+
+                            private ObjectValue field;
+                        };
+                    }
+
+                    private ObjectValue outer;
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    class Nested {
+                        void read(DelegateExecution execution) {
+                            value = execution.getVariable("nested");
+                            Object nested = value;
+                            PayloadTest.this.outer = execution.getVariable("outer");
+                            Object outside = PayloadTest.this.outer;
+                        }
+
+                        private Object value;
+                    }
+
+                    Runnable anonymous(DelegateExecution execution) {
+                        return new Runnable() {
+                            @Override public void run() {
+                                field = execution.getVariable("anonymous");
+                                Object result = field;
+                            }
+
+                            private Object field;
+                        };
+                    }
+
+                    private Object outer;
+                }
+                """));
+  }
+
+  @Test
+  void preservesParenthesizedMixedFieldAssignments() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue mixed;
+
+                    void assign(DelegateExecution execution, Object payload) {
+                        (this.mixed) = execution.getVariableTyped("mixed");
+                        mixed = Variables.objectValue(payload).create();
                     }
                 }
                 """));

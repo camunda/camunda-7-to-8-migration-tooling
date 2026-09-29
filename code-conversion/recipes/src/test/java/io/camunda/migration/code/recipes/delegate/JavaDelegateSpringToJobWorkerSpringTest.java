@@ -183,14 +183,14 @@ public class RetrievePaymentAdapter {
 
                 @Component
                 public class RetrievePaymentAdapter implements JavaDelegate {
-                    private ObjectValue fromGetter;
-                    private ObjectValue fromBuilder;
-
                     @Override
                     public void execute(DelegateExecution execution) {
                         fromGetter = execution.getVariableTyped("payload");
                         fromBuilder = Variables.objectValue("payload").create();
                     }
+
+                    private ObjectValue fromGetter;
+                    private ObjectValue fromBuilder;
                 }
                 """,
                 """
@@ -207,6 +207,7 @@ public class RetrievePaymentAdapter {
 
                 @Component
                 public class RetrievePaymentAdapter {
+
                     private Object fromGetter;
                     private ObjectValue fromBuilder;
 
