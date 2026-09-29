@@ -375,6 +375,7 @@ public class TypeValueTestClass {
             """
                 import org.camunda.bpm.engine.variable.Variables;
                 import org.camunda.bpm.engine.variable.value.ObjectValue;
+                import java.util.concurrent.atomic.AtomicReference;
 
                 class PayloadTest {
                     ObjectValue build(Object payload) {
@@ -392,6 +393,10 @@ public class TypeValueTestClass {
                             .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
                     }
 
+                    void store(AtomicReference<ObjectValue> target, Object payload) {
+                        target.set(Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create());
+                    }
                 }
                 """));
   }

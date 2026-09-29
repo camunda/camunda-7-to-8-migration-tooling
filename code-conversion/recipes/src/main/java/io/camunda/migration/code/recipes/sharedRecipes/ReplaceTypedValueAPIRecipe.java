@@ -835,12 +835,29 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             while (parent.getValue() instanceof J.Parentheses<?>) {
               parent = parent.getParentTreeCursor();
             }
+            if (parent.getValue() instanceof J.MethodInvocation call) {
+              if (call.getSelect() == getCursor().getValue()) {
+                return true;
+              }
+              JavaType.Method methodType = call.getMethodType();
+              if (methodType != null
+                  && methodType.getParameterTypes().stream().anyMatch(this::isLegacyTypedValue)) {
+                return true;
+              }
+              return call.getSelect() != null
+                  && call.getSelect().getType() instanceof JavaType.Parameterized receiver
+                  && receiver.getTypeParameters().stream().anyMatch(this::isLegacyTypedValue);
+            }
             return parent.getValue() instanceof J.Return
                 || parent.getValue() instanceof J.NewArray
                 || parent.getValue() instanceof J.TypeCast
-                || parent.getValue() instanceof J.Block
-                || (parent.getValue() instanceof J.MethodInvocation call
-                    && call.getSelect() == getCursor().getValue());
+                || parent.getValue() instanceof J.Block;
+          }
+
+          private boolean isLegacyTypedValue(JavaType type) {
+            return TypeUtils.isOfClassType(type, OBJECT_VALUE_FQN)
+                || TypeUtils.isOfClassType(
+                    type, "org.camunda.bpm.engine.variable.value.TypedValue");
           }
 
           private boolean isFieldDeclaration() {
