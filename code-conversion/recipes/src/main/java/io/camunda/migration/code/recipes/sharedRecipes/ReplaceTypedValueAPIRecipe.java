@@ -606,6 +606,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 // extract arguments
                 while (current instanceof J.MethodInvocation mi) {
                   String name = mi.getSimpleName();
+                  if (isJsonSerializationDataFormat(mi)) {
+                    current = mi.getSelect();
+                    continue;
+                  }
                   if (!mi.getArguments().isEmpty()
                       && !(mi.getArguments().get(0) instanceof J.Empty)) {
                     collectedArgs.put(name, mi.getArguments().get(0));
@@ -745,6 +749,38 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             return super.visitMethodInvocation(invocation, ctx);
+          }
+
+          private boolean isJsonSerializationDataFormat(J.MethodInvocation invocation) {
+            if (!invocation.getSimpleName().equals("serializationDataFormat")
+                || invocation.getArguments().size() != 1) {
+              return false;
+            }
+
+            Expression format = invocation.getArguments().get(0);
+            if (format instanceof J.Literal literal
+                && literal.getValue() instanceof String value) {
+              return value.equalsIgnoreCase("application/json");
+            }
+
+            if (format instanceof J.FieldAccess fieldAccess) {
+              return isSerializationDataFormatsJson(fieldAccess.getName())
+                  || fieldAccess.toString().contains("SerializationDataFormats.JSON");
+            }
+
+            return format instanceof J.Identifier identifier
+                && isSerializationDataFormatsJson(identifier);
+          }
+
+          private boolean isSerializationDataFormatsJson(J.Identifier identifier) {
+            if (!identifier.getSimpleName().equals("JSON")) {
+              return false;
+            }
+
+            JavaType.Variable fieldType = identifier.getFieldType();
+            return fieldType != null
+                && fieldType.getOwner() instanceof JavaType.FullyQualified owner
+                && owner.getFullyQualifiedName().endsWith(".SerializationDataFormats");
           }
 
           @Override

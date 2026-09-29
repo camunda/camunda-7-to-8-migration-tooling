@@ -116,4 +116,56 @@ public class TypeValueTestClass {
 }
 """));
   }
+
+  @Test
+  void replacesJsonObjectValueBuilderWithPojo() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        // language=java
+        java(
+            """
+                package org.camunda.community.migration.example;
+
+                import java.util.Map;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    static class SerializationDataFormats {
+                        static final String JSON = "application/json";
+                    }
+
+                    record Payload(Map<String, Object> variables) {}
+
+                    void submit(Payload payload) {
+                        ObjectValue serialized = Variables.objectValue(payload)
+                            .serializationDataFormat(SerializationDataFormats.JSON)
+                            .create();
+                        ObjectValue literalSerialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/json")
+                            .create();
+                    }
+                }
+                """,
+            """
+                package org.camunda.community.migration.example;
+
+                import java.util.Map;
+
+                class SpinPayloadTest {
+                    static class SerializationDataFormats {
+                        static final String JSON = "application/json";
+                    }
+
+                    record Payload(Map<String, Object> variables) {}
+
+                    void submit(Payload payload) {
+                        // type set to java.lang.Object
+                        Object serialized = payload;
+                        // type set to java.lang.Object
+                        Object literalSerialized = payload;
+                    }
+                }
+                """));
+  }
 }
