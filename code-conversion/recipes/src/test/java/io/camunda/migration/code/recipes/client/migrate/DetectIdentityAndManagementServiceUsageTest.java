@@ -244,6 +244,14 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                 public BiConsumer<String, Date> updater(ManagementService managementService) {
                     return managementService::setJobDuedate;
                 }
+
+                public void recalculate(ManagementService managementService, String jobId) {
+                    managementService.recalculateJobDuedate(jobId, true);
+                }
+
+                public BiConsumer<String, Boolean> recalculator(ManagementService managementService) {
+                    return managementService::recalculateJobDuedate;
+                }
             }
             """,
             """
@@ -267,6 +275,20 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
                     // Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     return managementService::setJobDuedate;
+                }
+
+                public void recalculate(ManagementService managementService, String jobId) {
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (recalculateJobDuedate()).
+                    // Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.recalculateJobDuedate(jobId, true);
+                }
+
+                public BiConsumer<String, Boolean> recalculator(ManagementService managementService) {
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (recalculateJobDuedate()).
+                    // Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    return managementService::recalculateJobDuedate;
                 }
             }
             """));

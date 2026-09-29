@@ -10,27 +10,32 @@ item to `blocked`. Keep the migration incomplete until the finding is resolved.
 
 ## Deployment set
 
-A deployment set includes models intended for the same target, even when modules deploy separately.
-Confirm its boundary from Maven/Gradle resources, `@Deployment`, deployment code, and commands.
-When the boundary is unclear, ask the user. Never assume every repository model shares a target.
+A deployment set includes models intended for the same target and tenant, even when modules deploy
+separately. Confirm its target and tenant from Maven/Gradle resources, `@Deployment`, deployment
+code, and commands. Where a deployment targets multiple tenants, assess each tenant separately.
+When the target or tenant is unclear, ask the user. Never assume every repository model shares a
+target or tenant.
 
 At assessment, namespace-parse the original BPMN in each set. Before deployment, recheck the
 converted copies that replace them; never count both copies as separate deployments. Record each
-process ID, module, and path. For every timer start, record its event ID and exact date or cycle
-expression. For a cycle, record its interval and repetition count, or block on unresolved expressions.
+process ID, target tenant ID, module, and path. For every timer start, record its event ID and exact
+date or cycle expression. For a cycle, record its interval and repetition count, or block on
+unresolved expressions.
 [Camunda 8 schedules timer starts on deployment](https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/).
 Each firing creates an instance. A cycle without a repetition count runs indefinitely; deploying a
-new version cancels the prior timer for that BPMN process ID.
+new version in the same tenant cancels the prior timer for that BPMN process ID.
 
-Group definitions by process ID across the set. Trace C7 `startProcessInstanceByKey` and C8
-`bpmnProcessId` callers, including `.latestVersion()` and IDs from constants or configuration.
-Record every caller of a duplicate ID and its version-selection behavior. Keep unknown IDs unresolved.
+Group definitions by process ID within each target tenant. Models in different tenants do not
+collide. [Tenants isolate process definitions](https://docs.camunda.io/docs/components/concepts/multi-tenancy/).
+Trace every start path: C7 by-key/by-ID calls, C8 BPMN ID/definition key calls, REST, message starts,
+and call activities. Include `.latestVersion()` and IDs from constants or configuration. Record
+each caller's selected tenant and version-selection behavior. Keep unknown IDs or tenants unresolved.
 
 | Finding | Decision before deployment |
 |---|---|
 | Recurring timer start | Approve preserving, changing, or removing the exact cycle; record its automatic-start effect and any converted-copy change. |
 | Duplicate process ID | Approve isolated targets, an explicit version, or a rename with old-to-new mappings and updated callers. |
-| Unknown deployment boundary, cycle, or caller ID | Confirm it before deploying the affected models. |
+| Unknown deployment boundary, target/caller tenant, cycle, or caller ID | Confirm it before deploying the affected models. |
 
 Never silently change a timer or process ID. An unapproved decision blocks deployment and readiness.
 Never deploy a recurring timer on a shared target just to check syntax. Before live deployment, get
@@ -41,11 +46,12 @@ deployment blocked.
 
 ## Active timer updates
 
-Find direct C7 `ManagementService.setJobDuedate` calls and method references, REST
-`/job/{id}/duedate` and `/job/{id}/duedate/recalculate` calls, and their helpers. Check whether the
-selected jobs are timers. For active timer updates, trace every caller, including repeated calls.
-Match the process and BPMN timer element to the value supplying the new date. Record source
-locations, caller chains, timer expressions, and unresolved links as blocking open items.
+Find C7 `ManagementService.setJobDuedate` and `recalculateJobDuedate` calls and method references,
+REST `/job/{id}/duedate` and `/job/{id}/duedate/recalculate` calls, and their helpers. Check whether
+the selected jobs are timers. For active timer updates, trace every caller, including repeated calls.
+Match the selected job's tenant, process, and BPMN timer element to the value or expression
+determining the new due date. For recalculation, record whether `creationDateBased` is true. Record
+source locations, caller chains, timer expressions, and unresolved links as blocking open items.
 
 Check the official API and timer documentation for the selected target version before proposing a
 replacement. Record documented support and limitations. A C7 setter does not imply a C8 timer API.
