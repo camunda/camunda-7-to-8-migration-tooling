@@ -751,6 +751,32 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         self.assertEqual([], issues)
 
+    def test_same_line_standalone_latest_version_needs_its_own_inventory_record(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/LatestVersion.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample").latestVersion(); legacy.latestVersion();\n',
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        process_caller = plan.process_callers["modules/c7-client"]
+        issues = []
+
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": process_caller},
+            {},
+            issues,
+        )
+
+        self.assertTrue(
+            any("latestVersion caller is missing" in issue for issue in issues),
+            issues,
+        )
+
     def test_multiline_latest_version_is_associated_with_its_process_call(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
@@ -1560,6 +1586,44 @@ class ValidationEvidenceTest(unittest.TestCase):
             ),
         )
         self.assertEqual(0, self.audit())
+
+    def test_root_module_timer_update_can_map_to_timer_in_shared_deployment_set(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["modules"].append({
+            "path": "service",
+            "runtime_mode": "none",
+            "test_suites": [{"name": "unit", "requires_docker": False}],
+        })
+        self.plan["models"][0]["module"] = "service"
+        self.plan["deployment_sets"][0]["modules"] = [".", "service"]
+        self.write_scope()
+        self.add_active_timer_model()
+        source = self.root / "src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, newDate);\n",
+            encoding="utf-8",
+        )
+
+        requirements = gate.requirements(self.root, self.plan)
+        active_hits = requirements.active_timer_updates["."]
+
+        self.assertEqual(
+            [
+                {
+                    "model_path": "models/converted-c8-process.bpmn",
+                    "process_id": "p",
+                    "timer_id": timer_id,
+                    "source_locations": ["src/main/java/TimerUpdates.java:1"],
+                }
+                for timer_id in ("sample-timer", "second-sample-timer")
+            ],
+            gate.normalize_affected_timer_inventory(
+                self.affected_timer_inventory(target="."),
+                active_hits,
+                gate.timer_elements_for_module(requirements, "."),
+            ),
+        )
 
     def test_non_timer_classification_keeps_other_active_timer_updates_blocked(self):
         self.add_active_timer_model()
