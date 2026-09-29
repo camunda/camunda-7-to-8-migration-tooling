@@ -491,7 +491,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
 
-            if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
+            Expression assignmentValue = assignment.getAssignment();
+            Expression unwrappedAssignmentValue = unwrapParentheses(assignmentValue);
+            if (!(unwrappedAssignmentValue instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -501,6 +503,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
+              if (isBuilderInvocation(invocation)) {
+                return assignment;
+              }
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -537,7 +542,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
                             originalName.getSimpleName() + " = #{any()}", spec.returnTypeFqn())
-                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+                        .apply(getCursor(), assignment.getCoordinates().replace(), assignmentValue);
 
                 modifiedAssignment =
                     modifiedAssignment.withVariable(
@@ -805,9 +810,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return false;
           }
 
-          private boolean isUnsupportedBuilderInvocation(J.MethodInvocation invocation) {
+          private boolean isBuilderInvocation(J.MethodInvocation invocation) {
             return builderMethodInvocations.stream()
-                    .anyMatch(spec -> spec.matcher().matches(invocation))
+                .anyMatch(spec -> spec.matcher().matches(invocation));
+          }
+
+          private boolean isUnsupportedBuilderInvocation(J.MethodInvocation invocation) {
+            return isBuilderInvocation(invocation)
                 && hasUnsupportedSerializationDataFormat(invocation);
           }
 
@@ -934,7 +943,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            */
           @Override
           public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
-            for (String variableKey : findUnsupportedObjectValueVariables(block)) {
+            for (String variableKey : findPreservedObjectValueVariables(block)) {
               getCursor()
                   .putMessage(PRESERVED_OBJECT_VALUE_MESSAGE_PREFIX + variableKey, Boolean.TRUE);
             }
@@ -949,7 +958,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return maybeInlineBlock(bl, ctx);
           }
 
-          private Set<String> findUnsupportedObjectValueVariables(J.Block block) {
+          private Set<String> findPreservedObjectValueVariables(J.Block block) {
             Set<String> preservedVariables = new HashSet<>();
             new JavaIsoVisitor<Set<String>>() {
               @Override
@@ -969,9 +978,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               public J.Assignment visitAssignment(J.Assignment assignment, Set<String> variables) {
                 J.Identifier identifier = getAssignedVariable(assignment);
                 Expression assignedValue = unwrapParentheses(assignment.getAssignment());
+                // Qualified field types and uses are not rewritten together, so preserve their
+                // builders with the field declaration.
                 if (identifier != null
                     && assignedValue instanceof J.MethodInvocation invocation
-                    && isUnsupportedBuilderInvocation(invocation)) {
+                    && (isUnsupportedBuilderInvocation(invocation)
+                        || (assignment.getVariable() instanceof J.FieldAccess
+                            && isBuilderInvocation(invocation)))) {
                   addPreservedObjectValueVariable(variables, getCursor(), identifier);
                 }
                 return super.visitAssignment(assignment, variables);
