@@ -63,10 +63,13 @@ Record every caller of a duplicate ID and its version selection.
 | `.latestVersion()` | Include its source location in a caller record with `latest_version`. |
 
 Each caller record names its module, source location with line number, process ID, operation, and
-version selection. An explicit-version decision needs at least one matching caller record.
+version selection. An explicit-version decision needs at least one matching caller record that
+selects a positive integer version.
 Every record must match a detected process-call site or a detected standalone `.latestVersion()`
-site; standalone sites use operation `other`. Method declarations and unrelated source lines do not
+site. Standalone sites use operation `other`. Method declarations and unrelated source lines do not
 count as callers.
+A chained `.latestVersion()` belongs to its process-call record, even when the chain spans multiple
+lines.
 A mapped rename needs every old-ID caller updated, even after the converted copies no longer collide.
 The source collision remains in the deployment inventory until the mapping and caller changes pass.
 A preflight record also becomes stale when its source or

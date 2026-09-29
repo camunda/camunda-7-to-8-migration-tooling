@@ -666,6 +666,20 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual([], issues)
 
+    def test_zero_process_version_is_not_classified_as_explicit(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample").version(0).execute();\n',
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+        detected = plan.process_callers["modules/c7-client"][0]
+        self.assertEqual("unknown", detected["version_selection"])
+        self.assertEqual("dynamic", detected["version_selection_resolution"])
+
     def test_caller_inventory_rejects_records_without_detected_source_sites(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/java/Unrelated.java"
@@ -717,6 +731,40 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "location": "modules/c7-client/src/main/java/LatestVersion.java:1",
                         "process_id": "Sample",
                         "operation": "other",
+                        "version_selection": "latest_version",
+                    }
+                ]
+            },
+            {},
+            issues,
+        )
+
+        self.assertEqual([], issues)
+
+    def test_multiline_latest_version_is_associated_with_its_process_call(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample")\n'
+            "    .latestVersion()\n"
+            "    .execute();\n",
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        issues = []
+
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {
+                "caller_inventory": [
+                    {
+                        "module": "modules/c7-client",
+                        "location": "modules/c7-client/src/main/java/ProcessCaller.java:1",
+                        "process_id": "Sample",
+                        "operation": "bpmnProcessId",
                         "version_selection": "latest_version",
                     }
                 ]
@@ -1179,10 +1227,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.assertFalse(gate.active_timer_decision_is_approved(invalid))
         self.assertFalse(gate.active_timer_decision_is_approved(decision, "pending"))
         for field in ("approval_reference", "alternative_evidence_reference"):
-            with self.subTest(field=field):
-                invalid = dict(decision)
-                invalid[field] = "---"
-                self.assertFalse(gate.active_timer_decision_is_approved(invalid))
+            for placeholder in ("---", "not run", "not-run", "not verified", "not-verified"):
+                with self.subTest(field=field, placeholder=placeholder):
+                    invalid = {**decision, field: placeholder}
+                    self.assertFalse(gate.active_timer_decision_is_approved(invalid))
 
     def test_placeholder_active_timer_target_version_cannot_authorize_runtime_command(self):
         self.add_active_timer_model()

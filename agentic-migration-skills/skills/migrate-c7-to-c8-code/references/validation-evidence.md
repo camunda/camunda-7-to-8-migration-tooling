@@ -97,13 +97,16 @@ Each caller record includes its module, project-relative source location with li
 ID, operation, and version selection. Use operation `startProcessInstanceByKey`,
 `createProcessInstanceByKey`, `bpmnProcessId`, or `other`.
 Every record must match a detected process-call site or a detected standalone `.latestVersion()`
-site; standalone sites use operation `other`. Method declarations are not caller sites, and a
+site. Standalone sites use operation `other`. Method declarations are not caller sites, and a
 record at an unrelated source line cannot satisfy a duplicate-ID decision.
+A chained `.latestVersion()` belongs to its process-call record, even when the chain spans multiple
+lines.
 For each deployment set, include detected calls that target process IDs in that set.
 Do not list calls to process IDs in another set. Resolve a simple identifier or member expression
 with a concrete process ID and version selection at the same location and operation.
 The review note must name the constant or configuration source that you traced.
-An explicit-version decision needs at least one matching caller record. A mapped rename needs
+An explicit-version decision needs at least one matching caller record that selects a positive
+integer version. A mapped rename needs
 complete old-to-new mappings and updated callers, even after converted copies no longer collide.
 Keep dynamic IDs or version selections unresolved.
 The gate blocks interpolated strings that contain process or timer call patterns.

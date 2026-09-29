@@ -498,8 +498,9 @@ def matching_parenthesis_end(text, opening):
 
 def process_call_version(text, call_end, operation):
     if operation in ("startProcessInstanceByKey", "createProcessInstanceByKey"):
-        return "latest_version", "known"
+        return "latest_version", "known", []
     selections = []
+    latest_version_starts = []
     index = call_end
     while index < len(text):
         while index < len(text) and text[index].isspace():
@@ -507,11 +508,13 @@ def process_call_version(text, call_end, operation):
         method = re.match(r"\.\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", text[index:])
         if method is None:
             break
+        name = method.group(1)
+        if name == "latestVersion":
+            latest_version_starts.append(index)
         opening = index + method.end() - 1
         end = matching_parenthesis_end(text, opening)
         if end is None:
-            return "unknown", "dynamic"
-        name = method.group(1)
+            return "unknown", "dynamic", latest_version_starts
         arguments = text[opening + 1:end - 1].strip()
         if name == "latestVersion":
             selections.append(
@@ -520,7 +523,7 @@ def process_call_version(text, call_end, operation):
                 else ("unknown", "dynamic")
             )
         elif name == "version":
-            if re.fullmatch(r"\d+", arguments):
+            if re.fullmatch(r"\d+", arguments) and arguments.strip("0"):
                 selections.append(("explicit_version", "known"))
             else:
                 resolution = (
@@ -531,8 +534,8 @@ def process_call_version(text, call_end, operation):
                 selections.append(("unknown", resolution))
         index = end
     if len(selections) == 1:
-        return selections[0]
-    return "unknown", "dynamic"
+        return selections[0][0], selections[0][1], latest_version_starts
+    return "unknown", "dynamic", latest_version_starts
 
 
 def is_process_method_declaration(text, match, call_end, source_suffix):
@@ -661,12 +664,7 @@ def scan_module_sources(root, module):
                         "location": f"{relative}:{line_number}",
                         "kind": "setJobDuedate",
                     })
-                for match in LATEST_VERSION.finditer(code_text):
-                    line_number = code_text.count("\n", 0, match.start()) + 1
-                    latest_versions.append({
-                        "module": module,
-                        "location": f"{relative}:{line_number}",
-                    })
+                chained_latest_version_calls = {}
                 for match in PROCESS_CALL.finditer(code_text):
                     operation = match.group(1)
                     argument, call_end = parse_process_call(text, match)
@@ -687,21 +685,34 @@ def scan_module_sources(root, module):
                         )
                     else:
                         process_id_resolution = "known"
-                    version_selection, version_selection_resolution = process_call_version(
-                        code_text,
-                        call_end,
-                        operation,
-                    )
+                    (
+                        version_selection,
+                        version_selection_resolution,
+                        latest_version_starts,
+                    ) = process_call_version(code_text, call_end, operation)
                     line_number = code_text.count("\n", 0, match.start()) + 1
+                    process_call_location = f"{relative}:{line_number}"
+                    for start in latest_version_starts:
+                        chained_latest_version_calls[start] = process_call_location
                     process_callers.append({
                         "module": module,
-                        "location": f"{relative}:{line_number}",
+                        "location": process_call_location,
                         "process_id": process_id,
                         "process_id_resolution": process_id_resolution,
                         "operation": operation,
                         "version_selection": version_selection,
                         "version_selection_resolution": version_selection_resolution,
                     })
+                for match in LATEST_VERSION.finditer(code_text):
+                    line_number = code_text.count("\n", 0, match.start()) + 1
+                    hit = {
+                        "module": module,
+                        "location": f"{relative}:{line_number}",
+                    }
+                    process_call_location = chained_latest_version_calls.get(match.start())
+                    if process_call_location is not None:
+                        hit["process_call_location"] = process_call_location
+                    latest_versions.append(hit)
                 for match in PROCESS_REFERENCE.finditer(code_text):
                     line_number = code_text.count("\n", 0, match.start()) + 1
                     process_callers.append({
@@ -979,6 +990,8 @@ def concrete_reference(value):
         "n-a",
         "not-approved",
         "not-reviewed",
+        "not-run",
+        "not-verified",
         "pending",
         "pending-review",
         "tbd",
@@ -1836,8 +1849,11 @@ def deployment_set_latest_version_calls(plan, name, module):
     return [
         hit
         for hit in plan.latest_version_calls.get(module, [])
-        if hit["location"] in relevant_locations
-        or hit["location"] not in scanned_locations
+        if hit.get("process_call_location") is None
+        and (
+            hit["location"] in relevant_locations
+            or hit["location"] not in scanned_locations
+        )
     ]
 
 
