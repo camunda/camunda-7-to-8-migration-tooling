@@ -2,13 +2,17 @@
 """Capture migration checks and generate a fail-closed validation gate."""
 
 import argparse
+import ast
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
@@ -31,10 +35,73 @@ ASSERTIONS = (
 )
 GATE_HEADING = "## Aggregate validation gate"
 RUNTIME_CHECKS = ("spring_boot_run", "executable_jar", "external_launcher")
+SAFE_ENVIRONMENTS = ("local", "non-production")
+SOURCE_SUFFIXES = {
+    ".conf", ".gradle", ".groovy", ".http", ".ini", ".java", ".js", ".json",
+    ".jsx", ".kt", ".kts", ".properties", ".py", ".scala", ".sh", ".toml",
+    ".ts", ".tsx", ".xml", ".yaml", ".yml",
+}
+SKIP_SOURCE_DIRS = {".camunda-migration", ".git", "build", "dist", "node_modules", "target"}
+HASH_COMMENT_SUFFIXES = {
+    ".conf", ".http", ".ini", ".properties", ".py", ".sh", ".toml", ".yaml", ".yml",
+}
+CALLER_SOURCE_SUFFIXES = {
+    ".gradle", ".groovy", ".java", ".js", ".jsx", ".kt", ".kts", ".py", ".scala",
+    ".sh", ".ts", ".tsx",
+}
+NESTED_BLOCK_COMMENT_SUFFIXES = {".kt", ".kts", ".scala"}
+SLASH_COMMENT_SUFFIXES = {
+    ".gradle", ".groovy", ".java", ".js", ".jsx", ".kt", ".kts", ".scala", ".ts", ".tsx",
+}
+DUE_DATE_METHOD = re.compile(r"\bsetJobDuedate\b")
+REST_DUE_DATE_UPDATE = re.compile(
+    r"/job/(?:\{[^}]+\}|[^/\s\"'?]+)/duedate(?:/recalculate)?"
+)
+LATEST_VERSION = re.compile(r"\.\s*latestVersion\s*\(")
+PROCESS_CALL = re.compile(r"\b(startProcessInstanceByKey|createProcessInstanceByKey|bpmnProcessId)\s*\(")
+PROCESS_REFERENCE = re.compile(
+    r"::\s*(startProcessInstanceByKey|createProcessInstanceByKey|bpmnProcessId)\b"
+)
+INTERPOLATED_SOURCE_CALL = re.compile(
+    r"\b(?:startProcessInstanceByKey|createProcessInstanceByKey|bpmnProcessId|"
+    r"latestVersion|setJobDuedate)\b"
+)
+DURATION = re.compile(
+    r"P(?=.)"
+    r"(?:\d+(?:[.,]\d+)?Y)?"
+    r"(?:\d+(?:[.,]\d+)?M)?"
+    r"(?:\d+(?:[.,]\d+)?W)?"
+    r"(?:\d+(?:[.,]\d+)?D)?"
+    r"(?:T(?:\d+(?:[.,]\d+)?H)?"
+    r"(?:\d+(?:[.,]\d+)?M)?"
+    r"(?:\d+(?:[.,]\d+)?S)?)?"
+)
+TIMER_DISPOSITIONS = {"add", "change", "preserve", "remove"}
+PROCESS_ID_DISPOSITIONS = {"explicit_version", "mapped_rename"}
+ACTIVE_TIMER_DISPOSITIONS = {"no_updates", "verified"}
 
 
 class EvidenceError(ValueError):
     pass
+
+
+@dataclass
+class ValidationPlan:
+    required: dict
+    allowed: set
+    timers: dict
+    timer_inventory: dict
+    docker_suites: dict
+    deployment_sets: dict
+    models_by_path: dict
+    process_ids_by_set: dict
+    duplicate_process_ids: dict
+    active_timer_updates: dict
+    latest_version_calls: dict
+    process_callers: dict
+    active_timer_update_decision: dict
+    source_snapshot_digest: str
+    issues: list
 
 
 def project_path(root, value, label, must_exist=False):
@@ -180,7 +247,610 @@ def read_model(root, source, converted):
         for node in (source_document, document)
     ):
         raise EvidenceError(f"Not DMN definitions documents: {source}, {converted}")
-    return document
+    return source_document, document
+
+
+def mask_source_text(text, suffix):
+    code = list(text)
+    comment_free = list(text)
+    issues = []
+    index = 0
+    line_comment = False
+    block_end = None
+    block_depth = 0
+    string_quote = None
+    string_size = 0
+    string_start = 0
+    string_prefix = ""
+    escaped = False
+
+    def hide(start, end, buffer):
+        for position in range(start, end):
+            if text[position] not in "\r\n":
+                buffer[position] = " "
+
+    while index < len(text):
+        char = text[index]
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+            else:
+                hide(index, index + 1, code)
+                hide(index, index + 1, comment_free)
+            index += 1
+            continue
+        if block_end:
+            if (
+                block_end == "*/"
+                and suffix in NESTED_BLOCK_COMMENT_SUFFIXES
+                and text.startswith("/*", index)
+            ):
+                hide(index, index + 2, code)
+                hide(index, index + 2, comment_free)
+                block_depth += 1
+                index += 2
+                continue
+            if text.startswith(block_end, index):
+                end = index + len(block_end)
+                hide(index, end, code)
+                hide(index, end, comment_free)
+                index = end
+                block_depth -= 1
+                if block_depth == 0:
+                    block_end = None
+            else:
+                hide(index, index + 1, code)
+                hide(index, index + 1, comment_free)
+                index += 1
+            continue
+        if string_quote:
+            delimiter = string_quote * string_size
+            if text.startswith(delimiter, index) and not escaped:
+                contents = text[string_start + string_size:index]
+                interpolated = (
+                    string_quote == "`" and "${" in contents
+                    or suffix == ".py"
+                    and "f" in string_prefix
+                    and "{" in contents and "}" in contents
+                    or suffix in {".kt", ".kts"} and "$" in contents
+                    or suffix in {".java", ".kt", ".kts"} and r"\{" in contents
+                    or suffix in {".gradle", ".groovy"} and "$" in contents
+                    or suffix == ".scala"
+                    and string_prefix in {"f", "s"}
+                    and "$" in contents
+                )
+                if interpolated and INTERPOLATED_SOURCE_CALL.search(contents):
+                    issues.append(
+                        "Cannot statically scan an interpolated string containing a process or timer call"
+                    )
+                hide(index, index + string_size, code)
+                index += string_size
+                string_quote = None
+                string_size = 0
+                string_prefix = ""
+                escaped = False
+                continue
+            if char == "\\" and not escaped:
+                escaped = True
+            else:
+                escaped = False
+            hide(index, index + 1, code)
+            index += 1
+            continue
+        if text.startswith("<!--", index):
+            block_end = "-->"
+            block_depth = 1
+            hide(index, index + 4, code)
+            hide(index, index + 4, comment_free)
+            index += 4
+            continue
+        if (
+            suffix in SLASH_COMMENT_SUFFIXES
+            and text.startswith("//", index)
+        ):
+            line_comment = True
+            hide(index, index + 2, code)
+            hide(index, index + 2, comment_free)
+            index += 2
+            continue
+        if (
+            suffix in SLASH_COMMENT_SUFFIXES
+            and text.startswith("/*", index)
+        ):
+            block_end = "*/"
+            block_depth = 1
+            hide(index, index + 2, code)
+            hide(index, index + 2, comment_free)
+            index += 2
+            continue
+        if suffix in HASH_COMMENT_SUFFIXES and char == "#":
+            if suffix == ".py" or index == 0 or text[index - 1].isspace():
+                line_comment = True
+                hide(index, index + 1, code)
+                hide(index, index + 1, comment_free)
+                index += 1
+                continue
+        if char in ("'", '"', "`"):
+            string_quote = char
+            string_size = (
+                3 if char in ("'", '"') and text.startswith(char * 3, index) else 1
+            )
+            prefix_start = index - 1
+            while prefix_start >= 0 and (
+                text[prefix_start].isalnum() or text[prefix_start] == "_"
+            ):
+                prefix_start -= 1
+            string_prefix = text[prefix_start + 1:index].lower()
+            string_start = index
+            hide(index, index + string_size, code)
+            index += string_size
+            escaped = False
+            continue
+        index += 1
+
+    if block_end:
+        issues.append("Unterminated block comment in source")
+    if string_quote:
+        issues.append("Unterminated string literal in source")
+    return "".join(code), "".join(comment_free), issues
+
+
+def parse_process_call(text, match):
+    argument_start = match.end()
+    first_argument_end = None
+    depth = 1
+    quote = None
+    escaped = False
+    index = argument_start
+    while index < len(text):
+        char = text[index]
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif text.startswith("//", index):
+            end = text.find("\n", index + 2)
+            if end < 0:
+                return None, len(text)
+            index = end
+        elif text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            if end < 0:
+                return None, len(text)
+            index = end + 1
+        elif char == "#":
+            end = text.find("\n", index + 1)
+            if end < 0:
+                return None, len(text)
+            index = end
+        elif char in ("'", '"', "`"):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                end = first_argument_end if first_argument_end is not None else index
+                return text[argument_start:end].strip(), index + 1
+        elif char == "," and depth == 1 and first_argument_end is None:
+            first_argument_end = index
+        index += 1
+    return None, len(text)
+
+
+def matching_parenthesis_end(text, opening):
+    depth = 0
+    for index in range(opening, len(text)):
+        if text[index] == "(":
+            depth += 1
+        elif text[index] == ")":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    return None
+
+
+def process_call_version(text, call_end, operation):
+    if operation in ("startProcessInstanceByKey", "createProcessInstanceByKey"):
+        return "latest_version"
+    selections = []
+    index = call_end
+    while index < len(text):
+        while index < len(text) and text[index].isspace():
+            index += 1
+        method = re.match(r"\.\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", text[index:])
+        if method is None:
+            break
+        opening = index + method.end() - 1
+        end = matching_parenthesis_end(text, opening)
+        if end is None:
+            return "unknown"
+        name = method.group(1)
+        arguments = text[opening + 1:end - 1].strip()
+        if name == "latestVersion":
+            selections.append("latest_version" if not arguments else "unknown")
+        elif name == "version":
+            selections.append(
+                "explicit_version" if re.fullmatch(r"\d+", arguments) else "unknown"
+            )
+        index = end
+    if len(selections) == 1:
+        return selections[0]
+    return "unknown"
+
+
+def scan_module_sources(root, module):
+    updates = []
+    latest_versions = []
+    process_callers = []
+    source_snapshot = {}
+    issues = []
+    try:
+        module_root = project_path(root, module, "module", must_exist=True)
+    except EvidenceError:
+        return updates, latest_versions, process_callers, source_snapshot, issues
+    if not module_root.is_dir():
+        return updates, latest_versions, process_callers, source_snapshot, issues
+    def walk_error(error):
+        location = error.filename or module
+        issues.append(f"Cannot scan {location} for migration evidence: {error}")
+
+    for current, directories, files in os.walk(
+        module_root,
+        followlinks=False,
+        onerror=walk_error,
+    ):
+        current_path = Path(current)
+        included_directories = []
+        for name in sorted(directories):
+            directory = current_path / name
+            if name in SKIP_SOURCE_DIRS:
+                continue
+            if directory.is_symlink():
+                issues.append(
+                    f"Cannot scan symlinked in-scope source directory: {directory.relative_to(root)}"
+                )
+                continue
+            included_directories.append(name)
+        directories[:] = included_directories
+        for name in sorted(files):
+            path = current_path / name
+            if path.suffix.lower() not in SOURCE_SUFFIXES:
+                continue
+            if path.is_symlink():
+                issues.append(
+                    f"Cannot scan symlinked in-scope source file: {path.relative_to(root)}"
+                )
+                continue
+            try:
+                content = path.read_bytes()
+                text = content.decode("utf-8")
+            except (OSError, UnicodeError) as exc:
+                issues.append(f"Cannot scan {path.relative_to(root)} for migration evidence: {exc}")
+                continue
+            relative = path.relative_to(root).as_posix()
+            source_snapshot[relative] = hashlib.sha256(content).hexdigest()
+            code_text, comment_free_text, lexical_issues = mask_source_text(text, path.suffix.lower())
+            issues.extend(
+                f"{relative}: {issue}" for issue in lexical_issues
+            )
+            if path.suffix.lower() in CALLER_SOURCE_SUFFIXES:
+                for match in DUE_DATE_METHOD.finditer(code_text):
+                    line_number = code_text.count("\n", 0, match.start()) + 1
+                    updates.append({
+                        "location": f"{relative}:{line_number}",
+                        "kind": "setJobDuedate",
+                    })
+                for match in LATEST_VERSION.finditer(code_text):
+                    line_number = code_text.count("\n", 0, match.start()) + 1
+                    latest_versions.append({
+                        "module": module,
+                        "location": f"{relative}:{line_number}",
+                    })
+                for match in PROCESS_CALL.finditer(code_text):
+                    operation = match.group(1)
+                    argument, call_end = parse_process_call(text, match)
+                    try:
+                        process_id = ast.literal_eval(argument) if argument is not None else None
+                    except (SyntaxError, ValueError):
+                        process_id = None
+                    if not isinstance(process_id, str) or not process_id:
+                        process_id = "unknown"
+                    line_number = code_text.count("\n", 0, match.start()) + 1
+                    process_callers.append({
+                        "module": module,
+                        "location": f"{relative}:{line_number}",
+                        "process_id": process_id,
+                        "operation": operation,
+                        "version_selection": process_call_version(
+                            code_text, call_end, operation
+                        ),
+                    })
+                for match in PROCESS_REFERENCE.finditer(code_text):
+                    line_number = code_text.count("\n", 0, match.start()) + 1
+                    process_callers.append({
+                        "module": module,
+                        "location": f"{relative}:{line_number}",
+                        "process_id": "unknown",
+                        "operation": match.group(1),
+                        "version_selection": "unknown",
+                    })
+            for match in REST_DUE_DATE_UPDATE.finditer(comment_free_text):
+                line_number = comment_free_text.count("\n", 0, match.start()) + 1
+                updates.append({
+                    "location": f"{relative}:{line_number}",
+                    "kind": "REST due-date endpoint",
+                })
+    return updates, latest_versions, process_callers, source_snapshot, issues
+
+
+def repeating_starts(document):
+    starts = {}
+    issues = []
+    for process in document.findall(f"{BPMN}process"):
+        process_id = process.get("id")
+        for start in process.iter(f"{BPMN}startEvent"):
+            cycle = start.find(f"{BPMN}timerEventDefinition/{BPMN}timeCycle")
+            if cycle is None:
+                continue
+            start_id = start.get("id")
+            if not process_id or not start_id:
+                issues.append("Repeating timer start lacks a process or event ID")
+                continue
+            key = (process_id, start_id)
+            if key in starts:
+                issues.append(f"Repeating timer start is duplicated: {process_id}#{start_id}")
+                continue
+            starts[key] = "".join(cycle.itertext()).strip()
+    return starts, issues
+
+
+def cycle_details(expression):
+    parts = expression.split("/")
+    if len(parts) not in (2, 3) or not re.fullmatch(r"R\d*", parts[0]):
+        return None
+    if len(parts) == 3:
+        try:
+            datetime.fromisoformat(parts[1].replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    interval = parts[-1]
+    if not DURATION.fullmatch(interval):
+        return None
+    count = parts[0][1:]
+    if count and int(count) < 1:
+        return None
+    return {"interval": interval, "repetitions": int(count) if count else None}
+
+
+def parse_json_option(value, label):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise EvidenceError(f"{label} must be supplied as JSON text")
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise EvidenceError(f"{label} must be valid JSON") from exc
+    if not isinstance(parsed, list):
+        raise EvidenceError(f"{label} must be a JSON array")
+    return parsed
+
+
+def parse_json_object_option(value, label):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise EvidenceError(f"{label} must be supplied as JSON text")
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise EvidenceError(f"{label} must be valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise EvidenceError(f"{label} must be a JSON object")
+    return parsed
+
+
+def source_snapshot_digest(snapshot):
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def active_timer_decision(evidence):
+    decision = evidence.get("active_timer_update_decision")
+    if not isinstance(decision, dict):
+        decision = {}
+    return {
+        "status": decision.get("status", "unresolved"),
+        "approval_reference": decision.get("approval_reference"),
+        "alternative_evidence_reference": decision.get("alternative_evidence_reference"),
+        "target_version": decision.get("target_version"),
+    }
+
+
+def concrete_reference(value):
+    if not isinstance(value, str) or not value.strip():
+        return False
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().casefold()).strip("-")
+    return normalized not in {
+        "none",
+        "n-a",
+        "not-approved",
+        "not-reviewed",
+        "pending",
+        "pending-review",
+        "tbd",
+        "todo",
+        "unresolved",
+        "unknown",
+    } and not normalized.startswith("pending-")
+
+
+def active_timer_decision_is_approved(decision, target_version=None):
+    return (
+        isinstance(decision, dict)
+        and decision.get("status") == "approved"
+        and concrete_reference(decision.get("approval_reference"))
+        and concrete_reference(decision.get("alternative_evidence_reference"))
+        and isinstance(decision.get("target_version"), str)
+        and bool(decision["target_version"].strip())
+        and (
+            target_version is None
+            or decision["target_version"] == target_version
+        )
+    )
+
+
+def validate_timer_observation(
+    observation,
+    inventory,
+    environment,
+    target_disposable,
+    target_version,
+    cleanup_plan,
+):
+    if not isinstance(observation, dict):
+        raise EvidenceError("Timer preflight needs machine-readable timer observation evidence")
+    deployment = observation.get("deployment")
+    if not isinstance(deployment, dict) or deployment.get("performed") is not True:
+        raise EvidenceError("Timer observation must prove that deployment was performed")
+    if not concrete_reference(deployment.get("reference")):
+        raise EvidenceError("Timer observation needs a deployment evidence reference")
+    if (
+        environment not in SAFE_ENVIRONMENTS
+        or deployment.get("environment") != environment
+        or target_disposable is not True
+        or deployment.get("target_disposable") is not True
+    ):
+        raise EvidenceError("Timer observation must identify the disposable local or non-production target")
+    if (
+        not isinstance(target_version, str)
+        or not target_version.strip()
+        or deployment.get("target_version") != target_version
+    ):
+        raise EvidenceError("Timer observation target version must match the selected target")
+    if not isinstance(cleanup_plan, str) or not cleanup_plan.strip():
+        raise EvidenceError("Timer preflight needs a cleanup plan")
+
+    observed = observation.get("observation")
+    if not isinstance(observed, dict):
+        raise EvidenceError("Timer observation must identify the timer-start behavior")
+    if (
+        observed.get("process_id") != inventory.get("process_id")
+        or observed.get("start_id") != inventory.get("start_id")
+        or observed.get("cycle") != inventory.get("converted_cycle")
+        or type(observed.get("instances_started")) is not int
+        or observed["instances_started"] < 1
+    ):
+        raise EvidenceError(
+            "Timer observation must match the expected process, start event, cycle, and show a started instance"
+        )
+
+    cleanup = observation.get("cleanup")
+    if not isinstance(cleanup, dict) or cleanup.get("completed") is not True:
+        raise EvidenceError("Timer observation must prove cleanup completed")
+    if not concrete_reference(cleanup.get("evidence_reference")):
+        raise EvidenceError("Timer observation needs a cleanup evidence reference")
+
+
+def validate_active_timer_update_observation(
+    observation,
+    hits,
+    decision,
+    environment,
+    target_disposable,
+    target_version,
+    cleanup_plan,
+):
+    if not isinstance(observation, dict):
+        raise EvidenceError("Active timer runtime check needs machine-readable observation evidence")
+    if not isinstance(hits, list) or not hits:
+        raise EvidenceError("Active timer runtime check needs the detected update source inventory")
+    deployment = observation.get("deployment")
+    if not isinstance(deployment, dict) or deployment.get("performed") is not True:
+        raise EvidenceError("Active timer observation must prove that deployment was performed")
+    if not concrete_reference(deployment.get("reference")):
+        raise EvidenceError("Active timer observation needs a deployment evidence reference")
+    if (
+        environment not in SAFE_ENVIRONMENTS
+        or deployment.get("environment") != environment
+        or target_disposable is not True
+        or deployment.get("target_disposable") is not True
+    ):
+        raise EvidenceError("Active timer observation must identify the disposable local or non-production target")
+    if (
+        not active_timer_decision_is_approved(decision, target_version)
+        or deployment.get("target_version") != target_version
+    ):
+        raise EvidenceError("Active timer observation target must match the approved decision")
+    if not isinstance(cleanup_plan, str) or not cleanup_plan.strip():
+        raise EvidenceError("Active timer runtime check needs a cleanup plan")
+
+    observed = observation.get("observation")
+    if not isinstance(observed, dict):
+        raise EvidenceError("Active timer observation must identify the timer update behavior")
+    expected_locations = sorted({hit["location"] for hit in hits})
+    timer_observations = observed.get("timers")
+    if (
+        not concrete_reference(observed.get("evidence_reference"))
+        or not isinstance(timer_observations, list)
+        or not timer_observations
+    ):
+        raise EvidenceError("Active timer observation must list every affected process timer")
+    covered_locations = set()
+    seen_timers = set()
+    for timer in timer_observations:
+        if not isinstance(timer, dict):
+            raise EvidenceError("Active timer observation contains an invalid timer record")
+        process_id = timer.get("process_id")
+        timer_id = timer.get("timer_id")
+        if not concrete_reference(process_id) or not concrete_reference(timer_id):
+            raise EvidenceError("Active timer observation must identify each affected process timer")
+        timer_key = (process_id, timer_id)
+        if timer_key in seen_timers:
+            raise EvidenceError("Active timer observation contains a duplicate process timer")
+        seen_timers.add(timer_key)
+        try:
+            source_locations = strings(
+                timer.get("source_locations"),
+                "Active timer source locations",
+            )
+        except EvidenceError as exc:
+            raise EvidenceError(
+                "Active timer observation must cover every detected update source"
+            ) from exc
+        if not source_locations or set(source_locations) - set(expected_locations):
+            raise EvidenceError(
+                "Active timer observation must cover every detected update source"
+            )
+        covered_locations.update(source_locations)
+        if (
+            timer.get("active_before_updates") is not True
+            or type(timer.get("updates_applied")) is not int
+            or timer["updates_applied"] != 2
+            or type(timer.get("obsolete_deadlines_fired")) is not int
+            or timer["obsolete_deadlines_fired"] != 0
+            or type(timer.get("final_deadline_fired")) is not int
+            or timer["final_deadline_fired"] != 1
+        ):
+            raise EvidenceError(
+                "Active timer observation must prove two updates per affected timer, "
+                "no obsolete deadlines, and one final deadline"
+            )
+    if covered_locations != set(expected_locations):
+        raise EvidenceError(
+            "Active timer observation must cover every detected update source and identify "
+            "each affected process timer"
+        )
+
+    cleanup = observation.get("cleanup")
+    if not isinstance(cleanup, dict) or cleanup.get("completed") is not True:
+        raise EvidenceError("Active timer observation must prove cleanup completed")
+    if not concrete_reference(cleanup.get("evidence_reference")):
+        raise EvidenceError("Active timer observation needs a cleanup evidence reference")
 
 
 def process_assertions(process):
@@ -210,7 +880,20 @@ def requirements(root, evidence):
     required = {}
     allowed = set()
     timers = {}
+    timer_inventory = {}
     issues = []
+    deployment_sets = {}
+    process_ids_by_set = {}
+    duplicate_process_ids = {}
+    active_timer_updates = {}
+    latest_version_calls = {}
+    process_callers = {}
+    input_snapshot = {}
+    active_timer_update_decision = active_timer_decision(evidence)
+    executable_by_model = {}
+    process_ids_by_model = {}
+    model_by_path = {}
+    module_paths = {module["path"] for module in modules}
 
     def need(category, target, kind, scenario=None, method="command"):
         key = (category, target, kind, scenario)
@@ -223,10 +906,19 @@ def requirements(root, evidence):
     docker_suites = {}
     for module in modules:
         path = module["path"]
-        if not project_path(root, path, "module").is_dir():
+        module_root = project_path(root, path, "module")
+        if not module_root.is_dir():
             issues.append(f"Module directory is missing: {path}")
+        updates, latest, callers, module_snapshot, scan_issues = scan_module_sources(root, path)
+        issues.extend(scan_issues)
+        active_timer_updates[path] = updates
+        latest_version_calls[path] = latest
+        process_callers[path] = callers
+        input_snapshot.update(module_snapshot)
         need("module", path, "compile")
         need("module", path, "review", method="review")
+        need("module", path, "active_timer_updates", method="review")
+        allowed.add(("module", path, "active_timer_update_runtime", None))
         suites = module.get("test_suites")
         if not isinstance(suites, list) or not suites:
             issues.append(f"{path}: list every independent test suite")
@@ -257,6 +949,12 @@ def requirements(root, evidence):
             issues.append(f"{path}: invalid runtime mode")
     if any(docker_suites.values()):
         need("project", ".", "docker_info")
+    if not modules:
+        active_timer_updates["."] = []
+        latest_version_calls["."] = []
+        process_callers["."] = []
+        need("project", ".", "active_timer_updates", method="review")
+        allowed.add(("project", ".", "active_timer_update_runtime", None))
 
     converted_paths = []
     for model in models:
@@ -267,15 +965,36 @@ def requirements(root, evidence):
             continue
         copy_path = project_path(root, converted, "converted copy")
         converted_paths.append(copy_path)
+        model_by_path[converted] = model
         need("model", converted, "lint")
         need("model", converted, "deployment")
         need("model", converted, "review", method="review")
         timers[converted] = []
+        module = model.get("module")
+        deployment_set = model.get("deployment_set")
+        if not isinstance(module, str) or not module:
+            issues.append(f"{converted}: identify its owning module")
+        elif module_paths and module not in module_paths:
+            issues.append(f"{converted}: unknown owning module {module}")
+        elif not module_paths and module != ".":
+            issues.append(f"{converted}: use module '.' when the project has no code modules")
+        if not isinstance(deployment_set, str) or not deployment_set:
+            issues.append(f"{converted}: identify its deployment set")
         try:
-            document = read_model(root, source, converted)
+            source_document, document = read_model(root, source, converted)
         except EvidenceError as exc:
             issues.append(str(exc))
             continue
+        for input_path in (source, converted):
+            try:
+                resolved = project_path(root, input_path, "model snapshot input", must_exist=True)
+                if not resolved.is_file():
+                    raise EvidenceError(f"Model snapshot input is not a file: {input_path}")
+                input_snapshot[resolved.relative_to(root).as_posix()] = hashlib.sha256(
+                    resolved.read_bytes()
+                ).hexdigest()
+            except (EvidenceError, OSError) as exc:
+                issues.append(str(exc))
         processes = model.get("processes")
         if not isinstance(processes, list) or any(not isinstance(item, dict) for item in processes):
             issues.append(f"{converted}: invalid process inventory")
@@ -288,11 +1007,21 @@ def requirements(root, evidence):
             if declared:
                 issues.append(f"{converted}: DMN cannot contain executable processes")
             continue
+        all_processes = document.findall(f"{BPMN}process")
+        all_process_ids = [process.get("id") for process in all_processes]
+        if any(not process_id for process_id in all_process_ids):
+            issues.append(f"{converted}: BPMN process definition lacks an ID")
+        if len(all_process_ids) != len(set(all_process_ids)):
+            issues.append(f"{converted}: duplicate BPMN process IDs within one model")
+        process_ids_by_model[converted] = {
+            process_id for process_id in all_process_ids if process_id
+        }
         executable = {
             process.get("id"): process
-            for process in document.findall(f"{BPMN}process")
+            for process in all_processes
             if process.get("isExecutable") in ("true", "1")
         }
+        executable_by_model[converted] = set(executable)
         if set(declared) != set(executable):
             issues.append(f"{converted}: process inventory differs from executable BPMN processes")
         for item in processes:
@@ -324,16 +1053,130 @@ def requirements(root, evidence):
             for assertion in process_assertions(process):
                 need("process", target, assertion)
             allowed.update(("process", target, assertion, None) for assertion in ASSERTIONS)
-            for start in process.iter(f"{BPMN}startEvent"):
-                if start.find(f"{BPMN}timerEventDefinition/{BPMN}timeCycle") is None:
-                    continue
-                if not start.get("id"):
-                    issues.append(f"{target}: repeating timer start lacks an ID")
-                    continue
-                timers[converted].append(need("timer", f"{target}#{start.get('id')}", "preflight"))
+        source_timers, source_timer_issues = repeating_starts(source_document)
+        converted_timers, converted_timer_issues = repeating_starts(document)
+        issues.extend(f"{source}: {issue}" for issue in source_timer_issues)
+        issues.extend(f"{converted}: {issue}" for issue in converted_timer_issues)
+        for process_id, start_id in sorted(set(source_timers) | set(converted_timers)):
+            source_cycle = source_timers.get((process_id, start_id))
+            converted_cycle = converted_timers.get((process_id, start_id))
+            if source_cycle is None:
+                disposition = "add"
+            elif converted_cycle is None:
+                disposition = "remove"
+            elif source_cycle == converted_cycle:
+                disposition = "preserve"
+            else:
+                disposition = "change"
+            target = f"{converted}#{process_id}#{start_id}"
+            disposition_key = need("timer", target, "disposition", method="review")
+            expected_cycle = converted_cycle if converted_cycle is not None else source_cycle
+            details = cycle_details(expected_cycle)
+            if details is None:
+                issues.append(f"{target}: unresolved repeating timer expression {expected_cycle!r}")
+                details = {"interval": None, "repetitions": None}
+            inventory = {
+                "model": converted,
+                "module": module,
+                "deployment_set": deployment_set,
+                "process_id": process_id,
+                "start_id": start_id,
+                "source_cycle": source_cycle,
+                "converted_cycle": converted_cycle,
+                "interval": details["interval"],
+                "repetitions": details["repetitions"],
+                "automatic_start_effect": "Each firing starts a process instance.",
+                "expected_disposition": disposition,
+            }
+            timer_inventory[disposition_key] = inventory
+            if converted_cycle is not None:
+                preflight_key = need("timer", target, "preflight")
+                timer_inventory[preflight_key] = inventory
+                timers[converted].append(preflight_key)
     if len(converted_paths) != len(set(converted_paths)):
         issues.append("Converted copies must be distinct")
-    return required, allowed, timers, docker_suites, issues
+
+    declared_sets = evidence.get("deployment_sets")
+    if not isinstance(declared_sets, list):
+        issues.append("Evidence deployment_sets must be an array")
+        declared_sets = []
+    for entry in declared_sets:
+        if not isinstance(entry, dict):
+            issues.append("Every deployment set must be an object")
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            issues.append("Every deployment set needs a name")
+            continue
+        if name in deployment_sets:
+            issues.append(f"Duplicate deployment set: {name}")
+            continue
+        try:
+            set_models = strings(entry.get("models"), f"{name} models")
+            set_modules = strings(entry.get("modules"), f"{name} modules")
+        except EvidenceError as exc:
+            issues.append(str(exc))
+            continue
+        unknown_models = set(set_models) - set(model_by_path)
+        unknown_modules = set(set_modules) - module_paths
+        if unknown_models:
+            issues.append(f"{name}: unknown converted models {sorted(unknown_models)}")
+        if unknown_modules:
+            issues.append(f"{name}: unknown modules {sorted(unknown_modules)}")
+        deployment_sets[name] = {"models": set_models, "modules": set_modules}
+        need("deployment_set", name, "preflight", method="review")
+        ids = {}
+        for model_path in set_models:
+            model = model_by_path.get(model_path)
+            if model is None:
+                continue
+            if model.get("deployment_set") != name:
+                issues.append(f"{model_path}: deployment set membership does not match {name}")
+            if model.get("module") not in set_modules and not (
+                model.get("module") == "." and not module_paths and not set_modules
+            ):
+                issues.append(f"{model_path}: owning module is not listed in deployment set {name}")
+            for process_id in process_ids_by_model.get(model_path, set()):
+                ids.setdefault(process_id, []).append(model_path)
+        process_ids_by_set[name] = ids
+        for process_id, model_paths in ids.items():
+            if len(model_paths) > 1:
+                key = (name, process_id)
+                duplicate_process_ids[key] = sorted(model_paths)
+                need("deployment_set", name, "duplicate_process_id", process_id, method="review")
+
+    memberships = {}
+    for name, entry in deployment_sets.items():
+        for model_path in entry["models"]:
+            memberships[model_path] = memberships.get(model_path, 0) + 1
+    for converted in model_by_path:
+        if memberships.get(converted, 0) != 1:
+            issues.append(f"{converted}: must belong to exactly one declared deployment set")
+        model = model_by_path[converted]
+        set_name = model.get("deployment_set")
+        if not isinstance(set_name, str) or set_name not in deployment_sets:
+            issues.append(f"{converted}: names an undeclared deployment set")
+    for module in module_paths:
+        if not any(module in entry["modules"] for entry in deployment_sets.values()):
+            issues.append(f"{module}: include the module in its deployment set inventory")
+
+    return ValidationPlan(
+        required=required,
+        allowed=allowed,
+        timers=timers,
+        timer_inventory=timer_inventory,
+        docker_suites=docker_suites,
+        deployment_sets=deployment_sets,
+        models_by_path=model_by_path,
+        process_ids_by_set=process_ids_by_set,
+        duplicate_process_ids=duplicate_process_ids,
+        active_timer_updates=active_timer_updates,
+        latest_version_calls=latest_version_calls,
+        process_callers=process_callers,
+        active_timer_update_decision=active_timer_update_decision,
+        source_snapshot_digest=source_snapshot_digest(input_snapshot),
+        issues=issues,
+    )
 
 
 def check_key(check):
@@ -344,7 +1187,8 @@ def needs_safe_environment(key):
     return (
         key[0] == "process"
         or key[0] == "model" and key[2] == "deployment"
-        or key[0] == "module" and key[2] in RUNTIME_CHECKS
+        or key[0] in ("module", "project")
+        and key[2] in (*RUNTIME_CHECKS, "active_timer_update_runtime")
     )
 
 
@@ -405,17 +1249,354 @@ def load_checks(root, evidence, allowed, issues):
                 raise EvidenceError(f"{key}: evidence output must be text")
             if result != "passed" and (not isinstance(reason, str) or not reason.strip()):
                 raise EvidenceError(f"{key}: non-passing check needs a reason")
-            if key[0] == "timer" and result == "passed" and (
-                check.get("environment") != "local" or not check.get("isolation_plan")
-            ):
-                raise EvidenceError(f"{key}: timer preflight needs local isolation or cleanup")
+            if key[0] == "timer" and key[2] == "preflight" and result == "passed":
+                if check.get("environment") not in SAFE_ENVIRONMENTS:
+                    raise EvidenceError(f"{key}: timer preflight needs a local or non-production target")
+                if (
+                    check.get("target_disposable") is not True
+                    or not isinstance(check.get("cleanup_plan"), str)
+                    or not check["cleanup_plan"].strip()
+                ):
+                    raise EvidenceError(f"{key}: timer preflight needs an explicitly disposable target and cleanup plan")
+                if not isinstance(check.get("target_version"), str) or not check["target_version"].strip():
+                    raise EvidenceError(f"{key}: timer preflight needs the target Camunda version")
             if needs_safe_environment(key) and result == "passed":
-                if check.get("environment") not in ("local", "non-production"):
+                if check.get("environment") not in SAFE_ENVIRONMENTS:
                     raise EvidenceError(f"{key}: production or unknown runtime target")
+                if key[2] == "active_timer_update_runtime":
+                    if (
+                        check.get("target_disposable") is not True
+                        or not isinstance(check.get("cleanup_plan"), str)
+                        or not check["cleanup_plan"].strip()
+                    ):
+                        raise EvidenceError(f"{key}: active timer validation needs a disposable target and cleanup plan")
+                    if not isinstance(check.get("target_version"), str) or not check["target_version"].strip():
+                        raise EvidenceError(f"{key}: active timer validation needs the target Camunda version")
+                    validate_active_timer_update_observation(
+                        check.get("active_timer_update_observation"),
+                        check.get("active_timer_update_hits"),
+                        check.get("active_timer_update_decision"),
+                        check.get("environment"),
+                        check.get("target_disposable"),
+                        check.get("target_version"),
+                        check.get("cleanup_plan"),
+                    )
             checks[key] = (index, check, reference)
         except EvidenceError as exc:
             issues.append(str(exc))
     return checks
+
+
+def deployment_set_snapshot(plan, name):
+    entry = plan.deployment_sets[name]
+    return {
+        "name": name,
+        "models": sorted(entry["models"]),
+        "modules": sorted(entry["modules"]),
+        "process_ids": {
+            process_id: sorted(model_paths)
+            for process_id, model_paths in sorted(plan.process_ids_by_set.get(name, {}).items())
+        },
+        "latest_version_calls": sorted(
+            (
+                hit
+                for module in entry["modules"]
+                for hit in plan.latest_version_calls.get(module, [])
+            ),
+            key=lambda hit: (hit["module"], hit["location"]),
+        ),
+        "process_callers": sorted(
+            (
+                hit
+                for module in entry["modules"]
+                for hit in plan.process_callers.get(module, [])
+            ),
+            key=lambda hit: (
+                hit["module"],
+                hit["location"],
+                hit["operation"],
+                hit["process_id"],
+            ),
+        ),
+    }
+
+
+def validate_caller_inventory(root, plan, name, check, checks, issues):
+    entry = plan.deployment_sets[name]
+    callers = check.get("caller_inventory")
+    if not isinstance(callers, list):
+        issues.append(f"{name}: deployment preflight needs a machine-readable caller inventory")
+        return []
+    process_ids = plan.process_ids_by_set.get(name, {})
+    validated = []
+    seen = set()
+    for caller in callers:
+        if not isinstance(caller, dict):
+            issues.append(f"{name}: invalid process caller record")
+            continue
+        module = caller.get("module")
+        location = caller.get("location")
+        process_id = caller.get("process_id")
+        operation = caller.get("operation")
+        selection = caller.get("version_selection")
+        if (
+            module not in entry["modules"]
+            or not isinstance(location, str)
+            or not isinstance(process_id, str) or not process_id
+            or operation not in (
+                "startProcessInstanceByKey",
+                "createProcessInstanceByKey",
+                "bpmnProcessId",
+                "other",
+            )
+            or selection not in ("latest_version", "explicit_version", "unknown")
+        ):
+            issues.append(f"{name}: malformed process caller record {caller}")
+            continue
+        try:
+            file_name, line_number = location.rsplit(":", 1)
+            if not line_number.isdigit() or int(line_number) < 1:
+                raise ValueError
+            caller_path = project_path(root, file_name, "caller location", must_exist=True)
+            module_root = project_path(root, module, "caller module", must_exist=True)
+            if not caller_path.is_file() or not caller_path.is_relative_to(module_root):
+                raise ValueError
+        except (EvidenceError, ValueError):
+            issues.append(f"{name}: caller location is outside its module or missing: {location}")
+            continue
+        if process_id != "unknown" and process_id not in process_ids:
+            mapped_ids = {
+                mapping.get("to_process_id")
+                for key, (_, record, _) in checks.items()
+                if key[0] == "deployment_set" and key[1] == name
+                and key[2] == "duplicate_process_id"
+                and record.get("disposition") == "mapped_rename"
+                for mapping in record.get("rename_mappings", [])
+                if isinstance(mapping, dict)
+                and isinstance(mapping.get("to_process_id"), str)
+            }
+            if process_id not in mapped_ids:
+                issues.append(f"{name}: caller names an unknown process ID {process_id}")
+        if selection == "unknown" or process_id == "unknown":
+            issues.append(f"{name}: unresolved process caller at {location}")
+        identity = (module, location, process_id)
+        if identity in seen:
+            issues.append(f"{name}: duplicate caller record at {location}")
+        seen.add(identity)
+        validated.append(caller)
+    listed_locations = {
+        (caller["module"], caller["location"], caller["version_selection"])
+        for caller in validated
+    }
+    listed_callers = {
+        (
+            caller["module"],
+            caller["location"],
+            caller["process_id"],
+            caller["operation"],
+            caller["version_selection"],
+        )
+        for caller in validated
+    }
+    for module in entry["modules"]:
+        for hit in plan.process_callers.get(module, []):
+            identity = (
+                hit["module"],
+                hit["location"],
+                hit["process_id"],
+                hit["operation"],
+                hit["version_selection"],
+            )
+            if identity not in listed_callers:
+                issues.append(
+                    f"{name}: detected process caller is missing from the inventory: "
+                    f'{hit["operation"]}({hit["process_id"]}) at {hit["location"]}'
+                )
+        for hit in plan.latest_version_calls.get(module, []):
+            identity = (module, hit["location"], "latest_version")
+            if identity not in listed_locations:
+                issues.append(f"{name}: latestVersion caller is missing from the inventory: {hit['location']}")
+    return validated
+
+
+def validate_deployment_set_evidence(root, plan, checks, issues):
+    for name in plan.deployment_sets:
+        key = ("deployment_set", name, "preflight", None)
+        recorded = checks.get(key)
+        callers = []
+        if recorded is not None:
+            check = recorded[1]
+            expected = deployment_set_snapshot(plan, name)
+            if check.get("deployment_set_inventory") != expected:
+                issues.append(f"{name}: deployment set or latestVersion inventory changed after its preflight")
+            if check["result"] == "passed":
+                callers = validate_caller_inventory(root, plan, name, check, checks, issues)
+        for (set_name, process_id), model_paths in plan.duplicate_process_ids.items():
+            if set_name != name:
+                continue
+            collision_key = ("deployment_set", name, "duplicate_process_id", process_id)
+            collision = checks.get(collision_key)
+            if collision is None:
+                issues.append(
+                    f"{name}: duplicate process ID {process_id} across {', '.join(model_paths)} "
+                    "needs an explicit version or mapped rename decision"
+                )
+                continue
+            decision = collision[1]
+            expected_collision = {
+                "deployment_set": name,
+                "process_id": process_id,
+                "models": model_paths,
+            }
+            if decision.get("process_id_collision") != expected_collision:
+                issues.append(f"{name}: duplicate process ID inventory changed for {process_id}")
+            disposition = decision.get("disposition")
+            if not isinstance(disposition, str) or disposition not in PROCESS_ID_DISPOSITIONS:
+                issues.append(f"{name}: duplicate process ID {process_id} needs an explicit-version or mapped-rename decision")
+                continue
+            matching_callers = [caller for caller in callers if caller.get("process_id") == process_id]
+            if not matching_callers:
+                issues.append(
+                    f"{name}: duplicate process ID {process_id} needs a non-empty caller inventory"
+                )
+            if disposition == "explicit_version":
+                if any(caller.get("version_selection") != "explicit_version" for caller in matching_callers):
+                    issues.append(f"{name}: callers of duplicate process ID {process_id} still use latestVersion or are unresolved")
+                if decision.get("rename_mappings") not in (None, []):
+                    issues.append(f"{name}: explicit-version decision must not include rename mappings")
+            else:
+                mappings = decision.get("rename_mappings")
+                if not isinstance(mappings, list):
+                    issues.append(f"{name}: mapped rename for {process_id} needs an old-to-new mapping")
+                    continue
+                mapped_models = set()
+                new_ids = set()
+                valid = True
+                for mapping in mappings:
+                    if not isinstance(mapping, dict):
+                        valid = False
+                        continue
+                    model = mapping.get("model")
+                    old_id = mapping.get("from_process_id")
+                    new_id = mapping.get("to_process_id")
+                    if (
+                        not isinstance(model, str) or model not in model_paths
+                        or old_id != process_id
+                        or not isinstance(new_id, str) or not new_id or new_id == process_id
+                        or model in mapped_models or new_id in new_ids
+                    ):
+                        valid = False
+                    if isinstance(model, str):
+                        mapped_models.add(model)
+                    if isinstance(new_id, str):
+                        new_ids.add(new_id)
+                existing_ids = set(plan.process_ids_by_set.get(name, {})) - {process_id}
+                if not valid or mapped_models != set(model_paths) or new_ids.intersection(existing_ids):
+                    issues.append(f"{name}: incomplete or conflicting rename mapping for {process_id}")
+                if any(caller.get("process_id") == process_id for caller in callers):
+                    issues.append(f"{name}: callers still reference renamed process ID {process_id}")
+                issues.append(
+                    f"{name}: mapped rename for {process_id} remains blocked while converted models still collide"
+                )
+
+
+def validate_timer_inventory(plan, checks, issues):
+    for key, expected in plan.timer_inventory.items():
+        recorded = checks.get(key)
+        if recorded is None:
+            continue
+        check = recorded[1]
+        if check.get("timer_inventory") != expected:
+            issues.append(f"{key}: timer cycle or deployment inventory changed after it was recorded")
+        if key[2] == "preflight" and check["result"] == "passed":
+            try:
+                validate_timer_observation(
+                    check.get("timer_observation"),
+                    expected,
+                    check.get("environment"),
+                    check.get("target_disposable"),
+                    check.get("target_version"),
+                    check.get("cleanup_plan"),
+                )
+            except EvidenceError as exc:
+                issues.append(f"{key}: {exc}")
+        if key[2] == "disposition" and check["result"] == "passed":
+            if check.get("disposition") != expected["expected_disposition"]:
+                issues.append(
+                    f"{key}: expected timer disposition {expected['expected_disposition']}, "
+                    f"not {check.get('disposition')}"
+                )
+
+
+def validate_active_timer_updates(plan, checks, issues):
+    decision = plan.active_timer_update_decision
+    for target, hits in plan.active_timer_updates.items():
+        category = "module" if target != "." else "project"
+        key = (category, target, "active_timer_updates", None)
+        recorded = checks.get(key)
+        runtime_key = (category, target, "active_timer_update_runtime", None)
+        runtime = checks.get(runtime_key)
+        if recorded and recorded[1].get("active_timer_update_hits") != hits:
+            issues.append(f"{key}: active timer update inventory changed after its review")
+        if runtime and runtime[1].get("active_timer_update_hits") != hits:
+            issues.append(f"{runtime_key}: active timer update inventory changed after runtime validation")
+        if not hits:
+            if recorded and recorded[1]["result"] == "passed" and recorded[1].get("disposition") != "no_updates":
+                issues.append(f"{key}: no active timer updates were detected; record no_updates")
+            if runtime:
+                issues.append(f"{runtime_key}: runtime evidence is unexpected without an active timer update")
+            continue
+        if not active_timer_decision_is_approved(decision):
+            issues.append(
+                f"{target}: active timer updates need an approved project decision and "
+                "evidence for a supported C8 alternative"
+            )
+        locations = sorted({f'{hit["kind"]} at {hit["location"]}' for hit in hits})
+        repeated = " repeated update references" if len(hits) > 1 else ""
+        if recorded is None:
+            issues.append(
+                f"{target}: active C7 timer due-date update{repeated} detected at "
+                f"{', '.join(locations)}; record the blocking finding"
+            )
+            continue
+        if recorded[1]["result"] != "passed":
+            issues.append(
+                f"{target}: active C7 timer due-date update{repeated} remains blocked at "
+                f"{', '.join(locations)}"
+            )
+            continue
+        check = recorded[1]
+        if check.get("disposition") != "verified":
+            issues.append(
+                f"{key}: detected active timer updates must stay blocked until verified at "
+                f"{', '.join(locations)}"
+            )
+            continue
+        if check.get("active_timer_update_decision") != decision:
+            issues.append(f"{key}: approved project decision changed after the review")
+        if not active_timer_decision_is_approved(check.get("active_timer_update_decision")):
+            issues.append(f"{key}: verified timer handling needs approved project-decision status and support evidence")
+        if runtime is None:
+            issues.append(f"Missing {category} active_timer_update_runtime: {target}")
+        elif runtime[0] <= recorded[0]:
+            issues.append(f"{runtime_key}: runtime verification must follow the approved review")
+        elif runtime[1]["result"] != "passed":
+            issues.append(f"{runtime_key}: supported replacement needs passing disposable-target runtime evidence")
+        else:
+            runtime_decision = runtime[1].get("active_timer_update_decision")
+            if runtime_decision != decision:
+                issues.append(f"{runtime_key}: runtime evidence does not match the current project decision")
+            if not active_timer_decision_is_approved(runtime_decision, runtime[1].get("target_version")):
+                issues.append(f"{runtime_key}: runtime target does not match an approved project decision")
+
+
+def validate_source_snapshots(plan, checks, issues):
+    for key, (_, check, _) in checks.items():
+        if check.get("source_snapshot_sha256") != plan.source_snapshot_digest:
+            issues.append(
+                f"{key}: evidence is stale because an in-scope model or caller source changed; "
+                "reinitialize or rerun the check"
+            )
 
 
 def report_text(existing, gate, issues):
@@ -462,20 +1643,25 @@ def report_text(existing, gate, issues):
 def report(root):
     issues = []
     checks = {}
+    plan = None
     try:
         evidence = read_json(root / EVIDENCE)
-        required, allowed, timers, docker_suites, scope_issues = requirements(root, evidence)
-        issues.extend(scope_issues)
-        checks = load_checks(root, evidence, allowed, issues)
-        for key in sorted(required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
+        plan = requirements(root, evidence)
+        issues.extend(plan.issues)
+        checks = load_checks(root, evidence, plan.allowed, issues)
+        validate_source_snapshots(plan, checks, issues)
+        validate_deployment_set_evidence(root, plan, checks, issues)
+        validate_timer_inventory(plan, checks, issues)
+        validate_active_timer_updates(plan, checks, issues)
+        for key in sorted(plan.required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
             issues.append(f"Missing {key[0]} {key[2]}: {key[1]} {key[3] or ''}".strip())
         for key, (index, check, _) in checks.items():
-            method = required.get(key, "command")
+            method = plan.required.get(key, "command")
             if check["method"] not in (method, "blocked"):
                 issues.append(f"{key}: expected {method} evidence")
             if check["result"] != "passed":
                 issues.append(f"{key}: {check['result']}: {check['reason']}")
-            if key in docker_suites and docker_suites[key]:
+            if key in plan.docker_suites and plan.docker_suites[key]:
                 probe = checks.get(("project", ".", "docker_info", None))
                 if probe is None or probe[0] >= index:
                     issues.append(f"{key}: Docker probe must precede the suite")
@@ -489,21 +1675,54 @@ def report(root):
                     issues.append(f"{key}: lint must precede deployment")
             if key[0] == "process" and key[2] == "process_path":
                 inventory = ("process", key[1], "worker_input_inventory", None)
-                if inventory in required:
+                if inventory in plan.required:
                     review = checks.get(inventory)
                     if review is None or review[0] >= index or review[1]["result"] != "passed":
                         issues.append(f"{key}: worker input review must precede process execution")
+            if key[0] == "timer" and key[2] == "preflight":
+                disposition_key = ("timer", key[1], "disposition", key[3])
+                disposition = checks.get(disposition_key)
+                if (
+                    disposition is None or disposition[0] >= index
+                    or disposition[1]["result"] != "passed"
+                ):
+                    issues.append(f"{key}: timer disposition must pass before runtime preflight")
             if key[0] in ("model", "process") and (
                 key[0] == "process" or key[2] == "deployment"
             ):
                 model = key[1].split("#", 1)[0]
-                for timer in timers.get(model, []):
+                model_entry = plan.models_by_path.get(model)
+                if model_entry is not None:
+                    set_name = model_entry.get("deployment_set")
+                    if isinstance(set_name, str):
+                        deployment_key = ("deployment_set", set_name, "preflight", None)
+                        deployment = checks.get(deployment_key)
+                        if (
+                            deployment is None or deployment[0] >= index
+                            or deployment[1]["result"] != "passed"
+                        ):
+                            issues.append(f"{key}: deployment-set preflight must pass before execution")
+                        for collision_set, process_id in plan.duplicate_process_ids:
+                            if collision_set != set_name:
+                                continue
+                            collision_key = (
+                                "deployment_set", set_name, "duplicate_process_id", process_id
+                            )
+                            collision = checks.get(collision_key)
+                            if (
+                                collision is None or collision[0] >= index
+                                or collision[1]["result"] != "passed"
+                            ):
+                                issues.append(f"{key}: duplicate process ID disposition must pass before execution")
+                    else:
+                        issues.append(f"{key}: process has no deployment-set assignment")
+                for timer in plan.timers.get(model, []):
                     preflight = checks.get(timer)
                     if preflight is None or preflight[0] >= index or preflight[1]["result"] != "passed":
                         issues.append(f"{key}: timer preflight must pass before execution")
         if any(
             key[0] == "module" and key[2] == "tests" and check[1].get("failure_class") == "docker_unavailable"
-            and not docker_suites.get(key, False)
+            and not plan.docker_suites.get(key, False)
             for key, check in checks.items()
         ):
             issues.append("A non-Docker test was classified as Docker unavailable")
@@ -520,6 +1739,7 @@ def report(root):
     summary = {
         "schema_version": 1,
         "gate": gate,
+        "source_snapshot_sha256": plan.source_snapshot_digest if plan else None,
         "issues": issues,
         "checks": [
             {**{key: value for key, value in check.items() if key != "output"}, "evidence_path": reference}
@@ -535,38 +1755,90 @@ def report(root):
 
 def record(root, args):
     evidence = read_json(root / EVIDENCE)
-    required, allowed, timers, docker_suites, issues = requirements(root, evidence)
-    if issues:
-        raise EvidenceError("; ".join(issues))
+    plan = requirements(root, evidence)
+    if plan.issues:
+        raise EvidenceError("; ".join(plan.issues))
     key = (args.type, args.target, args.kind, args.scenario)
-    if key not in allowed:
+    if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
-    method = required.get(key, "command")
+    method = plan.required.get(key, "command")
     if args.action == "review" and method != "review":
         raise EvidenceError(f"{key} requires an executable command")
     if args.action == "run" and method != "command":
         raise EvidenceError(f"{key} requires a review")
-    if args.type == "timer" and args.action == "run":
-        if args.environment != "local" or not args.isolation_plan:
-            raise EvidenceError("Timer preflight needs a local target and an isolation or cleanup plan")
+    if key[0] == "timer" and key[2] == "preflight" and args.action == "run":
+        if args.environment not in SAFE_ENVIRONMENTS:
+            raise EvidenceError("Timer preflight needs a local or non-production target")
+        if not args.target_disposable or not args.cleanup_plan:
+            raise EvidenceError("Timer preflight needs an explicitly disposable target and cleanup plan")
+        if not args.target_version:
+            raise EvidenceError("Timer preflight needs the target Camunda version")
     elif args.action == "run" and needs_safe_environment(key):
-        if args.environment not in ("local", "non-production"):
+        if args.environment not in SAFE_ENVIRONMENTS:
             raise EvidenceError("Runtime and deployment checks require a local or non-production target")
     previous_issues = []
-    previous = load_checks(root, evidence, allowed, previous_issues)
+    previous = load_checks(root, evidence, plan.allowed, previous_issues)
     if previous_issues:
         raise EvidenceError("; ".join(previous_issues))
+    if key[0] in ("module", "project") and key[2] == "active_timer_update_runtime":
+        inventory_key = (key[0], key[1], "active_timer_updates", None)
+        inventory = previous.get(inventory_key)
+        if (
+            inventory is None
+            or inventory[1].get("disposition") != "verified"
+            or inventory[1].get("active_timer_update_decision") != plan.active_timer_update_decision
+            or not active_timer_decision_is_approved(
+                plan.active_timer_update_decision,
+                args.target_version,
+            )
+        ):
+            raise EvidenceError("Review and approve the active timer alternative before runtime validation")
+        if not args.target_disposable or not args.cleanup_plan:
+            raise EvidenceError("Active timer validation needs an explicitly disposable target and cleanup plan")
+        if not args.target_version:
+            raise EvidenceError("Active timer validation needs the target Camunda version")
+    if key[0] == "timer" and key[2] == "preflight":
+        disposition_key = ("timer", key[1], "disposition", key[3])
+        disposition = previous.get(disposition_key)
+        if disposition is None or disposition[1]["result"] != "passed":
+            raise EvidenceError("Record the timer disposition before runtime preflight")
+    caller_inventory = None
+    rename_mappings = None
+    timer_observation = None
+    active_timer_update_observation = None
     if args.action == "run" and args.type == "model" and args.kind == "deployment":
         lint = previous.get(("model", args.target, "lint", None))
         if lint is None or lint[1]["result"] != "passed":
             raise EvidenceError("Lint must pass before deployment")
-    if args.action == "run" and (args.type == "process" or args.type == "model" and args.kind == "deployment"):
+    if args.action == "run" and (
+        args.type == "process" or args.type == "model" and args.kind == "deployment"
+    ):
         model = args.target.split("#", 1)[0]
-        if any(timer not in previous or previous[timer][1]["result"] != "passed" for timer in timers.get(model, [])):
+        model_entry = plan.models_by_path.get(model)
+        if model_entry is None or not isinstance(model_entry.get("deployment_set"), str):
+            raise EvidenceError("Identify the model's deployment set before execution")
+        set_name = model_entry["deployment_set"]
+        deployment_key = ("deployment_set", set_name, "preflight", None)
+        deployment = previous.get(deployment_key)
+        if deployment is None or deployment[1]["result"] != "passed":
+            raise EvidenceError("Deployment-set preflight must pass before deployment or process execution")
+        for collision_set, process_id in plan.duplicate_process_ids:
+            if collision_set != set_name:
+                continue
+            collision_key = (
+                "deployment_set", set_name, "duplicate_process_id", process_id
+            )
+            collision = previous.get(collision_key)
+            if collision is None or collision[1]["result"] != "passed":
+                raise EvidenceError("Resolve duplicate process IDs before deployment or process execution")
+        if any(
+            timer not in previous or previous[timer][1]["result"] != "passed"
+            for timer in plan.timers.get(model, [])
+        ):
             raise EvidenceError("Timer preflight must pass before deployment or process execution")
     if args.action == "run" and args.type == "process" and args.kind == "process_path":
         inventory = ("process", args.target, "worker_input_inventory", None)
-        if inventory in required and (
+        if inventory in plan.required and (
             inventory not in previous or previous[inventory][1]["result"] != "passed"
         ):
             raise EvidenceError("Review worker inputs before testing a direct process start")
@@ -611,19 +1883,85 @@ def record(root, args):
         output = args.note
         if not output.strip():
             raise EvidenceError("A review requires a non-empty evidence note")
+        if key[0] == "deployment_set" and key[2] == "preflight":
+            caller_inventory = parse_json_option(
+                args.caller_inventory_json, "Caller inventory"
+            )
+            if caller_inventory is None:
+                raise EvidenceError("Deployment-set preflight needs --caller-inventory-json")
+        if key[0] == "deployment_set" and key[2] == "duplicate_process_id":
+            if args.disposition not in PROCESS_ID_DISPOSITIONS:
+                raise EvidenceError("Duplicate process IDs need explicit_version or mapped_rename disposition")
+            rename_mappings = parse_json_option(
+                args.rename_mappings_json, "Rename mappings"
+            )
+            if args.disposition == "mapped_rename" and rename_mappings is None:
+                raise EvidenceError("Mapped rename needs --rename-mappings-json")
+            if args.disposition == "explicit_version" and rename_mappings:
+                raise EvidenceError("Explicit-version disposition cannot include rename mappings")
+        if key[0] == "timer" and key[2] == "disposition":
+            expected = plan.timer_inventory[key]["expected_disposition"]
+            if args.disposition != expected:
+                raise EvidenceError(f"Timer disposition must be {expected}")
+        if key[2] == "active_timer_updates":
+            hits = plan.active_timer_updates.get(key[1], [])
+            expected = "verified" if hits else "no_updates"
+            if args.disposition != expected:
+                raise EvidenceError(
+                    f"Active timer update review must use {expected}; block unresolved updates"
+                )
+            if expected == "verified" and not active_timer_decision_is_approved(
+                plan.active_timer_update_decision
+            ):
+                raise EvidenceError(
+                    "Active timer handling needs an approved project decision and evidence "
+                    "for a supported C8 alternative"
+                )
     else:
         if not args.reason.strip():
             raise EvidenceError("A blocked check requires a reason")
         result = "blocked"
         reason = args.reason
         output = reason
+    if key[0] == "timer" and key[2] == "preflight" and args.action == "run" and result == "passed":
+        timer_observation = parse_json_object_option(
+            args.timer_observation_json,
+            "Timer observation evidence",
+        )
+        validate_timer_observation(
+            timer_observation,
+            plan.timer_inventory[key],
+            args.environment,
+            args.target_disposable,
+            args.target_version,
+            args.cleanup_plan,
+        )
+    if (
+        key[0] in ("module", "project")
+        and key[2] == "active_timer_update_runtime"
+        and args.action == "run"
+        and result == "passed"
+    ):
+        active_timer_update_observation = parse_json_object_option(
+            args.active_timer_update_observation_json,
+            "Active timer observation evidence",
+        )
+        validate_active_timer_update_observation(
+            active_timer_update_observation,
+            plan.active_timer_updates.get(args.target, []),
+            plan.active_timer_update_decision,
+            args.environment,
+            args.target_disposable,
+            args.target_version,
+            args.cleanup_plan,
+        )
     failure_class = None
     if result != "passed":
         if args.kind == "docker_info":
             failure_class = "docker_unavailable"
         elif (
             args.action == "block"
-            and docker_suites.get(key)
+            and plan.docker_suites.get(key)
             and previous.get(("project", ".", "docker_info", None), (None, {}))[1].get("result")
             == "failed"
         ):
@@ -645,7 +1983,36 @@ def record(root, args):
         "reason": reason,
         "failure_class": failure_class,
         "environment": args.environment,
-        "isolation_plan": args.isolation_plan,
+        "target_version": args.target_version,
+        "target_disposable": args.target_disposable,
+        "cleanup_plan": args.cleanup_plan,
+        "disposition": args.disposition,
+        "active_timer_update_decision": (
+            plan.active_timer_update_decision
+            if key[2] in ("active_timer_updates", "active_timer_update_runtime")
+            else None
+        ),
+        "caller_inventory": caller_inventory if args.action == "review" and key[0] == "deployment_set" and key[2] == "preflight" else None,
+        "rename_mappings": rename_mappings if args.action == "review" and key[0] == "deployment_set" and key[2] == "duplicate_process_id" else None,
+        "deployment_set_inventory": deployment_set_snapshot(plan, args.target) if key[0] == "deployment_set" and key[2] == "preflight" else None,
+        "process_id_collision": (
+            {
+                "deployment_set": args.target,
+                "process_id": args.scenario,
+                "models": plan.duplicate_process_ids[(args.target, args.scenario)],
+            }
+            if key[0] == "deployment_set" and key[2] == "duplicate_process_id"
+            else None
+        ),
+        "timer_inventory": plan.timer_inventory.get(key),
+        "timer_observation": timer_observation,
+        "active_timer_update_observation": active_timer_update_observation,
+        "source_snapshot_sha256": plan.source_snapshot_digest,
+        "active_timer_update_hits": (
+            plan.active_timer_updates.get(args.target, [])
+            if key[2] in ("active_timer_updates", "active_timer_update_runtime")
+            else None
+        ),
         "output": output,
     }
     digest = hashlib.sha256(json.dumps(key).encode("utf-8")).hexdigest()[:20]
@@ -661,18 +2028,18 @@ def record(root, args):
 
 def classify(root, args):
     evidence = read_json(root / EVIDENCE)
-    required, allowed, _, docker_suites, issues = requirements(root, evidence)
-    checks = load_checks(root, evidence, allowed, issues)
-    if issues:
-        raise EvidenceError("; ".join(issues))
+    plan = requirements(root, evidence)
+    checks = load_checks(root, evidence, plan.allowed, plan.issues)
+    if plan.issues:
+        raise EvidenceError("; ".join(plan.issues))
     key = (args.type, args.target, args.kind, args.scenario)
-    if key not in allowed or key not in checks or checks[key][1]["result"] == "passed":
+    if key not in plan.allowed or key not in checks or checks[key][1]["result"] == "passed":
         raise EvidenceError(f"Only a recorded non-passing check can be classified: {key}")
     if not args.reason.strip():
         raise EvidenceError("Classification requires a reason")
     if args.failure_class == "docker_unavailable":
         probe = checks.get(("project", ".", "docker_info", None))
-        if not docker_suites.get(key) or probe is None or probe[1]["result"] != "failed":
+        if not plan.docker_suites.get(key) or probe is None or probe[1]["result"] != "failed":
             raise EvidenceError("Docker unavailable requires a failed Docker probe and a Docker-dependent suite")
     _, check, reference = checks[key]
     check["failure_class"] = args.failure_class
@@ -690,12 +2057,22 @@ def main():
     actions.add_parser("report", help="Audit scope and write the validation gate")
     for name in ("run", "review", "block"):
         action = actions.add_parser(name)
-        action.add_argument("--type", required=True, choices=("project", "module", "model", "process", "timer"))
+        action.add_argument(
+            "--type", required=True,
+            choices=("project", "module", "model", "process", "timer", "deployment_set"),
+        )
         action.add_argument("--target", required=True)
         action.add_argument("--kind", required=True)
         action.add_argument("--scenario")
-        action.add_argument("--environment", choices=("local", "non-production"))
-        action.add_argument("--isolation-plan")
+        action.add_argument("--environment", choices=SAFE_ENVIRONMENTS)
+        action.add_argument("--target-version")
+        action.add_argument("--target-disposable", action="store_true")
+        action.add_argument("--cleanup-plan", "--isolation-plan", dest="cleanup_plan")
+        action.add_argument("--disposition")
+        action.add_argument("--timer-observation-json")
+        action.add_argument("--active-timer-update-observation-json")
+        action.add_argument("--caller-inventory-json")
+        action.add_argument("--rename-mappings-json")
         if name == "run":
             action.add_argument("--timeout", type=int, default=300)
             action.add_argument("command", nargs=argparse.REMAINDER)
@@ -704,7 +2081,10 @@ def main():
         else:
             action.add_argument("--reason", required=True)
     classification = actions.add_parser("classify", help="Annotate a failed check after reviewing its output")
-    classification.add_argument("--type", required=True, choices=("module", "model", "process", "timer"))
+    classification.add_argument(
+        "--type", required=True,
+        choices=("module", "model", "process", "timer", "deployment_set"),
+    )
     classification.add_argument("--target", required=True)
     classification.add_argument("--kind", required=True)
     classification.add_argument("--scenario")

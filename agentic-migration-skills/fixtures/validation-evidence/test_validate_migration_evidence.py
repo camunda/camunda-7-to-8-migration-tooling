@@ -75,14 +75,23 @@ class ValidationEvidenceTest(unittest.TestCase):
                 {
                     "source_path": "models/process.bpmn",
                     "path": "models/converted-c8-process.bpmn",
+                    "module": "app",
+                    "deployment_set": "shared",
                     "processes": [{"id": "p", "standalone": True, "scenarios": ["normal"]}],
+                }
+            ],
+            "deployment_sets": [
+                {
+                    "name": "shared",
+                    "modules": ["app"],
+                    "models": ["models/converted-c8-process.bpmn"],
                 }
             ],
             "checks": [],
         }
         self.write_scope()
 
-    def write_scope(self, timer=False, extra=""):
+    def write_scope(self, timer=False, extra="", timer_model=None):
         inventory = {
             "schema_version": 1,
             "modules": [module["path"] for module in self.plan["modules"]],
@@ -93,7 +102,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         for module in self.plan["modules"]:
             (self.root / module["path"]).mkdir(parents=True, exist_ok=True)
         for model in self.plan["models"]:
-            xml = bpmn(model["processes"][0]["id"], timer=timer, extra=extra)
+            has_timer = timer if timer_model is None else model["path"] == timer_model
+            xml = bpmn(model["processes"][0]["id"], timer=has_timer, extra=extra)
             for name in (model["source_path"], model["path"]):
                 path = self.root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,20 +125,754 @@ class ValidationEvidenceTest(unittest.TestCase):
             command=command or [sys.executable, "-c", "print('check completed')"],
             note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
+            disposition=options.get("disposition"),
+            caller_inventory_json=options.get("caller_inventory_json"),
+            rename_mappings_json=options.get("rename_mappings_json"),
+            approval_reference=options.get("approval_reference"),
+            alternative_evidence_reference=options.get("alternative_evidence_reference"),
+            target_version=options.get("target_version"),
+            target_disposable=options.get("target_disposable", False),
+            cleanup_plan=options.get("cleanup_plan", options.get("isolation_plan")),
+            timer_observation_json=options.get("timer_observation_json"),
+            active_timer_update_observation_json=options.get(
+                "active_timer_update_observation_json"
+            ),
         )
         with redirect_stdout(StringIO()):
             return gate.record(self.root, arguments)
 
-    def complete_required_checks(self):
-        required, _, _, _, issues = gate.requirements(self.root, self.plan)
+    def write_duplicate_sample_scope(self):
+        modules = ["modules/c7-client", "modules/c8-client"]
+        paths = [
+            ("models/one.bpmn", "models/converted-one.bpmn", modules[0]),
+            ("models/two.bpmn", "models/converted-two.bpmn", modules[1]),
+        ]
+        self.plan["modules"] = [
+            {
+                "path": module,
+                "runtime_mode": "none",
+                "test_suites": [{"name": "unit", "requires_docker": False}],
+            }
+            for module in modules
+        ]
+        self.plan["models"] = [
+            {
+                "source_path": source,
+                "path": converted,
+                "module": module,
+                "deployment_set": "shared",
+                "processes": [{"id": "Sample", "standalone": True, "scenarios": ["normal"]}],
+            }
+            for source, converted, module in paths
+        ]
+        self.plan["deployment_sets"] = [
+            {
+                "name": "shared",
+                "modules": modules,
+                "models": [converted for _, converted, _ in paths],
+            }
+        ]
+        self.write_scope()
+
+    def timer_observation(self, key):
+        inventory = gate.requirements(self.root, self.plan).timer_inventory[key]
+        return {
+            "deployment": {
+                "performed": True,
+                "reference": "fixture-deployment-001",
+                "environment": "local",
+                "target_disposable": True,
+                "target_version": "8.9.21",
+            },
+            "observation": {
+                "process_id": inventory["process_id"],
+                "start_id": inventory["start_id"],
+                "cycle": inventory["converted_cycle"],
+                "instances_started": 1,
+            },
+            "cleanup": {
+                "completed": True,
+                "evidence_reference": "fixture-cleanup-record-001",
+            },
+        }
+
+    def active_timer_observation(self, target="app"):
+        hits = gate.requirements(self.root, self.plan).active_timer_updates[target]
+        locations = sorted({hit["location"] for hit in hits})
+
+        def timer_observation(timer_id):
+            return {
+                "process_id": "sample-process",
+                "timer_id": timer_id,
+                "source_locations": locations,
+                "active_before_updates": True,
+                "updates_applied": 2,
+                "obsolete_deadlines_fired": 0,
+                "final_deadline_fired": 1,
+            }
+
+        return {
+            "deployment": {
+                "performed": True,
+                "reference": "fixture-active-timer-deployment",
+                "environment": "local",
+                "target_disposable": True,
+                "target_version": "8.9.21",
+            },
+            "observation": {
+                "evidence_reference": "fixture-active-timer-observation",
+                "timers": [
+                    timer_observation("sample-timer"),
+                    timer_observation("second-sample-timer"),
+                ],
+            },
+            "cleanup": {
+                "completed": True,
+                "evidence_reference": "fixture-active-timer-cleanup",
+            },
+        }
+
+    def test_duplicate_process_id_does_not_pass_with_missing_or_empty_caller_inventory(self):
+        self.write_duplicate_sample_scope()
+        with self.assertRaisesRegex(gate.EvidenceError, "caller-inventory-json"):
+            self.submit(
+                ("deployment_set", "shared", "preflight", None),
+                action="review",
+                caller_inventory_json=None,
+            )
+
+        self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        self.assertIn(
+            "non-empty caller inventory",
+            "\n".join(self.summary()["issues"]),
+        )
+
+    def test_deployment_inventory_checks_all_bpmn_process_ids(self):
+        self.write_duplicate_sample_scope()
+        self.plan["models"][1]["processes"] = []
+        for path in (
+            "models/two.bpmn",
+            "models/converted-two.bpmn",
+        ):
+            model = self.root / path
+            model.write_text(
+                model.read_text(encoding="utf-8").replace(
+                    'id="Sample" isExecutable="true"',
+                    'id="Sample" isExecutable="false"',
+                ),
+                encoding="utf-8",
+            )
+
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual(
+            ["models/converted-one.bpmn", "models/converted-two.bpmn"],
+            plan.duplicate_process_ids[("shared", "Sample")],
+        )
+        self.assertIn(
+            ("deployment_set", "shared", "duplicate_process_id", "Sample"),
+            plan.required,
+        )
+
+    def test_c7_by_key_caller_without_latest_version_must_be_in_inventory(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'runtimeService.startProcessInstanceByKey("Sample");\n',
+            encoding="utf-8",
+        )
+
+        self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        issues = "\n".join(self.summary()["issues"])
+        self.assertIn("detected process caller is missing", issues)
+        self.assertIn("startProcessInstanceByKey", issues)
+        self.assertIn("ProcessCaller.java", issues)
+
+    def test_multiline_c7_by_key_caller_cannot_be_missed_by_explicit_version_inventory(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample").version(1).execute();\n'
+            "runtimeService.startProcessInstanceByKey\n"
+            '    ("Sample");\n',
+            encoding="utf-8",
+        )
+
+        self.complete_required_checks(
+            caller_inventory=[
+                {
+                    "module": "modules/c7-client",
+                    "location": "modules/c7-client/src/main/java/ProcessCaller.java:1",
+                    "process_id": "Sample",
+                    "operation": "bpmnProcessId",
+                    "version_selection": "explicit_version",
+                }
+            ]
+        )
+        self.assertEqual(1, self.audit())
+        issues = "\n".join(self.summary()["issues"])
+        self.assertIn("detected process caller is missing", issues)
+        self.assertIn("startProcessInstanceByKey", issues)
+
+    def test_caller_scan_ignores_comments_and_strings_and_bounds_version_selection(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            '// client.bpmnProcessId("Comment").latestVersion();\n'
+            'String sample = "client.bpmnProcessId(\'String\').latestVersion()";\n'
+            'client.bpmnProcessId("Sample")\n'
+            'client.bpmnProcessId("Other").version(1);\n'
+            'client.bpmnProcessId("Latest").latestVersion();\n'
+            'runtimeService.createProcessInstanceByKey(\n'
+            '    "Nested", nested(foo(1, 2))\n'
+            ');\n'
+            'RuntimeService::startProcessInstanceByKey;\n',
+            encoding="utf-8",
+        )
+        nested_comment = self.root / "modules/c7-client/src/main/kotlin/CommentedCaller.kt"
+        nested_comment.parent.mkdir(parents=True, exist_ok=True)
+        nested_comment.write_text(
+            '/* outer comment\n'
+            '   /* nested comment */\n'
+            '   client.bpmnProcessId("Sample").version(2);\n'
+            '*/\n',
+            encoding="utf-8",
+        )
+
+        _, latest_versions, callers, _, issues = gate.scan_module_sources(
+            self.root,
+            "modules/c7-client",
+        )
         self.assertEqual([], issues)
-        priorities = {"project": 0, "module": 1, "timer": 2, "model": 3, "process": 4}
+        self.assertEqual(1, len(latest_versions))
+        self.assertEqual(
+            ["Latest", "Nested", "Other", "Sample", "unknown"],
+            sorted(hit["process_id"] for hit in callers),
+        )
+        sample_call = next(hit for hit in callers if hit["process_id"] == "Sample")
+        self.assertEqual("unknown", sample_call["version_selection"])
+        nested_call = next(hit for hit in callers if hit["process_id"] == "Nested")
+        self.assertEqual("latest_version", nested_call["version_selection"])
+        latest_call = next(hit for hit in callers if hit["process_id"] == "Latest")
+        self.assertEqual("latest_version", latest_call["version_selection"])
+
+    def test_interpolated_process_calls_fail_closed(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/python/Caller.py"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'message = f"{runtimeService.startProcessInstanceByKey(\'Sample\')}"\n',
+            encoding="utf-8",
+        )
+
+        _, _, _, _, issues = gate.scan_module_sources(self.root, "modules/c7-client")
+        self.assertTrue(any("interpolated string" in issue for issue in issues))
+
+    def test_active_timer_scan_covers_method_references_and_rest_paths_only(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "// managementService.setJobDuedate(commentId, date);\n"
+            'String example = "managementService.setJobDuedate(stringId, date)";\n'
+            "ManagementService::setJobDuedate;\n",
+            encoding="utf-8",
+        )
+        config = self.root / "app/src/main/resources/application.yml"
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(
+            'timer-url: "/job/{jobKey}/duedate"\n'
+            "# /job/commentId/duedate\n",
+            encoding="utf-8",
+        )
+
+        updates, _, _, _, issues = gate.scan_module_sources(self.root, "app")
+        self.assertEqual([], issues)
+        self.assertEqual(
+            [
+                {
+                    "location": "app/src/main/java/TimerUpdates.java:3",
+                    "kind": "setJobDuedate",
+                },
+                {
+                    "location": "app/src/main/resources/application.yml:1",
+                    "kind": "REST due-date endpoint",
+                },
+            ],
+            sorted(updates, key=lambda hit: hit["location"]),
+        )
+
+    def test_deployment_set_preflight_covers_cross_module_duplicate_process_ids(self):
+        modules = ["examples/loan", "clients/java/order-handling"]
+        paths = [
+            ("models/loan.bpmn", "models/converted-c8-loan.bpmn", modules[0]),
+            ("models/order.bpmn", "models/converted-c8-order.bpmn", modules[1]),
+        ]
+        self.plan["modules"] = [
+            {
+                "path": module,
+                "runtime_mode": "none",
+                "test_suites": [{"name": "unit", "requires_docker": False}],
+            }
+            for module in modules
+        ]
+        self.plan["models"] = [
+            {
+                "source_path": source,
+                "path": converted,
+                "module": module,
+                "deployment_set": "shared-showcase",
+                "processes": [{"id": "Sample", "standalone": True, "scenarios": ["normal"]}],
+            }
+            for source, converted, module in paths
+        ]
+        self.plan["deployment_sets"] = [
+            {
+                "name": "shared-showcase",
+                "modules": modules,
+                "models": [converted for _, converted, _ in paths],
+            }
+        ]
+        self.write_scope(timer_model="models/converted-c8-loan.bpmn")
+
+        caller = self.root / modules[0] / "src/main/java/Showcase.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'runtimeService.createProcessInstanceByKey("Sample").latestVersion().execute();\n',
+            encoding="utf-8",
+        )
+
+        required = gate.requirements(self.root, self.plan).required
+        self.assertIn(
+            ("deployment_set", "shared-showcase", "preflight", None),
+            required,
+        )
+        self.assertIn(
+            ("deployment_set", "shared-showcase", "duplicate_process_id", "Sample"),
+            required,
+        )
+        self.assertIn(
+            ("timer", "models/converted-c8-loan.bpmn#Sample#Start", "disposition", None),
+            required,
+        )
+        self.assertIn(
+            ("timer", "models/converted-c8-loan.bpmn#Sample#Start", "preflight", None),
+            required,
+        )
+
+        self.assertEqual(1, self.audit())
+        issues = "\n".join(self.summary()["issues"])
+        self.assertIn("duplicate process ID", issues)
+        self.assertIn("deployment_set preflight", issues)
+        self.assertIn("timer disposition", issues)
+        self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        self.assertIn("latestVersion caller is missing", "\n".join(self.summary()["issues"]))
+
+    def test_active_timer_updates_and_repeated_calls_cannot_report_ready(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, firstDate);\n"
+            "managementService.setJobDuedate(timerId, secondDate);\n",
+            encoding="utf-8",
+        )
+
+        self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        issues = "\n".join(self.summary()["issues"])
+        self.assertIn("setJobDuedate", issues)
+        self.assertIn("repeated", issues.lower())
+        blocked = next(
+            check for check in self.summary()["checks"] if check["kind"] == "active_timer_updates"
+        )
+        self.assertEqual("blocked", blocked["result"])
+        self.assertIn("Manual blocker", blocked["reason"])
+
+    def test_verified_active_timer_alternative_still_needs_runtime_evidence(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, firstDate);\n"
+            "managementService.setJobDuedate(timerId, secondDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "synthetic-approval-reference",
+            "alternative_evidence_reference": "synthetic-support-evidence-reference",
+            "target_version": "8.9.21",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+        key = ("module", "app", "active_timer_updates", None)
+        self.assertEqual(
+            0,
+            self.submit(
+                key,
+                action="review",
+                disposition="verified",
+                note="A synthetic approved decision is recorded for this gate test.",
+            ),
+        )
+        self.assertEqual(1, self.audit())
+        self.assertIn(
+            "Missing module active_timer_update_runtime",
+            "\n".join(self.summary()["issues"]),
+        )
+
+    def test_pending_or_missing_active_timer_decision_cannot_be_overridden_by_a_passing_command(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, newDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "pending",
+            "approval_reference": "pending-review",
+            "alternative_evidence_reference": "pending-review",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+
+        key = ("module", "app", "active_timer_updates", None)
+        with self.assertRaisesRegex(gate.EvidenceError, "approved project decision"):
+            self.submit(
+                key,
+                action="review",
+                disposition="verified",
+                approval_reference="pending-review",
+                alternative_evidence_reference="pending-review",
+                note="The project decision remains pending.",
+            )
+        with self.assertRaisesRegex(gate.EvidenceError, "Review and approve"):
+            self.submit(
+                ("module", "app", "active_timer_update_runtime", None),
+                environment="local",
+                target_version="8.9.21",
+                target_disposable=True,
+                cleanup_plan="Remove the test deployment and instances.",
+                command=[sys.executable, "-c", "print('success')"],
+            )
+        self.assertEqual(1, self.audit())
+        issues = "\n".join(self.summary()["issues"])
+        self.assertIn("Manual blocker", issues)
+        self.assertIn("remains blocked", issues)
+
+    def test_active_timer_updates_without_project_decision_reject_a_passing_runtime_command(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, newDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        with self.assertRaisesRegex(gate.EvidenceError, "approved project decision"):
+            self.submit(
+                ("module", "app", "active_timer_updates", None),
+                action="review",
+                disposition="verified",
+                approval_reference="pending-review",
+                note="No project approval exists.",
+            )
+        with self.assertRaisesRegex(gate.EvidenceError, "Review and approve"):
+            self.submit(
+                ("module", "app", "active_timer_update_runtime", None),
+                environment="local",
+                target_version="8.9.21",
+                target_disposable=True,
+                cleanup_plan="Remove the test deployment and instances.",
+                command=[sys.executable, "-c", "print('success')"],
+            )
+        self.assertEqual(1, self.audit())
+
+    def test_active_timer_review_cannot_pass_without_decision_support_evidence(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, newDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "approved-decision-record",
+            "alternative_evidence_reference": "pending-review",
+            "target_version": "8.9.21",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+
+        with self.assertRaisesRegex(gate.EvidenceError, "approved project decision"):
+            self.submit(
+                ("module", "app", "active_timer_updates", None),
+                action="review",
+                disposition="verified",
+                note="The alternative evidence is not approved or verified.",
+            )
+        self.assertEqual(1, self.audit())
+        self.assertIn("remains blocked", "\n".join(self.summary()["issues"]))
+
+    def test_active_timer_runtime_requires_observation_and_completed_cleanup(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, firstDate);\n"
+            "managementService.setJobDuedate(timerId, secondDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "fixture-active-timer-approval",
+            "alternative_evidence_reference": "fixture-active-timer-support",
+            "target_version": "8.9.21",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+        review = ("module", "app", "active_timer_updates", None)
+        runtime = ("module", "app", "active_timer_update_runtime", None)
+        self.submit(
+            review,
+            action="review",
+            disposition="verified",
+            note="Synthetic evidence exercises the approved-decision path.",
+        )
+        common = {
+            "environment": "local",
+            "target_version": "8.9.21",
+            "target_disposable": True,
+            "cleanup_plan": "Delete the test deployment and generated instances.",
+            "command": [sys.executable, "-c", "print('success')"],
+        }
+        with self.assertRaisesRegex(gate.EvidenceError, "machine-readable observation evidence"):
+            self.submit(runtime, **common)
+
+        invalid = self.active_timer_observation()
+        invalid["cleanup"]["completed"] = False
+        with self.assertRaisesRegex(gate.EvidenceError, "cleanup completed"):
+            self.submit(
+                runtime,
+                **common,
+                active_timer_update_observation_json=json.dumps(invalid),
+            )
+
+        incomplete = self.active_timer_observation()
+        for timer in incomplete["observation"]["timers"]:
+            timer["source_locations"] = timer["source_locations"][:-1]
+        with self.assertRaisesRegex(gate.EvidenceError, "cover every detected update source"):
+            self.submit(
+                runtime,
+                **common,
+                active_timer_update_observation_json=json.dumps(incomplete),
+            )
+
+        self.submit(
+            runtime,
+            **common,
+            active_timer_update_observation_json=json.dumps(self.active_timer_observation()),
+        )
+        self.assertEqual(0, self.audit())
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        runtime_record = next(
+            path for path in evidence["checks"]
+            if json.loads((self.root / path).read_text(encoding="utf-8"))["kind"]
+            == "active_timer_update_runtime"
+        )
+        recorded = json.loads((self.root / runtime_record).read_text(encoding="utf-8"))
+        del recorded["active_timer_update_observation"]
+        write_json(self.root / runtime_record, recorded)
+        self.assertEqual(1, self.audit())
+        self.assertIn(
+            "machine-readable observation evidence",
+            "\n".join(self.summary()["issues"]),
+        )
+
+    def test_timer_preflight_requires_explicit_disposable_target_and_cleanup(self):
+        self.write_scope(timer=True)
+        key = ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None)
+        self.assertEqual(
+            0,
+            self.submit(
+                key,
+                action="review",
+                disposition="preserve",
+                note="Preserve the R/PT1H cycle and its automatic-start effect.",
+            ),
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "disposable"):
+            self.submit(
+                ("timer", "models/converted-c8-process.bpmn#p#Start", "preflight", None),
+                environment="local",
+                cleanup_plan="Delete the test deployment and all generated instances.",
+            )
+
+    def test_timer_preflight_requires_observed_deployment_and_completed_cleanup(self):
+        self.write_scope(timer=True)
+        key = ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None)
+        self.submit(
+            key,
+            action="review",
+            disposition="preserve",
+            note="Preserve the R/PT1H cycle and its automatic-start effect.",
+        )
+        preflight = ("timer", "models/converted-c8-process.bpmn#p#Start", "preflight", None)
+        common = {
+            "environment": "local",
+            "target_version": "8.9.21",
+            "target_disposable": True,
+            "cleanup_plan": "Delete the test deployment and all generated instances.",
+            "command": [sys.executable, "-c", "print('success')"],
+        }
+        with self.assertRaisesRegex(gate.EvidenceError, "timer observation"):
+            self.submit(preflight, **common)
+        invalid = self.timer_observation(preflight)
+        invalid["cleanup"]["completed"] = False
+        with self.assertRaisesRegex(gate.EvidenceError, "cleanup completed"):
+            self.submit(
+                preflight,
+                **common,
+                timer_observation_json=json.dumps(invalid),
+            )
+        self.assertEqual(1, self.audit())
+
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+    def test_model_and_config_edits_make_prior_evidence_stale(self):
+        self.write_scope(timer=True)
+        config = self.root / "app/application.yml"
+        config.write_text("worker.enabled: true\n", encoding="utf-8")
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+        source = self.root / "models/process.bpmn"
+        original = source.read_text(encoding="utf-8")
+        changed = original.replace(
+            '<bpmn:startEvent id="Start">',
+            '<bpmn:startEvent id="Start" name="source metadata update">',
+        )
+        self.assertNotEqual(original, changed)
+        self.assertIn("id=\"p\"", changed)
+        self.assertIn("R/PT1H", changed)
+        source.write_text(changed, encoding="utf-8")
+        config.write_text("worker.enabled: false\n", encoding="utf-8")
+
+        self.assertEqual(1, self.audit())
+        issues = "\n".join(self.summary()["issues"])
+        self.assertIn("stale", issues.lower())
+
+    def test_symlinked_in_scope_source_cannot_be_silently_skipped(self):
+        shared = self.root / "shared/Caller.java"
+        shared.parent.mkdir(parents=True, exist_ok=True)
+        shared.write_text(
+            'runtimeService.startProcessInstanceByKey("p");\n',
+            encoding="utf-8",
+        )
+        link = self.root / "app/src/main/java/Caller.java"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(shared)
+
+        plan = gate.requirements(self.root, self.plan)
+        self.assertIn(
+            "Cannot scan symlinked in-scope source file: app/src/main/java/Caller.java",
+            plan.issues,
+        )
+        self.assertEqual(1, self.audit())
+        self.assertIn(
+            "symlinked in-scope source file",
+            "\n".join(self.summary()["issues"]),
+        )
+
+    def test_timer_inventory_requires_explicit_removal_disposition(self):
+        self.write_scope(timer=True)
+        converted = self.root / "models/converted-c8-process.bpmn"
+        xml = converted.read_text(encoding="utf-8")
+        converted.write_text(
+            xml.replace(
+                "<bpmn:timerEventDefinition><bpmn:timeCycle>R/PT1H</bpmn:timeCycle>"
+                "</bpmn:timerEventDefinition>",
+                "",
+            ),
+            encoding="utf-8",
+        )
+        requirements = gate.requirements(self.root, self.plan)
+        disposition = ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None)
+        self.assertEqual("remove", requirements.timer_inventory[disposition]["expected_disposition"])
+        self.assertNotIn(
+            ("timer", "models/converted-c8-process.bpmn#p#Start", "preflight", None),
+            requirements.required,
+        )
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        check = next(
+            check for check in self.summary()["checks"]
+            if check["type"] == "timer" and check["kind"] == "disposition"
+        )
+        self.assertEqual("remove", check["disposition"])
+        self.assertEqual("R/PT1H", check["timer_inventory"]["source_cycle"])
+        self.assertIsNone(check["timer_inventory"]["converted_cycle"])
+        self.assertEqual("PT1H", check["timer_inventory"]["interval"])
+        self.assertIsNone(check["timer_inventory"]["repetitions"])
+        self.assertEqual("app", check["timer_inventory"]["module"])
+        self.assertEqual(
+            "Each firing starts a process instance.",
+            check["timer_inventory"]["automatic_start_effect"],
+        )
+
+    def test_timer_cycle_change_records_the_new_interval_and_repetition_count(self):
+        self.write_scope(timer=True)
+        converted = self.root / "models/converted-c8-process.bpmn"
+        converted.write_text(
+            converted.read_text(encoding="utf-8").replace("R/PT1H", "R5/PT5S"),
+            encoding="utf-8",
+        )
+        requirements = gate.requirements(self.root, self.plan)
+        disposition = ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None)
+        self.assertEqual("change", requirements.timer_inventory[disposition]["expected_disposition"])
+        self.assertEqual("PT5S", requirements.timer_inventory[disposition]["interval"])
+        self.assertEqual(5, requirements.timer_inventory[disposition]["repetitions"])
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+    def test_fixture_import_is_independent_of_the_current_working_directory(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import runpy, sys; runpy.run_path(sys.argv[1])",
+                str(Path(__file__).resolve()),
+            ],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def complete_required_checks(self, caller_inventory=None):
+        requirements = gate.requirements(self.root, self.plan)
+        required = requirements.required
+        self.assertEqual([], requirements.issues)
+        priorities = {
+            "project": 0, "module": 1, "deployment_set": 2, "timer": 3, "model": 4, "process": 5,
+        }
         for key in sorted(
             required,
             key=lambda item: (
                 priorities[item[0]],
                 item[1],
-                {"lint": 0, "review": 1, "deployment": 2, "worker_input_inventory": 0}.get(item[2], 3),
+                {
+                    "preflight": 0, "lint": 0, "worker_input_inventory": 0,
+                    "review": 1, "disposition": 0, "duplicate_process_id": 1,
+                    "deployment": 2,
+                }.get(item[2], 3),
                 item[2],
                 item[3] or "",
             ),
@@ -136,16 +880,62 @@ class ValidationEvidenceTest(unittest.TestCase):
             if key == ("project", ".", "docker_info", None):
                 continue
             environment = (
-                "local" if key[0] in ("timer", "process") or key[2] in (*gate.RUNTIME_CHECKS, "deployment")
+                "local"
+                if key[0] in ("timer", "process")
+                or key[2] in (*gate.RUNTIME_CHECKS, "deployment", "active_timer_update_runtime")
                 else None
             )
             options = {
                 "environment": environment,
-                "isolation_plan": "Use an isolated local cluster; remove the timer deployment and instances.",
+                "target_version": (
+                    "8.9.21"
+                    if key[0] == "timer" and key[2] == "preflight"
+                    or key[2] == "active_timer_update_runtime"
+                    else None
+                ),
+                "target_disposable": (
+                    key[0] == "timer" and key[2] == "preflight"
+                    or key[2] == "active_timer_update_runtime"
+                ),
+                "cleanup_plan": (
+                    "Remove the test deployment and all generated instances."
+                    if key[0] == "timer" and key[2] == "preflight"
+                    or key[2] == "active_timer_update_runtime"
+                    else None
+                ),
+                "timer_observation_json": (
+                    json.dumps(self.timer_observation(key))
+                    if key[0] == "timer" and key[2] == "preflight"
+                    else None
+                ),
+                "caller_inventory_json": (
+                    json.dumps(caller_inventory or [])
+                    if key[0] == "deployment_set" and key[2] == "preflight"
+                    else None
+                ),
+                "disposition": (
+                    "explicit_version"
+                    if key[0] == "deployment_set" and key[2] == "duplicate_process_id"
+                    else requirements.timer_inventory[key]["expected_disposition"]
+                    if key[0] == "timer" and key[2] == "disposition"
+                    else "no_updates"
+                    if key[2] == "active_timer_updates"
+                    and not requirements.active_timer_updates.get(key[1])
+                    else None
+                ),
             }
+            action = "review" if required[key] == "review" else "run"
+            expected_result = 0
+            if key[2] == "active_timer_updates" and requirements.active_timer_updates.get(key[1]):
+                action = "block"
+                expected_result = 1
+                options["reason"] = (
+                    "Manual blocker: trace every C7 due-date caller and affected active timer, "
+                    "including repeated updates, before approving a supported replacement."
+                )
             self.assertEqual(
-                0,
-                self.submit(key, action="review" if required[key] == "review" else "run", **options),
+                expected_result,
+                self.submit(key, action=action, **options),
             )
 
     def summary(self):
@@ -222,9 +1012,18 @@ class ValidationEvidenceTest(unittest.TestCase):
             {
                 "source_path": f"models/{name}.bpmn",
                 "path": f"models/converted-c8-{name}.bpmn",
+                "module": f"examples/{name}" if name in module_names else "examples/web",
+                "deployment_set": "shared-target",
                 "processes": [{"id": f"{name}-process", "standalone": True, "scenarios": ["normal"]}],
             }
             for name in model_names
+        ]
+        self.plan["deployment_sets"] = [
+            {
+                "name": "shared-target",
+                "modules": [f"examples/{name}" for name in module_names],
+                "models": [model["path"] for model in self.plan["models"]],
+            }
         ]
         self.write_scope()
         for model in self.plan["models"]:
@@ -352,7 +1151,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             '<zeebe:taskDefinition type="process" /></bpmn:extensionElements></bpmn:serviceTask>'
         )
         self.write_scope(extra=extra)
-        required, _, _, _, _ = gate.requirements(self.root, self.plan)
+        required = gate.requirements(self.root, self.plan).required
         self.assertEqual(set(gate.ASSERTIONS), {
             key[2] for key in required if key[0] == "process" and key[2] in gate.ASSERTIONS
         })
@@ -379,8 +1178,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             converted.read_text(encoding="utf-8").replace('isExecutable="true"', 'isExecutable="1"'),
             encoding="utf-8",
         )
-        required, _, _, _, issues = gate.requirements(self.root, self.plan)
-        self.assertEqual([], issues)
+        requirements = gate.requirements(self.root, self.plan)
+        required = requirements.required
+        self.assertEqual([], requirements.issues)
         self.assertIn(
             ("process", "models/converted-c8-process.bpmn#p", "process_path", "normal"),
             required,
@@ -423,7 +1223,20 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_dmn_models_still_need_lint_and_safe_deployment(self):
         self.plan["modules"] = []
         self.plan["models"] = [
-            {"source_path": "models/rules.dmn11.xml", "path": "models/converted-c8-rules.dmn", "processes": []}
+            {
+                "source_path": "models/rules.dmn11.xml",
+                "path": "models/converted-c8-rules.dmn",
+                "module": ".",
+                "deployment_set": "rules",
+                "processes": [],
+            }
+        ]
+        self.plan["deployment_sets"] = [
+            {
+                "name": "rules",
+                "modules": [],
+                "models": ["models/converted-c8-rules.dmn"],
+            }
         ]
         write_json(self.root / gate.INVENTORY, {
             "schema_version": 1, "modules": [], "models": ["models/rules.dmn11.xml"],
@@ -439,7 +1252,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
         self.assertEqual(
-            {"lint", "review", "deployment"},
+            {"lint", "review", "deployment", "preflight", "active_timer_updates"},
             {check["kind"] for check in self.summary()["checks"]},
         )
 
@@ -458,10 +1271,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.write_scope(timer=True)
         model = "models/converted-c8-process.bpmn"
         self.assertEqual(0, self.submit(("model", model, "lint", None)))
+        self.assertEqual(
+            0,
+            self.submit(
+                ("deployment_set", "shared", "preflight", None),
+                action="review",
+                caller_inventory_json="[]",
+            ),
+        )
         with self.assertRaisesRegex(gate.EvidenceError, "Timer preflight"):
             self.submit(("model", model, "deployment", None), environment="local")
-        with self.assertRaisesRegex(gate.EvidenceError, "isolation or cleanup"):
-            self.submit(("timer", f"{model}#p#Start", "preflight", None), environment="local")
+        with self.assertRaisesRegex(gate.EvidenceError, "Record the timer disposition"):
+            self.submit(
+                ("timer", f"{model}#p#Start", "preflight", None),
+                environment="local",
+                target_version="8.9.21",
+                target_disposable=True,
+                cleanup_plan="Delete the test deployment and instances.",
+            )
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
         plan = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))

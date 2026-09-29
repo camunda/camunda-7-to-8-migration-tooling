@@ -7,9 +7,19 @@ Other model checks, a message assertion, and a timer preflight are absent.
 
 The gate changes that claim to `NOT READY`.
 
-The other tests cover a complete passing scope, independent failures, missing records, runtime
-modules, process assertions, Docker classification, timer ordering, path safety, and report
-replacement. They exercise the command recorder without a Camunda cluster.
+The tests cover these cases:
+
+- Complete and incomplete evidence scopes.
+- Runtime modules, process assertions, Docker classification, and timer ordering.
+- Cross-model process IDs, C7 by-key calls, C8 version selection, and interpolated-source blockers.
+- Timer dispositions, observed deployment evidence, method references, and REST due-date paths.
+- Repeated updates, cleanup evidence, stale source snapshots, path safety, and cwd-independent imports.
+- Report replacement.
+
+The tests use synthetic evidence. They do not access a Camunda cluster or deploy to a target.
+A separate disposable Camunda 8.9.21 deployment observation appears in the
+[deployment and timer preflight reference](../../skills/migrate-c7-to-c8-code/references/deployment-and-timer-preflight.md).
+It is not part of this Python suite.
 
 From the repository root, run:
 

@@ -7,30 +7,66 @@ readiness claim. Use the selected Camunda 8 version. Record findings, decisions,
 `MIGRATION_REPORT.md`.
 If a finding lacks an approved decision, required evidence, or required test, then set its report
 item to `blocked`. Keep the migration incomplete until the finding is resolved.
+Also record deployment-set, caller, timer-disposition, and active-timer-update evidence in
+`.camunda-migration/validation/validation-evidence.json` and through
+`validate_migration_evidence.py`. A report note alone does not satisfy the machine-readable gate.
 
 ## Deployment set
 
 A deployment set includes models intended for the same target, even when modules deploy separately.
-Confirm its boundary from Maven/Gradle resources, `@Deployment`, deployment code, and commands.
+Check its boundary from Maven/Gradle resources, `@Deployment`, deployment code, and commands.
 When the boundary is unclear, ask the user. Never assume every repository model shares a target.
 
 At assessment, namespace-parse the original BPMN in each set. Before deployment, recheck the
-converted copies that replace them; never count both copies as separate deployments. Record each
+converted copies that replace them. Never count both copies as separate deployments. Record each
 process ID, module, and path. For every timer start, record its event ID and exact date or cycle
 expression. For a cycle, record its interval and repetition count, or block on unresolved expressions.
 [Camunda 8 schedules timer starts on deployment](https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/).
-Each firing creates an instance. A cycle without a repetition count runs indefinitely; deploying a
-new version cancels the prior timer for that BPMN process ID.
+Each firing creates an instance. A cycle without a repetition count runs indefinitely.
+Deploying a new version cancels the prior timer for that BPMN process ID.
+
+### Reported disposable Camunda 8.9.21 test
+
+A disposable c8run test used two module directories with process ID `Sample`. Module A had an
+`R/PT5S` timer start. Module B had no timer. The cluster was empty before deployment.
+
+The first run deployed A as version 1 and B as version 2. Starts by
+`processDefinitionId=Sample` selected version 2. Version 1 created timer instances about every
+5.5 seconds before and around the version 2 deployment. No further version 1 timer instances
+appeared during the next 24 seconds.
+
+A repeat run deployed the timer model as version 3 and the model without a timer as version 4.
+Version 3 created instances at `11:36:32.503Z`, `11:36:37.837Z`, and `11:36:42.150Z`. Version 4
+deployment completed by `11:36:43.3Z`. No later version 3 starts appeared during the next
+15 seconds. Starts by `processDefinitionId=Sample` selected version 4.
+
+The test operator shut down the cluster, confirmed port 8081 was closed, and removed the c8run
+state directory. This test supports the observed deployment behavior for Camunda 8.9.21 only.
+It does not validate active timer due-date updates. No C8 active-timer reschedule alternative is
+approved. Keep detected active updates blocked and readiness `NOT READY`.
 
 Group definitions by process ID across the set. Trace C7 `startProcessInstanceByKey` and C8
 `bpmnProcessId` callers, including `.latestVersion()` and IDs from constants or configuration.
 Record every caller of a duplicate ID and its version-selection behavior. Keep unknown IDs unresolved.
+The gate records set membership and callers in validation evidence. It scans declared module source
+for `startProcessInstanceByKey`, `createProcessInstanceByKey`, `bpmnProcessId`, and `.latestVersion()` calls.
+
+| Caller form | Gate requirement |
+|---|---|
+| C7 by-key calls | Record `startProcessInstanceByKey` or `createProcessInstanceByKey` as `latest_version`, even without `.latestVersion()`. |
+| C8 `bpmnProcessId` | Record the version selection from the call site. Use `unknown` when the source does not show it. |
+| `.latestVersion()` | Include its source location in a caller record with `latest_version`. |
+
+Each caller record names its module, source location with line number, process ID, operation, and
+version selection. Include every detected process call. A duplicate process ID needs at least one
+matching caller record. Missing or empty inventories cannot pass. Unknown IDs or version selections
+keep readiness `NOT READY`. A preflight record also becomes stale when its source or model changes.
 
 | Finding | Decision before deployment |
 |---|---|
-| Recurring timer start | Approve preserving, changing, or removing the exact cycle; record its automatic-start effect and any converted-copy change. |
+| Recurring timer start | Approve one exact-cycle disposition. Record its automatic-start effect and any converted-copy change. |
 | Duplicate process ID | Approve isolated targets, an explicit version, or a rename with old-to-new mappings and updated callers. |
-| Unknown deployment boundary, cycle, or caller ID | Confirm it before deploying the affected models. |
+| Unknown deployment boundary, cycle, or caller ID | Resolve it before deploying the affected models. |
 
 Never silently change a timer or process ID. An unapproved decision blocks deployment and readiness.
 Never deploy a recurring timer on a shared target just to check syntax. Before live deployment, get
@@ -38,6 +74,19 @@ approval for a bounded disposable-target test and its cleanup plan. Deploy the c
 observe its timer-created instances, then reset or destroy the target. Record the target version,
 observed starts, and completed cleanup. Without this test, record `not run` and keep the recurring
 deployment blocked.
+The gate requires a disposition review for each repeating timer. It also requires a runtime preflight
+for each repeating timer retained in a converted model. Record the target version and cleanup plan.
+Pass a structured `--timer-observation-json` record to the preflight check.
+
+| Evidence | Required values |
+|---|---|
+| Deployment | `performed: true`, a reference, the selected environment, a disposable target, and the selected version. |
+| Observation | The expected process ID, start-event ID, cycle, and at least one started instance. |
+| Cleanup | `completed: true` and an evidence reference. |
+
+The gate checks that the record matches the model inventory. It cannot inspect a remote target.
+Record only facts observed during the actual test. A successful command and a cleanup plan alone
+cannot pass the preflight.
 
 ## Active timer updates
 
@@ -46,15 +95,33 @@ Find direct C7 `ManagementService.setJobDuedate` calls and method references, RE
 selected jobs are timers. For active timer updates, trace every caller, including repeated calls.
 Match the process and BPMN timer element to the value supplying the new date. Record source
 locations, caller chains, timer expressions, and unresolved links as blocking open items.
+Record an `active_timer_updates` review for each module. Record `no_updates` only after you review
+the module and find no update calls. Block detected updates when their timer, callers, or supported
+target alternative remain unresolved. Keep repeated update references blocked.
+
+| Decision evidence | Required gate result |
+|---|---|
+| Approved status, concrete approval and alternative evidence references, target version | Require a passing review and later runtime check. |
+| Missing, pending, unresolved, or placeholder evidence | Keep the active-timer finding blocked and readiness `NOT READY`. |
+
+The top-level `active_timer_update_decision` object holds this decision. The review records a
+snapshot of it. The runtime check must follow the review and use the same target version. This
+repository has no approved C8 alternative. Keep its decision unresolved.
+The runtime check also needs `--active-timer-update-observation-json`.
+Record each affected process and timer in its own `timers` entry.
+Map every detected update source location to one or more entries.
+Each entry must show an active timer before two updates, zero obsolete deadline firings, and one final deadline firing.
+Record completed cleanup in the cleanup entry.
+See `references/validation-evidence.md` for the required fields.
 
 Check the official API and timer documentation for the selected target version before proposing a
 replacement. Record documented support and limitations. A C7 setter does not imply a C8 timer API.
-For non-start timers, Camunda 8 evaluates the expression on activation. A later variable update
-does not prove that the already-active timer is rescheduled.
+For timer catch events, Camunda 8 evaluates the expression when the event activates. A later
+variable update alone does not prove that the active timer is rescheduled.
 
 | Finding | Required outcome |
 |---|---|
-| Approved, target-supported replacement | Test an already-active timer on a disposable target. Change its date twice; assert obsolete deadlines never fire and the final deadline fires once. Allow for late, never early, firing. |
+| Approved, target-supported replacement | Record approval. Test an active timer twice on a disposable target. Change its date twice. Assert obsolete deadlines never fire and the final deadline fires once. Allow late firing, not early firing. |
 | No verified or approved replacement, unknown timer link, or reachable throwing placeholder | Keep the affected flow blocked as manual work. Do not report it ready or substitute a no-op or unverified API. |
 
 Record the chosen alternative and runtime evidence (including cleanup), or the `not run` blocker, in
