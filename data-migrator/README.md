@@ -11,6 +11,7 @@ Please see the official documentation for more details: [Camunda 7 to 8 Migratio
 ## Table of Contents
 
 - [Key Features](#key-features)
+- [Supported Camunda 8 Versions](#supported-camunda-8-versions)
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
 - [Development](#development)
@@ -25,6 +26,10 @@ Please see the official documentation for more details: [Camunda 7 to 8 Migratio
 - **Skip and retry capabilities**: Handle problematic instances gracefully with retry options
 - **Detailed logging and reporting**: Comprehensive logging for monitoring migration progress
 - **Database flexibility**: Support for multiple database vendors (H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server)
+
+## Supported Camunda 8 Versions
+
+The Data Migrator supports **Camunda 8.10.0** as its current version and **Camunda 8.9.0** as its previous version. Both versions are included in the compatibility checks.
 
 ## Prerequisites
 
