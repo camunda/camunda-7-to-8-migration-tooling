@@ -11,6 +11,34 @@ Use the assessment model scan before choosing a path.
 
 Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
+## Call-Activity Variable Scope
+
+Compare each C7 call's `camunda:in`, `camunda:out`, and delegated variable mappings with the converted copy.
+Camunda 8.9 supports [call-activity input/output mappings](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings).
+Check the target's support before removing a mapping flagged as unavailable.
+Without any variable mappings, C7 passes no variables in either direction.
+Camunda 8 copies all variables by default.
+
+| C7 contract | Camunda 8 mapping |
+|---|---|
+| Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each selected value. |
+| No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
+| All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
+| Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each returned value. |
+| No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
+| All child outputs | Keep all-child propagation only when C7 returns the same scope. |
+| No compatible mapping | Keep the category **needs review**. Ask the user to decide the scope rather than widening selected inputs. |
+
+Record one row per call activity in `MIGRATION_REPORT.md`: its ID, called process, C7 inputs and
+outputs, C8 mappings and propagation flags, child identity intent, and validation evidence.
+The [Business ID](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id)
+passes to a call-activity child in 8.9 independently of variables. If the C7 child needs a distinct
+business key, then keep that difference **needs review** until the user selects an alternative.
+
+Test with a selected input and an extra parent-only variable. Check that the child receives only
+the selected input, and check its Business ID separately. If deployment blocks the test, then
+record the blocker and keep scope parity **needs review**.
+
 ## Pre-flight: Leftover Artifacts
 
 Before any local approach (M1, M2, E1), scan for outputs of previous migration attempts:
@@ -44,7 +72,18 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Run `java -version` from `PATH`, capture stderr, and record the actual major version. The Diagram Converter CLI requires major version `21` or higher. Do not apply the OpenRewrite upper bound. If `java` is missing or below 21, ask the user for an alternate JDK home. Validate its `bin/java` (Windows: `bin/java.exe`) and check its actual version first. If several validated compatible homes exist, choose the lowest. Prefer 21 for reproducible runs. (SHOULD) Use the validated executable and home only for the converter invocation.
+Resolve the `java` executable selected from `PATH` to an absolute path.
+Run `-version` on that path.
+Record its absolute path and actual major version.
+The Diagram Converter CLI requires major version `21` or higher.
+Do not apply the OpenRewrite upper bound.
+If `PATH` has no Java executable or its major version is below 21, ask the user for another JDK home.
+Resolve that home to `bin/java` (Windows: `bin/java.exe`).
+Run `-version` on that exact path.
+If several compatible JDK homes exist, choose the lowest version.
+Prefer Java 21 for reproducible runs. (SHOULD)
+Use the validated absolute executable for every converter invocation.
+Never replace it with bare `java` or a different executable.
 
 > The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
@@ -60,17 +99,21 @@ The CLI is published as a self-contained executable JAR named `camunda-7-to-8-di
 4. If that JAR exists, reuse it.
 5. Otherwise download from `https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
 
-The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migration/` to `.gitignore`. Modify `.gitignore` only after the user confirms.
+The JAR is ~30 MB. The skill records its release tag and exact path with the target version in
+`MIGRATION_REPORT.md`. A latest release tag alone does not prove that the selected artifact supports
+each detected model pattern. Where the project is a git repo, the skill recommends adding
+`.camunda-migration/` to `.gitignore`. (SHOULD) The skill modifies `.gitignore` only after the user
+confirms.
 
 ### 3. Run the Converter
 
 The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
 
 ```
-"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
+"<java-executable>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
 ```
 
-On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`. Replace `<java-cmd>` with the validated `bin/java` path. After an alternate executable is selected, never use a bare `java` command.
+On Windows PowerShell, prefix the command with the call operator: `& "<java-executable>" ...`. Set `<java-executable>` to the validated absolute path from step 1.
 
 Recommended flags:
 - `--json` - always pass this. The JSON report is the machine-readable input for step 5. It needs a CLI release with the flag (0.3.6 or later). If the run fails with `Unknown option: '--json'`, the JAR predates it. Re-resolve the latest release (step 2).
@@ -108,6 +151,45 @@ packaging, including `src/main/resources` when it exists. No findings report nam
 `.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
 directory. Otherwise, use another explicitly non-packaged directory.
 
+### 3b. Check the selected artifact
+
+Match the source start-listener inventory against the selected JAR's JSON report.
+For directory input, normalize path separators before matching the full path relative to the input directory.
+For single-file input, match the filename.
+Never use a basename match for a directory input.
+Require `messageId` `execution-listener-on-start-event` and `TASK` severity.
+Match the start-event ID and implementation type/value in the finding message.
+Count repeated implementations separately.
+If a finding cannot map to one source listener, then block automatic compatibility.
+
+Use these values when matching a source listener to a finding:
+
+| Source listener implementation | Finding message type | Finding message value |
+|---|---|---|
+| `camunda:class="value"` | `class` | Attribute value |
+| `camunda:expression="value"` | `expression` | Attribute value |
+| `camunda:delegateExpression="value"` | `delegateExpression` | Attribute value |
+| Nested `camunda:script` with `scriptFormat="value"` | `script` | Script format |
+| No implementation attribute or nested script | `null` | `null` |
+
+Parse every fresh converted copy with a namespace-aware XML parser.
+Reject a direct `zeebe:executionListener eventType="start"` on any `bpmn:startEvent`.
+
+| Evidence from this run | Action |
+|---|---|
+| One matching `TASK` finding per source listener and no invalid placement | Complete step 5d.3 for affected listeners, then validate the target. |
+| A finding is missing, downgraded, duplicated, or unmatched | Block automatic compatibility. Add a source-derived `TASK` finding in `MIGRATION_REPORT.md` for each uncovered listener. Do not add it to the converter JSON report or count it as a converter match. |
+| Invalid placement has no matching C7 source listener | Block model readiness. Manual relocation cannot repair an unknown source listener. |
+| A converted copy retains invalid placement | Block automatic compatibility even when a worker exists. |
+
+If either check fails, then keep model readiness blocked and offer a patched release or manual follow-up.
+For a patched release, move this run's copies outside packaged directories before reconversion.
+Follow the leftover-artifact pre-flight and rerun all original models with the same target and options.
+Repeat these checks and use only the new run's findings reports and converted copies.
+Never overwrite existing files or mix results from different releases.
+Apply step 5d.3 only to inventoried listeners after user approval.
+Keep model readiness blocked until that follow-up and target validation pass.
+
 ### 4. Surface Outputs
 
 After the run and report relocation, report:
@@ -124,7 +206,11 @@ Severity counts are only a headline. Never start per-finding work from them. Par
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
 
-Trust the converter's output for what it did NOT flag. The job types and listener wiring it emitted are authoritative. Apply manual fixes only for what the report flags. Never second-guess or re-derive converted structures.
+Trust unflagged converter output except source start listeners from step 3b and inventoried
+call-activity variable scope.
+The job types and listener wiring it emitted are authoritative elsewhere.
+Apply manual fixes only for findings, inventoried start listeners, or call-activity scope mismatches.
+Never second-guess or re-derive other converted structures.
 
 #### Verification gate
 
@@ -244,6 +330,12 @@ rule in this table.
 For target support, deploy every fresh converted copy named by the row. Record each target,
 deployment identifier, and result in `Impact evidence`. After a deployment succeeds, start
 instances that reach every Element list ID from that copy. Record each execution result.
+
+While a conditional event's scope is active, make its condition evaluate to `true`.
+Check that the event path executes. A deployment or linter pass alone does not prove that the event
+fired.
+Record the target version, deployment identifier, event ID, trigger inputs, and execution result in
+`Impact evidence`. If a safe Camunda 8.9+ cluster is unavailable, keep the row **needs review**.
 
 For `element-not-supported-hint` and `conditional-flow`, use **Advisory** and **no action** only
 after the target-support test and verification gate pass. If a test failure identifies an affected
@@ -380,12 +472,10 @@ Rules:
 
 #### 5d.3. Relocate unsupported start-event listeners
 
-Treat `execution-listener-on-start-event` as **Blocking** and **needs review** until the user accepts
-relocation and the relocation checks pass.
-
-Use the finding's `filename` and `elementId` to resolve the affected `bpmn:startEvent` in the original
-C7 source. Read the original source because the converter omits this unsupported listener from the
-fresh converted copy.
+Treat each source `event="start"` listener on a `bpmn:startEvent` as **Blocking** and **needs review**
+until the user accepts relocation and its checks pass.
+Resolve its source path and event ID from the inventory, even if the selected JAR omitted its finding.
+Read the original C7 source because an older JAR may drop the listener or emit invalid placement.
 
 Find the nearest enclosing target in the original source:
 
@@ -414,6 +504,8 @@ Do not edit the original C7 source.
 Do not edit a converted copy before the user accepts the move.
 When the user accepts the move, edit only the fresh converted copy.
 Use a namespace-aware XML parser or XML tooling, never regular expressions.
+Remove any invalid listener on the selected start event before adding its approved replacement.
+Never remove listeners from another start event.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
 Recreate every affected `camunda:executionListener` as a `zeebe:executionListener` on the target scope.
 Set `eventType="start"`.
@@ -447,7 +539,8 @@ Keep the category **needs review** until every applicable check passes.
 Record the source path, start-event ID, target process or subprocess ID and name, listener
 implementations, user decision, converted-copy path, and verification evidence in
 `MIGRATION_REPORT.md`. Set the verdict to **no action** only after the relocation checks and any
-applicable verification gate pass.
+applicable verification gate pass. If the user declines or a required check cannot run, then keep
+model readiness **blocked**.
 
 #### 5e. Strip converter annotations from converted models
 
@@ -520,6 +613,10 @@ The baseline comparison is authoritative. A class that existed in the C7 source 
 even when its name ends with `Worker`. Record the baseline match and the replacement adapter in
 `MIGRATION_REPORT.md`.
 
+The class-name and job-type checks do not verify variable binding. The skill also compares each
+adapter input, output, and absent-value behavior with the C7 source. Apply the worker contract checks
+in `code-transform-checklist.md`.
+
 Apply this rule to JUEL method-invocation findings in M1, M2, M3, and E1. E1 uses the M1 local
 conversion flow after it acquires the source models.
 
@@ -564,6 +661,22 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Simple JUEL to FEEL for pure data expressions. Flag bean-invoking expressions for manual work.
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
+- Where the target is Camunda 8.9 or later, the converter assigns each
+  `bpmn:conditionalEventDefinition` a nonempty, document-unique ID.
+- The converter keeps each converted conditional event definition under the same
+  event ID that owns the source definition.
+- When the converter reads a nonempty definition ID that is unique in the source document, it
+  preserves that ID.
+- If the converter finds an empty or nonunique definition ID, then it generates a collision-free ID
+  without changing existing event IDs, sequence-flow IDs, or BPMN DI references.
+- Run the conditional-event ID check in `SKILL.md` Step 5 independently of BPMN lint.
+- Reject the converted copy if the ID check fails, even when lint reports no ID error.
+- Record source and converted definition IDs, their owning event IDs, and the validator result in
+  `MIGRATION_REPORT.md`.
+- Use the fixture's Python verifier only for regression tests. Apply the Step 5 checks to each
+  migration project's source and converted copies.
+- For a conditional-event verdict row, require an execution test that triggers the event before
+  assigning **no action**. See 5d.1 for the target-support test and evidence.
 - DMN: update decision/definition namespaces and expression language as needed
 - Preserve existing BPMN DI instead of reconstructing it from the rewritten semantic tree.
 - Before rewriting, parse the source with a namespace-aware XML parser and record counts for diagrams, planes, shapes, edges, labels, bounds, and waypoints.
@@ -623,6 +736,22 @@ Treat the fetched XML as the original source for `form-migration.md` and `form-r
 ### 3. Handle Failures
 
 Treat an unreachable endpoint, a TLS/DNS failure, a 401/403, malformed XML, or an empty response as a blocking error. Report the URL, the operation, the status/error, and the concrete next action. Never silently continue or report success when any requested definition failed.
+
+## Target deployment: verify the target version
+
+Confirm the target and profile with the user before deployment.
+When c8ctl is configured, run `c8ctl which profile` and confirm the returned profile.
+Run `c8ctl get topology --profile=<name> --json` with that profile.
+Otherwise, use an authorized deployment client to read the same topology metadata.
+Compare `gatewayVersion` and every `brokers[].version` with the declared target's major and minor
+version. Read those fields from the
+[Orchestration Cluster REST API topology response](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-swagger/).
+Use the confirmed profile or client for both this check and deployment.
+
+| Verification result | Action |
+|---|---|
+| Every reported version matches the declared target. | Record the non-secret target identifier and all reported versions in `MIGRATION_REPORT.md`. Continue with deployment. |
+| A version is missing or malformed, no brokers exist, or any major or minor version differs. | Block deployment and model readiness. Ask the user to select a matching target. |
 
 ## Linting Converted BPMN (M1 and M2)
 
