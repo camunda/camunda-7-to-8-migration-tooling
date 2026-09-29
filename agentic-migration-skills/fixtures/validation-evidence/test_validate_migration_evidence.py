@@ -334,6 +334,20 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.process_callers["modules/c7-client"][0],
             gate.deployment_set_callers(plan, "shared", "modules/c7-client"),
         )
+        empty_inventory_issues = []
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": []},
+            {},
+            empty_inventory_issues,
+        )
+        self.assertTrue(
+            any("detected process caller is missing from the inventory" in issue
+                for issue in empty_inventory_issues),
+            empty_inventory_issues,
+        )
         blocked = self.deployment_execution_keys() | {
             ("deployment_set", "shared", "duplicate_process_id", "Sample")
         }

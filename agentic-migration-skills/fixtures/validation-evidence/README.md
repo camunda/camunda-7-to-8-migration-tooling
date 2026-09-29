@@ -11,11 +11,12 @@ The tests cover these cases:
 
 - Complete and incomplete evidence scopes.
 - Runtime modules, process assertions, Docker classification, and timer ordering.
-- Cross-model process IDs, per-deployment-set callers, C7 by-key calls, same-line version selections,
-  static, constant-resolved, and dynamic IDs, and caller blockers.
+- Cross-model process IDs, source collisions retained after mapped renames, per-deployment-set
+  callers, C7 by-key calls, same-line version selections, static, constant-resolved, and dynamic IDs,
+  and caller blockers.
 - Configuration apostrophes, timer dispositions, cron cycles, malformed ISO cycles,
   event-subprocess starts, method references, custom Scala interpolators, and
-  direct/concatenated/builder REST paths.
+  direct/concatenated/URI-builder REST paths, including JAX-RS `WebTarget.path(...)` chains.
 - Non-timer and mixed due-date classifications, source-module timer scope, and pre-execution
   timer-observation guards.
 - Exact affected-timer observations, repeated updates, early-deadline rejection, cleanup evidence,
