@@ -85,8 +85,8 @@ serialization. The hints do not embed source expressions or automatically replac
 The typed-value prepare recipe unwraps known JSON `ObjectValue` builders used as inline
 object-accepting call arguments or single-variable local initializers. Unknown formats, fields,
 multiple declarations, later-reassigned variables, and builders in typed-value argument, return,
-array, or cast contexts are left for manual migration. Cleanup removes Spin dependencies after
-unused-import removal only when no Spin types remain in source.
+array, cast, conditional, or switch contexts are left for manual migration. Cleanup removes Spin
+dependencies after unused-import removal only when no Spin types remain in source.
 
 See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
 

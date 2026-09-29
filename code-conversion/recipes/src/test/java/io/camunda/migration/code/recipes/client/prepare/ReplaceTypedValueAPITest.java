@@ -393,6 +393,19 @@ public class TypeValueTestClass {
                             .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
                     }
 
+                    ObjectValue conditional(boolean flag, Object payload) {
+                        return flag ? (Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create()) : null;
+                    }
+
+                    ObjectValue choose(int choice, Object payload) {
+                        return switch (choice) {
+                            case 1 -> Variables.objectValue(payload)
+                                .serializationDataFormat(Variables.SerializationDataFormats.JSON).create();
+                            default -> null;
+                        };
+                    }
+
                     void store(AtomicReference<ObjectValue> target, Object payload) {
                         target.set(Variables.objectValue(payload)
                             .serializationDataFormat(Variables.SerializationDataFormats.JSON).create());

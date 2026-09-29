@@ -76,7 +76,7 @@ In the [README](./README.md), the out-of-the-box recipes available to users are 
 The [sharedRecipes folder](src/main/java/io/camunda/migration/code/recipes/sharedRecipes) contains two important recipes:
 
 -   `AbstractMigrationRecipe`: Extracted transformation logic for reusability purposes
--   `ReplaceTypedValueAPIRecipe`: A combined recipe to transform TypedValueAPI types and method calls to JavaObjectAPI types and method calls. It also unwraps known JSON `ObjectValue` builders in single-variable local initializers and inline object-accepting call arguments, leaving fields, later reassignments, and typed-value argument/return/array/cast contexts for manual migration.
+-   `ReplaceTypedValueAPIRecipe`: A combined recipe to transform TypedValueAPI types and method calls to JavaObjectAPI types and method calls. It also unwraps known JSON `ObjectValue` builders in single-variable local initializers and inline object-accepting call arguments, leaving fields, later reassignments, and typed-value argument/return/array/cast/conditional/switch contexts for manual migration.
 
 The [utils folder](src/main/java/io/camunda/migration/code/recipes/utils) contains two utility classes:
 

@@ -831,6 +831,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           private boolean isUnconvertedBuilderContext() {
+            if (getCursor().firstEnclosing(J.Ternary.class) != null
+                || getCursor().firstEnclosing(J.SwitchExpression.class) != null) {
+              return true;
+            }
             Cursor parent = getCursor().getParentTreeCursor();
             while (parent.getValue() instanceof J.Parentheses<?>) {
               parent = parent.getParentTreeCursor();
