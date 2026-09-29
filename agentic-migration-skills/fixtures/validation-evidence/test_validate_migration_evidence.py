@@ -834,6 +834,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual([], issues)
 
+        complete_inventory = process_caller + [{
+            "module": "modules/c7-client",
+            "location": "modules/c7-client/src/main/java/LatestVersion.java:1",
+            "process_id": "Sample",
+            "operation": "other",
+            "version_selection": "latest_version",
+        }]
+        complete_issues = []
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": complete_inventory},
+            {},
+            complete_issues,
+        )
+        self.assertEqual([], complete_issues)
+
     def test_multiline_latest_version_is_associated_with_its_process_call(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"

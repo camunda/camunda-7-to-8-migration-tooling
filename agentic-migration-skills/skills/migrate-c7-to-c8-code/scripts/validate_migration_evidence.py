@@ -1134,12 +1134,23 @@ def validate_timer_observation(
         raise EvidenceError("Timer observation needs a cleanup evidence reference")
 
 
+def is_module_active_timer_target(plan, target):
+    return ("module", target, "active_timer_updates", None) in plan.required
+
+
 def timer_elements_for_module(plan, module):
-    set_names = {
-        name
-        for name, entry in plan.deployment_sets.items()
-        if module in entry["modules"]
-    }
+    if module == "." and not is_module_active_timer_target(plan, module):
+        set_names = {
+            model.get("deployment_set")
+            for model in plan.models_by_path.values()
+            if model.get("module") == "."
+        }
+    else:
+        set_names = {
+            name
+            for name, entry in plan.deployment_sets.items()
+            if module in entry["modules"]
+        }
     model_paths = {
         model_path
         for name in set_names
@@ -2294,11 +2305,7 @@ def validate_timer_inventory(plan, checks, issues, model_path=None):
 def validate_active_timer_updates(plan, checks, issues):
     decision = plan.active_timer_update_decision
     for target, hits in plan.active_timer_updates.items():
-        category = (
-            "module"
-            if ("module", target, "active_timer_updates", None) in plan.required
-            else "project"
-        )
+        category = "module" if is_module_active_timer_target(plan, target) else "project"
         key = (category, target, "active_timer_updates", None)
         recorded = checks.get(key)
         runtime_key = (category, target, "active_timer_update_runtime", None)
