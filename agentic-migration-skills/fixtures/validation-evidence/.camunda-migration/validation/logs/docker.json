@@ -1,1 +1,0 @@
-{"type":"project","target":".","kind":"docker_info","scenario":null,"method":"command","command":["docker","info"],"exit_code":0,"result":"passed","reason":null,"failure_class":null,"environment":null,"output":"Docker daemon responds."}

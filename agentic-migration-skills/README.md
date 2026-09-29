@@ -224,8 +224,8 @@ fixtures/                                  ← sample projects and executable re
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
 The `fixtures/validation-evidence` regression test preserves a nine-module, ten-model report that
-claimed readiness despite failed and missing checks. It also tests command capture, scope and
-process coverage, timer safety, and report repair.
+claimed readiness despite failed and missing checks. It generates synthetic logs in a temporary
+directory, and tests command capture, run isolation, process coverage, and timer safety.
 The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment patterns
 against the executable JAR. The `fixtures/start-event-listener-artifact` walkthrough checks a
 selected converter JAR against start-listener findings and a no-listener control.

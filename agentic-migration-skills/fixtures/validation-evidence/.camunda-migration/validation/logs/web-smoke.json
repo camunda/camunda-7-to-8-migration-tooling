@@ -1,1 +1,0 @@
-{"type":"module","target":"examples/web","kind":"tests","scenario":"web-smoke","method":"command","command":["mvn","-pl","examples/web","test"],"exit_code":1,"result":"failed","reason":"Non-Docker web tests fail on the invalid client mode","failure_class":"application","environment":null,"output":"Spring rejects camunda.client.mode=simple."}

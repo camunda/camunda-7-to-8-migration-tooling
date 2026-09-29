@@ -174,9 +174,11 @@ at all.
 ### Step 2: Assessment (always runs)
 
 Scan the project and produce the inventories that the chosen scope needs.
-After the user confirms a full migration, save the confirmed module paths and original model paths
-in `.camunda-migration/validation/step2-inventory.json` before conversion. When E1 fetches a model,
-add its original path before converting it. Never create this file for assessment-only or analyze-only.
+When the user confirms a full migration, save the confirmed module paths and original model paths
+in `.camunda-migration/validation/step2-inventory.json` before conversion. Where E1 fetches a
+model, add its original path before converting it. Run the `init` command in
+`references/validation-evidence.md` after completing the scope. Never create this file for
+assessment-only or analyze-only.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
@@ -215,6 +217,9 @@ surfaces:
 
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
+
+For each call activity, inventory its called process, input/output mappings (including delegates),
+and child business-key intent. See `references/model-migration-approaches.md` for scope rules.
 
 For each original BPMN, record every `camunda:executionListener event="start"` directly on a
 `bpmn:startEvent`. Record its source path, event ID, and implementation even if the converter omits
@@ -299,19 +304,9 @@ Follow the exit rule for the selected mode.
 
 ### Step 4: Validation (always runs)
 
-Each item below is a validation requirement. Follow `references/validation-evidence.md` to record
-command output and exit codes at execution time. Never write a passing command result by hand.
-Run the readiness gate only after a full migration. Assessment-only and analyze-only runs do not
-claim readiness.
-
-Run every independent check, even after another module or suite fails. Probe Docker with `docker
-info` before Docker-dependent suites. Never claim Docker is unavailable without a failed probe.
-Use `unit` for Maven Surefire and `test` for Gradle's default task. Inventory Maven Failsafe
-executions and additional Gradle test tasks as separate suites.
-
-Lint every in-scope model. Deploy every converted copy to a confirmed local or non-production
-cluster. Check every executable process path. Preflight repeating timer starts before deployment.
-The evidence gate rejects missing or non-passing checks.
+Follow `references/validation-evidence.md` to record command results and audit required checks.
+Never write a passing command result by hand. Run the gate only after a full migration.
+Assessment-only and analyze-only runs do not claim readiness.
 
 #### Code checks, when code was migrated
 
@@ -334,17 +329,18 @@ The evidence gate rejects missing or non-passing checks.
 7. **Configuration** — run the configuration validation in
    `references/code-transform-checklist.md`.
 8. **Dependency compatibility and client startup** — for each Maven module that uses a Camunda
-   Spring Boot starter, run the BOM and dependency-family checks in
-   `references/code-transform-checklist.md`. Run a focused context test that creates the real
-   `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. Apply the
-   readiness verdicts in the checklist. Record failing and final dependency coordinates, versions,
-   and remediation in `MIGRATION_REPORT.md`. Include the context test in the evidence inventory.
-   Record its command and exit code in `MIGRATION_REPORT.md`.
-9. **Tests** — run every independent suite in each migrated module. Test retained domain-library
-   behavior for every supported type and downstream call path. Use synthetic fixture values, never
-   production keys or credentials. Continue with other suites and modules after a failure. Record
-   each suite's result and classify application and infrastructure failures separately. A successful
-   compile does not prove that behavior works. A failed or blocked suite prevents a ready gate.
+  Spring Boot starter, run the BOM and dependency-family checks in
+  `references/code-transform-checklist.md`. Run a focused context test that creates the real
+  `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. The skill
+  applies the readiness verdicts in the checklist. Record the failing and final dependency
+  coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
+  there. Record the test command and its exit code there.
+9. **Tests** — run `mvn test` or the Gradle test task and every independent suite in each module.
+   Test each retained domain-library behavior for every supported type and downstream call path.
+   Use synthetic fixture values, never production keys or credentials. Continue with other suites
+   after a failure. Classify infrastructure failures separately from application failures. A
+   successful compile alone does not prove that behavior works. A failed or blocked suite prevents
+   readiness.
 10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
@@ -469,13 +465,16 @@ in `references/model-migration-approaches.md`.
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
-20. Review each standalone executable process's missing-worker-input scenarios. Record `normal`
-    and each scenario in its evidence inventory. Complete the `worker_input_inventory` review
-    before the direct-start tests. A parent call activity cannot prove a direct start works because
-    it can supply missing variables. For a non-standalone process, record the reason and covering
-    test in `MIGRATION_REPORT.md` and the evidence inventory. Record the inputs, failing element,
-    job type, and incident for each failing scenario.
-21. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+20. Every executable process has a test that starts it directly, with the normal inputs and without
+    each input that a worker may not receive. Coverage through a call activity does not count,
+    because the parent can supply variables that a direct start lacks. If a process is not a valid
+    standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
+    covering test. A process with neither fails validation. For each failing scenario, record the
+    process ID, inputs, failing element, job type, and incident message.
+21. For each call activity, compare the converted scope with its original inputs and outputs.
+    Test selected inputs with a parent-only variable, and check child identity independently.
+    Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
+22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
     version. Apply step 3b in `references/model-migration-approaches.md` to every source start
     listener and converted copy.
 
@@ -485,7 +484,7 @@ in `references/model-migration-approaches.md`.
     | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
     | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
 
-22. **Target deployment** — when the user authorizes a test target, verify its profile and version
+23. **Target deployment** — when the user authorizes a test target, verify its profile and version
     as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
     DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
     `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
@@ -494,17 +493,10 @@ in `references/model-migration-approaches.md`.
     evidence, deployment success, or an approved listener follow-up is missing, then block model
     readiness.
 
-    Before deployment, inspect every repeating timer start. Record a separate preflight and its
-    isolation or cleanup plan. Never test repeating timers on a shared or production cluster. If
-    the skill cannot isolate timer starts or clean them up, then block the check.
-
 #### Process behavior
 
-For every executable process, record assertions for user-task type, downstream message instances,
-branch selection, worker input and output values, incidents, and form resolution. Mark an
-assertion not applicable in `MIGRATION_REPORT.md` only with a reason. The gate derives minimum
-applicability from the converted BPMN. Add assertions when source forms or code make them relevant.
-Run each applicable assertion through the recorder.
+For every executable process, run the applicable assertions in `references/validation-evidence.md`.
+Record justified non-applicability in `MIGRATION_REPORT.md`.
 
 #### Project readiness checks, when code or models were migrated
 

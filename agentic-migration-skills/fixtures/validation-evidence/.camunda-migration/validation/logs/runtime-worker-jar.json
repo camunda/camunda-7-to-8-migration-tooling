@@ -1,1 +1,0 @@
-{"type":"module","target":"examples/runtime-worker","kind":"executable_jar","scenario":null,"method":"command","command":["java","-jar","examples/runtime-worker/target/runtime-worker.jar"],"exit_code":1,"result":"failed","reason":"Packaged JAR has no executable entry point","failure_class":"application","environment":"local","output":"No main manifest attribute."}

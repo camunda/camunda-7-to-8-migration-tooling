@@ -10,7 +10,7 @@ readiness.
 
 ## Prepare the scope
 
-After the user confirms a full migration, save the in-scope Step 2 paths in
+When the user approves a full migration, save the in-scope Step 2 paths in
 `.camunda-migration/validation/step2-inventory.json` before conversion:
 
 ```json
@@ -18,6 +18,16 @@ After the user confirms a full migration, save the in-scope Step 2 paths in
 ```
 
 Where E1 fetches a model, add its original path after retrieval and before conversion.
+Then start a new validation run before recording checks:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . init
+```
+
+`init` assigns a new run ID to the Step 2 inventory and marks previous readiness `NOT READY`.
+Run it again for a new migration, even if the paths have not changed. Old check logs cannot
+make the new gate `READY`. Where the project uses Git, add `.camunda-migration/validation/` to
+its `.gitignore`. Never commit generated logs, manifests, or summaries.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 
@@ -52,7 +62,8 @@ Record its worker-input review before starting it. For a non-standalone process,
 Run that test as the process-path check. Document the reason it is not a standalone entry point in
 `MIGRATION_REPORT.md`.
 
-The recorder maintains `checks`. Never write a `passed` command result into that array manually.
+The recorder maintains `checks`. For a new run, start with an empty `checks` array.
+Never write a `passed` command result into that array manually.
 Use Python 3.9 or later. On Windows, replace `python3` with `py -3`.
 
 ## Capture checks

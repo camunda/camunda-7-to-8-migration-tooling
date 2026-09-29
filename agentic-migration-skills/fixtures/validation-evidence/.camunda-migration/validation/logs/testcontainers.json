@@ -1,1 +1,0 @@
-{"type":"module","target":"examples/web","kind":"tests","scenario":"container-integration","method":"command","command":["mvn","-pl","examples/web","verify","-Pintegration"],"exit_code":1,"result":"failed","reason":"Testcontainers cannot select an environment","failure_class":"testcontainers","environment":null,"output":"Could not find a valid Docker environment."}

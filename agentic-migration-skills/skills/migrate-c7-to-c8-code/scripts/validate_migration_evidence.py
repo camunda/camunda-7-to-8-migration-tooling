@@ -9,8 +9,8 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
+from uuid import uuid4
 
 
 VALIDATION = Path(".camunda-migration/validation")
@@ -98,10 +98,29 @@ def strings(values, label):
     return values
 
 
+def initialize(root):
+    inventory = read_json(root / INVENTORY)
+    if inventory.get("schema_version") != 1:
+        raise EvidenceError("Unsupported Step 2 inventory version")
+    modules = strings(inventory.get("modules"), "Step 2 modules")
+    models = strings(inventory.get("models"), "Step 2 models")
+    if not (modules or models):
+        raise EvidenceError("A migration run needs at least one module or model")
+    for path in modules + models:
+        project_path(root, path, "Step 2 scope")
+    inventory["run_id"] = uuid4().hex
+    write_json(root, INVENTORY, inventory)
+    print("Started a new migration validation run")
+    report(root)
+    return 0
+
+
 def scope(root, evidence):
     inventory = read_json(root / INVENTORY)
     if inventory.get("schema_version") != 1 or evidence.get("schema_version") != 1:
         raise EvidenceError("Unsupported inventory or evidence version")
+    if not isinstance(inventory.get("run_id"), str) or not inventory["run_id"]:
+        raise EvidenceError("Initialize a migration validation run before recording checks")
     modules = evidence.get("modules")
     models = evidence.get("models")
     if not isinstance(modules, list) or not isinstance(models, list) or not (modules or models):
@@ -330,6 +349,7 @@ def load_checks(root, evidence, allowed, issues):
     if not isinstance(references, list):
         issues.append("Evidence checks must be an array")
         return checks
+    run_id = read_json(root / INVENTORY)["run_id"]
     for index, reference in enumerate(references):
         try:
             path = project_path(root, reference, "check evidence", must_exist=True)
@@ -343,14 +363,18 @@ def load_checks(root, evidence, allowed, issues):
                 raise EvidenceError(f"Malformed check in {reference}")
             if key not in allowed or key in checks:
                 raise EvidenceError(f"Unexpected or duplicate check: {key}")
+            if check.get("run_id") != run_id:
+                raise EvidenceError(f"{key}: check belongs to another migration run")
             method = check.get("method")
             result = check.get("result")
             command = check.get("command")
             exit_code = check.get("exit_code")
             reason = check.get("reason")
             if method == "command":
-                if not isinstance(command, list) or not command or not all(
-                    isinstance(part, str) and part for part in command
+                if (
+                    not isinstance(command, list) or not command
+                    or not isinstance(command[0], str) or not command[0]
+                    or any(not isinstance(part, str) for part in command)
                 ):
                     raise EvidenceError(f"{key}: missing command")
                 if result == "passed" and (type(exit_code) is not int or exit_code != 0):
@@ -554,6 +578,8 @@ def record(root, args):
             command = command[1:]
         if not command:
             raise EvidenceError("Supply an executable command after --")
+        if not command[0]:
+            raise EvidenceError("Executable path cannot be empty")
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
         try:
@@ -602,6 +628,7 @@ def record(root, args):
         else:
             failure_class = "unclassified"
     check = {
+        "run_id": read_json(root / INVENTORY)["run_id"],
         "type": args.type,
         "target": args.target,
         "kind": args.kind,
@@ -614,7 +641,6 @@ def record(root, args):
         "failure_class": failure_class,
         "environment": args.environment,
         "isolation_plan": args.isolation_plan,
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
         "output": output,
     }
     digest = hashlib.sha256(json.dumps(key).encode("utf-8")).hexdigest()[:20]
@@ -655,6 +681,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("init", help="Bind the Step 2 scope to a new migration validation run")
     actions.add_parser("report", help="Audit scope and write the validation gate")
     for name in ("run", "review", "block"):
         action = actions.add_parser(name)
@@ -686,6 +713,8 @@ def main():
         root = args.project_root.resolve(strict=True)
         if not root.is_dir():
             raise EvidenceError(f"Not a project directory: {root}")
+        if args.action == "init":
+            return initialize(root)
         if args.action == "report":
             return report(root)
         if args.action == "classify":

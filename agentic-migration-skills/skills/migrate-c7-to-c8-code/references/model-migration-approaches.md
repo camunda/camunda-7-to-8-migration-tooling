@@ -11,6 +11,34 @@ Use the assessment model scan before choosing a path.
 
 Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
+## Call-Activity Variable Scope
+
+Compare each C7 call's `camunda:in`, `camunda:out`, and delegated variable mappings with the converted copy.
+Camunda 8.9 supports [call-activity input/output mappings](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings).
+Check the target's support before removing a mapping flagged as unavailable.
+Without any variable mappings, C7 passes no variables in either direction.
+Camunda 8 copies all variables by default.
+
+| C7 contract | Camunda 8 mapping |
+|---|---|
+| Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each selected value. |
+| No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
+| All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
+| Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each returned value. |
+| No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
+| All child outputs | Keep all-child propagation only when C7 returns the same scope. |
+| No compatible mapping | Keep the category **needs review**. Ask the user to decide the scope rather than widening selected inputs. |
+
+Record one row per call activity in `MIGRATION_REPORT.md`: its ID, called process, C7 inputs and
+outputs, C8 mappings and propagation flags, child identity intent, and validation evidence.
+The [Business ID](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id)
+passes to a call-activity child in 8.9 independently of variables. If the C7 child needs a distinct
+business key, then keep that difference **needs review** until the user selects an alternative.
+
+Test with a selected input and an extra parent-only variable. Check that the child receives only
+the selected input, and check its Business ID separately. If deployment blocks the test, then
+record the blocker and keep scope parity **needs review**.
+
 ## Pre-flight: Leftover Artifacts
 
 Before any local approach (M1, M2, E1), scan for outputs of previous migration attempts:
@@ -178,9 +206,10 @@ Severity counts are only a headline. Never start per-finding work from them. Par
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies, never the originals.
 
-Trust the converter's output for what it did NOT flag, except source start listeners from step 3b.
+Trust unflagged converter output except source start listeners from step 3b and inventoried
+call-activity variable scope.
 The job types and listener wiring it emitted are authoritative elsewhere.
-Apply manual fixes only for flagged or inventoried start listeners.
+Apply manual fixes only for findings, inventoried start listeners, or call-activity scope mismatches.
 Never second-guess or re-derive other converted structures.
 
 #### Verification gate

@@ -1,1 +1,0 @@
-{"type":"model","target":"models/converted-c8-order.bpmn","kind":"lint","scenario":null,"method":"command","command":["c8ctl","bpmn","lint","models/converted-c8-order.bpmn"],"exit_code":1,"result":"failed","reason":"Compatibility lint errors","failure_class":"compatibility","environment":null,"output":"44 lint errors across ten converted models."}

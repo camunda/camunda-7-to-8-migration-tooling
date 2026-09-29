@@ -1,7 +1,6 @@
 """Category-scoped regressions for recorded migration evidence."""
 
 import json
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -99,6 +98,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                 path = self.root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(xml, encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
 
     def submit(self, key, action="run", command=None, **options):
         category, target, kind, scenario = key
@@ -168,13 +169,67 @@ class ValidationEvidenceTest(unittest.TestCase):
             1, (self.root / gate.REPORT).read_text(encoding="utf-8").count("**Validation gate:**")
         )
 
+    def test_previous_run_checks_cannot_validate_new_run(self):
+        self.write_scope(timer=True)
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        original = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))["run_id"]
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        current = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))["run_id"]
+        self.assertNotEqual(original, current)
+        self.assertEqual(1, self.audit())
+        checks = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))["checks"]
+        stale = [issue for issue in self.summary()["issues"] if "another migration run" in issue]
+        self.assertEqual(len(checks), len(stale))
+
+    def test_report_needs_an_initialized_scope(self):
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        del inventory["run_id"]
+        write_json(self.root / gate.INVENTORY, inventory)
+        self.assertEqual(1, self.audit())
+        self.assertIn("Initialize a migration validation run", "\n".join(self.summary()["issues"]))
+
+    def test_command_accepts_an_empty_argument(self):
+        self.complete_required_checks()
+        command = [
+            sys.executable, "-c", "import sys; assert sys.argv[1] == ''", "",
+        ]
+        self.assertEqual(0, self.submit(("module", "app", "compile", None), command=command))
+        self.assertEqual(0, self.audit())
+
     def test_report_rejects_the_nine_module_ten_model_contradiction(self):
-        shutil.copytree(FIXTURE / ".camunda-migration", self.root / ".camunda-migration", dirs_exist_ok=True)
-        shutil.copyfile(FIXTURE / gate.REPORT, self.root / gate.REPORT)
-        self.plan = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
-        for module in self.plan["modules"]:
-            (self.root / module["path"]).mkdir(parents=True, exist_ok=True)
+        module_names = (
+            "web", "account", "loan", "order", "invoice", "messaging", "customer",
+            "runtime-api", "runtime-worker",
+        )
+        model_names = (
+            "order", "account", "loan", "invoice", "customer", "messaging",
+            "customer-archive", "eligibility", "notification", "report",
+        )
+        self.plan["modules"] = [
+            {
+                "path": f"examples/{name}",
+                "runtime_mode": "spring-boot" if name.startswith("runtime-") else "none",
+                "test_suites": [{"name": "web-smoke" if name == "web" else "unit", "requires_docker": False}],
+            }
+            for name in module_names
+        ]
+        self.plan["modules"][0]["test_suites"].append(
+            {"name": "container-integration", "requires_docker": True}
+        )
+        self.plan["models"] = [
+            {
+                "source_path": f"models/{name}.bpmn",
+                "path": f"models/converted-c8-{name}.bpmn",
+                "processes": [{"id": f"{name}-process", "standalone": True, "scenarios": ["normal"]}],
+            }
+            for name in model_names
+        ]
+        self.write_scope()
         for model in self.plan["models"]:
+            if model["source_path"] not in ("models/order.bpmn", "models/messaging.bpmn"):
+                continue
             text = bpmn(
                 model["processes"][0]["id"],
                 timer=model["source_path"] == "models/order.bpmn",
@@ -187,8 +242,46 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
             for name in (model["source_path"], model["path"]):
                 path = self.root / name
-                path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")
+        cases = (
+            (("project", ".", "docker_info", None), 0, "Docker daemon responds", None, None),
+            (("module", "examples/web", "tests", "web-smoke"), 1,
+             "Non-Docker web tests fail on the invalid client mode", "application", None),
+            (("module", "examples/web", "tests", "container-integration"), 1,
+             "Testcontainers cannot select an environment", "testcontainers", None),
+            (("module", "examples/runtime-api", "configuration", None), 1,
+             "Invalid client mode prevents startup", "application", None),
+            (("model", "models/converted-c8-order.bpmn", "lint", None), 1,
+             "Compatibility lint errors", "compatibility", None),
+            (("model", "models/converted-c8-order.bpmn", "deployment", None), 1,
+             "Conditional definition has no ID", "compatibility", "local"),
+            (("module", "examples/runtime-api", "executable_jar", None), 1,
+             "Packaged JAR has no executable entry point", "application", "local"),
+            (("module", "examples/runtime-worker", "executable_jar", None), 1,
+             "Packaged JAR has no executable entry point", "application", "local"),
+        )
+        run_id = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))["run_id"]
+        for index, (key, exit_code, reason, failure_class, environment) in enumerate(cases):
+            category, target, kind, scenario = key
+            path = gate.LOGS / f"historical-{index}.json"
+            write_json(self.root / path, {
+                "run_id": run_id,
+                "type": category, "target": target, "kind": kind, "scenario": scenario,
+                "method": "command",
+                "command": ["docker", "info"] if kind == "docker_info" else ["synthetic-check", kind],
+                "exit_code": exit_code, "result": "passed" if exit_code == 0 else "failed",
+                "reason": None if exit_code == 0 else reason,
+                "failure_class": failure_class, "environment": environment, "output": reason,
+            })
+            self.plan["checks"].append(path.as_posix())
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        (self.root / gate.REPORT).write_text(
+            "# Deliberately contradictory migration report\n\n"
+            "## Reported checks\n\nConfiguration, tests, conversion, and build wiring: PASS\n\n"
+            "## Aggregate validation gate\n\n**Validation gate:** **READY**\n",
+            encoding="utf-8",
+        )
+        self.assertIn("**Validation gate:** **READY**", (self.root / gate.REPORT).read_text(encoding="utf-8"))
         self.assertEqual(1, self.audit())
         self.assertEqual(9, len(self.plan["modules"]))
         self.assertEqual(10, len(self.plan["models"]))
@@ -341,6 +434,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(xml, encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
         self.assertEqual(
@@ -444,6 +539,15 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIn("Missing module executable_jar", "\n".join(self.summary()["issues"]))
 
     def test_cli_records_and_reports_a_check(self):
+        previous = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))["run_id"]
+        init = subprocess.run(
+            [sys.executable, str(SCRIPT_DIR / "validate_migration_evidence.py"),
+             "--project-root", str(self.root), "init"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, init.returncode, init.stderr)
+        current = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))["run_id"]
+        self.assertNotEqual(previous, current)
         command = [
             sys.executable, str(SCRIPT_DIR / "validate_migration_evidence.py"),
             "--project-root", str(self.root), "run",
@@ -453,6 +557,9 @@ class ValidationEvidenceTest(unittest.TestCase):
         run = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(0, run.returncode, run.stderr)
         self.assertIn("compiled", run.stdout)
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        recorded = json.loads((self.root / evidence["checks"][0]).read_text(encoding="utf-8"))
+        self.assertEqual(current, recorded["run_id"])
         report = subprocess.run(
             [sys.executable, str(SCRIPT_DIR / "validate_migration_evidence.py"),
              "--project-root", str(self.root), "report"],
@@ -499,6 +606,7 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_summary_symlink_cannot_overwrite_evidence(self):
         self.complete_required_checks()
         original = (self.root / gate.EVIDENCE).read_bytes()
+        (self.root / gate.SUMMARY).unlink()
         (self.root / gate.SUMMARY).symlink_to(self.root / gate.EVIDENCE)
         with self.assertRaises(gate.EvidenceError):
             self.audit()
