@@ -212,6 +212,9 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+For each call activity, inventory its called process, input/output mappings (including delegates),
+and child business-key intent. See `references/model-migration-approaches.md` for scope rules.
+
 For each original BPMN, record every `camunda:executionListener event="start"` directly on a
 `bpmn:startEvent`. Record its source path, event ID, and implementation even if the converter omits
 its finding.
@@ -458,7 +461,10 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
-21. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+21. For each call activity, compare the converted scope with its original inputs and outputs.
+    Test selected inputs with a parent-only variable, and check child identity independently.
+    Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
+22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
     version. Apply step 3b in `references/model-migration-approaches.md` to every source start
     listener and converted copy.
 
@@ -468,7 +474,7 @@ target version. See the linting section in `references/model-migration-approache
     | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
     | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
 
-22. **Target deployment** — when the user authorizes a test target, verify its profile and version
+23. **Target deployment** — when the user authorizes a test target, verify its profile and version
     as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
     DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
     `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
