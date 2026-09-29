@@ -288,6 +288,14 @@ log. The skill resolves the behavior-gap item only after that decision.
 
 Catalog: `30-glue-code/20-java-spring-external-task-worker/`, with the same five files as item 3.
 
+For each `ExternalTaskService.complete(...)` call, record the overload, both maps, branch conditions,
+and downstream reads. Follow `30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md`
+for the scope mapping.
+
+Test every branch's result scope and downstream consumers. If deployment blocks testing, then record
+the blocker and keep parity unresolved. If no mapping preserves the C7 scopes, then ask the user for
+a BPMN/worker-scoping decision. Never discard a branch and claim parity.
+
 ---
 
 ## 5. Listeners (NOT covered by OpenRewrite)
