@@ -81,7 +81,8 @@ Dynamic expressions and interpolated IDs remain unresolved and keep readiness `N
 | Finding | Decision before deployment |
 |---|---|
 | Recurring timer start | Approve one exact-cycle disposition. Record its automatic-start effect and any converted-copy change. |
-| Duplicate process ID | Approve isolated targets, an explicit version, or a rename with old-to-new mappings and updated callers. |
+| Duplicate process ID with a retained recurring timer | Rename the colliding process IDs or isolate the models in separate deployment sets. |
+| Duplicate process ID without a retained recurring timer | Approve an explicit version or a rename with old-to-new mappings and updated callers. |
 | Unknown deployment boundary, cycle, or caller ID | Resolve it before deploying the affected models. |
 
 Never silently change a timer or process ID. An unapproved decision blocks deployment and readiness.

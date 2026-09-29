@@ -280,6 +280,24 @@ class ValidationEvidenceTest(unittest.TestCase):
             "\n".join(self.summary()["issues"]),
         )
 
+    def test_explicit_version_does_not_allow_a_collision_with_a_retained_timer(self):
+        self.write_duplicate_sample_scope()
+        self.write_scope(timer_model="models/converted-one.bpmn")
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample").version(1).execute();\n',
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        caller_inventory = [
+            hit
+            for module in plan.deployment_sets["shared"]["modules"]
+            for hit in gate.deployment_set_callers(plan, "shared", module)
+        ]
+        with self.assertRaisesRegex(gate.EvidenceError, "retained recurring timer"):
+            self.complete_required_checks(caller_inventory=caller_inventory)
+
     def test_deployment_inventory_checks_all_bpmn_process_ids(self):
         self.write_duplicate_sample_scope()
         self.plan["models"][1]["processes"] = []

@@ -2202,6 +2202,16 @@ def validate_deployment_set_evidence(root, plan, checks, issues, deployment_set=
                     f"{name}: duplicate process ID {process_id} needs a non-empty caller inventory"
                 )
             if disposition == "explicit_version":
+                if any(
+                    timer["deployment_set"] == name
+                    and timer["process_id"] == process_id
+                    and timer["converted_cycle"] is not None
+                    for timer in plan.timer_inventory.values()
+                ):
+                    issues.append(
+                        f"{name}: duplicate process ID {process_id} has a retained recurring timer "
+                        "and must be renamed or isolated in a separate deployment set"
+                    )
                 if process_id not in plan.process_ids_by_set.get(name, {}):
                     issues.append(f"{name}: explicit-version decision references removed process ID {process_id}")
                 if any(caller.get("version_selection") != "explicit_version" for caller in matching_callers):
