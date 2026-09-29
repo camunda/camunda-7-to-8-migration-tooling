@@ -42,6 +42,8 @@ These apply throughout — referenced below instead of repeated.
 - **Keep changes minimal.** No refactors, renames, or improvements beyond the migration.
 - **Keep `MIGRATION_REPORT.md` current** — both inventories, decisions, phase status, validation results.
 - Set each open item to status `open`, `blocked`, `deferred`, or `resolved`.
+- Before a target deployment or readiness claim, repeat
+  `references/deployment-and-timer-preflight.md` against the final code and converted copies.
 
 ## Step 1: Gather inputs
 
@@ -169,6 +171,9 @@ The skill records any business-key mapping and any variable-mapping delegate.
 If the inventory is empty and the user selected model migration, record that no local source models were found and that E1 (C7 engine source) was offered. Do not report an empty local inventory as a successful model migration.
 
 These are migrated in **Part B** (not by OpenRewrite). Do not attempt to hand-edit them here — that is the Diagram Converter's job.
+
+Run `references/deployment-and-timer-preflight.md` after the code and model inventories. Record its
+findings and decisions in `MIGRATION_REPORT.md`.
 
 ### Summary
 
@@ -709,6 +714,8 @@ The skill reports completion only when no item has `deferred` or `blocked` statu
 An `open` item is a team decision. It does not block completion unless it prevents an in-scope
 documentation change or a required readiness check.
 The summary always lists every open item.
+Unresolved deployment/timer preflight findings are `blocked` readiness checks, not non-blocking
+`open` team decisions.
 
 Present a summary:
 ```
