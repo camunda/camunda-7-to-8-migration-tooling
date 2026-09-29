@@ -78,10 +78,11 @@ The recipes are organized by code type and transformation phase:
 
 ### Camunda Spin variables
 
-`AllClientMigrateRecipes` adds TODOs for Spin imports, `JSON(...)`, `XML(...)`, and
+`AllClientMigrateRecipes` adds TODOs for used Spin types, `JSON(...)`, `XML(...)`, and
 `SpinJsonNode.prop(...).stringValue()`. The JSON hint distinguishes parsing existing JSON text or
 streams with Jackson from passing a POJO/Map directly; `String.valueOf(pojo)` is not JSON
-serialization. The hints do not embed source expressions or automatically replace Spin calls.
+serialization. The hints do not embed source expressions or automatically replace Spin calls. An
+unused Spin import does not leave a migration warning after cleanup.
 
 The typed-value prepare recipe unwraps known JSON `ObjectValue` builders only in direct
 object-accepting call arguments or declarations/assignments it has migrated. Unknown formats,

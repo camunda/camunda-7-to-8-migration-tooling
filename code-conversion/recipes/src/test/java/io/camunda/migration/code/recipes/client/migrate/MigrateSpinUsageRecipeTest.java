@@ -79,6 +79,50 @@ class MigrateSpinUsageRecipeTest implements RewriteTest {
   }
 
   @Test
+  void allClientRecipesDoNotWarnWhenSpinImportsAreUnused() {
+    rewriteRun(
+        spec -> spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientRecipes"),
+        java(
+            """
+                import static org.camunda.spin.Spin.JSON;
+                import org.camunda.spin.json.SpinJsonNode;
+                import org.camunda.spin.xml.SpinXmlElement;
+
+                class NoSpinUsage {
+                    String value = "plain";
+                }
+                """,
+            """
+                class NoSpinUsage {
+                    String value = "plain";
+                }
+                """));
+  }
+
+  @Test
+  void warnsForFullyQualifiedSpinTypesWithoutImports() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
+        java(
+            """
+                class QualifiedSpinUsage {
+                    org.camunda.spin.json.SpinJsonNode read(org.camunda.spin.json.SpinJsonNode node) {
+                        return node;
+                    }
+                }
+                """,
+            """
+                // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
+                class QualifiedSpinUsage {
+                    org.camunda.spin.json.SpinJsonNode read(org.camunda.spin.json.SpinJsonNode node) {
+                        return node;
+                    }
+                }
+                """));
+  }
+
+  @Test
   void jacksonSerializesNestedPojoInsteadOfParsingItsToString() throws JsonProcessingException {
     record Payload(Map<String, Object> variables) {}
 

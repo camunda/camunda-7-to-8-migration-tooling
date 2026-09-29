@@ -11,6 +11,7 @@ import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
@@ -19,6 +20,7 @@ import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.tree.Comment;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TextComment;
 
@@ -39,6 +41,7 @@ public class MigrateSpinUsageRecipe extends Recipe {
   private static final String PROPERTY_TODO =
       " TODO: Replace SpinJsonNode.prop(...).stringValue() with Map access or Jackson mapping;"
           + " handle missing or null properties.";
+  private static final String SPIN_PACKAGE = "org.camunda.spin.";
   private static final String SPIN_JSON_FQN = "org.camunda.spin.json.SpinJsonNode";
   private static final MethodMatcher JSON_METHOD =
       new MethodMatcher("org.camunda.spin.Spin JSON(..)");
@@ -68,8 +71,8 @@ public class MigrateSpinUsageRecipe extends Recipe {
       public J.CompilationUnit visitCompilationUnit(
           J.CompilationUnit compilationUnit, ExecutionContext ctx) {
         J.CompilationUnit visited = super.visitCompilationUnit(compilationUnit, ctx);
-        if (!hasSpinImport(visited)
-            || visited.getClasses().isEmpty()
+        if (visited.getClasses().isEmpty()
+            || !hasSpinUsage(visited)
             || hasComment(visited.getClasses().get(0).getComments(), FILE_TODO_MARKER)) {
           return visited;
         }
@@ -148,11 +151,47 @@ public class MigrateSpinUsageRecipe extends Recipe {
                 .toList());
       }
 
-      private boolean hasSpinImport(J.CompilationUnit compilationUnit) {
-        return compilationUnit.getImports().stream()
-            .anyMatch(
-                anImport ->
-                    anImport.getQualid().toString().startsWith("org.camunda.spin."));
+      private boolean hasSpinUsage(J.CompilationUnit compilationUnit) {
+        AtomicBoolean used = new AtomicBoolean();
+        new JavaIsoVisitor<AtomicBoolean>() {
+          @Override
+          public J.Import visitImport(J.Import anImport, AtomicBoolean found) {
+            // An import alone does not mean the source still uses Spin.
+            return anImport;
+          }
+
+          @Override
+          public J.Identifier visitIdentifier(J.Identifier identifier, AtomicBoolean found) {
+            if (isSpinType(identifier.getType())) {
+              found.set(true);
+            }
+            return super.visitIdentifier(identifier, found);
+          }
+
+          @Override
+          public J.FieldAccess visitFieldAccess(J.FieldAccess fieldAccess, AtomicBoolean found) {
+            if (isSpinType(fieldAccess.getType())) {
+              found.set(true);
+            }
+            return super.visitFieldAccess(fieldAccess, found);
+          }
+
+          @Override
+          public J.MethodInvocation visitMethodInvocation(
+              J.MethodInvocation invocation, AtomicBoolean found) {
+            JavaType.Method method = invocation.getMethodType();
+            if (method != null && isSpinType(method.getDeclaringType())) {
+              found.set(true);
+            }
+            return super.visitMethodInvocation(invocation, found);
+          }
+        }.visit(compilationUnit, used);
+        return used.get();
+      }
+
+      private boolean isSpinType(JavaType type) {
+        return type instanceof JavaType.FullyQualified fullyQualified
+            && fullyQualified.getFullyQualifiedName().startsWith(SPIN_PACKAGE);
       }
 
       private boolean hasComment(List<Comment> comments, String marker) {
