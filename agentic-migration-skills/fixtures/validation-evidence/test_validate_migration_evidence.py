@@ -598,6 +598,43 @@ class ValidationEvidenceTest(unittest.TestCase):
             [(hit["process_id"], hit["operation"]) for hit in callers],
         )
 
+    def test_caller_scan_ignores_additional_typescript_declarations(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/typescript/ProcessCaller.ts"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            "class OverloadedProcessCaller {\n"
+            "  startProcessInstanceByKey(key: string): void;\n"
+            "  startProcessInstanceByKey(key: string): void {\n"
+            '    runtimeService.startProcessInstanceByKey("Overload");\n'
+            "  }\n"
+            "}\n"
+            'declare module "process-api" {\n'
+            "  export function startProcessInstanceByKey(key: string): void;\n"
+            "}\n"
+            "type BaseCaller = {};\n"
+            "type IntersectedCaller = BaseCaller & {\n"
+            "  startProcessInstanceByKey(key: string): void;\n"
+            "};\n"
+            "function invokeDirectly(): void {\n"
+            '  startProcessInstanceByKey("Direct");\n'
+            "}\n",
+            encoding="utf-8",
+        )
+
+        _, _, callers, _, issues = gate.scan_module_sources(
+            self.root,
+            "modules/c7-client",
+        )
+        self.assertEqual([], issues)
+        self.assertEqual(
+            [
+                ("Overload", "startProcessInstanceByKey"),
+                ("Direct", "startProcessInstanceByKey"),
+            ],
+            [(hit["process_id"], hit["operation"]) for hit in callers],
+        )
+
     def test_interpolated_process_calls_fail_closed(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/python/Caller.py"

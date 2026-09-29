@@ -559,7 +559,13 @@ def is_typescript_method_signature_context(text, position):
             r"\btype\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\s*<[^{};]+>)?\s*=\s*$",
             header,
         ) is not None
-        or re.search(r"\bdeclare\s+class\s+[A-Za-z_$][A-Za-z0-9_$]*", header)
+        or re.search(
+            r"\btype\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\s*<[^{};]+>)?"
+            r"\s*=\s*[^;{}]*[&|]\s*$",
+            header,
+        ) is not None
+        or re.search(r"\bclass\s+[A-Za-z_$][A-Za-z0-9_$]*", header) is not None
+        or re.search(r"\bdeclare\s+(?:module|namespace|global)\b", header)
         is not None
     )
 
@@ -596,7 +602,7 @@ def is_process_method_declaration(text, match, call_end, source_suffix):
     if source_suffix in (".js", ".jsx", ".ts", ".tsx"):
         modifiers = {
             "abstract", "async", "declare", "default", "function", "override",
-            "private", "protected", "public", "readonly", "static",
+            "export", "private", "protected", "public", "readonly", "static",
         }
         modifier_tokens = prefix.split()
         if not all(token in modifiers for token in modifier_tokens):
