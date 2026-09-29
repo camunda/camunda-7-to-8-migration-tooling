@@ -10,7 +10,7 @@ Camunda 8.9 copies all parent and child variables by default.
 | Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each value. |
 | No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
 | All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
-| Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each value. |
+| Selected child outputs | Keep child propagation enabled; `zeebe:output` mappings restrict the variables returned to the caller. |
 | No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
 | All child outputs | Keep all-child propagation only when C7 returns the same scope. |
 | Custom mapping delegate | Compare its behavior with C8 mappings; keep mismatches unresolved. |
