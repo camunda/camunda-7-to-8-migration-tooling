@@ -852,6 +852,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual([], complete_issues)
 
+    def test_unrelated_process_call_does_not_hide_same_line_standalone_latest_version(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/LatestVersion.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Other").version(1); legacy.latestVersion();\n',
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertEqual(
+            [{
+                "module": "modules/c7-client",
+                "location": "modules/c7-client/src/main/java/LatestVersion.java:1",
+            }],
+            gate.standalone_latest_version_calls(plan, "modules/c7-client"),
+        )
+
     def test_multiline_latest_version_is_associated_with_its_process_call(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"

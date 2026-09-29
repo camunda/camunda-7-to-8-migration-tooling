@@ -1882,23 +1882,11 @@ def deployment_set_callers(plan, name, module):
     ]
 
 
-def deployment_set_latest_version_calls(plan, name, module):
-    relevant_locations = {
-        hit["location"]
-        for hit in deployment_set_callers(plan, name, module)
-    }
-    scanned_locations = {
-        hit["location"]
-        for hit in plan.process_callers.get(module, [])
-    }
+def standalone_latest_version_calls(plan, module):
     return [
         hit
         for hit in plan.latest_version_calls.get(module, [])
         if hit.get("process_call_location") is None
-        and (
-            hit["location"] in relevant_locations
-            or hit["location"] not in scanned_locations
-        )
     ]
 
 
@@ -1926,7 +1914,7 @@ def deployment_set_snapshot(plan, name):
             (
                 hit
                 for module in entry["modules"]
-                for hit in deployment_set_latest_version_calls(plan, name, module)
+                for hit in standalone_latest_version_calls(plan, module)
             ),
             key=lambda hit: (hit["module"], hit["location"]),
         ),
@@ -2020,7 +2008,7 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
         )
         standalone_latest_version_sites.update(
             (module, hit["location"])
-            for hit in deployment_set_latest_version_calls(plan, name, module)
+            for hit in standalone_latest_version_calls(plan, module)
         )
     records_by_site = {}
     for index, caller in enumerate(validated):
@@ -2132,7 +2120,7 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
                 issues.append(f"{name}: unresolved process caller at {hit['location']}")
                 continue
             matched_records.add(index)
-        for hit in deployment_set_latest_version_calls(plan, name, module):
+        for hit in standalone_latest_version_calls(plan, module):
             matching_records = [
                 index
                 for index, caller in enumerate(validated)

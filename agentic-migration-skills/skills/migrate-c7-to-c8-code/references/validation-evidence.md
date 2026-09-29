@@ -104,6 +104,9 @@ lines.
 For each deployment set, include detected calls that target process IDs in that set.
 Do not list calls to process IDs in another set. Resolve a simple identifier or member expression
 with a concrete process ID and version selection at the same location and operation.
+Standalone `.latestVersion()` sites have no detected target ID, so include each one in every
+deployment set that contains its module, even when another process call on the same source line
+targets a different set.
 The review note must name the constant or configuration source that you traced.
 An explicit-version decision needs at least one matching caller record that selects a positive
 integer version. A mapped rename needs
