@@ -125,35 +125,16 @@ public class RetrievePaymentAdapter {
 
                 import org.camunda.bpm.engine.delegate.DelegateExecution;
                 import org.camunda.bpm.engine.delegate.JavaDelegate;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.BytesValue;
-                import org.camunda.bpm.engine.variable.value.DateValue;
                 import org.camunda.bpm.engine.variable.value.IntegerValue;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
                 import org.springframework.stereotype.Component;
-
-                import java.util.Date;
 
                 @Component
                 public class RetrievePaymentAdapter implements JavaDelegate {
-                    IntegerValue fieldAmount;
-                    private DateValue fieldDate, anotherDate;
-                    private BytesValue fieldBytes = null, anotherBytes = null;
-                    private DateValue initialDate = Variables.dateValue(new Date(0), true);
-                    private BytesValue initialBytes = Variables.byteArrayValue(new byte[] {1}, false);
-                    ObjectValue fieldObject;
-
                     @Override
                     public void execute(DelegateExecution execution) {
                         IntegerValue typedAmount = execution.getVariableTyped("amount");
                         IntegerValue laterAmount;
                         laterAmount = execution.getVariableTyped("laterAmount");
-                        this.fieldAmount = execution.getVariableTyped("fieldAmount");
-                        this.fieldDate = execution.getVariableTyped("fieldDate");
-                        this.anotherDate = execution.getVariableTyped("anotherDate");
-                        this.fieldBytes = execution.getVariableTyped("fieldBytes");
-                        this.anotherBytes = execution.getVariableTyped("anotherBytes");
-                        this.fieldObject = execution.getVariableTyped("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                     }
@@ -166,19 +147,11 @@ public class RetrievePaymentAdapter {
                 import io.camunda.client.api.response.ActivatedJob;
                 import org.springframework.stereotype.Component;
 
-                import java.util.Date;
                 import java.util.HashMap;
                 import java.util.Map;
 
                 @Component
                 public class RetrievePaymentAdapter {
-                    Integer fieldAmount;
-                    private Date fieldDate, anotherDate;
-                    private byte[] fieldBytes = null, anotherBytes = null;
-                    // TODO: review Camunda 7 transient variable semantics for migrated values
-                    private Date initialDate = new Date(0);
-                    private byte[] initialBytes = new byte[]{1};
-                    Object fieldObject;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
@@ -187,12 +160,6 @@ public class RetrievePaymentAdapter {
                         Integer typedAmount = (Integer) job.getVariablesAsMap().get("amount");
                         Integer laterAmount;
                         laterAmount = (Integer) job.getVariablesAsMap().get("laterAmount");
-                        this.fieldAmount = (Integer) job.getVariablesAsMap().get("fieldAmount");
-                        this.fieldDate = (Date) job.getVariablesAsMap().get("fieldDate");
-                        this.anotherDate = (Date) job.getVariablesAsMap().get("anotherDate");
-                        this.fieldBytes = (byte[]) job.getVariablesAsMap().get("fieldBytes");
-                        this.anotherBytes = (byte[]) job.getVariablesAsMap().get("anotherBytes");
-                        this.fieldObject = job.getVariablesAsMap().get("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                         return resultMap;

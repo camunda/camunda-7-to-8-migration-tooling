@@ -46,21 +46,14 @@ public class CleanupDelegateRecipe extends Recipe {
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-            List<TypeTree> implementsTypes = classDecl.getImplements();
-            // Traverse non-delegates to reach nested delegates without removing unrelated methods.
-            if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class
-                || implementsTypes == null
-                || implementsTypes.stream()
-                    .noneMatch(
-                        id ->
-                            TypeUtils.isOfClassType(
-                                id.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate"))) {
-              return super.visitClassDeclaration(classDecl, ctx);
+            // Skip interfaces
+            if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
+              return classDecl;
             }
 
             // Filter out the interface to remove
             List<TypeTree> updatedImplements =
-                implementsTypes.stream()
+                classDecl.getImplements().stream()
                     .filter(
                         id ->
                             !TypeUtils.isOfClassType(
@@ -72,25 +65,15 @@ public class CleanupDelegateRecipe extends Recipe {
                     .filter(
                         (statement ->
                             !(statement instanceof J.MethodDeclaration methDecl
-                                && isDelegateExecute(methDecl))))
+                                && methDecl.getSimpleName().equals("execute"))))
                     .toList();
 
             maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
             maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
 
-            return super.visitClassDeclaration(
-                classDecl
-                    .withBody(classDecl.getBody().withStatements(filteredStatements))
-                    .withImplements(updatedImplements.isEmpty() ? null : updatedImplements),
-                ctx);
-          }
-
-          private boolean isDelegateExecute(J.MethodDeclaration method) {
-            return method.getSimpleName().equals("execute")
-                && method.getParameters().size() == 1
-                && method.getParameters().get(0) instanceof J.VariableDeclarations parameter
-                && TypeUtils.isOfClassType(
-                    parameter.getType(), "org.camunda.bpm.engine.delegate.DelegateExecution");
+            return classDecl
+                .withBody(classDecl.getBody().withStatements(filteredStatements))
+                .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
           }
         });
   }
