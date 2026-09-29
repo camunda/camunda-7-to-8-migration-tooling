@@ -63,8 +63,10 @@ Record every caller of a duplicate ID and its version selection.
 | `.latestVersion()` | Include its source location in a caller record with `latest_version`. |
 
 Each caller record names its module, source location with line number, process ID, operation, and
-version selection. A duplicate process ID needs at least one matching caller record.
-Missing or empty inventories cannot pass. A preflight record also becomes stale when its source or
+version selection. An explicit-version decision needs at least one matching caller record.
+A mapped rename needs every old-ID caller updated, even after the converted copies no longer collide.
+The source collision remains in the deployment inventory until the mapping and caller changes pass.
+A preflight record also becomes stale when its source or
 model changes. Static JavaScript and TypeScript template literals are read as process IDs.
 When a simple identifier or member expression supplies an ID or version, trace the constant or
 configuration value and record its resolved value at the same location and operation.
@@ -107,7 +109,8 @@ Find REST `/job/{id}/duedate` and `/job/{id}/duedate/recalculate` calls.
 The scan detects literal paths, template paths, and concatenated paths such as
 `"/job/" + jobId + "/duedate"`.
 It also detects URI-builder chains such as
-`pathSegment("job").pathSegment(jobId).pathSegment("duedate")`.
+`pathSegment("job").pathSegment(jobId).pathSegment("duedate")`
+and JAX-RS `path("job").path(jobId).path("duedate")`.
 Check whether the selected jobs are timers.
 Classify every detected due-date call as an active timer update or a non-timer use.
 Record non-timer evidence by source location and update kind with

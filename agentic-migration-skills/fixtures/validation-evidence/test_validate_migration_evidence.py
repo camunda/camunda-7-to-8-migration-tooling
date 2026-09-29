@@ -306,6 +306,151 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.required,
         )
 
+    def test_renamed_models_still_require_old_id_callers_to_be_updated(self):
+        self.write_duplicate_sample_scope()
+        mappings = []
+        for model, new_id in zip(self.plan["models"], ("One", "Two")):
+            converted = self.root / model["path"]
+            converted.write_text(
+                converted.read_text(encoding="utf-8").replace('"Sample"', f'"{new_id}"'),
+                encoding="utf-8",
+            )
+            model["processes"][0]["id"] = new_id
+            mappings.append({
+                "model": model["path"],
+                "from_process_id": "Sample",
+                "to_process_id": new_id,
+            })
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'runtimeService.startProcessInstanceByKey("Sample");\n',
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertIn(("shared", "Sample"), plan.duplicate_process_ids)
+        self.assertIn(
+            plan.process_callers["modules/c7-client"][0],
+            gate.deployment_set_callers(plan, "shared", "modules/c7-client"),
+        )
+        blocked = self.deployment_execution_keys() | {
+            ("deployment_set", "shared", "duplicate_process_id", "Sample")
+        }
+        self.complete_required_checks(
+            caller_inventory=plan.process_callers["modules/c7-client"],
+            skip_keys=blocked,
+        )
+        self.submit(
+            ("deployment_set", "shared", "duplicate_process_id", "Sample"),
+            action="review",
+            disposition="mapped_rename",
+            rename_mappings_json=json.dumps(mappings),
+        )
+        marker = self.root / "deployment-ran"
+        with self.assertRaisesRegex(gate.EvidenceError, "callers still reference renamed"):
+            self.submit(
+                ("model", "models/converted-one.bpmn", "deployment", None),
+                environment="local",
+                command=[sys.executable, "-c", "from pathlib import Path; Path('deployment-ran').touch()"],
+            )
+        self.assertFalse(marker.exists())
+
+        caller.write_text(
+            'runtimeService.startProcessInstanceByKey("One");\n',
+            encoding="utf-8",
+        )
+        self.plan["checks"] = []
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        plan = gate.requirements(self.root, self.plan)
+        self.complete_required_checks(
+            caller_inventory=plan.process_callers["modules/c7-client"],
+            skip_keys=blocked,
+        )
+        self.submit(
+            ("deployment_set", "shared", "duplicate_process_id", "Sample"),
+            action="review",
+            disposition="mapped_rename",
+            rename_mappings_json=json.dumps(mappings),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("model", "models/converted-one.bpmn", "deployment", None),
+                environment="local",
+                command=[sys.executable, "-c", "from pathlib import Path; Path('deployment-ran').touch()"],
+            ),
+        )
+        self.assertTrue(marker.exists())
+
+    def test_mapped_rename_can_coexist_with_explicit_version_collision(self):
+        self.write_duplicate_sample_scope()
+        mappings = []
+        for model, new_id in zip(self.plan["models"], ("One", "Two")):
+            converted = self.root / model["path"]
+            converted.write_text(
+                converted.read_text(encoding="utf-8").replace('"Sample"', f'"{new_id}"'),
+                encoding="utf-8",
+            )
+            model["processes"][0]["id"] = new_id
+            mappings.append({
+                "model": model["path"],
+                "from_process_id": "Sample",
+                "to_process_id": new_id,
+            })
+        for index, module in enumerate(self.plan["modules"]):
+            model = {
+                "source_path": f"models/other-{index}.bpmn",
+                "path": f"models/converted-other-{index}.bpmn",
+                "module": module["path"],
+                "deployment_set": "shared",
+                "processes": [{"id": "Other", "standalone": True, "scenarios": ["normal"]}],
+            }
+            self.plan["models"].append(model)
+            self.plan["deployment_sets"][0]["models"].append(model["path"])
+            for path in (model["source_path"], model["path"]):
+                (self.root / path).write_text(bpmn("Other"), encoding="utf-8")
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["models"] = [model["source_path"] for model in self.plan["models"]]
+        write_json(self.root / gate.INVENTORY, inventory)
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'runtimeService.startProcessInstanceByKey("One");\n'
+            'client.bpmnProcessId("Other").version(1).execute();\n',
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        blocked = self.deployment_execution_keys() | {
+            ("deployment_set", "shared", "duplicate_process_id", process_id)
+            for process_id in ("Sample", "Other")
+        }
+        self.complete_required_checks(
+            caller_inventory=plan.process_callers["modules/c7-client"],
+            skip_keys=blocked,
+        )
+        self.submit(
+            ("deployment_set", "shared", "duplicate_process_id", "Sample"),
+            action="review",
+            disposition="mapped_rename",
+            rename_mappings_json=json.dumps(mappings),
+        )
+        self.submit(
+            ("deployment_set", "shared", "duplicate_process_id", "Other"),
+            action="review",
+            disposition="explicit_version",
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("model", "models/converted-one.bpmn", "deployment", None),
+                environment="local",
+            ),
+        )
+
     def test_c7_by_key_caller_without_latest_version_must_be_in_inventory(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
@@ -625,6 +770,24 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "app/src/main/typescript/TimerUpdates.ts:1",
                 "app/src/main/typescript/TimerUpdates.ts:2",
                 "app/src/main/typescript/TimerUpdates.ts:3",
+            ],
+            sorted(hit["location"] for hit in updates),
+        )
+
+    def test_active_timer_scan_detects_jax_rs_web_target_paths(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            'target.path("job").path(jobId).path("duedate").request().put(body);\n'
+            'target.path("job").path(jobId).path("duedate/recalculate").request().put(body);\n',
+            encoding="utf-8",
+        )
+        updates, _, _, _, issues = gate.scan_module_sources(self.root, "app")
+        self.assertEqual([], issues)
+        self.assertEqual(
+            [
+                "app/src/main/java/TimerUpdates.java:1",
+                "app/src/main/java/TimerUpdates.java:2",
             ],
             sorted(hit["location"] for hit in updates),
         )

@@ -63,7 +63,7 @@ REST_DUE_DATE_CONCAT = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 REST_DUE_DATE_PATH_SEGMENTS = re.compile(
-    r"""(?:pathSegment|pathSegments|addPathSegment|addPathSegments)\s*"""
+    r"""\b(?:pathSegment|pathSegments|addPathSegment|addPathSegments|path)\s*"""
     r"""\([^;{}]*?["'`]job["'`][^;{}]*?["'`]duedate(?:/recalculate)?["'`]""",
     re.IGNORECASE | re.DOTALL,
 )
@@ -1188,6 +1188,7 @@ def requirements(root, evidence):
     active_timer_update_decision = active_timer_decision(evidence)
     executable_by_model = {}
     process_ids_by_model = {}
+    source_process_ids_by_model = {}
     model_by_path = {}
     module_paths = {module["path"] for module in modules}
 
@@ -1312,6 +1313,11 @@ def requirements(root, evidence):
         process_ids_by_model[converted] = {
             process_id for process_id in all_process_ids if process_id
         }
+        source_process_ids_by_model[converted] = {
+            process.get("id")
+            for process in source_document.findall(f"{BPMN}process")
+            if process.get("id")
+        }
         timer_elements_by_model[converted], timer_element_issues = timer_elements(document)
         issues.extend(f"{converted}: {issue}" for issue in timer_element_issues)
         executable = {
@@ -1429,6 +1435,7 @@ def requirements(root, evidence):
         deployment_sets[name] = {"models": set_models, "modules": set_modules}
         need("deployment_set", name, "preflight", method="review")
         ids = {}
+        source_ids = {}
         for model_path in set_models:
             model = model_by_path.get(model_path)
             if model is None:
@@ -1441,11 +1448,14 @@ def requirements(root, evidence):
                 issues.append(f"{model_path}: owning module is not listed in deployment set {name}")
             for process_id in process_ids_by_model.get(model_path, set()):
                 ids.setdefault(process_id, []).append(model_path)
+            for process_id in source_process_ids_by_model.get(model_path, set()):
+                source_ids.setdefault(process_id, []).append(model_path)
         process_ids_by_set[name] = ids
-        for process_id, model_paths in ids.items():
-            if len(model_paths) > 1:
+        for process_id in set(ids) | set(source_ids):
+            model_paths = sorted(set(ids.get(process_id, [])) | set(source_ids.get(process_id, [])))
+            if len(ids.get(process_id, [])) > 1 or len(source_ids.get(process_id, [])) > 1:
                 key = (name, process_id)
-                duplicate_process_ids[key] = sorted(model_paths)
+                duplicate_process_ids[key] = model_paths
                 need("deployment_set", name, "duplicate_process_id", process_id, method="review")
 
     memberships = {}
@@ -1596,7 +1606,11 @@ def load_checks(root, evidence, allowed, issues):
 
 
 def deployment_set_callers(plan, name, module):
-    process_ids = set(plan.process_ids_by_set.get(name, {}))
+    process_ids = set(plan.process_ids_by_set.get(name, {})) | {
+        process_id
+        for set_name, process_id in plan.duplicate_process_ids
+        if set_name == name
+    }
     return [
         hit
         for hit in plan.process_callers.get(module, [])
@@ -1671,7 +1685,11 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
     if not isinstance(callers, list):
         issues.append(f"{name}: deployment preflight needs a machine-readable caller inventory")
         return []
-    process_ids = plan.process_ids_by_set.get(name, {})
+    process_ids = set(plan.process_ids_by_set.get(name, {})) | {
+        process_id
+        for set_name, process_id in plan.duplicate_process_ids
+        if set_name == name
+    }
     validated = []
     seen = set()
     for caller in callers:
@@ -1886,11 +1904,13 @@ def validate_deployment_set_evidence(root, plan, checks, issues, deployment_set=
                 issues.append(f"{name}: duplicate process ID {process_id} needs an explicit-version or mapped-rename decision")
                 continue
             matching_callers = [caller for caller in callers if caller.get("process_id") == process_id]
-            if not matching_callers:
+            if not matching_callers and disposition == "explicit_version":
                 issues.append(
                     f"{name}: duplicate process ID {process_id} needs a non-empty caller inventory"
                 )
             if disposition == "explicit_version":
+                if process_id not in plan.process_ids_by_set.get(name, {}):
+                    issues.append(f"{name}: explicit-version decision references removed process ID {process_id}")
                 if any(caller.get("version_selection") != "explicit_version" for caller in matching_callers):
                     issues.append(f"{name}: callers of duplicate process ID {process_id} still use latestVersion or are unresolved")
                 if decision.get("rename_mappings") not in (None, []):
@@ -1921,14 +1941,30 @@ def validate_deployment_set_evidence(root, plan, checks, issues, deployment_set=
                         mapped_models.add(model)
                     if isinstance(new_id, str):
                         new_ids.add(new_id)
-                existing_ids = set(plan.process_ids_by_set.get(name, {})) - {process_id}
-                if not valid or mapped_models != set(model_paths) or new_ids.intersection(existing_ids):
+                converted_ids = plan.process_ids_by_set.get(name, {})
+                existing_ids = {
+                    converted_id
+                    for converted_id, paths in converted_ids.items()
+                    if any(model not in model_paths for model in paths)
+                }
+                if (
+                    not valid or mapped_models != set(model_paths) or new_ids.intersection(existing_ids)
+                    or any(
+                        mapping.get("model") not in converted_ids.get(mapping.get("to_process_id"), [])
+                        or mapping.get("model") in converted_ids.get(process_id, [])
+                        for mapping in mappings if isinstance(mapping, dict)
+                    )
+                ):
                     issues.append(f"{name}: incomplete or conflicting rename mapping for {process_id}")
                 if any(caller.get("process_id") == process_id for caller in callers):
                     issues.append(f"{name}: callers still reference renamed process ID {process_id}")
-                issues.append(
-                    f"{name}: mapped rename for {process_id} remains blocked while converted models still collide"
-                )
+                if any(
+                    len(converted_ids.get(converted_id, [])) > 1
+                    for converted_id in new_ids | {process_id}
+                ):
+                    issues.append(
+                        f"{name}: mapped rename for {process_id} remains blocked while converted models still collide"
+                    )
 
 
 def validate_timer_inventory(plan, checks, issues, model_path=None):

@@ -100,8 +100,9 @@ For each deployment set, include detected calls that target process IDs in that 
 Do not list calls to process IDs in another set. Resolve a simple identifier or member expression
 with a concrete process ID and version selection at the same location and operation.
 The review note must name the constant or configuration source that you traced.
-A duplicate process ID needs at least one matching caller record. Its inventory cannot be absent
-or empty. Keep dynamic IDs or version selections unresolved.
+An explicit-version decision needs at least one matching caller record. A mapped rename needs
+complete old-to-new mappings and updated callers, even after converted copies no longer collide.
+Keep dynamic IDs or version selections unresolved.
 The gate blocks interpolated strings that contain process or timer call patterns.
 
 Review each repeating timer's exact disposition before deployment. Use `add`, `change`, `preserve`,
@@ -116,7 +117,8 @@ The gate requires an `active_timer_updates` review for each module. Review all d
 repeated updates. REST detection includes literal and template-literal paths.
 It also includes concatenated paths such as `"/job/" + jobId + "/duedate"`.
 The scan detects URI-builder paths such as
-`pathSegment("job").pathSegment(jobId).pathSegment("duedate")`.
+`pathSegment("job").pathSegment(jobId).pathSegment("duedate")`
+and JAX-RS `path("job").path(jobId).path("duedate")`.
 Classify each detected update as an active timer update or a non-timer use.
 Record a non-timer use with location-bound evidence in `--non-timer-update-evidence-json`.
 Use `non_timer` only when every detected update has non-timer evidence.
