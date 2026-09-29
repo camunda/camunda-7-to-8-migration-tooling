@@ -23,7 +23,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
   private static final String OBJECT_VALUE_FQN =
       "org.camunda.bpm.engine.variable.value.ObjectValue";
   private static final String GETTER_ONLY_OBJECT_VALUE_FIELDS = "getterOnlyObjectValueFields";
-  private static final String PRESERVED_TYPED_GETTER = "preservedTypedGetter:";
+  private static final String PRESERVE_TYPED_GETTERS = "preserveTypedGetters";
   private static final List<MethodMatcher> TYPED_VALUE_GETTERS =
       List.of(
           new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)"),
@@ -533,18 +533,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             Expression target = assignment.getVariable();
             Expression unwrappedTarget = unwrapParentheses(target);
-            Expression assignmentValue = assignment.getAssignment();
-            Expression unwrappedAssignmentValue = unwrapParentheses(assignmentValue);
-            if (!(unwrappedAssignmentValue instanceof J.MethodInvocation invocation)) {
-              return super.visitAssignment(assignment, ctx);
-            }
-
             J.Identifier targetName =
                 unwrappedTarget instanceof J.Identifier identifier
                     ? identifier
                     : unwrappedTarget instanceof J.FieldAccess access ? access.getName() : null;
             if (targetName != null && isPreservedObjectValueTarget(targetName)) {
-              preserveTypedGetter(invocation);
+              getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
+              return super.visitAssignment(assignment, ctx);
+            }
+
+            Expression assignmentValue = assignment.getAssignment();
+            Expression unwrappedAssignmentValue = unwrapParentheses(assignmentValue);
+            if (!(unwrappedAssignmentValue instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
@@ -678,6 +678,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
+                getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
                 if (!canUnwrapBuilder(invocation)) {
                   return super.visitMethodInvocation(invocation, ctx);
                 }
@@ -827,8 +828,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       select.withType(JavaType.buildType(returnTypeFqn)));
             }
 
-            if (Boolean.TRUE.equals(
-                getCursor().getNearestMessage(PRESERVED_TYPED_GETTER + invocation.getId()))) {
+            if (isTypedValueGetter(invocation)
+                && (Boolean.TRUE.equals(getCursor().getNearestMessage(PRESERVE_TYPED_GETTERS))
+                    || isGetValueReceiver(invocation))) {
               return super.visitMethodInvocation(invocation, ctx);
             }
 
@@ -890,10 +892,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return TYPED_VALUE_GETTERS.stream().anyMatch(matcher -> matcher.matches(invocation));
           }
 
-          private void preserveTypedGetter(J.MethodInvocation invocation) {
-            if (isTypedValueGetter(invocation)) {
-              getCursor().putMessage(PRESERVED_TYPED_GETTER + invocation.getId(), true);
+          private boolean isGetValueReceiver(J.MethodInvocation getter) {
+            Cursor parent = getCursor().getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>) {
+              parent = parent.getParentTreeCursor();
             }
+            return parent.getValue() instanceof J.MethodInvocation call
+                && call.getSimpleName().equals("getValue")
+                && call.getSelect() != null
+                && unwrapParentheses(call.getSelect()) == getter;
           }
 
           private boolean isPreservedObjectValueTarget(J.Identifier identifier) {
@@ -1048,13 +1055,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               J.VariableDeclarations declarations, ExecutionContext ctx) {
             if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
               // Shadow messages from converted fields when a local or parameter stays ObjectValue.
+              getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
               Cursor scope = declarationScope();
               for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
                 scope.putMessage(variable.getSimpleName(), OBJECT_VALUE_FQN);
-                Expression initializer = unwrapParentheses(variable.getInitializer());
-                if (initializer instanceof J.MethodInvocation invocation) {
-                  preserveTypedGetter(invocation);
-                }
               }
               return (J.VariableDeclarations) super.visitVariableDeclarations(declarations, ctx);
             }
