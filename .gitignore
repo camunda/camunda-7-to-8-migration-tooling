@@ -38,6 +38,14 @@ replay_pid*
 **/h2/
 .flattened-pom.xml
 
+# Migration validation artifacts
+**/.camunda-migration/validation/
+agentic-migration-skills/fixtures/validation-evidence/MIGRATION_REPORT.md
+
+# Python test output
+**/__pycache__/
+*.py[cod]
+
 # Node.js / Frontend
 node_modules/
 node
@@ -46,4 +54,3 @@ code-conversion/patterns/package-lock.json
 
 # OS
 *.DS_Store
-

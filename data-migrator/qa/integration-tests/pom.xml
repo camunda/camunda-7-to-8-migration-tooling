@@ -38,13 +38,6 @@
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
-      <artifactId>camunda-7-to-8-data-migrator</artifactId>
-      <version>${project.version}</version>
-      <type>zip</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.camunda</groupId>
       <artifactId>camunda-db-rdbms-schema</artifactId>
       <version>${version.camunda-8}</version>
       <scope>runtime</scope>
@@ -127,7 +120,7 @@
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
-      <version>1.5.0</version>
+      <version>1.5.1</version>
       <scope>test</scope>
     </dependency>
     <!-- H2 -->
@@ -254,6 +247,19 @@
   </build>
 
   <profiles>
+    <profile>
+      <id>integration</id>
+      <dependencies>
+        <!-- The ZIP is needed by integration tests at runtime, not by the previous-version compile. -->
+        <dependency>
+          <groupId>io.camunda</groupId>
+          <artifactId>camunda-7-to-8-data-migrator</artifactId>
+          <version>${project.version}</version>
+          <type>zip</type>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
     <!--
       Camunda 8 API compatibility profile.
 

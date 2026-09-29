@@ -35,7 +35,7 @@ For detailed information, see the [Code Conversion README](./code-conversion/REA
 
 ### [AI Agent Skill](./agentic-migration-skills/)
 
-An [Agent Skill](https://agentskills.io/) that guides you through the full migration interactively — no copy-pasting prompts from docs. Works with any [Agent Skills](https://agentskills.io/)-compatible AI coding agent.
+An [Agent Skill](https://agentskills.io/) that guides you through the full migration interactively — no copy-pasting prompts from docs. Works with any [Agent Skills](https://agentskills.io/)-compatible AI coding agent, including [AWS Transform custom](./agentic-migration-skills/README.md#aws-transform-custom).
 
 **Install with Claude Code:**
 

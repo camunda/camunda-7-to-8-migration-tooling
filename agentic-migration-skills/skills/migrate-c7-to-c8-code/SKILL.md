@@ -1,7 +1,12 @@
 ---
 name: migrate-c7-to-c8-code
 description: |-
-  Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, application.properties/application.yaml with camunda.* keys) and BPMN/DMN models (diagrams with the camunda: namespace). Use for code migration, model migration, or both.
+  Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring
+  code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService clients,
+  execution/task listeners, IncidentHandler implementations, ProcessEnginePlugin
+  registrations, and application config with camunda.* keys). Handles BPMN/DMN
+  models with the camunda: namespace, project documentation, and CI readiness.
+  Use for code migration, model migration, or both.
 license: Camunda License 1.0
 ---
 
@@ -17,6 +22,17 @@ Migrate a Camunda 7 project to Camunda 8. A project holds two independent kinds 
 Every instruction here is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an
 option is marked (MAY).
 
+## Host interaction
+
+Ask the user in the host's current conversation. Use a structured question tool only when the host
+documents one.
+Where the run is non-interactive, take each choice, including the Step 3 confirmation, only from an
+explicit statement in the request, the conversation, or the execution configuration. A default, a
+recommended option, or a tool-trust setting never counts as a choice by itself.
+If a non-interactive run lacks a required choice, then stop before the action that needs it. Record
+the missing choice as an open item in `MIGRATION_REPORT.md`. While the project root is unconfirmed,
+report it only in the response and write no files.
+
 ## Step 0: Model preflight
 
 This skill needs complex, multi-file reasoning. Before the scan, read the active model identifier or
@@ -26,9 +42,9 @@ Recommended examples: `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5
 examples, not a benchmark and not a ranking. Prefer host capability metadata. (SHOULD) Treat an unknown identifier as unverified.
 
 If the model is lightweight (mini, small, lite, flash, haiku, and similar) or unverified, then warn
-the user and ask through AskUserQuestion, or the host equivalent:
+the user and ask:
 
-- **Switch to a model built for complex reasoning (recommended)** — explain the host model selector,
+- **Switch to a model built for complex reasoning (recommended)** — explain any host model selector,
   wait for confirmation, then read the host model metadata again.
 - **Continue** — use deterministic approaches and ask for extra human review.
 
@@ -41,8 +57,9 @@ model in `MIGRATION_REPORT.md`.
 
 1. The project declares Camunda 7 (camunda-bpm) dependencies in Maven or Gradle.
 2. The project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers,
-   ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with the
-   `camunda:` namespace, or application config with `camunda.*` keys.
+   ProcessEngine/RuntimeService client code, execution/task listeners, implementations of
+   `org.camunda.bpm.engine.impl.incident.IncidentHandler`, `ProcessEnginePlugin` registrations,
+   BPMN/DMN files with the `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
 4. Where the user selects OpenRewrite, require Maven or Gradle.
 5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
@@ -56,11 +73,13 @@ See `references/interview-questions.md` for the question set and the batching ru
 
 1. Detect the project root, the build tool (`pom.xml`, or `build.gradle` / `build.gradle.kts`), and
    the model files (`*.bpmn`, `*.bpmn20.xml`, `*.dmn`, `*.dmn11.xml`).
-2. Ask Question 1 (project location) through AskUserQuestion.
+2. Ask Question 1 (project location).
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6, including Question 5a where it applies.
-6. When the user accepts the defaults, continue without further questions.
+6. When the user accepts the defaults, continue without repeating Questions 1 to 6.
+   After Step 2, ask Question 7 whenever its trigger applies, even if the user accepted those defaults.
+   When Question 7 applies, do not continue to Step 3 until the user confirms every decision.
 
 #### Shared rules
 
@@ -91,6 +110,8 @@ These rules apply to every later step.
 
 - Before the first change, check for uncommitted changes. If the working tree is dirty, then ask the
   user to commit or stash.
+- Before a target deployment or a readiness claim, repeat
+  `references/deployment-and-timer-preflight.md` against the final code and converted copies.
 - Never commit without an explicit user request.
 - Write each converted model to a `converted-c8-*` copy. Leave every original file unchanged.
 - Where the target is a separate location, such as a sibling Camunda 8 project, treat the Camunda 7
@@ -126,14 +147,15 @@ These rules apply to every later step.
   `conversion:*` elements and attributes from the converted copies with namespace-aware XML tooling.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root.
 - Keep `MIGRATION_REPORT.md` current.
-- Use `MIGRATION_REPORT.md` as the single source of truth for inventories, decisions, open items,
-  phase status, incompatibilities, and validation results.
-- Never scatter this record across separate notes.
+- Use `MIGRATION_REPORT.md` as the human-readable source of truth for inventories, decisions, open
+  items, phase status, incompatibilities, and validation summaries.
+- Store machine-readable check evidence under `.camunda-migration/validation/`.
+- Keep decisions and open items in `MIGRATION_REPORT.md`, not in separate notes.
 - Keep an open-items section in `MIGRATION_REPORT.md` for each design question the migration cannot
   answer.
 - Name the call site in each open item.
 - State the question in each open item.
-- Set each open item to status `open` or `resolved`.
+- Set each open item to status `open`, `blocked`, or `resolved`.
 - Create an open item for every migrated query against secondary storage, regardless of the running
   model.
 - See `references/code-transform-checklist.md` for the mandatory triggers and the wording.
@@ -160,6 +182,14 @@ at all.
 ### Step 2: Assessment (always runs)
 
 Scan the project and produce the inventories that the chosen scope needs.
+When the user confirms a full migration, save the confirmed module paths and original model paths
+in `.camunda-migration/validation/step2-inventory.json` before conversion. Where E1 fetches a
+model, add its original path before converting it. Run the `init` command in
+`references/validation-evidence.md` after completing the scope. Never create this file for
+assessment-only or analyze-only.
+
+Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
+`git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
 
 #### Code Inventory
 
@@ -171,6 +201,13 @@ Record the original Java source baseline used for migration with the Code Invent
 class by its fully qualified class name, including its package and class name. Include every domain
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
+
+When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
+Engine REST call, inventory its HTTP topology. Follow
+`references/http-topology-migration.md`. Ask Question 7 from
+`references/interview-questions.md` before Step 3. Record the target application bind address and
+port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
+consumer actions. Where the management server uses a separate bind address or port, record both.
 
 #### Model Inventory
 
@@ -189,18 +226,71 @@ surfaces:
 See `references/form-reference-migration.md` for the classification rules and the full inventory
 columns.
 
+For each call activity, inventory its called process, input/output mappings (including delegates),
+and child business-key intent. See `references/model-migration-approaches.md` for scope rules.
+
+For each original BPMN, record every `camunda:executionListener event="start"` directly on a
+`bpmn:startEvent`. Record its source path, event ID, and implementation even if the converter omits
+its finding.
+
+Run `references/deployment-and-timer-preflight.md` after the code and model inventories. Record its
+findings and decisions in `MIGRATION_REPORT.md`.
+
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
+
+#### Project Documentation and CI Inventory
+
+Inspect project documentation and CI workflows in every assessment.
+Search README files and runbooks for C7 APIs, embedded-engine claims, legacy form and application URLs, and rollback assumptions.
+Inspect profiles, ports, worker startup instructions, forms, and process-test commands for in-scope components.
+Inspect existing CI workflows for packaging, configuration validation, BPMN lint, process tests, and a working C8/Docker runtime.
+Classify each document as in-scope, mixed, retained C7-only, or unknown. See `references/project-readiness.md`.
+Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 
 #### Summary
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
-State whether recipes help, hurt, or are neutral. Present blockers that need a manual decision.
-Include the Step 0 preflight result and any user acknowledgment. State that running instances, history,
-and audit data are out of scope. Point the user to the Data Migrator.
+State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
+Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
+State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
 
-Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3, using
-AskUserQuestion.
+#### Custom incident notifications
+
+Where the scope includes code migration, run this assessment and decision gate.
+Find `org.camunda.bpm.engine.impl.incident.IncidentHandler` implementations and
+`ProcessEnginePlugin` registrations in the source and configuration.
+Trace each handler's registration and observable actions.
+When a handler sends notifications, record a separate `incident-notification` finding in
+`MIGRATION_REPORT.md`. Capture its trigger, channel, recipients, context, duplicate behavior, and
+exposed data. Keep the finding separate from job-worker migration.
+
+Ask the project owner to choose a Camunda 8-compatible integration or explicitly waive notifications
+for each finding. Never remove or replace the handler, its registration, or its configuration
+before the project records its decision.
+
+| Project decision | Action | Notification parity |
+|---|---|---|
+| Not recorded | Keep the finding `blocked`. Record the call site and decision question as an `open` item. Stop before Step 3 confirmation or deployment. | `blocked` |
+| Approved integration | Record the target, integration, channel, recipients, approved context, duplicate policy, and privacy requirements. Keep the finding `blocked` until Step 4 verification passes, then resolve it. | `blocked` until Step 4 passes, then `verified` |
+| Explicit waiver | Record the approver, reason, and accepted behavior loss. Resolve the finding. | `waived` (not parity) |
+
+When the project approves an integration, test it in a disposable Camunda 8 target with synthetic
+data during Step 4. Verify each handler using its recorded trigger.
+For failed-job handlers, fail a test job with zero remaining retries and verify the expected incident.
+Verify notification delivery through the approved channel to the approved recipients.
+Verify that the notification includes useful context approved by the project.
+Verify that the notification contains no secrets or sensitive business data.
+Verify the agreed duplicate policy for one triggering event.
+Where delivery can retry, verify redelivery does not create an unwanted duplicate.
+Record the target version, integration, incident, expected and actual delivery counts, and redacted
+evidence in `MIGRATION_REPORT.md`.
+
+Where a notification finding exists, include a separate `Notification parity` row for each finding
+in the validation summary. Compilation, worker registration, and Operate visibility do not prove
+notification parity.
+
+Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3.
 
 ### Step 3: Execute Migration
 
@@ -216,6 +306,17 @@ For Code + models, see `references/composing-code-and-models.md`.
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
+
+For Approach A, the skill runs this gate for every C7 JavaDelegate before `REWRITE_COMMAND`.
+For Approach B, the skill runs the gate before each C7 JavaDelegate transformation.
+The gate treats `camunda:asyncAfter` on a preceding activity as a boundary after that activity.
+If the gate blocks migration or has an undecided gap, then the skill stops that delegate's
+transformation and, for Approach A, OpenRewrite. The skill asks the user for the missing evidence or
+listed decision.
+When the user supplies evidence or makes a decision, the skill reruns the gate.
+The skill resumes only after the gate passes or `MIGRATION_REPORT.md` records the user's decision for
+every open item. The skill records each accepted parity gap in `MIGRATION_REPORT.md` before it
+resumes.
 
 - **A. OpenRewrite + AI** — use recipes for repeated, supported syntax changes. Expect cleanup and
   source-to-output review.
@@ -238,17 +339,33 @@ See `references/model-migration-approaches.md` for all four.
 For every approach, once each original BPMN is paired with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
+
+#### Part C - Project Documentation and CI
+
+When the user approves the migration plan, follow `references/project-readiness.md` for in-scope documentation and CI gaps.
+Update only approved in-scope documentation. Leave retained C7-only documents unchanged.
+While the user selects assessment-only or analyze-only, do not edit project files other than `MIGRATION_REPORT.md`.
+Record the findings in `MIGRATION_REPORT.md`.
+Follow the exit rule for the selected mode.
+
 ### Step 4: Validation (always runs)
 
-Each item below is a check to run and a condition that must hold at exit. Record every result in
-`MIGRATION_REPORT.md`.
+Follow `references/validation-evidence.md` to record command results and audit required checks.
+Never write a passing command result by hand. Run the gate only after a full migration.
+Assessment-only and analyze-only runs do not claim readiness.
 
 #### Code checks, when code was migrated
 
 1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
-2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files. No dependency with a groupId that starts with `org.camunda.bpm.` remains either.
-3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
-   migration.
+2. **Camunda 7 dependencies** — inventory every dependency and its uses before removal. Record
+   each dependency, use, classification, and decision in `MIGRATION_REPORT.md`. Treat a group ID
+   starting with `org.camunda.bpm` as a review signal, not proof that a dependency is engine-only.
+   Follow `references/code-transform-checklist.md`. If target compatibility remains unconfirmed,
+   then leave the active code unchanged. Record each affected call site as `blocked` with a manual
+   follow-up in `MIGRATION_REPORT.md`. Do not report an affected flow as migrated.
+3. **Camunda 7 imports** — search `org.camunda.bpm` and classify each match. Replace imports that
+   depend on Camunda 7 engine APIs. Keep imports required by a retained, compatible domain library.
+   Record unresolved behavior as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`.
 4. **Migration TODOs** — search for `// TODO` comments that OpenRewrite inserted or that mark
    migration work. Review each matching TODO and resolve or record it.
 5. **Legacy Camunda 8 client** — search `ZeebeClient` and `zeebe-client-java`. No reference remains.
@@ -257,14 +374,25 @@ Each item below is a check to run and a condition that must hold at exit. Record
    8.9+, tags on 8.8. A key the process mutates stays a `businessKey` process variable.
 7. **Configuration** — run the configuration validation in
    `references/code-transform-checklist.md`.
-8. **Tests** — run `mvn test` or the Gradle test task. Every test passes, or each failure is
-   documented with an explanation.
-9. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
+8. **Dependency compatibility and client startup** — for each Maven module that uses a Camunda
+  Spring Boot starter, run the BOM and dependency-family checks in
+  `references/code-transform-checklist.md`. Run a focused context test that creates the real
+  `CamundaClient` bean. Do not mock the bean or issue a cluster request in this test. The skill
+  applies the readiness verdicts in the checklist. Record the failing and final dependency
+  coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
+  there. Record the test command and its exit code there.
+9. **Tests** — run `mvn test` or the Gradle test task and every independent suite in each module.
+   Test each retained domain-library behavior for every supported type and downstream call path.
+   Use synthetic fixture values, never production keys or credentials. Continue with other suites
+   after a failure. Classify infrastructure failures separately from application failures. A
+   successful compile alone does not prove that behavior works. A failed or blocked suite prevents
+   readiness.
+10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
    missing entry fails the check. See the mandatory open items in
    `references/code-transform-checklist.md`.
-10. **Query counts and pagination**
+11. **Query counts and pagination**
     - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.size()`.
     - Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.stream()` and `.count()`.
     - Trace search results assigned to variables before checking later `.size()` or `.stream().count()` uses.
@@ -272,17 +400,28 @@ Each item below is a check to run and a condition that must hold at exit. Record
     - Confirm that each migrated C7 `list().size()`, `list().stream().count()`, or `count()` uses
       `.page().totalItems()`.
     - If a search can exceed cluster result limits, then review `.page().hasMoreTotalItems()`.
-11. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
+12. **Worker adapters** — compare every `@JobWorker` declaration's fully qualified declaring class
     name with the original Java source baseline recorded in Step 2. Flag the declaration when its
     class appears in that baseline, even when the class name ends with `Worker`. Accept it only
     when the class is absent from the baseline, is a new `*Worker` adapter component, and delegates
     to the baseline bean. Record each flagged declaration and its replacement adapter in
     `MIGRATION_REPORT.md`. A migrated Spring bean method must never receive `@JobWorker` directly.
-12. **Deployment resources** — when `@Deployment` is present after migration, build the
-    deployment inventory from this run's recorded converted-file paths and accepted generated forms.
-    Each pattern in the resulting `@Deployment` must match a non-empty subset of the packaged
-    deployment inventory. Each inventory item must match a deployment pattern.
-13. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
+    For each delegate adapter, check that `MIGRATION_REPORT.md` records the pre-transform gate
+    result, every incoming path, and the C7 command segment that runs the delegate. Check that the
+    report records each `asyncBefore` and `asyncAfter` boundary, rollback effects, and every user
+    decision. Check that undecided gaps remain open and accepted parity gaps appear in the decision
+    log. If model/path evidence is missing and the user has not decided, check that the report marks
+    the gate **blocked** and records the missing evidence and unknown rollback effects in an open
+    item with status `open`.
+13. **Deployment resources** — when `@Deployment` is present after migration, build the
+    inventory from this run's converted copies and accepted forms. Create separate `resources`
+    entries for each included type, allowing multiple entries per type. Resolve the actual annotation
+    entries with Spring's `PathMatchingResourcePatternResolver`. Require each entry to match a
+    non-empty subset of one resource type in the inventory. Reject any match outside the inventory.
+    Require each inventory resource to match exactly one entry. Confirm that the packaged
+    application contains every match. A test that disables annotation deployment does not validate
+    this wiring.
+14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
     class. Stop each started process after the launch. The migration adds no
@@ -290,6 +429,20 @@ Each item below is a check to run and a condition that must hold at exit. Record
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
+15. **HTTP topology** — when the project contains a Spring web server, application HTTP endpoints,
+    health checks, or Camunda 7 Engine REST calls, follow
+    `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
+    ports when they share a host. Test every discovered application endpoint and replacement API
+    while the cluster is reachable. When the source includes a health check, verify each remote
+    client uses finite connection and response timeouts. Test each dependency while it responds and
+    while it is unavailable or timed out. Confirm that the application does not expose or proxy
+    `/engine-rest`. A context-load test alone does not pass this check.
+16. **SLF4J providers** — the skill runs the provider check in
+    `references/code-transform-checklist.md` for every runtime module. The skill records the runtime
+    dependency evidence and provider initialization result in `MIGRATION_REPORT.md`. The skill
+    reports a complete migration only after a provider **PASS** or a user-approved exception resolves
+    the finding. The skill keeps the migration incomplete while the finding remains open. The skill
+    never marks logging or startup readiness **PASS** without a passing provider result.
 
 Check these pitfalls as well:
 
@@ -302,8 +455,9 @@ Check these pitfalls as well:
 
 #### Model checks, when models were migrated
 
-After every manual BPMN edit, lint the converted copy with the Camunda compatibility ruleset for the
-target version. See the linting section in `references/model-migration-approaches.md`.
+Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
+skill edited. After every manual BPMN edit, lint the converted copy again. See the linting section
+in `references/model-migration-approaches.md`.
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.
@@ -363,12 +517,48 @@ target version. See the linting section in `references/model-migration-approache
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
+21. For each call activity, compare the converted scope with its original inputs and outputs.
+    Test selected inputs with a parent-only variable, and check child identity independently.
+    Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
+22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+    version. Apply step 3b in `references/model-migration-approaches.md` to every source start
+    listener and converted copy.
+
+    | Artifact evidence | Action |
+    |---|---|
+    | One matching `TASK` finding per source listener and no invalid placement | Complete any user-approved relocation and target validation. |
+    | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
+    | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
+
+23. **Target deployment** — when the user authorizes a test target, verify its profile and version
+    as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
+    DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
+    `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
+    If two resources would share a deployment name, then block deployment until their names differ.
+    Record a result for every resource path and each form's owner. If authorization, target-version
+    evidence, deployment success, or an approved listener follow-up is missing, then block model
+    readiness.
+
+#### Process behavior
+
+For every executable process, run the applicable assertions in `references/validation-evidence.md`.
+Record justified non-applicability in `MIGRATION_REPORT.md`.
+
+#### Project readiness checks, when code or models were migrated
+
+Run the project-specific packaging, configuration, BPMN lint, and process-test checks in
+`references/project-readiness.md`.
+Use a working target-compatible C8 runtime and required Docker services for relevant process tests.
+Record the workflow or command, runtime, exit code, and sanitized evidence in `MIGRATION_REPORT.md`.
+Do not report project readiness from packaging success alone.
 
 #### Summary
 
 Present a validation summary that states the status of compilation, configuration binding,
 remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the open items, tests,
-converted models, and the findings that still need follow-up. Record it in `MIGRATION_REPORT.md`.
+converted models, and the findings that still need follow-up. Run the evidence validator and use its
+generated gate block as the validation-readiness summary in `MIGRATION_REPORT.md`. Record project
+documentation, CI readiness, and the project-readiness verdict separately.
 
 ### Step 5: AI Follow-up (offer after validation)
 
@@ -384,11 +574,13 @@ Record `Before` evidence before editing and `After` evidence after checking in
 | Check | Pass condition | Record |
 |---|---|---|
 | XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
+| Conditional-event IDs | Where the target is Camunda 8.9 or later, each converted `bpmn:conditionalEventDefinition` has a nonempty `id` that does not match another XML ID. Each converted definition remains under the same event ID as its source definition. When the converter reads a nonempty source definition ID that is unique in the source document, the converted definition retains that ID. | Paths, source and converted definition IDs and owning event IDs, and validator result |
 | Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
 | Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
 | BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
 | FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
 | Converter regression | Run `local <original-input> --check --csv` when the original input and recorded options are available. | Command and relevant CSV rows |
+| Deployment readiness | After a model or deployment change, repeat Step 4's resource and target checks before reporting model readiness. | Resolved patterns, packaged entries, target version, and per-resource results |
 
 Record one verification row per category/impact row with its check results and `pending`, `passed`, or
 `failed` state.
@@ -403,7 +595,7 @@ to resolve it:
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
-Use AskUserQuestion with these options:
+Offer these options:
 
 - **Yes, fix what you can (recommended)** — resolve the unambiguous items, and propose each one for
   review.
@@ -431,17 +623,17 @@ Within each impact, process rows with a severity before source-derived rows with
 | Verdict | Action |
 |---|---|
 | **needs fix** | Resolve one verdict-table row at a time, using that row's cross-check guidance. |
-| **needs review** | Collect the pending user decision through AskUserQuestion before any fix. Run the gate directly when verification is the only pending action. |
+| **needs review** | Collect the pending user decision before any fix. Run the gate directly when verification is the only pending action. |
 | **no action** | Do not offer the row. |
 
 - Apply an unambiguous fix directly, using the pattern catalog.
-- Propose an ambiguous fix through AskUserQuestion. Skip whatever the user declines.
+- Propose an ambiguous fix to the user. Skip whatever the user declines.
 - Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`:
   generate the drafts deterministically, and link only an accepted form.
 - Handle the form-reference categories through `references/form-reference-migration.md`: present the
   inventory, and take one decision per integration group inside each category, grouping only owners
   that share an integration.
-- When an M1 findings report contains `execution-listener-on-start-event`, use the relocation procedure in
+- When the source inventory or M1 findings report identifies a start listener, use the relocation procedure in
   `references/model-migration-approaches.md`.
 - Never relocate this listener automatically.
 - Confirm that the chosen target still supports execution listeners on the enclosing process or
@@ -467,16 +659,21 @@ reports that Zeebe now provides the capability natively. See "Now-redundant work
 `references/composing-code-and-models.md`.
 
 Deleting code is never unambiguous. Even under "Yes, fix what you can", present every deletion
-candidate through AskUserQuestion with its reasoning: the triggering finding, what the code did, and
+candidate to the user with its reasoning: the triggering finding, what the code did, and
 why it is now redundant. Delete only on an explicit confirmation. Record the confirmed deletions and
 the declined candidates in `MIGRATION_REPORT.md`.
 
 ## Exit Criteria
 
-The migration run may exit when every pass condition in Step 4 holds and `MIGRATION_REPORT.md` holds
-the complete inventories, the decisions, the open items, and the validation results.
+For a full migration, report completion only when every pass condition in Step 4 holds, the evidence
+gate reports `READY`, and the project-readiness verdict is `ready`. Keep complete inventories,
+decisions, open items, and validation results in `MIGRATION_REPORT.md`.
 The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
-issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
-An open item is a team decision, so an `open` status does not block completion, but the summary
-always lists every open item.
+issue, deletion candidate, or project-readiness blocker remains. No item can have `deferred` or
+`blocked` status.
+An open item is a team decision. It does not block completion unless it prevents an in-scope
+documentation change or a required readiness check. The summary always lists every open item.
+Unresolved deployment/timer preflight findings are `blocked` readiness checks, not non-blocking
+`open` team decisions.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
+Where the root is confirmed, follow `references/final-change-summary.md` before the final response.

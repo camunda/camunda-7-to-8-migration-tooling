@@ -38,7 +38,7 @@
     <version.jackson-bom>2.22.3</version.jackson-bom>
     <version.jackson-3-bom>3.2.3</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
-    <logback.version>1.6.3</logback.version>
+    <logback.version>1.6.4</logback.version>
     <tomcat.version>11.0.26</tomcat.version>
     <version.netty>4.2.18.Final</version.netty>
     <version.protobuf>4.36.2</version.protobuf>
@@ -49,7 +49,7 @@
     <version.errorprone>2.50.0</version.errorprone>
     <version.node>v24.15.0</version.node>
     <version.npm>10.8.2</version.npm>
-    <version.httpcore5>5.4.3</version.httpcore5>
+    <version.httpcore5>5.4.4</version.httpcore5>
     <version.httpclient5>5.6.4</version.httpclient5>
     <plugin.version.compiler>3.16.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>

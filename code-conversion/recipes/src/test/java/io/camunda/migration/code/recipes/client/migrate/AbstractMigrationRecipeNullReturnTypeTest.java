@@ -93,16 +93,13 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
   }
 
   /**
-   * Verifies that the recipe does not crash when a Task query result is used as input to another
-   * query. The task.getProcessInstanceId() call cannot be transformed because the return type for
-   * 'task' cannot be resolved, but other transformations should still proceed.
+   * Verifies that an unsupported ProcessInstanceQuery remains manual when a Task query result is
+   * used as a filter value and the Task return type cannot be resolved.
    */
   @Test
   void taskQueryResultUsedInProcessInstanceQuery() {
     rewriteRun(
-        spec ->
-            spec.expectedCyclesThatMakeChanges(2)
-                .recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
+        spec -> spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
         // language=java
         java(
             """
@@ -140,13 +137,12 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                     }
                 }
                 """,
-            // ProcessInstance type is transformed, but task.getProcessInstanceId() remains unchanged
             """
                 package org.camunda.community.migration.example;
-                import io.camunda.client.api.search.response.ProcessInstance;
-                import io.camunda.client.api.search.response.UserTask;
+
                 import org.camunda.bpm.engine.RuntimeService;
                 import org.camunda.bpm.engine.TaskService;
+                import org.camunda.bpm.engine.runtime.ProcessInstance;
                 import org.camunda.bpm.engine.task.Task;
                 import io.camunda.client.CamundaClient;
                 import org.springframework.beans.factory.annotation.Autowired;
@@ -166,13 +162,14 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                     @Autowired
                     private CamundaClient camundaClient;
 
+                    // TODO: Migrate this Camunda 7 process-instance query manually; preserve its filters, runtime state and complete results (including pagination).
                     public void findProcessInstanceByTaskId(String taskId) {
                         final Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
                         List<ProcessInstance> processInstances = runtimeService
-                                .createProcessInstanceQuery()
-                                .processInstanceId(//TODO: Manual migration required - could not resolve return type for: task
-                                        task.getProcessInstanceId())
-                                .list();
+                            .createProcessInstanceQuery()
+                            .processInstanceId(//TODO: Manual migration required - could not resolve return type for: task
+                                task.getProcessInstanceId())
+                            .list();
                     }
                 }
                 """));

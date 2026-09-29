@@ -66,12 +66,14 @@ Implement the listener as a regular `@JobWorker` — listener jobs use the same 
 public class LogStartListenerWorker {
 
     @JobWorker(type = "log-start-listener")
-    public Map<String, Object> handle(@Variable String orderId) {
+    public Map<String, Object> handle(@Variable(name = "orderId") String orderId) {
         // custom logic, e.g. audit log entry
         return Map.of("auditedAt", Instant.now().toString());
     }
 }
 ```
+
+Set the source variable name explicitly. Do not rely on retained Java parameter names.
 
 -   `event="start"` maps to `eventType="start"`, `event="end"` maps to `eventType="end"`; the C7 `take` event on sequence flows has no equivalent — move the logic into a `start` listener of the target element or a dedicated service task
 -   the listener is blocking: the element is not entered/left until the job completes; failures create incidents
