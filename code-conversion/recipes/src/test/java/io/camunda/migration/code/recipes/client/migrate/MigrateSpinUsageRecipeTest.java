@@ -7,9 +7,13 @@
  */
 package io.camunda.migration.code.recipes.client.migrate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.openrewrite.java.Assertions.java;
 
-import io.camunda.migration.code.recipes.client.MigrateSpinUsageRecipe;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -19,54 +23,55 @@ class MigrateSpinUsageRecipeTest implements RewriteTest {
   void allClientMigrationAddsSpinGuidance() {
     rewriteRun(
         spec ->
-            spec.recipeFromResources(
-                "io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
-        // language=java
+            spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
         java(
             """
-                package org.camunda.community.migration.example;
-
                 import static org.camunda.spin.Spin.JSON;
                 import static org.camunda.spin.Spin.XML;
 
+                import java.io.Reader;
+                import java.util.Map;
                 import org.camunda.spin.json.SpinJsonNode;
                 import org.camunda.spin.xml.SpinXmlElement;
 
                 class SpinMigration {
-                    record Payload(String status) {}
+                    record Payload(Map<String, Object> variables) {}
 
-                    void convert(String jsonText, Payload payload, String xmlText) {
-                        SpinJsonNode json = JSON(jsonText);
-                        String customerId = json.prop("customerId").stringValue();
-                        SpinJsonNode output = JSON(payload);
-                        SpinJsonNode stringifiedOutput = JSON(String.valueOf(payload));
+                    void convert(String jsonText, Payload payload, Reader reader, String xmlText, SpinJsonNode json) {
+                        SpinJsonNode fromText = JSON(jsonText);
+                        SpinJsonNode fromPojo = JSON(payload);
+                        SpinJsonNode fromObjectString = JSON(String.valueOf(payload));
+                        SpinJsonNode fromReader = JSON(reader);
+                        String property = json.prop("customerId").stringValue();
                         SpinXmlElement xml = XML(xmlText);
                     }
                 }
                 """,
             """
-                package org.camunda.community.migration.example;
-
                 import static org.camunda.spin.Spin.JSON;
                 import static org.camunda.spin.Spin.XML;
 
+                import java.io.Reader;
+                import java.util.Map;
                 import org.camunda.spin.json.SpinJsonNode;
                 import org.camunda.spin.xml.SpinXmlElement;
 
                 // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
                 class SpinMigration {
-                    record Payload(String status) {}
+                    record Payload(Map<String, Object> variables) {}
 
-                    void convert(String jsonText, Payload payload, String xmlText) {
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. If jsonText contains JSON text, use objectMapper.readValue(jsonText, Map.class). For a POJO/Map, pass it directly as a JSON variable or use objectMapper.writeValueAsString(pojo) when a JSON string is required.
-                        SpinJsonNode json = JSON(jsonText);
-                        // TODO: Replace SpinJsonNode.prop("customerId").stringValue() with JSON Map access such as map.get("customerId").toString() or Jackson mapping.
-                        String customerId = json.prop("customerId").stringValue();
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Pass payload as a plain POJO/Map JSON variable; use objectMapper.writeValueAsString(payload) only when a JSON string is required. Do not parse String.valueOf(payload) as JSON.
-                        SpinJsonNode output = JSON(payload);
-                        // TODO: Camunda Spin JSON(...) receives String.valueOf(payload), which does not serialize a Java object as JSON. Pass payload directly as a POJO/Map variable; use objectMapper.writeValueAsString(payload) only when a JSON string is required.
-                        SpinJsonNode stringifiedOutput = JSON(String.valueOf(payload));
-                        // TODO: Camunda 8 does not provide native XML process variables. Keep XML as a String and parse it with standard Java XML APIs, or convert the data model to JSON.
+                    void convert(String jsonText, Payload payload, Reader reader, String xmlText, SpinJsonNode json) {
+                        // TODO: Replace Spin JSON(...): parse existing JSON text or streams with objectMapper.readValue(input, Map.class); pass POJOs/Maps directly (or use objectMapper.writeValueAsString(pojo) when a JSON string is needed). Do not parse String.valueOf(pojo) as JSON.
+                        SpinJsonNode fromText = JSON(jsonText);
+                        // TODO: Replace Spin JSON(...): parse existing JSON text or streams with objectMapper.readValue(input, Map.class); pass POJOs/Maps directly (or use objectMapper.writeValueAsString(pojo) when a JSON string is needed). Do not parse String.valueOf(pojo) as JSON.
+                        SpinJsonNode fromPojo = JSON(payload);
+                        // TODO: Replace Spin JSON(...): parse existing JSON text or streams with objectMapper.readValue(input, Map.class); pass POJOs/Maps directly (or use objectMapper.writeValueAsString(pojo) when a JSON string is needed). Do not parse String.valueOf(pojo) as JSON.
+                        SpinJsonNode fromObjectString = JSON(String.valueOf(payload));
+                        // TODO: Replace Spin JSON(...): parse existing JSON text or streams with objectMapper.readValue(input, Map.class); pass POJOs/Maps directly (or use objectMapper.writeValueAsString(pojo) when a JSON string is needed). Do not parse String.valueOf(pojo) as JSON.
+                        SpinJsonNode fromReader = JSON(reader);
+                        // TODO: Replace SpinJsonNode.prop(...).stringValue() with Map access or Jackson mapping; handle missing or null properties.
+                        String property = json.prop("customerId").stringValue();
+                        // TODO: Camunda 8 does not provide native XML process variables. Keep XML as a String and parse it with Java XML APIs, or convert the data model to JSON.
                         SpinXmlElement xml = XML(xmlText);
                     }
                 }
@@ -74,212 +79,34 @@ class MigrateSpinUsageRecipeTest implements RewriteTest {
   }
 
   @Test
-  void keepsGeneratedGuidanceSingleLine() {
-    rewriteRun(
-        spec -> spec.recipe(new MigrateSpinUsageRecipe()),
-        // language=java
-        java(
-            """
-                import static org.camunda.spin.Spin.JSON;
+  void jacksonSerializesNestedPojoInsteadOfParsingItsToString() throws JsonProcessingException {
+    record Payload(Map<String, Object> variables) {}
 
-                import org.camunda.spin.json.SpinJsonNode;
+    Payload payload = new Payload(Map.of("order", Map.of("status", "ready")));
+    ObjectMapper mapper = new ObjectMapper();
 
-                class SpinExpressionMigration {
-                    record Payload(String status) {}
-
-                    void convert(
-                        String jsonText,
-                        Payload payload,
-                        Payload fallbackPayload,
-                        boolean usePrimary,
-                        int number,
-                        char[] characters,
-                        SpinJsonNode json) {
-                        SpinJsonNode stringValue = JSON(
-                            jsonText
-                                .trim()
-                        );
-                        SpinJsonNode pojoValue = JSON(
-                            usePrimary
-                                ? payload
-                                : fallbackPayload
-                        );
-                        SpinJsonNode stringifiedPojoValue = JSON(String.valueOf(
-                            usePrimary
-                                ? payload
-                                : fallbackPayload
-                        ));
-                        SpinJsonNode numberValue = JSON(String.valueOf(number));
-                        SpinJsonNode characterArrayValue = JSON(String.valueOf(characters));
-                        String propertyValue = json.prop("first\\r\\nsecond").stringValue();
-                    }
-                }
-                """,
-            """
-                import static org.camunda.spin.Spin.JSON;
-
-                import org.camunda.spin.json.SpinJsonNode;
-
-                // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
-                class SpinExpressionMigration {
-                    record Payload(String status) {}
-
-                    void convert(
-                        String jsonText,
-                        Payload payload,
-                        Payload fallbackPayload,
-                        boolean usePrimary,
-                        int number,
-                        char[] characters,
-                        SpinJsonNode json) {
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. If jsonText .trim() contains JSON text, use objectMapper.readValue(jsonText .trim(), Map.class). For a POJO/Map, pass it directly as a JSON variable or use objectMapper.writeValueAsString(pojo) when a JSON string is required.
-                        SpinJsonNode stringValue = JSON(
-                                jsonText
-                                        .trim()
-                        );
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Pass usePrimary ? payload : fallbackPayload as a plain POJO/Map JSON variable; use objectMapper.writeValueAsString(usePrimary ? payload : fallbackPayload) only when a JSON string is required. Do not parse String.valueOf(usePrimary ? payload : fallbackPayload) as JSON.
-                        SpinJsonNode pojoValue = JSON(
-                                usePrimary
-                                        ? payload
-                                        : fallbackPayload
-                        );
-                        // TODO: Camunda Spin JSON(...) receives String.valueOf(usePrimary ? payload : fallbackPayload), which does not serialize a Java object as JSON. Pass usePrimary ? payload : fallbackPayload directly as a POJO/Map variable; use objectMapper.writeValueAsString(usePrimary ? payload : fallbackPayload) only when a JSON string is required.
-                        SpinJsonNode stringifiedPojoValue = JSON(String.valueOf(
-                                usePrimary
-                                        ? payload
-                                        : fallbackPayload
-                        ));
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. If String.valueOf(number) contains JSON text, use objectMapper.readValue(String.valueOf(number), Map.class). For a POJO/Map, pass it directly as a JSON variable or use objectMapper.writeValueAsString(pojo) when a JSON string is required.
-                        SpinJsonNode numberValue = JSON(String.valueOf(number));
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. If String.valueOf(characters) contains JSON text, use objectMapper.readValue(String.valueOf(characters), Map.class). For a POJO/Map, pass it directly as a JSON variable or use objectMapper.writeValueAsString(pojo) when a JSON string is required.
-                        SpinJsonNode characterArrayValue = JSON(String.valueOf(characters));
-                        // TODO: Replace SpinJsonNode.prop("first\\r\\nsecond").stringValue() with JSON Map access such as map.get("first\\r\\nsecond").toString() or Jackson mapping.
-                        String propertyValue = json.prop("first\\r\\nsecond").stringValue();
-                    }
-                }
-                """));
+    assertEquals(
+        "ready",
+        mapper
+            .readTree(mapper.writeValueAsString(payload))
+            .path("variables")
+            .path("order")
+            .path("status")
+            .asText());
+    assertThrows(JsonProcessingException.class, () -> mapper.readTree(String.valueOf(payload)));
   }
 
   @Test
-  void readerInputsUseJacksonReaderOverload() {
+  void propertyKeysAreNotInterpolatedIntoComments() {
     rewriteRun(
-        spec -> spec.recipe(new MigrateSpinUsageRecipe()),
-        // language=java
-        java(
-            """
-                import static org.camunda.spin.Spin.JSON;
-
-                import java.io.Reader;
-                import org.camunda.spin.json.SpinJsonNode;
-
-                class SpinReaderMigration {
-                    static class CustomReader extends Reader {
-                        @Override
-                        public int read(char[] buffer, int offset, int length) {
-                            return -1;
-                        }
-
-                        @Override
-                        public void close() {}
-                    }
-
-                    void convert(Reader reader, CustomReader customReader) {
-                        SpinJsonNode json = JSON(reader);
-                        SpinJsonNode customJson = JSON(customReader);
-                    }
-                }
-                """,
-            """
-                import static org.camunda.spin.Spin.JSON;
-
-                import java.io.Reader;
-                import org.camunda.spin.json.SpinJsonNode;
-
-                // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
-                class SpinReaderMigration {
-                    static class CustomReader extends Reader {
-                        @Override
-                        public int read(char[] buffer, int offset, int length) {
-                            return -1;
-                        }
-
-                        @Override
-                        public void close() {}
-                    }
-
-                    void convert(Reader reader, CustomReader customReader) {
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use Jackson's Reader overload objectMapper.readValue(reader, Map.class) to parse the JSON text before setting a JSON process variable.
-                        SpinJsonNode json = JSON(reader);
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use Jackson's Reader overload objectMapper.readValue(customReader, Map.class) to parse the JSON text before setting a JSON process variable.
-                        SpinJsonNode customJson = JSON(customReader);
-                    }
-                }
-                """));
-  }
-
-  @Test
-  void inputStreamInputsUseJacksonInputStreamOverload() {
-    rewriteRun(
-        spec -> spec.recipe(new MigrateSpinUsageRecipe()),
-        // language=java
-        java(
-            """
-                import static org.camunda.spin.Spin.JSON;
-
-                import java.io.InputStream;
-                import org.camunda.spin.json.SpinJsonNode;
-
-                class SpinInputStreamMigration {
-                    static class CustomInputStream extends InputStream {
-                        @Override
-                        public int read() {
-                            return -1;
-                        }
-                    }
-
-                    void convert(InputStream inputStream, CustomInputStream customInputStream) {
-                        SpinJsonNode json = JSON(inputStream);
-                        SpinJsonNode customJson = JSON(customInputStream);
-                    }
-                }
-                """,
-            """
-                import static org.camunda.spin.Spin.JSON;
-
-                import java.io.InputStream;
-                import org.camunda.spin.json.SpinJsonNode;
-
-                // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
-                class SpinInputStreamMigration {
-                    static class CustomInputStream extends InputStream {
-                        @Override
-                        public int read() {
-                            return -1;
-                        }
-                    }
-
-                    void convert(InputStream inputStream, CustomInputStream customInputStream) {
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use Jackson's InputStream overload objectMapper.readValue(inputStream, Map.class) to parse the JSON text before setting a JSON process variable.
-                        SpinJsonNode json = JSON(inputStream);
-                        // TODO: Camunda Spin JSON(...) is not a Camunda 8 process-variable API. Use Jackson's InputStream overload objectMapper.readValue(customInputStream, Map.class) to parse the JSON text before setting a JSON process variable.
-                        SpinJsonNode customJson = JSON(customInputStream);
-                    }
-                }
-                """));
-  }
-
-  @Test
-  void jsonPropertyKeysAreEscapedForGeneratedComments() {
-    rewriteRun(
-        spec -> spec.recipe(new MigrateSpinUsageRecipe()),
-        // language=java
+        spec -> spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
         java(
             """
                 import org.camunda.spin.json.SpinJsonNode;
 
-                class SpinPropertyKeyMigration {
-                    void convert(SpinJsonNode json) {
-                        String propertyValue = json.prop("literal\\\\u000aQuote\\\"key").stringValue();
+                class SpecialKey {
+                    String read(SpinJsonNode json) {
+                        return json.prop("literal\\\\u000a\\r\\n").stringValue();
                     }
                 }
                 """,
@@ -287,10 +114,10 @@ class MigrateSpinUsageRecipeTest implements RewriteTest {
                 import org.camunda.spin.json.SpinJsonNode;
 
                 // TODO: This file uses Camunda Spin, which is not provided by the Camunda 8 process engine. Replace Spin JSON/XML handling with Jackson or standard Java XML APIs.
-                class SpinPropertyKeyMigration {
-                    void convert(SpinJsonNode json) {
-                        // TODO: Replace SpinJsonNode.prop("literal\\\\u000aQuote\\\"key").stringValue() with JSON Map access such as map.get("literal\\\\u000aQuote\\\"key").toString() or Jackson mapping.
-                        String propertyValue = json.prop("literal\\\\u000aQuote\\\"key").stringValue();
+                class SpecialKey {
+                    String read(SpinJsonNode json) {
+                        // TODO: Replace SpinJsonNode.prop(...).stringValue() with Map access or Jackson mapping; handle missing or null properties.
+                        return json.prop("literal\\\\u000a\\r\\n").stringValue();
                     }
                 }
                 """));

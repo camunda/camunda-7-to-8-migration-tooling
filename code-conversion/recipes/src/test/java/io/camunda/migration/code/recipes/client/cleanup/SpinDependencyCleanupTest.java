@@ -20,11 +20,21 @@ class SpinDependencyCleanupTest implements RewriteTest {
   @Test
   void removesSpinDependenciesWhenNoSpinTypesRemain() {
     rewriteRun(
-        spec -> spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientCleanupRecipes"),
+        spec ->
+            spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientCleanupRecipes")
+                .cycles(2)
+                .expectedCyclesThatMakeChanges(2),
         mavenProject(
             "spin-example",
             srcMainJava(
                 java(
+                    """
+                    package org.camunda.community.migration.example;
+
+                    import org.camunda.spin.json.SpinJsonNode;
+
+                    class NoSpinUsage {}
+                    """,
                     """
                     package org.camunda.community.migration.example;
 
@@ -123,55 +133,6 @@ class SpinDependencyCleanupTest implements RewriteTest {
                             <version>7.24.0</version>
                         </dependency>
                     </dependencies>
-                </project>
-                """)));
-  }
-
-  @Test
-  void removesDependenciesAfterRemovingUnusedSpinImports() {
-    rewriteRun(
-        spec ->
-            spec.recipeFromResources("io.camunda.migration.code.recipes.AllClientCleanupRecipes")
-                .cycles(2)
-                .expectedCyclesThatMakeChanges(2),
-        mavenProject(
-            "spin-example",
-            srcMainJava(
-                java(
-                    """
-                    package org.camunda.community.migration.example;
-
-                    import org.camunda.spin.json.SpinJsonNode;
-
-                    class UnusedSpinImport {}
-                    """,
-                    """
-                    package org.camunda.community.migration.example;
-
-                    class UnusedSpinImport {}
-                    """)),
-            pomXml(
-                """
-                <project xmlns="http://maven.apache.org/POM/4.0.0">
-                    <modelVersion>4.0.0</modelVersion>
-                    <groupId>org.example</groupId>
-                    <artifactId>spin-example</artifactId>
-                    <version>1.0.0</version>
-                    <dependencies>
-                        <dependency>
-                            <groupId>org.camunda.spin</groupId>
-                            <artifactId>camunda-spin-core</artifactId>
-                            <version>7.24.0</version>
-                        </dependency>
-                    </dependencies>
-                </project>
-                """,
-                """
-                <project xmlns="http://maven.apache.org/POM/4.0.0">
-                    <modelVersion>4.0.0</modelVersion>
-                    <groupId>org.example</groupId>
-                    <artifactId>spin-example</artifactId>
-                    <version>1.0.0</version>
                 </project>
                 """)));
   }
