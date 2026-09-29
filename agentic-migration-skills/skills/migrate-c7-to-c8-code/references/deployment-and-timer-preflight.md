@@ -127,6 +127,9 @@ Record each affected model, process, and timer in its own `timers` entry. Includ
 The runtime observation must match that inventory exactly: it cannot omit or add timers or source
 locations. Map every detected update source location to one or more entries.
 Each entry must show an active timer before two updates, zero obsolete deadline firings, and one final deadline firing.
+Record the active `process_instance_id`, requested final deadline, and observed firing time in the
+same entry. Use timezone-qualified timestamps. The firing time must not precede the requested
+deadline.
 Record completed cleanup in the cleanup entry.
 See `references/validation-evidence.md` for the required fields.
 

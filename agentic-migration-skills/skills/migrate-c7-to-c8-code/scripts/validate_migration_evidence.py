@@ -327,7 +327,7 @@ def mask_source_text(text, suffix):
                     or suffix in {".java", ".kt", ".kts"} and r"\{" in contents
                     or suffix in {".gradle", ".groovy"} and "$" in contents
                     or suffix == ".scala"
-                    and string_prefix in {"f", "s"}
+                    and string_prefix in {"f", "raw", "s"}
                     and "$" in contents
                 )
                 if interpolated and INTERPOLATED_SOURCE_CALL.search(contents):
@@ -752,6 +752,20 @@ def concrete_reference(value):
     } and not normalized.startswith("pending-")
 
 
+def parse_timezone_aware_timestamp(value, label):
+    if not isinstance(value, str) or not value.strip():
+        raise EvidenceError(f"{label} must be a timezone-qualified ISO-8601 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise EvidenceError(
+            f"{label} must be a timezone-qualified ISO-8601 timestamp"
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise EvidenceError(f"{label} must include a timezone")
+    return parsed
+
+
 def active_timer_decision_is_approved(decision, target_version=None):
     return (
         isinstance(decision, dict)
@@ -979,6 +993,22 @@ def validate_active_timer_update_observation(
             raise EvidenceError(
                 "Active timer observation must prove two updates per affected timer, "
                 "no obsolete deadlines, and one final deadline"
+            )
+        if not concrete_reference(timer.get("process_instance_id")):
+            raise EvidenceError(
+                "Active timer observation must identify the process instance for the final deadline"
+            )
+        requested_final_deadline = parse_timezone_aware_timestamp(
+            timer.get("requested_final_deadline"),
+            "Requested final deadline",
+        )
+        final_deadline_fired_at = parse_timezone_aware_timestamp(
+            timer.get("final_deadline_fired_at"),
+            "Final deadline firing time",
+        )
+        if final_deadline_fired_at < requested_final_deadline:
+            raise EvidenceError(
+                "Active timer final deadline fired before the requested final deadline"
             )
     if (
         seen_timers != set(expected_timers)

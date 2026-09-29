@@ -244,12 +244,15 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "timers": [
                     {
                         **timer,
+                        "process_instance_id": f"fixture-instance-{index}",
                         "active_before_updates": True,
                         "updates_applied": 2,
                         "obsolete_deadlines_fired": 0,
                         "final_deadline_fired": 1,
+                        "requested_final_deadline": "2026-09-29T12:00:00Z",
+                        "final_deadline_fired_at": "2026-09-29T12:00:01Z",
                     }
-                    for timer in affected_timers
+                    for index, timer in enumerate(affected_timers)
                 ],
             },
             "cleanup": {
@@ -393,6 +396,18 @@ class ValidationEvidenceTest(unittest.TestCase):
         caller.parent.mkdir(parents=True, exist_ok=True)
         caller.write_text(
             'message = f"{runtimeService.startProcessInstanceByKey(\'Sample\')}"\n',
+            encoding="utf-8",
+        )
+
+        _, _, _, _, issues = gate.scan_module_sources(self.root, "modules/c7-client")
+        self.assertTrue(any("interpolated string" in issue for issue in issues))
+
+    def test_scala_raw_interpolated_timer_calls_fail_closed(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/scala/Caller.scala"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'val dueDate = raw"${managementService.setJobDuedate(timerId, date)}"\n',
             encoding="utf-8",
         )
 
@@ -839,6 +854,17 @@ class ValidationEvidenceTest(unittest.TestCase):
                 runtime,
                 **common,
                 active_timer_update_observation_json=json.dumps(incomplete),
+            )
+
+        early = self.active_timer_observation()
+        early["observation"]["timers"][0]["final_deadline_fired_at"] = (
+            "2026-09-29T11:59:59Z"
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "before the requested final deadline"):
+            self.submit(
+                runtime,
+                **common,
+                active_timer_update_observation_json=json.dumps(early),
             )
 
         self.submit(

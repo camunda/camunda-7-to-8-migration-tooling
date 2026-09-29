@@ -141,7 +141,7 @@ Active-timer runtime checks require a current approved review.
 Model deployments require current model lint.
 Deployments and process starts require current deployment-set preflight, duplicate process ID
 decisions, and retained-timer checks. Before executing either command, the recorder revalidates
-caller completeness and duplicate-ID dispositions; a current but semantically incomplete review
+caller completeness and duplicate-ID dispositions. A current but semantically incomplete review
 cannot authorize deployment or process execution.
 Where a process has a worker-input review, its start command requires current evidence.
 If a prerequisite is stale, refresh it before running its dependent command.
@@ -324,11 +324,12 @@ The observation object must record:
 | Object | Required evidence |
 |---|---|
 | `deployment` | `performed: true`, a reference, the matching environment, a disposable target, and the approved target version. |
-| `observation` | An evidence reference and a non-empty `timers` array. Each timer record names `model_path`, `process_id`, and `timer_id`; its `source_locations` must exactly match the reviewed inventory. The records must contain exactly the reviewed timers and all detected update locations. Each record proves an active timer before updates, two updates, zero obsolete-deadline firings, and one final-deadline firing. |
+| `observation` | An evidence reference and a non-empty `timers` array. Each timer record names `model_path`, `process_id`, and `timer_id`. Its `source_locations` must exactly match the reviewed inventory. The records must contain exactly the reviewed timers and all detected update locations. Each record proves an active timer before updates, two updates, zero obsolete-deadline firings, and one final-deadline firing. Each record identifies its `process_instance_id`, requested final deadline, and final-deadline firing time. The timestamps must include a timezone. The firing time must not precede the requested deadline. |
 | `cleanup` | `completed: true` and a cleanup evidence reference. |
 
 Each timer record uses `model_path`, `process_id`, `timer_id`, `source_locations`,
-`active_before_updates`, `updates_applied`, `obsolete_deadlines_fired`, and `final_deadline_fired`.
+`active_before_updates`, `updates_applied`, `obsolete_deadlines_fired`, `final_deadline_fired`,
+`process_instance_id`, `requested_final_deadline`, and `final_deadline_fired_at`.
 
 Readiness remains `NOT READY` until the alternative passes runtime validation.
 If no safe plan exists, block the preflight. Do not deploy or start that model.
