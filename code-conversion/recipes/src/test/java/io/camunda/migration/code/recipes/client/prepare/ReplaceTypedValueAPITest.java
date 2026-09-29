@@ -196,4 +196,89 @@ public class TypeValueTestClass {
                 }
                 """));
   }
+
+  @Test
+  void preservesUnsupportedObjectValueFormatAssignments() {
+    rewriteRun(
+        spec ->
+            spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        // language=java
+        java(
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    void submit(Payload payload) {
+                        ObjectValue serialized;
+                        serialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create();
+                        Object value = serialized.getValue();
+
+                        ObjectValue initialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create();
+                        Object initializedValue = initialized.getValue();
+                        consume(value);
+                        consume(initializedValue);
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """));
+  }
+
+  @Test
+  void replacesJsonObjectValueBuilderAssignmentWithPojo() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        // language=java
+        java(
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    void submit(Payload payload) {
+                        ObjectValue serialized;
+                        serialized = Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON)
+                            .create();
+                        Object value = serialized.getValue();
+                        consume(value);
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """,
+            """
+                package org.camunda.community.migration.example;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    void submit(Payload payload) {
+                        Object serialized;
+                        // type set to java.lang.Object
+                        serialized = payload;
+                        Object value = serialized;
+                        consume(value);
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """));
+  }
 }
