@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.code.recipes.config;
 
+import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.properties.Assertions.properties;
 import static org.openrewrite.yaml.Assertions.yaml;
 
@@ -79,6 +80,39 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
                 url: jdbc:h2:file:./camunda-h2-database
                 username: sa
                 password: sa
+            camunda:
+              client:
+                # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)
+                mode: self-managed
+                grpc-address: http://localhost:26500
+                rest-address: http://localhost:8080
+            """,
+            spec -> spec.path("src/main/resources/application.yml")));
+  }
+
+  @Test
+  void doesNotMapC7SubscriptionAutoOpenToGlobalWorkerDisablement() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class LoanWorker {
+                @JobWorker(type = "grant-loan")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/LoanWorker.java")),
+        yaml(
+            """
+            camunda:
+              bpm:
+                client:
+                  subscriptions:
+                    loan-granting:
+                      auto-open: false
+            """,
+            """
             camunda:
               client:
                 # TODO: review the Camunda 8 connection settings for your deployment (self-managed defaults target a local c8run cluster; SaaS uses mode=saas with camunda.client.cloud.* and camunda.client.auth.*)

@@ -26,6 +26,7 @@ Patterns:
     - [Query History](#query-history)
     - [Raise Incidents](#raise-incidents)
     - [Search Process Definitions](#search-process-definitions)
+    - [Search Process Instances](#search-process-instances)
     - [Starting Process Instances](#starting-process-instances)
 - [Glue code](#glue-code)
   - [Idiomatic Job Worker Cleanup](#idiomatic-job-worker-cleanup)
@@ -62,7 +63,9 @@ Some changes need to happen on a development-project-wide level.
 
 ### Maven dependency and configuration
 
-As part of the code migration, remove all Camunda 7 dependencies. Import the **Camunda Spring SDK**:
+As part of the code migration, classify every dependency before removal. Remove a Camunda 7 engine
+dependency only when the project has no active use for it. Keep compatible domain libraries even
+when their group ID starts with `org.camunda.bpm`. Import the **Camunda Spring SDK**:
 
 ```
 <dependency>
@@ -74,6 +77,26 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 
 Also, configure your connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
+**Dependency inventory and classification**:
+
+Inventory every dependency before classification. Check its imports, configuration, reflection,
+service-provider registrations, and runtime call sites. Record each dependency, its uses, target
+compatibility, and decision in `MIGRATION_REPORT.md`. Treat a group ID or package under
+`org.camunda.bpm` as a review signal, not proof that the dependency is engine-only.
+
+| Finding | Action |
+|---|---|
+| Camunda 7 engine or embedded-engine dependency with no Camunda 8 equivalent and no remaining required use | Remove it and record the reason. This can include `camunda-bom` or database dependencies used only by the embedded engine. |
+| Active domain library that is compatible with the target runtime | Keep it, even when its group ID or package starts with `org.camunda.bpm`. |
+| Active library with unknown target compatibility | Check its documented target support and test its required behavior. Ask the project owner to confirm compatibility or approve a replacement before changing behavior. If compatibility remains unconfirmed, then leave the active code unchanged. Record each affected call site as `blocked` with manual follow-up in `MIGRATION_REPORT.md`. Do not report those flows as migrated. |
+| Active library is incompatible, and the project owner approves a replacement | Replace the library and its call sites only after recording the approval. Test the required behavior for every supported type and downstream call path. |
+| Active library is incompatible and has no owner-approved replacement | Leave the active code unchanged. Record each affected call site as `blocked` with manual follow-up in `MIGRATION_REPORT.md`. Do not replace behavior with an exception or fabricated result. Do not report those flows as migrated. |
+
+For active license-generation behavior, test every supported license type and downstream call path
+with synthetic fixture values. A successful compile alone does not prove that the behavior still
+works. Never invent license keys or other business data. Never include production keys or
+credentials in fixtures.
+
 **Spring Boot version**: Select the starter from the [Camunda Spring Boot version compatibility matrix](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/#version-compatibility). For Camunda 8.9, `camunda-spring-boot-3-starter` is for Spring Boot 3.5.x. `camunda-spring-boot-starter` is bundled with Spring Boot 4.0.x and supports Spring Boot 4.1.x from 8.9.12:
 
 ```
@@ -84,9 +107,33 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 </dependency>
 ```
 
+**BOM alignment**: Preserve existing parent dependency management and imported BOMs unless
+inspection supports an explicit change. Inspect `mvn help:effective-pom -Dverbose` and
+`mvn dependency:tree -Dverbose` for the Camunda starter and existing cloud libraries before changing
+dependency management. Trace each imported BOM's effective version to the POM or property that
+supplies it. If a BOM does not resolve, record its coordinates and the exact Maven error. Check its
+coordinates, inherited version source, and configured repositories before replacing or removing it.
+Never comment out an unresolved BOM and replace selected managed artifacts with isolated version
+pins.
+
+Check explicit `<version>` values on direct dependencies managed by an imported BOM. A direct
+version overrides BOM management. Remove an unexplained override. Record the compatibility reason
+for any retained override.
+
+Run the same inspections after POM changes. For gRPC, inspect every resolved `io.grpc` artifact, its
+dependency path, and its version source. Manage an incompatible gRPC family through a compatible
+`io.grpc:grpc-bom` in `<dependencyManagement>`. Never pin only `grpc-xds`, `grpc-util`, or
+`grpc-core`. Remove a conflicting direct dependency only after source, configuration, and test
+searches show that the project does not use it. Record before-and-after versions, dependency paths,
+version sources, and the remediation in `MIGRATION_REPORT.md`.
+
 **Startup validation**: When a project uses a Camunda Spring Boot starter, boot an application context
-that creates `CamundaClient`. If startup fails, record a blocking finding. Do not override individual
-transitive dependencies to force startup.
+that creates the real `CamundaClient` bean. Do not mock the bean or issue an API command in this
+focused test. The test does not require a reachable cluster. If the focused test fails or cannot run,
+block readiness and record its command, exit code, and error. Classify the failure as a classpath
+incompatibility only when it reports a `LinkageError` or the resolved dependency graph proves an
+incompatible family. A cluster connection failure during an API command is separate evidence and
+never proves that the classpath is compatible.
 
 **Version resolution**: Resolve the latest released GA version from Maven Central's direct artifact metadata, for example `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available). From `<versions>`, select the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release. Do not use `search.maven.org`'s search API or the Camunda public repository metadata for this lookup.
 
@@ -320,7 +367,7 @@ Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, 
 
 | Camunda 7              | Camunda 8                                                                 |
 | ---------------------- | ------------------------------------------------------------------------- |
-| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable, optional cluster-level uniqueness enforcement |
+| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable in process-instance queries from 8.10+, optional cluster-level uniqueness enforcement |
 | (no equivalent)        | `tags` (8.8+) — up to 10 immutable labels per instance, included in search responses and activated jobs |
 
 If your target version is **8.8**, use tags (for example, `order:1234`) or store the identifier as a regular process variable and filter by variable in searches.
@@ -368,10 +415,12 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
-###### CamundaClient (Camunda 8.9+)
+###### CamundaClient (Camunda 8.10+)
+
+Business IDs can be set in Camunda 8.9, but process-instance search filtering by business ID is supported starting in 8.10.
 
 ```java
-    public List<ProcessInstance> findByBusinessId(String businessId) {
+    public List<ProcessInstance> findFirstPageByBusinessId(String businessId) {
         return camundaClient.newProcessInstanceSearchRequest()
                 .filter(filter -> filter.businessId(businessId))
                 .send()
@@ -379,6 +428,8 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
                 .items();
     }
 ```
+
+`items()` returns only the current page. Add pagination when the application must process every match.
 
 ###### Assigning a Business ID after creation (Camunda 8.10+)
 
@@ -553,6 +604,7 @@ The first two forms count the complete in-memory list returned by the engine.
 long runningInstances = engine.getRuntimeService()
         .createProcessInstanceQuery()
         .processDefinitionKey("order-process")
+        .active()
         .list()
         .stream()
         .count();
@@ -562,23 +614,30 @@ long runningInstances = engine.getRuntimeService()
 
 ```java
 import io.camunda.client.api.search.enums.ProcessInstanceState;
+import java.util.Optional;
 
-long runningInstances = camundaClient.newProcessInstanceSearchRequest()
+long runningInstances = Optional.of(camundaClient.newProcessInstanceSearchRequest()
         .filter(filter -> filter
                 .processDefinitionId("order-process")
                 .state(ProcessInstanceState.ACTIVE))
         .send()
         .join()
-        .page()
-        .totalItems();
+        .page())
+        .filter(page -> Boolean.FALSE.equals(page.hasMoreTotalItems()))
+        .orElseThrow(() -> new IllegalStateException(
+                "Process-instance count exceeds search limit; paginate to count exactly"))
+        .totalItems().longValue();
 ```
 
-Use `page().totalItems()` when the result drives a count, guard, or business decision.
-Use `page().totalItems().intValue()` when the original `list().size()` result type is `int` or
-`Integer`.
+`totalItems()` is only an exact count when `hasMoreTotalItems()` is `false`. When it is `true`,
+the total is capped and is a lower bound; fail rather than using it for a count, guard, or business
+decision. To obtain an exact count in that case, paginate through all matching results.
+Use `.intValue()` when the original `list().size()` result type is `int` or `Integer`.
 Do not use `items().size()` or `items().stream().count()` for a complete result count.
 The `items()` list contains only the current page and can be limited by the configured page size.
-Review `page().hasMoreTotalItems()` when the search can exceed cluster result limits.
+The migration recipe converts only complete, inline `.active()` counts with no additional filter
+or a single `processDefinitionKey(...)`. It flags other process-instance queries for manual migration;
+see [Search Process Instances](search-process-instances.md).
 
 ---
 
@@ -620,10 +679,29 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
     }
 ```
 
+`Map.of` rejects null values. If the C7 `VariableMap` can contain nulls, preserve every input key and value in a mutable map:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+Map<String, Object> variableMap = new HashMap<>();
+variableMap.put("timezone", timezone);
+variableMap.put("sla", sla);
+variableMap.put("tier", tier);
+variableMap.put("account", account);
+```
+
+Preserve any source guard that skips evaluation when a required input is absent. Do not assume that an explicit null and an omitted variable have the same DMN meaning. Verify that behavior with the target decision. If you cannot match the C7 null behavior, flag the input for user review instead of omitting it or adding a default.
+
 -   naming follows the same swap as process definitions: the C7 *decision definition key* (the id in the DMN XML) is the C8 `decisionId`; the C8 `decisionKey` is the unique key assigned on deployment
 -   using `decisionId` evaluates the latest deployed version
--   the result is returned as JSON: `response.getDecisionOutput()` contains the output, `response.getEvaluatedDecisions()` the details of all evaluated (required) decisions
+-   `response.getDecisionOutput()` is a JSON-encoded string; parse it using the output shape of the target decision
+-   when the target decision returns an empty object or array for no matching rules, return `null` and keep validating non-empty outputs against the expected shape
+-   `response.getEvaluatedDecisions()` contains details of all evaluated (required) decisions
 -   `DmnDecisionTableResult` convenience methods like `getSingleEntry()` have no direct equivalent — parse the JSON output instead
+-   test a missing required input, each nullable input, the complete input set, matching and nonmatching rules, and the expected return value against the target Camunda version
+-   assert the actual JSON `decisionOutput` and `evaluatedDecisions` response in a target-version test
 -   decisions evaluated *inside* a process should be modeled as a BPMN business rule task instead of being evaluated from glue code; the task's binding (`latest`, `deployment`, `versionTag`) controls version selection
 
 ---
@@ -1230,6 +1308,52 @@ The following patterns focus on methods how to search for process definitions in
 
 ---
 
+#### Search Process Instances
+
+Camunda 7 `RuntimeService` process-instance queries return runtime instances and can filter process variables. Preserve those semantics when migrating the query.
+
+###### Camunda 7
+
+```java
+public ProcessInstance findSingleActiveByVariable(
+        String processDefinitionKey, String variableName, Object variableValue) {
+    return engine.getRuntimeService()
+            .createProcessInstanceQuery()
+            .processDefinitionKey(processDefinitionKey)
+            .variableValueEquals(variableName, variableValue)
+            .active()
+            .singleResult();
+}
+```
+
+###### Recipe boundary
+
+The recipe converts only complete, inline `.active()` counts (`count()`, `list().size()`, and `list().stream().count()`) with no other filter or a single `processDefinitionKey(...)`. It marks all other process-instance queries with a manual-migration TODO **without changing the query or its result type**. This includes variable predicates, business keys, `activityIdIn(...)`, default/suspended state, query aliases, `singleResult()`, and `list()` results. A Camunda 8 search page's `.items()` is not equivalent to Camunda 7's unbounded `list()`.
+
+###### Camunda 8.9+ manual lookup
+
+For an exact active name/value match, Camunda 8.9's `POST /v2/process-instances/search` supports a server-side `variables` filter:
+
+```http
+POST /v2/process-instances/search
+Content-Type: application/json
+
+{
+  "filter": {
+    "processDefinitionId": "orders",
+    "state": "ACTIVE",
+    "variables": [{ "name": "projectId", "value": "\"project-42\"" }]
+  },
+  "page": { "limit": 2 }
+}
+```
+
+The variable value is JSON-serialized (a string therefore includes escaped quotation marks). Verify that C7 comparison and variable-scope semantics match before substituting this filter. Use the filtered result to distinguish zero, one, and multiple matches; do not check an unfiltered count or assume the first page contains every match. For complete lists, follow the search cursor until no further pages remain. Search data is [eventually consistent](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-data-fetching/#data-consistency), so an immediate lookup may miss a newly started instance.
+
+Camunda 7's default runtime query can include suspended instances; explicit `.active()` excludes them. The Camunda 8.9 state filter has no `SUSPENDED` value, so default/suspended queries need a target-version-specific design. Business ID filtering in process-instance search starts in 8.10; business-key queries also remain manual.
+
+---
+
 #### Starting Process Instances
 
 The following patterns focus on various methods to start process instances in Camunda 7 and how they convert to Camunda 8.
@@ -1435,9 +1559,10 @@ public void sampleJavaDelegate(ActivatedJob job) {
 
 ###### Inject variables
 
-Replace required variable reads with typed `@Variable` parameters. Use `@VariablesAsType` when
-several variables form one input object. Keep `ActivatedJob` for job metadata, the job key
-(`job.getKey()`), or nullable variable reads.
+Bind each required variable with a typed `@Variable(name = "...")` parameter. Use the exact source
+variable name, even when it matches the Java parameter name. Do not rely on retained Java parameter
+names. Use `@VariablesAsType` when several variables form one input object.
+Keep `ActivatedJob` when the worker reads job metadata or its key.
 
 ```java
 // Before
@@ -1446,19 +1571,33 @@ public void sampleJavaDelegate(ActivatedJob job) {
 }
 
 // After
-public void sampleJavaDelegate(@Variable Object x) {
+public void sampleJavaDelegate(@Variable(name = "x") Object x) {
 }
 ```
 
 Mark an injected input optional only when the source worker accepts its absence:
 
 ```java
-public void sampleJavaDelegate(@Variable(optional = true) String comment) {
+public void sampleJavaDelegate(@Variable(name = "comment", optional = true) String comment) {
 }
 ```
 
-Keep nullable reads as `job.getVariablesAsMap().get(...)` when the source accepted a missing
-variable; do not turn them into required `@Variable` parameters or strict `job.getVariable(...)`.
+Keep a nullable source read as `job.getVariablesAsMap().get("comment")` when the source accepts an
+absent variable. Fetch that variable with `fetchVariables` or set `fetchAllVariables = true`.
+Do not replace the nullable read with strict `job.getVariable("comment")`.
+
+Use the activated job to pass the complete process-variable map to a delegate:
+
+```java
+@JobWorker(type = "persist-project", fetchAllVariables = true)
+public Map<String, Object> persistProject(ActivatedJob job) {
+  return projectDelegate.persist(job.getVariablesAsMap());
+}
+```
+
+Never use `@Variable` to request the complete process-variable map. Bind a single map-valued process
+variable with its explicit variable name. An `ActivatedJob` parameter disables implicit variable
+fetching, so set `fetchAllVariables = true` when the worker needs every process variable.
 
 Remove `throws Exception` when the cleaned method no longer throws a checked exception. Keep a
 specific checked exception when the worker still requires it.
@@ -1491,7 +1630,7 @@ known and the generated worker has no provenance note.
  * Migrated from the Camunda 7 SampleJavaDelegate.
  */
 @JobWorker(type = "sampleJavaDelegate")
-public Map<String, Object> sampleJavaDelegate(@Variable Object x) {
+public Map<String, Object> sampleJavaDelegate(@Variable(name = "x") Object x) {
   return Map.of("y", "hello world");
 }
 ```
@@ -1531,6 +1670,24 @@ The code conversion patterns for the JavaDelegate cover the most important metho
 - throwing a BPMN error
 
 There are often multiple methods that achieve the same result. The patterns try to capture as many examples as possible. Delegate code that accesses the engine services is not covered here. Please refer to the patterns for the engine services. In general, delegate code that utilizes engines services is more difficult to migrate to Camunda 8.
+
+###### Transaction and security semantics
+
+In Camunda 7, `camunda:asyncBefore` starts a command segment before its activity.
+`camunda:asyncAfter` starts a continuation segment after its activity. A failure rolls back the
+synchronous work in the command segment that runs the delegate.
+
+Without a boundary between a wait state and the JavaDelegate, the command that completes the wait
+state can also run the delegate. If the delegate fails, that command rolls back and the wait state
+remains incomplete. A preceding `camunda:asyncAfter` boundary commits its activity before downstream
+work continues. Synchronous activities after that boundary can still share the delegate's command.
+See [Camunda 7 asynchronous continuations](https://docs.camunda.org/manual/7.14/user-guide/process-engine/transactions-in-processes/#asynchronous-continuations).
+
+A C8 job worker runs outside the engine transaction. Its failure can consume retries and raise an
+incident after the preceding user task has completed. The worker does not share the C7 engine
+transaction or its thread-bound security context.
+
+Do not describe moving the same Java body to a worker as equivalent synchronous behavior. Ask the user to choose C8 retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. Ask the user to choose a worker-side transaction or security mechanism, or a code refactor, when the source relies on those contexts. Record the chosen behavior and accepted parity gap in `MIGRATION_REPORT.md`. The `SynchronousDelegateTransactionBoundaryTest` in the C8 code examples demonstrates the resulting process state. See the Handling a Failure pattern for additional guidance.
 
 
 #### Class-level Changes
@@ -1677,6 +1834,14 @@ Execution code can fail, promting the engine to try again or raise an incident i
 
 Check the [README](./README.md) for more details on class-level changes.
 
+###### Transaction boundary
+
+Without `camunda:asyncBefore` or another intervening asynchronous boundary, C7 runs a JavaDelegate in the command that completes the preceding wait state. If the delegate fails, the command rolls back and the wait state remains incomplete.
+
+C8 runs the worker after the engine creates a job. A failed job consumes retries and can raise an incident when retries are exhausted. The worker cannot roll back the completed wait state or share the C7 engine transaction and thread-bound security context.
+
+Do not describe the same Java body in a worker as equivalent synchronous behavior. If the source relies on rollback, ask the user to choose C8 retry and incident handling, a BPMN error or compensation flow, or an explicit manual step. If the source relies on thread-bound context, ask the user to choose a worker-side replacement mechanism or a code refactor. Record the exact gap and selected behavior in `MIGRATION_REPORT.md`.
+
 ###### JavaDelegate (Spring) - (Camunda 7)
 
 ```java
@@ -1692,11 +1857,9 @@ Check the [README](./README.md) for more details on class-level changes.
 ```
 
 -   variables cannot be added to the _ProcessEngineException_ and need to be set separately
--   the engine registers the exeception and either retries or raises an incident
--   JavaDelegates are run synchronously by default. On failure, the engine goes back to the last wait state, e.g., an async configuration or external task worker
--   to retry a specific JavaDelegate on failure, it needs to be set to asnyc before in the BPMN. With this, a retry time cycle can be specified for the executed delegate code, for example: R3/PT30S
--   the engine decrements the number of retries itself
--   once the retries are depleted, an incident is raised by the engine
+-   When a synchronous JavaDelegate follows a user task without an intervening asynchronous boundary, a failure rolls back the transaction that completes the user task.
+-   Configure `camunda:asyncBefore` to run the delegate as an asynchronous job. The engine then decrements retries and raises an incident when none remain.
+-   Set a retry time cycle on the asynchronous delegate, for example: R3/PT30S
 -   engine configurations can be used to set a default retry behavior
 
 ###### Job Worker (Spring) - (Camunda 8)
@@ -2006,9 +2169,10 @@ Then you can set the job type to
 
 In Camunda 7, external task workers are a way to implement glue code. They are deployed independently from the engine. Thus, they cannot access the engine's services.
 
-The code conversion patterns for the external task workers cover the most important methods how an external task worker can interact with the running process instance:
+The code conversion patterns for external task workers show how a worker can interact with the running process instance:
 
 -   getting and setting process variables
+-   completing with process variables, task-local variables, or both
 -   reporting a failure
 -   raising an incident
 -   throwing a BPMN error
@@ -2393,6 +2557,21 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+###### Complete process-variable map
+
+When the Camunda 7 source reads the complete execution-variable map, keep `ActivatedJob` and pass
+`job.getVariablesAsMap()` to the delegate:
+
+```java
+    @JobWorker(type = "persistProject", fetchAllVariables = true)
+    public Map<String, Object> handleJob(ActivatedJob job) {
+        return projectDelegate.persist(job.getVariablesAsMap());
+    }
+```
+
+An `ActivatedJob` parameter disables implicit variable fetching. Set `fetchAllVariables = true` when
+the delegate needs every variable. Never use `@Variable` to request the complete process-variable map.
+
 ###### autoComplete = false (blocking)
 
 ```java
@@ -2427,6 +2606,20 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   without _.join()_, the method _.send()_ returns a non-blocking _CamundaFuture_. With _thenApply()_ and _exceptionally()_ the response can be processed
 -   this non-blocking programming style is **recommended** by Camunda
+
+###### Completion variable scope
+
+Camunda 7 `complete(id, processVariables, localVariables)` writes each map at its own scope.
+The two-argument overload writes only process variables. Passing `null` skips either map.
+Inspect each call, its branch conditions, and downstream reads.
+
+Camunda 8 completion accepts one result map. [BPMN mappings](https://docs.camunda.io/docs/components/modeler/bpmn/data-handling/)
+control the variables' [scope and propagation](https://docs.camunda.io/docs/components/concepts/variables/).
+A worker result alone cannot preserve the separate C7 scopes.
+
+Test each branch's process and local visibility and its downstream consumers. If no faithful mapping
+exists, then ask the user for a BPMN/worker-scoping decision. Never discard a branch and claim
+parity. If deployment blocks testing, then record the blocker and keep parity unresolved.
 
 ---
 
@@ -2501,12 +2694,14 @@ Implement the listener as a regular `@JobWorker` — listener jobs use the same 
 public class LogStartListenerWorker {
 
     @JobWorker(type = "log-start-listener")
-    public Map<String, Object> handle(@Variable String orderId) {
+    public Map<String, Object> handle(@Variable(name = "orderId") String orderId) {
         // custom logic, e.g. audit log entry
         return Map.of("auditedAt", Instant.now().toString());
     }
 }
 ```
+
+Set the source variable name explicitly. Do not rely on retained Java parameter names.
 
 -   `event="start"` maps to `eventType="start"`, `event="end"` maps to `eventType="end"`; the C7 `take` event on sequence flows has no equivalent — move the logic into a `start` listener of the target element or a dedicated service task
 -   the listener is blocking: the element is not entered/left until the job completes; failures create incidents
