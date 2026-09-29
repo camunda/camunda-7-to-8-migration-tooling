@@ -100,9 +100,10 @@ public Map<String, Object> persistProject(ActivatedJob job) {
 
 ## 1. Dependencies and Configuration
 
-Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
-the starter choice by Spring Boot version, the startup validation, the SLF4J binding, the
-`@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
+The `10-general/dependencies.md` catalog owns GA version resolution from Maven Central and starter
+selection by Spring Boot version. It also owns BOM alignment, startup validation, and the SLF4J
+binding. It defines the `@PostConstruct` to
+`@EventListener(CamundaPostDeploymentEvent.class)` migration. Read it.
 The `@EnableProcessApplication` replacement is documented in
 `20-client-code/10-process-engine/handle-resources.md`.
 Never restate a version number from memory.
@@ -118,13 +119,57 @@ These items are not in the catalog:
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
-- Remove dependencies with groupId `org.camunda.bpm` or a groupId that starts with `org.camunda.bpm.`. Remove `camunda-bom` and the embedded-engine deps (H2, JDBC starter).
+- Before removing a dependency, follow the inventory and classification rules in
+  `10-general/dependencies.md`. Record its uses, target compatibility, and action in
+  `MIGRATION_REPORT.md`. A `org.camunda.bpm` group or package prefix does not prove that a
+  dependency is engine-only.
+- If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
+  affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
+  an affected flow as migrated.
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Replace `camunda.*` keys with `camunda.client.*` in application.properties, .yml, or .yaml.
+
+### Runtime dependency validation
+
+For each migrated Maven module that uses a Camunda Spring Boot starter:
+
+1. Before editing the POM, run `mvn help:effective-pom -Dverbose` and
+   `mvn dependency:tree -Dverbose`. Record each imported BOM's coordinates and effective version.
+   Trace each BOM's version to the POM or property that supplies it. Record the relevant dependency
+   paths and resolved family versions.
+2. If an imported BOM does not resolve, record its coordinates and the exact Maven error. Check the
+   coordinates, inherited version source, and configured repositories before changing the BOM.
+   Never comment out a failing BOM or replace selected managed artifacts with individual version pins
+   to make the build pass.
+3. After editing the POM, run `mvn help:effective-pom -Dverbose`.
+   Run `mvn dependency:tree -Dverbose` for the starter and existing cloud libraries.
+   Inspect every resolved `io.grpc` artifact, its dependency path, and its version-management source.
+4. Manage an incompatible gRPC family through a compatible `io.grpc:grpc-bom` in
+   `<dependencyManagement>`. Check direct dependencies for explicit `<version>` declarations that
+   override imported BOM management. Remove an unexplained override. Record the compatibility reason
+   for any retained override. Remove a conflicting direct dependency only after source, configuration,
+   and test searches show that the project does not use it. Never pin only `grpc-xds`, `grpc-util`, or
+   `grpc-core`.
+5. Run a focused Spring application-context test that creates the actual `CamundaClient` bean. Do
+   not mock the bean or issue a cluster request in this test. The test does not require a reachable
+   cluster.
+6. Record before-and-after `groupId:artifactId:version` values, dependency paths, and version-
+   management sources in `MIGRATION_REPORT.md`. Record the BOM coordinates, version source,
+   resolution error, decision, and remediation there. Record the focused test command and exit code.
+   Never copy the full effective POM into the report.
+
+| Evidence | Required verdict |
+|---|---|
+| An unresolved BOM has no verified replacement | Block readiness. Fix the coordinates or repository. Ask the user before selecting a replacement. |
+| An imported BOM's effective version cannot be traced to the POM or property that supplies it | Block readiness until the version source is verified. |
+| A direct dependency version overrides an imported BOM without a documented compatibility reason | Block readiness until the override is removed or justified. |
+| The client context reports a `LinkageError` or a verified incompatible dependency family | Record a blocking finding. |
+| The focused client-context test fails or cannot run | Block readiness until it passes. Record the command, exit code, and error. Do not assign a classpath cause without evidence. |
+| The client bean starts, but a separate API call fails because the cluster is unreachable | Record the connectivity blocker separately. Do not treat it as a classpath failure. |
 
 ### SLF4J provider validation
 
@@ -207,12 +252,48 @@ For approach B, run only the validation recipe after migration:
 Where the OpenRewrite plugin or selected recipe dependency is absent, add the missing setup from
 `code-migration-approaches.md` temporarily. Restore the build file after validation.
 
-The recipe scans every `application*.properties`, `application*.yml`, and `application*.yaml` file.
-It marks unsupported client modes, unsupported authentication properties, and deprecated aliases. It
-does not start an application or connect to a Camunda cluster.
+The recipe scans production `@JobWorker` declarations and application configuration in each module.
+It marks invalid settings and deprecated aliases. Where a module declares workers, it also marks
+client-wide and worker-default `enabled` settings that can disable them, including legacy aliases
+and environment placeholders. It marks disabled or unresolved `@JobWorker.enabled` values.
+These findings are potential blockers, not a calculation of effective Spring configuration.
+The recipe does not resolve profiles, environment variables, or per-worker overrides.
 
-Resolve each error finding. Record errors and deprecated aliases in `MIGRATION_REPORT.md`. Never
-record credential values.
+### Worker readiness
+
+Inventory required job types from each runnable module's `@JobWorker` declarations.
+Treat a type as required until the user approves it as optional or disabled.
+Resolve the active client, worker-default, and per-worker `enabled` settings for each type.
+Include legacy aliases, annotation values, profile-specific files, and environment overrides.
+A per-worker override can enable a worker even when worker defaults disable it.
+Do not treat a static finding as proof of disablement or an absence of findings as proof of readiness.
+
+Do not map a C7 subscription's `auto-open: false` to a global C8 worker setting.
+Ask the user whether to disable a specific C8 worker and record the decision.
+
+| Evidence | Worker verdict | Required action |
+|---|---|---|
+| The active configuration disables a required worker | **BLOCKED** | Enable it or request explicit approval to disable it. |
+| A module has no workers and no user approval | **BLOCKED** | Inspect worker adapters. Ask whether the module is intentionally workerless. |
+| A job type, active setting, or registration is unknown | **UNVERIFIED** | Resolve unknowns. Verify registration at startup or with a local runtime test. |
+| The user approves an optional job type | **OPTIONAL (APPROVED)** | Record the reason and exclude that type from the required inventory. |
+| The user approves a disabled worker or workerless module | **APPROVED DISABLED / WORKERLESS** | Record the scope and decision. Do not report **READY** for it. |
+| Every required job type registers under the active profile and environment | **READY** | Record runtime evidence for every required type. |
+
+Record each module, job type, configuration source, profile and environment name, decision, and
+runtime evidence in `MIGRATION_REPORT.md`. Never record credential values.
+Resolve configuration errors and record those findings and deprecated aliases.
+
+---
+
+## HTTP application and engine REST topology
+
+When the source has a Spring web server, application HTTP endpoints, health checks, or Camunda 7
+Engine REST calls, apply [`http-topology-migration.md`](http-topology-migration.md) before changing
+code. Record the endpoint owners, consumers, and health dependencies in `MIGRATION_REPORT.md`.
+Record the target application bind address and port, the Camunda REST base address, and the
+authentication mode in `MIGRATION_REPORT.md`. Where the management server uses a separate bind
+address or port, record both. Run the endpoint checks in that reference.
 
 ---
 
@@ -255,8 +336,9 @@ record its wording. Replace `<call site>` with the class and the method.
 | The C7 code read its own recent write inside a worker (read-after-write) | `<call site>` relied on a C7 transaction boundary for read-after-write. The C8 search is asynchronous. Confirm the logic does not depend on immediate visibility. |
 | The C7 project relied on `historyTimeToLive` for data availability or cleanup | `<call site>` relied on `historyTimeToLive`. Camunda 8 controls retention on the cluster, not per query. Confirm the cluster retention matches the old expectation. |
 
-Set each open item to status `open`. Resolve it only on an explicit user decision, and record that
-decision in `MIGRATION_REPORT.md`.
+Set each query follow-up to status `open`.
+Set its status to `resolved` only after an explicit user decision.
+Record that decision in `MIGRATION_REPORT.md`.
 
 ### Query counts and pagination
 
@@ -323,6 +405,14 @@ feature to an existing worker during migration. New logic belongs in a new, sepa
 ## 4. External Task Workers (OpenRewrite covers this)
 
 Catalog: `30-glue-code/20-java-spring-external-task-worker/`, with the same five files as item 3.
+
+For each `ExternalTaskService.complete(...)` call, record the overload, both maps, branch conditions,
+and downstream reads. Follow `30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md`
+for the scope mapping.
+
+Test every branch's result scope and downstream consumers. If deployment blocks testing, then record
+the blocker and keep parity unresolved. If no mapping preserves the C7 scopes, then ask the user for
+a BPMN/worker-scoping decision. Never discard a branch and claim parity.
 
 ---
 

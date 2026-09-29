@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="Definitions_WebExample"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="web-example" isExecutable="true">
+    <bpmn:startEvent id="Start" />
+    <bpmn:endEvent id="End" />
+    <bpmn:sequenceFlow id="Flow" sourceRef="Start" targetRef="End" />
+  </bpmn:process>
+</bpmn:definitions>

@@ -200,10 +200,22 @@ similar category.
 
 ## Deployment Wiring
 
-After both complete, ask whether to wire deployment of converted files in application code:
+When both migrations complete, ask whether to wire converted files into application deployment:
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - build a deployment inventory from this run's recorded converted-file paths and accepted generated forms. Add or update `@Deployment(resources = ...)` with explicit recursive classpath patterns for that inventory. Use a recursive pattern only when its packaged matches are a non-empty subset of that inventory. Otherwise, use explicit resource paths. Add a BPMN, DMN, or form pattern only when the inventory contains that resource type. Never target original diagrams, draft forms, or declined forms.
-- **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
+- **Yes, add or update `@Deployment`** (MAY) — recommend this for Spring Boot applications. (SHOULD)
+  Use this run's converted copies and accepted forms as the inventory. Add separate `resources`
+  entries for each included type. Never join patterns with a comma inside one string. For example:
+
+  ```java
+  @Deployment(
+      resources = {"classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"})
+  ```
+
+  Use a recursive pattern only when it selects inventory resources and no others. Otherwise, use
+  explicit paths. Never include original diagrams or unaccepted forms. Apply Step 4's deployment
+  resource check from `SKILL.md` to the built application.
+- **No, I will handle deployment outside app startup** (MAY) — leave code unchanged and record the
+  decision in `MIGRATION_REPORT.md`.
 
 When the skill creates or keeps a `@SpringBootApplication` class in a Maven module, apply "Maven
 build wiring" in `references/code-transform-checklist.md`.

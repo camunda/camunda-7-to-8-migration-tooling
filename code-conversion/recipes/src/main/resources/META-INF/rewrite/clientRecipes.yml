@@ -22,6 +22,7 @@ recipeList:
   - io.camunda.migration.code.recipes.client.DetectJobBasedUserTaskWorkerRecipe
   - io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateRepositoryServiceRecipe
+  - io.camunda.migration.code.recipes.client.MigrateSpinUsageRecipe
   - io.camunda.migration.code.recipes.client.DetectHistoryServiceUsageRecipe
   - io.camunda.migration.code.recipes.client.DetectIdentityAndManagementServiceUsageRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.WarnSpringProfileNegationRecipe
@@ -44,6 +45,19 @@ recipeList:
   - io.camunda.migration.code.recipes.client.CleanupEngineDependencyRecipe
   - io.camunda.migration.code.recipes.client.DeleteProcessesXmlRecipe
   - org.openrewrite.java.RemoveUnusedImports
+  # Keep Spin as an application dependency while any Spin types are still used.
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: org.camunda.spin
+      artifactId: camunda-spin-core
+      unlessUsing: org.camunda.spin..*
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: org.camunda.spin
+      artifactId: camunda-spin-dataformat-json-jackson
+      unlessUsing: org.camunda.spin..*
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: org.camunda.bpm
+      artifactId: camunda-engine-plugin-spin
+      unlessUsing: org.camunda.spin..*
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientRecipes

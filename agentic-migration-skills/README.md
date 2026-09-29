@@ -79,6 +79,15 @@ estimating. It shows them in the `atx` conversation and in `MIGRATION_REPORT.md`
 local run data, not AWS dashboard metrics. AWS documents no result schema or CLI option to submit
 them.
 
+The skill records validation evidence for each migrated module, model, and executable process. Its
+Python recorder runs each command and saves its arguments, exit code, and output. The gate checks
+that required results cover the confirmed scope, including model lint, safe deployment, process
+paths, and repeating timer preflights. It writes a machine-readable summary and a `READY` or
+`NOT READY` block in `MIGRATION_REPORT.md`. A failed, blocked, or missing check prevents `READY`.
+Manual reviews remain explicit. The gate cannot verify the meaning of an arbitrary command or
+review note. See the [validation evidence procedure](skills/migrate-c7-to-c8-code/references/validation-evidence.md).
+A complete migration also needs a `ready` project-readiness verdict for documentation and CI checks.
+
 ## Use
 
 From your Camunda 7 project directory:
@@ -145,6 +154,10 @@ delegate/client code.
 They do not decide domain behavior, eventual consistency, transaction boundaries, or architecture.
 Review and validation remain mandatory for both migration paths.
 
+For code migrations with custom Camunda 7 incident notifications, the skill asks the project to
+approve a Camunda 8 integration or explicitly waive the alerts. It verifies approved notifications
+before claiming parity, separately from compilation, worker registration, and incident visibility.
+
 **Model migration (BPMN/DMN):**
 
 | Approach | What it does |
@@ -167,6 +180,13 @@ other category it offers to rebuild the form as a Camunda 8 form, and it generat
 ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
 reports a copied form-key reference as a completed migration.
 
+Before deployment, the skill checks recurring timer starts and duplicate process IDs across the
+intended target. It traces start callers and active timer due-date updates, keeping unresolved
+behavior blocked rather than claiming the migration is ready.
+
+The skill preserves selected call-activity inputs instead of enabling all-parent propagation.
+In Camunda 8.9, children inherit the parent's Business ID independently of process variables.
+
 For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
 Camunda 8 user task by default. This includes form-free tasks. The skill preserves compatible
 assignments, schedules, forms, and listeners, records unsupported semantics, and does not create a
@@ -181,6 +201,10 @@ that source provenance in `MIGRATION_REPORT.md`. The
 [`fixtures/diagram-interchange`](fixtures/diagram-interchange) fixture checks
 both cases.
 
+The [`fixtures/grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthrough checks
+BOM resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
+`MIGRATION_REPORT.md`.
+
 If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
 source. It asks for a reachable Camunda 7 REST URL and the required authentication, saves the original
 definitions, then runs the Diagram Converter locally. While local models exist, it does not offer or
@@ -191,8 +215,10 @@ supported extractor.
 At run time the skill fetches only the [pattern-catalog files required by the code
 inventory](skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md), with `ALL_IN_ONE.md`
 as a fallback. It also fetches the diagram-converter docs and resolves the latest Diagram Converter
-CLI release automatically. It describes what the agent must inspect, download, and run, instead of
-prescribing one shell dialect.
+CLI release automatically. It checks the selected JAR against source start listeners, verifies
+`@Deployment` entries in the packaged application, and blocks model readiness until every converted
+model deploys to the declared target. It describes what the agent must inspect, download, and run,
+instead of prescribing one shell dialect.
 
 ## Structure
 
@@ -201,12 +227,25 @@ plugin.json                                ← Copilot CLI plugin manifest
 skills/
 └── migrate-c7-to-c8-code/
     ├── SKILL.md                           ← skill definition (agentskills.io format)
-    └── references/                        ← procedures loaded on demand
+    ├── references/                        ← procedures loaded on demand
+    └── scripts/                           ← validation recorder and gate
 fixtures/                                  ← sample projects and executable regression walkthroughs
 ```
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/validation-evidence` regression test preserves a nine-module, ten-model report that
+claimed readiness despite failed and missing checks. It generates synthetic logs in a temporary
+directory, and tests command capture, run isolation, process coverage, and timer safety.
+The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment patterns
+against the executable JAR. The `fixtures/start-event-listener-artifact` walkthrough checks a
+selected converter JAR against start-listener findings and a no-listener control.
+The `fixtures/spring-boot-web-topology` walkthrough checks an application on
+port `8081` while its Camunda 8 cluster uses port `8080`. It tests application
+health, process start through an application endpoint, and the absence of the
+old Camunda 7 Engine REST route.
+The `fixtures/conditional-events` walkthrough covers M2 conditional-event IDs,
+BPMN DI preservation, and a Camunda 8.9+ runtime check.
 The `skills/migrate-c7-to-c8-code/references/project-readiness.md` guide covers
 project documentation, CI checks, and readiness reporting.
 The `fixtures/project-readiness` walkthrough checks in-scope documentation,
@@ -217,6 +256,12 @@ The `fixtures/worker-input-bindings` fixture tests explicit single-variable
 bindings and complete-map access without retained Java parameter names.
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
+The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture
+checks that a compatible active library under an `org.camunda.bpm` group
+survives migration. Its tests cover both synthetic license types and the
+downstream membership update. Its blocked-case report shows the blocked finding
+and manual follow-up required when the project owner has not approved a
+replacement.
 
 ## License
 

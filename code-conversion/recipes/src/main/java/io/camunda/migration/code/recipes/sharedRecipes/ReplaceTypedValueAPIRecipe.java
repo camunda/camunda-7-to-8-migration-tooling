@@ -20,6 +20,8 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 
 public class ReplaceTypedValueAPIRecipe extends Recipe {
+  private static final String OBJECT_VALUE_FQN =
+      "org.camunda.bpm.engine.variable.value.ObjectValue";
 
   /** Instantiates a new instance. */
   public ReplaceTypedValueAPIRecipe() {}
@@ -230,10 +232,23 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           public J visitVariableDeclarations(
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
+            if (declarations.getVariables().size() != 1) {
+              return preserveObjectValues(declarations);
+            }
+
             // Analyze first variable
             J.VariableDeclarations.NamedVariable firstVar = declarations.getVariables().get(0);
             J.Identifier originalName = firstVar.getName();
-            Expression originalInitializer = firstVar.getInitializer();
+            Expression originalInitializer = unwrapParentheses(firstVar.getInitializer());
+            // A declaration without a value might later receive a builder we cannot unwrap.
+            Object declarationParent = getCursor().getParentTreeCursor().getValue();
+            if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
+                && ((originalInitializer == null
+                        && (declarationParent instanceof J.Block
+                            || declarationParent instanceof J.ForLoop.Control))
+                    || isReassigned(originalName))) {
+              return preserveObjectValues(declarations);
+            }
 
             // work with initializer that is a method invocation
             if (originalInitializer instanceof J.MethodInvocation invocation) {
@@ -244,6 +259,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 // if match is found for the invocation, check returnTypeFqn to adjust variable
                 // declaration type
                 if (spec.matcher().matches(invocation)) {
+                  if (spec instanceof ReplacementUtils.BuilderReplacementSpec
+                      && (hasUnsupportedSerializationDataFormat(invocation)
+                          || isFieldDeclaration()
+                          || isReassigned(originalName))) {
+                    return preserveObjectValues(declarations);
+                  }
 
                   // get modifiers
                   List<J.Modifier> modifiers = declarations.getModifiers();
@@ -460,9 +481,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               if (newFqn != null) {
 
                 // record fqn of identifier for later uses
-                getCursor()
-                    .dropParentUntil(parent -> parent instanceof J.Block)
-                    .putMessage(originalName.toString(), newFqn);
+                declarationScope().putMessage(originalName.toString(), newFqn);
 
                 maybeRemoveImport(declarations.getTypeAsFullyQualified());
 
@@ -483,12 +502,28 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
 
-            if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
+            Expression assignmentValue = assignment.getAssignment();
+            Expression unwrappedAssignmentValue = unwrapParentheses(assignmentValue);
+            if (!(unwrappedAssignmentValue instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
-            if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
+            if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
+              if (isBuilderInvocation(invocation)) {
+                return assignment;
+              }
               return super.visitAssignment(assignment, ctx);
+            }
+
+            String rewrittenType = getCursor().getNearestMessage(originalName.getSimpleName());
+            if (TypeUtils.isOfClassType(originalName.getType(), OBJECT_VALUE_FQN)
+                && (rewrittenType == null || OBJECT_VALUE_FQN.equals(rewrittenType))) {
+              return assignment;
+            }
+
+            if (isBuilderInvocation(invocation)
+                && hasUnsupportedSerializationDataFormat(invocation)) {
+              return assignment;
             }
 
             if (new MethodMatcher(
@@ -520,7 +555,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
                             originalName.getSimpleName() + " = #{any()}", spec.returnTypeFqn())
-                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+                        .apply(getCursor(), assignment.getCoordinates().replace(), assignmentValue);
 
                 modifiedAssignment =
                     modifiedAssignment.withVariable(
@@ -600,12 +635,19 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
+                if (!canUnwrapBuilder(invocation)) {
+                  return super.visitMethodInvocation(invocation, ctx);
+                }
                 Map<String, Expression> collectedArgs = new HashMap<>();
                 Expression current = invocation.getSelect();
 
                 // extract arguments
                 while (current instanceof J.MethodInvocation mi) {
                   String name = mi.getSimpleName();
+                  if (isJsonSerializationDataFormat(mi)) {
+                    current = mi.getSelect();
+                    continue;
+                  }
                   if (!mi.getArguments().isEmpty()
                       && !(mi.getArguments().get(0) instanceof J.Empty)) {
                     collectedArgs.put(name, mi.getArguments().get(0));
@@ -723,6 +765,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
               // get returnTypeFqn from cursor message
               String returnTypeFqn = getCursor().getNearestMessage(select.getSimpleName());
+              if (returnTypeFqn == null || OBJECT_VALUE_FQN.equals(returnTypeFqn)) {
+                return super.visitMethodInvocation(invocation, ctx);
+              }
 
               return RecipeUtils.createSimpleJavaTemplate("#{any()}")
                   .apply(
@@ -747,9 +792,144 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return super.visitMethodInvocation(invocation, ctx);
           }
 
+          private boolean isJsonSerializationDataFormat(J.MethodInvocation invocation) {
+            if (!invocation.getSimpleName().equals("serializationDataFormat")
+                || invocation.getArguments().size() != 1) {
+              return false;
+            }
+
+            Expression format = invocation.getArguments().get(0);
+            if (format instanceof J.Literal literal
+                && literal.getValue() instanceof String value) {
+              return value.equalsIgnoreCase("application/json");
+            }
+
+            if (format instanceof J.FieldAccess fieldAccess) {
+              return isSerializationDataFormatsJson(fieldAccess.getName());
+            }
+
+            return format instanceof J.Identifier identifier
+                && isSerializationDataFormatsJson(identifier);
+          }
+
+          private boolean hasUnsupportedSerializationDataFormat(
+              J.MethodInvocation invocation) {
+            Expression current = invocation;
+            while (current instanceof J.MethodInvocation methodInvocation) {
+              if (methodInvocation.getSimpleName().equals("serializationDataFormat")
+                  && !isJsonSerializationDataFormat(methodInvocation)) {
+                return true;
+              }
+              current = methodInvocation.getSelect();
+            }
+            return false;
+          }
+
+          private boolean isBuilderInvocation(J.MethodInvocation invocation) {
+            return builderMethodInvocations.stream()
+                .anyMatch(spec -> spec.matcher().matches(invocation));
+          }
+
+          private boolean canUnwrapBuilder(J.MethodInvocation invocation) {
+            if (getCursor().firstEnclosing(J.Ternary.class) != null
+                || getCursor().firstEnclosing(J.SwitchExpression.class) != null) {
+              return false;
+            }
+            Cursor parent = getCursor().getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>) {
+              parent = parent.getParentTreeCursor();
+            }
+            if (parent.getValue() instanceof J.VariableDeclarations.NamedVariable
+                || parent.getValue() instanceof J.Assignment) {
+              return getCursor().getNearestMessage(invocation.getId().toString()) != null;
+            }
+            if (!(parent.getValue() instanceof J.MethodInvocation call)
+                || call.getSelect() == invocation
+                || call.getMethodType() == null
+                || (call.getSelect() != null
+                    && call.getSelect().getType() instanceof JavaType.Parameterized receiver
+                    && receiver.getTypeParameters().stream().anyMatch(this::isLegacyTypedValue))) {
+              return false;
+            }
+            List<JavaType> parameterTypes = call.getMethodType().getParameterTypes();
+            for (int i = 0; i < call.getArguments().size() && i < parameterTypes.size(); i++) {
+              if (unwrapParentheses(call.getArguments().get(i)) == invocation) {
+                return TypeUtils.isOfClassType(parameterTypes.get(i), "java.lang.Object");
+              }
+            }
+            return false;
+          }
+
+          private boolean isLegacyTypedValue(JavaType type) {
+            return TypeUtils.isOfClassType(type, OBJECT_VALUE_FQN)
+                || TypeUtils.isOfClassType(
+                    type, "org.camunda.bpm.engine.variable.value.TypedValue");
+          }
+
+          private boolean isFieldDeclaration() {
+            Object parent = getCursor().getParentTreeCursor().getParentTreeCursor().getValue();
+            return parent instanceof J.ClassDeclaration || parent instanceof J.NewClass;
+          }
+
+          private J.VariableDeclarations preserveObjectValues(J.VariableDeclarations declarations) {
+            if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
+              // Shadow messages from converted fields when a local or parameter stays ObjectValue.
+              Cursor scope = declarationScope();
+              for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
+                scope.putMessage(variable.getSimpleName(), OBJECT_VALUE_FQN);
+              }
+            }
+            return declarations;
+          }
+
+          private Cursor declarationScope() {
+            return getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration
+                ? getCursor().dropParentUntil(parent -> parent instanceof J.MethodDeclaration)
+                : getCursor().dropParentUntil(parent -> parent instanceof J.Block);
+          }
+
+          private boolean isReassigned(J.Identifier variable) {
+            J.Block block =
+                getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration method
+                    ? method.getBody()
+                    : getCursor().firstEnclosing(J.Block.class);
+            if (block == null) {
+              return false;
+            }
+            Set<String> assigned = new HashSet<>();
+            new JavaIsoVisitor<Set<String>>() {
+              @Override
+              public J.Assignment visitAssignment(J.Assignment assignment, Set<String> names) {
+                Expression target = unwrapParentheses(assignment.getVariable());
+                if (target instanceof J.Identifier identifier) {
+                  names.add(identifier.getSimpleName());
+                }
+                return super.visitAssignment(assignment, names);
+              }
+            }.visit(block, assigned);
+            return assigned.contains(variable.getSimpleName());
+          }
+
+          private boolean isSerializationDataFormatsJson(J.Identifier identifier) {
+            if (!identifier.getSimpleName().equals("JSON")) {
+              return false;
+            }
+
+            JavaType.Variable fieldType = identifier.getFieldType();
+            return fieldType != null
+                && fieldType.getOwner() instanceof JavaType.FullyQualified owner
+                && owner
+                    .getFullyQualifiedName()
+                    .equals(
+                        "org.camunda.bpm.engine.variable.Variables$SerializationDataFormats");
+          }
+
           @Override
           public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
-
+            if (OBJECT_VALUE_FQN.equals(
+                getCursor().getNearestMessage(identifier.getSimpleName()))) {
+              return identifier;
+            }
             return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);
           }
 
@@ -767,6 +947,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             return maybeInlineBlock(bl, ctx);
+          }
+
+          private Expression unwrapParentheses(Expression expression) {
+            while (expression instanceof J.Parentheses<?> parentheses
+                && parentheses.getTree() instanceof Expression nested) {
+              expression = nested;
+            }
+            return expression;
           }
 
           private J.Block maybeInlineBlock(J.Block block, ExecutionContext ctx) {
