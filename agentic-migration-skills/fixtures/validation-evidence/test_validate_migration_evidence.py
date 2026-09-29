@@ -552,6 +552,42 @@ class ValidationEvidenceTest(unittest.TestCase):
         latest_call = next(hit for hit in callers if hit["process_id"] == "Latest")
         self.assertEqual("latest_version", latest_call["version_selection"])
 
+    def test_caller_scan_ignores_method_declarations_and_keeps_real_calls(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            "class ProcessCaller {\n"
+            "  void startProcessInstanceByKey(String key) {\n"
+            '    runtimeService.startProcessInstanceByKey("Sample");\n'
+            "  }\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        typescript_caller = self.root / "modules/c7-client/src/main/typescript/ProcessCaller.ts"
+        typescript_caller.parent.mkdir(parents=True, exist_ok=True)
+        typescript_caller.write_text(
+            "class ProcessCaller {\n"
+            "  startProcessInstanceByKey(key: string): void {\n"
+            '    runtimeService.startProcessInstanceByKey("Sample");\n'
+            "  }\n"
+            "}\n",
+            encoding="utf-8",
+        )
+
+        _, _, callers, _, issues = gate.scan_module_sources(
+            self.root,
+            "modules/c7-client",
+        )
+        self.assertEqual([], issues)
+        self.assertEqual(
+            [
+                ("Sample", "startProcessInstanceByKey"),
+                ("Sample", "startProcessInstanceByKey"),
+            ],
+            [(hit["process_id"], hit["operation"]) for hit in callers],
+        )
+
     def test_interpolated_process_calls_fail_closed(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/python/Caller.py"
@@ -628,6 +664,67 @@ class ValidationEvidenceTest(unittest.TestCase):
             {},
             issues,
         )
+        self.assertEqual([], issues)
+
+    def test_caller_inventory_rejects_records_without_detected_source_sites(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/Unrelated.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text("int count = 1;\n", encoding="utf-8")
+        plan = gate.requirements(self.root, self.plan)
+        issues = []
+
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {
+                "caller_inventory": [
+                    {
+                        "module": "modules/c7-client",
+                        "location": "modules/c7-client/src/main/java/Unrelated.java:1",
+                        "process_id": "Sample",
+                        "operation": "startProcessInstanceByKey",
+                        "version_selection": "explicit_version",
+                    }
+                ]
+            },
+            {},
+            issues,
+        )
+
+        self.assertTrue(
+            any("no detected process call or standalone latestVersion site" in issue for issue in issues),
+            issues,
+        )
+
+    def test_caller_inventory_accepts_detected_standalone_latest_version_sites(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/LatestVersion.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text("legacyClient.latestVersion();\n", encoding="utf-8")
+        plan = gate.requirements(self.root, self.plan)
+        issues = []
+
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {
+                "caller_inventory": [
+                    {
+                        "module": "modules/c7-client",
+                        "location": "modules/c7-client/src/main/java/LatestVersion.java:1",
+                        "process_id": "Sample",
+                        "operation": "other",
+                        "version_selection": "latest_version",
+                    }
+                ]
+            },
+            {},
+            issues,
+        )
+
         self.assertEqual([], issues)
 
     def test_constant_backed_process_callers_can_be_resolved_but_dynamic_callers_cannot(self):
@@ -1066,18 +1163,75 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual(1, self.audit())
         self.assertIn("remains blocked", "\n".join(self.summary()["issues"]))
 
-    def test_active_timer_decision_rejects_punctuation_only_references(self):
+    def test_active_timer_decision_requires_concrete_camunda_8_target_versions(self):
         decision = {
             "status": "approved",
             "approval_reference": "fixture-approval",
             "alternative_evidence_reference": "fixture-support",
             "target_version": "8.9.21",
         }
+        self.assertTrue(gate.active_timer_decision_is_approved(decision))
+        for target_version in (
+            "pending", "TBD", "8.x.y", "8.9", "8.9.21-pending", "9.0.0",
+        ):
+            with self.subTest(target_version=target_version):
+                invalid = {**decision, "target_version": target_version}
+                self.assertFalse(gate.active_timer_decision_is_approved(invalid))
+        self.assertFalse(gate.active_timer_decision_is_approved(decision, "pending"))
         for field in ("approval_reference", "alternative_evidence_reference"):
             with self.subTest(field=field):
                 invalid = dict(decision)
                 invalid[field] = "---"
                 self.assertFalse(gate.active_timer_decision_is_approved(invalid))
+
+    def test_placeholder_active_timer_target_version_cannot_authorize_runtime_command(self):
+        self.add_active_timer_model()
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, firstDate);\n"
+            "managementService.setJobDuedate(timerId, secondDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "fixture-active-timer-approval",
+            "alternative_evidence_reference": "fixture-active-timer-support",
+            "target_version": "pending",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+
+        review = ("module", "app", "active_timer_updates", None)
+        with self.assertRaisesRegex(gate.EvidenceError, "approved project decision"):
+            self.submit(
+                review,
+                action="review",
+                disposition="verified",
+                affected_timers_json=json.dumps(self.affected_timer_inventory()),
+                note="A placeholder target version cannot approve the alternative.",
+            )
+
+        marker = self.root / "active-timer-runtime-ran"
+        runtime = ("module", "app", "active_timer_update_runtime", None)
+        with self.assertRaisesRegex(gate.EvidenceError, "Review and approve"):
+            self.submit(
+                runtime,
+                environment="local",
+                target_version="pending",
+                target_disposable=True,
+                cleanup_plan="Remove the test deployment and generated instances.",
+                command=[
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; Path('active-timer-runtime-ran').touch()",
+                ],
+                active_timer_update_observation_json=json.dumps(
+                    self.active_timer_observation()
+                ),
+            )
+        self.assertFalse(marker.exists())
 
     def test_active_timer_runtime_requires_observation_and_completed_cleanup(self):
         self.add_active_timer_model()
@@ -1404,6 +1558,12 @@ class ValidationEvidenceTest(unittest.TestCase):
         }
         with self.assertRaisesRegex(gate.EvidenceError, "timer observation"):
             self.submit(preflight, **common)
+        with self.assertRaisesRegex(gate.EvidenceError, "concrete Camunda 8 target version"):
+            self.submit(
+                preflight,
+                **{**common, "target_version": "pending"},
+                timer_observation_json=json.dumps(self.timer_observation(preflight)),
+            )
         invalid = self.timer_observation(preflight)
         invalid["cleanup"]["completed"] = False
         with self.assertRaisesRegex(gate.EvidenceError, "cleanup completed"):

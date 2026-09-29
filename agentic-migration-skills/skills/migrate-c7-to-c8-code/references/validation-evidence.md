@@ -96,6 +96,9 @@ The deployment-set `preflight` review needs a complete caller inventory. The mod
 Each caller record includes its module, project-relative source location with line number, process
 ID, operation, and version selection. Use operation `startProcessInstanceByKey`,
 `createProcessInstanceByKey`, `bpmnProcessId`, or `other`.
+Every record must match a detected process-call site or a detected standalone `.latestVersion()`
+site; standalone sites use operation `other`. Method declarations are not caller sites, and a
+record at an unrelated source line cannot satisfy a duplicate-ID decision.
 For each deployment set, include detected calls that target process IDs in that set.
 Do not list calls to process IDs in another set. Resolve a simple identifier or member expression
 with a concrete process ID and version selection at the same location and operation.
@@ -132,6 +135,8 @@ Do not guess a C8 replacement or use a no-op, fake, or throwing placeholder.
 | Approved status, concrete decision and alternative evidence references, and target version | Require a verified review and later runtime check. |
 | Missing, pending, unresolved, or placeholder value | Keep the finding blocked and the gate `NOT READY`. |
 
+The target version must be a concrete Camunda 8 release in `8.<minor>.<patch>` format, such as
+`8.9.21`. Placeholders, pre-release labels, and other major versions are not accepted.
 The top-level `active_timer_update_decision` object stores this decision. The review log snapshots
 it. The runtime check must follow the review.
 The runtime check must match the decision snapshot and target version.
@@ -304,6 +309,8 @@ preflight on an explicitly disposable local or non-production target. Add these 
 - `--environment local` or `--environment non-production`
 - `--timer-observation-json '<JSON object>'`
 
+The selected target version must be a concrete Camunda 8 release in `8.<minor>.<patch>` format,
+such as `8.9.21`. Placeholders, pre-release labels, and other major versions are rejected.
 A successful command and a cleanup plan alone cannot pass the preflight. The JSON object must record:
 
 | Object | Required evidence |

@@ -72,6 +72,15 @@ PROCESS_CALL = re.compile(r"\b(startProcessInstanceByKey|createProcessInstanceBy
 PROCESS_REFERENCE = re.compile(
     r"::\s*(startProcessInstanceByKey|createProcessInstanceByKey|bpmnProcessId)\b"
 )
+CAMUNDA_TARGET_VERSION = re.compile(r"8\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
+JAVA_METHOD_RETURN_TYPE = re.compile(
+    r"(?:void|boolean|byte|short|int|long|char|float|double|"
+    r"(?:[A-Za-z_$][A-Za-z0-9_$]*\s*\.\s*)*[A-Za-z_$][A-Za-z0-9_$]*"
+    r"(?:\s*<[^;{}()]*>)?(?:\s*\[\])*)"
+)
+JAVA_METHOD_DECLARATION_TAIL = re.compile(
+    r"\s*(?:throws\s+[A-Za-z_$][A-Za-z0-9_$.,<>\s\[\]]*)?\s*(?:\{|;)"
+)
 INTERPOLATED_SOURCE_CALL = re.compile(
     r"\b(?:startProcessInstanceByKey|createProcessInstanceByKey|bpmnProcessId|"
     r"latestVersion|setJobDuedate)\b"
@@ -526,6 +535,67 @@ def process_call_version(text, call_end, operation):
     return "unknown", "dynamic"
 
 
+def is_process_method_declaration(text, match, call_end, source_suffix):
+    prefix_start = max(
+        text.rfind(delimiter, 0, match.start())
+        for delimiter in (";", "{", "}")
+    )
+    prefix = text[prefix_start + 1:match.start()]
+    tail = text[call_end:]
+
+    if source_suffix in (".java", ".groovy", ".gradle"):
+        prefix = re.sub(
+            r"@[A-Za-z_$][A-Za-z0-9_$.]*(?:\s*\([^()]*\))?",
+            " ",
+            prefix,
+        ).strip()
+        prefix = re.sub(
+            r"^(?:(?:public|protected|private|abstract|static|final|native|"
+            r"synchronized|default|strictfp|override|open|internal)\s+)*",
+            "",
+            prefix,
+        )
+        prefix = re.sub(r"^<[^;{}()]+>\s*", "", prefix)
+        return (
+            prefix not in {
+                "return", "throw", "new", "if", "while", "for", "switch",
+                "case", "else", "try", "catch", "finally", "assert", "yield",
+            }
+            and JAVA_METHOD_RETURN_TYPE.fullmatch(prefix) is not None
+            and JAVA_METHOD_DECLARATION_TAIL.match(tail) is not None
+        )
+    if source_suffix in (".js", ".jsx", ".ts", ".tsx"):
+        modifiers = {
+            "abstract", "async", "declare", "default", "function", "override",
+            "private", "protected", "public", "readonly", "static",
+        }
+        return (
+            all(token in modifiers for token in prefix.split())
+            and re.match(r"\s*(?::\s*[^;{}\n]+)?\s*\{", tail) is not None
+        )
+    if source_suffix in (".kt", ".kts"):
+        return (
+            re.search(r"\bfun(?:\s*<[^>]+>)?\s*$", prefix.strip()) is not None
+            and re.match(r"\s*(?::\s*[^={}\n]+)?\s*(?:\{|=)", tail) is not None
+        )
+    if source_suffix == ".scala":
+        return (
+            re.search(r"\bdef(?:\s+\[[^\]]+\])?\s*$", prefix.strip()) is not None
+            and re.match(r"\s*(?::\s*[^{}\n=]+)?\s*(?:=|\{)", tail) is not None
+        )
+    if source_suffix == ".py":
+        return (
+            re.search(r"\b(?:async\s+)?def\s*$", prefix.strip()) is not None
+            and re.match(r"\s*(?:->\s*[^:\n]+)?\s*:", tail) is not None
+        )
+    if source_suffix == ".sh":
+        return (
+            prefix.strip() in ("", "function")
+            and re.match(r"\s*\{", tail) is not None
+        )
+    return False
+
+
 def scan_module_sources(root, module):
     updates = []
     latest_versions = []
@@ -600,6 +670,13 @@ def scan_module_sources(root, module):
                 for match in PROCESS_CALL.finditer(code_text):
                     operation = match.group(1)
                     argument, call_end = parse_process_call(text, match)
+                    if is_process_method_declaration(
+                        code_text,
+                        match,
+                        call_end,
+                        path.suffix.lower(),
+                    ):
+                        continue
                     process_id = static_string_value(argument)
                     if not isinstance(process_id, str) or not process_id:
                         process_id = "unknown"
@@ -817,12 +894,21 @@ def active_timer_decision_is_approved(decision, target_version=None):
         and decision.get("status") == "approved"
         and concrete_reference(decision.get("approval_reference"))
         and concrete_reference(decision.get("alternative_evidence_reference"))
-        and isinstance(decision.get("target_version"), str)
-        and bool(decision["target_version"].strip())
+        and is_camunda_target_version(decision.get("target_version"))
         and (
             target_version is None
-            or decision["target_version"] == target_version
+            or (
+                is_camunda_target_version(target_version)
+                and decision["target_version"] == target_version
+            )
         )
+    )
+
+
+def is_camunda_target_version(value):
+    return (
+        isinstance(value, str)
+        and CAMUNDA_TARGET_VERSION.fullmatch(value) is not None
     )
 
 
@@ -849,11 +935,13 @@ def validate_timer_observation(
     ):
         raise EvidenceError("Timer observation must identify the disposable local or non-production target")
     if (
-        not isinstance(target_version, str)
-        or not target_version.strip()
+        not is_camunda_target_version(target_version)
         or deployment.get("target_version") != target_version
     ):
-        raise EvidenceError("Timer observation target version must match the selected target")
+        raise EvidenceError(
+            "Timer observation target version must be a concrete Camunda 8 version "
+            "and match the selected target"
+        )
     if not isinstance(cleanup_plan, str) or not cleanup_plan.strip():
         raise EvidenceError("Timer preflight needs a cleanup plan")
 
@@ -1572,8 +1660,10 @@ def load_checks(root, evidence, allowed, issues):
                     or not check["cleanup_plan"].strip()
                 ):
                     raise EvidenceError(f"{key}: timer preflight needs an explicitly disposable target and cleanup plan")
-                if not isinstance(check.get("target_version"), str) or not check["target_version"].strip():
-                    raise EvidenceError(f"{key}: timer preflight needs the target Camunda version")
+                if not is_camunda_target_version(check.get("target_version")):
+                    raise EvidenceError(
+                        f"{key}: timer preflight needs a concrete Camunda 8 target version"
+                    )
             if needs_safe_environment(key) and result == "passed":
                 if check.get("environment") not in SAFE_ENVIRONMENTS:
                     raise EvidenceError(f"{key}: production or unknown runtime target")
@@ -1584,8 +1674,10 @@ def load_checks(root, evidence, allowed, issues):
                         or not check["cleanup_plan"].strip()
                     ):
                         raise EvidenceError(f"{key}: active timer validation needs a disposable target and cleanup plan")
-                    if not isinstance(check.get("target_version"), str) or not check["target_version"].strip():
-                        raise EvidenceError(f"{key}: active timer validation needs the target Camunda version")
+                    if not is_camunda_target_version(check.get("target_version")):
+                        raise EvidenceError(
+                            f"{key}: active timer validation needs a concrete Camunda 8 target version"
+                        )
                     validate_active_timer_update_observation(
                         check.get("active_timer_update_observation"),
                         check.get(
@@ -1743,6 +1835,23 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
         if isinstance(mapping, dict)
         and isinstance(mapping.get("to_process_id"), str)
     }
+    detected_process_sites = set()
+    standalone_latest_version_sites = set()
+    for module in entry["modules"]:
+        detected_callers = deployment_set_callers(plan, name, module)
+        detected_process_sites.update(
+            (hit["module"], hit["location"], hit["operation"])
+            for hit in detected_callers
+        )
+        process_locations = {
+            (hit["module"], hit["location"])
+            for hit in detected_callers
+        }
+        standalone_latest_version_sites.update(
+            (module, hit["location"])
+            for hit in deployment_set_latest_version_calls(plan, name, module)
+            if (module, hit["location"]) not in process_locations
+        )
     records_by_site = {}
     for index, caller in enumerate(validated):
         site = (caller["module"], caller["location"], caller["operation"])
@@ -1773,10 +1882,6 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
                 issues.append(
                     f"{name}: caller names an unknown process ID {caller['process_id']}"
                 )
-    listed_locations = {
-        (caller["module"], caller["location"], caller["version_selection"])
-        for caller in validated
-    }
     listed_callers = {
         (
             caller["module"],
@@ -1858,9 +1963,50 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
                 continue
             matched_records.add(index)
         for hit in deployment_set_latest_version_calls(plan, name, module):
-            identity = (module, hit["location"], "latest_version")
-            if identity not in listed_locations:
-                issues.append(f"{name}: latestVersion caller is missing from the inventory: {hit['location']}")
+            chained_call_records = [
+                index
+                for index, caller in enumerate(validated)
+                if index in matched_records
+                and caller["module"] == module
+                and caller["location"] == hit["location"]
+                and caller["operation"] != "other"
+                and caller["version_selection"] == "latest_version"
+            ]
+            if chained_call_records:
+                continue
+            matching_records = [
+                index
+                for index, caller in enumerate(validated)
+                if index not in matched_records
+                and caller["module"] == module
+                and caller["location"] == hit["location"]
+                and caller["operation"] == "other"
+                and caller["version_selection"] == "latest_version"
+            ]
+            if not matching_records:
+                issues.append(
+                    f"{name}: latestVersion caller is missing from the inventory: "
+                    f"{hit['location']}"
+                )
+            elif len(matching_records) != 1:
+                issues.append(
+                    f"{name}: standalone latestVersion needs one matching inventory record "
+                    f"at {hit['location']}"
+                )
+            else:
+                matched_records.add(matching_records[0])
+    for caller in validated:
+        site = (caller["module"], caller["location"], caller["operation"])
+        if site not in detected_process_sites and not (
+            caller["operation"] == "other"
+            and caller["version_selection"] == "latest_version"
+            and (caller["module"], caller["location"])
+            in standalone_latest_version_sites
+        ):
+            issues.append(
+                f"{name}: caller inventory record has no detected process call or standalone "
+                f"latestVersion site at {caller['location']}"
+            )
     return validated
 
 
@@ -2340,8 +2486,10 @@ def record(root, args):
             raise EvidenceError("Timer preflight needs a local or non-production target")
         if not args.target_disposable or not args.cleanup_plan:
             raise EvidenceError("Timer preflight needs an explicitly disposable target and cleanup plan")
-        if not args.target_version:
-            raise EvidenceError("Timer preflight needs the target Camunda version")
+        if not is_camunda_target_version(args.target_version):
+            raise EvidenceError(
+                "Timer preflight needs a concrete Camunda 8 target version"
+            )
     elif args.action == "run" and needs_safe_environment(key):
         if args.environment not in SAFE_ENVIRONMENTS:
             raise EvidenceError("Runtime and deployment checks require a local or non-production target")
@@ -2379,8 +2527,10 @@ def record(root, args):
             raise EvidenceError("Review and approve the active timer alternative before runtime validation")
         if not args.target_disposable or not args.cleanup_plan:
             raise EvidenceError("Active timer validation needs an explicitly disposable target and cleanup plan")
-        if not args.target_version:
-            raise EvidenceError("Active timer validation needs the target Camunda version")
+        if not is_camunda_target_version(args.target_version):
+            raise EvidenceError(
+                "Active timer validation needs a concrete Camunda 8 target version"
+            )
         active_timer_update_inventory = normalize_affected_timer_inventory(
             inventory[1].get("active_timer_update_inventory"),
             active_timer_update_active_hits,

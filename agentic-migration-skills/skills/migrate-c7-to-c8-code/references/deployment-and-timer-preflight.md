@@ -64,6 +64,9 @@ Record every caller of a duplicate ID and its version selection.
 
 Each caller record names its module, source location with line number, process ID, operation, and
 version selection. An explicit-version decision needs at least one matching caller record.
+Every record must match a detected process-call site or a detected standalone `.latestVersion()`
+site; standalone sites use operation `other`. Method declarations and unrelated source lines do not
+count as callers.
 A mapped rename needs every old-ID caller updated, even after the converted copies no longer collide.
 The source collision remains in the deployment inventory until the mapping and caller changes pass.
 A preflight record also becomes stale when its source or
@@ -133,6 +136,8 @@ module. A timer from an unrelated set cannot satisfy the inventory.
 | Approved status, concrete approval and alternative evidence references, target version | Require a passing review and later runtime check. |
 | Missing, pending, unresolved, or placeholder evidence | Keep the active-timer finding blocked and readiness `NOT READY`. |
 
+The target version must be a concrete Camunda 8 release in `8.<minor>.<patch>` format, such as
+`8.9.21`. Placeholders, pre-release labels, and other major versions do not count as approval.
 The top-level `active_timer_update_decision` object holds this decision. The review records a
 snapshot of it. The runtime check must follow the review and use the same target version. This
 repository has no approved C8 alternative. Keep its decision unresolved.
