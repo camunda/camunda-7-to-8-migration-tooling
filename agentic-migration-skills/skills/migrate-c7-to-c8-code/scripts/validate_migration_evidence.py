@@ -55,7 +55,17 @@ SLASH_COMMENT_SUFFIXES = {
 }
 DUE_DATE_METHOD = re.compile(r"\bsetJobDuedate\b")
 REST_DUE_DATE_UPDATE = re.compile(
-    r"/job/(?:\{[^}]+\}|[^/\s\"'?]+)/duedate(?:/recalculate)?"
+    r"""/job/(?:\{[^}]+\}|[^/\s"'?]+)/duedate(?:/recalculate)?""",
+    re.IGNORECASE,
+)
+REST_DUE_DATE_CONCAT = re.compile(
+    r"""["'`]/job/["'`]\s*\+\s*[^;{}]+?\s*\+\s*["'`]/duedate(?:/recalculate)?""",
+    re.IGNORECASE | re.DOTALL,
+)
+REST_DUE_DATE_PATH_SEGMENTS = re.compile(
+    r"""(?:pathSegment|pathSegments|addPathSegment|addPathSegments)\s*"""
+    r"""\([^;{}]*?["'`]job["'`][^;{}]*?["'`]duedate(?:/recalculate)?["'`]""",
+    re.IGNORECASE | re.DOTALL,
 )
 LATEST_VERSION = re.compile(r"\.\s*latestVersion\s*\(")
 PROCESS_CALL = re.compile(r"\b(startProcessInstanceByKey|createProcessInstanceByKey|bpmnProcessId)\s*\(")
@@ -91,6 +101,7 @@ class ValidationPlan:
     allowed: set
     timers: dict
     timer_inventory: dict
+    timer_elements_by_model: dict
     docker_suites: dict
     deployment_sets: dict
     models_by_path: dict
@@ -441,6 +452,22 @@ def parse_process_call(text, match):
     return None, len(text)
 
 
+def static_string_value(expression):
+    if not isinstance(expression, str):
+        return None
+    expression = expression.strip()
+    if len(expression) >= 2 and expression[0] == "`" and expression[-1] == "`":
+        value = expression[1:-1]
+        if "${" in value or "\\" in value:
+            return None
+        return value
+    try:
+        value = ast.literal_eval(expression)
+    except (SyntaxError, ValueError):
+        return None
+    return value if isinstance(value, str) else None
+
+
 def matching_parenthesis_end(text, opening):
     depth = 0
     for index in range(opening, len(text)):
@@ -553,10 +580,7 @@ def scan_module_sources(root, module):
                 for match in PROCESS_CALL.finditer(code_text):
                     operation = match.group(1)
                     argument, call_end = parse_process_call(text, match)
-                    try:
-                        process_id = ast.literal_eval(argument) if argument is not None else None
-                    except (SyntaxError, ValueError):
-                        process_id = None
+                    process_id = static_string_value(argument)
                     if not isinstance(process_id, str) or not process_id:
                         process_id = "unknown"
                     line_number = code_text.count("\n", 0, match.start()) + 1
@@ -578,7 +602,15 @@ def scan_module_sources(root, module):
                         "operation": match.group(1),
                         "version_selection": "unknown",
                     })
-            for match in REST_DUE_DATE_UPDATE.finditer(comment_free_text):
+            rest_matches = {}
+            for pattern in (
+                REST_DUE_DATE_UPDATE,
+                REST_DUE_DATE_CONCAT,
+                REST_DUE_DATE_PATH_SEGMENTS,
+            ):
+                for match in pattern.finditer(comment_free_text):
+                    rest_matches[(match.start(), match.end())] = match
+            for match in sorted(rest_matches.values(), key=lambda item: item.start()):
                 line_number = comment_free_text.count("\n", 0, match.start()) + 1
                 updates.append({
                     "location": f"{relative}:{line_number}",
@@ -592,7 +624,7 @@ def repeating_starts(document):
     issues = []
     for process in document.findall(f"{BPMN}process"):
         process_id = process.get("id")
-        for start in process.iter(f"{BPMN}startEvent"):
+        for start in process.findall(f"{BPMN}startEvent"):
             cycle = start.find(f"{BPMN}timerEventDefinition/{BPMN}timeCycle")
             if cycle is None:
                 continue
@@ -606,6 +638,34 @@ def repeating_starts(document):
                 continue
             starts[key] = "".join(cycle.itertext()).strip()
     return starts, issues
+
+
+def timer_elements(document):
+    elements = set()
+    issues = []
+    event_types = {
+        f"{BPMN}startEvent",
+        f"{BPMN}intermediateCatchEvent",
+        f"{BPMN}boundaryEvent",
+    }
+    for process in document.findall(f"{BPMN}process"):
+        process_id = process.get("id")
+        for event in process.iter():
+            if (
+                event.tag not in event_types
+                or event.find(f"{BPMN}timerEventDefinition") is None
+            ):
+                continue
+            timer_id = event.get("id")
+            if not process_id or not timer_id:
+                issues.append("Timer event lacks a process or element ID")
+                continue
+            key = (process_id, timer_id)
+            if key in elements:
+                issues.append(f"Timer event is duplicated: {process_id}#{timer_id}")
+                continue
+            elements.add(key)
+    return elements, issues
 
 
 def cycle_details(expression):
@@ -756,9 +816,73 @@ def validate_timer_observation(
         raise EvidenceError("Timer observation needs a cleanup evidence reference")
 
 
+def normalize_affected_timer_inventory(inventory, hits, timer_elements_by_model=None):
+    if not isinstance(inventory, list):
+        raise EvidenceError("Active timer review needs a machine-readable affected timer inventory")
+    expected_locations = {hit["location"] for hit in hits}
+    if hits and not inventory:
+        raise EvidenceError("Affected timer inventory must identify every active BPMN timer")
+    if not hits and inventory:
+        raise EvidenceError("Affected timer inventory is unexpected when no updates were detected")
+
+    normalized = []
+    covered_locations = set()
+    seen_timers = set()
+    for timer in inventory:
+        if not isinstance(timer, dict):
+            raise EvidenceError("Affected timer inventory contains an invalid timer record")
+        model_path = timer.get("model_path")
+        process_id = timer.get("process_id")
+        timer_id = timer.get("timer_id")
+        if not all(concrete_reference(value) for value in (model_path, process_id, timer_id)):
+            raise EvidenceError("Affected timer inventory must identify each model, process, and timer")
+        if timer_elements_by_model is not None and (
+            model_path not in timer_elements_by_model
+            or (process_id, timer_id) not in timer_elements_by_model[model_path]
+        ):
+            raise EvidenceError("Affected timer inventory must identify an in-scope BPMN timer")
+        timer_key = (model_path, process_id, timer_id)
+        if timer_key in seen_timers:
+            raise EvidenceError("Affected timer inventory contains a duplicate model process timer")
+        seen_timers.add(timer_key)
+        try:
+            source_locations = strings(
+                timer.get("source_locations"),
+                "Affected timer source locations",
+            )
+        except EvidenceError as exc:
+            raise EvidenceError(
+                "Affected timer inventory must map every detected update source to a BPMN timer"
+            ) from exc
+        if not source_locations or set(source_locations) - expected_locations:
+            raise EvidenceError(
+                "Affected timer inventory must map every detected update source to a BPMN timer"
+            )
+        covered_locations.update(source_locations)
+        normalized.append({
+            "model_path": model_path,
+            "process_id": process_id,
+            "timer_id": timer_id,
+            "source_locations": sorted(source_locations),
+        })
+    if covered_locations != expected_locations:
+        raise EvidenceError(
+            "Affected timer inventory must map every detected update source to a BPMN timer"
+        )
+    return sorted(
+        normalized,
+        key=lambda timer: (
+            timer["model_path"],
+            timer["process_id"],
+            timer["timer_id"],
+        ),
+    )
+
+
 def validate_active_timer_update_observation(
     observation,
     hits,
+    affected_timer_inventory,
     decision,
     environment,
     target_disposable,
@@ -769,6 +893,13 @@ def validate_active_timer_update_observation(
         raise EvidenceError("Active timer runtime check needs machine-readable observation evidence")
     if not isinstance(hits, list) or not hits:
         raise EvidenceError("Active timer runtime check needs the detected update source inventory")
+    affected_timers = normalize_affected_timer_inventory(affected_timer_inventory, hits)
+    expected_timers = {
+        (timer["model_path"], timer["process_id"], timer["timer_id"]): set(
+            timer["source_locations"]
+        )
+        for timer in affected_timers
+    }
     deployment = observation.get("deployment")
     if not isinstance(deployment, dict) or deployment.get("performed") is not True:
         raise EvidenceError("Active timer observation must prove that deployment was performed")
@@ -792,7 +923,7 @@ def validate_active_timer_update_observation(
     observed = observation.get("observation")
     if not isinstance(observed, dict):
         raise EvidenceError("Active timer observation must identify the timer update behavior")
-    expected_locations = sorted({hit["location"] for hit in hits})
+    expected_locations = {hit["location"] for hit in hits}
     timer_observations = observed.get("timers")
     if (
         not concrete_reference(observed.get("evidence_reference"))
@@ -805,13 +936,18 @@ def validate_active_timer_update_observation(
     for timer in timer_observations:
         if not isinstance(timer, dict):
             raise EvidenceError("Active timer observation contains an invalid timer record")
+        model_path = timer.get("model_path")
         process_id = timer.get("process_id")
         timer_id = timer.get("timer_id")
-        if not concrete_reference(process_id) or not concrete_reference(timer_id):
-            raise EvidenceError("Active timer observation must identify each affected process timer")
-        timer_key = (process_id, timer_id)
+        if not all(concrete_reference(value) for value in (model_path, process_id, timer_id)):
+            raise EvidenceError("Active timer observation must identify each affected model process timer")
+        timer_key = (model_path, process_id, timer_id)
         if timer_key in seen_timers:
-            raise EvidenceError("Active timer observation contains a duplicate process timer")
+            raise EvidenceError("Active timer observation contains a duplicate model process timer")
+        if timer_key not in expected_timers:
+            raise EvidenceError(
+                "Active timer observation does not match the reviewed affected timer inventory"
+            )
         seen_timers.add(timer_key)
         try:
             source_locations = strings(
@@ -822,9 +958,10 @@ def validate_active_timer_update_observation(
             raise EvidenceError(
                 "Active timer observation must cover every detected update source"
             ) from exc
-        if not source_locations or set(source_locations) - set(expected_locations):
+        if not source_locations or set(source_locations) != expected_timers[timer_key]:
             raise EvidenceError(
-                "Active timer observation must cover every detected update source"
+                "Active timer observation must cover every detected update source and match "
+                "the reviewed affected timer inventory"
             )
         covered_locations.update(source_locations)
         if (
@@ -840,10 +977,12 @@ def validate_active_timer_update_observation(
                 "Active timer observation must prove two updates per affected timer, "
                 "no obsolete deadlines, and one final deadline"
             )
-    if covered_locations != set(expected_locations):
+    if (
+        seen_timers != set(expected_timers)
+        or covered_locations != expected_locations
+    ):
         raise EvidenceError(
-            "Active timer observation must cover every detected update source and identify "
-            "each affected process timer"
+            "Active timer observation must match the reviewed affected timer inventory"
         )
 
     cleanup = observation.get("cleanup")
@@ -881,6 +1020,7 @@ def requirements(root, evidence):
     allowed = set()
     timers = {}
     timer_inventory = {}
+    timer_elements_by_model = {}
     issues = []
     deployment_sets = {}
     process_ids_by_set = {}
@@ -1016,6 +1156,8 @@ def requirements(root, evidence):
         process_ids_by_model[converted] = {
             process_id for process_id in all_process_ids if process_id
         }
+        timer_elements_by_model[converted], timer_element_issues = timer_elements(document)
+        issues.extend(f"{converted}: {issue}" for issue in timer_element_issues)
         executable = {
             process.get("id"): process
             for process in all_processes
@@ -1165,6 +1307,7 @@ def requirements(root, evidence):
         allowed=allowed,
         timers=timers,
         timer_inventory=timer_inventory,
+        timer_elements_by_model=timer_elements_by_model,
         docker_suites=docker_suites,
         deployment_sets=deployment_sets,
         models_by_path=model_by_path,
@@ -1275,6 +1418,7 @@ def load_checks(root, evidence, allowed, issues):
                     validate_active_timer_update_observation(
                         check.get("active_timer_update_observation"),
                         check.get("active_timer_update_hits"),
+                        check.get("active_timer_update_inventory"),
                         check.get("active_timer_update_decision"),
                         check.get("environment"),
                         check.get("target_disposable"),
@@ -1543,6 +1687,10 @@ def validate_active_timer_updates(plan, checks, issues):
         if not hits:
             if recorded and recorded[1]["result"] == "passed" and recorded[1].get("disposition") != "no_updates":
                 issues.append(f"{key}: no active timer updates were detected; record no_updates")
+            if recorded and recorded[1]["result"] == "passed" and recorded[1].get(
+                "active_timer_update_inventory"
+            ) != []:
+                issues.append(f"{key}: no_updates review must have an empty affected timer inventory")
             if runtime:
                 issues.append(f"{runtime_key}: runtime evidence is unexpected without an active timer update")
             continue
@@ -1572,6 +1720,15 @@ def validate_active_timer_updates(plan, checks, issues):
                 f"{', '.join(locations)}"
             )
             continue
+        try:
+            affected_timers = normalize_affected_timer_inventory(
+                check.get("active_timer_update_inventory"),
+                hits,
+                plan.timer_elements_by_model,
+            )
+        except EvidenceError as exc:
+            issues.append(f"{key}: {exc}")
+            continue
         if check.get("active_timer_update_decision") != decision:
             issues.append(f"{key}: approved project decision changed after the review")
         if not active_timer_decision_is_approved(check.get("active_timer_update_decision")):
@@ -1580,6 +1737,8 @@ def validate_active_timer_updates(plan, checks, issues):
             issues.append(f"Missing {category} active_timer_update_runtime: {target}")
         elif runtime[0] <= recorded[0]:
             issues.append(f"{runtime_key}: runtime verification must follow the approved review")
+        elif runtime[1].get("active_timer_update_inventory") != affected_timers:
+            issues.append(f"{runtime_key}: runtime timer inventory differs from the approved review")
         elif runtime[1]["result"] != "passed":
             issues.append(f"{runtime_key}: supported replacement needs passing disposable-target runtime evidence")
         else:
@@ -1588,6 +1747,51 @@ def validate_active_timer_updates(plan, checks, issues):
                 issues.append(f"{runtime_key}: runtime evidence does not match the current project decision")
             if not active_timer_decision_is_approved(runtime_decision, runtime[1].get("target_version")):
                 issues.append(f"{runtime_key}: runtime target does not match an approved project decision")
+
+
+def check_matches_current_inputs(plan, key, check):
+    if check.get("source_snapshot_sha256") != plan.source_snapshot_digest:
+        return False
+    if key[0] == "deployment_set" and key[2] == "preflight":
+        return check.get("deployment_set_inventory") == deployment_set_snapshot(plan, key[1])
+    if key[0] == "deployment_set" and key[2] == "duplicate_process_id":
+        expected = {
+            "deployment_set": key[1],
+            "process_id": key[3],
+            "models": plan.duplicate_process_ids.get((key[1], key[3])),
+        }
+        return check.get("process_id_collision") == expected
+    if key[0] == "timer":
+        return check.get("timer_inventory") == plan.timer_inventory.get(key)
+    if key[2] in ("active_timer_updates", "active_timer_update_runtime"):
+        hits = plan.active_timer_updates.get(key[1], [])
+        if (
+            check.get("active_timer_update_hits") != hits
+            or check.get("active_timer_update_decision")
+            != plan.active_timer_update_decision
+        ):
+            return False
+        try:
+            inventory = normalize_affected_timer_inventory(
+                check.get("active_timer_update_inventory"),
+                hits,
+                plan.timer_elements_by_model,
+            )
+        except EvidenceError:
+            return False
+        return inventory == check.get("active_timer_update_inventory")
+    return True
+
+
+def require_fresh_passed_check(previous, key, plan, requirement):
+    recorded = previous.get(key)
+    if recorded is None or recorded[1].get("result") != "passed":
+        raise EvidenceError(requirement)
+    if not check_matches_current_inputs(plan, key, recorded[1]):
+        raise EvidenceError(
+            f"{key}: stale evidence cannot authorize a dependent command; rerun this check"
+        )
+    return recorded
 
 
 def validate_source_snapshots(plan, checks, issues):
@@ -1780,12 +1984,17 @@ def record(root, args):
     previous = load_checks(root, evidence, plan.allowed, previous_issues)
     if previous_issues:
         raise EvidenceError("; ".join(previous_issues))
+    active_timer_update_inventory = None
     if key[0] in ("module", "project") and key[2] == "active_timer_update_runtime":
         inventory_key = (key[0], key[1], "active_timer_updates", None)
-        inventory = previous.get(inventory_key)
+        inventory = require_fresh_passed_check(
+            previous,
+            inventory_key,
+            plan,
+            "Review and approve the active timer alternative before runtime validation",
+        )
         if (
-            inventory is None
-            or inventory[1].get("disposition") != "verified"
+            inventory[1].get("disposition") != "verified"
             or inventory[1].get("active_timer_update_decision") != plan.active_timer_update_decision
             or not active_timer_decision_is_approved(
                 plan.active_timer_update_decision,
@@ -1797,19 +2006,30 @@ def record(root, args):
             raise EvidenceError("Active timer validation needs an explicitly disposable target and cleanup plan")
         if not args.target_version:
             raise EvidenceError("Active timer validation needs the target Camunda version")
+        active_timer_update_inventory = normalize_affected_timer_inventory(
+            inventory[1].get("active_timer_update_inventory"),
+            plan.active_timer_updates.get(key[1], []),
+            plan.timer_elements_by_model,
+        )
     if key[0] == "timer" and key[2] == "preflight":
         disposition_key = ("timer", key[1], "disposition", key[3])
-        disposition = previous.get(disposition_key)
-        if disposition is None or disposition[1]["result"] != "passed":
-            raise EvidenceError("Record the timer disposition before runtime preflight")
+        require_fresh_passed_check(
+            previous,
+            disposition_key,
+            plan,
+            "Record the timer disposition before runtime preflight",
+        )
     caller_inventory = None
     rename_mappings = None
     timer_observation = None
     active_timer_update_observation = None
     if args.action == "run" and args.type == "model" and args.kind == "deployment":
-        lint = previous.get(("model", args.target, "lint", None))
-        if lint is None or lint[1]["result"] != "passed":
-            raise EvidenceError("Lint must pass before deployment")
+        require_fresh_passed_check(
+            previous,
+            ("model", args.target, "lint", None),
+            plan,
+            "Lint must pass before deployment",
+        )
     if args.action == "run" and (
         args.type == "process" or args.type == "model" and args.kind == "deployment"
     ):
@@ -1819,29 +2039,40 @@ def record(root, args):
             raise EvidenceError("Identify the model's deployment set before execution")
         set_name = model_entry["deployment_set"]
         deployment_key = ("deployment_set", set_name, "preflight", None)
-        deployment = previous.get(deployment_key)
-        if deployment is None or deployment[1]["result"] != "passed":
-            raise EvidenceError("Deployment-set preflight must pass before deployment or process execution")
+        require_fresh_passed_check(
+            previous,
+            deployment_key,
+            plan,
+            "Deployment-set preflight must pass before deployment or process execution",
+        )
         for collision_set, process_id in plan.duplicate_process_ids:
             if collision_set != set_name:
                 continue
             collision_key = (
                 "deployment_set", set_name, "duplicate_process_id", process_id
             )
-            collision = previous.get(collision_key)
-            if collision is None or collision[1]["result"] != "passed":
-                raise EvidenceError("Resolve duplicate process IDs before deployment or process execution")
-        if any(
-            timer not in previous or previous[timer][1]["result"] != "passed"
-            for timer in plan.timers.get(model, [])
-        ):
-            raise EvidenceError("Timer preflight must pass before deployment or process execution")
+            require_fresh_passed_check(
+                previous,
+                collision_key,
+                plan,
+                "Resolve duplicate process IDs before deployment or process execution",
+            )
+        for timer_key in plan.timers.get(model, []):
+            require_fresh_passed_check(
+                previous,
+                timer_key,
+                plan,
+                "Timer preflight must pass before deployment or process execution",
+            )
     if args.action == "run" and args.type == "process" and args.kind == "process_path":
         inventory = ("process", args.target, "worker_input_inventory", None)
-        if inventory in plan.required and (
-            inventory not in previous or previous[inventory][1]["result"] != "passed"
-        ):
-            raise EvidenceError("Review worker inputs before testing a direct process start")
+        if inventory in plan.required:
+            require_fresh_passed_check(
+                previous,
+                inventory,
+                plan,
+                "Review worker inputs before testing a direct process start",
+            )
     command = None
     exit_code = None
     output = ""
@@ -1917,6 +2148,15 @@ def record(root, args):
                     "Active timer handling needs an approved project decision and evidence "
                     "for a supported C8 alternative"
                 )
+            affected_timer_inventory = parse_json_option(
+                args.affected_timers_json,
+                "Affected timer inventory",
+            )
+            active_timer_update_inventory = normalize_affected_timer_inventory(
+                affected_timer_inventory if affected_timer_inventory is not None else [],
+                hits,
+                plan.timer_elements_by_model,
+            )
     else:
         if not args.reason.strip():
             raise EvidenceError("A blocked check requires a reason")
@@ -1949,6 +2189,7 @@ def record(root, args):
         validate_active_timer_update_observation(
             active_timer_update_observation,
             plan.active_timer_updates.get(args.target, []),
+            active_timer_update_inventory,
             plan.active_timer_update_decision,
             args.environment,
             args.target_disposable,
@@ -2007,6 +2248,11 @@ def record(root, args):
         "timer_inventory": plan.timer_inventory.get(key),
         "timer_observation": timer_observation,
         "active_timer_update_observation": active_timer_update_observation,
+        "active_timer_update_inventory": (
+            active_timer_update_inventory
+            if key[2] in ("active_timer_updates", "active_timer_update_runtime")
+            else None
+        ),
         "source_snapshot_sha256": plan.source_snapshot_digest,
         "active_timer_update_hits": (
             plan.active_timer_updates.get(args.target, [])
@@ -2071,6 +2317,7 @@ def main():
         action.add_argument("--disposition")
         action.add_argument("--timer-observation-json")
         action.add_argument("--active-timer-update-observation-json")
+        action.add_argument("--affected-timers-json")
         action.add_argument("--caller-inventory-json")
         action.add_argument("--rename-mappings-json")
         if name == "run":

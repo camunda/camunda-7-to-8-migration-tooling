@@ -21,6 +21,9 @@ At assessment, namespace-parse the original BPMN in each set. Before deployment,
 converted copies that replace them. Never count both copies as separate deployments. Record each
 process ID, module, and path. For every timer start, record its event ID and exact date or cycle
 expression. For a cycle, record its interval and repetition count, or block on unresolved expressions.
+The deployment-scheduled timer inventory includes only start events directly owned by a
+`bpmn:process`. A timer start inside an event subprocess is not a deployment schedule.
+The active-timer inventory includes timer events nested in process scopes.
 [Camunda 8 schedules timer starts on deployment](https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/).
 Each firing creates an instance. A cycle without a repetition count runs indefinitely.
 Deploying a new version cancels the prior timer for that BPMN process ID.
@@ -61,6 +64,8 @@ Each caller record names its module, source location with line number, process I
 version selection. Include every detected process call. A duplicate process ID needs at least one
 matching caller record. Missing or empty inventories cannot pass. Unknown IDs or version selections
 keep readiness `NOT READY`. A preflight record also becomes stale when its source or model changes.
+Static JavaScript and TypeScript template literals are read as process IDs. Interpolated IDs remain
+unknown and cannot satisfy duplicate-ID caller coverage.
 
 | Finding | Decision before deployment |
 |---|---|
@@ -90,14 +95,23 @@ cannot pass the preflight.
 
 ## Active timer updates
 
-Find direct C7 `ManagementService.setJobDuedate` calls and method references, REST
-`/job/{id}/duedate` and `/job/{id}/duedate/recalculate` calls, and their helpers. Check whether the
-selected jobs are timers. For active timer updates, trace every caller, including repeated calls.
+Find direct C7 `ManagementService.setJobDuedate` calls and method references.
+Find REST `/job/{id}/duedate` and `/job/{id}/duedate/recalculate` calls.
+The scan detects literal paths, template paths, and concatenated paths such as
+`"/job/" + jobId + "/duedate"`.
+It also detects URI-builder chains such as
+`pathSegment("job").pathSegment(jobId).pathSegment("duedate")`.
+Check whether the selected jobs are timers.
+For active timer updates, trace every caller, including repeated calls.
 Match the process and BPMN timer element to the value supplying the new date. Record source
 locations, caller chains, timer expressions, and unresolved links as blocking open items.
 Record an `active_timer_updates` review for each module. Record `no_updates` only after you review
 the module and find no update calls. Block detected updates when their timer, callers, or supported
 target alternative remain unresolved. Keep repeated update references blocked.
+When updates are detected and an alternative is approved, pass `--affected-timers-json` to the
+review. Each entry identifies an existing timer in a converted BPMN model by `model_path`,
+`process_id`, and `timer_id`, and lists its `source_locations`. Together, the entries must map all
+detected update locations.
 
 | Decision evidence | Required gate result |
 |---|---|
@@ -108,8 +122,10 @@ The top-level `active_timer_update_decision` object holds this decision. The rev
 snapshot of it. The runtime check must follow the review and use the same target version. This
 repository has no approved C8 alternative. Keep its decision unresolved.
 The runtime check also needs `--active-timer-update-observation-json`.
-Record each affected process and timer in its own `timers` entry.
-Map every detected update source location to one or more entries.
+Record each affected model, process, and timer in its own `timers` entry. Include the same
+`model_path`, `process_id`, `timer_id`, and `source_locations` as the approved review inventory.
+The runtime observation must match that inventory exactly: it cannot omit or add timers or source
+locations. Map every detected update source location to one or more entries.
 Each entry must show an active timer before two updates, zero obsolete deadline firings, and one final deadline firing.
 Record completed cleanup in the cleanup entry.
 See `references/validation-evidence.md` for the required fields.

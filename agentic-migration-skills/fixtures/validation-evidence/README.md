@@ -11,9 +11,10 @@ The tests cover these cases:
 
 - Complete and incomplete evidence scopes.
 - Runtime modules, process assertions, Docker classification, and timer ordering.
-- Cross-model process IDs, C7 by-key calls, C8 version selection, and interpolated-source blockers.
-- Timer dispositions, observed deployment evidence, method references, and REST due-date paths.
-- Repeated updates, cleanup evidence, stale source snapshots, path safety, and cwd-independent imports.
+- Cross-model process IDs, C7 by-key calls, static/interpolated template IDs, and caller blockers.
+- Timer dispositions, event-subprocess starts, method references, and direct/concatenated/builder REST paths.
+- Exact affected-timer observations, repeated updates, cleanup evidence, and stale dependent-command guards.
+- Stale source snapshots, path safety, and cwd-independent imports.
 - Report replacement.
 
 The tests use synthetic evidence. They do not access a Camunda cluster or deploy to a target.
