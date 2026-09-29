@@ -154,6 +154,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             cleanup_plan=options.get("cleanup_plan", options.get("isolation_plan")),
             timer_observation_json=options.get("timer_observation_json"),
             affected_timers_json=options.get("affected_timers_json"),
+            non_timer_update_evidence_json=options.get(
+                "non_timer_update_evidence_json"
+            ),
             active_timer_update_observation_json=options.get(
                 "active_timer_update_observation_json"
             ),
@@ -402,17 +405,21 @@ class ValidationEvidenceTest(unittest.TestCase):
         _, _, _, _, issues = gate.scan_module_sources(self.root, "modules/c7-client")
         self.assertTrue(any("interpolated string" in issue for issue in issues))
 
-    def test_scala_raw_interpolated_timer_calls_fail_closed(self):
+    def test_scala_interpolated_timer_calls_fail_closed_for_builtin_and_custom_prefixes(self):
         self.write_duplicate_sample_scope()
         caller = self.root / "modules/c7-client/src/main/scala/Caller.scala"
         caller.parent.mkdir(parents=True, exist_ok=True)
-        caller.write_text(
-            'val dueDate = raw"${managementService.setJobDuedate(timerId, date)}"\n',
-            encoding="utf-8",
-        )
-
-        _, _, _, _, issues = gate.scan_module_sources(self.root, "modules/c7-client")
-        self.assertTrue(any("interpolated string" in issue for issue in issues))
+        for prefix in ("raw", "sql"):
+            with self.subTest(prefix=prefix):
+                caller.write_text(
+                    f'val dueDate = {prefix}"${{managementService.setJobDuedate(timerId, date)}}"\n',
+                    encoding="utf-8",
+                )
+                _, _, _, _, issues = gate.scan_module_sources(
+                    self.root,
+                    "modules/c7-client",
+                )
+                self.assertTrue(any("interpolated string" in issue for issue in issues))
 
     def test_caller_scan_parses_static_template_literals_and_keeps_interpolation_unknown(self):
         self.write_duplicate_sample_scope()
@@ -463,6 +470,110 @@ class ValidationEvidenceTest(unittest.TestCase):
             issues,
         )
         self.assertEqual([], issues)
+
+    def test_constant_backed_process_callers_can_be_resolved_but_dynamic_callers_cannot(self):
+        self.write_duplicate_sample_scope()
+        caller = self.root / "modules/c7-client/src/main/java/ProcessCaller.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            "client.bpmnProcessId(PROCESS_ID).version(PROCESS_VERSION).execute();\n",
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+        detected = plan.process_callers["modules/c7-client"][0]
+        self.assertEqual("unknown", detected["process_id"])
+        self.assertEqual("reviewable", detected["process_id_resolution"])
+        self.assertEqual("unknown", detected["version_selection"])
+        self.assertEqual("reviewable", detected["version_selection_resolution"])
+        inventory = [{
+            "module": "modules/c7-client",
+            "location": "modules/c7-client/src/main/java/ProcessCaller.java:1",
+            "process_id": "Sample",
+            "operation": "bpmnProcessId",
+            "version_selection": "explicit_version",
+        }]
+        issues = []
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": inventory},
+            {},
+            issues,
+        )
+        self.assertEqual([], issues)
+
+        caller.write_text(
+            "client.bpmnProcessId(resolveProcessId()).version(currentVersion()).execute();\n",
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        detected = plan.process_callers["modules/c7-client"][0]
+        self.assertEqual("dynamic", detected["process_id_resolution"])
+        self.assertEqual("dynamic", detected["version_selection_resolution"])
+        issues = []
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": inventory},
+            {},
+            issues,
+        )
+        self.assertTrue(any("unresolved process caller" in issue for issue in issues))
+
+    def test_deployment_set_caller_inventory_excludes_calls_to_other_sets(self):
+        self.write_duplicate_sample_scope()
+        self.plan["models"][1]["processes"] = [
+            {"id": "Other", "standalone": True, "scenarios": ["normal"]}
+        ]
+        self.plan["models"][0]["deployment_set"] = "first"
+        self.plan["models"][1]["deployment_set"] = "second"
+        self.plan["deployment_sets"] = [
+            {
+                "name": "first",
+                "modules": ["modules/c7-client"],
+                "models": ["models/converted-one.bpmn"],
+            },
+            {
+                "name": "second",
+                "modules": ["modules/c7-client", "modules/c8-client"],
+                "models": ["models/converted-two.bpmn"],
+            },
+        ]
+        self.write_scope()
+        caller = self.root / "modules/c7-client/src/main/java/Callers.java"
+        caller.parent.mkdir(parents=True, exist_ok=True)
+        caller.write_text(
+            'client.bpmnProcessId("Sample").latestVersion();\n'
+            'client.bpmnProcessId("Other").latestVersion();\n',
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+        for set_name, process_id in (("first", "Sample"), ("second", "Other")):
+            with self.subTest(deployment_set=set_name):
+                inventory = [
+                    hit
+                    for hit in plan.process_callers["modules/c7-client"]
+                    if hit["process_id"] == process_id
+                ]
+                issues = []
+                gate.validate_caller_inventory(
+                    self.root,
+                    plan,
+                    set_name,
+                    {"caller_inventory": inventory},
+                    {},
+                    issues,
+                )
+                self.assertEqual([], issues)
+                snapshot = gate.deployment_set_snapshot(plan, set_name)
+                self.assertEqual(
+                    [process_id],
+                    [hit["process_id"] for hit in snapshot["process_callers"]],
+                )
 
     def test_active_timer_scan_covers_method_references_and_rest_paths_only(self):
         source = self.root / "app/src/main/java/TimerUpdates.java"
@@ -925,6 +1036,138 @@ class ValidationEvidenceTest(unittest.TestCase):
                 affected_timers_json=json.dumps([]),
             )
 
+    def test_active_timer_review_rejects_a_timer_from_another_deployment_set(self):
+        self.write_duplicate_sample_scope()
+        self.plan["models"][0]["deployment_set"] = "source-set"
+        self.plan["models"][1]["deployment_set"] = "other-set"
+        self.plan["deployment_sets"] = [
+            {
+                "name": "source-set",
+                "modules": ["modules/c7-client"],
+                "models": ["models/converted-one.bpmn"],
+            },
+            {
+                "name": "other-set",
+                "modules": ["modules/c8-client"],
+                "models": ["models/converted-two.bpmn"],
+            },
+        ]
+        self.write_scope()
+        self.add_active_timer_model()
+        source = self.root / "modules/c7-client/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, newDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "fixture-active-timer-approval",
+            "alternative_evidence_reference": "fixture-active-timer-support",
+            "target_version": "8.9.21",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+
+        review = ("module", "modules/c7-client", "active_timer_updates", None)
+        inventory = [{
+            "model_path": "models/converted-two.bpmn",
+            "process_id": "Sample",
+            "timer_id": "sample-timer",
+            "source_locations": [
+                "modules/c7-client/src/main/java/TimerUpdates.java:1"
+            ],
+        }]
+        with self.assertRaisesRegex(gate.EvidenceError, "in-scope BPMN timer"):
+            self.submit(
+                review,
+                action="review",
+                disposition="verified",
+                affected_timers_json=json.dumps(inventory),
+                note="The affected timer is outside the source module's deployment set.",
+            )
+
+    def test_non_timer_due_date_occurrences_can_be_reviewed_with_evidence(self):
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(jobId, newDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = [{
+            "location": "app/src/main/java/TimerUpdates.java:1",
+            "kind": "setJobDuedate",
+            "evidence": "The selected job is a service-task job, not a timer job.",
+        }]
+
+        review = ("module", "app", "active_timer_updates", None)
+        with self.assertRaisesRegex(gate.EvidenceError, "non-timer update evidence"):
+            self.submit(
+                review,
+                action="review",
+                disposition="non_timer",
+                non_timer_update_evidence_json=json.dumps([]),
+            )
+        self.assertEqual(
+            0,
+            self.submit(
+                review,
+                action="review",
+                disposition="non_timer",
+                non_timer_update_evidence_json=json.dumps(evidence),
+                note="Reviewed the selected job type and recorded why this is not a timer update.",
+            ),
+        )
+        self.assertEqual(0, self.audit())
+
+    def test_non_timer_classification_keeps_other_active_timer_updates_blocked(self):
+        self.add_active_timer_model()
+        source = self.root / "app/src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, finalDate);\n"
+            "managementService.setJobDuedate(jobId, serviceDate);\n",
+            encoding="utf-8",
+        )
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "fixture-active-timer-approval",
+            "alternative_evidence_reference": "fixture-active-timer-support",
+            "target_version": "8.9.21",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+
+        review = ("module", "app", "active_timer_updates", None)
+        non_timer = [{
+            "location": "app/src/main/java/TimerUpdates.java:2",
+            "kind": "setJobDuedate",
+            "evidence": "The selected job is a service-task job, not a timer job.",
+        }]
+        active_timer = [{
+            "model_path": "models/converted-c8-process.bpmn",
+            "process_id": "p",
+            "timer_id": "sample-timer",
+            "source_locations": ["app/src/main/java/TimerUpdates.java:1"],
+        }]
+        self.submit(
+            review,
+            action="review",
+            disposition="verified",
+            affected_timers_json=json.dumps(active_timer),
+            non_timer_update_evidence_json=json.dumps(non_timer),
+            note="Reviewed one non-timer call and mapped the active timer call.",
+        )
+
+        self.assertEqual(1, self.audit())
+        self.assertIn(
+            "Missing module active_timer_update_runtime",
+            "\n".join(self.summary()["issues"]),
+        )
+
     def test_timer_preflight_requires_explicit_disposable_target_and_cleanup(self):
         self.write_scope(timer=True)
         key = ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None)
@@ -975,6 +1218,36 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
+
+    def test_timer_observation_is_revalidated_before_deployment_command(self):
+        self.write_scope(timer=True)
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        timer_reference = None
+        for reference in evidence["checks"]:
+            check = json.loads((self.root / reference).read_text(encoding="utf-8"))
+            if check["type"] == "timer" and check["kind"] == "preflight":
+                timer_reference = reference
+                break
+        self.assertIsNotNone(timer_reference)
+        timer_check_path = self.root / timer_reference
+        timer_check = json.loads(timer_check_path.read_text(encoding="utf-8"))
+        timer_check["timer_observation"] = None
+        write_json(timer_check_path, timer_check)
+
+        marker = self.root / "deployment-ran-without-timer-observation"
+        command = [
+            sys.executable,
+            "-c",
+            "from pathlib import Path; Path('deployment-ran-without-timer-observation').touch()",
+        ]
+        deployment = ("model", "models/converted-c8-process.bpmn", "deployment", None)
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "machine-readable timer observation evidence",
+        ):
+            self.submit(deployment, environment="local", command=command)
+        self.assertFalse(marker.exists())
 
     def test_model_and_config_edits_make_prior_evidence_stale(self):
         self.write_scope(timer=True)
@@ -1210,6 +1483,26 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("change", requirements.timer_inventory[disposition]["expected_disposition"])
         self.assertEqual("PT5S", requirements.timer_inventory[disposition]["interval"])
         self.assertEqual(5, requirements.timer_inventory[disposition]["repetitions"])
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+    def test_cron_time_cycle_is_supported_without_iso_interval_fields(self):
+        self.write_scope(timer=True)
+        converted = self.root / "models/converted-c8-process.bpmn"
+        converted.write_text(
+            converted.read_text(encoding="utf-8").replace(
+                "R/PT1H",
+                "0 0 9-17 * * MON-FRI",
+            ),
+            encoding="utf-8",
+        )
+        requirements = gate.requirements(self.root, self.plan)
+        disposition = ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None)
+        inventory = requirements.timer_inventory[disposition]
+        self.assertEqual("change", inventory["expected_disposition"])
+        self.assertEqual("cron", inventory["cycle_type"])
+        self.assertIsNone(inventory["interval"])
+        self.assertIsNone(inventory["repetitions"])
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
 

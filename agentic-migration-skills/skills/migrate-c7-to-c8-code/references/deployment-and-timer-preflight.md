@@ -50,9 +50,11 @@ approved. Keep detected active updates blocked and readiness `NOT READY`.
 
 Group definitions by process ID across the set. Trace C7 `startProcessInstanceByKey` and C8
 `bpmnProcessId` callers, including `.latestVersion()` and IDs from constants or configuration.
-Record every caller of a duplicate ID and its version-selection behavior. Keep unknown IDs unresolved.
+For each deployment set, record detected callers whose process IDs belong to that set.
+Do not include callers to process IDs in another set.
 The gate records set membership and callers in validation evidence. It scans declared module source
 for `startProcessInstanceByKey`, `createProcessInstanceByKey`, `bpmnProcessId`, and `.latestVersion()` calls.
+Record every caller of a duplicate ID and its version selection.
 
 | Caller form | Gate requirement |
 |---|---|
@@ -61,11 +63,12 @@ for `startProcessInstanceByKey`, `createProcessInstanceByKey`, `bpmnProcessId`, 
 | `.latestVersion()` | Include its source location in a caller record with `latest_version`. |
 
 Each caller record names its module, source location with line number, process ID, operation, and
-version selection. Include every detected process call. A duplicate process ID needs at least one
-matching caller record. Missing or empty inventories cannot pass. Unknown IDs or version selections
-keep readiness `NOT READY`. A preflight record also becomes stale when its source or model changes.
-Static JavaScript and TypeScript template literals are read as process IDs. Interpolated IDs remain
-unknown and cannot satisfy duplicate-ID caller coverage.
+version selection. A duplicate process ID needs at least one matching caller record.
+Missing or empty inventories cannot pass. A preflight record also becomes stale when its source or
+model changes. Static JavaScript and TypeScript template literals are read as process IDs.
+When a simple identifier or member expression supplies an ID or version, trace the constant or
+configuration value and record its resolved value at the same location and operation.
+Dynamic expressions and interpolated IDs remain unresolved and keep readiness `NOT READY`.
 
 | Finding | Decision before deployment |
 |---|---|
@@ -80,8 +83,11 @@ observe its timer-created instances, then reset or destroy the target. Record th
 observed starts, and completed cleanup. Without this test, record `not run` and keep the recurring
 deployment blocked.
 The gate requires a disposition review for each repeating timer. It also requires a runtime preflight
-for each repeating timer retained in a converted model. Record the target version and cleanup plan.
-Pass a structured `--timer-observation-json` record to the preflight check.
+for each repeating timer retained in a converted model. It records ISO 8601 cycles with an interval
+and repetition count. It records cron cycles without fixed interval or repetition values.
+Record the target version and cleanup plan. Pass a structured `--timer-observation-json` record to
+the preflight check. Deployment and process commands revalidate the timer disposition and observation
+before they execute.
 
 | Evidence | Required values |
 |---|---|
@@ -102,16 +108,21 @@ The scan detects literal paths, template paths, and concatenated paths such as
 It also detects URI-builder chains such as
 `pathSegment("job").pathSegment(jobId).pathSegment("duedate")`.
 Check whether the selected jobs are timers.
+Classify every detected due-date call as an active timer update or a non-timer use.
+Record non-timer evidence by source location and update kind with
+`--non-timer-update-evidence-json`. Use `non_timer` only when every call is classified as non-timer.
+For mixed results, map active timer locations to BPMN timers and keep every unclassified call blocked.
 For active timer updates, trace every caller, including repeated calls.
 Match the process and BPMN timer element to the value supplying the new date. Record source
 locations, caller chains, timer expressions, and unresolved links as blocking open items.
 Record an `active_timer_updates` review for each module. Record `no_updates` only after you review
-the module and find no update calls. Block detected updates when their timer, callers, or supported
+the module and find no due-date calls. Block detected updates when their timer, callers, or supported
 target alternative remain unresolved. Keep repeated update references blocked.
 When updates are detected and an alternative is approved, pass `--affected-timers-json` to the
 review. Each entry identifies an existing timer in a converted BPMN model by `model_path`,
 `process_id`, and `timer_id`, and lists its `source_locations`. Together, the entries must map all
-detected update locations.
+active timer update locations. Each timer must belong to a deployment set that includes the source
+module. A timer from an unrelated set cannot satisfy the inventory.
 
 | Decision evidence | Required gate result |
 |---|---|

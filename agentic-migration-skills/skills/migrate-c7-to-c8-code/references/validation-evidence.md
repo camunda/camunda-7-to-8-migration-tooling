@@ -79,8 +79,10 @@ Put isolated target groups in separate sets.
 The gate compares all BPMN process IDs within each set, including non-executable definitions.
 The gate blocks duplicate IDs until callers select explicit versions or converted copies no longer share an ID.
 The gate blocks a mapped rename while converted models still share the old ID.
-The scan accepts static JavaScript and TypeScript template literals as process IDs. An interpolated
-ID remains unknown and cannot satisfy caller coverage.
+The scan reads static literals and JavaScript or TypeScript template literals as process IDs.
+Simple identifier and member expressions remain reviewable when the scan cannot read their values.
+Resolve them in the caller inventory after tracing the constant or configuration value.
+Function calls, concatenations, and interpolated IDs remain dynamic and cannot satisfy caller coverage.
 
 The deployment-set `preflight` review needs a complete caller inventory. The module scan detects
 `startProcessInstanceByKey`, `createProcessInstanceByKey`, `bpmnProcessId`, and `.latestVersion()` calls.
@@ -94,13 +96,18 @@ The deployment-set `preflight` review needs a complete caller inventory. The mod
 Each caller record includes its module, project-relative source location with line number, process
 ID, operation, and version selection. Use operation `startProcessInstanceByKey`,
 `createProcessInstanceByKey`, `bpmnProcessId`, or `other`.
-Include every detected process call. A duplicate process ID needs at least one matching caller
-record. Its inventory cannot be absent or empty. Keep unknown IDs or version selections unresolved.
+For each deployment set, include detected calls that target process IDs in that set.
+Do not list calls to process IDs in another set. Resolve a simple identifier or member expression
+with a concrete process ID and version selection at the same location and operation.
+The review note must name the constant or configuration source that you traced.
+A duplicate process ID needs at least one matching caller record. Its inventory cannot be absent
+or empty. Keep dynamic IDs or version selections unresolved.
 The gate blocks interpolated strings that contain process or timer call patterns.
 
 Review each repeating timer's exact disposition before deployment. Use `add`, `change`, `preserve`,
-or `remove`. The gate records both cycles, the interval, repetition count, module, deployment set,
-and automatic-start effect. Run a disposable-target preflight for each retained repeating timer.
+or `remove`. The gate records both cycles, cycle type, module, deployment set, and automatic-start
+effect. ISO 8601 cycles also record the interval and repetition count. Cron cycles do not have
+fixed interval or repetition values. Run a disposable-target preflight for each retained timer.
 A removed timer needs a disposition review but no runtime preflight.
 
 The gate requires an `active_timer_updates` review for each module. Review all direct C7
@@ -109,9 +116,12 @@ repeated updates. REST detection includes literal and template-literal paths.
 It also includes concatenated paths such as `"/job/" + jobId + "/duedate"`.
 The scan detects URI-builder paths such as
 `pathSegment("job").pathSegment(jobId).pathSegment("duedate")`.
-Record `no_updates` only after reviewing the module.
-When the scan finds an update, keep it blocked until an approved, target-supported alternative
-passes runtime validation.
+Classify each detected update as an active timer update or a non-timer use.
+Record a non-timer use with location-bound evidence in `--non-timer-update-evidence-json`.
+Use `non_timer` only when every detected update has non-timer evidence.
+For mixed results, use `verified` and map only the active timer sources to BPMN timers.
+Unclassified updates remain blocked. Record `no_updates` only when the scan finds no calls.
+Active timer updates stay blocked until an approved, target-supported alternative passes runtime validation.
 Do not guess a C8 replacement or use a no-op, fake, or throwing placeholder.
 
 | Decision evidence | Gate requirement |
@@ -189,10 +199,16 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 For a duplicate process ID, record `explicit_version` only after every caller selects an explicit
 version. A `mapped_rename` decision needs a complete mapping and no remaining collision.
-When the module scan finds no active timer update calls, record `no_updates` after review:
+When the module scan finds no due-date update calls, record `no_updates` after review:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition no_updates --note "Reviewed setter and REST calls, helpers, callers, and timer links."
+```
+
+When every detected due-date call selects a non-timer job, record evidence for each location:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition non_timer --non-timer-update-evidence-json '[{"location":"examples/web/src/main/java/TimerUpdates.java:42","kind":"setJobDuedate","evidence":"The selected job is a service-task job, not a timer job."}]' --note "Traced the selected job type and recorded why the call does not update a timer."
 ```
 
 When detected updates remain unresolved, record the blocking finding:
@@ -202,11 +218,16 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ```
 
 When the project approves an alternative, record its exact timer inventory with the review.
-Set the top-level `active_timer_update_decision` to approved before recording `verified`:
+Set the top-level `active_timer_update_decision` to approved before recording `verified`.
+For mixed results, pass only active timer sources in `--affected-timers-json` and classify each
+non-timer source with `--non-timer-update-evidence-json`:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition verified --affected-timers-json '[{"model_path":"models/converted-c8-order.bpmn","process_id":"order-process","timer_id":"PaymentDue","source_locations":["examples/web/src/main/java/TimerUpdates.java:42"]}]' --note "Mapped each update site to its BPMN timer after verifying the approved alternative."
 ```
+
+Each affected timer must belong to a deployment set that includes the source module.
+A timer from an unrelated deployment set cannot satisfy the active timer inventory.
 
 If a check cannot run, record `block` with a reason. Never substitute a review for an executable
 check:

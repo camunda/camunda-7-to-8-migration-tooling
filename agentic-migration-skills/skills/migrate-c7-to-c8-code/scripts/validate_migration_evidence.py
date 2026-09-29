@@ -327,7 +327,7 @@ def mask_source_text(text, suffix):
                     or suffix in {".java", ".kt", ".kts"} and r"\{" in contents
                     or suffix in {".gradle", ".groovy"} and "$" in contents
                     or suffix == ".scala"
-                    and string_prefix in {"f", "raw", "s"}
+                    and bool(string_prefix)
                     and "$" in contents
                 )
                 if interpolated and INTERPOLATED_SOURCE_CALL.search(contents):
@@ -468,6 +468,13 @@ def static_string_value(expression):
     return value if isinstance(value, str) else None
 
 
+def reviewable_identifier_expression(expression):
+    return isinstance(expression, str) and re.fullmatch(
+        r"(?:[A-Za-z_$][A-Za-z0-9_$]*\s*\.\s*)*[A-Za-z_$][A-Za-z0-9_$]*",
+        expression.strip(),
+    ) is not None
+
+
 def matching_parenthesis_end(text, opening):
     depth = 0
     for index in range(opening, len(text)):
@@ -482,7 +489,7 @@ def matching_parenthesis_end(text, opening):
 
 def process_call_version(text, call_end, operation):
     if operation in ("startProcessInstanceByKey", "createProcessInstanceByKey"):
-        return "latest_version"
+        return "latest_version", "known"
     selections = []
     index = call_end
     while index < len(text):
@@ -494,19 +501,29 @@ def process_call_version(text, call_end, operation):
         opening = index + method.end() - 1
         end = matching_parenthesis_end(text, opening)
         if end is None:
-            return "unknown"
+            return "unknown", "dynamic"
         name = method.group(1)
         arguments = text[opening + 1:end - 1].strip()
         if name == "latestVersion":
-            selections.append("latest_version" if not arguments else "unknown")
-        elif name == "version":
             selections.append(
-                "explicit_version" if re.fullmatch(r"\d+", arguments) else "unknown"
+                ("latest_version", "known")
+                if not arguments
+                else ("unknown", "dynamic")
             )
+        elif name == "version":
+            if re.fullmatch(r"\d+", arguments):
+                selections.append(("explicit_version", "known"))
+            else:
+                resolution = (
+                    "reviewable"
+                    if reviewable_identifier_expression(arguments)
+                    else "dynamic"
+                )
+                selections.append(("unknown", resolution))
         index = end
     if len(selections) == 1:
         return selections[0]
-    return "unknown"
+    return "unknown", "dynamic"
 
 
 def scan_module_sources(root, module):
@@ -586,15 +603,27 @@ def scan_module_sources(root, module):
                     process_id = static_string_value(argument)
                     if not isinstance(process_id, str) or not process_id:
                         process_id = "unknown"
+                        process_id_resolution = (
+                            "reviewable"
+                            if reviewable_identifier_expression(argument)
+                            else "dynamic"
+                        )
+                    else:
+                        process_id_resolution = "known"
+                    version_selection, version_selection_resolution = process_call_version(
+                        code_text,
+                        call_end,
+                        operation,
+                    )
                     line_number = code_text.count("\n", 0, match.start()) + 1
                     process_callers.append({
                         "module": module,
                         "location": f"{relative}:{line_number}",
                         "process_id": process_id,
+                        "process_id_resolution": process_id_resolution,
                         "operation": operation,
-                        "version_selection": process_call_version(
-                            code_text, call_end, operation
-                        ),
+                        "version_selection": version_selection,
+                        "version_selection_resolution": version_selection_resolution,
                     })
                 for match in PROCESS_REFERENCE.finditer(code_text):
                     line_number = code_text.count("\n", 0, match.start()) + 1
@@ -602,8 +631,10 @@ def scan_module_sources(root, module):
                         "module": module,
                         "location": f"{relative}:{line_number}",
                         "process_id": "unknown",
+                        "process_id_resolution": "dynamic",
                         "operation": match.group(1),
                         "version_selection": "unknown",
+                        "version_selection_resolution": "dynamic",
                     })
             rest_matches = {}
             for pattern in (
@@ -673,20 +704,34 @@ def timer_elements(document):
 
 def cycle_details(expression):
     parts = expression.split("/")
-    if len(parts) not in (2, 3) or not re.fullmatch(r"R\d*", parts[0]):
-        return None
-    if len(parts) == 3:
-        try:
-            datetime.fromisoformat(parts[1].replace("Z", "+00:00"))
-        except ValueError:
+    if len(parts) in (2, 3) and re.fullmatch(r"R\d*", parts[0]):
+        if len(parts) == 3:
+            try:
+                datetime.fromisoformat(parts[1].replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        interval = parts[-1]
+        if not DURATION.fullmatch(interval):
             return None
-    interval = parts[-1]
-    if not DURATION.fullmatch(interval):
-        return None
-    count = parts[0][1:]
-    if count and int(count) < 1:
-        return None
-    return {"interval": interval, "repetitions": int(count) if count else None}
+        count = parts[0][1:]
+        if count and int(count) < 1:
+            return None
+        return {
+            "cycle_type": "iso_8601",
+            "interval": interval,
+            "repetitions": int(count) if count else None,
+        }
+    cron_fields = expression.split()
+    if len(cron_fields) == 6 and all(
+        re.fullmatch(r"[A-Za-z0-9*/?,#LW-]+", field)
+        for field in cron_fields
+    ):
+        return {
+            "cycle_type": "cron",
+            "interval": None,
+            "repetitions": None,
+        }
+    return None
 
 
 def parse_json_option(value, label):
@@ -831,6 +876,84 @@ def validate_timer_observation(
         raise EvidenceError("Timer observation must prove cleanup completed")
     if not concrete_reference(cleanup.get("evidence_reference")):
         raise EvidenceError("Timer observation needs a cleanup evidence reference")
+
+
+def timer_elements_for_module(plan, module):
+    if module == ".":
+        set_names = {
+            model.get("deployment_set")
+            for model in plan.models_by_path.values()
+            if model.get("module") == "."
+        }
+    else:
+        set_names = {
+            name
+            for name, entry in plan.deployment_sets.items()
+            if module in entry["modules"]
+        }
+    model_paths = {
+        model_path
+        for name in set_names
+        if name in plan.deployment_sets
+        for model_path in plan.deployment_sets[name]["models"]
+    }
+    return {
+        model_path: plan.timer_elements_by_model[model_path]
+        for model_path in model_paths
+        if model_path in plan.timer_elements_by_model
+    }
+
+
+def normalize_non_timer_update_evidence(evidence, hits):
+    if not isinstance(evidence, list):
+        raise EvidenceError("Non-timer update evidence must be a JSON array")
+    hit_counts = {}
+    for hit in hits:
+        key = (hit["location"], hit["kind"])
+        hit_counts[key] = hit_counts.get(key, 0) + 1
+    remaining_counts = dict(hit_counts)
+    normalized = []
+    for item in evidence:
+        if not isinstance(item, dict):
+            raise EvidenceError("Non-timer update evidence contains an invalid record")
+        location = item.get("location")
+        kind = item.get("kind")
+        reference = item.get("evidence")
+        key = (location, kind)
+        if (
+            not isinstance(location, str)
+            or not isinstance(kind, str)
+            or key not in remaining_counts
+            or remaining_counts[key] == 0
+        ):
+            raise EvidenceError(
+                "Non-timer update evidence must match a detected due-date update"
+            )
+        if not concrete_reference(reference):
+            raise EvidenceError(
+                "Non-timer update evidence must include a concrete explanation or reference"
+            )
+        remaining_counts[key] -= 1
+        normalized.append({
+            "location": location,
+            "kind": kind,
+            "evidence": reference.strip(),
+        })
+    classified_counts = {
+        key: count - remaining_counts[key]
+        for key, count in hit_counts.items()
+    }
+    active_hits = []
+    for hit in hits:
+        key = (hit["location"], hit["kind"])
+        if classified_counts[key] > 0:
+            classified_counts[key] -= 1
+        else:
+            active_hits.append(hit)
+    return sorted(
+        normalized,
+        key=lambda item: (item["location"], item["kind"], item["evidence"]),
+    ), active_hits
 
 
 def normalize_affected_timer_inventory(inventory, hits, timer_elements_by_model=None):
@@ -1249,7 +1372,11 @@ def requirements(root, evidence):
             details = cycle_details(expected_cycle)
             if details is None:
                 issues.append(f"{target}: unresolved repeating timer expression {expected_cycle!r}")
-                details = {"interval": None, "repetitions": None}
+                details = {
+                    "cycle_type": None,
+                    "interval": None,
+                    "repetitions": None,
+                }
             inventory = {
                 "model": converted,
                 "module": module,
@@ -1258,6 +1385,7 @@ def requirements(root, evidence):
                 "start_id": start_id,
                 "source_cycle": source_cycle,
                 "converted_cycle": converted_cycle,
+                "cycle_type": details["cycle_type"],
                 "interval": details["interval"],
                 "repetitions": details["repetitions"],
                 "automatic_start_effect": "Each firing starts a process instance.",
@@ -1450,7 +1578,10 @@ def load_checks(root, evidence, allowed, issues):
                         raise EvidenceError(f"{key}: active timer validation needs the target Camunda version")
                     validate_active_timer_update_observation(
                         check.get("active_timer_update_observation"),
-                        check.get("active_timer_update_hits"),
+                        check.get(
+                            "active_timer_update_active_hits",
+                            check.get("active_timer_update_hits"),
+                        ),
                         check.get("active_timer_update_inventory"),
                         check.get("active_timer_update_decision"),
                         check.get("environment"),
@@ -1462,6 +1593,42 @@ def load_checks(root, evidence, allowed, issues):
         except EvidenceError as exc:
             issues.append(str(exc))
     return checks
+
+
+def deployment_set_callers(plan, name, module):
+    process_ids = set(plan.process_ids_by_set.get(name, {}))
+    return [
+        hit
+        for hit in plan.process_callers.get(module, [])
+        if hit["process_id"] == "unknown" or hit["process_id"] in process_ids
+    ]
+
+
+def deployment_set_latest_version_calls(plan, name, module):
+    relevant_locations = {
+        hit["location"]
+        for hit in deployment_set_callers(plan, name, module)
+    }
+    scanned_locations = {
+        hit["location"]
+        for hit in plan.process_callers.get(module, [])
+    }
+    return [
+        hit
+        for hit in plan.latest_version_calls.get(module, [])
+        if hit["location"] in relevant_locations
+        or hit["location"] not in scanned_locations
+    ]
+
+
+def caller_hit_can_be_resolved(hit):
+    return (
+        hit["process_id"] != "unknown"
+        or hit.get("process_id_resolution") == "reviewable"
+    ) and (
+        hit["version_selection"] != "unknown"
+        or hit.get("version_selection_resolution") == "reviewable"
+    )
 
 
 def deployment_set_snapshot(plan, name):
@@ -1478,7 +1645,7 @@ def deployment_set_snapshot(plan, name):
             (
                 hit
                 for module in entry["modules"]
-                for hit in plan.latest_version_calls.get(module, [])
+                for hit in deployment_set_latest_version_calls(plan, name, module)
             ),
             key=lambda hit: (hit["module"], hit["location"]),
         ),
@@ -1486,7 +1653,7 @@ def deployment_set_snapshot(plan, name):
             (
                 hit
                 for module in entry["modules"]
-                for hit in plan.process_callers.get(module, [])
+                for hit in deployment_set_callers(plan, name, module)
             ),
             key=lambda hit: (
                 hit["module"],
@@ -1541,19 +1708,6 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
         except (EvidenceError, ValueError):
             issues.append(f"{name}: caller location is outside its module or missing: {location}")
             continue
-        if process_id != "unknown" and process_id not in process_ids:
-            mapped_ids = {
-                mapping.get("to_process_id")
-                for key, (_, record, _) in checks.items()
-                if key[0] == "deployment_set" and key[1] == name
-                and key[2] == "duplicate_process_id"
-                and record.get("disposition") == "mapped_rename"
-                for mapping in record.get("rename_mappings", [])
-                if isinstance(mapping, dict)
-                and isinstance(mapping.get("to_process_id"), str)
-            }
-            if process_id not in mapped_ids:
-                issues.append(f"{name}: caller names an unknown process ID {process_id}")
         if selection == "unknown" or process_id == "unknown":
             issues.append(f"{name}: unresolved process caller at {location}")
         identity = (module, location, process_id, operation, selection)
@@ -1561,6 +1715,46 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
             issues.append(f"{name}: duplicate caller record at {location}")
         seen.add(identity)
         validated.append(caller)
+    mapped_ids = {
+        mapping.get("to_process_id")
+        for key, (_, record, _) in checks.items()
+        if key[0] == "deployment_set" and key[1] == name
+        and key[2] == "duplicate_process_id"
+        and record.get("disposition") == "mapped_rename"
+        for mapping in record.get("rename_mappings", [])
+        if isinstance(mapping, dict)
+        and isinstance(mapping.get("to_process_id"), str)
+    }
+    records_by_site = {}
+    for index, caller in enumerate(validated):
+        site = (caller["module"], caller["location"], caller["operation"])
+        records_by_site.setdefault(site, []).append(index)
+        if (
+            caller["process_id"] != "unknown"
+            and caller["process_id"] not in process_ids
+        ):
+            matching_hits = [
+                hit
+                for hit in deployment_set_callers(plan, name, caller["module"])
+                if (
+                    hit["module"],
+                    hit["location"],
+                    hit["operation"],
+                ) == site
+                and caller_hit_can_be_resolved(hit)
+                and (
+                    hit["process_id"] == "unknown"
+                    or hit["process_id"] == caller["process_id"]
+                )
+                and (
+                    hit["version_selection"] == "unknown"
+                    or hit["version_selection"] == caller["version_selection"]
+                )
+            ]
+            if not matching_hits and caller["process_id"] not in mapped_ids:
+                issues.append(
+                    f"{name}: caller names an unknown process ID {caller['process_id']}"
+                )
     listed_locations = {
         (caller["module"], caller["location"], caller["version_selection"])
         for caller in validated
@@ -1575,8 +1769,15 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
         )
         for caller in validated
     }
+    matched_records = set()
     for module in entry["modules"]:
-        for hit in plan.process_callers.get(module, []):
+        detected_callers = deployment_set_callers(plan, name, module)
+        for hit in (
+            hit
+            for hit in detected_callers
+            if hit["process_id"] != "unknown"
+            and hit["version_selection"] != "unknown"
+        ):
             identity = (
                 hit["module"],
                 hit["location"],
@@ -1589,7 +1790,56 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
                     f"{name}: detected process caller is missing from the inventory: "
                     f'{hit["operation"]}({hit["process_id"]}) at {hit["location"]}'
                 )
-        for hit in plan.latest_version_calls.get(module, []):
+            else:
+                exact_matches = [
+                    index
+                    for index, caller in enumerate(validated)
+                    if index not in matched_records
+                    and (
+                        caller["module"],
+                        caller["location"],
+                        caller["process_id"],
+                        caller["operation"],
+                        caller["version_selection"],
+                    ) == identity
+                ]
+                if exact_matches:
+                    matched_records.add(exact_matches[0])
+        for hit in (
+            hit
+            for hit in detected_callers
+            if hit["process_id"] == "unknown"
+            or hit["version_selection"] == "unknown"
+        ):
+            if not caller_hit_can_be_resolved(hit):
+                issues.append(f"{name}: unresolved process caller at {hit['location']}")
+                continue
+            site = (hit["module"], hit["location"], hit["operation"])
+            candidates = [
+                index
+                for index in records_by_site.get(site, [])
+                if index not in matched_records
+            ]
+            if len(candidates) != 1:
+                issues.append(
+                    f"{name}: reviewable caller needs one resolved inventory record at "
+                    f"{hit['location']}"
+                )
+                continue
+            index = candidates[0]
+            caller = validated[index]
+            if (
+                caller["process_id"] == "unknown"
+                or caller["version_selection"] == "unknown"
+                or hit["process_id"] != "unknown"
+                and caller["process_id"] != hit["process_id"]
+                or hit["version_selection"] != "unknown"
+                and caller["version_selection"] != hit["version_selection"]
+            ):
+                issues.append(f"{name}: unresolved process caller at {hit['location']}")
+                continue
+            matched_records.add(index)
+        for hit in deployment_set_latest_version_calls(plan, name, module):
             identity = (module, hit["location"], "latest_version")
             if identity not in listed_locations:
                 issues.append(f"{name}: latestVersion caller is missing from the inventory: {hit['location']}")
@@ -1681,8 +1931,10 @@ def validate_deployment_set_evidence(root, plan, checks, issues, deployment_set=
                 )
 
 
-def validate_timer_inventory(plan, checks, issues):
+def validate_timer_inventory(plan, checks, issues, model_path=None):
     for key, expected in plan.timer_inventory.items():
+        if model_path is not None and expected.get("model") != model_path:
+            continue
         recorded = checks.get(key)
         if recorded is None:
             continue
@@ -1722,12 +1974,56 @@ def validate_active_timer_updates(plan, checks, issues):
         if runtime and runtime[1].get("active_timer_update_hits") != hits:
             issues.append(f"{runtime_key}: active timer update inventory changed after runtime validation")
         if not hits:
-            if recorded and recorded[1]["result"] == "passed" and recorded[1].get("disposition") != "no_updates":
-                issues.append(f"{key}: no active timer updates were detected; record no_updates")
-            if recorded and recorded[1]["result"] == "passed" and recorded[1].get(
-                "active_timer_update_inventory"
-            ) != []:
-                issues.append(f"{key}: no_updates review must have an empty affected timer inventory")
+            if recorded and recorded[1]["result"] == "passed":
+                if recorded[1].get("disposition") != "no_updates":
+                    issues.append(f"{key}: no active timer updates were detected; record no_updates")
+                if recorded[1].get("active_timer_update_inventory") != []:
+                    issues.append(f"{key}: no_updates review must have an empty affected timer inventory")
+                try:
+                    normalize_non_timer_update_evidence(
+                        recorded[1].get("non_timer_update_evidence", []),
+                        hits,
+                    )
+                except EvidenceError as exc:
+                    issues.append(f"{key}: {exc}")
+            if runtime:
+                issues.append(f"{runtime_key}: runtime evidence is unexpected without an active timer update")
+            continue
+        if recorded is None:
+            if not active_timer_decision_is_approved(decision):
+                issues.append(
+                    f"{target}: active timer updates need an approved project decision and "
+                    "evidence for a supported C8 alternative"
+                )
+            locations = sorted({f'{hit["kind"]} at {hit["location"]}' for hit in hits})
+            repeated = " repeated update references" if len(hits) > 1 else ""
+            issues.append(
+                f"{target}: active C7 timer due-date update{repeated} detected at "
+                f"{', '.join(locations)}; record the blocking finding"
+            )
+            continue
+        if recorded[1]["result"] != "passed":
+            locations = sorted({f'{hit["kind"]} at {hit["location"]}' for hit in hits})
+            repeated = " repeated update references" if len(hits) > 1 else ""
+            issues.append(
+                f"{target}: active C7 timer due-date update{repeated} remains blocked at "
+                f"{', '.join(locations)}"
+            )
+            continue
+        check = recorded[1]
+        try:
+            _, active_hits = normalize_non_timer_update_evidence(
+                check.get("non_timer_update_evidence", []),
+                hits,
+            )
+        except EvidenceError as exc:
+            issues.append(f"{key}: {exc}")
+            active_hits = hits
+        if not active_hits:
+            if check.get("disposition") != "non_timer":
+                issues.append(f"{key}: classify every detected update as non-timer before clearing it")
+            if check.get("active_timer_update_inventory") != []:
+                issues.append(f"{key}: non-timer review must have an empty affected timer inventory")
             if runtime:
                 issues.append(f"{runtime_key}: runtime evidence is unexpected without an active timer update")
             continue
@@ -1736,21 +2032,8 @@ def validate_active_timer_updates(plan, checks, issues):
                 f"{target}: active timer updates need an approved project decision and "
                 "evidence for a supported C8 alternative"
             )
-        locations = sorted({f'{hit["kind"]} at {hit["location"]}' for hit in hits})
-        repeated = " repeated update references" if len(hits) > 1 else ""
-        if recorded is None:
-            issues.append(
-                f"{target}: active C7 timer due-date update{repeated} detected at "
-                f"{', '.join(locations)}; record the blocking finding"
-            )
-            continue
-        if recorded[1]["result"] != "passed":
-            issues.append(
-                f"{target}: active C7 timer due-date update{repeated} remains blocked at "
-                f"{', '.join(locations)}"
-            )
-            continue
-        check = recorded[1]
+        locations = sorted({f'{hit["kind"]} at {hit["location"]}' for hit in active_hits})
+        repeated = " repeated update references" if len(active_hits) > 1 else ""
         if check.get("disposition") != "verified":
             issues.append(
                 f"{key}: detected active timer updates must stay blocked until verified at "
@@ -1760,8 +2043,8 @@ def validate_active_timer_updates(plan, checks, issues):
         try:
             affected_timers = normalize_affected_timer_inventory(
                 check.get("active_timer_update_inventory"),
-                hits,
-                plan.timer_elements_by_model,
+                active_hits,
+                timer_elements_for_module(plan, target),
             )
         except EvidenceError as exc:
             issues.append(f"{key}: {exc}")
@@ -1774,6 +2057,11 @@ def validate_active_timer_updates(plan, checks, issues):
             issues.append(f"Missing {category} active_timer_update_runtime: {target}")
         elif runtime[0] <= recorded[0]:
             issues.append(f"{runtime_key}: runtime verification must follow the approved review")
+        elif runtime[1].get(
+            "active_timer_update_active_hits",
+            runtime[1].get("active_timer_update_hits"),
+        ) != active_hits:
+            issues.append(f"{runtime_key}: runtime update sources differ from the reviewed active-timer sources")
         elif runtime[1].get("active_timer_update_inventory") != affected_timers:
             issues.append(f"{runtime_key}: runtime timer inventory differs from the approved review")
         elif runtime[1]["result"] != "passed":
@@ -2022,7 +2310,10 @@ def record(root, args):
     if previous_issues:
         raise EvidenceError("; ".join(previous_issues))
     active_timer_update_inventory = None
+    active_timer_update_active_hits = None
+    non_timer_update_evidence = None
     if key[0] in ("module", "project") and key[2] == "active_timer_update_runtime":
+        hits = plan.active_timer_updates.get(key[1], [])
         inventory_key = (key[0], key[1], "active_timer_updates", None)
         inventory = require_fresh_passed_check(
             previous,
@@ -2030,8 +2321,15 @@ def record(root, args):
             plan,
             "Review and approve the active timer alternative before runtime validation",
         )
+        non_timer_update_evidence, active_timer_update_active_hits = (
+            normalize_non_timer_update_evidence(
+                inventory[1].get("non_timer_update_evidence", []),
+                hits,
+            )
+        )
         if (
             inventory[1].get("disposition") != "verified"
+            or not active_timer_update_active_hits
             or inventory[1].get("active_timer_update_decision") != plan.active_timer_update_decision
             or not active_timer_decision_is_approved(
                 plan.active_timer_update_decision,
@@ -2045,8 +2343,8 @@ def record(root, args):
             raise EvidenceError("Active timer validation needs the target Camunda version")
         active_timer_update_inventory = normalize_affected_timer_inventory(
             inventory[1].get("active_timer_update_inventory"),
-            plan.active_timer_updates.get(key[1], []),
-            plan.timer_elements_by_model,
+            active_timer_update_active_hits,
+            timer_elements_for_module(plan, key[1]),
         )
     if key[0] == "timer" and key[2] == "preflight":
         disposition_key = ("timer", key[1], "disposition", key[3])
@@ -2100,6 +2398,27 @@ def record(root, args):
                 timer_key,
                 plan,
                 "Timer preflight must pass before deployment or process execution",
+            )
+        for timer_key, timer_expected in plan.timer_inventory.items():
+            if timer_key[2] != "disposition" or timer_expected.get("model") != model:
+                continue
+            require_fresh_passed_check(
+                previous,
+                timer_key,
+                plan,
+                "Review the timer disposition before deployment or process execution",
+            )
+        timer_issues = []
+        validate_timer_inventory(
+            plan,
+            previous,
+            timer_issues,
+            model_path=model,
+        )
+        if timer_issues:
+            raise EvidenceError(
+                "Timer evidence is invalid before execution: "
+                + "; ".join(timer_issues)
             )
         deployment_issues = []
         validate_deployment_set_evidence(
@@ -2186,11 +2505,33 @@ def record(root, args):
                 raise EvidenceError(f"Timer disposition must be {expected}")
         if key[2] == "active_timer_updates":
             hits = plan.active_timer_updates.get(key[1], [])
-            expected = "verified" if hits else "no_updates"
+            evidence_input = parse_json_option(
+                args.non_timer_update_evidence_json,
+                "Non-timer update evidence",
+            )
+            non_timer_update_evidence, active_timer_update_active_hits = (
+                normalize_non_timer_update_evidence(
+                    evidence_input if evidence_input is not None else [],
+                    hits,
+                )
+            )
+            expected = (
+                "no_updates"
+                if not hits
+                else "non_timer"
+                if not active_timer_update_active_hits
+                else "verified"
+            )
+            if args.disposition == "non_timer" and active_timer_update_active_hits:
+                raise EvidenceError(
+                    "non-timer update evidence must classify every detected due-date update"
+                )
             if args.disposition != expected:
                 raise EvidenceError(
                     f"Active timer update review must use {expected}; block unresolved updates"
                 )
+            if expected == "non_timer" and not non_timer_update_evidence:
+                raise EvidenceError("Non-timer update evidence is required to clear detected updates")
             if expected == "verified" and not active_timer_decision_is_approved(
                 plan.active_timer_update_decision
             ):
@@ -2204,8 +2545,8 @@ def record(root, args):
             )
             active_timer_update_inventory = normalize_affected_timer_inventory(
                 affected_timer_inventory if affected_timer_inventory is not None else [],
-                hits,
-                plan.timer_elements_by_model,
+                active_timer_update_active_hits,
+                timer_elements_for_module(plan, key[1]),
             )
     else:
         if not args.reason.strip():
@@ -2238,7 +2579,7 @@ def record(root, args):
         )
         validate_active_timer_update_observation(
             active_timer_update_observation,
-            plan.active_timer_updates.get(args.target, []),
+            active_timer_update_active_hits,
             active_timer_update_inventory,
             plan.active_timer_update_decision,
             args.environment,
@@ -2303,9 +2644,19 @@ def record(root, args):
             if key[2] in ("active_timer_updates", "active_timer_update_runtime")
             else None
         ),
+        "non_timer_update_evidence": (
+            non_timer_update_evidence
+            if key[2] in ("active_timer_updates", "active_timer_update_runtime")
+            else None
+        ),
         "source_snapshot_sha256": plan.source_snapshot_digest,
         "active_timer_update_hits": (
             plan.active_timer_updates.get(args.target, [])
+            if key[2] in ("active_timer_updates", "active_timer_update_runtime")
+            else None
+        ),
+        "active_timer_update_active_hits": (
+            active_timer_update_active_hits
             if key[2] in ("active_timer_updates", "active_timer_update_runtime")
             else None
         ),
@@ -2368,6 +2719,7 @@ def main():
         action.add_argument("--timer-observation-json")
         action.add_argument("--active-timer-update-observation-json")
         action.add_argument("--affected-timers-json")
+        action.add_argument("--non-timer-update-evidence-json")
         action.add_argument("--caller-inventory-json")
         action.add_argument("--rename-mappings-json")
         if name == "run":
