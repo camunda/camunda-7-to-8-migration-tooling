@@ -85,8 +85,9 @@ serialization. The hints do not embed source expressions or automatically replac
 
 The typed-value prepare recipe unwraps known JSON `ObjectValue` builders only in direct
 object-accepting call arguments or declarations/assignments it has migrated. Uninitialized
-`ObjectValue` fields whose assignments all use supported typed-variable getters become `Object`;
-builder-backed fields remain typed. Unknown formats, multiple declarations, later-reassigned local
+`ObjectValue` fields become `Object` only when every assignment uses a supported typed-variable
+getter and their reads use `.getValue()`; builder-backed fields and fields with other uses remain
+typed for manual migration. Unknown formats, multiple declarations, later-reassigned local
 variables, and other expression contexts remain for manual migration. Cleanup removes Spin
 dependencies after unused-import removal only when no Spin types remain in source.
 
