@@ -374,6 +374,69 @@ public class TypeValueTestClass {
   }
 
   @Test
+  void preservesUnsupportedObjectValueOnlyForMatchingForLoopVariable() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        // language=java
+        java(
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    void submit(Payload payload) {
+                        for (ObjectValue serialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create(); serialized != null; ) {
+                            consume(serialized.getValue());
+                            break;
+                        }
+                        for (ObjectValue serialized = Variables.objectValue(payload)
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON)
+                            .create(); serialized != null; ) {
+                            consume(serialized.getValue());
+                            break;
+                        }
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """,
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class SpinPayloadTest {
+                    record Payload(String value) {}
+
+                    void submit(Payload payload) {
+                        for (ObjectValue serialized = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create(); serialized != null; ) {
+                            consume(serialized.getValue());
+                            break;
+                        }
+                        for (// type set to java.lang.Object
+                                Object serialized = payload; serialized != null; ) {
+                            consume(serialized);
+                            break;
+                        }
+                    }
+
+                    void consume(Object value) {
+                    }
+                }
+                """));
+  }
+
+  @Test
   void replacesJsonObjectValueBuilderAssignmentWithPojo() {
     rewriteRun(
         spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),

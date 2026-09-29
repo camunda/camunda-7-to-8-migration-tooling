@@ -834,6 +834,28 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   && declaresVariable(block.getStatements(), fieldType, variableName)) {
                 return block.getId() + ":" + variableName;
               }
+              if (value instanceof J.ForLoop forLoop
+                  && declaresVariable(
+                      forLoop.getControl().getInit(), fieldType, variableName)) {
+                return forLoop.getId() + ":" + variableName;
+              }
+              if (value instanceof J.ForEachLoop forEachLoop
+                  && declaresVariable(
+                      List.of(forEachLoop.getControl().getVariable()),
+                      fieldType,
+                      variableName)) {
+                return forEachLoop.getId() + ":" + variableName;
+              }
+              if (value instanceof J.Try.Catch catchClause
+                  && declaresVariable(
+                      catchClause.getParameter().getTree(), fieldType, variableName)) {
+                return catchClause.getId() + ":" + variableName;
+              }
+              if (value instanceof J.Lambda lambda
+                  && declaresVariable(
+                      lambda.getParameters().getParameters(), fieldType, variableName)) {
+                return lambda.getId() + ":" + variableName;
+              }
               if (value instanceof J.MethodDeclaration method
                   && method.getBody() != null
                   && declaresVariable(method.getParameters(), fieldType, variableName)) {
@@ -846,18 +868,34 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           private boolean declaresVariable(
-              List<Statement> statements, JavaType.Variable fieldType, String variableName) {
-            return statements.stream()
-                .filter(J.VariableDeclarations.class::isInstance)
-                .map(J.VariableDeclarations.class::cast)
-                .flatMap(declarations -> declarations.getVariables().stream())
+              Iterable<? extends J> nodes, JavaType.Variable fieldType, String variableName) {
+            for (J node : nodes) {
+              if (node instanceof J.VariableDeclarations declarations
+                  && declaresVariable(declarations, fieldType, variableName)) {
+                return true;
+              }
+              if (node instanceof J.Identifier identifier
+                  && declaresVariable(identifier, fieldType, variableName)) {
+                return true;
+              }
+            }
+            return false;
+          }
+
+          private boolean declaresVariable(
+              J.VariableDeclarations declarations,
+              JavaType.Variable fieldType,
+              String variableName) {
+            return declarations.getVariables().stream()
                 .map(J.VariableDeclarations.NamedVariable::getName)
-                .anyMatch(
-                    identifier ->
-                        identifier.getSimpleName().equals(variableName)
-                            && identifier.getFieldType() != null
-                            && Objects.equals(
-                                identifier.getFieldType().getOwner(), fieldType.getOwner()));
+                .anyMatch(identifier -> declaresVariable(identifier, fieldType, variableName));
+          }
+
+          private boolean declaresVariable(
+              J.Identifier identifier, JavaType.Variable fieldType, String variableName) {
+            return identifier.getSimpleName().equals(variableName)
+                && identifier.getFieldType() != null
+                && Objects.equals(identifier.getFieldType().getOwner(), fieldType.getOwner());
           }
 
           private J.Identifier getAssignedVariable(J.Assignment assignment) {
