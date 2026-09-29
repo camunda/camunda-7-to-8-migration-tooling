@@ -127,6 +127,25 @@ In Camunda 8, all common value types are stored in JSON representation. This sim
 
 The code conversion examples cover both Camunda 7 approaches to handle process variables. Naturally, both approaches are converted into the simplified JSON representation approach in Camunda 8.
 
+###### Call-activity variable scope
+
+Compare each C7 call's `camunda:in`, `camunda:out`, and delegated mappings with the converted copy.
+Without mappings or a variable-mapping delegate, C7 passes no variables in either direction.
+Camunda 8.8 copies all parent and child variables by default.
+
+| C7 contract | Camunda 8 mapping |
+|---|---|
+| Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each value. |
+| No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
+| All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
+| Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each value. |
+| No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
+| All child outputs | Keep all-child propagation only when C7 returns the same scope. |
+| Custom mapping delegate | Compare its behavior with C8 mappings; keep mismatches unresolved. |
+
+Camunda 8.8 supports [call-activity variable mappings](https://docs.camunda.io/docs/8.8/components/modeler/bpmn/call-activities/#variable-mappings).
+Keep calls with unsupported or untested behavior unresolved.
+
 TODO: Add proper links to:
 
 * [Process variables in client code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/handle-process-variables.md)
@@ -1579,9 +1598,10 @@ Then you can set the job type to
 
 In Camunda 7, external task workers are a way to implement glue code. They are deployed independently from the engine. Thus, they cannot access the engine's services.
 
-The code conversion patterns for the external task workers cover the most important methods how an external task worker can interact with the running process instance:
+The code conversion patterns for external task workers show how a worker can interact with the running process instance:
 
 -   getting and setting process variables
+-   completing with process variables, task-local variables, or both
 -   reporting a failure
 -   raising an incident
 -   throwing a BPMN error
@@ -2000,6 +2020,20 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   without _.join()_, the method _.send()_ returns a non-blocking _CamundaFuture_. With _thenApply()_ and _exceptionally()_ the response can be processed
 -   this non-blocking programming style is **recommended** by Camunda
+
+###### Completion variable scope
+
+Camunda 7 `complete(id, processVariables, localVariables)` writes each map at its own scope.
+The two-argument overload writes only process variables. Passing `null` skips either map.
+Inspect each call, its branch conditions, and downstream reads.
+
+Camunda 8 completion accepts one result map. [BPMN mappings](https://docs.camunda.io/docs/components/modeler/bpmn/data-handling/)
+control the variables' [scope and propagation](https://docs.camunda.io/docs/components/concepts/variables/).
+A worker result alone cannot preserve the separate C7 scopes.
+
+Test each branch's process and local visibility and its downstream consumers. If no faithful mapping
+exists, then ask the user for a BPMN/worker-scoping decision. Never discard a branch and claim
+parity. If deployment blocks testing, then record the blocker and keep parity unresolved.
 
 ---
 
