@@ -307,6 +307,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             """
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.variable.value.ObjectValue;
 
             import java.util.Date;
 
@@ -314,14 +315,14 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 Integer amount;
                 Date date;
                 byte[] bytes;
-                Object object;
+                ObjectValue object;
 
                 @Override
                 public void execute(DelegateExecution execution) {
                     this.amount = (Integer) execution.getVariable("amount");
                     this.date = (Date) execution.getVariable("date");
                     this.bytes = (byte[]) execution.getVariable("bytes");
-                    this.object = execution.getVariable("object");
+                    this.object = execution.getVariableTyped("object");
                 }
             }
             """));

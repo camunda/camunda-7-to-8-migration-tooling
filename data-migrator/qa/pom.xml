@@ -24,6 +24,13 @@
     </profile>
     <profile>
       <id>integration</id>
+      <!-- The previous-version CI compile sets c8.api=previous without -Pintegration. -->
+      <activation>
+        <property>
+          <name>c8.api</name>
+          <value>previous</value>
+        </property>
+      </activation>
       <modules>
         <module>integration-tests</module>
       </modules>

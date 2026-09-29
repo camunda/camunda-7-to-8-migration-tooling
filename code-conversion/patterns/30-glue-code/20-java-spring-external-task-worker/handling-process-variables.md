@@ -49,6 +49,21 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   _fetchVariables_ can be specified to restrict which variables are fetched from the process instance
 
+### Complete process-variable map
+
+When the Camunda 7 source reads the complete execution-variable map, keep `ActivatedJob` and pass
+`job.getVariablesAsMap()` to the delegate:
+
+```java
+    @JobWorker(type = "persistProject", fetchAllVariables = true)
+    public Map<String, Object> handleJob(ActivatedJob job) {
+        return projectDelegate.persist(job.getVariablesAsMap());
+    }
+```
+
+An `ActivatedJob` parameter disables implicit variable fetching. Set `fetchAllVariables = true` when
+the delegate needs every variable. Never use `@Variable` to request the complete process-variable map.
+
 ### autoComplete = false (blocking)
 
 ```java
@@ -83,3 +98,17 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   without _.join()_, the method _.send()_ returns a non-blocking _CamundaFuture_. With _thenApply()_ and _exceptionally()_ the response can be processed
 -   this non-blocking programming style is **recommended** by Camunda
+
+## Completion variable scope
+
+Camunda 7 `complete(id, processVariables, localVariables)` writes each map at its own scope.
+The two-argument overload writes only process variables. Passing `null` skips either map.
+Inspect each call, its branch conditions, and downstream reads.
+
+Camunda 8 completion accepts one result map. [BPMN mappings](https://docs.camunda.io/docs/components/modeler/bpmn/data-handling/)
+control the variables' [scope and propagation](https://docs.camunda.io/docs/components/concepts/variables/).
+A worker result alone cannot preserve the separate C7 scopes.
+
+Test each branch's process and local visibility and its downstream consumers. If no faithful mapping
+exists, then ask the user for a BPMN/worker-scoping decision. Never discard a branch and claim
+parity. If deployment blocks testing, then record the blocker and keep parity unresolved.

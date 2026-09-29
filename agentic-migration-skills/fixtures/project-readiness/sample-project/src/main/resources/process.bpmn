@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_CustomerReview"
+                  targetNamespace="http://example.com/customer-review">
+  <bpmn:process id="customer-review" isExecutable="true">
+    <bpmn:startEvent id="StartEvent" />
+    <bpmn:sequenceFlow id="Flow_Start_Lookup" sourceRef="StartEvent" targetRef="LookupCustomer" />
+    <bpmn:serviceTask id="LookupCustomer"
+                      name="Look up customer"
+                      camunda:type="external"
+                      camunda:topic="customer-lookup" />
+    <bpmn:sequenceFlow id="Flow_Lookup_Review" sourceRef="LookupCustomer" targetRef="ReviewRequest" />
+    <bpmn:userTask id="ReviewRequest"
+                   name="Review request"
+                   camunda:formKey="embedded:app:forms/review.html" />
+    <bpmn:sequenceFlow id="Flow_Review_Billing" sourceRef="ReviewRequest" targetRef="BillingSync" />
+    <bpmn:serviceTask id="BillingSync"
+                      name="Bill customer"
+                      camunda:class="example.BillingDelegate" />
+    <bpmn:sequenceFlow id="Flow_Billing_End" sourceRef="BillingSync" targetRef="EndEvent" />
+    <bpmn:endEvent id="EndEvent" />
+  </bpmn:process>
+</bpmn:definitions>

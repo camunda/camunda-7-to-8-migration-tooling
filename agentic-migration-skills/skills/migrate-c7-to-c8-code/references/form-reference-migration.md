@@ -167,7 +167,7 @@ markup.
 
 ## Ask decisions per integration group
 
-Group rows and ask with AskUserQuestion. Ask **one decision per group**, not one per row. Group only
+Group rows and ask the user. Ask **one decision per group**, not one per row. Group only
 references that share an integration. Heterogeneous opaque keys pointing at different applications
 are separate decisions. Identical or provably related references are one decision.
 

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_ConditionalBoundary" targetNamespace="http://camunda.org/examples" exporter="Camunda Modeler" exporterVersion="5.0.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.21">
+  <bpmn:process id="M2ConditionalBoundaryEventIdFixture" name="Conditional boundary event" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_OrderReview" name="Start order review">
+      <bpmn:outgoing>Flow_StartToReview</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_ReviewOrder" name="Review order">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="orderReviewDelegate" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_StartToReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReviewToApproved</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="Boundary_Escalation" name="Escalate" attachedToRef="Task_ReviewOrder" cancelActivity="true">
+      <bpmn:outgoing>Flow_EscalationToEnd</bpmn:outgoing>
+      <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_Escalation">
+        <bpmn:condition xsi:type="bpmn:tFormalExpression">= shouldEscalate</bpmn:condition>
+      </bpmn:conditionalEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="End_Approved" name="Approved">
+      <bpmn:incoming>Flow_ReviewToApproved</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Escalated" name="Escalated">
+      <bpmn:incoming>Flow_EscalationToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_StartToReview" sourceRef="StartEvent_OrderReview" targetRef="Task_ReviewOrder" />
+    <bpmn:sequenceFlow id="Flow_ReviewToApproved" sourceRef="Task_ReviewOrder" targetRef="End_Approved" />
+    <bpmn:sequenceFlow id="Flow_EscalationToEnd" sourceRef="Boundary_Escalation" targetRef="End_Escalated" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_ConditionalBoundary">
+    <bpmndi:BPMNPlane id="BPMNPlane_ConditionalBoundary" bpmnElement="M2ConditionalBoundaryEventIdFixture">
+      <bpmndi:BPMNShape id="StartEvent_OrderReview_di" bpmnElement="StartEvent_OrderReview">
+        <dc:Bounds x="160" y="280" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReviewOrder_di" bpmnElement="Task_ReviewOrder">
+        <dc:Bounds x="260" y="258" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_Escalation_di" bpmnElement="Boundary_Escalation">
+        <dc:Bounds x="292" y="321" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Approved_di" bpmnElement="End_Approved">
+        <dc:Bounds x="470" y="260" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Escalated_di" bpmnElement="End_Escalated">
+        <dc:Bounds x="470" y="370" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_StartToReview_di" bpmnElement="Flow_StartToReview">
+        <di:waypoint x="196" y="298" />
+        <di:waypoint x="260" y="298" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ReviewToApproved_di" bpmnElement="Flow_ReviewToApproved">
+        <di:waypoint x="360" y="298" />
+        <di:waypoint x="420" y="298" />
+        <di:waypoint x="420" y="278" />
+        <di:waypoint x="470" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_EscalationToEnd_di" bpmnElement="Flow_EscalationToEnd">
+        <di:waypoint x="328" y="339" />
+        <di:waypoint x="400" y="339" />
+        <di:waypoint x="400" y="388" />
+        <di:waypoint x="470" y="388" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

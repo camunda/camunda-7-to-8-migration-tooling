@@ -12,7 +12,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@Deployment(resources = "classpath*:/converted-c8-*.bpmn")
+@Deployment(
+    resources = {"classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"})
 public class MessageStartApplication {
 
   public static void main(String[] args) {

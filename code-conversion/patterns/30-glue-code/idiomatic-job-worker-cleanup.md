@@ -26,9 +26,10 @@ public void sampleJavaDelegate(ActivatedJob job) {
 
 ## Inject variables
 
-Replace required variable reads with typed `@Variable` parameters. Use `@VariablesAsType` when
-several variables form one input object. Keep `ActivatedJob` for job metadata, the job key
-(`job.getKey()`), or nullable variable reads.
+Bind each required variable with a typed `@Variable(name = "...")` parameter. Use the exact source
+variable name, even when it matches the Java parameter name. Do not rely on retained Java parameter
+names. Use `@VariablesAsType` when several variables form one input object.
+Keep `ActivatedJob` when the worker reads job metadata or its key.
 
 ```java
 // Before
@@ -37,19 +38,33 @@ public void sampleJavaDelegate(ActivatedJob job) {
 }
 
 // After
-public void sampleJavaDelegate(@Variable Object x) {
+public void sampleJavaDelegate(@Variable(name = "x") Object x) {
 }
 ```
 
 Mark an injected input optional only when the source worker accepts its absence:
 
 ```java
-public void sampleJavaDelegate(@Variable(optional = true) String comment) {
+public void sampleJavaDelegate(@Variable(name = "comment", optional = true) String comment) {
 }
 ```
 
-Keep nullable reads as `job.getVariablesAsMap().get(...)` when the source accepted a missing
-variable; do not turn them into required `@Variable` parameters or strict `job.getVariable(...)`.
+Keep a nullable source read as `job.getVariablesAsMap().get("comment")` when the source accepts an
+absent variable. Fetch that variable with `fetchVariables` or set `fetchAllVariables = true`.
+Do not replace the nullable read with strict `job.getVariable("comment")`.
+
+Use the activated job to pass the complete process-variable map to a delegate:
+
+```java
+@JobWorker(type = "persist-project", fetchAllVariables = true)
+public Map<String, Object> persistProject(ActivatedJob job) {
+  return projectDelegate.persist(job.getVariablesAsMap());
+}
+```
+
+Never use `@Variable` to request the complete process-variable map. Bind a single map-valued process
+variable with its explicit variable name. An `ActivatedJob` parameter disables implicit variable
+fetching, so set `fetchAllVariables = true` when the worker needs every process variable.
 
 Remove `throws Exception` when the cleaned method no longer throws a checked exception. Keep a
 specific checked exception when the worker still requires it.
@@ -82,7 +97,7 @@ known and the generated worker has no provenance note.
  * Migrated from the Camunda 7 SampleJavaDelegate.
  */
 @JobWorker(type = "sampleJavaDelegate")
-public Map<String, Object> sampleJavaDelegate(@Variable Object x) {
+public Map<String, Object> sampleJavaDelegate(@Variable(name = "x") Object x) {
   return Map.of("y", "hello world");
 }
 ```
