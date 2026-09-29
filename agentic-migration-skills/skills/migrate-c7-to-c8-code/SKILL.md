@@ -615,5 +615,7 @@ The skill also requires that no unresolved migration TODO, finding, compilation 
 or project-readiness blocker remains. No item can have `deferred` or `blocked` status.
 An open item is a team decision. It does not block completion unless it prevents an in-scope documentation change
 or a required readiness check. The summary always lists every open item.
+Unresolved deployment/timer preflight findings are `blocked` readiness checks, not non-blocking
+`open` team decisions.
 Otherwise, the skill reports the migration as incomplete and records the follow-up work.
 Where the root is confirmed, follow `references/final-change-summary.md` before the final response.

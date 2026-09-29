@@ -5,6 +5,8 @@ Every instruction is mandatory. "Never" means MUST NOT. A preference is marked (
 Run after the Step 2 inventories, after acquiring more models, and before any target deployment or
 readiness claim. Use the selected Camunda 8 version. Record findings, decisions, and tests in
 `MIGRATION_REPORT.md`.
+If a finding lacks an approved decision, required evidence, or required test, then set its report
+item to `blocked`. Keep the migration incomplete until the finding is resolved.
 
 ## Deployment set
 
