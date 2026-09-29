@@ -84,10 +84,11 @@ streams with Jackson from passing a POJO/Map directly; `String.valueOf(pojo)` is
 serialization. The hints do not embed source expressions or automatically replace Spin calls.
 
 The typed-value prepare recipe unwraps known JSON `ObjectValue` builders only in direct
-object-accepting call arguments or declarations/assignments it has migrated. Unknown formats,
-fields, multiple declarations, later-reassigned variables, and other expression contexts remain
-for manual migration. Cleanup removes Spin dependencies after unused-import removal only when no
-Spin types remain in source.
+object-accepting call arguments or declarations/assignments it has migrated. Uninitialized
+`ObjectValue` fields whose assignments all use supported typed-variable getters become `Object`;
+builder-backed fields remain typed. Unknown formats, multiple declarations, later-reassigned local
+variables, and other expression contexts remain for manual migration. Cleanup removes Spin
+dependencies after unused-import removal only when no Spin types remain in source.
 
 See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
 

@@ -22,6 +22,7 @@ import org.openrewrite.java.tree.*;
 public class ReplaceTypedValueAPIRecipe extends Recipe {
   private static final String OBJECT_VALUE_FQN =
       "org.camunda.bpm.engine.variable.value.ObjectValue";
+  private static final String GETTER_ONLY_OBJECT_VALUE_FIELDS = "getterOnlyObjectValueFields";
   private static final List<MethodMatcher> TYPED_VALUE_GETTERS =
       List.of(
           new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)"),
@@ -200,6 +201,27 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               builderMethodInvocations.stream()
                   .collect(Collectors.groupingBy(ReplacementUtils.BuilderReplacementSpec::matcher));
 
+          @Override
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration declaration, ExecutionContext ctx) {
+            // Fields may be declared after methods that read or assign them.
+            getCursor()
+                .putMessage(
+                    GETTER_ONLY_OBJECT_VALUE_FIELDS, getterOnlyObjectValueFields(declaration.getBody()));
+            return (J.ClassDeclaration) super.visitClassDeclaration(declaration, ctx);
+          }
+
+          @Override
+          public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+            if (newClass.getBody() != null) {
+              getCursor()
+                  .putMessage(
+                      GETTER_ONLY_OBJECT_VALUE_FIELDS,
+                      getterOnlyObjectValueFields(newClass.getBody()));
+            }
+            return (J.NewClass) super.visitNewClass(newClass, ctx);
+          }
+
           public static String mapTypedValueToNewFqn(JavaType type) {
             if (!(type instanceof JavaType.FullyQualified fqType)) {
               return "java.lang.Object"; // Default fallback
@@ -254,7 +276,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               boolean onlyTypedGetterWrites =
                   originalInitializer == null
                       && isFieldDeclaration()
-                      && hasOnlyTypedValueGetterAssignments(originalName);
+                      && isGetterOnlyObjectValueField(originalName);
               if (!onlyTypedGetterWrites
                   && ((originalInitializer == null
                           && (declarationParent instanceof J.Block
@@ -481,7 +503,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       typeExpr.getType(), "org.camunda.bpm.engine.variable.value.ObjectValue")) {
 
                 // record fqn of identifier for later uses
-                declarationScope().putMessage(originalName.toString(), newFqn);
+                if (!isGetterOnlyObjectValueField(originalName)) {
+                  declarationScope().putMessage(originalName.toString(), newFqn);
+                }
 
                 maybeRemoveImport(declarations.getTypeAsFullyQualified());
 
@@ -526,6 +550,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (target instanceof J.Identifier identifier) {
               String rewrittenType = getCursor().getNearestMessage(identifier.getSimpleName());
               if (TypeUtils.isOfClassType(identifier.getType(), OBJECT_VALUE_FQN)
+                  && !isGetterOnlyObjectValueField(identifier)
                   && (rewrittenType == null || OBJECT_VALUE_FQN.equals(rewrittenType))) {
                 return assignment;
               }
@@ -777,10 +802,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             if (invocation.getSimpleName().equals("getValue")
-                && invocation.getSelect() instanceof J.Identifier select) {
-
-              // get returnTypeFqn from cursor message
-              String returnTypeFqn = getCursor().getNearestMessage(select.getSimpleName());
+                && invocation.getSelect() != null) {
+              Expression select = invocation.getSelect();
+              String returnTypeFqn = null;
+              if (select instanceof J.Identifier identifier) {
+                returnTypeFqn =
+                    isGetterOnlyObjectValueField(identifier)
+                        ? "java.lang.Object"
+                        : getCursor().getNearestMessage(identifier.getSimpleName());
+              } else if (select instanceof J.FieldAccess access
+                  && isGetterOnlyObjectValueField(access.getName())) {
+                returnTypeFqn = "java.lang.Object";
+              }
               if (returnTypeFqn == null || OBJECT_VALUE_FQN.equals(returnTypeFqn)) {
                 return super.visitMethodInvocation(invocation, ctx);
               }
@@ -789,7 +822,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   .apply(
                       getCursor(),
                       invocation.getCoordinates().replace(),
-                      invocation.getSelect().withType(JavaType.buildType(returnTypeFqn)));
+                      select.withType(JavaType.buildType(returnTypeFqn)));
             }
 
             if (invocation.getSimpleName().equals("getVariableTyped")
@@ -887,13 +920,26 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return parent instanceof J.ClassDeclaration || parent instanceof J.NewClass;
           }
 
-          private boolean hasOnlyTypedValueGetterAssignments(J.Identifier field) {
-            JavaType.Variable fieldType = field.getFieldType();
-            J.ClassDeclaration owner = getCursor().firstEnclosing(J.ClassDeclaration.class);
-            if (fieldType == null || owner == null) {
-              return false;
+          private Set<JavaType.Variable> getterOnlyObjectValueFields(J.Block body) {
+            Set<JavaType.Variable> fields = new HashSet<>();
+            for (Statement statement : body.getStatements()) {
+              if (statement instanceof J.VariableDeclarations declarations
+                  && declarations.getVariables().size() == 1
+                  && TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
+                J.VariableDeclarations.NamedVariable variable = declarations.getVariables().get(0);
+                JavaType.Variable fieldType = variable.getName().getFieldType();
+                if (variable.getInitializer() == null
+                    && fieldType != null
+                    && hasOnlyTypedValueGetterAssignments(body, fieldType)) {
+                  fields.add(fieldType);
+                }
+              }
             }
+            return fields;
+          }
 
+          private boolean hasOnlyTypedValueGetterAssignments(
+              J.Block body, JavaType.Variable fieldType) {
             List<J.Assignment> assignments = new ArrayList<>();
             new JavaIsoVisitor<List<J.Assignment>>() {
               @Override
@@ -909,7 +955,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
                 return super.visitAssignment(assignment, collected);
               }
-            }.visit(owner.getBody(), assignments);
+            }.visit(body, assignments);
 
             return !assignments.isEmpty()
                 && assignments.stream()
@@ -919,6 +965,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                     instanceof J.MethodInvocation invocation
                                 && TYPED_VALUE_GETTERS.stream()
                                     .anyMatch(matcher -> matcher.matches(invocation)));
+          }
+
+          private boolean isGetterOnlyObjectValueField(J.Identifier identifier) {
+            JavaType.Variable fieldType = identifier.getFieldType();
+            if (fieldType == null) {
+              return false;
+            }
+            for (Cursor cursor = getCursor(); cursor != null; cursor = cursor.getParent()) {
+              Set<JavaType.Variable> fields = cursor.getMessage(GETTER_ONLY_OBJECT_VALUE_FIELDS);
+              if (fields != null && fields.contains(fieldType)) {
+                return true;
+              }
+            }
+            return false;
           }
 
           private J.VariableDeclarations preserveObjectValues(J.VariableDeclarations declarations) {
@@ -976,11 +1036,22 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           @Override
           public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
+            if (isGetterOnlyObjectValueField(identifier)) {
+              return identifier.withType(JavaType.buildType("java.lang.Object"));
+            }
             if (OBJECT_VALUE_FQN.equals(
                 getCursor().getNearestMessage(identifier.getSimpleName()))) {
               return identifier;
             }
             return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);
+          }
+
+          @Override
+          public J.FieldAccess visitFieldAccess(J.FieldAccess access, ExecutionContext ctx) {
+            J.FieldAccess visited = (J.FieldAccess) super.visitFieldAccess(access, ctx);
+            return isGetterOnlyObjectValueField(access.getName())
+                ? visited.withType(JavaType.buildType("java.lang.Object"))
+                : visited;
           }
 
           /**
