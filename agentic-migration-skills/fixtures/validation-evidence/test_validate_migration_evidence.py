@@ -571,6 +571,15 @@ class ValidationEvidenceTest(unittest.TestCase):
             "  startProcessInstanceByKey(key: string): void {\n"
             '    runtimeService.startProcessInstanceByKey("Sample");\n'
             "  }\n"
+            "}\n"
+            "interface ProcessCallerContract {\n"
+            "  startProcessInstanceByKey(key: string): void;\n"
+            "}\n"
+            "abstract class AbstractProcessCaller {\n"
+            "  abstract createProcessInstanceByKey(key: string): void;\n"
+            "}\n"
+            "function invokeDirectly(): void {\n"
+            '  startProcessInstanceByKey("Direct");\n'
             "}\n",
             encoding="utf-8",
         )
@@ -584,6 +593,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             [
                 ("Sample", "startProcessInstanceByKey"),
                 ("Sample", "startProcessInstanceByKey"),
+                ("Direct", "startProcessInstanceByKey"),
             ],
             [(hit["process_id"], hit["operation"]) for hit in callers],
         )
@@ -1501,6 +1511,56 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual(0, self.audit())
 
+    def test_root_module_active_timer_review_and_runtime_use_module_check_keys(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["models"][0]["module"] = "."
+        self.plan["deployment_sets"][0]["modules"] = ["."]
+        self.write_scope()
+        self.add_active_timer_model()
+
+        source = self.root / "src/main/java/TimerUpdates.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "managementService.setJobDuedate(timerId, newDate);\n",
+            encoding="utf-8",
+        )
+        review_key = ("module", ".", "active_timer_updates", None)
+        runtime_key = ("module", ".", "active_timer_update_runtime", None)
+        requirements = gate.requirements(self.root, self.plan)
+        self.assertIn(review_key, requirements.required)
+        self.assertIn(runtime_key, requirements.allowed)
+        self.assertNotIn(("project", ".", "active_timer_updates", None), requirements.required)
+        hits = requirements.active_timer_updates["."]
+        self.assertEqual(1, len(hits))
+        self.complete_required_checks()
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        evidence["active_timer_update_decision"] = {
+            "status": "approved",
+            "approval_reference": "fixture-root-module-approval",
+            "alternative_evidence_reference": "fixture-root-module-support",
+            "target_version": "8.9.21",
+        }
+        write_json(self.root / gate.EVIDENCE, evidence)
+        self.submit(
+            review_key,
+            action="review",
+            disposition="verified",
+            affected_timers_json=json.dumps(self.affected_timer_inventory(target=".")),
+            note="Reviewed the root-module active timer update and approved its alternative.",
+        )
+        self.submit(
+            runtime_key,
+            environment="local",
+            target_version="8.9.21",
+            target_disposable=True,
+            cleanup_plan="Delete the test deployment and generated instances.",
+            command=[sys.executable, "-c", "print('success')"],
+            active_timer_update_observation_json=json.dumps(
+                self.active_timer_observation(target=".")
+            ),
+        )
+        self.assertEqual(0, self.audit())
+
     def test_non_timer_classification_keeps_other_active_timer_updates_blocked(self):
         self.add_active_timer_model()
         source = self.root / "app/src/main/java/TimerUpdates.java"
@@ -1922,7 +1982,6 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_cron_cycles_validate_field_values_and_modifiers(self):
         invalid_cycles = (
             "99 99 99 * * FUNDAY",
-            "0\t0\t9\t*\t*\tMON",
             "0 0 0 * * L",
             "0 60 9 * * MON",
             "0 0 24 * * MON",
@@ -1931,6 +1990,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             "0 0 9 * * 8",
             "0 0 */0 * * MON",
             "0 0 9-17 * * MON--FRI",
+            "0 0 0 L-31 * *",
+            "0 0 0 ? * MON#6",
         )
         for cycle in invalid_cycles:
             with self.subTest(cycle=cycle):
@@ -1942,10 +2003,13 @@ class ValidationEvidenceTest(unittest.TestCase):
             "0 0 0 * * MON-SUN",
             "0 0 0 * * SUN-SAT",
             "0 0 0 L * *",
+            "0 0 0 L-30 * *",
             "0 0 0 1W * *",
             "0 0 0 LW * *",
             "0 0 0 * * 5L",
             "0 0 0 ? * MON#1",
+            "0 0 0 ? * MON#5",
+            "0\t0\t9\t*\t*\tMON",
         )
         for cycle in valid_cycles:
             with self.subTest(cycle=cycle):

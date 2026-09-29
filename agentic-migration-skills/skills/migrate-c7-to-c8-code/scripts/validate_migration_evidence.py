@@ -538,6 +538,32 @@ def process_call_version(text, call_end, operation):
     return "unknown", "dynamic", latest_version_starts
 
 
+def is_typescript_method_signature_context(text, position):
+    openings = []
+    for index, character in enumerate(text[:position]):
+        if character == "{":
+            openings.append(index)
+        elif character == "}" and openings:
+            openings.pop()
+    if not openings:
+        return False
+    opening = openings[-1]
+    header_start = max(
+        text.rfind(delimiter, 0, opening)
+        for delimiter in (";", "{", "}")
+    )
+    header = text[header_start + 1:opening]
+    return (
+        re.search(r"\binterface\s+[A-Za-z_$][A-Za-z0-9_$]*", header) is not None
+        or re.search(
+            r"\btype\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\s*<[^{};]+>)?\s*=\s*$",
+            header,
+        ) is not None
+        or re.search(r"\bdeclare\s+class\s+[A-Za-z_$][A-Za-z0-9_$]*", header)
+        is not None
+    )
+
+
 def is_process_method_declaration(text, match, call_end, source_suffix):
     prefix_start = max(
         text.rfind(delimiter, 0, match.start())
@@ -572,9 +598,18 @@ def is_process_method_declaration(text, match, call_end, source_suffix):
             "abstract", "async", "declare", "default", "function", "override",
             "private", "protected", "public", "readonly", "static",
         }
+        modifier_tokens = prefix.split()
+        if not all(token in modifiers for token in modifier_tokens):
+            return False
+        if re.match(r"\s*(?::\s*[^;{}\n]+)?\s*\{", tail) is not None:
+            return True
         return (
-            all(token in modifiers for token in prefix.split())
-            and re.match(r"\s*(?::\s*[^;{}\n]+)?\s*\{", tail) is not None
+            re.match(r"\s*(?::\s*[^;{}\n]+)?\s*;", tail) is not None
+            and (
+                "abstract" in modifier_tokens
+                or "declare" in modifier_tokens
+                or is_typescript_method_signature_context(text, match.start())
+            )
         )
     if source_suffix in (".kt", ".kts"):
         return (
@@ -837,7 +872,7 @@ def _cron_day_of_month_special(value):
         return True
     offset = re.fullmatch(r"L-([0-9]+)", value)
     if offset is not None:
-        return _cron_value(offset.group(1), 1, _CRON_INTEGER_MAX) is not None
+        return _cron_value(offset.group(1), 1, 30) is not None
     nearest_weekday = re.fullmatch(r"([0-9]+)W", value)
     return nearest_weekday is not None and (
         _cron_value(nearest_weekday.group(1), 1, 31) is not None
@@ -851,7 +886,7 @@ def _cron_day_of_week_special(value):
     nth_weekday = re.fullmatch(r"(.+)#([0-9]+)", value)
     return nth_weekday is not None and (
         _cron_value(nth_weekday.group(1), 0, 7, _CRON_WEEKDAYS) is not None
-        and _cron_value(nth_weekday.group(2), 1, _CRON_INTEGER_MAX) is not None
+        and _cron_value(nth_weekday.group(2), 1, 5) is not None
     )
 
 
@@ -909,7 +944,7 @@ def cycle_details(expression):
             "interval": interval,
             "repetitions": int(count) if count else None,
         }
-    cron_fields = [field for field in expression.split(" ") if field]
+    cron_fields = re.split(r"\s+", expression.strip())
     if (
         len(cron_fields) == 6
         and _valid_cron_field(cron_fields[0], 0, 59)
@@ -2276,7 +2311,11 @@ def validate_timer_inventory(plan, checks, issues, model_path=None):
 def validate_active_timer_updates(plan, checks, issues):
     decision = plan.active_timer_update_decision
     for target, hits in plan.active_timer_updates.items():
-        category = "module" if target != "." else "project"
+        category = (
+            "module"
+            if ("module", target, "active_timer_updates", None) in plan.required
+            else "project"
+        )
         key = (category, target, "active_timer_updates", None)
         recorded = checks.get(key)
         runtime_key = (category, target, "active_timer_update_runtime", None)

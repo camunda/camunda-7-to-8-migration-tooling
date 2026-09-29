@@ -118,6 +118,8 @@ duration or an empty time section after `T`. Cron cycles do not have fixed inter
 values. The gate validates all six cron fields, including numeric bounds, lists, ranges, steps,
 names, and field-specific `?`, `L`, `W`, and `#` syntax. Malformed or unsupported cycles remain
 unresolved and block the gate. Run a disposable-target preflight for each retained timer.
+Fields can be separated by whitespace, including tabs. An `L-n` offset must be 1-30, and a
+weekday `#n` ordinal must be 1-5. Out-of-range modifiers remain unresolved.
 A removed timer needs a disposition review but no runtime preflight.
 
 The gate requires an `active_timer_updates` review for each module. Review all direct C7
