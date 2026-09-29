@@ -224,8 +224,21 @@ public class TypeValueTestClass {
                             .serializationDataFormat("application/xml")
                             .create();
                         Object initializedValue = initialized.getValue();
+
+                        ObjectValue parenthesizedInitialized = (Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create());
+                        Object parenthesizedInitializedValue = parenthesizedInitialized.getValue();
+
+                        ObjectValue parenthesized;
+                        parenthesized = (Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml")
+                            .create());
+                        Object parenthesizedValue = parenthesized.getValue();
                         consume(value);
                         consume(initializedValue);
+                        consume(parenthesizedInitializedValue);
+                        consume(parenthesizedValue);
                     }
 
                     void consume(Object value) {

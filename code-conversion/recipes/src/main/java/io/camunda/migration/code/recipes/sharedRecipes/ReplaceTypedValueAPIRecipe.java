@@ -918,7 +918,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               public J.VariableDeclarations visitVariableDeclarations(
                   J.VariableDeclarations declarations, Set<String> variables) {
                 for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-                  if (variable.getInitializer() instanceof J.MethodInvocation invocation
+                  Expression initializer = unwrapParentheses(variable.getInitializer());
+                  if (initializer instanceof J.MethodInvocation invocation
                       && isUnsupportedBuilderInvocation(invocation)) {
                     addPreservedObjectValueVariable(variables, getCursor(), variable.getName());
                   }
@@ -929,8 +930,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               @Override
               public J.Assignment visitAssignment(J.Assignment assignment, Set<String> variables) {
                 J.Identifier identifier = getAssignedVariable(assignment);
+                Expression assignedValue = unwrapParentheses(assignment.getAssignment());
                 if (identifier != null
-                    && assignment.getAssignment() instanceof J.MethodInvocation invocation
+                    && assignedValue instanceof J.MethodInvocation invocation
                     && isUnsupportedBuilderInvocation(invocation)) {
                   addPreservedObjectValueVariable(variables, getCursor(), identifier);
                 }
@@ -946,6 +948,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (variableKey != null) {
               variables.add(variableKey);
             }
+          }
+
+          private Expression unwrapParentheses(Expression expression) {
+            while (expression instanceof J.Parentheses<?> parentheses
+                && parentheses.getTree() instanceof Expression nested) {
+              expression = nested;
+            }
+            return expression;
           }
 
           private J.Block maybeInlineBlock(J.Block block, ExecutionContext ctx) {
