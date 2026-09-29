@@ -88,6 +88,12 @@ Grouped typed-getter declarations keep every variable and required cast; groups
 with incompatible initializers stay at their Camunda 7 types with a TODO.
 Assignments through another instance of the same class use converted field
 types, while unrelated owners and retained local values keep their typed calls.
+This also applies to reads and assignments of converted superclass fields in
+the same source file; helper-returned C7 superclass fields remain typed.
+Both single and grouped typed getters from `VariableScope`, `ExternalTask`, and
+`TaskService` cast non-`Object` values where needed. A group that mixes typed
+getters with factory, null, or unsupported initializers remains C7-typed with
+a TODO for manual migration.
 
 ### autoComplete = false (blocking)
 
