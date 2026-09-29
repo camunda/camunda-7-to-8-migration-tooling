@@ -40,19 +40,12 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
   ],
   "models": [
     {"source_path": "models/order.bpmn", "path": "models/converted-c8-order.bpmn",
-     "module": "examples/web", "deployment_set": "web",
      "processes": [{"id": "order-process", "standalone": true, "scenarios": ["normal"]}]}
   ],
   "deployment_sets": [
     {"name": "web", "modules": ["examples/web"],
      "models": ["models/converted-c8-order.bpmn"]}
   ],
-  "active_timer_update_decision": {
-    "status": "unresolved",
-    "approval_reference": null,
-    "alternative_evidence_reference": null,
-    "target_version": null
-  },
   "checks": []
 }
 ```
@@ -63,117 +56,12 @@ Where a module uses a Camunda Spring Boot starter, include its real-client conte
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
 module to skip runtime checks.
 
-The gate compares module and original-model paths with the Step 2 inventory. It parses each
-converted copy to find executable processes and repeating timer starts. Include every executable
-process ID in its model's `processes` array. Use an empty array for DMN.
-Deployment-time repeating starts are only `startEvent` elements directly owned by a
-`bpmn:process`. Timer starts in event subprocesses are not deployment schedules.
-The separate active-timer inventory includes timer events nested in process scopes, including
-subprocesses, boundary events, and intermediate catch events.
-
-Declare each intended target group once in `deployment_sets`. Include every converted BPMN/DMN
-deployed to that target and every module that deploys or calls those models.
-Give each model its owning `module` and matching `deployment_set`.
-Each converted model must belong to exactly one set.
-Put isolated target groups in separate sets.
-The gate compares all BPMN process IDs within each set, including non-executable definitions.
-The gate blocks duplicate IDs until callers select explicit versions or converted copies no longer share an ID.
-The gate blocks a mapped rename while converted models still share the old ID.
-The scan reads static literals and JavaScript or TypeScript template literals as process IDs.
-Simple identifier and member expressions remain reviewable when the scan cannot read their values.
-Resolve them in the caller inventory after tracing the constant or configuration value.
-Function calls, concatenations, and interpolated IDs remain dynamic and cannot satisfy caller coverage.
-
-The deployment-set `preflight` review needs a complete caller inventory. The module scan detects
-`startProcessInstanceByKey`, `createProcessInstanceByKey`, `bpmnProcessId`, and `.latestVersion()` calls.
-
-| Caller form | Required operation | Version selection |
-|---|---|---|
-| C7 `startProcessInstanceByKey` or `createProcessInstanceByKey` | Record the detected operation. | `latest_version`, even without `.latestVersion()`. |
-| C8 `bpmnProcessId` | `bpmnProcessId` | Record the call-site selection. Use `unknown` when the source does not show it. |
-| `.latestVersion()` with no detected process call | `other` | `latest_version` |
-
-Each caller record includes its module, project-relative source location with line number, process
-ID, operation, and version selection. Use operation `startProcessInstanceByKey`,
-`createProcessInstanceByKey`, `bpmnProcessId`, or `other`.
-Every record must match a detected process-call site or a detected standalone `.latestVersion()`
-site. Standalone sites use operation `other`. Method declarations are not caller sites, and a
-record at an unrelated source line cannot satisfy a duplicate-ID decision.
-A chained `.latestVersion()` belongs to its process-call record, even when the chain spans multiple
-lines.
-For each deployment set, include detected calls that target process IDs in that set.
-Do not list calls to process IDs in another set. Resolve a simple identifier or member expression
-with a concrete process ID and version selection at the same location and operation.
-Standalone `.latestVersion()` sites have no detected target ID, so include each one in every
-deployment set that contains its module, even when another process call on the same source line
-targets a different set.
-The review note must name the constant or configuration source that you traced.
-An explicit-version decision needs at least one matching caller record that selects a positive
-integer version. A mapped rename needs
-complete old-to-new mappings and updated callers, even after converted copies no longer collide.
-Keep dynamic IDs or version selections unresolved.
-The gate blocks interpolated strings that contain process or timer call patterns.
-
-Review each repeating timer's exact disposition before deployment. Use `add`, `change`, `preserve`,
-or `remove`. The gate records both cycles, cycle type, module, deployment set, and automatic-start
-effect. ISO 8601 cycles also record the interval and repetition count. The gate rejects an empty
-duration or an empty time section after `T`. Cron cycles do not have fixed interval or repetition
-values. The gate validates all six cron fields, including numeric bounds, lists, ranges, steps,
-names, and field-specific `?`, `L`, `W`, and `#` syntax. Malformed or unsupported cycles remain
-unresolved and block the gate. Run a disposable-target preflight for each retained timer.
-Fields can be separated by whitespace, including tabs. An `L-n` offset must be 1-30, and a
-weekday `#n` ordinal must be 1-5. Out-of-range modifiers remain unresolved.
-A removed timer needs a disposition review but no runtime preflight.
-
-The gate requires an `active_timer_updates` review for each module. Review all direct C7
-`ManagementService.setJobDuedate` and REST due-date calls, method references, helpers, callers, and
-repeated updates. REST detection includes literal and template-literal paths.
-It also includes concatenated paths such as `"/job/" + jobId + "/duedate"`.
-The scan detects URI-builder paths such as
-`pathSegment("job").pathSegment(jobId).pathSegment("duedate")`
-and JAX-RS `path("job").path(jobId).path("duedate")`.
-Classify each detected update as an active timer update or a non-timer use.
-Record a non-timer use with location-bound evidence in `--non-timer-update-evidence-json`.
-Use `non_timer` only when every detected update has non-timer evidence.
-For mixed results, use `verified` and map only the active timer sources to BPMN timers.
-Unclassified updates remain blocked. Record `no_updates` only when the scan finds no calls.
-Active timer updates stay blocked until an approved, target-supported alternative passes runtime validation.
-Do not guess a C8 replacement or use a no-op, fake, or throwing placeholder.
-
-| Decision evidence | Gate requirement |
-|---|---|
-| Approved status, concrete decision and alternative evidence references, and target version | Require a verified review and later runtime check. |
-| Missing, pending, unresolved, or placeholder value | Keep the finding blocked and the gate `NOT READY`. |
-
-The target version must be a concrete Camunda 8 release in `8.<minor>.<patch>` format, such as
-`8.9.21`. Placeholders, pre-release labels, and other major versions are not accepted.
-The top-level `active_timer_update_decision` object stores this decision. The review log snapshots
-it. The runtime check must follow the review.
-The runtime check must match the decision snapshot and target version.
-Keep the status `unresolved` until the project approves and documents a supported alternative.
-This repository has no approved C8 replacement.
-When updates are detected and an alternative is approved, include `--affected-timers-json` in the
-review. Its array must map every detected source location to an existing timer in a converted BPMN
-model. Each entry uses `model_path`, `process_id`, `timer_id`, and `source_locations`.
-The runtime observation must match that inventory exactly.
-It cannot omit or add timers or source locations.
-
-Every check records a SHA-256 fingerprint of the declared models and caller-relevant source and
-configuration files under the declared modules. The snapshot scans only those modules and models.
-It excludes `.git`,
-`.camunda-migration` evidence output, and common build directories. When an in-scope file changes,
-the gate marks prior checks stale. Rerun the required checks or initialize a new run.
-Before a dependent command runs, the recorder checks whether its prerequisites are current.
-Timer preflights require a current timer disposition.
-Active-timer runtime checks require a current approved review.
-Model deployments require current model lint.
-Deployments and process starts require current deployment-set preflight, duplicate process ID
-decisions, and retained-timer checks. Before executing either command, the recorder revalidates
-caller completeness and duplicate-ID dispositions. A current but semantically incomplete review
-cannot authorize deployment or process execution.
-Where a process has a worker-input review, its start command requires current evidence.
-If a prerequisite is stale, refresh it before running its dependent command.
-The recorder allows you to rerun a stale prerequisite.
+Declare each target group in `deployment_sets`. Include every converted model in exactly one set.
+List every migrated module that deploys or calls models in its set. Separate groups that deploy
+to different targets. The gate compares module and original-model paths with the Step 2 inventory.
+It reads all BPMN process IDs, including non-executable definitions, from the source and converted
+copies. It reads repeating timer starts directly under each process, not inside event subprocesses.
+Include every executable process ID in its model's `processes` array. Use an empty array for DMN.
 
 For each standalone process, list `normal` and every missing-worker-input scenario in `scenarios`.
 Record its worker-input review before starting it. For a non-standalone process, set
@@ -194,58 +82,64 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ```
 
 The recorder runs without a shell. It stores JSON evidence under
-`.camunda-migration/validation/logs/`. It returns 0 only when the command exits 0. A failed
-command returns 1 and still saves its output. Continue with other modules, models, and suites.
+`.camunda-migration/validation/logs/`. It returns 0 only when the command and its required
+evidence pass. A failed command or invalid timer observation returns 1 and saves its output.
+Continue with other modules, models, and suites.
 Run recorder invocations sequentially. The default command timeout is five minutes. Use
 `--timeout <seconds>` for checks that need a different limit.
 Never use a command that skips tests, checks only plugin help, or asserts only that a test file exists.
 Use a bounded test that starts the application or packaged JAR. The test must assert startup before
 it stops the process.
 
-Use `review` for each review check. Give a substantive note naming the reviewed files and decisions:
+Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type model --target models/converted-c8-order.bpmn --kind review --note "The skill checked source integrity, converter findings, form decisions, and DI."
 ```
 
-For a deployment-set preflight, supply a JSON caller inventory. Each caller location must exist
-inside its declared module:
+### Deployment and timer decisions
+
+Follow `references/deployment-and-timer-preflight.md` for the caller inventory and decision rules.
+Record every caller and version selection in `MIGRATION_REPORT.md`, including C7 by-key calls,
+C8 `bpmnProcessId` calls, and `.latestVersion()` calls. Resolve IDs from constants and
+configuration. The gate checks the review reference, not caller completeness.
+
+Record one preflight review per deployment set:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type deployment_set --target web --kind preflight --note "Reviewed all process IDs, callers, and version selection." --caller-inventory-json '[{"module":"examples/web","location":"examples/web/src/main/java/org/example/Starter.java:42","process_id":"order-process","operation":"startProcessInstanceByKey","version_selection":"latest_version"}]'
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type deployment_set --target web --kind preflight --reference MIGRATION_REPORT.md#deployment-set-web --note "Reviewed all process IDs, caller sites, and version selections in the web target."
 ```
 
-For a duplicate process ID, record `explicit_version` only after every caller selects an explicit
-version. A `mapped_rename` decision needs a complete mapping and no remaining collision.
-When the module scan finds no due-date update calls, record `no_updates` after review:
+When source or converted BPMNs share a process ID within a set, record its decision separately.
+Use `explicit_version` only when no retained timer start shares the ID. Use `mapped_rename` only
+after the converted IDs stop colliding. Cite the approved mapping or caller review:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition no_updates --note "Reviewed setter and REST calls, helpers, callers, and timer links."
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type deployment_set --target web --kind duplicate_process_id --scenario Sample --disposition explicit_version --reference MIGRATION_REPORT.md#sample-callers --note "All Sample callers select an explicit version."
 ```
 
-When every detected due-date call selects a non-timer job, record evidence for each location:
+Review each process-level repeating timer found in the source or converted copy. Record its
+`add`, `change`, `preserve`, or `remove` disposition and the approved exact cycle:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition non_timer --non-timer-update-evidence-json '[{"location":"examples/web/src/main/java/TimerUpdates.java:42","kind":"setJobDuedate","evidence":"The selected job is a service-task job, not a timer job."}]' --note "Traced the selected job type and recorded why the call does not update a timer."
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type timer --target models/converted-c8-order.bpmn#order-process#Start --kind disposition --disposition preserve --reference MIGRATION_REPORT.md#order-timer --note "Approved R/PT1H and its automatic starts."
 ```
 
-When detected updates remain unresolved, record the blocking finding:
+Review every module for C7 due-date updates, REST endpoints, helpers, and all callers.
+The source scan is a conservative hint, not a complete parser. Use `no_updates` only when
+no direct hint remains and the manual review found no due-date calls:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind active_timer_updates --reason "Active timer updates remain unsupported or unverified for the selected target."
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition no_updates --note "Reviewed due-date calls and their callers; no active timer update remains."
 ```
 
-When the project approves an alternative, record its exact timer inventory with the review.
-Set the top-level `active_timer_update_decision` to approved before recording `verified`.
-For mixed results, pass only active timer sources in `--affected-timers-json` and classify each
-non-timer source with `--non-timer-update-evidence-json`:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition verified --affected-timers-json '[{"model_path":"models/converted-c8-order.bpmn","process_id":"order-process","timer_id":"PaymentDue","source_locations":["examples/web/src/main/java/TimerUpdates.java:42"]}]' --note "Mapped each update site to its BPMN timer after verifying the approved alternative."
-```
-
-Each affected timer must belong to a deployment set that includes the source module.
-A timer from an unrelated deployment set cannot satisfy the active timer inventory.
+When every detected hint concerns a non-timer job, use `non_timer` with evidence for each
+`path:line:column` location. If a source line has two hits, then provide two records.
+Use `--non-timer-evidence-json '[{"location":"examples/web/Job.java:42:17","evidence":"MIGRATION_REPORT.md#non-timer-job"}]'`.
+The gate rejects placeholders such as `not applicable` as evidence.
+When any update affects an active timer or cannot be classified, record a `block` check.
+If manual review finds a call the scan missed, then keep the review blocked.
+An `approved` decision or a passing review cannot bypass this blocker.
 
 If a check cannot run, record `block` with a reason. Never substitute a review for an executable
 check:
@@ -265,18 +159,16 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Target | Required checks |
 |---|---|
 | Project `.` | `docker_info` before the first Docker-dependent suite, when any suite needs Docker. Use exactly `docker info`. |
-| Each module | `compile`, one `tests` check per declared suite, and `review`. |
-| Each module or code-free project | `active_timer_updates` review. Detected unresolved updates remain blocked. |
+| Each module | `compile`, one `tests` check per declared suite, `review`, and `active_timer_updates` review or blocker. |
 | Spring Boot runtime module | `configuration`, `spring_boot_run`, and `executable_jar`, in addition to module checks. |
 | External runtime module | `configuration` and `external_launcher`, in addition to module checks. |
 | Each converted BPMN/DMN | `lint`, `review`, then `deployment`. The recorder also checks XML parsing and source separation. |
-| Each deployment set | `preflight` review with a complete caller inventory. |
-| Each duplicate process ID within a deployment set | `duplicate_process_id` review with an explicit-version or mapped-rename decision. |
+| Each deployment set | A preflight review with an approved reference. |
+| Each duplicate process ID in a set | An explicit-version or mapped-rename review with an approved reference. |
 | Each standalone executable process | `worker_input_inventory` review and `process_path` for `normal` and each declared scenario. |
 | Each non-standalone executable process | `process_path` with the `covering_test` as its scenario. |
 | Each applicable behavior | A command check named in the assertion table below. |
-| Each repeating timer in original or converted BPMN | A `disposition` review. |
-| Each repeating timer retained in converted BPMN | A separate `preflight`. |
+| Each repeating timer start directly under a process | An approved `disposition` review. For a retained timer, a separate runtime `preflight` before deployment or process execution. |
 
 The module review covers the code checks in Step 4 of `SKILL.md`: dependencies and their
 compatibility, imports, TODOs, business keys, client usage, queries, adapters, and packaged resources.
@@ -310,70 +202,30 @@ Use the same restriction for runtime checks. Never start a production worker as 
 probe. Deploy every converted model. Never deploy a validation probe to production.
 
 [Timer starts schedule work on deployment](https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/#timer-start-events).
-Record a timer's disposition before its runtime preflight. Run each retained repeating timer
-preflight on an explicitly disposable local or non-production target. Add these options:
+Run each retained repeating timer preflight on a disposable local or non-production target.
+The command must deploy the converted copy, observe a timer-created instance, and complete
+cleanup. Supply the selected Camunda 8 patch version and a cleanup plan:
 
-- `--target-disposable`
-- `--target-version <version>`
-- `--cleanup-plan "<cleanup or isolation steps>"`
-- `--environment local` or `--environment non-production`
-- `--timer-observation-json '<JSON object>'`
-
-The selected target version must be a concrete Camunda 8 release in `8.<minor>.<patch>` format,
-such as `8.9.21`. Placeholders, pre-release labels, and other major versions are rejected.
-A successful command and a cleanup plan alone cannot pass the preflight. The JSON object must record:
-
-| Object | Required evidence |
-|---|---|
-| `deployment` | `performed: true`, a reference, the matching environment, a disposable target, and the matching target version. |
-| `observation` | The expected process ID, start ID, cycle, and at least one started instance. |
-| `cleanup` | `completed: true` and a cleanup evidence reference. |
-
-Example object:
-
-```json
-{
-  "deployment": {
-    "performed": true,
-    "reference": "observed-deployment-id",
-    "environment": "local",
-    "target_disposable": true,
-    "target_version": "8.9.21"
-  },
-  "observation": {
-    "process_id": "order-process",
-    "start_id": "Start",
-    "cycle": "R/PT1H",
-    "instances_started": 1
-  },
-  "cleanup": {"completed": true, "evidence_reference": "cleanup-record"}
-}
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type timer --target models/converted-c8-order.bpmn#order-process#Start --kind preflight --environment local --target-disposable --target-version 8.9.21 --isolation-plan "Destroy the disposable target." -- <bounded-disposable-test-command>
 ```
 
-Replace every example value with evidence from the actual run. The gate checks the record's
-structure and consistency. It cannot inspect the remote target. Never use a print-success command
-or a cleanup plan instead of deployment, observation, and completed cleanup. If no safe target is
-available, block the preflight. Do not deploy or start that model.
+After cleanup, the command must print one JSON object on its last stdout line.
+Replace the sample evidence references with records from the actual test:
 
-An approved active-timer alternative needs a separate `active_timer_update_runtime` check after its
-passing review. Run it on an explicitly disposable local or non-production target.
-Supply `--target-disposable`, `--target-version`, `--cleanup-plan`, the environment flag, and
-`--active-timer-update-observation-json`.
+```json
+{"deployment":{"performed":true,"reference":"deployment-record","environment":"local","target_disposable":true,"target_version":"8.9.21"},"observation":{"model_path":"models/converted-c8-order.bpmn","process_id":"order-process","start_id":"Start","cycle":"R/PT1H","instances_started":1},"cleanup":{"completed":true,"evidence_reference":"cleanup-record"}}
+```
 
-The observation object must record:
+The gate checks the model path, process ID, event ID, exact cycle, observed starts, target,
+and completed cleanup. It cannot inspect the remote target. Never substitute a print-only
+command for the disposable test. If no safe target exists, then block the preflight.
+Do not deploy or start that model.
 
-| Object | Required evidence |
-|---|---|
-| `deployment` | `performed: true`, a reference, the matching environment, a disposable target, and the approved target version. |
-| `observation` | An evidence reference and a non-empty `timers` array. Each timer record names `model_path`, `process_id`, and `timer_id`. Its `source_locations` must exactly match the reviewed inventory. The records must contain exactly the reviewed timers and all detected update locations. Each record proves an active timer before updates, two updates, zero obsolete-deadline firings, and one final-deadline firing. Each record identifies its `process_instance_id`, requested final deadline, and final-deadline firing time. The timestamps must include a timezone. The firing time must not precede the requested deadline. |
-| `cleanup` | `completed: true` and a cleanup evidence reference. |
-
-Each timer record uses `model_path`, `process_id`, `timer_id`, `source_locations`,
-`active_before_updates`, `updates_applied`, `obsolete_deadlines_fired`, `final_deadline_fired`,
-`process_instance_id`, `requested_final_deadline`, and `final_deadline_fired_at`.
-
-Readiness remains `NOT READY` until the alternative passes runtime validation.
-If no safe plan exists, block the preflight. Do not deploy or start that model.
+Each check stores a fingerprint of the declared modules, source and converted models, root build
+configuration, and deployment-set membership. Source changes make old checks stale.
+Refresh stale checks before a dependent command or readiness claim. The recorder rejects a
+dependent command before it runs when its review, lint, or timer preflight is stale.
 
 When a Docker probe fails, block its Docker-dependent suites and run the other suites. When Docker
 responds but Testcontainers fails, classify the suite as `testcontainers`, not

@@ -235,15 +235,10 @@ its finding.
 
 Run `references/deployment-and-timer-preflight.md` after the code and model inventories. Record its
 findings and decisions in `MIGRATION_REPORT.md`.
-Record deployment-set membership, process IDs, and caller version selection in validation evidence.
-Review each module for C7 due-date updates, REST calls, helpers, callers, and repeated updates.
-Classify each due-date call as an active timer update or a non-timer use.
-Record evidence for each non-timer source location.
-Map active timers only to deployment sets that contain the source module.
-Never infer C8 support from C7 behavior.
-The top-level `active_timer_update_decision` must record approval, a project decision reference,
-support evidence, and the target version.
-The gate blocks active timer updates until that decision and a disposable-target runtime check pass.
+For a full migration, record deployment sets, timer decisions, and module due-date reviews through
+`references/validation-evidence.md`. Never treat the gate's source hints as a complete caller review.
+When an active timer update remains, keep the flow blocked. This gate has no approved C8 replacement
+path.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
