@@ -1871,6 +1871,38 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("iso_8601", gate.cycle_details("R/PT1S")["cycle_type"])
         self.assertEqual("iso_8601", gate.cycle_details("R/P1DT1H")["cycle_type"])
 
+    def test_cron_cycles_validate_field_values_and_modifiers(self):
+        invalid_cycles = (
+            "99 99 99 * * FUNDAY",
+            "0\t0\t9\t*\t*\tMON",
+            "0 0 0 * * L",
+            "0 60 9 * * MON",
+            "0 0 24 * * MON",
+            "0 0 9 32 * ?",
+            "0 0 9 * 13 ?",
+            "0 0 9 * * 8",
+            "0 0 */0 * * MON",
+            "0 0 9-17 * * MON--FRI",
+        )
+        for cycle in invalid_cycles:
+            with self.subTest(cycle=cycle):
+                self.assertIsNone(gate.cycle_details(cycle))
+
+        valid_cycles = (
+            "0 0/30 8-10 * * MON-FRI",
+            "0 0 0 25 12 ?",
+            "0 0 0 * * MON-SUN",
+            "0 0 0 * * SUN-SAT",
+            "0 0 0 L * *",
+            "0 0 0 1W * *",
+            "0 0 0 LW * *",
+            "0 0 0 * * 5L",
+            "0 0 0 ? * MON#1",
+        )
+        for cycle in valid_cycles:
+            with self.subTest(cycle=cycle):
+                self.assertEqual("cron", gate.cycle_details(cycle)["cycle_type"])
+
     def test_fixture_import_is_independent_of_the_current_working_directory(self):
         result = subprocess.run(
             [

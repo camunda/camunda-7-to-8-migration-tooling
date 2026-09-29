@@ -779,6 +779,106 @@ def timer_elements(document):
     return elements, issues
 
 
+_CRON_MONTHS = {
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
+}
+_CRON_INTEGER_MAX = 2_147_483_647
+_CRON_WEEKDAYS = {
+    "SUN": 7,
+    "MON": 1,
+    "TUE": 2,
+    "WED": 3,
+    "THU": 4,
+    "FRI": 5,
+    "SAT": 6,
+}
+
+
+def _cron_value(value, minimum, maximum, names=None):
+    named_value = names.get(value.upper()) if names is not None else None
+    if named_value is not None:
+        return named_value
+    if not re.fullmatch(r"[0-9]+", value):
+        return None
+    normalized = value.lstrip("0") or "0"
+    upper_bound = str(maximum)
+    if len(normalized) > len(upper_bound) or (
+        len(normalized) == len(upper_bound) and normalized > upper_bound
+    ):
+        return None
+    number = int(normalized)
+    return number if number >= minimum else None
+
+
+def _cron_day_of_month_special(value):
+    if value in ("L", "LW"):
+        return True
+    offset = re.fullmatch(r"L-([0-9]+)", value)
+    if offset is not None:
+        return _cron_value(offset.group(1), 1, _CRON_INTEGER_MAX) is not None
+    nearest_weekday = re.fullmatch(r"([0-9]+)W", value)
+    return nearest_weekday is not None and (
+        _cron_value(nearest_weekday.group(1), 1, 31) is not None
+    )
+
+
+def _cron_day_of_week_special(value):
+    last_weekday = re.fullmatch(r"(.+)L", value)
+    if last_weekday is not None:
+        return _cron_value(last_weekday.group(1), 0, 7, _CRON_WEEKDAYS) is not None
+    nth_weekday = re.fullmatch(r"(.+)#([0-9]+)", value)
+    return nth_weekday is not None and (
+        _cron_value(nth_weekday.group(1), 0, 7, _CRON_WEEKDAYS) is not None
+        and _cron_value(nth_weekday.group(2), 1, _CRON_INTEGER_MAX) is not None
+    )
+
+
+def _valid_cron_field(
+    field, minimum, maximum, names=None, question=False, special=None
+):
+    if question and field == "?":
+        return True
+    for item in field.upper().split(","):
+        if not item:
+            return False
+        if special is not None and special(item):
+            continue
+        base, separator, step = item.partition("/")
+        if separator and (
+            "/" in step or _cron_value(step, 1, _CRON_INTEGER_MAX) is None
+        ):
+            return False
+        if base == "*":
+            continue
+        if base == "?":
+            return False
+        endpoints = base.split("-")
+        if len(endpoints) == 1:
+            if _cron_value(endpoints[0], minimum, maximum, names) is None:
+                return False
+        elif len(endpoints) == 2:
+            start = _cron_value(endpoints[0], minimum, maximum, names)
+            end = _cron_value(endpoints[1], minimum, maximum, names)
+            if minimum == 0 and maximum == 7 and start == 7:
+                start = 0
+            if start is None or end is None or start > end:
+                return False
+        else:
+            return False
+    return True
+
+
 def cycle_details(expression):
     parts = expression.split("/")
     if len(parts) in (2, 3) and re.fullmatch(r"R\d*", parts[0]):
@@ -798,10 +898,24 @@ def cycle_details(expression):
             "interval": interval,
             "repetitions": int(count) if count else None,
         }
-    cron_fields = expression.split()
-    if len(cron_fields) == 6 and all(
-        re.fullmatch(r"[A-Za-z0-9*/?,#LW-]+", field)
-        for field in cron_fields
+    cron_fields = [field for field in expression.split(" ") if field]
+    if (
+        len(cron_fields) == 6
+        and _valid_cron_field(cron_fields[0], 0, 59)
+        and _valid_cron_field(cron_fields[1], 0, 59)
+        and _valid_cron_field(cron_fields[2], 0, 23)
+        and _valid_cron_field(
+            cron_fields[3], 1, 31, question=True, special=_cron_day_of_month_special
+        )
+        and _valid_cron_field(cron_fields[4], 1, 12, names=_CRON_MONTHS)
+        and _valid_cron_field(
+            cron_fields[5],
+            0,
+            7,
+            names=_CRON_WEEKDAYS,
+            question=True,
+            special=_cron_day_of_week_special,
+        )
     ):
         return {
             "cycle_type": "cron",

@@ -14,7 +14,8 @@ The tests cover these cases:
 - Cross-model process IDs, source collisions retained after mapped renames, per-deployment-set
   callers, C7 by-key calls, method declarations, same-line version selections, static,
   constant-resolved, and dynamic IDs, standalone `latestVersion` sites, and caller blockers.
-- Configuration apostrophes, timer dispositions, cron cycles, malformed ISO cycles,
+- Configuration apostrophes, timer dispositions, valid and malformed cron cycles,
+  malformed ISO cycles,
   event-subprocess starts, method references, custom Scala interpolators, and
   direct/concatenated/URI-builder REST paths, including JAX-RS `WebTarget.path(...)` chains.
 - Non-timer and mixed due-date classifications, source-module timer scope, and pre-execution

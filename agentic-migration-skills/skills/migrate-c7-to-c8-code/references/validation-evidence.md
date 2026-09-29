@@ -112,7 +112,9 @@ Review each repeating timer's exact disposition before deployment. Use `add`, `c
 or `remove`. The gate records both cycles, cycle type, module, deployment set, and automatic-start
 effect. ISO 8601 cycles also record the interval and repetition count. The gate rejects an empty
 duration or an empty time section after `T`. Cron cycles do not have fixed interval or repetition
-values. Run a disposable-target preflight for each retained timer.
+values. The gate validates all six cron fields, including numeric bounds, lists, ranges, steps,
+names, and field-specific `?`, `L`, `W`, and `#` syntax. Malformed or unsupported cycles remain
+unresolved and block the gate. Run a disposable-target preflight for each retained timer.
 A removed timer needs a disposition review but no runtime preflight.
 
 The gate requires an `active_timer_updates` review for each module. Review all direct C7
