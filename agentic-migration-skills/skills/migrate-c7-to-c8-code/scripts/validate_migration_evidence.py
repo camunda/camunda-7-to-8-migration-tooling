@@ -1129,18 +1129,11 @@ def validate_timer_observation(
 
 
 def timer_elements_for_module(plan, module):
-    if module == ".":
-        set_names = {
-            model.get("deployment_set")
-            for model in plan.models_by_path.values()
-            if model.get("module") == "."
-        }
-    else:
-        set_names = {
-            name
-            for name, entry in plan.deployment_sets.items()
-            if module in entry["modules"]
-        }
+    set_names = {
+        name
+        for name, entry in plan.deployment_sets.items()
+        if module in entry["modules"]
+    }
     model_paths = {
         model_path
         for name in set_names
@@ -2008,14 +2001,9 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
             (hit["module"], hit["location"], hit["operation"])
             for hit in detected_callers
         )
-        process_locations = {
-            (hit["module"], hit["location"])
-            for hit in detected_callers
-        }
         standalone_latest_version_sites.update(
             (module, hit["location"])
             for hit in deployment_set_latest_version_calls(plan, name, module)
-            if (module, hit["location"]) not in process_locations
         )
     records_by_site = {}
     for index, caller in enumerate(validated):
@@ -2128,17 +2116,6 @@ def validate_caller_inventory(root, plan, name, check, checks, issues):
                 continue
             matched_records.add(index)
         for hit in deployment_set_latest_version_calls(plan, name, module):
-            chained_call_records = [
-                index
-                for index, caller in enumerate(validated)
-                if index in matched_records
-                and caller["module"] == module
-                and caller["location"] == hit["location"]
-                and caller["operation"] != "other"
-                and caller["version_selection"] == "latest_version"
-            ]
-            if chained_call_records:
-                continue
             matching_records = [
                 index
                 for index, caller in enumerate(validated)

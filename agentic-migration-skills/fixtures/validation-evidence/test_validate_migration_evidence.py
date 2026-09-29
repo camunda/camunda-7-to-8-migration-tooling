@@ -776,6 +776,26 @@ class ValidationEvidenceTest(unittest.TestCase):
             any("latestVersion caller is missing" in issue for issue in issues),
             issues,
         )
+        inventory = [
+            *process_caller,
+            {
+                "module": "modules/c7-client",
+                "location": "modules/c7-client/src/main/java/LatestVersion.java:1",
+                "process_id": "Sample",
+                "operation": "other",
+                "version_selection": "latest_version",
+            },
+        ]
+        issues = []
+        gate.validate_caller_inventory(
+            self.root,
+            plan,
+            "shared",
+            {"caller_inventory": inventory},
+            {},
+            issues,
+        )
+        self.assertEqual([], issues)
 
     def test_multiline_latest_version_is_associated_with_its_process_call(self):
         self.write_duplicate_sample_scope()
@@ -1589,11 +1609,13 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_root_module_timer_update_can_map_to_timer_in_shared_deployment_set(self):
         self.plan["modules"][0]["path"] = "."
-        self.plan["modules"].append({
-            "path": "service",
-            "runtime_mode": "none",
-            "test_suites": [{"name": "unit", "requires_docker": False}],
-        })
+        self.plan["modules"].append(
+            {
+                "path": "service",
+                "runtime_mode": "none",
+                "test_suites": [{"name": "unit", "requires_docker": False}],
+            }
+        )
         self.plan["models"][0]["module"] = "service"
         self.plan["deployment_sets"][0]["modules"] = [".", "service"]
         self.write_scope()
