@@ -697,7 +697,9 @@ open item with status `blocked`.
    - The skill does not count call-activity coverage as direct-start coverage.
    - When a call activity invokes a process, the skill verifies that its parent supplies each required worker input.
    - The skill compares each call activity's C7 mappings from Step 2 with C8 propagation. See `references/call-activity-variable-scope.md`.
-   - The skill tests selected inputs with a parent-only variable and checks child Business ID separately.
+   - The skill tests selected inputs with a parent-only variable.
+   - Where the target is 8.9 or later, the skill checks child Business ID inheritance separately.
+   - Where the target is 8.8, the skill skips the Business ID check.
    - While no call activity invokes a process, the skill verifies only its direct-start inputs.
 5. **Excluded processes**: If a process is not a valid standalone entry point, then the skill records the exclusion in `MIGRATION_REPORT.md`. The exclusion lists the process ID, reason, and covering test.
 6. **Completeness**: If a process has neither required direct-start coverage nor a documented exclusion, then the skill fails validation.
