@@ -222,6 +222,45 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void nonGenericTypedGettersRequireCasts() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.client.task.ExternalTask;
+            import org.camunda.bpm.engine.TaskService;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class GetterCasts {
+                void read(DelegateExecution execution, TaskService service, ExternalTask external) {
+                    IntegerValue local = execution.getVariableLocalTyped("local");
+                    IntegerValue task = service.getVariableTyped("taskId", "value");
+                    IntegerValue taskLocal = service.getVariableLocalTyped("taskId", "local");
+                    IntegerValue externalValue = external.getVariableTyped("external");
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.client.task.ExternalTask;
+            import org.camunda.bpm.engine.TaskService;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class GetterCasts {
+                void read(DelegateExecution execution, TaskService service, ExternalTask external) {
+                    // please check type
+                    Integer local = (Integer) execution.getVariableLocal("local");
+                    // please check type
+                    Integer task = (Integer) service.getVariable("taskId", "value");
+                    // please check type
+                    Integer taskLocal = (Integer) service.getVariableLocal("taskId", "local");
+                    // please check type
+                    Integer externalValue = external.getVariable("external");
+                }
+            }
+            """));
+  }
+
+  @Test
   void convertedFieldsKeepQualifiedReadCastsWithoutChangingOtherOwners() {
     rewriteRun(
         java(
@@ -293,23 +332,34 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
 
             class OtherValues {
                 DelegateExecution execution;
+                Other other;
                 Object beforeObject() { return this.object.getValue(); }
                 Object beforeTyped() { return typed.getValue(); }
                 Object beforeWrapped() { return this.wrapped.getValue(); }
                 Object readReassigned() { return reassigned.getValue(); }
+                Object readQualifiedReassigned() { return this.qualifiedReassigned.getValue(); }
 
                 ObjectValue object = execution.getVariableTyped("object");
                 TypedValue typed = execution.getVariableTyped("typed");
                 ObjectValue wrapped = (execution.getVariableTyped("wrapped"));
                 ObjectValue reassigned = execution.getVariableTyped("reassigned");
+                ObjectValue qualifiedReassigned = execution.getVariableTyped("qualifiedReassigned");
                 ObjectValue retained = load();
                 ObjectValue load() { return null; }
-                void update() { reassigned = load(); }
+                void update() {
+                    reassigned = load();
+                    this.qualifiedReassigned = load();
+                    other.object = load();
+                }
 
                 Object readObject() { return object.getValue(); }
                 Object readTyped() { return typed.getValue(); }
                 Object qualifiedTyped() { return this.typed.getValue(); }
                 Object readRetained() { return retained.getValue(); }
+            }
+
+            class Other {
+                ObjectValue object;
             }
             """,
             """
@@ -318,10 +368,12 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
 
             class OtherValues {
                 DelegateExecution execution;
+                Other other;
                 Object beforeObject() { return this.object; }
                 Object beforeTyped() { return typed; }
                 Object beforeWrapped() { return this.wrapped; }
                 Object readReassigned() { return reassigned.getValue(); }
+                Object readQualifiedReassigned() { return this.qualifiedReassigned.getValue(); }
 
                 // please check type
                 Object object = execution.getVariable("object");
@@ -330,15 +382,24 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 // please check type
                 Object wrapped = execution.getVariable("wrapped");
                 ObjectValue reassigned = execution.getVariableTyped("reassigned");
+                ObjectValue qualifiedReassigned = execution.getVariableTyped("qualifiedReassigned");
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 ObjectValue retained = load();
                 ObjectValue load() { return null; }
-                void update() { reassigned = load(); }
+                void update() {
+                    reassigned = load();
+                    this.qualifiedReassigned = load();
+                    other.object = load();
+                }
 
                 Object readObject() { return object; }
                 Object readTyped() { return typed; }
                 Object qualifiedTyped() { return this.typed; }
                 Object readRetained() { return retained.getValue(); }
+            }
+
+            class Other {
+                ObjectValue object;
             }
             """));
   }

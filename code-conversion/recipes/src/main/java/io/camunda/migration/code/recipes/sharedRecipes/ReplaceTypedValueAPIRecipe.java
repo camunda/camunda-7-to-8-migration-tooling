@@ -605,20 +605,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
               }
 
-              boolean delegateTypedVariable =
+              boolean externalTaskGetter =
                   new MethodMatcher(
+                              "org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)")
+                          .matches(invocation)
+                      || new MethodMatcher(
+                              "org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)")
+                          .matches(invocation);
+              if (new MethodMatcher(
                           "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
-                      .matches(invocation);
-              if (delegateTypedVariable
+                      .matches(invocation)
                   || new MethodMatcher(
                           "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
                       .matches(invocation)
-                  || new MethodMatcher(
-                          "org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)")
-                      .matches(invocation)
-                  || new MethodMatcher(
-                          "org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)")
-                      .matches(invocation)
+                  || externalTaskGetter
                   || new MethodMatcher(
                       "org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)")
                           .matches(invocation)
@@ -644,7 +644,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 + " "
                                 + originalName.getSimpleName()
                                 + " = "
-                                + (delegateTypedVariable && !newFqn.equals("java.lang.Object")
+                                + (!externalTaskGetter && !newFqn.equals("java.lang.Object")
                                     ? "(" + RecipeUtils.getShortName(newFqn) + ") "
                                     : "")
                                 + "#{any()}",
@@ -1321,18 +1321,26 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (block == null) {
               return false;
             }
-            Set<String> assigned = new HashSet<>();
-            new JavaIsoVisitor<Set<String>>() {
+            Set<J.Identifier> assigned = new HashSet<>();
+            new JavaIsoVisitor<Set<J.Identifier>>() {
               @Override
-              public J.Assignment visitAssignment(J.Assignment assignment, Set<String> names) {
+              public J.Assignment visitAssignment(
+                  J.Assignment assignment, Set<J.Identifier> targets) {
                 Expression target = unwrapParentheses(assignment.getVariable());
                 if (target instanceof J.Identifier identifier) {
-                  names.add(identifier.getSimpleName());
+                  targets.add(identifier);
+                } else if (target instanceof J.FieldAccess field) {
+                  targets.add(field.getName());
                 }
-                return super.visitAssignment(assignment, names);
+                return super.visitAssignment(assignment, targets);
               }
             }.visit(block, assigned);
-            return assigned.contains(variable.getSimpleName());
+            return assigned.stream()
+                .anyMatch(
+                    target ->
+                        variable.getFieldType() != null && target.getFieldType() != null
+                            ? variable.getFieldType().equals(target.getFieldType())
+                            : variable.getSimpleName().equals(target.getSimpleName()));
           }
 
           private boolean isSerializationDataFormatsJson(J.Identifier identifier) {
