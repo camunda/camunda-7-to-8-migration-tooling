@@ -186,6 +186,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     constructor.getArguments(), constructor.getConstructorType(), innerCtx);
                 return super.visitNewClass(constructor, innerCtx);
               }
+
+              @Override
+              public J.NewArray visitNewArray(J.NewArray array, ExecutionContext innerCtx) {
+                if (array.getType() instanceof JavaType.Array type
+                    && isDateOrBytesValue(type.getElemType())
+                    && array.getInitializer() != null) {
+                  for (Expression element : array.getInitializer()) {
+                    retainTypedReferences(element, innerCtx);
+                  }
+                }
+                return super.visitNewArray(array, innerCtx);
+              }
             }.visit(unit, ctx);
             int previousSize;
             do {
@@ -1088,7 +1100,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 if ((dateValueFactory.matches(invocation)
                         || byteArrayValueFactory.matches(invocation))
                     && !isRawFactoryArgument(invocation)) {
-                  return maybeAutoFormat(invocation, retainTypedFactory(invocation), ctx);
+                  J.MethodInvocation visited =
+                      (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+                  return maybeAutoFormat(invocation, retainTypedFactory(visited), ctx);
                 }
 
                 if (invocation.getType() instanceof JavaType.FullyQualified fqn) {

@@ -1280,10 +1280,16 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import java.util.Date;
             import org.camunda.bpm.engine.variable.Variables;
             import org.camunda.bpm.engine.variable.value.TypedValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
 
             class GenericValues {
+                DateValue sourceDate = Variables.dateValue(new Date(3));
+                BytesValue sourceBytes = Variables.byteArrayValue(new byte[]{3});
                 TypedValue date = Variables.dateValue(new Date(0));
                 Object bytes = Variables.byteArrayValue(new byte[]{1});
+                TypedValue nestedDate = Variables.dateValue(sourceDate.getValue());
+                Object nestedBytes = Variables.byteArrayValue(sourceBytes.getValue());
 
                 void update() {
                     TypedValue localBytes = Variables.byteArrayValue(new byte[]{2});
@@ -1298,10 +1304,16 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class GenericValues {
+                Date sourceDate = new Date(3);
+                byte[] sourceBytes = new byte[]{3};
                 TypedValue date = // TODO: migrate Camunda 7 typed-value factory call manually
                         Variables.dateValue(new Date(0));
                 Object bytes = // TODO: migrate Camunda 7 typed-value factory call manually
                         Variables.byteArrayValue(new byte[]{1});
+                TypedValue nestedDate = // TODO: migrate Camunda 7 typed-value factory call manually
+                        Variables.dateValue(sourceDate);
+                Object nestedBytes = // TODO: migrate Camunda 7 typed-value factory call manually
+                        Variables.byteArrayValue(sourceBytes);
 
                 void update() {
                     TypedValue localBytes = // TODO: migrate Camunda 7 typed-value factory call manually
@@ -1310,6 +1322,60 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                             Variables.dateValue(new Date(1));
                     localDate = // TODO: migrate Camunda 7 typed-value factory call manually
                             Variables.dateValue(new Date(2));
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedArrayInitializersRetainTheirElements() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedArrays {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                DateValue[] dates = {date};
+                DateValue[] constructedDates = new DateValue[]{date};
+                BytesValue[] buffers = {this.bytes};
+                BytesValue[] constructedBuffers = new BytesValue[]{bytes};
+
+                void local() {
+                    DateValue localDate = Variables.dateValue(new Date(1));
+                    DateValue[] values = {localDate};
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedArrays {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue[] dates = {date};
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue[] constructedDates = new DateValue[]{date};
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue[] buffers = {this.bytes};
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue[] constructedBuffers = new BytesValue[]{bytes};
+
+                void local() {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue localDate = Variables.dateValue(new Date(1));
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue[] values = {localDate};
                 }
             }
             """));
