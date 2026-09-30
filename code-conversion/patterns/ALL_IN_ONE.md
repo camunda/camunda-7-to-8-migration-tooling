@@ -2071,22 +2071,17 @@ Object comment = job.getVariablesAsMap().get("comment");
 Do not replace it with `job.getVariable("comment")`, which fails for an absent variable.
 Check local and typed variable lookups separately; they have different scope or type semantics.
 
-###### Typed date and byte factories
+###### Date and byte typed values
 
-`DateValue`/`BytesValue` fields and locals become `Date`/`byte[]`; method and
-lambda parameters and enhanced-for variables keep their Camunda 7 types.
-Nested factories convert only as `Object` method arguments; `Object`/`TypedValue`
-declarations, constructor calls, and typed returns/consumers retain the factory
-with a manual-migration TODO.
-Grouped declarations keep all declarators and modifiers; typed getters keep
-casts. Qualified reads and writes follow converted fields in the same source
-file. Declarations used by typed method/lambda returns, constructor/method
-arguments, unsupported typed-value calls, or method references retain Camunda 7
-types with a manual TODO.
-Declarations with unsupported initializers or assignments, or type-use
-annotations, also stay typed for manual migration. A `true` or computed
-Camunda 7 `isTransient` flag on a converted factory adds a review TODO: raw
-values may not preserve the same persistence behavior.
+The recipe converts `DateValue`/`BytesValue` fields and locals to `Date`/`byte[]`
+when their initializers are absent, typed reads, or one-/two-argument
+`Variables.dateValue`/`byteArrayValue` calls. It preserves grouped declarators
+and casts typed reads assigned to converted fields, including `this.field`.
+Declarations needed by typed consumers and factory calls outside these
+declarations or assignments keep Camunda 7 types with a manual-migration TODO.
+Other typed-read contexts stay unchanged for manual migration. A converted
+factory with a true or computed `isTransient` flag gets a separate TODO because
+dropping that metadata can change persistence behavior.
 
 ###### autoComplete = false (blocking)
 
