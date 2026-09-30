@@ -136,6 +136,24 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
 
               @Override
+              public J.MemberReference visitMemberReference(
+                  J.MemberReference reference, ExecutionContext innerCtx) {
+                Expression receiver = unwrapParentheses(reference.getContaining());
+                if (receiver != null && isDateOrBytesValue(receiver.getType())) {
+                  retainTypedReferences(receiver, innerCtx);
+                }
+                return super.visitMemberReference(reference, innerCtx);
+              }
+
+              @Override
+              public J.TypeCast visitTypeCast(J.TypeCast cast, ExecutionContext innerCtx) {
+                if (isDateOrBytesValue(cast.getType())) {
+                  retainTypedReferences(cast.getExpression(), innerCtx);
+                }
+                return super.visitTypeCast(cast, innerCtx);
+              }
+
+              @Override
               public J.NewClass visitNewClass(J.NewClass constructor, ExecutionContext innerCtx) {
                 retainTypedArguments(
                     constructor.getArguments(), constructor.getConstructorType(), innerCtx);

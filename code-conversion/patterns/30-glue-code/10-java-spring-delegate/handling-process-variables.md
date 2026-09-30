@@ -67,7 +67,8 @@ with a manual-migration TODO.
 Grouped declarations keep all declarators and modifiers; typed getters keep
 casts. Qualified reads and writes follow converted fields in the same source
 file. Declarations used by typed returns, typed constructor/method arguments,
-or unsupported typed-value methods retain Camunda 7 types with a manual TODO.
+unsupported typed-value calls, or method references retain Camunda 7 types
+with a manual TODO.
 Declarations with unsupported initializers or assignments, or type-use
 annotations, also stay typed for manual migration. A `true` or computed
 Camunda 7 `isTransient` flag on a converted factory adds a review TODO: raw

@@ -1362,6 +1362,90 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedMemberReferencesRetainTheirReceivers() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedReferences {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                Supplier<Date> readDate = date::getValue;
+                Supplier<byte[]> readBytes = this.bytes::getValue;
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedReferences {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                Supplier<Date> readDate = date::getValue;
+                Supplier<byte[]> readBytes = this.bytes::getValue;
+            }
+            """));
+  }
+
+  @Test
+  void castInitializersRetainTheirSources() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class CastCopies {
+                DateValue sourceDate = Variables.dateValue(new Date(0));
+                DateValue copyDate = (DateValue) sourceDate;
+                BytesValue sourceBytes = Variables.byteArrayValue(new byte[]{1});
+                BytesValue copyBytes = (BytesValue) this.sourceBytes;
+
+                void copy() {
+                    DateValue local = Variables.dateValue(new Date(1));
+                    DateValue copied = (DateValue) local;
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class CastCopies {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue sourceDate = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue copyDate = (DateValue) sourceDate;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue sourceBytes = Variables.byteArrayValue(new byte[]{1});
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue copyBytes = (BytesValue) this.sourceBytes;
+
+                void copy() {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue local = Variables.dateValue(new Date(1));
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue copied = (DateValue) local;
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedConstructorConsumersStayTypedForManualMigration() {
     rewriteRun(
         java(
