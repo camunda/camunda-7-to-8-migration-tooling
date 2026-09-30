@@ -114,17 +114,28 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 Object owner = getCursor().getParentTreeCursor().getParentTreeCursor().getValue();
                 if (owner instanceof J.ClassDeclaration || owner instanceof J.NewClass) {
                   String mapped = mapTypedValueToNewFqn(declarations.getType());
-                  boolean converted =
-                      isDateOrBytesValue(declarations.getType())
-                          ? canConvertRawDeclarations(declarations)
-                          : !"java.lang.Object".equals(mapped)
-                              && declarations.getVariables().size() == 1
-                              && (declarations.getVariables().get(0).getInitializer() == null
-                                  || declarations.getVariables().get(0).getInitializer()
-                                      instanceof J.MethodInvocation getter
-                                      && (matchesTypedGetter(getter)
-                                          || simpleMethodInvocations.stream()
-                                              .anyMatch(spec -> spec.matcher().matches(getter))));
+                  boolean converted = false;
+                  if (isDateOrBytesValue(declarations.getType())) {
+                    converted = canConvertRawDeclarations(declarations);
+                  } else if (declarations.getVariables().size() == 1) {
+                    J.VariableDeclarations.NamedVariable variable =
+                        declarations.getVariables().get(0);
+                    Expression initializer = unwrapParentheses(variable.getInitializer());
+                    boolean reassignedObjectValue =
+                        TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
+                            && isReassigned(
+                                variable.getName(), getCursor().firstEnclosing(J.Block.class));
+                    converted =
+                        !reassignedObjectValue
+                            && (initializer instanceof J.MethodInvocation getter
+                                    && matchesTypedGetter(getter)
+                                || !"java.lang.Object".equals(mapped)
+                                    && (initializer == null
+                                        || initializer instanceof J.MethodInvocation factory
+                                            && simpleMethodInvocations.stream()
+                                                .anyMatch(
+                                                    spec -> spec.matcher().matches(factory))));
+                  }
                   if (converted) {
                     for (J.VariableDeclarations.NamedVariable variable :
                         declarations.getVariables()) {
@@ -1299,6 +1310,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration method
                     ? method.getBody()
                     : getCursor().firstEnclosing(J.Block.class);
+            return isReassigned(variable, block);
+          }
+
+          private boolean isReassigned(J.Identifier variable, J.Block block) {
             if (block == null) {
               return false;
             }

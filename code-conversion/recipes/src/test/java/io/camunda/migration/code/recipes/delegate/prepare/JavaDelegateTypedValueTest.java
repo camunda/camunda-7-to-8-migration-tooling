@@ -247,25 +247,52 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
 
             class OtherValues {
                 DelegateExecution execution;
+                Object beforeObject() { return this.object.getValue(); }
+                Object beforeTyped() { return typed.getValue(); }
+                Object beforeWrapped() { return this.wrapped.getValue(); }
+                Object readReassigned() { return reassigned.getValue(); }
+
                 ObjectValue object = execution.getVariableTyped("object");
                 TypedValue typed = execution.getVariableTyped("typed");
+                ObjectValue wrapped = (execution.getVariableTyped("wrapped"));
+                ObjectValue reassigned = execution.getVariableTyped("reassigned");
+                ObjectValue retained = load();
+                ObjectValue load() { return null; }
+                void update() { reassigned = load(); }
 
                 Object readObject() { return object.getValue(); }
                 Object readTyped() { return typed.getValue(); }
+                Object qualifiedTyped() { return this.typed.getValue(); }
+                Object readRetained() { return retained.getValue(); }
             }
             """,
             """
             import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.ObjectValue;
 
             class OtherValues {
                 DelegateExecution execution;
+                Object beforeObject() { return this.object; }
+                Object beforeTyped() { return typed; }
+                Object beforeWrapped() { return this.wrapped; }
+                Object readReassigned() { return reassigned.getValue(); }
+
                 // please check type
                 Object object = execution.getVariable("object");
                 // please check type
                 Object typed = execution.getVariable("typed");
+                // please check type
+                Object wrapped = execution.getVariable("wrapped");
+                ObjectValue reassigned = execution.getVariableTyped("reassigned");
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                ObjectValue retained = load();
+                ObjectValue load() { return null; }
+                void update() { reassigned = load(); }
 
                 Object readObject() { return object; }
                 Object readTyped() { return typed; }
+                Object qualifiedTyped() { return this.typed; }
+                Object readRetained() { return retained.getValue(); }
             }
             """));
   }
