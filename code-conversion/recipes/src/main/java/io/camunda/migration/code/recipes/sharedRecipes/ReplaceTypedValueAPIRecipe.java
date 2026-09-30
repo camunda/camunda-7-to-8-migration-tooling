@@ -20,7 +20,7 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
 
-public class ReplaceTypedValueAPIRecipe extends Recipe {
+public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
   private static final String OBJECT_VALUE_FQN =
       "org.camunda.bpm.engine.variable.value.ObjectValue";
   private static final String GETTER_ONLY_OBJECT_VALUE_FIELDS = "getterOnlyObjectValueFields";
@@ -78,7 +78,70 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
   private record ValueUse(Cursor value, Cursor consumer, boolean typedCast) {}
 
   @Override
-  public TreeVisitor<?, ExecutionContext> getVisitor() {
+  public Set<String> getInitialValue(ExecutionContext ctx) {
+    return new HashSet<>();
+  }
+
+  /** Records typed-value fields that are used outside the file declaring them. */
+  @Override
+  public TreeVisitor<?, ExecutionContext> getScanner(Set<String> externallyUsedFields) {
+    return new JavaIsoVisitor<>() {
+      @Override
+      public J.CompilationUnit visitCompilationUnit(
+          J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+        Set<String> declaredTypes = new HashSet<>();
+        new JavaIsoVisitor<Set<String>>() {
+          @Override
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration declaration, Set<String> types) {
+            if (declaration.getType() != null) {
+              types.add(declaration.getType().getFullyQualifiedName());
+            }
+            return super.visitClassDeclaration(declaration, types);
+          }
+        }.visit(compilationUnit, declaredTypes);
+        new JavaIsoVisitor<Integer>() {
+          @Override
+          public J.Identifier visitIdentifier(J.Identifier identifier, Integer p) {
+            JavaType.Variable field = identifier.getFieldType();
+            String key = typedFieldKey(field);
+            if (key != null
+                && !declaredTypes.contains(
+                    TypeUtils.asFullyQualified(field.getOwner()).getFullyQualifiedName())) {
+              externallyUsedFields.add(key);
+            }
+            return super.visitIdentifier(identifier, p);
+          }
+        }.visit(compilationUnit, 0);
+        return compilationUnit;
+      }
+    };
+  }
+
+  /** Identifies a field whose (element) type is a Camunda 7 typed value, or returns null. */
+  private static String typedFieldKey(JavaType.Variable variable) {
+    if (variable == null
+        || !(TypeUtils.asFullyQualified(variable.getOwner())
+            instanceof JavaType.FullyQualified owner)) {
+      return null;
+    }
+    JavaType type = variable.getType();
+    while (type instanceof JavaType.Array array) {
+      type = array.getElemType();
+    }
+    JavaType.FullyQualified fieldType = TypeUtils.asFullyQualified(type);
+    return fieldType != null && fieldType.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE)
+        ? owner.getFullyQualifiedName() + "#" + variable.getName()
+        : null;
+  }
+
+  /** Imports for a template or declaration type; primitive arrays such as byte[] need none. */
+  private static String[] typeImports(String fqn) {
+    return fqn.indexOf('.') < 0 ? new String[0] : new String[] {fqn};
+  }
+
+  @Override
+  public TreeVisitor<?, ExecutionContext> getVisitor(Set<String> externallyUsedFields) {
 
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
@@ -185,11 +248,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       Collections.emptyList()),
                   new ReplacementUtils.SimpleReplacementSpec(
                       new MethodMatcher(
-                          // "byteArrayValue(java.lang.Byte[] bytes)"
+                          // "byteArrayValue(byte[] bytes)"
                           "org.camunda.bpm.engine.variable.Variables byteArrayValue(..)"),
-                      RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Byte[])}"),
+                      RecipeUtils.createSimpleJavaTemplate("#{any(byte[])}"),
                       null,
-                      "java.lang.Byte[]",
+                      "byte[]",
                       ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                       List.of(
                           new ReplacementUtils.SimpleReplacementSpec.NamedArg("byteArrayValue", 0)),
@@ -404,10 +467,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                   + " "
                                   + originalName.getSimpleName()
                                   + " = #{any()}",
-                              spec.returnTypeFqn())
+                              typeImports(spec.returnTypeFqn()))
                           .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
-                  maybeAddImport(spec.returnTypeFqn());
+                  if (typeImports(spec.returnTypeFqn()).length > 0) {
+                    maybeAddImport(spec.returnTypeFqn());
+                  }
 
                   // ensure comments are added here, not on method invocation
                   getCursor().putMessage(invocation.getId().toString(), "comments added");
@@ -845,7 +910,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 // invocation as is
                 J.Assignment modifiedAssignment =
                     RecipeUtils.createSimpleJavaTemplate(
-                            originalName.getSimpleName() + " = #{any()}", spec.returnTypeFqn())
+                            originalName.getSimpleName() + " = #{any()}",
+                            typeImports(spec.returnTypeFqn()))
                         .apply(getCursor(), assignment.getCoordinates().replace(), assignmentValue);
 
                 modifiedAssignment =
@@ -856,7 +922,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 modifiedAssignment =
                     modifiedAssignment.withType(JavaType.buildType(spec.returnTypeFqn()));
 
-                maybeAddImport(spec.returnTypeFqn());
+                if (typeImports(spec.returnTypeFqn()).length > 0) {
+                  maybeAddImport(spec.returnTypeFqn());
+                }
 
                 // ensure comments are added here, not on method invocation
                 getCursor().putMessage(invocation.getId().toString(), "comments added");
@@ -1674,10 +1742,43 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (unwrapped instanceof J.TypeCast cast) {
               return isRewrittenTypedValue(cast.getExpression());
             }
+            if (unwrapped instanceof J.SwitchExpression switchExpression) {
+              return switchResults(switchExpression).stream()
+                  .anyMatch(this::isRewrittenTypedValue);
+            }
             return unwrapped instanceof J.MethodInvocation invocation
                 && (matchesTypedVariableGetter(invocation)
                     || isTypedValueFactory(invocation)
                     || commonSpecs.stream().anyMatch(spec -> spec.matcher().matches(invocation)));
+          }
+
+          /** Values produced by a switch expression's arrow bodies and yield statements. */
+          private List<Expression> switchResults(J.SwitchExpression switchExpression) {
+            List<Expression> results = new ArrayList<>();
+            for (Statement statement : switchExpression.getCases().getStatements()) {
+              if (!(statement instanceof J.Case switchCase)) {
+                continue;
+              }
+              if (switchCase.getBody() instanceof Expression body) {
+                results.add(body);
+                continue;
+              }
+              new JavaIsoVisitor<List<Expression>>() {
+                @Override
+                public J.SwitchExpression visitSwitchExpression(
+                    J.SwitchExpression nested, List<Expression> found) {
+                  // nested switch expressions yield their own values
+                  return nested;
+                }
+
+                @Override
+                public J.Yield visitYield(J.Yield yield, List<Expression> found) {
+                  found.add(yield.getValue());
+                  return yield;
+                }
+              }.visit(switchCase, results);
+            }
+            return results;
           }
 
           /** Typed values with a direct Java type; ObjectValue and TypedValue need extra checks. */
@@ -2010,7 +2111,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     JavaType.Variable variableType = variable.getName().getFieldType();
                     if (variableType != null) {
                       candidates.put(variableType, newFqn);
-                      if (keep) {
+                      if (keep || externallyUsedFields.contains(typedFieldKey(variableType))) {
+                        // other files keep reading or writing the field as a typed value
                         retained.add(variableType);
                       }
                     }

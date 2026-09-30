@@ -92,15 +92,18 @@ typed value, such as `a = loadInteger();`, or when a read still needs the typed
 value. Such reads include `value.isTransient()`, method references such as
 `value::getValue`, returns from typed-value methods, typed casts, typed
 `instanceof` checks, and assignments to typed targets such as `TypedValue`.
-Fields read or written from another class, including subclasses, also stay typed
-with a TODO. Declarations of `TypedValue` and other typed-value types without a
+Fields read or written from another class, including subclasses and classes in
+other source files of the same recipe run, also stay typed with a TODO.
+Declarations of `TypedValue` and other typed-value types without a
 direct Java type follow the same rules when they are initialized from a factory
 or typed getter; converted fields of this kind also convert forward and qualified
-reads such as `this.value.getValue()`. Grouped declarations of these types with
-factory or typed-getter initializers stay typed with a TODO. When such a
+reads such as `this.value.getValue()`. A `TypedValue` declaration initialized with
+`Variables.byteArrayValue(bytes)` becomes `byte[]`. Grouped declarations of these
+types with factory or typed-getter initializers stay typed with a TODO. When such a
 declaration has no factory or getter initializer, such as `TypedValue value;` or a
 parameter, later factory and typed-getter writes stay typed and the declaration
-gets a TODO. Type variables bounded by a typed value, such as
+gets a TODO. This also applies to factories and typed getters that reach such a
+declaration through a switch expression's cases or `yield` statements. Type variables bounded by a typed value, such as
 `<T extends TypedValue> T copy()`, count as typed targets for returns,
 declarations, assignments, and casts.
 Values passed to generic parameters resolved to a typed value, such as
