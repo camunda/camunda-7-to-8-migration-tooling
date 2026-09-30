@@ -824,6 +824,72 @@ describe("preview navigation", () => {
     expect(screen.getByRole("button", { name: "Next file" }).disabled).toBe(true);
     expect(fetchMock.mock.calls).toHaveLength(requestCount);
   });
+
+  it("refreshes the selected preview when a file's existing result finishes processing", async () => {
+    const original =
+      '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"><process id="original" /></definitions>';
+    const converted =
+      '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"><process id="converted" /></definitions>';
+    const secondAnalysis = deferred();
+    const secondFinding = [
+      {
+        results: [
+          {
+            elementId: "task_2",
+            messages: [{ severity: "WARNING", message: "Finding from the second file." }],
+          },
+        ],
+      },
+    ];
+    fetchMock.mockImplementation((url, options) => {
+      const fileName = options.body.get("file").name;
+      if (url.endsWith("/check")) {
+        if (fileName === "second.bpmn") return secondAnalysis.promise;
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi
+          .fn()
+          .mockResolvedValue(new Blob([fileName === "second.bpmn" ? converted : original])),
+      });
+    });
+    await uploadAndAnalyze([
+      mockFile("first.bpmn", original),
+      mockFile("second.bpmn", original),
+    ]);
+
+    const firstRow = fileRow("first.bpmn");
+    await within(firstRow).findByRole("button", { name: "Download first.bpmn" });
+    fireEvent.click(
+      within(firstRow).getByRole("button", { name: "Preview analysis findings" })
+    );
+    await screen.findByRole("heading", { name: "Preview: first.bpmn" });
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", { name: "Preview: second.bpmn" });
+    expect(screen.getByText("File analysis is still in progress.")).toBeTruthy();
+
+    secondAnalysis.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      json: vi.fn().mockResolvedValue(secondFinding),
+    });
+
+    expect(await screen.findByText("Finding from the second file.")).toBeTruthy();
+    await waitFor(() =>
+      expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(converted)
+    );
+    expect(screen.getByRole("heading", { name: "Preview: second.bpmn" })).toBeTruthy();
+    expect(fetchMock.mock.calls).toHaveLength(4);
+  });
 });
 
 describe("accessibility", () => {

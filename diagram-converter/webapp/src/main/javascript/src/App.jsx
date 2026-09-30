@@ -5,7 +5,13 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 
 import {
   Button,
@@ -106,6 +112,7 @@ function App() {
   const selectedMarkerElementIdRef = useRef(null);
   const previewDialogRef = useRef(null);
   const previewRequestIdRef = useRef(0);
+  const previewedResultRef = useRef(null);
 
   function closePreview() {
     previewRequestIdRef.current += 1;
@@ -573,6 +580,7 @@ function App() {
     setFileResults([]);
     setValidFiles([]);
     setPreviewFileIndex(null);
+    previewedResultRef.current = null;
     setHiddenSeverities(new Set());
     setDownloadError(null);
     setDownloadErrorTitle("");
@@ -688,12 +696,13 @@ function App() {
     );
   }
 
-  async function previewFileAt(index) {
+  const previewFileAt = useCallback(async (index) => {
     const file = files[index];
     const response = fileResults[index];
     if (!file || !response) return;
 
     const requestId = ++previewRequestIdRef.current;
+    previewedResultRef.current = response;
     const modelType = getPreviewType(file.name, response.originalModelXml);
     const checkResponseJson = response.checkResponseJson ?? [];
 
@@ -745,7 +754,16 @@ function App() {
         setPreviewLoading(false);
       }
     }
-  }
+  }, [files, fileResults]);
+
+  useEffect(() => {
+    if (!isPreviewOpen || previewFileIndex === null) return;
+
+    const response = fileResults[previewFileIndex];
+    if (!response || response === previewedResultRef.current) return;
+
+    void previewFileAt(previewFileIndex);
+  }, [fileResults, isPreviewOpen, previewFileIndex, previewFileAt]);
 
   async function download(response) {
     let filename = response.filename;
