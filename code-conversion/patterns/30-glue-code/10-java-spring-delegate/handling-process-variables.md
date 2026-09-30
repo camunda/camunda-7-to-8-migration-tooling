@@ -86,8 +86,12 @@ for `true` or computed transient flags. Assignments to declarations retained for
 manual migration keep their Camunda 7 typed getters and factories until the
 declaration and its uses can be migrated together. Reads of converted values
 inside a retained declaration or assignment are still rewritten.
-A declaration also stays typed with a TODO when a later assignment, including
-an array element write, may store a typed value, such as `a = loadInteger();`.
+A declaration also stays typed with a TODO when a later assignment may store a
+typed value, such as `a = loadInteger();`, or when a read still needs the typed
+value. Such reads include `value.isTransient()`, returns from typed-value
+methods, typed casts, and assignments to typed targets such as `TypedValue`.
+Parameters retained this way get the TODO on their method; review the method's
+call sites together with the parameter.
 Grouped typed-getter declarations keep every variable and required cast; groups
 with incompatible initializers stay at their Camunda 7 types with a TODO.
 Assignments through another instance of the same class use converted field
@@ -102,9 +106,12 @@ unchanged with a TODO.
 Method return types keep their Camunda 7 type, so factories returned from a
 method or lambda declared to return a typed value, such as `DateValue copy()` or
 `Supplier<DateValue>`, also stay unchanged with a TODO. This includes returns
-through parentheses, ternaries, and switch expressions.
-Converted declarations keep their annotations, array dimensions, and varargs, and
-`getValue()` reads of converted array elements become element reads. Typed getters whose untyped form
+through parentheses, ternaries, and switch expressions, and factories cast to a
+typed value, such as `(DateValue) Variables.dateValue(date)`.
+Typed-value arrays and varargs, such as `DateValue[] dates` or `DateValue dates[]`,
+stay typed with a TODO, together with their element reads and writes and the
+factories passed as their elements.
+Converted declarations keep their annotations. Typed getters whose untyped form
 returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
 
 ### autoComplete = false (blocking)

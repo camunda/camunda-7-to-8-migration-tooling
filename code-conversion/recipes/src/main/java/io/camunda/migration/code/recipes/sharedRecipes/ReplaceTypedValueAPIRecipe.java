@@ -8,6 +8,7 @@
 package io.camunda.migration.code.recipes.sharedRecipes;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
@@ -44,6 +45,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
   private static final String PRESERVE_TYPED_GETTERS = "preserveTypedGetters";
   private static final String PRESERVE_TYPED_FACTORIES = "preserveTypedFactories";
   private static final String TYPED_RETURN_MESSAGE = "typedReturn";
+  private static final String TYPED_PARAMETER_MESSAGE = "typedParameter";
+  private static final String MANUAL_PARAMETER_HINT =
+      " TODO: migrate Camunda 7 typed-value parameter manually";
   private static final List<MethodMatcher> TYPED_VALUE_GETTERS =
       List.of(
           new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)"),
@@ -251,6 +255,27 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return (J.NewClass) super.visitNewClass(newClass, ctx);
           }
 
+          @Override
+          public J visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
+            J result = super.visitMethodDeclaration(method, ctx);
+            if (getCursor().pollMessage(TYPED_PARAMETER_MESSAGE) == null
+                || !(result instanceof J.MethodDeclaration visited)
+                || visited.getComments().stream()
+                    .anyMatch(
+                        comment ->
+                            comment instanceof TextComment textComment
+                                && textComment.getText().equals(MANUAL_PARAMETER_HINT))) {
+              return result;
+            }
+            // parameter lists cannot hold line comments, so the method carries the hint
+            return visited.withComments(
+                Stream.concat(
+                        visited.getComments().stream(),
+                        Stream.of(
+                            RecipeUtils.createSimpleComment(visited, MANUAL_PARAMETER_HINT)))
+                    .toList());
+          }
+
           public static String mapTypedValueToNewFqn(JavaType type) {
             if (!(type instanceof JavaType.FullyQualified fqType)) {
               return "java.lang.Object"; // Default fallback
@@ -318,11 +343,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 return preserveObjectValues(declarations, ctx);
               }
             }
-            if (isConvertibleTypedValue(declarations.getType())
-                && hasUnprovenWrites(
-                    declarations,
-                    declarationBody(),
-                    mapTypedValueToNewFqn(declarations.getType()))) {
+            if (isTypedValueArray(declarations)
+                || (isConvertibleTypedValue(declarations.getType())
+                    && hasIncompatibleUses(
+                        declarations,
+                        declarationBodyCursor(),
+                        mapTypedValueToNewFqn(declarations.getType())))) {
               return markUnsupportedTypedInitializer(declarations, ctx);
             }
 
@@ -561,9 +587,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             for (J.Modifier modifier : declarations.getModifiers()) {
               code.append(modifier).append(' ');
             }
-            // varargs parameters are not statements, so the template declares an array
-            code.append(RecipeUtils.getShortName(newFqn))
-                .append(declarations.getVarargs() != null ? "[] " : " ");
+            code.append(RecipeUtils.getShortName(newFqn)).append(' ');
 
             List<Expression> initializers = new ArrayList<>();
             Cursor scope = declarationScope();
@@ -573,8 +597,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               if (i > 0) {
                 code.append(", ");
               }
-              code.append(variable.getSimpleName())
-                  .append("[]".repeat(variable.getDimensionsAfterName().size()));
+              code.append(variable.getSimpleName());
               Expression original = variable.getInitializer();
               Expression initializer = unwrapTypedValueFactory(original, declaredType);
               if (initializer != original) {
@@ -610,14 +633,6 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                             getCursor(),
                             declarations.getCoordinates().replace(),
                             initializers.toArray()));
-            if (declarations.getVarargs() != null
-                && modifiedDeclarations.getTypeExpression() instanceof J.ArrayType arrayType) {
-              modifiedDeclarations =
-                  modifiedDeclarations
-                      .withTypeExpression(
-                          arrayType.getElementType().withPrefix(arrayType.getPrefix()))
-                      .withVarargs(declarations.getVarargs());
-            }
             if (reviewTransientVariable) {
               modifiedDeclarations =
                   modifiedDeclarations.withComments(
@@ -905,11 +920,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         getCursor().getNearestMessage(PRESERVE_TYPED_FACTORIES))) {
                   return super.visitMethodInvocation(invocation, ctx);
                 }
-                Cursor typedReturn = isTypedValueFactory(invocation) ? typedReturnCursor() : null;
-                if (typedReturn != null) {
-                  // method and lambda return types keep their Camunda 7 type
-                  if (typedReturn.getValue() instanceof J.Return) {
-                    typedReturn.putMessage(TYPED_RETURN_MESSAGE, true);
+                Cursor typedContext =
+                    isTypedValueFactory(invocation) ? typedContextCursor(getCursor()) : null;
+                if (typedContext != null) {
+                  // return types, typed casts, and typed arrays keep their Camunda 7 type
+                  if (typedContext.getValue() instanceof J.Return) {
+                    typedContext.putMessage(TYPED_RETURN_MESSAGE, true);
                     return super.visitMethodInvocation(invocation, ctx);
                   }
                   J.MethodInvocation visited =
@@ -1088,9 +1104,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 && invocation.getSelect() != null) {
               Expression select = invocation.getSelect();
               String returnTypeFqn = null;
-              if (select instanceof J.ArrayAccess arrayAccess) {
-                returnTypeFqn = convertedTargetType(arrayAccess);
-              } else if (select instanceof J.Identifier identifier) {
+              if (select instanceof J.Identifier identifier) {
                 returnTypeFqn =
                     isGetterOnlyObjectValueField(identifier)
                         ? "java.lang.Object"
@@ -1239,12 +1253,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           /**
-           * Returns the return statement, or the expression lambda, that must still produce a
-           * Camunda 7 typed value from the current expression, or null.
+           * Returns where to place manual guidance when the expression at {@code start} must still
+           * produce a Camunda 7 typed value: the enclosing return statement, or {@code start}
+           * itself. Returns null when a raw value is accepted.
            */
-          private Cursor typedReturnCursor() {
-            Cursor child = getCursor();
+          private Cursor typedContextCursor(Cursor start) {
+            Cursor child = start;
             Cursor parent = child.getParentTreeCursor();
+            boolean typedCast = false;
             while (true) {
               Object value = parent.getValue();
               if (value instanceof J.Yield
@@ -1260,7 +1276,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   return null;
                 }
                 parent = switchCursor;
+              } else if (value instanceof J.TypeCast cast
+                  && isCamunda7TypedValue(cast.getClazz().getType())) {
+                typedCast = true;
               } else if (!(value instanceof J.Parentheses<?>)
+                  && !(value instanceof J.ControlParentheses<?>
+                      && parent.getParentTreeCursor().getValue() instanceof J.TypeCast)
                   && !(value instanceof J.Ternary ternary
                       && ternary.getCondition() != child.getValue())) {
                 break;
@@ -1268,25 +1289,54 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               child = parent;
               parent = parent.getParentTreeCursor();
             }
-            if (parent.getValue() instanceof J.Lambda lambda) {
-              return isCamunda7TypedValue(lambdaReturnType(lambda)) ? parent : null;
+            Object value = parent.getValue();
+            if (value instanceof J.Return) {
+              Object owner =
+                  parent
+                      .dropParentUntil(
+                          tree ->
+                              tree instanceof J.MethodDeclaration
+                                  || tree instanceof J.Lambda
+                                  || tree == Cursor.ROOT_VALUE)
+                      .getValue();
+              JavaType returnType =
+                  owner instanceof J.MethodDeclaration method && method.getMethodType() != null
+                      ? method.getMethodType().getReturnType()
+                      : owner instanceof J.Lambda lambda ? lambdaReturnType(lambda) : null;
+              return typedCast || isCamunda7TypedValue(returnType) ? parent : null;
             }
-            if (!(parent.getValue() instanceof J.Return)) {
-              return null;
+            boolean typedTarget =
+                (value instanceof J.Lambda lambda
+                        && lambda.getBody() == child.getValue()
+                        && isCamunda7TypedValue(lambdaReturnType(lambda)))
+                    || (value instanceof J.NewArray newArray
+                        && newArray.getInitializer() != null
+                        && newArray.getInitializer().contains(child.getValue())
+                        && isCamunda7TypedValue(elementType(newArray.getType())))
+                    || isTypedVarargsArgument(value, child.getValue());
+            return typedCast || typedTarget ? start : null;
+          }
+
+          /** Typed-value array parameters keep their type, so varargs elements stay typed. */
+          private boolean isTypedVarargsArgument(Object call, Object argument) {
+            JavaType.Method type =
+                call instanceof J.MethodInvocation invocation
+                    ? invocation.getMethodType()
+                    : call instanceof J.NewClass newClass ? newClass.getConstructorType() : null;
+            List<Expression> arguments =
+                call instanceof J.MethodInvocation invocation
+                    ? invocation.getArguments()
+                    : call instanceof J.NewClass newClass ? newClass.getArguments() : List.of();
+            if (type == null || type.getParameterTypes().isEmpty()) {
+              return false;
             }
-            Object owner =
-                parent
-                    .dropParentUntil(
-                        value ->
-                            value instanceof J.MethodDeclaration
-                                || value instanceof J.Lambda
-                                || value == Cursor.ROOT_VALUE)
-                    .getValue();
-            JavaType returnType =
-                owner instanceof J.MethodDeclaration method && method.getMethodType() != null
-                    ? method.getMethodType().getReturnType()
-                    : owner instanceof J.Lambda lambda ? lambdaReturnType(lambda) : null;
-            return isCamunda7TypedValue(returnType) ? parent : null;
+            int index = arguments.indexOf(argument);
+            int last = type.getParameterTypes().size() - 1;
+            return index >= last
+                && type.getParameterTypes().get(last) instanceof JavaType.Array array
+                && isCamunda7TypedValue(elementType(array))
+                && !(argument instanceof Expression expression
+                    && expression.getType() instanceof JavaType.Array);
           }
 
           private JavaType lambdaReturnType(J.Lambda lambda) {
@@ -1553,7 +1603,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           private String convertedIdentifierType(J.Identifier identifier) {
             Cursor classBody = declaringFieldCursor(identifier);
             String mappedType =
-                classBody != null && isConvertibleTypedValue(elementType(identifier.getType()))
+                classBody != null && isConvertibleTypedValue(identifier.getType())
                     ? classBody.getMessage(
                         CONVERTED_FIELD_MESSAGE_PREFIX + identifier.getSimpleName())
                     : getCursor().getNearestMessage(identifier.getSimpleName());
@@ -1562,19 +1612,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 : mappedType;
           }
 
-          private Expression arrayRoot(J.ArrayAccess arrayAccess) {
-            Expression indexed = unwrapParentheses(arrayAccess.getIndexed());
-            return indexed instanceof J.ArrayAccess nested ? arrayRoot(nested) : indexed;
-          }
-
           private JavaType elementType(JavaType type) {
             return type instanceof JavaType.Array array ? elementType(array.getElemType()) : type;
           }
 
           private String convertedTargetType(Expression target) {
-            if (target instanceof J.ArrayAccess arrayAccess) {
-              return convertedTargetType(arrayRoot(arrayAccess));
-            }
             if (target instanceof J.FieldAccess fieldAccess) {
               return convertedFieldType(fieldAccess.getName());
             }
@@ -1657,7 +1699,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private J.VariableDeclarations markUnsupportedTypedInitializer(
               J.VariableDeclarations declarations, ExecutionContext ctx) {
-            if (declarations.getType() instanceof JavaType.FullyQualified type) {
+            if (elementType(declarations.getType()) instanceof JavaType.FullyQualified type) {
               // Shadow converted fields while this declaration keeps its Camunda 7 type.
               Cursor scope = declarationScope();
               for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
@@ -1665,7 +1707,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
             }
             J.VariableDeclarations marked = declarations;
-            if (declarations.getComments().stream()
+            Cursor parent = getCursor().getParentTreeCursor();
+            if (parent.getValue() instanceof J.MethodDeclaration) {
+              parent.putMessage(TYPED_PARAMETER_MESSAGE, true);
+            } else if (!(parent.getValue() instanceof J.Lambda.Parameters)
+                && declarations.getComments().stream()
                 .noneMatch(
                     comment ->
                         comment instanceof TextComment textComment
@@ -1685,20 +1731,33 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return (J.VariableDeclarations) super.visitVariableDeclarations(marked, ctx);
           }
 
-          private J declarationBody() {
-            Object parent = getCursor().getParentTreeCursor().getValue();
-            if (parent instanceof J.MethodDeclaration method) {
-              return method.getBody();
+          private Cursor declarationBodyCursor() {
+            Cursor parent = getCursor().getParentTreeCursor();
+            if (parent.getValue() instanceof J.MethodDeclaration method) {
+              return method.getBody() == null ? null : new Cursor(parent, method.getBody());
             }
-            return parent instanceof J.Block block
-                ? block
-                : getCursor().firstEnclosing(J.Block.class);
+            Cursor block =
+                getCursor()
+                    .dropParentUntil(tree -> tree instanceof J.Block || tree == Cursor.ROOT_VALUE);
+            return block.getValue() instanceof J.Block ? block : null;
           }
 
-          /** Returns true when a later write to a declared variable may keep a typed value. */
-          private boolean hasUnprovenWrites(
-              J.VariableDeclarations declarations, J scope, String newFqn) {
-            if (scope == null) {
+          /** Typed-value arrays and varargs keep their Camunda 7 element type. */
+          private boolean isTypedValueArray(J.VariableDeclarations declarations) {
+            return isConvertibleTypedValue(elementType(declarations.getType()))
+                && (declarations.getType() instanceof JavaType.Array
+                    || declarations.getVarargs() != null
+                    || declarations.getVariables().stream()
+                        .anyMatch(variable -> !variable.getDimensionsAfterName().isEmpty()));
+          }
+
+          /**
+           * Returns true when a declared variable is later written with a value that may be typed,
+           * or read where a Camunda 7 typed value is still required.
+           */
+          private boolean hasIncompatibleUses(
+              J.VariableDeclarations declarations, Cursor scope, String newFqn) {
+            if (scope == null || !(scope.getValue() instanceof J body)) {
               return false;
             }
             Set<JavaType.Variable> variables = new HashSet<>();
@@ -1708,14 +1767,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
             }
             JavaType declaredType = declarations.getType();
-            Set<UUID> unproven = new HashSet<>();
-            new JavaIsoVisitor<Set<UUID>>() {
+            AtomicBoolean incompatible = new AtomicBoolean();
+            new JavaIsoVisitor<AtomicBoolean>() {
               @Override
-              public J.Assignment visitAssignment(J.Assignment assignment, Set<UUID> found) {
+              public J.Assignment visitAssignment(J.Assignment assignment, AtomicBoolean found) {
                 Expression target = unwrapParentheses(assignment.getVariable());
-                if (target instanceof J.ArrayAccess arrayAccess) {
-                  target = arrayRoot(arrayAccess);
-                }
                 J.Identifier name =
                     target instanceof J.FieldAccess access
                         ? access.getName()
@@ -1723,12 +1779,62 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 if (name != null
                     && variables.contains(name.getFieldType())
                     && !isProvablyRawValue(assignment.getAssignment(), declaredType, newFqn)) {
-                  found.add(assignment.getId());
+                  found.set(true);
                 }
                 return super.visitAssignment(assignment, found);
               }
-            }.visit(scope, unproven);
-            return !unproven.isEmpty();
+
+              @Override
+              public J.Identifier visitIdentifier(J.Identifier identifier, AtomicBoolean found) {
+                if (variables.contains(identifier.getFieldType())
+                    && requiresTypedValue(getCursor(), newFqn)) {
+                  found.set(true);
+                }
+                return super.visitIdentifier(identifier, found);
+              }
+            }.visit(body, incompatible, scope.getParentOrThrow());
+            return incompatible.get();
+          }
+
+          /** Returns true when the variable read at {@code reference} must stay a typed value. */
+          private boolean requiresTypedValue(Cursor reference, String newFqn) {
+            Cursor read = reference;
+            if (read.getParentTreeCursor().getValue() instanceof J.FieldAccess access
+                && access.getName() == read.getValue()) {
+              read = read.getParentTreeCursor();
+            }
+            Cursor child = read;
+            Cursor parent = child.getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>) {
+              child = parent;
+              parent = parent.getParentTreeCursor();
+            }
+            Object value = parent.getValue();
+            if (value instanceof J.MethodInvocation invocation
+                && invocation.getSelect() == child.getValue()) {
+              // typed-only methods such as isTransient() have no raw-value equivalent
+              return !"getValue".equals(invocation.getSimpleName())
+                  && invocation.getMethodType() != null
+                  && isCamunda7TypedValue(invocation.getMethodType().getDeclaringType());
+            }
+            if (value instanceof J.Assignment assignment) {
+              // typed-value arrays keep their element type
+              Expression target = unwrapParentheses(assignment.getVariable());
+              return assignment.getAssignment() == child.getValue()
+                  && (requiresOtherTypedValue(target.getType(), newFqn)
+                      || (target instanceof J.ArrayAccess
+                          && isCamunda7TypedValue(target.getType())));
+            }
+            if (value instanceof J.VariableDeclarations.NamedVariable variable) {
+              return variable.getInitializer() == child.getValue()
+                  && requiresOtherTypedValue(variable.getType(), newFqn);
+            }
+            return typedContextCursor(read) != null;
+          }
+
+          private boolean requiresOtherTypedValue(JavaType targetType, String newFqn) {
+            return isCamunda7TypedValue(targetType)
+                && !newFqn.equals(mapTypedValueToNewFqn(targetType));
           }
 
           private boolean isProvablyRawValue(
@@ -1771,8 +1877,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   continue;
                 }
                 String newFqn = mapTypedValueToNewFqn(typeExpr.getType());
-                if (requiresManualTypedInitializer(fields, typeExpr.getType(), newFqn)
-                    || hasUnprovenWrites(fields, classBody, newFqn)) {
+                if (isTypedValueArray(fields)
+                    || requiresManualTypedInitializer(fields, typeExpr.getType(), newFqn)
+                    || hasIncompatibleUses(fields, getCursor(), newFqn)) {
                   continue;
                 }
                 for (J.VariableDeclarations.NamedVariable field : fields.getVariables()) {
