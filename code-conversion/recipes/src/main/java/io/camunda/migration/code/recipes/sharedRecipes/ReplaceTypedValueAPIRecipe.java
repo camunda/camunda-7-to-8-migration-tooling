@@ -116,6 +116,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 if (target instanceof J.ArrayAccess && isLegacyTypedValue(target.getType())) {
                   retainTypedReferences(assignment.getAssignment(), innerCtx);
                 }
+                if (isLegacyTypedValue(target.getType())
+                    && !isDateOrBytesValue(target.getType())) {
+                  retainTypedReferences(assignment.getAssignment(), innerCtx);
+                }
                 J.Identifier name =
                     target instanceof J.FieldAccess fieldAccess
                         ? fieldAccess.getName()
@@ -1011,6 +1015,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             Expression target = unwrapParentheses(assignment.getVariable());
             Expression assignmentValue = assignment.getAssignment();
             if (target instanceof J.ArrayAccess && isLegacyTypedValue(target.getType())) {
+              return assignment;
+            }
+            if (isLegacyTypedValue(target.getType())
+                && !isDateOrBytesValue(target.getType())
+                && convertedTargetType(target) == null) {
               return assignment;
             }
             if (isDateOrBytesValue(target.getType())
