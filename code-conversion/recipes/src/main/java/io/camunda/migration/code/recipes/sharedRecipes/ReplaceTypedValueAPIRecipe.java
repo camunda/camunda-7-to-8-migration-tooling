@@ -393,14 +393,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     && Boolean.FALSE.equals(literal.getValue()));
           }
 
-          private J.VariableDeclarations markForManualMigration(
-              J.VariableDeclarations declarations) {
+          private void retainTypeInScope(J.VariableDeclarations declarations) {
             if (declarations.getTypeAsFullyQualified() instanceof JavaType.FullyQualified type) {
               Cursor scope = declarationScope();
               for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
                 scope.putMessage(variable.getSimpleName(), type.getFullyQualifiedName());
               }
             }
+          }
+
+          private J.VariableDeclarations markForManualMigration(
+              J.VariableDeclarations declarations) {
+            retainTypeInScope(declarations);
             if (declarations.getComments().stream()
                 .anyMatch(
                     comment ->
@@ -491,6 +495,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               if (parent instanceof J.MethodDeclaration
                   || parent instanceof J.Lambda.Parameters
                   || parent instanceof J.ForEachLoop.Control) {
+                retainTypeInScope(declarations);
                 return declarations;
               }
               return canConvertRawDeclarations(declarations)
@@ -1252,21 +1257,24 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           private J.VariableDeclarations preserveLegacyValues(J.VariableDeclarations declarations) {
-            if (isLegacyTypedValue(declarations.getType())
-                && declarations.getTypeAsFullyQualified() instanceof JavaType.FullyQualified type) {
-              // Shadow a converted field when a local or parameter keeps its C7 type.
-              Cursor scope = declarationScope();
-              for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-                scope.putMessage(variable.getSimpleName(), type.getFullyQualifiedName());
-              }
+            if (isLegacyTypedValue(declarations.getType())) {
+              retainTypeInScope(declarations);
             }
             return declarations;
           }
 
           private Cursor declarationScope() {
-            return getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration
-                ? getCursor().dropParentUntil(parent -> parent instanceof J.MethodDeclaration)
-                : getCursor().dropParentUntil(parent -> parent instanceof J.Block);
+            Object parent = getCursor().getParentTreeCursor().getValue();
+            if (parent instanceof J.MethodDeclaration) {
+              return getCursor().dropParentUntil(tree -> tree instanceof J.MethodDeclaration);
+            }
+            if (parent instanceof J.Lambda.Parameters || parent instanceof J.Lambda) {
+              return getCursor().dropParentUntil(tree -> tree instanceof J.Lambda);
+            }
+            if (parent instanceof J.ForEachLoop.Control) {
+              return getCursor().dropParentUntil(tree -> tree instanceof J.ForEachLoop);
+            }
+            return getCursor().dropParentUntil(tree -> tree instanceof J.Block);
           }
 
           private boolean isReassigned(J.Identifier variable) {
@@ -1317,8 +1325,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   ? identifier
                   : identifier.withType(JavaType.buildType(mapped));
             }
-            if (OBJECT_VALUE_FQN.equals(
-                getCursor().getNearestMessage(identifier.getSimpleName()))) {
+            String mapped = getCursor().getNearestMessage(identifier.getSimpleName());
+            if (identifier.getType() instanceof JavaType.FullyQualified type
+                && type.getFullyQualifiedName().equals(mapped)) {
+              return identifier;
+            }
+            if (OBJECT_VALUE_FQN.equals(mapped)) {
               return identifier;
             }
             return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);

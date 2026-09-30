@@ -436,4 +436,55 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedParametersShadowConvertedOuterLocal() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.function.Function;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class ScopedReads {
+                void read(DateValue[] values) {
+                    DateValue date = Variables.dateValue(new Date(0));
+                    class Local {
+                        Date fromParameter(DateValue date) { return date.getValue(); }
+                        Date fromLambda(DateValue[] values) {
+                            Function<DateValue, Date> fn = (DateValue date) -> date.getValue();
+                            for (DateValue date : values) {
+                                Date value = date.getValue();
+                            }
+                            return fn.apply(values[0]);
+                        }
+                    }
+                    Date result = date.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.function.Function;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class ScopedReads {
+                void read(DateValue[] values) {
+                    Date date = new Date(0);
+                    class Local {
+                        Date fromParameter(DateValue date) { return date.getValue(); }
+                        Date fromLambda(DateValue[] values) {
+                            Function<DateValue, Date> fn = (DateValue date) -> date.getValue();
+                            for (DateValue date : values) {
+                                Date value = date.getValue();
+                            }
+                            return fn.apply(values[0]);
+                        }
+                    }
+                    Date result = date;
+                }
+            }
+            """));
+  }
 }
