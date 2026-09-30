@@ -92,7 +92,7 @@ export default function FileItem({
               <span className="fileItemStatusLabel">{statusLabel(isChecked)}</span>
             </span>
           )}
-          {isChecked && previewAction && (
+          {(isChecked || status === "error") && previewAction && (
             <button
               type="button"
               className="download"

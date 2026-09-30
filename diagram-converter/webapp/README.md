@@ -8,7 +8,8 @@ reported for review. Complex expressions remain unchanged and are reported as
 tasks for manual migration. Schema versions and deprecated component properties are
 preserved because changing them without a schema-aware migration could alter
 form behavior. Forms can be opened as a read-only rendered preview from the
-results list.
+results list. Preview dialogs let you move through the batch or jump directly
+to the next file with findings.
 
 ## Rest API
 

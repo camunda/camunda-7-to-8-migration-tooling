@@ -42,13 +42,19 @@ export default function FindingsSection({
   rows,
   onSelectElement,
   selectedElementId,
+  hiddenSeverities: controlledHiddenSeverities,
+  onHiddenSeveritiesChange,
 }) {
   const [filterState, setFilterState] = useState(() => ({
     rows,
     hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
   }));
-  const hiddenSeverities =
-    filterState.rows === rows ? filterState.hiddenSeverities : EMPTY_HIDDEN_SEVERITIES;
+  const isFilterControlled = controlledHiddenSeverities !== undefined;
+  const hiddenSeverities = isFilterControlled
+    ? controlledHiddenSeverities
+    : filterState.rows === rows
+      ? filterState.hiddenSeverities
+      : EMPTY_HIDDEN_SEVERITIES;
 
   if (rows.length === 0) {
     return (
@@ -73,6 +79,17 @@ export default function FindingsSection({
   const isFiltered = hiddenSeverities.size > 0;
 
   function toggleSeverity(severity) {
+    if (isFilterControlled) {
+      const next = new Set(controlledHiddenSeverities);
+      if (next.has(severity)) {
+        next.delete(severity);
+      } else {
+        next.add(severity);
+      }
+      onHiddenSeveritiesChange?.(next);
+      return;
+    }
+
     setFilterState((prev) => {
       const previousHiddenSeverities =
         prev.rows === rows ? prev.hiddenSeverities : EMPTY_HIDDEN_SEVERITIES;
@@ -90,6 +107,11 @@ export default function FindingsSection({
   }
 
   function showAll() {
+    if (isFilterControlled) {
+      onHiddenSeveritiesChange?.(EMPTY_HIDDEN_SEVERITIES);
+      return;
+    }
+
     setFilterState({
       rows,
       hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
