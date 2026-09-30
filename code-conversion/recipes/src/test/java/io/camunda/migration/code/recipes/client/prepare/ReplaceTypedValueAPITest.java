@@ -1000,4 +1000,80 @@ public class TypeValueTestClass {
                 }
                 """));
   }
+
+  @Test
+  void preservesFieldsUsedAsTypedChainedAssignmentResults() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue retained;
+                    private ObjectValue nested;
+
+                    void update(DelegateExecution execution) {
+                        retained = nested = execution.getVariableTyped("payload");
+                        consume(nested.getValue());
+                    }
+
+                    void consume(Object value) {}
+                }
+                """));
+  }
+
+  @Test
+  void rewritesConvertedAssignmentsInsideRetainedAndUnwrappedBuilders() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue retained;
+                    private ObjectValue nestedXml;
+                    private ObjectValue nestedJson;
+
+                    void update(DelegateExecution execution) {
+                        retained = Variables.objectValue(this.nestedXml = execution.getVariableTyped("xml"))
+                            .serializationDataFormat("application/xml").create();
+                        consume(Variables.objectValue(String.valueOf(
+                            nestedJson = execution.getVariableTyped("json")))
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create());
+                        consume(nestedXml.getValue());
+                        consume(nestedJson.getValue());
+                    }
+
+                    void consume(Object value) {}
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue retained;
+                    private Object nestedXml;
+                    private Object nestedJson;
+
+                    void update(DelegateExecution execution) {
+                        retained = Variables.objectValue(this.nestedXml = execution.getVariable("xml"))
+                            .serializationDataFormat("application/xml").create();
+                        consume(// type set to java.lang.Object
+                                String.valueOf(
+                                        nestedJson = execution.getVariable("json")));
+                        consume(nestedXml);
+                        consume(nestedJson);
+                    }
+
+                    void consume(Object value) {}
+                }
+                """));
+  }
 }

@@ -552,6 +552,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 target instanceof J.Identifier identifier
                     ? getCursor().getNearestMessage(identifier.getSimpleName())
                     : null;
+            if (isConvertedField(targetField)
+                || (rewrittenType != null && !OBJECT_VALUE_FQN.equals(rewrittenType))) {
+              getCursor().putMessage(PRESERVE_TYPED_GETTERS, false);
+            }
             if (TypeUtils.isOfClassType(target.getType(), OBJECT_VALUE_FQN)
                 && !isConvertedField(targetField)
                 && (target instanceof J.Identifier || target instanceof J.FieldAccess)
@@ -1023,9 +1027,33 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   Expression value = unwrapParentheses(assignment.getAssignment());
                   assignments.add(
                       value instanceof J.MethodInvocation invocation
-                          && isConvertibleTypedGetter(invocation));
+                          && isConvertibleTypedGetter(invocation)
+                          && hasUnconstrainedAssignmentResult(assignment));
                 }
                 return super.visitAssignment(assignment, assignments);
+              }
+
+              private boolean hasUnconstrainedAssignmentResult(J.Assignment assignment) {
+                // A nested assignment cannot change type when its result is needed as ObjectValue.
+                Cursor parent = getCursor().getParentTreeCursor();
+                while (parent.getValue() instanceof J.Parentheses<?>) {
+                  parent = parent.getParentTreeCursor();
+                }
+                if (parent.getValue() instanceof J.Block) {
+                  return true;
+                }
+                if (parent.getValue() instanceof J.MethodInvocation invocation
+                    && invocation.getMethodType() != null) {
+                  List<JavaType> parameters = invocation.getMethodType().getParameterTypes();
+                  for (int i = 0;
+                      i < invocation.getArguments().size() && i < parameters.size();
+                      i++) {
+                    if (unwrapParentheses(invocation.getArguments().get(i)) == assignment) {
+                      return TypeUtils.isOfClassType(parameters.get(i), "java.lang.Object");
+                    }
+                  }
+                }
+                return false;
               }
 
               @Override
