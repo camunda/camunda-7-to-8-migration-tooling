@@ -789,4 +789,215 @@ public class TypeValueTestClass {
                 }
                 """));
   }
+
+  @Test
+  void preservesGetterFieldsUsedAsTypedValues() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import java.util.ArrayList;
+                import java.util.List;
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue formatOnly;
+                    private ObjectValue typedArgument;
+                    private List<ObjectValue> values = new ArrayList<>();
+
+                    void read(DelegateExecution execution) {
+                        formatOnly = execution.getVariableTyped("format");
+                        this.typedArgument = execution.getVariableTyped("argument");
+                    }
+
+                    String format() {
+                        return formatOnly.getSerializationDataFormat();
+                    }
+
+                    void collect() {
+                        values.add(this.typedArgument);
+                    }
+
+                    ObjectValue current() {
+                        return typedArgument;
+                    }
+                }
+                """));
+  }
+
+  @Test
+  void visitsConvertedFieldReadsInsidePreservedTypedValues() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void update(DelegateExecution execution) {
+                        source = execution.getVariableTyped("source");
+                        this.builder = Variables.objectValue(source.getValue())
+                            .serializationDataFormat("application/xml").create();
+                        ObjectValue local = Variables.objectValue(this.source.getValue())
+                            .serializationDataFormat("application/xml").create();
+                        ObjectValue delayed;
+                        delayed = Variables.objectValue(this.source.getValue())
+                            .serializationDataFormat("application/xml").create();
+                        ObjectValue reassigned = execution.getVariableTyped(
+                            String.valueOf(source.getValue()));
+                        reassigned = Variables.objectValue("later")
+                            .serializationDataFormat("application/xml").create();
+                    }
+
+                    private ObjectValue source;
+                    private ObjectValue builder;
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void update(DelegateExecution execution) {
+                        source = execution.getVariable("source");
+                        this.builder = Variables.objectValue(source)
+                            .serializationDataFormat("application/xml").create();
+                        ObjectValue local = Variables.objectValue(this.source)
+                            .serializationDataFormat("application/xml").create();
+                        ObjectValue delayed;
+                        delayed = Variables.objectValue(this.source)
+                            .serializationDataFormat("application/xml").create();
+                        ObjectValue reassigned = execution.getVariableTyped(
+                            String.valueOf(source));
+                        reassigned = Variables.objectValue("later")
+                            .serializationDataFormat("application/xml").create();
+                    }
+
+                    private Object source;
+                    private ObjectValue builder;
+                }
+                """));
+  }
+
+  @Test
+  void preservesNestedTypedGettersWhenUnwrappingBuilders() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+
+                class PayloadTest {
+                    void submit(DelegateExecution execution) {
+                        consume(Variables.objectValue(execution.getVariableTyped("json").getValue())
+                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create());
+                        consume(Variables.objectValue(execution.getVariableTyped("xml").getValue())
+                            .serializationDataFormat("application/xml").create());
+                        consume(execution.getVariableTyped("direct").getValue());
+                        consume(execution.getVariableLocalTyped("local").getValue());
+                    }
+
+                    void consume(Object value) {}
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+
+                class PayloadTest {
+                    void submit(DelegateExecution execution) {
+                        consume(// type set to java.lang.Object
+                                execution.getVariableTyped("json").getValue());
+                        consume(Variables.objectValue(execution.getVariableTyped("xml").getValue())
+                            .serializationDataFormat("application/xml").create());
+                        consume(execution.getVariableTyped("direct").getValue());
+                        consume(execution.getVariableLocalTyped("local").getValue());
+                    }
+
+                    void consume(Object value) {}
+                }
+                """));
+  }
+
+  @Test
+  void preservesTypedGettersInsideMixedFieldExpressions() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    private ObjectValue mixed;
+
+                    void update(DelegateExecution execution, boolean condition, Object payload) {
+                        this.mixed = execution.getVariableTyped("direct");
+                        mixed = condition ? execution.getVariableTyped("first") : null;
+                        this.mixed = (ObjectValue) execution.getVariableTyped("second");
+                        mixed = Variables.objectValue(payload)
+                            .serializationDataFormat("application/xml").create();
+                        this.mixed = Variables.objectValue(
+                            execution.getVariableTyped("nested").getValue())
+                            .serializationDataFormat("application/xml").create();
+                    }
+
+                    Object current() {
+                        return this.mixed.getValue();
+                    }
+                }
+                """));
+  }
+
+  @Test
+  void visitsConvertedFieldReadsInsideMigratedTypedGetters() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void update(DelegateExecution execution) {
+                        source = execution.getVariableTyped("source");
+                        source = execution.getVariableTyped(String.valueOf(this.source.getValue()));
+                        ObjectValue payload = execution.getVariableTyped(
+                            String.valueOf(source.getValue()));
+                        consume(payload.getValue());
+                    }
+
+                    private ObjectValue source;
+                    private java.util.List<ObjectValue> typedValues;
+
+                    void consume(Object value) {}
+                }
+                """,
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                class PayloadTest {
+                    void update(DelegateExecution execution) {
+                        source = execution.getVariable("source");
+                        source = execution.getVariable(String.valueOf(this.source));
+                        // please check type
+                        Object payload = execution.getVariable(
+                                String.valueOf(source));
+                        consume(payload);
+                    }
+
+                    private Object source;
+                    private java.util.List<ObjectValue> typedValues;
+
+                    void consume(Object value) {}
+                }
+                """));
+  }
 }

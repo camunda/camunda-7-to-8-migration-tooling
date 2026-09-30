@@ -67,6 +67,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
         new JavaVisitor<ExecutionContext>() {
 
           private static final String GETTER_ONLY_FIELDS = "getterOnlyObjectValueFields";
+          private static final String PRESERVE_TYPED_GETTERS = "preserveObjectValueGetters";
 
           private final List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations =
               List.of(
@@ -264,7 +265,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
             if (declarations.getVariables().size() != 1) {
-              return preserveObjectValues(declarations);
+              return preserveObjectValues(declarations, ctx);
             }
 
             // Analyze first variable
@@ -286,7 +287,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         && (declarationParent instanceof J.Block
                             || declarationParent instanceof J.ForLoop.Control))
                     || isReassigned(originalName))) {
-              return preserveObjectValues(declarations);
+              return preserveObjectValues(declarations, ctx);
             }
 
             if (getterOnlyField) {
@@ -314,7 +315,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       && (hasUnsupportedSerializationDataFormat(invocation)
                           || isFieldDeclaration()
                           || isReassigned(originalName))) {
-                    return preserveObjectValues(declarations);
+                    return preserveObjectValues(declarations, ctx);
                   }
 
                   // get modifiers
@@ -540,32 +541,40 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             Expression assignmentValue = assignment.getAssignment();
             Expression unwrappedAssignmentValue = unwrapParentheses(assignmentValue);
+            Expression target = unwrapParentheses(assignment.getVariable());
+            JavaType.Variable targetField =
+                target instanceof J.Identifier identifier
+                    ? identifier.getFieldType()
+                    : target instanceof J.FieldAccess fieldAccess
+                        ? fieldAccess.getName().getFieldType()
+                        : null;
+            String rewrittenType =
+                target instanceof J.Identifier identifier
+                    ? getCursor().getNearestMessage(identifier.getSimpleName())
+                    : null;
+            if (TypeUtils.isOfClassType(target.getType(), OBJECT_VALUE_FQN)
+                && !isConvertedField(targetField)
+                && (target instanceof J.Identifier || target instanceof J.FieldAccess)
+                && (rewrittenType == null || OBJECT_VALUE_FQN.equals(rewrittenType))) {
+              getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
+              return super.visitAssignment(assignment, ctx);
+            }
+
             if (!(unwrappedAssignmentValue instanceof J.MethodInvocation invocation)) {
               return super.visitAssignment(assignment, ctx);
             }
 
-            Expression target = unwrapParentheses(assignment.getVariable());
             if (!(target instanceof J.Identifier originalName)) {
-              if (isBuilderInvocation(invocation)
-                  || (target instanceof J.FieldAccess fieldAccess
-                      && isTypedVariableGetter(invocation)
-                      && TypeUtils.isOfClassType(fieldAccess.getType(), OBJECT_VALUE_FQN)
-                      && !isConvertedField(fieldAccess.getName().getFieldType()))) {
-                return assignment;
+              if (isBuilderInvocation(invocation)) {
+                getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
               }
               return super.visitAssignment(assignment, ctx);
             }
 
-            String rewrittenType = getCursor().getNearestMessage(originalName.getSimpleName());
-            if (TypeUtils.isOfClassType(originalName.getType(), OBJECT_VALUE_FQN)
-                && !isConvertedField(originalName.getFieldType())
-                && (rewrittenType == null || OBJECT_VALUE_FQN.equals(rewrittenType))) {
-              return assignment;
-            }
-
             if (isBuilderInvocation(invocation)
                 && hasUnsupportedSerializationDataFormat(invocation)) {
-              return assignment;
+              getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
+              return super.visitAssignment(assignment, ctx);
             }
 
             if (new MethodMatcher(
@@ -720,6 +729,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 : spec.textComments());
 
                     if (modifiedInvocation instanceof J.MethodInvocation) {
+                      // The extracted payload is visited under the builder cursor, not its new parent.
+                      getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
                       modifiedInvocation =
                           (Expression)
                               super.visitMethodInvocation(
@@ -829,9 +840,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (invocation.getSimpleName().equals("getVariableTyped")
                 || invocation.getSimpleName().equals("getVariableLocalTyped")) {
+              if (Boolean.TRUE.equals(getCursor().getNearestMessage(PRESERVE_TYPED_GETTERS))
+                  || isGetValueReceiver(invocation)) {
+                return super.visitMethodInvocation(invocation, ctx);
+              }
               J.Identifier newIdent =
                   RecipeUtils.createSimpleIdentifier("getVariable", "java.lang.String");
-              return invocation.withName(newIdent);
+              return super.visitMethodInvocation(invocation.withName(newIdent), ctx);
             }
 
             if (invocation.getSimpleName().equals("getAllVariablesTyped")) {
@@ -917,6 +932,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return invocation.getArguments().size() == (taskService ? 2 : 1);
           }
 
+          private boolean isGetValueReceiver(J.MethodInvocation invocation) {
+            Cursor parent = getCursor().getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>) {
+              parent = parent.getParentTreeCursor();
+            }
+            return parent.getValue() instanceof J.MethodInvocation getter
+                && getter.getSimpleName().equals("getValue")
+                && unwrapParentheses(getter.getSelect()) == invocation;
+          }
+
           private boolean canUnwrapBuilder(J.MethodInvocation invocation) {
             if (getCursor().firstEnclosing(J.Ternary.class) != null
                 || getCursor().firstEnclosing(J.SwitchExpression.class) != null) {
@@ -982,6 +1007,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             List<Boolean> getterAssignments = new ArrayList<>();
+            boolean[] incompatibleRead = {false};
             new JavaIsoVisitor<List<Boolean>>() {
               @Override
               public J.Assignment visitAssignment(
@@ -1001,19 +1027,63 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
                 return super.visitAssignment(assignment, assignments);
               }
+
+              @Override
+              public J.Identifier visitIdentifier(
+                  J.Identifier identifier, List<Boolean> assignments) {
+                Object parent = getCursor().getParentTreeCursor().getValue();
+                if (field.equals(identifier.getFieldType())
+                    && !(parent instanceof J.FieldAccess access
+                        && access.getName() == identifier)
+                    && !isCompatibleFieldUse(identifier)) {
+                  incompatibleRead[0] = true;
+                }
+                return super.visitIdentifier(identifier, assignments);
+              }
+
+              @Override
+              public J.FieldAccess visitFieldAccess(
+                  J.FieldAccess fieldAccess, List<Boolean> assignments) {
+                if (field.equals(fieldAccess.getName().getFieldType())
+                    && !isCompatibleFieldUse(fieldAccess)) {
+                  incompatibleRead[0] = true;
+                }
+                return super.visitFieldAccess(fieldAccess, assignments);
+              }
+
+              private boolean isCompatibleFieldUse(Expression reference) {
+                // Only writes and value extraction stay valid when ObjectValue becomes Object.
+                Cursor parent = getCursor().getParentTreeCursor();
+                while (parent.getValue() instanceof J.Parentheses<?>) {
+                  parent = parent.getParentTreeCursor();
+                }
+                if (parent.getValue() instanceof J.Assignment assignment) {
+                  return unwrapParentheses(assignment.getVariable()) == reference;
+                }
+                if (parent.getValue() instanceof J.MethodInvocation invocation) {
+                  return invocation.getSimpleName().equals("getValue")
+                      && unwrapParentheses(invocation.getSelect()) == reference;
+                }
+                return parent.getValue() instanceof J.VariableDeclarations.NamedVariable declaration
+                    && declaration.getName() == reference;
+              }
             }.visit(compilationUnit, getterAssignments);
 
             return !getterAssignments.isEmpty()
+                && !incompatibleRead[0]
                 && getterAssignments.stream().allMatch(Boolean::booleanValue);
           }
 
-          private J.VariableDeclarations preserveObjectValues(J.VariableDeclarations declarations) {
+          private J.VariableDeclarations preserveObjectValues(
+              J.VariableDeclarations declarations, ExecutionContext ctx) {
             if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
               // Shadow messages from converted fields when a local or parameter stays ObjectValue.
               Cursor scope = declarationScope();
               for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
                 scope.putMessage(variable.getSimpleName(), OBJECT_VALUE_FQN);
               }
+              getCursor().putMessage(PRESERVE_TYPED_GETTERS, true);
+              return (J.VariableDeclarations) super.visitVariableDeclarations(declarations, ctx);
             }
             return declarations;
           }
