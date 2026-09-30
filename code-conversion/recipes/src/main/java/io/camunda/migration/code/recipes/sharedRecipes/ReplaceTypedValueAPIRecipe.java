@@ -705,7 +705,6 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                     RecipeUtils.createSimpleComment(
                                         declarations, " please check type")))
                             .toList());
-            maybeAddImport(newFqn);
             modifiedDeclarations =
                 (J.VariableDeclarations) super.visitVariableDeclarations(modifiedDeclarations, ctx);
             maybeRemoveImport(declarations.getTypeAsFullyQualified());
