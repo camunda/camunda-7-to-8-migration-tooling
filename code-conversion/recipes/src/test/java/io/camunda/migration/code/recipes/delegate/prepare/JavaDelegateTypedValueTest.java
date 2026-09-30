@@ -1508,6 +1508,55 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedArrayGettersStayTypedForManualMigration() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedArrayGetters {
+                void accept(DateValue[] values) {}
+
+                void read(DelegateExecution execution) {
+                    DateValue[] dates = {execution.getVariableTyped("date")};
+                    BytesValue[] bytes = new BytesValue[]{execution.getVariableTyped("bytes")};
+                    TypedValue[] values = {execution.getVariableTyped("typed")};
+                    dates[0] = execution.getVariableTyped("nextDate");
+                    bytes[0] = execution.getVariableTyped("nextBytes");
+                    values[0] = execution.getVariableTyped("nextTyped");
+                    accept(new DateValue[]{execution.getVariableTyped("inline")});
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedArrayGetters {
+                void accept(DateValue[] values) {}
+
+                void read(DelegateExecution execution) {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue[] dates = {execution.getVariableTyped("date")};
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    BytesValue[] bytes = new BytesValue[]{execution.getVariableTyped("bytes")};
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    TypedValue[] values = {execution.getVariableTyped("typed")};
+                    dates[0] = execution.getVariableTyped("nextDate");
+                    bytes[0] = execution.getVariableTyped("nextBytes");
+                    values[0] = execution.getVariableTyped("nextTyped");
+                    accept(new DateValue[]{execution.getVariableTyped("inline")});
+                }
+            }
+            """));
+  }
+
+  @Test
   void instanceofChecksKeepTypedSourcesAndPatternVariables() {
     rewriteRun(
         java(

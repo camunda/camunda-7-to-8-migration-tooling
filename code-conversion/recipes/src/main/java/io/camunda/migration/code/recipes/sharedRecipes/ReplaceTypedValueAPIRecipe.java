@@ -979,6 +979,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return super.visitVariableDeclarations(declarations, ctx);
           }
 
+          @Override
+          public J visitNewArray(J.NewArray array, ExecutionContext ctx) {
+            return isLegacyTypedArray(array.getType()) ? array : super.visitNewArray(array, ctx);
+          }
+
           private J.Assignment retypeAssignment(J.Assignment assignment, String mappedType) {
             JavaType type = JavaType.buildType(mappedType);
             Expression target = assignment.getVariable().withType(type);
@@ -994,6 +999,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             Expression target = unwrapParentheses(assignment.getVariable());
             Expression assignmentValue = assignment.getAssignment();
+            if (target instanceof J.ArrayAccess && isLegacyTypedValue(target.getType())) {
+              return assignment;
+            }
             if (isDateOrBytesValue(target.getType())
                 && !mapTypedValueToNewFqn(target.getType()).equals(convertedTargetType(target))) {
               return assignment;
