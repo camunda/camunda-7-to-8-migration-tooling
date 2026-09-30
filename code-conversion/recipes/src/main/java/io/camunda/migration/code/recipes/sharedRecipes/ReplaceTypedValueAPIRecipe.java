@@ -162,6 +162,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
 
               @Override
+              public J.SwitchExpression visitSwitchExpression(
+                  J.SwitchExpression expression, ExecutionContext innerCtx) {
+                if (isDateOrBytesValue(expression.getType())) {
+                  retainTypedReferences(expression, innerCtx);
+                }
+                return super.visitSwitchExpression(expression, innerCtx);
+              }
+
+              @Override
               public J.Lambda visitLambda(J.Lambda lambda, ExecutionContext innerCtx) {
                 if (lambda.getType() instanceof JavaType.Parameterized functional
                     && functional.getTypeParameters().stream()

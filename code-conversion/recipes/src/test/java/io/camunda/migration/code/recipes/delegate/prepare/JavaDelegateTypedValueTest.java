@@ -1538,6 +1538,110 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedSwitchInitializersRetainTheirSources() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class SwitchedValues {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                void pick(int kind) {
+                    DateValue pickedDate = switch (kind) { case 0 -> date; default -> null; };
+                    BytesValue pickedBytes = switch (kind) { case 0 -> this.bytes; default -> null; };
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class SwitchedValues {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                void pick(int kind) {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue pickedDate = switch (kind) { case 0 -> date; default -> null; };
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    BytesValue pickedBytes = switch (kind) { case 0 -> this.bytes; default -> null; };
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedGenericMethodArgumentsRetainTheirSources() {
+    rewriteRun(
+        java(
+            """
+            import java.util.ArrayList;
+            import java.util.Date;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedCollections {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                List<DateValue> dates = new ArrayList<>();
+                Map<String, BytesValue> buffers = new HashMap<>();
+
+                void add() {
+                    dates.add(date);
+                    buffers.put("b", this.bytes);
+                    DateValue localDate = Variables.dateValue(new Date(1));
+                    dates.add(localDate);
+                    BytesValue localBytes = Variables.byteArrayValue(new byte[]{2});
+                    buffers.put("local", localBytes);
+                }
+            }
+            """,
+            """
+            import java.util.ArrayList;
+            import java.util.Date;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedCollections {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                List<DateValue> dates = new ArrayList<>();
+                Map<String, BytesValue> buffers = new HashMap<>();
+
+                void add() {
+                    dates.add(date);
+                    buffers.put("b", this.bytes);
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue localDate = Variables.dateValue(new Date(1));
+                    dates.add(localDate);
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    BytesValue localBytes = Variables.byteArrayValue(new byte[]{2});
+                    buffers.put("local", localBytes);
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedConstructorConsumersStayTypedForManualMigration() {
     rewriteRun(
         java(
