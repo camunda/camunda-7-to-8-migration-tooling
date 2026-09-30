@@ -96,6 +96,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               @Override
               public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext innerCtx) {
                 Expression target = unwrapParentheses(assignment.getVariable());
+                if (target instanceof J.ArrayAccess && isLegacyTypedValue(target.getType())) {
+                  retainTypedReferences(assignment.getAssignment(), innerCtx);
+                }
                 J.Identifier name =
                     target instanceof J.FieldAccess fieldAccess
                         ? fieldAccess.getName()
@@ -416,6 +419,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (fields.getTypeExpression() instanceof J.AnnotatedType) {
               return false;
             }
+            if (fields.getVariables().stream()
+                .anyMatch(variable -> isLegacyTypedArray(variable.getType()))) {
+              return false;
+            }
             String newFqn = mapTypedValueToNewFqn(fields.getType());
             if ("java.lang.Object".equals(newFqn)
                 && !TypeUtils.isOfClassType(fields.getType(), OBJECT_VALUE_FQN)) {
@@ -472,6 +479,17 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     type, "org.camunda.bpm.engine.variable.value.BytesValue");
           }
 
+          private boolean isLegacyTypedArray(JavaType type) {
+            if (!(type instanceof JavaType.Array array)) {
+              return false;
+            }
+            JavaType element = array.getElemType();
+            while (element instanceof JavaType.Array nested) {
+              element = nested.getElemType();
+            }
+            return isLegacyTypedValue(element);
+          }
+
           private void retainTypedReferences(J expression, ExecutionContext ctx) {
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
@@ -487,12 +505,17 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private void retainTypedArguments(
               List<Expression> arguments, JavaType.Method method, ExecutionContext ctx) {
-            if (arguments == null || method == null) {
+            if (arguments == null || method == null || method.getParameterTypes().isEmpty()) {
               return;
             }
             List<JavaType> parameters = method.getParameterTypes();
-            for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
-              if (isLegacyTypedValue(parameters.get(i))) {
+            for (int i = 0;
+                i < arguments.size() && (i < parameters.size() || method.hasFlags(Flag.Varargs));
+                i++) {
+              JavaType parameter = parameters.get(Math.min(i, parameters.size() - 1));
+              if (isLegacyTypedValue(parameter)
+                  || parameter instanceof JavaType.Array array
+                      && isLegacyTypedValue(array.getElemType())) {
                 retainTypedReferences(arguments.get(i), ctx);
               }
             }
@@ -733,13 +756,19 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           public J visitVariableDeclarations(
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
-            if (isDateOrBytesValue(declarations.getType())) {
+            boolean legacyTypedArray =
+                declarations.getVariables().stream()
+                    .anyMatch(variable -> isLegacyTypedArray(variable.getType()));
+            if (isDateOrBytesValue(declarations.getType()) || legacyTypedArray) {
               Object parent = getCursor().getParentTreeCursor().getValue();
               if (parent instanceof J.MethodDeclaration
                   || parent instanceof J.Lambda.Parameters
                   || parent instanceof J.Lambda
                   || parent instanceof J.ForEachLoop.Control) {
                 return preserveTypedValues(declarations);
+              }
+              if (legacyTypedArray) {
+                return markForManualMigration(declarations);
               }
               if (declarations.getTypeExpression() instanceof J.AnnotatedType) {
                 return markForManualMigration(declarations);

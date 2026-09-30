@@ -1343,15 +1343,27 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
                 DateValue genericDate = Variables.dateValue(new Date(2));
                 BytesValue genericBytes = Variables.byteArrayValue(new byte[]{2});
+                DateValue indexedDate = Variables.dateValue(new Date(4));
+                BytesValue indexedBytes = Variables.byteArrayValue(new byte[]{4});
                 DateValue[] dates = {date};
                 DateValue[] constructedDates = new DateValue[]{date};
                 BytesValue[] buffers = {this.bytes};
                 BytesValue[] constructedBuffers = new BytesValue[]{bytes};
                 TypedValue[] typedValues = {genericDate, genericBytes};
+                DateValue[] uninitializedDates;
+                BytesValue uninitializedBytes[];
+                TypedValue[] uninitializedTyped;
 
                 void local() {
                     DateValue localDate = Variables.dateValue(new Date(1));
                     DateValue[] values = {localDate};
+                }
+
+                void assign() {
+                    uninitializedDates = new DateValue[1];
+                    uninitializedDates[0] = indexedDate;
+                    uninitializedBytes = new BytesValue[1];
+                    uninitializedBytes[0] = indexedBytes;
                 }
             }
             """,
@@ -1372,6 +1384,10 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 BytesValue genericBytes = Variables.byteArrayValue(new byte[]{2});
                 // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue indexedDate = Variables.dateValue(new Date(4));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue indexedBytes = Variables.byteArrayValue(new byte[]{4});
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue[] dates = {date};
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue[] constructedDates = new DateValue[]{date};
@@ -1379,13 +1395,27 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 BytesValue[] buffers = {this.bytes};
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 BytesValue[] constructedBuffers = new BytesValue[]{bytes};
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 TypedValue[] typedValues = {genericDate, genericBytes};
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue[] uninitializedDates;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue uninitializedBytes[];
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                TypedValue[] uninitializedTyped;
 
                 void local() {
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue localDate = Variables.dateValue(new Date(1));
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue[] values = {localDate};
+                }
+
+                void assign() {
+                    uninitializedDates = new DateValue[1];
+                    uninitializedDates[0] = indexedDate;
+                    uninitializedBytes = new BytesValue[1];
+                    uninitializedBytes[0] = indexedBytes;
                 }
             }
             """));
@@ -1844,6 +1874,64 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     BytesValue localBytes = Variables.byteArrayValue(new byte[]{2});
                     buffers.put("local", localBytes);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedVarargsRetainAllArguments() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class Varargs {
+                DateValue date = Variables.dateValue(new Date(0));
+                DateValue later = Variables.dateValue(new Date(1));
+                DateValue generic = Variables.dateValue(new Date(2));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                Varargs(BytesValue... values) {}
+                void dates(DateValue... values) {}
+                void values(TypedValue... values) {}
+
+                void call() {
+                    dates(date, later);
+                    values(generic);
+                    new Varargs(bytes);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class Varargs {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue later = Variables.dateValue(new Date(1));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue generic = Variables.dateValue(new Date(2));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                Varargs(BytesValue... values) {}
+                void dates(DateValue... values) {}
+                void values(TypedValue... values) {}
+
+                void call() {
+                    dates(date, later);
+                    values(generic);
+                    new Varargs(bytes);
                 }
             }
             """));
