@@ -490,14 +490,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           public J visitVariableDeclarations(
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
-            if (getCursor().firstEnclosing(J.Block.class) == null) {
+            Object declarationParent = getCursor().getParentTreeCursor().getValue();
+            if (declarationParent instanceof J.ClassDeclaration
+                || getCursor().firstEnclosing(J.Block.class) == null) {
               return declarations;
             }
             if (isDateOrBytesValue(declarations.getType())) {
-              Object parent = getCursor().getParentTreeCursor().getValue();
-              if (parent instanceof J.MethodDeclaration
-                  || parent instanceof J.Lambda.Parameters
-                  || parent instanceof J.ForEachLoop.Control) {
+              if (declarationParent instanceof J.MethodDeclaration
+                  || declarationParent instanceof J.Lambda.Parameters
+                  || declarationParent instanceof J.ForEachLoop.Control) {
                 retainTypeInScope(declarations);
                 return declarations;
               }
@@ -514,7 +515,6 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             J.Identifier originalName = firstVar.getName();
             Expression originalInitializer = unwrapParentheses(firstVar.getInitializer());
             // A declaration without a value might later receive a builder we cannot unwrap.
-            Object declarationParent = getCursor().getParentTreeCursor().getValue();
             if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
                 && ((originalInitializer == null
                         && (declarationParent instanceof J.Block
@@ -579,6 +579,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                           text ->
                                               RecipeUtils.createSimpleComment(declarations, text)))
                               .toList());
+                  modifiedDeclarations =
+                      modifiedDeclarations.withLeadingAnnotations(
+                          declarations.getLeadingAnnotations());
 
                   // visit method invocations
                   modifiedDeclarations =
@@ -653,6 +656,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                     RecipeUtils.createSimpleComment(
                                         declarations, " please check type")))
                             .toList());
+                modifiedDeclarations =
+                    modifiedDeclarations.withLeadingAnnotations(
+                        declarations.getLeadingAnnotations());
 
                 // visit method invocations
                 modifiedDeclarations =
@@ -753,18 +759,26 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               // if new fqn was set, update type expression of declaration and return declaration
               if (newFqn != null) {
 
+                if (firstVar.getInitializer() != null) {
+                  return markForManualMigration(declarations);
+                }
                 // record fqn of identifier for later uses
                 declarationScope().putMessage(originalName.toString(), newFqn);
 
                 maybeRemoveImport(declarations.getTypeAsFullyQualified());
-
-                return maybeAutoFormat(
-                    declarations,
+                J.VariableDeclarations modifiedDeclarations =
                     RecipeUtils.createSimpleJavaTemplate(
                             newFqn.substring(newFqn.lastIndexOf('.') + 1)
                                 + " "
-                                + firstVar.getSimpleName())
-                        .apply(getCursor(), declarations.getCoordinates().replace()),
+                                + firstVar.getSimpleName(),
+                            newFqn)
+                        .apply(getCursor(), declarations.getCoordinates().replace());
+                return maybeAutoFormat(
+                    declarations,
+                    modifiedDeclarations
+                        .withModifiers(declarations.getModifiers())
+                        .withLeadingAnnotations(declarations.getLeadingAnnotations())
+                        .withComments(declarations.getComments()),
                     ctx);
               }
             }

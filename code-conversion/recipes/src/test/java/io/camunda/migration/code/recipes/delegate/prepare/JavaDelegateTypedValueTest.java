@@ -698,4 +698,90 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void genericTypedDeclarationsPreserveModifiersAndInitializers() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class GenericValues {
+                @Deprecated private final IntegerValue empty = null;
+                private IntegerValue loaded = load();
+                @Deprecated private IntegerValue pending;
+
+                IntegerValue load() { return null; }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class GenericValues {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                @Deprecated private final IntegerValue empty = null;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                private IntegerValue loaded = load();
+                @Deprecated
+                private Integer pending;
+
+                IntegerValue load() { return null; }
+            }
+            """));
+  }
+
+  @Test
+  void annotatedTypedGetterAndFactoryDeclarationsKeepAnnotations() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.StringValue;
+
+            class AnnotatedValues {
+                DelegateExecution execution;
+                @Deprecated private IntegerValue amount = execution.getVariableTyped("amount");
+                @Deprecated private StringValue label = Variables.stringValue("ready");
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class AnnotatedValues {
+                DelegateExecution execution;
+                // please check type
+                @Deprecated
+                private Integer amount = (Integer) execution.getVariable("amount");
+                @Deprecated
+                private String label = "ready";
+            }
+            """));
+  }
+
+  @Test
+  void nestedAndLocalRecordComponentsStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class NestedRecords {
+                record Member(DateValue date, BytesValue bytes, IntegerValue amount) {
+                    Date readDate() { return date.getValue(); }
+                }
+
+                void use() {
+                    record Local(DateValue date, BytesValue bytes, IntegerValue amount) {
+                        byte[] readBytes() { return bytes.getValue(); }
+                        int readAmount() { return amount.getValue(); }
+                    }
+                }
+            }
+            """));
+  }
 }
