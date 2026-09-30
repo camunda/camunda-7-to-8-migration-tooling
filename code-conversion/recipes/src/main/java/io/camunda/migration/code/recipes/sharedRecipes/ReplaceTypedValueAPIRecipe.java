@@ -1473,12 +1473,17 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                         && check.getExpression() == child
                         && check.getClazz() instanceof TypedTree clazz
                         && isCamunda7TypedValue(clazz.getType()))
-                    || keepsComparedWrapper(start, comparedOperand(value, child))
+                    || comparedOperand(value, child) != null
                     || isTypedArgument(value, child);
             return use.typedCast() || typedTarget ? start : null;
           }
 
-          /** The other operand of a reference comparison ({@code ==} or {@code !=}), or null. */
+          /**
+           * The other operand of a reference comparison ({@code ==} or {@code !=}), or null. Raw
+           * values cannot reproduce these comparisons: factories never return {@code null}, getters
+           * return a non-null wrapper for variables set to {@code null}, and no raw value has the
+           * identity of a typed wrapper.
+           */
           private Expression comparedOperand(Object consumer, Object operand) {
             if (!(consumer instanceof J.Binary binary)
                 || (binary.getOperator() != J.Binary.Type.Equal
@@ -1487,21 +1492,6 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             }
             return unwrapParentheses(
                 binary.getLeft() == operand ? binary.getRight() : binary.getLeft());
-          }
-
-          /**
-           * Reference comparisons that raw values cannot reproduce: factories never return {@code
-           * null}, and no raw value has the identity of a typed wrapper.
-           */
-          private boolean keepsComparedWrapper(Cursor start, Expression other) {
-            return other != null
-                && ((start.getValue() instanceof J.MethodInvocation invocation
-                        && isTypedValueFactory(invocation))
-                    || !isNullLiteral(other));
-          }
-
-          private boolean isNullLiteral(Expression expression) {
-            return expression instanceof J.Literal literal && literal.getValue() == null;
           }
 
           /** Expression statements and void lambda bodies, whose value Java discards. */
@@ -2210,8 +2200,6 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             }
 
             Map<JavaType.Variable, JavaType.Variable> components = new HashMap<>();
-            Set<JavaType.Variable> factoryWritten = new HashSet<>();
-            Set<JavaType.Variable> nullChecked = new HashSet<>();
             new JavaIsoVisitor<Integer>() {
               @Override
               public J.VariableDeclarations.NamedVariable visitVariable(
@@ -2221,10 +2209,6 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                     && variable.getInitializer() != null
                     && !isRawWrite(variable.getInitializer(), variable.getType(), target)) {
                   retained.add(target);
-                } else if (candidates.containsKey(target)
-                    && variable.getInitializer() != null
-                    && isWrapperWrite(variable.getInitializer())) {
-                  factoryWritten.add(target);
                 } else if (typedOnly.contains(target)
                     && variable.getInitializer() != null
                     && isRewrittenTypedValue(variable.getInitializer())) {
@@ -2239,9 +2223,6 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                 if (candidates.containsKey(target)
                     && !isRawWrite(assignment.getAssignment(), assignment.getType(), target)) {
                   retained.add(target);
-                } else if (candidates.containsKey(target)
-                    && isWrapperWrite(assignment.getAssignment())) {
-                  factoryWritten.add(target);
                 } else if (typedOnly.contains(target)
                     && isRewrittenTypedValue(assignment.getAssignment())) {
                   // typed-only targets keep typed factories and getters
@@ -2302,14 +2283,8 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                 } else if (consumer instanceof J.VariableDeclarations.NamedVariable variable
                     && variable.getInitializer() == value) {
                   flowTo(source, variable.getName());
-                } else if (comparedOperand(consumer, value) instanceof Expression other) {
-                  if (isNullLiteral(other)) {
-                    // only factory wrappers differ: they are never null
-                    nullChecked.add(source);
-                  } else {
-                    // no raw value has the identity of a typed wrapper
-                    retained.add(source);
-                  }
+                } else if (comparedOperand(consumer, value) != null) {
+                  retained.add(source);
                 } else if (typedContextCursor(read) != null) {
                   retained.add(source);
                 }
@@ -2342,27 +2317,8 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                         && (matchesTypedVariableGetter(invocation)
                             || isRawValueFactory(invocation, newFqn)));
               }
-
-              /** Raw writes other than null, getters, and variables: factory results. */
-              private boolean isWrapperWrite(Expression value) {
-                Expression unwrapped = unwrapParentheses(value);
-                return !isNullLiteral(unwrapped)
-                    && !(unwrapped instanceof J.Identifier)
-                    && !(unwrapped instanceof J.FieldAccess)
-                    && !(unwrapped instanceof J.MethodInvocation invocation
-                        && matchesTypedVariableGetter(invocation));
-              }
             }.visit(compilationUnit, 0, new Cursor(null, Cursor.ROOT_VALUE));
 
-            Set<JavaType.Variable> factoryRoots = new HashSet<>();
-            for (JavaType.Variable variable : factoryWritten) {
-              factoryRoots.add(find(components, variable));
-            }
-            for (JavaType.Variable variable : nullChecked) {
-              if (factoryRoots.contains(find(components, variable))) {
-                retained.add(variable);
-              }
-            }
             Set<JavaType.Variable> retainedRoots = new HashSet<>();
             for (JavaType.Variable variable : retained) {
               retainedRoots.add(find(components, variable));

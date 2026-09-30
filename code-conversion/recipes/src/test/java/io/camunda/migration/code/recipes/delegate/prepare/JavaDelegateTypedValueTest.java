@@ -2790,7 +2790,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
-  void nullChecksKeepFactoryWrappers() {
+  void nullChecksKeepTypedValues() {
     rewriteRun(
         java(
             """
@@ -2820,11 +2820,12 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     IntegerValue created = Variables.integerValue(n);
                     // TODO: migrate Camunda 7 typed-value initializer manually
                     IntegerValue copy = created;
-                    // please check type
-                    Integer read = (Integer) execution.getVariable("read");
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue read = execution.getVariableTyped("read");
                     boolean direct = // TODO: migrate Camunda 7 typed-value method call manually
                             Variables.integerValue(n) != null;
-                    boolean present = execution.getVariable("other") != null;
+                    boolean present = // TODO: migrate Camunda 7 typed-value method call manually
+                            execution.getVariableTyped("other") != null;
                     return direct || present || copy == null || read != null;
                 }
             }

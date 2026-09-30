@@ -114,12 +114,10 @@ also stay typed. This includes lower-bounded consumers such as
 `Consumer<? super DateValue>`. Variables that pass values to each other, such as
 `target = source;`, share one decision: when one of them stays typed, all of
 them do. `==` and `!=` compare typed values by reference, which raw values
-cannot reproduce. Factories compared with any value, including `null`, stay
-unchanged with a TODO, because a factory never returns `null`. Variables and
-getters compared with a value other than `null` stay typed. A variable compared
-with `null` stays typed only when a factory can write to it; getter-backed null
-checks, such as `execution.getVariableTyped("x") != null`, still convert,
-because an absent variable stays `null`.
+cannot reproduce: a factory never returns `null`, and a getter returns a
+non-null wrapper for a variable set to `null`. Typed values compared with `==`
+or `!=`, including `null` checks such as
+`execution.getVariableTyped("x") != null`, stay typed with a TODO.
 Parameters retained this way get the TODO on their method; review the method's
 call sites together with the parameter.
 Grouped typed-getter declarations keep every variable and required cast. Groups
