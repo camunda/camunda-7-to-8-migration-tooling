@@ -632,6 +632,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 List<J.Modifier> modifiers = declarations.getModifiers();
 
                 String newFqn = mapTypedValueToNewFqn(originalName.getType());
+                int genericStart = newFqn.indexOf('<');
+                String importFqn =
+                    genericStart < 0 ? newFqn : newFqn.substring(0, genericStart);
 
                 // Create simple java template to adjust variable declaration type, but keep
                 // invocation as is
@@ -642,7 +645,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                     : modifiers.stream()
                                         .map(J.Modifier::toString)
                                         .collect(Collectors.joining(" ", "", " ")))
-                                + newFqn.substring(newFqn.lastIndexOf('.') + 1)
+                                + RecipeUtils.getShortName(newFqn)
                                 + " "
                                 + originalName.getSimpleName()
                                 + " = "
@@ -650,10 +653,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                     ? "(" + RecipeUtils.getShortName(newFqn) + ") "
                                     : "")
                                 + "#{any()}",
-                            "java.lang.Object")
+                            "java.lang.Object", importFqn)
                         .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
-                maybeAddImport(newFqn);
+                maybeAddImport(importFqn);
 
                 // record fqn of identifier for later uses
                 getCursor()
@@ -1286,7 +1289,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           private J.VariableDeclarations preserveLegacyValues(J.VariableDeclarations declarations) {
-            if (isLegacyTypedValue(declarations.getType())) {
+            if (declarations.getTypeAsFullyQualified() instanceof JavaType.FullyQualified type
+                && type.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE)) {
               retainTypeInScope(declarations);
             }
             return declarations;

@@ -229,6 +229,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.client.task.ExternalTask;
             import org.camunda.bpm.engine.TaskService;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.VariableMap;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
 
             class GetterCasts {
@@ -237,6 +238,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     IntegerValue task = service.getVariableTyped("taskId", "value");
                     IntegerValue taskLocal = service.getVariableLocalTyped("taskId", "local");
                     IntegerValue externalValue = external.getVariableTyped("external");
+                    VariableMap values = external.getAllVariablesTyped();
                 }
             }
             """,
@@ -244,6 +246,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.client.task.ExternalTask;
             import org.camunda.bpm.engine.TaskService;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            import java.util.Map;
 
             class GetterCasts {
                 void read(DelegateExecution execution, TaskService service, ExternalTask external) {
@@ -255,6 +259,49 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     Integer taskLocal = (Integer) service.getVariableLocal("taskId", "local");
                     // please check type
                     Integer externalValue = external.getVariable("external");
+                    // please check type
+                    Map<String, Object> values = external.getAllVariables();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void groupedTypedLocalsShadowOuterConversions() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class GroupedValues {
+                void use(DelegateExecution execution) {
+                    IntegerValue amount = execution.getVariableTyped("amount");
+                    class Nested {
+                        IntegerValue load() { return null; }
+                        int read() {
+                            IntegerValue amount = load(), other = load();
+                            return amount.getValue();
+                        }
+                    }
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class GroupedValues {
+                void use(DelegateExecution execution) {
+                    // please check type
+                    Integer amount = (Integer) execution.getVariable("amount");
+                    class Nested {
+                        IntegerValue load() { return null; }
+                        int read() {
+                            IntegerValue amount = load(), other = load();
+                            return amount.getValue();
+                        }
+                    }
                 }
             }
             """));
