@@ -86,12 +86,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)"),
                   new MethodMatcher("org.camunda.bpm.engine.TaskService getVariableTyped(..)"));
           private final Map<JavaType.Variable, String> convertedFields = new HashMap<>();
-          private final Set<JavaType.Variable> manualAssignments = new HashSet<>();
+          private final Set<JavaType.Variable> retainedTypedValues = new HashSet<>();
 
           @Override
           public J visitCompilationUnit(J.CompilationUnit unit, ExecutionContext ctx) {
             convertedFields.clear();
-            manualAssignments.clear();
+            retainedTypedValues.clear();
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
               public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext innerCtx) {
@@ -104,20 +104,36 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     && name.getFieldType() != null
                     && isDateOrBytesValue(target.getType())
                     && !canRewriteTypedAssignment(assignment.getAssignment(), target.getType())) {
-                  manualAssignments.add(name.getFieldType());
-                  new JavaIsoVisitor<ExecutionContext>() {
-                    @Override
-                    public J.Identifier visitIdentifier(
-                        J.Identifier identifier, ExecutionContext referenceCtx) {
-                      if (identifier.getFieldType() != null
-                          && isDateOrBytesValue(identifier.getType())) {
-                        manualAssignments.add(identifier.getFieldType());
-                      }
-                      return super.visitIdentifier(identifier, referenceCtx);
-                    }
-                  }.visit(assignment.getAssignment(), innerCtx);
+                  retainedTypedValues.add(name.getFieldType());
+                  retainTypedReferences(assignment.getAssignment(), innerCtx);
                 }
                 return super.visitAssignment(assignment, innerCtx);
+              }
+
+              @Override
+              public J.Return visitReturn(J.Return statement, ExecutionContext innerCtx) {
+                J.MethodDeclaration method = getCursor().firstEnclosing(J.MethodDeclaration.class);
+                if (method != null
+                    && method.getReturnTypeExpression() != null
+                    && isDateOrBytesValue(method.getReturnTypeExpression().getType())
+                    && statement.getExpression() != null) {
+                  retainTypedReferences(statement.getExpression(), innerCtx);
+                }
+                return super.visitReturn(statement, innerCtx);
+              }
+
+              @Override
+              public J.MethodInvocation visitMethodInvocation(
+                  J.MethodInvocation call, ExecutionContext innerCtx) {
+                if (call.getMethodType() != null) {
+                  List<JavaType> parameters = call.getMethodType().getParameterTypes();
+                  for (int i = 0; i < call.getArguments().size() && i < parameters.size(); i++) {
+                    if (isLegacyTypedValue(parameters.get(i))) {
+                      retainTypedReferences(call.getArguments().get(i), innerCtx);
+                    }
+                  }
+                }
+                return super.visitMethodInvocation(call, innerCtx);
               }
             }.visit(unit, ctx);
             int previousSize;
@@ -382,14 +398,70 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     type, "org.camunda.bpm.engine.variable.value.BytesValue");
           }
 
+          private void retainTypedReferences(Expression expression, ExecutionContext ctx) {
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext innerCtx) {
+                if (identifier.getFieldType() != null
+                    && isDateOrBytesValue(identifier.getType())) {
+                  retainedTypedValues.add(identifier.getFieldType());
+                }
+                return super.visitIdentifier(identifier, innerCtx);
+              }
+            }.visit(expression, ctx);
+          }
+
           private boolean requiresTransientReview(J.MethodInvocation factory) {
             return factory.getArguments().size() == 2
                 && !(factory.getArguments().get(1) instanceof J.Literal literal
                     && Boolean.FALSE.equals(literal.getValue()));
           }
 
+          private boolean isRawFactoryArgument(J.MethodInvocation factory) {
+            Cursor parent = getCursor().getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>) {
+              parent = parent.getParentTreeCursor();
+            }
+            return isRawMethodArgument(factory, parent);
+          }
+
+          private boolean isRawMethodArgument(J.MethodInvocation argument, Cursor parent) {
+            if (!(parent.getValue() instanceof J.MethodInvocation call)
+                || call.getSelect() == argument
+                || call.getMethodType() == null
+                || (call.getSelect() != null
+                    && call.getSelect().getType() instanceof JavaType.Parameterized receiver
+                    && receiver.getTypeParameters().stream().anyMatch(this::isLegacyTypedValue))) {
+              return false;
+            }
+            List<JavaType> parameterTypes = call.getMethodType().getParameterTypes();
+            for (int i = 0; i < call.getArguments().size() && i < parameterTypes.size(); i++) {
+              if (unwrapParentheses(call.getArguments().get(i)) == argument) {
+                return TypeUtils.isOfClassType(parameterTypes.get(i), "java.lang.Object");
+              }
+            }
+            return false;
+          }
+
+          private J.MethodInvocation retainTypedFactory(J.MethodInvocation factory) {
+            String hint = " TODO: migrate Camunda 7 typed-value factory call manually";
+            if (factory.getComments().stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment.getText().contains(hint.trim()))) {
+              return factory;
+            }
+            return factory.withComments(
+                Stream.concat(
+                        factory.getComments().stream(),
+                        Stream.of(RecipeUtils.createSimpleComment(factory, hint)))
+                    .toList());
+          }
+
           private Expression unwrapTypedValueFactory(Expression initializer, JavaType declaredType) {
-            if (initializer instanceof J.MethodInvocation factory
+            Expression value = unwrapParentheses(initializer);
+            if (value instanceof J.MethodInvocation factory
                 && (factory.getArguments().size() == 1 || factory.getArguments().size() == 2)
                 && ((TypeUtils.isOfClassType(
                             declaredType, "org.camunda.bpm.engine.variable.value.DateValue")
@@ -441,7 +513,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     || declarations.getVariables().stream()
                         .anyMatch(
                             variable ->
-                                manualAssignments.contains(variable.getName().getFieldType())));
+                                retainedTypedValues.contains(variable.getName().getFieldType())));
           }
 
           private boolean allTypedGetterInitializers(J.VariableDeclarations declarations) {
@@ -508,7 +580,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   unwrapTypedValueFactory(original, declarations.getTypeAsFullyQualified());
               if (initializer != original) {
                 maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
-                reviewTransient |= requiresTransientReview((J.MethodInvocation) original);
+                reviewTransient |=
+                    requiresTransientReview((J.MethodInvocation) unwrapParentheses(original));
               } else if (initializer instanceof J.MethodInvocation getter
                   && (matchesTypedVariableGetter(getter)
                       || allVariablesTypedGetter.matches(getter))) {
@@ -572,6 +645,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
             if (isDateOrBytesValue(declarations.getType())) {
+              if (getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration) {
+                return preserveTypedValues(declarations);
+              }
               if (declarations.getTypeExpression() instanceof J.AnnotatedType) {
                 return markForManualMigration(declarations);
               }
@@ -582,7 +658,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
             if (declarations.getVariables().size() != 1
                 && TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
-              return preserveObjectValues(declarations);
+              return preserveTypedValues(declarations);
             }
             if (hasMixedTypedGetterGroup(declarations)) {
               return markForManualMigration(declarations);
@@ -603,7 +679,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         && (declarationParent instanceof J.Block
                             || declarationParent instanceof J.ForLoop.Control))
                     || isReassigned(originalName))) {
-              return preserveObjectValues(declarations);
+              return preserveTypedValues(declarations);
             }
 
             // work with initializer that is a method invocation
@@ -622,7 +698,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       && (hasUnsupportedSerializationDataFormat(invocation)
                           || isFieldDeclaration()
                           || isReassigned(originalName))) {
-                    return preserveObjectValues(declarations);
+                    return preserveTypedValues(declarations);
                   }
 
                   // get modifiers
@@ -777,8 +853,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
 
-            Expression target = assignment.getVariable();
+            Expression target = unwrapParentheses(assignment.getVariable());
             Expression assignmentValue = assignment.getAssignment();
+            if (isDateOrBytesValue(target.getType())
+                && !mapTypedValueToNewFqn(target.getType()).equals(convertedTargetType(target))) {
+              return assignment;
+            }
             if (isDateOrBytesValue(target.getType())
                 && unwrapParentheses(assignmentValue) instanceof J.TypeCast cast
                 && TypeUtils.isOfType(cast.getType(), target.getType())) {
@@ -822,11 +902,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (isDateOrBytesValue(target.getType())) {
               String newFqn = mapTypedValueToNewFqn(target.getType());
               Expression rawValue = unwrapTypedValueFactory(invocation, target.getType());
-              if (!newFqn.equals(convertedTargetType(target))) {
-                if (rawValue != invocation || matchesTypedVariableGetter(invocation)) {
-                  return assignment;
-                }
-              } else if (rawValue != invocation) {
+              if (rawValue != invocation) {
                 J.Assignment modifiedAssignment =
                     retypeAssignment(assignment.withAssignment(rawValue), newFqn);
                 if (requiresTransientReview(invocation)) {
@@ -939,6 +1015,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             // visit simple method invocations
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
               if (spec.matcher().matches(invocation)) {
+                if ((dateValueFactory.matches(invocation)
+                        || byteArrayValueFactory.matches(invocation))
+                    && !isRawFactoryArgument(invocation)) {
+                  return maybeAutoFormat(invocation, retainTypedFactory(invocation), ctx);
+                }
 
                 if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
                   maybeRemoveImport(fqn);
@@ -1198,27 +1279,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 || parent.getValue() instanceof J.Assignment) {
               return getCursor().getNearestMessage(invocation.getId().toString()) != null;
             }
-            if (!(parent.getValue() instanceof J.MethodInvocation call)
-                || call.getSelect() == invocation
-                || call.getMethodType() == null
-                || (call.getSelect() != null
-                    && call.getSelect().getType() instanceof JavaType.Parameterized receiver
-                    && receiver.getTypeParameters().stream().anyMatch(this::isLegacyTypedValue))) {
-              return false;
-            }
-            List<JavaType> parameterTypes = call.getMethodType().getParameterTypes();
-            for (int i = 0; i < call.getArguments().size() && i < parameterTypes.size(); i++) {
-              if (unwrapParentheses(call.getArguments().get(i)) == invocation) {
-                return TypeUtils.isOfClassType(parameterTypes.get(i), "java.lang.Object");
-              }
-            }
-            return false;
+            return isRawMethodArgument(invocation, parent);
           }
 
           private boolean isLegacyTypedValue(JavaType type) {
-            return TypeUtils.isOfClassType(type, OBJECT_VALUE_FQN)
-                || TypeUtils.isOfClassType(
-                    type, "org.camunda.bpm.engine.variable.value.TypedValue");
+            return type instanceof JavaType.FullyQualified qualified
+                && qualified
+                    .getFullyQualifiedName()
+                    .startsWith("org.camunda.bpm.engine.variable.value.");
           }
 
           private boolean isFieldDeclaration() {
@@ -1226,12 +1294,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return parent instanceof J.ClassDeclaration || parent instanceof J.NewClass;
           }
 
-          private J.VariableDeclarations preserveObjectValues(J.VariableDeclarations declarations) {
-            if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
-              // Shadow messages from converted fields when a local or parameter stays ObjectValue.
+          private J.VariableDeclarations preserveTypedValues(J.VariableDeclarations declarations) {
+            if (declarations.getTypeAsFullyQualified() instanceof JavaType.FullyQualified type
+                && (isDateOrBytesValue(type)
+                    || TypeUtils.isOfClassType(type, OBJECT_VALUE_FQN))) {
               Cursor scope = declarationScope();
               for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-                scope.putMessage(variable.getSimpleName(), OBJECT_VALUE_FQN);
+                scope.putMessage(variable.getSimpleName(), type.getFullyQualifiedName());
               }
             }
             return declarations;

@@ -301,6 +301,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     this.date = execution.getVariableTyped("date");
                     this.bytes = execution.getVariableTyped("bytes");
                     this.object = execution.getVariableTyped("object");
+                    (this.date) = execution.getVariableTyped("wrappedDate");
+                    (bytes) = execution.getVariableTyped("wrappedBytes");
                 }
             }
             """,
@@ -323,6 +325,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     this.date = (Date) execution.getVariable("date");
                     this.bytes = (byte[]) execution.getVariable("bytes");
                     this.object = execution.getVariableTyped("object");
+                    this.date = (Date) execution.getVariable("wrappedDate");
+                    bytes = (byte[]) execution.getVariable("wrappedBytes");
                 }
             }
             """));
@@ -430,6 +434,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 @Deprecated
                 private DateValue date = Variables.dateValue(new Date(0)), otherDate = Variables.dateValue(new Date(1));
                 private BytesValue bytes = Variables.byteArrayValue(new byte[] {1}), otherBytes = Variables.byteArrayValue(new byte[] {2});
+                private DateValue wrappedDate = (Variables.dateValue(new Date(2)));
+                private BytesValue wrappedBytes = ((Variables.byteArrayValue(new byte[] {3}, false)));
             }
             """,
             """
@@ -439,6 +445,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 @Deprecated
                 private Date date = new Date(0), otherDate = new Date(1);
                 private byte[] bytes = new byte[]{1}, otherBytes = new byte[]{2};
+                private Date wrappedDate = new Date(2);
+                private byte[] wrappedBytes = new byte[]{3};
             }
             """));
   }
@@ -641,7 +649,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
 
                 Date readDate() { return this.date; }
                 byte[] readBytes() { return this.bytes; }
-                Date readUntouched(Date untouched) { return this.untouched.getValue(); }
+                Date readUntouched(DateValue untouched) { return this.untouched.getValue(); }
                 Date readSameType(QualifiedValues other) { return other.date; }
                 Date readOtherType(RetainedValues other) { return other.date.getValue(); }
             }
@@ -865,16 +873,20 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 abstract DateValue loadDate();
                 abstract BytesValue loadBytes();
 
-                void assign(DelegateExecution execution) {
+                void assign(DelegateExecution execution, boolean condition) {
                     this.date = execution.getVariableTyped("date");
                     this.bytes = execution.getVariableTyped("bytes");
                     this.date = Variables.dateValue(new Date(0));
                     this.bytes = Variables.byteArrayValue(new byte[] {1});
                     this.date = (DateValue) Variables.dateValue(new Date(1));
                     this.bytes = (BytesValue) execution.getVariableTyped("bytes");
+                    this.date = condition ? Variables.dateValue(new Date(2)) : Variables.dateValue(new Date(3));
+                    this.date = choose(Variables.dateValue(new Date(4)));
                     DateValue localDate = loadDate();
                     localDate = execution.getVariableTyped("localDate");
                 }
+
+                abstract DateValue choose(DateValue value);
             }
             """,
             """
@@ -893,17 +905,21 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 abstract DateValue loadDate();
                 abstract BytesValue loadBytes();
 
-                void assign(DelegateExecution execution) {
+                void assign(DelegateExecution execution, boolean condition) {
                     this.date = execution.getVariableTyped("date");
                     this.bytes = execution.getVariableTyped("bytes");
                     this.date = Variables.dateValue(new Date(0));
                     this.bytes = Variables.byteArrayValue(new byte[] {1});
                     this.date = (DateValue) Variables.dateValue(new Date(1));
                     this.bytes = (BytesValue) execution.getVariableTyped("bytes");
+                    this.date = condition ? Variables.dateValue(new Date(2)) : Variables.dateValue(new Date(3));
+                    this.date = choose(Variables.dateValue(new Date(4)));
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue localDate = loadDate();
                     localDate = execution.getVariableTyped("localDate");
                 }
+
+                abstract DateValue choose(DateValue value);
             }
             """));
   }
@@ -1071,6 +1087,120 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     execution.setVariable("computed", // TODO: review Camunda 7 transient variable semantics for migrated values
                             new byte[]{4});
                 }
+            }
+            """));
+  }
+
+  @Test
+  void typedFactoryConsumersStayTypedForManualMigration() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedConsumers {
+                private DateValue stored = Variables.dateValue(new Date(3));
+                private BytesValue saved = Variables.byteArrayValue(new byte[]{3});
+
+                DateValue date() {
+                    return Variables.dateValue(new Date(0));
+                }
+
+                BytesValue bytes() {
+                    return Variables.byteArrayValue(new byte[]{1});
+                }
+
+                void consume(TypedValue value) {}
+                void consumeDate(DateValue value) {}
+                void update(DateValue stored, BytesValue saved) {
+                    stored = Variables.dateValue(new Date(4));
+                    saved = Variables.byteArrayValue(new byte[]{4});
+                }
+
+                void call() {
+                    consume(Variables.dateValue(new Date(1), true));
+                    consumeDate(Variables.dateValue(new Date(2)));
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedConsumers {
+                private Date stored = new Date(3);
+                private byte[] saved = new byte[]{3};
+
+                DateValue date() {
+                    return // TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(new Date(0));
+                }
+
+                BytesValue bytes() {
+                    return // TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.byteArrayValue(new byte[]{1});
+                }
+
+                void consume(TypedValue value) {}
+                void consumeDate(DateValue value) {}
+                void update(DateValue stored, BytesValue saved) {
+                    stored = Variables.dateValue(new Date(4));
+                    saved = Variables.byteArrayValue(new byte[]{4});
+                }
+
+                void call() {
+                    consume(// TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(new Date(1), true));
+                    consumeDate(// TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(new Date(2)));
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedFieldConsumersStayTypedForManualMigration() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ExposedValues {
+                private DateValue date = Variables.dateValue(new Date(0));
+                private BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                DateValue getDate() { return date; }
+                BytesValue getBytes() { return (this.bytes); }
+                void consumeDate(DateValue value) {}
+                void passDate() { consumeDate(this.date); }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ExposedValues {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                private DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                private BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                DateValue getDate() { return date; }
+                BytesValue getBytes() { return (this.bytes); }
+                void consumeDate(DateValue value) {}
+                void passDate() { consumeDate(this.date); }
             }
             """));
   }
