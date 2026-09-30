@@ -65,9 +65,10 @@ when their initializers are absent, typed reads, or one-/two-argument
 and casts typed reads assigned to converted fields, including `this.field`.
 Declarations needed by typed consumers and factory calls outside these
 declarations or assignments keep Camunda 7 types with a manual-migration TODO.
-Other typed-read contexts stay unchanged for manual migration. A converted
-factory with a true or computed `isTransient` flag gets a separate TODO because
-dropping that metadata can change persistence behavior.
+Other typed-read contexts stay unchanged for manual migration. A `getValue()`
+nested in an unsupported context also keeps its source declaration typed.
+A converted factory with a true or computed `isTransient` flag gets a separate
+TODO because dropping that metadata can change persistence behavior.
 
 ### autoComplete = false (blocking)
 

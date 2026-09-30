@@ -332,6 +332,32 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                             && canConvertRawValue(variable.getInitializer(), declarations.getType()));
           }
 
+          private boolean isSupportedValueRead(Cursor callCursor, J.MethodInvocation getValue) {
+            Cursor consumer = callCursor.getParentTreeCursor();
+            while (consumer.getValue() instanceof J.Parentheses<?>) {
+              consumer = consumer.getParentTreeCursor();
+            }
+            if (consumer.getValue() instanceof J.Return) {
+              return true;
+            }
+            if (consumer.getValue() instanceof J.VariableDeclarations.NamedVariable) {
+              J.VariableDeclarations declarations =
+                  callCursor.firstEnclosing(J.VariableDeclarations.class);
+              return declarations != null
+                  && !(declarations.getType() instanceof JavaType.FullyQualified type
+                      && type.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE));
+            }
+            if (consumer.getValue() instanceof J.Assignment assignment) {
+              JavaType targetType = unwrapParentheses(assignment.getVariable()).getType();
+              return !(targetType instanceof JavaType.FullyQualified type
+                  && type.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE));
+            }
+            return consumer.getValue() instanceof J.MethodInvocation call
+                && variableSetter.matches(call)
+                && call.getArguments().size() == 2
+                && call.getArguments().get(1) == getValue;
+          }
+
           private boolean isSupportedTypedUse(Cursor cursor, J.Identifier identifier) {
             Cursor parent = cursor.getParentTreeCursor();
             if (parent.getValue() instanceof J.VariableDeclarations.NamedVariable variable
@@ -349,7 +375,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               parent = parent.getParentTreeCursor();
             }
             if (parent.getValue() instanceof J.MethodInvocation call) {
-              return call.getSelect() == reference && call.getSimpleName().equals("getValue")
+              return call.getSelect() == reference
+                      && call.getSimpleName().equals("getValue")
+                      && isSupportedValueRead(parent, call)
                   || variableSetter.matches(call)
                       && call.getArguments().size() == 2
                       && call.getArguments().get(1) == reference;

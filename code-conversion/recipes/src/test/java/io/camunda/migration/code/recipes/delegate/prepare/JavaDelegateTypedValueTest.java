@@ -382,4 +382,58 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void nestedRetainedContextsKeepTypedSourceValues() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+            class NestedUses {
+                DateValue raw = Variables.dateValue(new Date(0));
+                ObjectValue object;
+                DateValue retained = choose(raw.getValue());
+
+                DateValue choose(Date value) {
+                    return Variables.dateValue(value);
+                }
+                void accept(Object value) {}
+
+                void use() {
+                    accept(Variables.dateValue(raw.getValue()));
+                    this.object = Variables.objectValue(raw.getValue()).create();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+            class NestedUses {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue raw = Variables.dateValue(new Date(0));
+                ObjectValue object;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue retained = choose(raw.getValue());
+
+                DateValue choose(Date value) {
+                    return // TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(value);
+                }
+                void accept(Object value) {}
+
+                void use() {
+                    accept(// TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(raw.getValue()));
+                    this.object = Variables.objectValue(raw.getValue()).create();
+                }
+            }
+            """));
+  }
 }
