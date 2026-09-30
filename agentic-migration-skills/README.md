@@ -234,9 +234,13 @@ fixtures/                                  ← sample projects and executable re
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
-The `fixtures/validation-evidence` regression test preserves a nine-module, ten-model report that
-claimed readiness despite failed and missing checks. It generates synthetic logs in a temporary
-directory, and tests command capture, run isolation, process coverage, and timer safety.
+The `fixtures/validation-evidence` tests preserve a nine-module, ten-model report that claimed
+readiness despite failed and missing checks. They generate synthetic logs in a temporary directory
+and test command capture, run isolation, process coverage, and timer safety. Its
+`live-timer-fixture/` Maven reactor combines the two-module `Sample` deployment case with an
+already-active timer that receives two date updates on a disposable Camunda 8.9.21 target. Run it
+with Java 21 and Docker:
+`python3 agentic-migration-skills/fixtures/validation-evidence/run_live_timer_fixture.py`.
 The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment patterns
 against the executable JAR. The `fixtures/start-event-listener-artifact` walkthrough checks a
 selected converter JAR against start-listener findings and a no-listener control.

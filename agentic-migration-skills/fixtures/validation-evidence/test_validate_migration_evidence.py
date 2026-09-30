@@ -57,6 +57,39 @@ def bpmn(process_id, timer=False, extra=""):
     )
 
 
+def message_rearm_bpmn(process_id):
+    return (
+        '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+        'xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" '
+        'id="Definitions" targetNamespace="http://camunda.io/schema/1.0/bpmn">'
+        '<bpmn:message id="DateChangedMessage" name="DueDateChanged">'
+        '<bpmn:extensionElements><zeebe:subscription correlationKey="=projectId" />'
+        "</bpmn:extensionElements></bpmn:message>"
+        f'<bpmn:process id="{process_id}" isExecutable="true">'
+        '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Prepare</bpmn:outgoing></bpmn:startEvent>'
+        '<bpmn:exclusiveGateway id="Prepare"><bpmn:incoming>Start_Prepare</bpmn:incoming>'
+        '<bpmn:incoming>Update_Prepare</bpmn:incoming><bpmn:outgoing>Prepare_Wait</bpmn:outgoing>'
+        '</bpmn:exclusiveGateway>'
+        '<bpmn:eventBasedGateway id="Wait"><bpmn:incoming>Prepare_Wait</bpmn:incoming>'
+        '<bpmn:outgoing>Wait_Timer</bpmn:outgoing>'
+        '<bpmn:outgoing>Wait_Update</bpmn:outgoing></bpmn:eventBasedGateway>'
+        '<bpmn:intermediateCatchEvent id="Timer">'
+        '<bpmn:incoming>Wait_Timer</bpmn:incoming><bpmn:timerEventDefinition>'
+        '<bpmn:timeDate>=date and time(dueDate)</bpmn:timeDate>'
+        '</bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>'
+        '<bpmn:intermediateCatchEvent id="DateChanged">'
+        '<bpmn:incoming>Wait_Update</bpmn:incoming><bpmn:outgoing>Update_Prepare</bpmn:outgoing>'
+        '<bpmn:messageEventDefinition messageRef="DateChangedMessage" />'
+        '</bpmn:intermediateCatchEvent>'
+        '<bpmn:sequenceFlow id="Start_Prepare" sourceRef="Start" targetRef="Prepare" />'
+        '<bpmn:sequenceFlow id="Prepare_Wait" sourceRef="Prepare" targetRef="Wait" />'
+        '<bpmn:sequenceFlow id="Wait_Timer" sourceRef="Wait" targetRef="Timer" />'
+        '<bpmn:sequenceFlow id="Wait_Update" sourceRef="Wait" targetRef="DateChanged" />'
+        '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" targetRef="Prepare" />'
+        "</bpmn:process></bpmn:definitions>"
+    )
+
+
 class ValidationEvidenceTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -120,6 +153,102 @@ class ValidationEvidenceTest(unittest.TestCase):
             "cleanup": {"completed": True, "evidence_reference": "fixture-cleanup"},
         }
 
+    def active_timer_observation(self, key):
+        decision = gate.requirements(self.root, self.plan).active_timer_decisions[key[1]]
+        original_deadline = "2050-11-23T00:00:05Z"
+        first_updated_deadline = "2050-11-23T00:00:15Z"
+        final_deadline = "2050-11-23T00:00:25Z"
+        return {
+            "deployment": {
+                "performed": True,
+                "reference": "camunda/camunda:8.9.21 container fixture-1",
+                "environment": "local",
+                "target_disposable": True,
+                "target_version": decision["target_version"],
+            },
+            "observation": {
+                "case1": {
+                    "module_a_model": "module-a/src/main/resources/module-a/sample.bpmn",
+                    "module_b_model": "module-b/src/main/resources/module-b/sample.bpmn",
+                    "process_id": "Sample",
+                    "module_a_timer_start_id": "RecurringStart",
+                    "module_a_cycle": "R/PT5S",
+                    "module_b_has_timer_start": False,
+                    "timer_started_instances_before_replacement": 1,
+                    "timer_started_instances_after_replacement": 1,
+                    "new_instances_after_replacement": 0,
+                    "latest_by_id_start_element": "Hold_B",
+                },
+                "active_timer": {
+                    "model_path": decision["model_path"],
+                    "process_id": decision["process_id"],
+                    "timer_id": decision["timer_id"],
+                    "strategy": decision["strategy"],
+                    "message_name": decision["message_name"],
+                    "correlation_key_variable": decision["correlation_key_variable"],
+                    "date_variable": decision["date_variable"],
+                    "timer_was_active_before_first_update": True,
+                    "updates": [
+                        {
+                            "old_deadline": original_deadline,
+                            "new_deadline": first_updated_deadline,
+                            "timer_active_before_update": True,
+                            "correlated": True,
+                        },
+                        {
+                            "old_deadline": first_updated_deadline,
+                            "new_deadline": final_deadline,
+                            "timer_active_before_update": True,
+                            "correlated": True,
+                        },
+                    ],
+                    "obsolete_deadlines": [
+                        {"deadline": original_deadline, "fire_count": 0},
+                        {"deadline": first_updated_deadline, "fire_count": 0},
+                    ],
+                    "advanced_past_obsolete_deadlines": True,
+                    "final_deadline": final_deadline,
+                    "final_deadline_fire_count": 1,
+                    "final_deadline_fired_at": "2050-11-23T00:00:26Z",
+                },
+            },
+            "cleanup": {
+                "completed": True,
+                "evidence_reference": "Docker destroy event fixture-1",
+            },
+        }
+
+    def install_active_timer_decision(self):
+        self.write_scope()
+        source = self.root / "app" / "Timer.java"
+        source.write_text("managementService.setJobDuedate(jobId, terminationDate);\n", encoding="utf-8")
+        model_path = "models/converted-c8-process.bpmn"
+        for name in ("models/process.bpmn", model_path):
+            path = self.root / name
+            path.write_text(message_rearm_bpmn("p"), encoding="utf-8")
+        locations = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual(1, len(locations))
+        self.plan["active_timer_update_decision"] = {
+            "status": "approved",
+            "strategy": "message_rearm",
+            "reference": "MIGRATION_DECISIONS.md#active-timer-rearm",
+            "target_version": "8.9.21",
+            "updates": [
+                {
+                    "module": "app",
+                    "locations": locations,
+                    "model_path": model_path,
+                    "process_id": "p",
+                    "timer_id": "Timer",
+                    "message_name": "DueDateChanged",
+                    "correlation_key_variable": "projectId",
+                    "date_variable": "dueDate",
+                }
+            ],
+        }
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        return ("timer", f"{model_path}#p#Timer", "active_instance_reschedule", None)
+
     def sample_models(self, timer=False, isolated=False):
         self.plan["modules"] = [
             {"path": f"modules/{name}", "runtime_mode": "none",
@@ -149,11 +278,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         if category == "timer" and kind == "preflight" and action == "run" and command is None:
             observation = options.get("observation", self.timer_observation(key))
             command = [sys.executable, "-c", f"print({json.dumps(json.dumps(observation))})"]
+        if category == "timer" and kind == "active_instance_reschedule" and action == "run" and command is None:
+            observation = options.get("observation", self.active_timer_observation(key))
+            command = [sys.executable, "-c", f"print({json.dumps(json.dumps(observation))})"]
         disposition = options.get("disposition")
         if action == "review" and category == "timer" and kind == "disposition" and "disposition" not in options:
             disposition = gate.requirements(self.root, self.plan).timer_starts[key]["disposition"]
         if action == "review" and kind == "active_timer_updates" and "disposition" not in options:
-            disposition = "no_updates"
+            plan = gate.requirements(self.root, self.plan)
+            disposition = "message_rearm" if plan.active_timer_locations.get(target) else "no_updates"
+            if disposition == "message_rearm":
+                options.setdefault(
+                    "reference",
+                    next(
+                        decision["reference"]
+                        for decision in plan.active_timer_decisions.values()
+                        if target in decision["modules"]
+                    ),
+                )
         arguments = Namespace(
             type=category,
             target=target,
@@ -166,7 +308,10 @@ class ValidationEvidenceTest(unittest.TestCase):
             command=command or [sys.executable, "-c", "print('check completed')"],
             note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
-            target_disposable=options.get("target_disposable", category == "timer" and kind == "preflight"),
+            target_disposable=options.get(
+                "target_disposable",
+                category == "timer" and kind in ("preflight", "active_instance_reschedule"),
+            ),
             target_version=options.get("target_version", "8.9.21"),
             reference=options.get("reference", "MIGRATION_REPORT.md#preflight"),
             disposition=disposition,
@@ -183,7 +328,9 @@ class ValidationEvidenceTest(unittest.TestCase):
         for key in sorted(
             plan.required,
             key=lambda item: (
-                priorities[item[0]],
+                4 if item[0] == "timer" and item[2] == "active_instance_reschedule"
+                else priorities[item[0]],
+                0,
                 item[1],
                 {"lint": 0, "review": 1, "deployment": 2, "worker_input_inventory": 0}.get(item[2], 3),
                 item[2],
@@ -615,37 +762,77 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.submit(key, target_disposable=False, **options)
         self.assertEqual(0, self.submit(key, **options))
 
-    def test_active_timer_calls_cannot_be_approved_without_a_replacement(self):
-        source = self.root / "app" / "Timer.java"
-        source.write_text(
-            'setJobDuedate(jobA, date); request.path("job").path("duedate");',
-            encoding="utf-8",
-        )
-        key = ("module", "app", "active_timer_updates", None)
-        hits = gate.requirements(self.root, self.plan).update_hits["app"]
-        self.assertEqual(2, len(hits))
-        self.assertEqual(2, len(set(hits)))
-        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
-            self.submit(key, action="review", disposition="no_updates")
-        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
-            self.submit(key, action="review", disposition="verified", reference="not applicable")
-        evidence = [{"location": hit, "evidence": f"decision-{index}"} for index, hit in enumerate(hits)]
-        with self.assertRaisesRegex(gate.EvidenceError, "classify each"):
-            self.submit(key, action="review", disposition="non_timer",
-                        non_timer_evidence_json=json.dumps(evidence[:1]))
-        evidence[1]["evidence"] = "not applicable"
-        with self.assertRaisesRegex(gate.EvidenceError, "classify each"):
-            self.submit(key, action="review", disposition="non_timer",
-                        non_timer_evidence_json=json.dumps(evidence))
-        evidence[1]["evidence"] = "MIGRATION_REPORT.md#non-timer-job"
-        self.assertEqual(0, self.submit(
-            key, action="review", disposition="non_timer",
-            non_timer_evidence_json=json.dumps(evidence),
-        ))
-        self.plan["active_timer_update_decision"] = {"status": "approved"}
+    def test_active_timer_updates_need_approved_rearm_and_live_runtime_evidence(self):
+        runtime_key = self.install_active_timer_decision()
+        decision_reference = self.plan["active_timer_update_decision"]["reference"]
+        module_key = ("module", "app", "active_timer_updates", None)
+        self.assertEqual([], gate.requirements(self.root, self.plan).issues)
+
+        decision = self.plan.pop("active_timer_update_decision")
         write_json(self.root / gate.EVIDENCE, self.plan)
+        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
+            self.submit(module_key, action="review", disposition="message_rearm")
+        self.plan["active_timer_update_decision"] = decision
+        write_json(self.root / gate.EVIDENCE, self.plan)
+
+        with self.assertRaisesRegex(gate.EvidenceError, "approved active-timer decision"):
+            self.submit(
+                module_key,
+                action="review",
+                disposition="message_rearm",
+                reference="not applicable",
+            )
+        self.assertEqual(
+            0,
+            self.submit(
+                module_key,
+                action="review",
+                disposition="message_rearm",
+                reference=decision_reference,
+                note="Approved BPMN message rearming and mapped the due-date call to this timer.",
+            ),
+        )
+        model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
+        self.assertEqual(0, self.submit(("model", model_path, "lint", None)))
+        self.assertEqual(0, self.submit(("model", model_path, "review", None), action="review"))
+        self.assertEqual(
+            0,
+            self.submit(("deployment_set", "shared", "preflight", None), action="review"),
+        )
+
         self.assertEqual(1, self.audit())
-        self.assertIn("not supported", "\n".join(self.summary()["issues"]))
+        self.assertIn(
+            "Missing timer active_instance_reschedule",
+            "\n".join(self.summary()["issues"]),
+        )
+        options = {
+            "environment": "local",
+            "isolation_plan": "Run the pinned 8.9.21 fixture and remove its disposable container.",
+        }
+        invalid = self.active_timer_observation(runtime_key)
+        invalid["observation"]["active_timer"]["obsolete_deadlines"][0]["fire_count"] = 1
+        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
+        self.assertEqual(1, self.audit())
+        self.assertTrue(
+            any(
+                check["kind"] == "active_instance_reschedule"
+                and check["result"] == "failed"
+                for check in self.summary()["checks"]
+            )
+        )
+
+        invalid = self.active_timer_observation(runtime_key)
+        invalid["observation"]["active_timer"]["updates"][1]["timer_active_before_update"] = False
+        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
+
+        self.assertEqual(0, self.submit(runtime_key, **options))
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        self.assertEqual("READY", self.summary()["gate"])
+
+        invalid = self.active_timer_observation(runtime_key)
+        invalid["observation"]["active_timer"]["final_deadline_fire_count"] = 2
+        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
 
     def test_stale_source_blocks_commands_before_execution_and_can_be_refreshed(self):
         self.complete_required_checks()

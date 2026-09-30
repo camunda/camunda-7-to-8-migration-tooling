@@ -257,14 +257,14 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void update(ManagementService managementService, String jobId, Date dueDate) {
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
-                    // Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.
+                    // For an active BPMN timer, use project-approved message-driven rearming with a correlated date-update message and event-based gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobDuedate(jobId, dueDate);
                 }
 
                 public BiConsumer<String, Date> updater(ManagementService managementService) {
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
-                    // Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.
+                    // For an active BPMN timer, use project-approved message-driven rearming with a correlated date-update message and event-based gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     return managementService::setJobDuedate;
                 }
