@@ -1328,6 +1328,92 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedSupertypeAliasesRetainTheirSources() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class SupertypeAliases {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                TypedValue dateAlias = date;
+                TypedValue bytesAlias = this.bytes;
+
+                void local() {
+                    DateValue source = Variables.dateValue(new Date(2));
+                    TypedValue alias = (source);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class SupertypeAliases {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                TypedValue dateAlias = date;
+                TypedValue bytesAlias = this.bytes;
+
+                void local() {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue source = Variables.dateValue(new Date(2));
+                    TypedValue alias = (source);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void rawFactoryArgumentsVisitNestedGetters() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class RawFactoryArguments {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                void accept(Object value) {}
+
+                void send() {
+                    accept(Variables.dateValue(date.getValue()));
+                    accept(Variables.byteArrayValue(bytes.getValue()));
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class RawFactoryArguments {
+                Date date = new Date(0);
+                byte[] bytes = new byte[]{1};
+
+                void accept(Object value) {}
+
+                void send() {
+                    accept(date);
+                    accept(bytes);
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedArrayInitializersRetainTheirElements() {
     rewriteRun(
         java(

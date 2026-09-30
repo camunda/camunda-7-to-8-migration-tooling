@@ -94,6 +94,23 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             retainedTypedValues.clear();
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
+              public J.VariableDeclarations visitVariableDeclarations(
+                  J.VariableDeclarations declarations, ExecutionContext innerCtx) {
+                if (isLegacyTypedValue(declarations.getType())
+                    && !isDateOrBytesValue(declarations.getType())) {
+                  for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
+                    Expression initializer = unwrapParentheses(variable.getInitializer());
+                    if (initializer != null
+                        && isLegacyTypedValue(initializer.getType())
+                        && !(initializer instanceof J.MethodInvocation)) {
+                      retainTypedReferences(initializer, innerCtx);
+                    }
+                  }
+                }
+                return super.visitVariableDeclarations(declarations, innerCtx);
+              }
+
+              @Override
               public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext innerCtx) {
                 Expression target = unwrapParentheses(assignment.getVariable());
                 if (target instanceof J.ArrayAccess && isLegacyTypedValue(target.getType())) {
@@ -1137,34 +1154,36 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             // visit simple method invocations
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
               if (spec.matcher().matches(invocation)) {
-                if ((dateValueFactory.matches(invocation)
-                        || byteArrayValueFactory.matches(invocation))
-                    && !isRawFactoryArgument(invocation)) {
+                boolean typedFactory =
+                    dateValueFactory.matches(invocation) || byteArrayValueFactory.matches(invocation);
+                if (typedFactory && !isRawFactoryArgument(invocation)) {
                   J.MethodInvocation visited =
                       (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
                   return maybeAutoFormat(invocation, retainTypedFactory(visited), ctx);
                 }
+                J.MethodInvocation source =
+                    typedFactory
+                        ? (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx)
+                        : invocation;
 
-                if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
+                if (source.getType() instanceof JavaType.FullyQualified fqn) {
                   maybeRemoveImport(fqn);
                 }
 
                 List<String> comments =
-                    getCursor().getNearestMessage(invocation.getId().toString()) != null
+                    getCursor().getNearestMessage(source.getId().toString()) != null
                         ? Collections.emptyList()
                         : spec.textComments();
-                if ((dateValueFactory.matches(invocation)
-                        || byteArrayValueFactory.matches(invocation))
-                    && requiresTransientReview(invocation)) {
+                if (typedFactory && requiresTransientReview(source)) {
                   comments = List.of(TRANSIENT_REVIEW);
                 }
                 Expression modifiedInvocation =
                     RecipeUtils.applyTemplate(
                         spec.template(),
-                        invocation,
+                        source,
                         getCursor(),
                         spec.argumentIndexes().stream()
-                            .map(i -> invocation.getArguments().get(i.index()))
+                            .map(i -> source.getArguments().get(i.index()))
                             .toArray(),
                         comments);
 
