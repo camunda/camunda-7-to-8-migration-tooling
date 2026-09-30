@@ -1414,6 +1414,37 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void rawObjectVarargsConvertBothFactoryKinds() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class RawVarargs {
+                void consume(Object... values) {}
+
+                void send() {
+                    consume(Variables.dateValue(new Date(0)), Variables.byteArrayValue(new byte[]{1}));
+                    consume("prefix", Variables.byteArrayValue(new byte[]{2}), Variables.dateValue(new Date(3)));
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class RawVarargs {
+                void consume(Object... values) {}
+
+                void send() {
+                    consume(new Date(0), new byte[]{1});
+                    consume("prefix", new byte[]{2}, new Date(3));
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedArrayInitializersRetainTheirElements() {
     rewriteRun(
         java(

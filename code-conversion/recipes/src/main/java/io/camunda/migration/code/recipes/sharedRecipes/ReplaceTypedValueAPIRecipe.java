@@ -562,9 +562,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return false;
             }
             List<JavaType> parameterTypes = call.getMethodType().getParameterTypes();
-            for (int i = 0; i < call.getArguments().size() && i < parameterTypes.size(); i++) {
+            if (parameterTypes.isEmpty()) {
+              return false;
+            }
+            for (int i = 0;
+                i < call.getArguments().size()
+                    && (i < parameterTypes.size() || call.getMethodType().hasFlags(Flag.Varargs));
+                i++) {
               if (unwrapParentheses(call.getArguments().get(i)) == argument) {
-                return TypeUtils.isOfClassType(parameterTypes.get(i), "java.lang.Object");
+                JavaType parameter = parameterTypes.get(Math.min(i, parameterTypes.size() - 1));
+                return TypeUtils.isOfClassType(parameter, "java.lang.Object")
+                    || (call.getMethodType().hasFlags(Flag.Varargs)
+                        && i >= parameterTypes.size() - 1
+                        && parameter instanceof JavaType.Array array
+                        && TypeUtils.isOfClassType(array.getElemType(), "java.lang.Object"));
               }
             }
             return false;
