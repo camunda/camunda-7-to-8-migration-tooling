@@ -64,11 +64,11 @@ parameters keep their Camunda 7 types. Nested factories convert only as `Object`
 arguments; typed returns and consumers retain the factory with a manual-migration
 TODO. Grouped declarations keep all declarators and modifiers; typed getters
 keep casts. Qualified reads and writes follow converted fields in the same
-source file. Fields exposed through typed returns or consumers, unsupported
-initializers, type-use annotations, and assignments retain Camunda 7 typed
-declarations with a manual-migration TODO. A `true` or computed Camunda 7
-`isTransient` flag on a converted factory adds a review TODO: raw values may
-not preserve the same persistence behavior.
+source file. Declarations exposed through typed returns or constructor/method
+arguments, unsupported initializers, type-use annotations, and assignments
+retain Camunda 7 types with a manual-migration TODO. A `true` or computed
+Camunda 7 `isTransient` flag on a converted factory adds a review TODO: raw
+values may not preserve the same persistence behavior.
 
 ### autoComplete = false (blocking)
 

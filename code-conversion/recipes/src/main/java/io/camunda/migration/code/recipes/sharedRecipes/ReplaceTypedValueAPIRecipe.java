@@ -115,7 +115,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 J.MethodDeclaration method = getCursor().firstEnclosing(J.MethodDeclaration.class);
                 if (method != null
                     && method.getReturnTypeExpression() != null
-                    && isDateOrBytesValue(method.getReturnTypeExpression().getType())
+                    && isLegacyTypedValue(method.getReturnTypeExpression().getType())
                     && statement.getExpression() != null) {
                   retainTypedReferences(statement.getExpression(), innerCtx);
                 }
@@ -125,15 +125,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               @Override
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation call, ExecutionContext innerCtx) {
-                if (call.getMethodType() != null) {
-                  List<JavaType> parameters = call.getMethodType().getParameterTypes();
-                  for (int i = 0; i < call.getArguments().size() && i < parameters.size(); i++) {
-                    if (isLegacyTypedValue(parameters.get(i))) {
-                      retainTypedReferences(call.getArguments().get(i), innerCtx);
-                    }
-                  }
-                }
+                retainTypedArguments(call.getArguments(), call.getMethodType(), innerCtx);
                 return super.visitMethodInvocation(call, innerCtx);
+              }
+
+              @Override
+              public J.NewClass visitNewClass(J.NewClass constructor, ExecutionContext innerCtx) {
+                retainTypedArguments(
+                    constructor.getArguments(), constructor.getConstructorType(), innerCtx);
+                return super.visitNewClass(constructor, innerCtx);
               }
             }.visit(unit, ctx);
             int previousSize;
@@ -409,6 +409,19 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 return super.visitIdentifier(identifier, innerCtx);
               }
             }.visit(expression, ctx);
+          }
+
+          private void retainTypedArguments(
+              List<Expression> arguments, JavaType.Method method, ExecutionContext ctx) {
+            if (arguments == null || method == null) {
+              return;
+            }
+            List<JavaType> parameters = method.getParameterTypes();
+            for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
+              if (isLegacyTypedValue(parameters.get(i))) {
+                retainTypedReferences(arguments.get(i), ctx);
+              }
+            }
           }
 
           private boolean requiresTransientReview(J.MethodInvocation factory) {
@@ -1184,7 +1197,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             if (invocation.getSimpleName().equals("getValue")) {
-              Expression select = invocation.getSelect();
+              Expression select = unwrapParentheses(invocation.getSelect());
               String returnTypeFqn = null;
               if (select instanceof J.Identifier identifier) {
                 returnTypeFqn = convertedIdentifierType(identifier);
