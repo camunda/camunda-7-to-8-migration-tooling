@@ -669,7 +669,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
                 reviewTransient |=
                     requiresTransientReview((J.MethodInvocation) unwrapParentheses(original));
-              } else if (initializer instanceof J.MethodInvocation getter
+              } else if (unwrapParentheses(initializer) instanceof J.MethodInvocation getter
                   && (matchesTypedVariableGetter(getter)
                       || allVariablesTypedGetter.matches(getter))) {
                 reviewType = true;
@@ -686,7 +686,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
               if (initializer != null) {
                 code.append(" = ");
-                if (initializer instanceof J.MethodInvocation getter
+                if (unwrapParentheses(initializer) instanceof J.MethodInvocation getter
                     && matchesTypedVariableGetter(getter)
                     && !"java.lang.Object".equals(newFqn)) {
                   code.append("(").append(RecipeUtils.getShortName(newFqn)).append(") ");

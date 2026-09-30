@@ -1492,6 +1492,38 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void parenthesizedTypedGettersKeepTheirCasts() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ParenthesizedGetters {
+                void read(DelegateExecution execution) {
+                    DateValue date = (execution.getVariableTyped("date"));
+                    BytesValue bytes = ((execution.getVariableTyped("bytes")));
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            import java.util.Date;
+
+            class ParenthesizedGetters {
+                void read(DelegateExecution execution) {
+                    // please check type
+                    Date date = (Date) (execution.getVariable("date"));
+                    // please check type
+                    byte[] bytes = (byte[]) ((execution.getVariable("bytes")));
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedFieldConsumersStayTypedForManualMigration() {
     rewriteRun(
         java(
