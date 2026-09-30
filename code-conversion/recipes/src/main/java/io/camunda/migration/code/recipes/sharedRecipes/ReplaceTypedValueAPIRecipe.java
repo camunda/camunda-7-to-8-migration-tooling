@@ -256,9 +256,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("dateValue", 0)),
                       Collections.emptyList()),
                   new ReplacementUtils.SimpleReplacementSpec(
-                      new MethodMatcher(
-                          // "byteArrayValue(byte[] bytes)"
-                          "org.camunda.bpm.engine.variable.Variables byteArrayValue(..)"),
+                      byteArrayValueFactory,
                       RecipeUtils.createSimpleJavaTemplate("#{any(byte[])}"),
                       null,
                       "byte[]",
@@ -292,10 +290,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                       List.of(" type set to java.lang.Object")));
 
-          // join specs - possible because we don't touch the method invocations
+          // Typed factories need their declared type or consumer checked before replacement.
           final List<ReplacementUtils.ReplacementSpec> commonSpecs =
               Stream.concat(
                       simpleMethodInvocations.stream()
+                          .filter(
+                              spec ->
+                                  spec.matcher() != dateValueFactory
+                                      && spec.matcher() != byteArrayValueFactory)
                           .map(spec -> (ReplacementUtils.ReplacementSpec) spec),
                       builderMethodInvocations.stream()
                           .map(spec -> (ReplacementUtils.ReplacementSpec) spec))

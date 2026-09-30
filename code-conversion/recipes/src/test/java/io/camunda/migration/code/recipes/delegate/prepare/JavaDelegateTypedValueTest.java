@@ -1226,6 +1226,49 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void genericDeclarationsKeepTypedFactoriesForManualMigration() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class GenericValues {
+                TypedValue date = Variables.dateValue(new Date(0));
+                Object bytes = Variables.byteArrayValue(new byte[]{1});
+
+                void update() {
+                    TypedValue localBytes = Variables.byteArrayValue(new byte[]{2});
+                    Object localDate = Variables.dateValue(new Date(1));
+                    localDate = Variables.dateValue(new Date(2));
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class GenericValues {
+                TypedValue date = // TODO: migrate Camunda 7 typed-value factory call manually
+                        Variables.dateValue(new Date(0));
+                Object bytes = // TODO: migrate Camunda 7 typed-value factory call manually
+                        Variables.byteArrayValue(new byte[]{1});
+
+                void update() {
+                    TypedValue localBytes = // TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.byteArrayValue(new byte[]{2});
+                    Object localDate = // TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(new Date(1));
+                    localDate = // TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(new Date(2));
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedFieldConsumersStayTypedForManualMigration() {
     rewriteRun(
         java(

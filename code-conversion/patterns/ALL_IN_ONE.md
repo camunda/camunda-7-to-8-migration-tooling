@@ -2075,8 +2075,9 @@ Check local and typed variable lookups separately; they have different scope or 
 
 `DateValue`/`BytesValue` fields and locals become `Date`/`byte[]`; method and
 lambda parameters and enhanced-for variables keep their Camunda 7 types.
-Nested factories convert only as `Object` method arguments; constructor calls
-and typed returns/consumers retain the factory with a manual-migration TODO.
+Nested factories convert only as `Object` method arguments; `Object`/`TypedValue`
+declarations, constructor calls, and typed returns/consumers retain the factory
+with a manual-migration TODO.
 Grouped declarations keep all declarators and modifiers; typed getters keep
 casts. Qualified reads and writes follow converted fields in the same source
 file. Declarations used by typed returns, typed constructor/method arguments,
