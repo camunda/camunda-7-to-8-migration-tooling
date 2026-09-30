@@ -59,6 +59,105 @@ Check local and typed variable lookups separately; they have different scope or 
 For known `getVariableTyped` types, assignments to converted fields such as
 `this.amount` include the cast required by the new field type.
 
+### Typed date and byte factories
+
+The recipe converts `DateValue` and `BytesValue` declarations to `Date` and `byte[]`,
+including fields initialized with `Variables.dateValue(...)` or
+`Variables.byteArrayValue(...)`. These factories can also take a Camunda 7
+`isTransient` flag, which the unwrapped Java value cannot retain. When the flag
+is `true` or computed, the recipe marks the declaration with a TODO. Review how
+that value is published to the process before removing the TODO; do not assume
+the transient behavior carries over.
+
+When an initializer instead calls a helper that still returns a typed value,
+the recipe leaves the declaration unchanged and marks it for manual migration
+rather than producing an invalid raw assignment. This applies to every typed
+value with a direct Java type, such as `IntegerValue` or `StringValue`.
+Separate fields initialized from another converted field in the same class,
+including qualified forward references such as `this.date`, are converted
+together.
+Qualified `getValue()` reads of converted fields, such as `this.date.getValue()`,
+become direct field reads even when the method precedes the field declaration.
+Reads of fields retained for manual migration keep `getValue()` until those
+fields are migrated.
+Later `Variables.dateValue(...)` and `Variables.byteArrayValue(...)` assignments
+to converted values are unwrapped in the same way as initializers, with a TODO
+for `true` or computed transient flags. Assignments to declarations retained for
+manual migration keep their Camunda 7 typed getters and factories, including
+those nested in ternaries and casts, until the declaration and its uses can be
+migrated together. Reads of converted values
+inside a retained declaration or assignment are still rewritten.
+A declaration also stays typed with a TODO when a later assignment may store a
+typed value, such as `a = loadInteger();`, or when a read still needs the typed
+value. Such reads include `value.isTransient()`, method references such as
+`value::getValue`, returns from typed-value methods, typed casts, typed
+`instanceof` checks, and assignments to typed targets such as `TypedValue`.
+Fields read or written from another class, including subclasses and classes in
+other source files of the same recipe run, also stay typed with a TODO. `ObjectValue`
+fields written only from typed getters stay `ObjectValue`, without a TODO, when
+another class reads them.
+Declarations of `TypedValue` and other typed-value types without a
+direct Java type follow the same rules when they are initialized from a factory
+or typed getter; converted fields of this kind also convert forward and qualified
+reads such as `this.value.getValue()`. A `TypedValue` declaration initialized with
+`Variables.byteArrayValue(bytes)` becomes `byte[]`. Grouped declarations of these
+types with factory or typed-getter initializers stay typed with a TODO. When such a
+declaration has no factory or getter initializer, such as `TypedValue value;` or a
+parameter, later factory and typed-getter writes stay typed and the declaration
+gets a TODO. This also applies to factories and typed getters that reach such a
+declaration through a switch expression's cases or `yield` statements. Type variables bounded by a typed value, such as
+`<T extends TypedValue> T copy()`, count as typed targets for returns,
+declarations, assignments, and casts.
+Values passed to generic parameters resolved to a typed value, such as
+`values.add(value)` on a `List<DateValue>` or `List.of(Variables.dateValue(date))`,
+also stay typed. This includes lower-bounded consumers such as
+`Consumer<? super DateValue>`. Variables that pass values to each other, such as
+`target = source;`, share one decision: when one of them stays typed, all of
+them do. `==` and `!=` compare typed values by reference, which raw values
+cannot reproduce: a factory never returns `null`, and a getter returns a
+non-null wrapper for a variable set to `null`. Typed values compared with `==`
+or `!=`, including `null` checks such as
+`execution.getVariableTyped("x") != null`, stay typed with a TODO.
+Parameters retained this way get the TODO on their method; review the method's
+call sites together with the parameter.
+Grouped typed-getter declarations keep every variable and required cast. Groups
+that mix typed getters with factories convert each variable in any order, such as
+`DateValue a = execution.getVariableTyped("a"), b = Variables.dateValue(date);`;
+groups with incompatible initializers stay at their Camunda 7 types with a TODO.
+Assignments through another instance of the same class use converted field
+types, while unrelated owners and retained local values keep their typed calls.
+Nested factory calls, such as `execution.setVariable("date", Variables.dateValue(date))`,
+pass the raw value and get the same transient-flag TODO.
+`Variables.dateValue(date).getValue()` and similar reads become the raw value,
+cast to the boxed type when it is used as a receiver or method argument, such as
+`((Integer) 5).toString()`. `null` values always keep their type, such as
+`(String) null`.
+Other typed-value methods called on a factory or a typed getter, such as
+`execution.getVariableTyped("x").isTransient()`, and method references on a
+factory, such as `Variables.dateValue(date)::getValue`, stay unchanged with a
+TODO. Factories whose result is discarded, such as the
+statement `Variables.dateValue(date);` or the body of a `Runnable` lambda, also
+stay unchanged with a TODO. Typed-value methods called on a ternary, such as
+`(flag ? Variables.dateValue(a) : Variables.dateValue(b)).getValue()`, also stay
+unchanged with a TODO, and variables read this way stay typed.
+Method return types keep their Camunda 7 type, so factories and typed getters
+returned from a method or lambda declared to return a typed value, such as
+`DateValue copy()` or `Supplier<DateValue>`, also stay unchanged with a TODO. This includes returns
+through parentheses, ternaries, and switch expressions, and factories cast to a
+typed value, such as `(DateValue) Variables.dateValue(date)`.
+Typed-value arrays and varargs, such as `DateValue[] dates` or `DateValue dates[]`,
+stay typed with a TODO, together with their element reads and writes and the
+factories passed as their elements.
+Converted declarations keep their annotations. Fully qualified declarations, such
+as `org.camunda.bpm.engine.variable.value.DateValue date`, convert like simple ones,
+including fields of anonymous classes. Declarations with a type-use annotation
+after modifiers, such as `private @Tag DateValue date`, stay typed with a TODO.
+Explicitly typed lambda parameters and enhanced-for variables, such as
+`(DateValue date) -> ...` or `for (DateValue date : values)`, keep their type
+because the functional interface or iterated elements fix it; their reads keep
+`getValue()` even when a converted field has the same name. Typed getters whose untyped form
+returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
+
 ### autoComplete = false (blocking)
 
 ```java
