@@ -2076,9 +2076,10 @@ Check local and typed variable lookups separately; they have different scope or 
 `DateValue`/`BytesValue` fields, locals, and nested factory calls become `Date`/`byte[]`.
 Grouped declarations keep all declarators and modifiers; typed getters keep
 casts. Qualified reads and writes follow converted fields, including inherited
-fields in the same source file. Unsupported initializers and their typed uses
-remain for manual migration. A `true` or computed Camunda 7 `isTransient` flag
-adds a review TODO; conversion does not imply the same persistence behavior.
+fields in the same source file. Unsupported initializers, type-use annotations,
+and assignments retain Camunda 7 typed declarations with a manual-migration
+TODO. A `true` or computed Camunda 7 `isTransient` flag on a converted factory
+adds a review TODO: raw values may not preserve the same persistence behavior.
 
 ###### autoComplete = false (blocking)
 

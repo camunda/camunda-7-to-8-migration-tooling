@@ -371,7 +371,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
 
             abstract class RetainedFields {
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue date = loadDate();
                 abstract DateValue loadDate();
             }
@@ -509,26 +509,35 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.BytesValue;
             import org.camunda.bpm.engine.variable.value.DateValue;
 
+            @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE)
+            @interface Tag {}
+
             abstract class InitializedValues {
                 abstract DateValue loadDate();
                 abstract BytesValue loadBytes();
 
                 private DateValue date = loadDate();
                 private BytesValue bytes = loadBytes();
+                private @Tag DateValue annotated;
             }
             """,
             """
             import org.camunda.bpm.engine.variable.value.BytesValue;
             import org.camunda.bpm.engine.variable.value.DateValue;
 
+            @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE)
+            @interface Tag {}
+
             abstract class InitializedValues {
                 abstract DateValue loadDate();
                 abstract BytesValue loadBytes();
 
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 private DateValue date = loadDate();
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 private BytesValue bytes = loadBytes();
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                private @Tag DateValue annotated;
             }
             """));
   }
@@ -625,7 +634,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             abstract class QualifiedValues {
                 private Date date = new Date(0);
                 private byte[] bytes = new byte[]{1};
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 private DateValue untouched = loadDate();
 
                 abstract DateValue loadDate();
@@ -638,7 +647,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
 
             abstract class RetainedValues {
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue date = loadDate();
                 abstract DateValue loadDate();
             }
@@ -699,7 +708,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             abstract class BaseValues {
                 protected Date date = new Date(0);
                 protected byte[] bytes = new byte[]{1};
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 protected DateValue untouched = loadDate();
                 abstract DateValue loadDate();
             }
@@ -769,7 +778,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 abstract DateValue loadDate();
 
                 Date read() {
-                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue date = loadDate();
                     return date.getValue();
                 }
@@ -861,6 +870,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     this.bytes = execution.getVariableTyped("bytes");
                     this.date = Variables.dateValue(new Date(0));
                     this.bytes = Variables.byteArrayValue(new byte[] {1});
+                    this.date = (DateValue) Variables.dateValue(new Date(1));
+                    this.bytes = (BytesValue) execution.getVariableTyped("bytes");
                     DateValue localDate = loadDate();
                     localDate = execution.getVariableTyped("localDate");
                 }
@@ -874,9 +885,9 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.DateValue;
 
             abstract class RetainedFields {
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 private DateValue date = loadDate();
-                // TODO: migrate Camunda 7 typed-value initializer manually
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 private BytesValue bytes = loadBytes();
 
                 abstract DateValue loadDate();
@@ -887,9 +898,133 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     this.bytes = execution.getVariableTyped("bytes");
                     this.date = Variables.dateValue(new Date(0));
                     this.bytes = Variables.byteArrayValue(new byte[] {1});
-                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    this.date = (DateValue) Variables.dateValue(new Date(1));
+                    this.bytes = (BytesValue) execution.getVariableTyped("bytes");
+                    // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue localDate = loadDate();
                     localDate = execution.getVariableTyped("localDate");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void anonymousAndQualifiedTypedFieldsKeepTheirUsesAssignable() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class ScopedFields {
+                Runnable task(DelegateExecution execution) {
+                    return new Runnable() {
+                        private DateValue date = Variables.dateValue(new Date(0));
+                        private org.camunda.bpm.engine.variable.value.BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                        public void run() {
+                            this.date = execution.getVariableTyped("date");
+                            this.bytes = execution.getVariableTyped("bytes");
+                            Date readDate = this.date.getValue();
+                            byte[] readBytes = this.bytes.getValue();
+                        }
+                    };
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class ScopedFields {
+                Runnable task(DelegateExecution execution) {
+                    return new Runnable() {
+                        private Date date = new Date(0);
+                        private byte[] bytes = new byte[]{1};
+
+                        public void run() {
+                            this.date = (Date) execution.getVariable("date");
+                            this.bytes = (byte[]) execution.getVariable("bytes");
+                            Date readDate = this.date;
+                            byte[] readBytes = this.bytes;
+                        }
+                    };
+                }
+            }
+            """));
+  }
+
+  @Test
+  void unknownAndCastedTypedAssignmentsRemainAssignable() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            abstract class AssignedFields {
+                private DateValue date;
+                private BytesValue bytes;
+
+                abstract DateValue loadDate();
+                abstract BytesValue loadBytes();
+
+                void assign(DelegateExecution execution) {
+                    this.date = loadDate();
+                    this.bytes = loadBytes();
+                    DateValue fromDate = loadDate();
+                    this.date = fromDate;
+                    this.date = (DateValue) Variables.dateValue(new Date(1));
+                    this.date = (DateValue) Variables.dateValue(new Date(2), true);
+                    this.bytes = (BytesValue) execution.getVariableTyped("bytes");
+                    Date readDate = this.date.getValue();
+                    byte[] readBytes = this.bytes.getValue();
+                }
+
+                void assignLocal() {
+                    DateValue local = null, alias = Variables.dateValue(new Date(3));
+                    local = alias;
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            abstract class AssignedFields {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                private DateValue date;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                private BytesValue bytes;
+
+                abstract DateValue loadDate();
+                abstract BytesValue loadBytes();
+
+                void assign(DelegateExecution execution) {
+                    this.date = loadDate();
+                    this.bytes = loadBytes();
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue fromDate = loadDate();
+                    this.date = fromDate;
+                    this.date = (DateValue) Variables.dateValue(new Date(1));
+                    this.date = (DateValue) Variables.dateValue(new Date(2), true);
+                    this.bytes = (BytesValue) execution.getVariableTyped("bytes");
+                    Date readDate = this.date.getValue();
+                    byte[] readBytes = this.bytes.getValue();
+                }
+
+                void assignLocal() {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue local = null, alias = Variables.dateValue(new Date(3));
+                    local = alias;
                 }
             }
             """));
