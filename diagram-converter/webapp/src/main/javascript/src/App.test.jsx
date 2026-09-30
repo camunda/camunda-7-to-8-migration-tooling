@@ -1018,9 +1018,122 @@ describe("finding severity communicates without relying on color alone", () => {
     await waitFor(() => expect(analyzeButton.disabled).toBe(false));
     fireEvent.click(analyzeButton);
 
-    const badge = await screen.findByText("1 finding");
-    expect(badge.closest("span").className).toContain("fileItemFindingCount-info");
-    expect(badge.closest("span").className).not.toContain("fileItemFindingCount-warning");
+    const badge = await screen.findByLabelText(
+      "1 finding, highest severity INFO (No action needed)"
+    );
+    expect(badge.className).toContain("fileItemFindingCount-info");
+    expect(badge.className).not.toContain("fileItemFindingCount-warning");
+    expect(screen.getByText("Highest: INFO")).toBeTruthy();
+  });
+});
+
+describe("batch findings summary and file priority", () => {
+  function checkResponse(...severities) {
+    return [
+      {
+        results: [
+          {
+            messages: severities.map((severity) => ({
+              severity,
+              message: `${severity} finding`,
+            })),
+          },
+        ],
+      },
+    ];
+  }
+
+  async function analyzeBatch(responsesByFile) {
+    fetchMock.mockImplementation((url, request) => {
+      const fileName = request.body.get("file").name;
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue(responsesByFile[fileName]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze(
+      Object.keys(responsesByFile).map((fileName) => mockFile(fileName))
+    );
+    return screen.findByRole("status", { name: "Findings summary" });
+  }
+
+  function summaryCount(summary, label) {
+    return within(summary).getByText(label).nextElementSibling.textContent;
+  }
+
+  it("shows zero counts for a batch with no findings", async () => {
+    const summary = await analyzeBatch({ "empty.bpmn": checkResponse() });
+
+    expect(summary.textContent).toContain("No findings were reported.");
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("0");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("0");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("0");
+    expect(summary.className).not.toContain("findingSummary-actionRequired");
+    expect(within(fileRow("empty.bpmn")).queryByText(/finding/)).toBeNull();
+  });
+
+  it("keeps an informational-only batch in neutral styling", async () => {
+    const summary = await analyzeBatch({
+      "informational.bpmn": checkResponse("INFO"),
+    });
+
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("0");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("0");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+    expect(summary.className).not.toContain("findingSummary-actionRequired");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(within(fileRow("informational.bpmn")).getByText("Highest: INFO")).toBeTruthy();
+  });
+
+  it("groups mixed severities into action, verification and no-follow-up counts", async () => {
+    const summary = await analyzeBatch({
+      "mixed.bpmn": checkResponse("WARNING", "TASK", "REVIEW", "INFO"),
+    });
+
+    expect(summary.textContent).toContain("4 findings detected");
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("2");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("1");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+    expect(summary.className).toContain("findingSummary-actionRequired");
+    expect(within(fileRow("mixed.bpmn")).getByText("4 findings")).toBeTruthy();
+    expect(within(fileRow("mixed.bpmn")).getByText("Highest: WARNING")).toBeTruthy();
+  });
+
+  it("aggregates multiple files and sorts by highest severity with stable ties", async () => {
+    const summary = await analyzeBatch({
+      "informational.bpmn": checkResponse("INFO"),
+      "task.bpmn": checkResponse("TASK"),
+      "warning-first.bpmn": checkResponse("WARNING"),
+      "empty.bpmn": checkResponse(),
+      "warning-second.bpmn": checkResponse("WARNING"),
+      "review.bpmn": checkResponse("REVIEW"),
+    });
+
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("3");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("1");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+    expect(
+      Array.from(document.querySelectorAll(".FileItem .left > span"), (name) =>
+        name.textContent
+      )
+    ).toEqual([
+      "warning-first.bpmn",
+      "warning-second.bpmn",
+      "task.bpmn",
+      "review.bpmn",
+      "informational.bpmn",
+      "empty.bpmn",
+    ]);
   });
 });
 

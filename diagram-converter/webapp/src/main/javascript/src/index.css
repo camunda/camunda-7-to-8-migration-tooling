@@ -509,10 +509,58 @@ th, td {
   margin-bottom: 1rem;
 }
 
-.incompatibility-notification {
+.findingSummary {
   width: 100%;
   max-inline-size: 100%;
   margin-bottom: 1rem;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--color-zinc-50);
+}
+
+.findingSummary-actionRequired {
+  border-color: var(--warning-border-subtle);
+  background: var(--warning-background-subtle);
+}
+
+.findingSummaryContent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.findingSummary h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.findingSummaryTotal {
+  margin: 4px 0 8px;
+}
+
+.findingSummaryCounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.findingSummaryCounts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.findingSummaryCounts dt {
+  font-weight: 500;
+}
+
+.findingSummaryCounts dd {
+  margin: 0;
+  font-weight: 700;
 }
 
 .fileItemFindingCount {
@@ -529,6 +577,10 @@ th, td {
   width: 12px;
   height: 12px;
   flex-shrink: 0;
+}
+.fileItemFindingSeverity {
+  border-left: 1px solid currentColor;
+  padding-left: 5px;
 }
 .fileItemFindingCount-warning {
   color: var(--danger-foreground-strong);

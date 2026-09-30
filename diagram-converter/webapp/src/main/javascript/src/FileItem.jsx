@@ -18,7 +18,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import { getSeverityStyleKey } from "./findings";
+import { getSeverityInfo, getSeverityStyleKey } from "./findings";
 
 function Spinner() {
   return (
@@ -60,7 +60,12 @@ export default function FileItem({
 }) {
   const severityKey = getSeverityStyleKey(highestSeverity);
   const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
-  const highestSeverityLabel = highestSeverity || "Unknown";
+  const severityInfo = getSeverityInfo(highestSeverity);
+  const hasKnownSeverity = Boolean(highestSeverity && severityInfo.description);
+  const highestSeverityLabel = hasKnownSeverity ? highestSeverity : "Unknown";
+  const highestSeverityText = hasKnownSeverity
+    ? `${highestSeverity} (${severityInfo.label})`
+    : "Unknown";
   const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
 
   return (
@@ -78,11 +83,12 @@ export default function FileItem({
           {findingCount > 0 && (
             <span
               className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
-              title={`Highest severity: ${highestSeverityLabel}`}
-              aria-label={`${findingCountLabel}, highest severity ${highestSeverityLabel}`}
+              title={`Highest severity: ${highestSeverityText}`}
+              aria-label={`${findingCountLabel}, highest severity ${highestSeverityText}`}
             >
               <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
-              {findingCountLabel}
+              <span className="fileItemFindingCountLabel">{findingCountLabel}</span>
+              <span className="fileItemFindingSeverity">Highest: {highestSeverityLabel}</span>
             </span>
           )}
 
