@@ -1271,6 +1271,10 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
               if (typedContext != null) {
                 return keepTypedCall(invocation, typedContext, ctx);
               }
+              if (receiverCall(invocation) != null) {
+                // typed-only methods such as isTransient() have no raw-value equivalent
+                return keepTypedCall(invocation, getCursor(), ctx);
+              }
               J.Identifier newIdent =
                   RecipeUtils.createSimpleIdentifier("getVariable", "java.lang.String");
               return invocation.withName(newIdent);

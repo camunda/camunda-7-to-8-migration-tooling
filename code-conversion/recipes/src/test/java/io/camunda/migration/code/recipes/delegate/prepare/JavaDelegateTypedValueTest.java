@@ -2831,4 +2831,39 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedGetterReceiversKeepTypedMethods() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class GetterReceivers {
+                String read(DelegateExecution execution) {
+                    boolean t = execution.getVariableTyped("x").isTransient();
+                    boolean l = (execution.getVariableLocalTyped("y")).isTransient();
+                    String text = execution.getVariableTyped("z").toString();
+                    Object value = execution.getVariableTyped("v").getValue();
+                    return t || l ? text : String.valueOf(value);
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class GetterReceivers {
+                String read(DelegateExecution execution) {
+                    boolean t = // TODO: migrate Camunda 7 typed-value method call manually
+                            execution.getVariableTyped("x").isTransient();
+                    boolean l = (// TODO: migrate Camunda 7 typed-value method call manually
+                            execution.getVariableLocalTyped("y")).isTransient();
+                    String text = // TODO: migrate Camunda 7 typed-value method call manually
+                            execution.getVariableTyped("z").toString();
+                    Object value = execution.getVariableTyped("v").getValue();
+                    return t || l ? text : String.valueOf(value);
+                }
+            }
+            """));
+  }
 }

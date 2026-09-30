@@ -1585,9 +1585,10 @@ pass the raw value and get the same transient-flag TODO.
 cast to the boxed type when it is used as a receiver or method argument, such as
 `((Integer) 5).toString()`. `null` values always keep their type, such as
 `(String) null`.
-Other typed-value methods called on a factory, such as `isTransient()`, and
-method references on a factory, such as `Variables.dateValue(date)::getValue`,
-stay unchanged with a TODO. Factories whose result is discarded, such as the
+Other typed-value methods called on a factory or a typed getter, such as
+`execution.getVariableTyped("x").isTransient()`, and method references on a
+factory, such as `Variables.dateValue(date)::getValue`, stay unchanged with a
+TODO. Factories whose result is discarded, such as the
 statement `Variables.dateValue(date);` or the body of a `Runnable` lambda, also
 stay unchanged with a TODO. Typed-value methods called on a ternary, such as
 `(flag ? Variables.dateValue(a) : Variables.dateValue(b)).getValue()`, also stay
