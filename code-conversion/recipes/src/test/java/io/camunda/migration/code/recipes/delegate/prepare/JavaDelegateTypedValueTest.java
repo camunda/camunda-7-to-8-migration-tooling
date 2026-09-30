@@ -338,4 +338,48 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void retainedAssignmentsKeepTypedGetters() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class RetainedAssignments {
+                IntegerValue amount;
+
+                void assign(DelegateExecution execution, TypedValue parameter, TypedValue[] values) {
+                    TypedValue local;
+                    local = execution.getVariableTyped("local");
+                    parameter = execution.getVariableTyped("parameter");
+                    values[0] = execution.getVariableTyped("array");
+                    TypedValue amount;
+                    amount = execution.getVariableTyped("shadow");
+                    IntegerValue number = execution.getVariableTyped("number");
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class RetainedAssignments {
+                Integer amount;
+
+                void assign(DelegateExecution execution, TypedValue parameter, TypedValue[] values) {
+                    TypedValue local;
+                    local = execution.getVariableTyped("local");
+                    parameter = execution.getVariableTyped("parameter");
+                    values[0] = execution.getVariableTyped("array");
+                    TypedValue amount;
+                    amount = execution.getVariableTyped("shadow");
+                    // please check type
+                    Integer number = (Integer) execution.getVariable("number");
+                }
+            }
+            """));
+  }
 }

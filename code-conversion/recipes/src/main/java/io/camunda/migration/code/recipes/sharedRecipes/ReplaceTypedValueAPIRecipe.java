@@ -22,6 +22,7 @@ import org.openrewrite.java.tree.*;
 public class ReplaceTypedValueAPIRecipe extends Recipe {
   private static final String OBJECT_VALUE_FQN =
       "org.camunda.bpm.engine.variable.value.ObjectValue";
+  private static final String TYPED_VALUE_PACKAGE = "org.camunda.bpm.engine.variable.value.";
   private static final String TRANSIENT_REVIEW =
       " TODO: review Camunda 7 transient variable semantics for migrated values";
   private static final String MANUAL_REVIEW =
@@ -266,7 +267,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             // Handle known subclasses like IntegerValue, StringValue, etc.
-            if (fqn.startsWith("org.camunda.bpm.engine.variable.value.")) {
+            if (fqn.startsWith(TYPED_VALUE_PACKAGE)) {
               String simpleName = fqn.substring(fqn.lastIndexOf('.') + 1);
 
               return switch (simpleName) {
@@ -469,7 +470,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   : markForManualMigration(declarations);
             }
             if (declarations.getVariables().size() != 1) {
-              return preserveObjectValues(declarations);
+              return preserveLegacyValues(declarations);
             }
 
             // Analyze first variable
@@ -483,7 +484,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         && (declarationParent instanceof J.Block
                             || declarationParent instanceof J.ForLoop.Control))
                     || isReassigned(originalName))) {
-              return preserveObjectValues(declarations);
+              return preserveLegacyValues(declarations);
             }
 
             // work with initializer that is a method invocation
@@ -499,7 +500,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       && (hasUnsupportedSerializationDataFormat(invocation)
                           || isFieldDeclaration()
                           || isReassigned(originalName))) {
-                    return preserveObjectValues(declarations);
+                    return preserveLegacyValues(declarations);
                   }
 
                   // get modifiers
@@ -731,7 +732,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     ctx);
               }
             }
-            return super.visitVariableDeclarations(declarations, ctx);
+            return isLegacyTypedValue(declarations.getType())
+                ? preserveLegacyValues(declarations)
+                : super.visitVariableDeclarations(declarations, ctx);
           }
 
           private J.Assignment retypeAssignment(J.Assignment assignment, String mapped) {
@@ -768,10 +771,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
             if (parent.getValue() instanceof J.Assignment assignment) {
               Expression target = unwrapParentheses(assignment.getVariable());
-              return !(target instanceof J.FieldAccess field
-                  && field.getType() instanceof JavaType.FullyQualified type
-                  && type.getFullyQualifiedName().startsWith("org.camunda.bpm.engine.variable.value.")
-                  && convertedFields.get(field.getName().getFieldType()) == null);
+              if (target.getType() instanceof JavaType.FullyQualified type
+                  && type.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE)) {
+                String mapped = convertedType(target);
+                return mapped != null && !mapped.startsWith(TYPED_VALUE_PACKAGE);
+              }
+              return true;
             }
             return false;
           }
@@ -782,6 +787,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             Expression target = unwrapParentheses(assignment.getVariable());
             String mapped = convertedType(target);
+            if (mapped != null && mapped.startsWith(TYPED_VALUE_PACKAGE)) {
+              return assignment;
+            }
             if (isDateOrBytesValue(target.getType())
                 && !mapTypedValueToNewFqn(target.getType()).equals(mapped)) {
               return assignment;
@@ -1105,7 +1113,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
               if (mapped != null
                   && !OBJECT_VALUE_FQN.equals(mapped)
-                  && !mapped.startsWith("org.camunda.bpm.engine.variable.value.")) {
+                  && !mapped.startsWith(TYPED_VALUE_PACKAGE)) {
                 JavaType type = JavaType.buildType(mapped);
                 if (select instanceof J.FieldAccess field) {
                   select = field.withName(field.getName().withType(type)).withType(type);
@@ -1215,12 +1223,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return parent instanceof J.ClassDeclaration || parent instanceof J.NewClass;
           }
 
-          private J.VariableDeclarations preserveObjectValues(J.VariableDeclarations declarations) {
-            if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)) {
-              // Shadow messages from converted fields when a local or parameter stays ObjectValue.
+          private J.VariableDeclarations preserveLegacyValues(J.VariableDeclarations declarations) {
+            if (isLegacyTypedValue(declarations.getType())
+                && declarations.getTypeAsFullyQualified() instanceof JavaType.FullyQualified type) {
+              // Shadow a converted field when a local or parameter keeps its C7 type.
               Cursor scope = declarationScope();
               for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-                scope.putMessage(variable.getSimpleName(), OBJECT_VALUE_FQN);
+                scope.putMessage(variable.getSimpleName(), type.getFullyQualifiedName());
               }
             }
             return declarations;
