@@ -125,6 +125,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               @Override
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation call, ExecutionContext innerCtx) {
+                Expression receiver = unwrapParentheses(call.getSelect());
+                if (receiver != null
+                    && isDateOrBytesValue(receiver.getType())
+                    && !"getValue".equals(call.getSimpleName())) {
+                  retainTypedReferences(receiver, innerCtx);
+                }
                 retainTypedArguments(call.getArguments(), call.getMethodType(), innerCtx);
                 return super.visitMethodInvocation(call, innerCtx);
               }

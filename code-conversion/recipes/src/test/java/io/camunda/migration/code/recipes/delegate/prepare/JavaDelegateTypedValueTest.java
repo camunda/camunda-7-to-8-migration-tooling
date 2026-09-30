@@ -1273,6 +1273,52 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void unsupportedTypedValueMethodsRetainTheirReceivers() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedMetadata {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                boolean inspect() {
+                    DateValue localDate = Variables.dateValue(new Date(1));
+                    BytesValue localBytes = Variables.byteArrayValue(new byte[]{2});
+                    return date.isTransient() || (this.bytes).isTransient()
+                            || localDate.isTransient() || localBytes.isTransient();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedMetadata {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                boolean inspect() {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue localDate = Variables.dateValue(new Date(1));
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    BytesValue localBytes = Variables.byteArrayValue(new byte[]{2});
+                    return date.isTransient() || (this.bytes).isTransient()
+                            || localDate.isTransient() || localBytes.isTransient();
+                }
+            }
+            """));
+  }
+
+  @Test
   void typedConstructorConsumersStayTypedForManualMigration() {
     rewriteRun(
         java(
