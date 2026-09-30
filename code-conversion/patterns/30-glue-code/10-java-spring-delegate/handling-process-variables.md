@@ -59,12 +59,13 @@ Check local and typed variable lookups separately; they have different scope or 
 
 ### Typed date and byte factories
 
-`DateValue`/`BytesValue` fields and locals become `Date`/`byte[]`; method
-parameters keep their Camunda 7 types. Nested factories convert only as `Object`
-arguments; typed returns and consumers retain the factory with a manual-migration
-TODO. Grouped declarations keep all declarators and modifiers; typed getters
-keep casts. Qualified reads and writes follow converted fields in the same
-source file. Declarations exposed through typed returns or constructor/method
+`DateValue`/`BytesValue` fields and locals become `Date`/`byte[]`; method and
+lambda parameters and enhanced-for variables keep their Camunda 7 types.
+Nested factories convert only as `Object` method arguments; constructor calls
+and typed returns/consumers retain the factory with a manual-migration TODO.
+Grouped declarations keep all declarators and modifiers; typed getters keep
+casts. Qualified reads and writes follow converted fields in the same source
+file. Declarations exposed through typed returns or constructor/method
 arguments, unsupported initializers, type-use annotations, and assignments
 retain Camunda 7 types with a manual-migration TODO. A `true` or computed
 Camunda 7 `isTransient` flag on a converted factory adds a review TODO: raw

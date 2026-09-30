@@ -658,7 +658,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
             if (isDateOrBytesValue(declarations.getType())) {
-              if (getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration) {
+              Object parent = getCursor().getParentTreeCursor().getValue();
+              if (parent instanceof J.MethodDeclaration
+                  || parent instanceof J.Lambda.Parameters
+                  || parent instanceof J.Lambda
+                  || parent instanceof J.ForEachLoop.Control) {
                 return preserveTypedValues(declarations);
               }
               if (declarations.getTypeExpression() instanceof J.AnnotatedType) {
@@ -1320,9 +1324,17 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           private Cursor declarationScope() {
-            return getCursor().getParentTreeCursor().getValue() instanceof J.MethodDeclaration
-                ? getCursor().dropParentUntil(parent -> parent instanceof J.MethodDeclaration)
-                : getCursor().dropParentUntil(parent -> parent instanceof J.Block);
+            Object parent = getCursor().getParentTreeCursor().getValue();
+            if (parent instanceof J.MethodDeclaration) {
+              return getCursor().dropParentUntil(tree -> tree instanceof J.MethodDeclaration);
+            }
+            if (parent instanceof J.Lambda.Parameters || parent instanceof J.Lambda) {
+              return getCursor().dropParentUntil(tree -> tree instanceof J.Lambda);
+            }
+            if (parent instanceof J.ForEachLoop.Control) {
+              return getCursor().dropParentUntil(tree -> tree instanceof J.ForEachLoop);
+            }
+            return getCursor().dropParentUntil(tree -> tree instanceof J.Block);
           }
 
           private boolean isReassigned(J.Identifier variable) {

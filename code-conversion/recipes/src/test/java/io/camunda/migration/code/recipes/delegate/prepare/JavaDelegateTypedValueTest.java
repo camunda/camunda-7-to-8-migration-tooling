@@ -799,6 +799,51 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedLambdaAndLoopParametersShadowConvertedFields() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedCallbacks {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                void process(List<DateValue> values, List<BytesValue> buffers) {
+                    Consumer<DateValue> callback = (DateValue date) -> { Date raw = date.getValue(); };
+                    Consumer<BytesValue> bytesCallback = (BytesValue bytes) -> { byte[] raw = bytes.getValue(); };
+                    for (DateValue date : values) { Date raw = date.getValue(); }
+                    for (BytesValue bytes : buffers) { byte[] raw = bytes.getValue(); }
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedCallbacks {
+                Date date = new Date(0);
+                byte[] bytes = new byte[]{1};
+
+                void process(List<DateValue> values, List<BytesValue> buffers) {
+                    Consumer<DateValue> callback = (DateValue date) -> { Date raw = date.getValue(); };
+                    Consumer<BytesValue> bytesCallback = (BytesValue bytes) -> { byte[] raw = bytes.getValue(); };
+                    for (DateValue date : values) { Date raw = date.getValue(); }
+                    for (BytesValue bytes : buffers) { byte[] raw = bytes.getValue(); }
+                }
+            }
+            """));
+  }
+
+  @Test
   void laterTypedFactoryAssignmentsBecomeRawValues() {
     rewriteRun(
         java(
@@ -1107,6 +1152,10 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class TypedConsumers {
+                static class RawHolder {
+                    RawHolder(Object value) {}
+                }
+
                 private DateValue stored = Variables.dateValue(new Date(3));
                 private BytesValue saved = Variables.byteArrayValue(new byte[]{3});
 
@@ -1128,6 +1177,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 void call() {
                     consume(Variables.dateValue(new Date(1), true));
                     consumeDate(Variables.dateValue(new Date(2)));
+                    new RawHolder(Variables.dateValue(new Date(6)));
                 }
             }
             """,
@@ -1139,6 +1189,10 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class TypedConsumers {
+                static class RawHolder {
+                    RawHolder(Object value) {}
+                }
+
                 private Date stored = new Date(3);
                 private byte[] saved = new byte[]{3};
 
@@ -1164,6 +1218,8 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                             Variables.dateValue(new Date(1), true));
                     consumeDate(// TODO: migrate Camunda 7 typed-value factory call manually
                             Variables.dateValue(new Date(2)));
+                    new RawHolder(// TODO: migrate Camunda 7 typed-value factory call manually
+                            Variables.dateValue(new Date(6)));
                 }
             }
             """));
