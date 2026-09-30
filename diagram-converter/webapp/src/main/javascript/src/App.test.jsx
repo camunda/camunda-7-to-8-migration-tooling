@@ -557,7 +557,7 @@ describe("accessibility", () => {
 });
 
 describe("target platform version", () => {
-  it("marks 8.9 as latest stable and selects it by default with 8.10 next", () => {
+  it("labels every supported version and selects the latest stable by default", () => {
     render(<App />);
 
     const versionGroup = screen.getByRole("radiogroup", {
@@ -574,6 +574,9 @@ describe("target platform version", () => {
     });
 
     expect(within(versionGroup).getByText("Latest stable")).toBeTruthy();
+    expect(within(earlierStable).getByText("Earlier stable")).toBeDefined();
+    expect(within(latestStable).getByText("Latest stable")).toBeDefined();
+    expect(within(nextVersion).getByText("Next version")).toBeDefined();
     expect(latestStable.getAttribute("aria-checked")).toBe("true");
     expect(latestStable.getAttribute("tabindex")).toBe("0");
     expect(earlierStable.getAttribute("aria-checked")).toBe("false");
