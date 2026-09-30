@@ -50,7 +50,7 @@
     <version.kotlin-stdlib>2.4.20</version.kotlin-stdlib>
     <version.httpcore5>5.4.4</version.httpcore5>
     <version.httpclient5>5.6.4</version.httpclient5>
-    <version.commons-lang3>3.20.0</version.commons-lang3>
+    <version.commons-lang3>3.21.0</version.commons-lang3>
     <plugin.version.compiler>3.16.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
     <plugin.version.central-publishing>0.11.0</plugin.version.central-publishing>
