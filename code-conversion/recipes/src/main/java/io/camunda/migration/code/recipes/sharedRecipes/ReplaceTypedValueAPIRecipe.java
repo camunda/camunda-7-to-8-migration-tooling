@@ -89,25 +89,24 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
       @Override
       public J.CompilationUnit visitCompilationUnit(
           J.CompilationUnit compilationUnit, ExecutionContext ctx) {
-        Set<String> declaredTypes = new HashSet<>();
+        // fields declared in this file, including those of anonymous classes
+        Set<String> declaredFields = new HashSet<>();
         new JavaIsoVisitor<Set<String>>() {
           @Override
-          public J.ClassDeclaration visitClassDeclaration(
-              J.ClassDeclaration declaration, Set<String> types) {
-            if (declaration.getType() != null) {
-              types.add(declaration.getType().getFullyQualifiedName());
+          public J.VariableDeclarations.NamedVariable visitVariable(
+              J.VariableDeclarations.NamedVariable variable, Set<String> fields) {
+            String key = typedFieldKey(variable.getName().getFieldType());
+            if (key != null) {
+              fields.add(key);
             }
-            return super.visitClassDeclaration(declaration, types);
+            return super.visitVariable(variable, fields);
           }
-        }.visit(compilationUnit, declaredTypes);
+        }.visit(compilationUnit, declaredFields);
         new JavaIsoVisitor<Integer>() {
           @Override
           public J.Identifier visitIdentifier(J.Identifier identifier, Integer p) {
-            JavaType.Variable field = identifier.getFieldType();
-            String key = typedFieldKey(field);
-            if (key != null
-                && !declaredTypes.contains(
-                    TypeUtils.asFullyQualified(field.getOwner()).getFullyQualifiedName())) {
+            String key = typedFieldKey(identifier.getFieldType());
+            if (key != null && !declaredFields.contains(key)) {
               externallyUsedFields.add(key);
             }
             return super.visitIdentifier(identifier, p);
@@ -396,8 +395,8 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             boolean grouped = declarations.getVariables().size() != 1;
             // Only groups of directly mapped typed values are rewritten; other groups stay intact.
             if (grouped
-                && !(declarations.getTypeExpression() instanceof J.Identifier groupType
-                    && isConvertibleTypedValue(groupType.getType()))) {
+                && !(isNamedType(declarations.getTypeExpression())
+                    && isConvertibleTypedValue(declarations.getTypeExpression().getType()))) {
               if (hasRetypedInitializer(declarations) || isRetainedTypedDeclaration(declarations)) {
                 return markUnsupportedTypedInitializer(declarations, ctx);
               }
@@ -635,7 +634,11 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             }
 
             // this replaces standalone declarations, like method parameters and fields
-            if (declarations.getTypeExpression() instanceof J.Identifier typeExpr) {
+            // qualified names, such as org.camunda...DateValue, only for directly mapped types
+            TypeTree typeExpr = declarations.getTypeExpression();
+            if (typeExpr instanceof J.Identifier
+                || (typeExpr instanceof J.FieldAccess
+                    && isConvertibleTypedValue(typeExpr.getType()))) {
 
               String newFqn = mapTypedValueToNewFqn(typeExpr.getType());
               if (!"java.lang.Object".equals(newFqn)
@@ -2002,7 +2005,7 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             Cursor parent = getCursor().getParentTreeCursor();
             if (parent.getValue() instanceof J.MethodDeclaration) {
               parent.putMessage(TYPED_PARAMETER_MESSAGE, true);
-            } else if (!(parent.getValue() instanceof J.Lambda.Parameters)
+            } else if (!hasContextFixedType(getCursor())
                 && declarations.getComments().stream()
                 .noneMatch(
                     comment ->
@@ -2101,6 +2104,7 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                   boolean keep =
                       isTypedValueArray(declarations)
                           || hasUnsupportedTypeExpression(declarations)
+                          || hasContextFixedType(getCursor())
                           || (declarations.getVariables().size() > 1
                               && unwrapParentheses(
                                       declarations.getVariables().get(0).getInitializer())
@@ -2266,14 +2270,29 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
 
           /**
            * Type expressions that are not rebuilt in place, such as type-use annotations after
-           * modifiers ({@code private @Tag DateValue}) or fully qualified typed-value names.
+           * modifiers ({@code private @Tag DateValue}).
            */
           private boolean hasUnsupportedTypeExpression(J.VariableDeclarations declarations) {
             TypeTree typeExpression = declarations.getTypeExpression();
             while (typeExpression instanceof J.ArrayType arrayType) {
               typeExpression = arrayType.getElementType();
             }
-            return typeExpression != null && !(typeExpression instanceof J.Identifier);
+            return typeExpression != null && !isNamedType(typeExpression);
+          }
+
+          /**
+           * Explicit lambda parameters and enhanced-for variables, whose types the functional
+           * interface or the iterated elements fix.
+           */
+          private boolean hasContextFixedType(Cursor declarationCursor) {
+            Object parent = declarationCursor.getParentTreeCursor().getValue();
+            return parent instanceof J.Lambda.Parameters || parent instanceof J.ForEachLoop.Control;
+          }
+
+          /** Simple or qualified type names, such as {@code DateValue} or its full name. */
+          private boolean isNamedType(TypeTree typeExpression) {
+            return typeExpression instanceof J.Identifier
+                || typeExpression instanceof J.FieldAccess;
           }
 
           private boolean isOutsideDeclaringClass(JavaType.Variable variable, Cursor cursor) {
@@ -2336,9 +2355,10 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
               foundNewFields = false;
               for (Statement statement : classBody.getStatements()) {
                 if (!(statement instanceof J.VariableDeclarations fields)
-                    || !(fields.getTypeExpression() instanceof J.Identifier typeExpr)) {
+                    || !isNamedType(fields.getTypeExpression())) {
                   continue;
                 }
+                TypeTree typeExpr = fields.getTypeExpression();
                 String retypedFqn = retypedDeclarationType(fields);
                 if (!isConvertibleTypedValue(typeExpr.getType())) {
                   if (retypedFqn != null && !isRetainedTypedDeclaration(fields)) {

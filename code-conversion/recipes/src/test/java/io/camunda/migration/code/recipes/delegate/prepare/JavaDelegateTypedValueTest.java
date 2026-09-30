@@ -2486,14 +2486,105 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     @Tag Date local = date;
                     // TODO: migrate Camunda 7 typed-value initializer manually
                     final @Tag DateValue fetched = execution.getVariableTyped("date");
-                    // TODO: migrate Camunda 7 typed-value initializer manually
-                    org.camunda.bpm.engine.variable.value.DateValue qualified =
-                            Variables.dateValue(date);
+                    Date qualified = date;
                     return field;
                 }
 
                 Date other() {
                     return other.getValue();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedLambdaAndLoopParametersShadowConvertedFields() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedCallbacks {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                void process(List<DateValue> values, List<BytesValue> buffers) {
+                    Consumer<DateValue> callback = (DateValue date) -> { Date raw = date.getValue(); };
+                    Consumer<BytesValue> bytesCallback = (BytesValue bytes) -> { byte[] raw = bytes.getValue(); };
+                    for (DateValue date : values) { Date raw = date.getValue(); }
+                    for (BytesValue bytes : buffers) { byte[] raw = bytes.getValue(); }
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class TypedCallbacks {
+                Date date = new Date(0);
+                byte[] bytes = new byte[]{1};
+
+                void process(List<DateValue> values, List<BytesValue> buffers) {
+                    Consumer<DateValue> callback = (DateValue date) -> { Date raw = date.getValue(); };
+                    Consumer<BytesValue> bytesCallback = (BytesValue bytes) -> { byte[] raw = bytes.getValue(); };
+                    for (DateValue date : values) { Date raw = date.getValue(); }
+                    for (BytesValue bytes : buffers) { byte[] raw = bytes.getValue(); }
+                }
+            }
+            """));
+  }
+
+  @Test
+  void anonymousAndQualifiedTypedFieldsKeepTheirUsesAssignable() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class ScopedFields {
+                Runnable task(DelegateExecution execution) {
+                    return new Runnable() {
+                        private DateValue date = Variables.dateValue(new Date(0));
+                        private org.camunda.bpm.engine.variable.value.BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+
+                        public void run() {
+                            this.date = execution.getVariableTyped("date");
+                            this.bytes = execution.getVariableTyped("bytes");
+                            Date readDate = this.date.getValue();
+                            byte[] readBytes = this.bytes.getValue();
+                        }
+                    };
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class ScopedFields {
+                Runnable task(DelegateExecution execution) {
+                    return new Runnable() {
+                        private Date date = new Date(0);
+                        private byte[] bytes = new byte[]{1};
+
+                        public void run() {
+                            this.date = (Date) execution.getVariable("date");
+                            this.bytes = (byte[]) execution.getVariable("bytes");
+                            Date readDate = this.date;
+                            byte[] readBytes = this.bytes;
+                        }
+                    };
                 }
             }
             """));

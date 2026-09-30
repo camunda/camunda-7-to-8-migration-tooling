@@ -136,10 +136,14 @@ typed value, such as `(DateValue) Variables.dateValue(date)`.
 Typed-value arrays and varargs, such as `DateValue[] dates` or `DateValue dates[]`,
 stay typed with a TODO, together with their element reads and writes and the
 factories passed as their elements.
-Converted declarations keep their annotations. Declarations whose type is fully
-qualified, such as `org.camunda.bpm.engine.variable.value.DateValue date`, or
-carries a type-use annotation after modifiers, such as `private @Tag DateValue date`,
-stay typed with a TODO. Typed getters whose untyped form
+Converted declarations keep their annotations. Fully qualified declarations, such
+as `org.camunda.bpm.engine.variable.value.DateValue date`, convert like simple ones,
+including fields of anonymous classes. Declarations with a type-use annotation
+after modifiers, such as `private @Tag DateValue date`, stay typed with a TODO.
+Explicitly typed lambda parameters and enhanced-for variables, such as
+`(DateValue date) -> ...` or `for (DateValue date : values)`, keep their type
+because the functional interface or iterated elements fix it; their reads keep
+`getValue()` even when a converted field has the same name. Typed getters whose untyped form
 returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
 
 ### autoComplete = false (blocking)
