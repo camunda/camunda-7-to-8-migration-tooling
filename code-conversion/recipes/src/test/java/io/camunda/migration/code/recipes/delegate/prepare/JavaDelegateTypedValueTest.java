@@ -1500,4 +1500,201 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void retainedAssignmentsKeepNestedTypedExpressions() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class RetainedAssignments {
+                DateValue loadDate() {
+                    return null;
+                }
+
+                Object reassigned(DelegateExecution execution, Date date, boolean flag) {
+                    DateValue value = loadDate();
+                    value = flag ? Variables.dateValue(date) : null;
+                    value = flag ? execution.getVariableTyped("date") : null;
+                    value = (DateValue) execution.getVariableTyped("other");
+                    return value;
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class RetainedAssignments {
+                DateValue loadDate() {
+                    return null;
+                }
+
+                Object reassigned(DelegateExecution execution, Date date, boolean flag) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue value = loadDate();
+                    value = flag ? Variables.dateValue(date) : null;
+                    value = flag ? execution.getVariableTyped("date") : null;
+                    value = (DateValue) execution.getVariableTyped("other");
+                    return value;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void genericTypedArgumentsStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.ArrayList;
+            import java.util.Date;
+            import java.util.List;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class GenericArguments {
+                List<DateValue> copy(Date date) {
+                    return List.of(Variables.dateValue(date));
+                }
+
+                List<DateValue> collect(Date date) {
+                    List<DateValue> values = new ArrayList<>();
+                    DateValue value = Variables.dateValue(date);
+                    values.add(value);
+                    return values;
+                }
+
+                List<Object> raw(Date date) {
+                    List<Object> values = new ArrayList<>();
+                    DateValue value = Variables.dateValue(date);
+                    values.add(value);
+                    return values;
+                }
+            }
+            """,
+            """
+            import java.util.ArrayList;
+            import java.util.Date;
+            import java.util.List;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class GenericArguments {
+                List<DateValue> copy(Date date) {
+                    return List.of(// TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date));
+                }
+
+                List<DateValue> collect(Date date) {
+                    List<DateValue> values = new ArrayList<>();
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue value = Variables.dateValue(date);
+                    values.add(value);
+                    return values;
+                }
+
+                List<Object> raw(Date date) {
+                    List<Object> values = new ArrayList<>();
+                    Date value = date;
+                    values.add(value);
+                    return values;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void valueExchangesShareTypedDecisions() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class ValueExchanges {
+                private DateValue cached;
+
+                DateValue loadDate() {
+                    return null;
+                }
+
+                void cache() {
+                    DateValue value = loadDate();
+                    cached = value;
+                }
+
+                Object retainedSource() {
+                    DateValue source = loadDate();
+                    DateValue target;
+                    target = source;
+                    return target;
+                }
+
+                Object retainedTarget(Date date) {
+                    DateValue target = loadDate();
+                    DateValue source = Variables.dateValue(date);
+                    target = source;
+                    return target;
+                }
+
+                Object converted(Date date) {
+                    DateValue first = Variables.dateValue(date);
+                    DateValue second = first;
+                    return second.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class ValueExchanges {
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private DateValue cached;
+
+                DateValue loadDate() {
+                    return null;
+                }
+
+                void cache() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue value = loadDate();
+                    cached = value;
+                }
+
+                Object retainedSource() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue source = loadDate();
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue target;
+                    target = source;
+                    return target;
+                }
+
+                Object retainedTarget(Date date) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue target = loadDate();
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue source = Variables.dateValue(date);
+                    target = source;
+                    return target;
+                }
+
+                Object converted(Date date) {
+                    Date first = date;
+                    Date second = first;
+                    return second;
+                }
+            }
+            """));
+  }
 }

@@ -1536,13 +1536,19 @@ fields are migrated.
 Later `Variables.dateValue(...)` and `Variables.byteArrayValue(...)` assignments
 to converted values are unwrapped in the same way as initializers, with a TODO
 for `true` or computed transient flags. Assignments to declarations retained for
-manual migration keep their Camunda 7 typed getters and factories until the
-declaration and its uses can be migrated together. Reads of converted values
+manual migration keep their Camunda 7 typed getters and factories, including
+those nested in ternaries and casts, until the declaration and its uses can be
+migrated together. Reads of converted values
 inside a retained declaration or assignment are still rewritten.
 A declaration also stays typed with a TODO when a later assignment may store a
 typed value, such as `a = loadInteger();`, or when a read still needs the typed
 value. Such reads include `value.isTransient()`, returns from typed-value
 methods, typed casts, and assignments to typed targets such as `TypedValue`.
+Values passed to generic parameters resolved to a typed value, such as
+`values.add(value)` on a `List<DateValue>` or `List.of(Variables.dateValue(date))`,
+also stay typed. Variables that pass values to each other, such as
+`target = source;`, share one decision: when one of them stays typed, all of
+them do.
 Parameters retained this way get the TODO on their method; review the method's
 call sites together with the parameter.
 Grouped typed-getter declarations keep every variable and required cast; groups
