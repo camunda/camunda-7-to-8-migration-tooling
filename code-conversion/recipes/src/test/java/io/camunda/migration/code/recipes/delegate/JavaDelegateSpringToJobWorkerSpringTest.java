@@ -168,6 +168,62 @@ public class RetrievePaymentAdapter {
                 """));
     }
 
+    @Test
+    void typedFactoryFieldsRemainAssignable() {
+        rewriteRun(
+            java(
+                """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.delegate.JavaDelegate;
+                import org.camunda.bpm.engine.variable.Variables;
+                import org.camunda.bpm.engine.variable.value.BytesValue;
+                import org.camunda.bpm.engine.variable.value.DateValue;
+                import org.springframework.stereotype.Component;
+
+                import java.util.Date;
+
+                @Component
+                public class FactoryDelegate implements JavaDelegate {
+                    private DateValue date = Variables.dateValue(new Date(0), true);
+                    private BytesValue bytes = Variables.byteArrayValue(new byte[] {1}, false);
+
+                    @Override
+                    public void execute(DelegateExecution execution) {
+                        this.date = execution.getVariableTyped("date");
+                        this.bytes = execution.getVariableTyped("bytes");
+                    }
+                }
+                """,
+                """
+                package org.camunda.community.migration.example;
+
+                import io.camunda.client.annotation.JobWorker;
+                import io.camunda.client.api.response.ActivatedJob;
+                import org.springframework.stereotype.Component;
+
+                import java.util.Date;
+                import java.util.HashMap;
+                import java.util.Map;
+
+                @Component
+                public class FactoryDelegate {
+                    // TODO: review Camunda 7 transient variable semantics for migrated values
+                    private Date date = new Date(0);
+                    private byte[] bytes = new byte[]{1};
+
+                    @JobWorker(type = "factoryDelegate", autoComplete = true)
+                    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+                        Map<String, Object> resultMap = new HashMap<>();
+                        this.date = (Date) job.getVariablesAsMap().get("date");
+                        this.bytes = (byte[]) job.getVariablesAsMap().get("bytes");
+                        return resultMap;
+                    }
+                }
+                """));
+    }
+
 
     @Test
     void rewriteExecuteMethodWithVariables() {

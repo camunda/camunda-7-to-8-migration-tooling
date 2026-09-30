@@ -71,7 +71,7 @@ public class RetrievePaymentAdapter {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         // please check type
-        Integer typedAmount = job.getVariable("amount");
+        Integer typedAmount = (Integer) job.getVariable("amount");
         int amount = typedAmount;
         // do something
         String typedTransactionId = "TX12345";
