@@ -97,7 +97,12 @@ with a TODO. Declarations of `TypedValue` and other typed-value types without a
 direct Java type follow the same rules when they are initialized from a factory
 or typed getter; converted fields of this kind also convert forward and qualified
 reads such as `this.value.getValue()`. Grouped declarations of these types with
-factory or typed-getter initializers stay typed with a TODO.
+factory or typed-getter initializers stay typed with a TODO. When such a
+declaration has no factory or getter initializer, such as `TypedValue value;` or a
+parameter, later factory and typed-getter writes stay typed and the declaration
+gets a TODO. Type variables bounded by a typed value, such as
+`<T extends TypedValue> T copy()`, count as typed targets for returns,
+declarations, assignments, and casts.
 Values passed to generic parameters resolved to a typed value, such as
 `values.add(value)` on a `List<DateValue>` or `List.of(Variables.dateValue(date))`,
 also stay typed. This includes lower-bounded consumers such as
@@ -117,7 +122,9 @@ cast to the boxed type when it is used as a receiver or method argument, such as
 `((Integer) 5).toString()`.
 Other typed-value methods called on a factory, such as `isTransient()`, and
 method references on a factory, such as `Variables.dateValue(date)::getValue`,
-stay unchanged with a TODO.
+stay unchanged with a TODO. Typed-value methods called on a ternary, such as
+`(flag ? Variables.dateValue(a) : Variables.dateValue(b)).getValue()`, also stay
+unchanged with a TODO, and variables read this way stay typed.
 Method return types keep their Camunda 7 type, so factories and typed getters
 returned from a method or lambda declared to return a typed value, such as
 `DateValue copy()` or `Supplier<DateValue>`, also stay unchanged with a TODO. This includes returns

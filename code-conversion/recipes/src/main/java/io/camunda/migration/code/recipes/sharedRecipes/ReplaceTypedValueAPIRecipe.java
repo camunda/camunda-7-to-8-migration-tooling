@@ -44,6 +44,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
   private static final String PRESERVE_TYPED_GETTERS = "preserveTypedGetters";
   private static final String PRESERVE_TYPED_FACTORIES = "preserveTypedFactories";
   private static final String TYPED_RETURN_MESSAGE = "typedReturn";
+  private static final String TYPED_RECEIVER_MESSAGE = "typedReceiver";
   private static final String TYPED_PARAMETER_MESSAGE = "typedParameter";
   private static final String RETAINED_TYPED_VARIABLES = "retainedTypedVariables";
   private static final String MANUAL_PARAMETER_HINT =
@@ -334,7 +335,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (grouped
                 && !(declarations.getTypeExpression() instanceof J.Identifier groupType
                     && isConvertibleTypedValue(groupType.getType()))) {
-              if (hasRetypedInitializer(declarations)) {
+              if (hasRetypedInitializer(declarations) || isRetainedTypedDeclaration(declarations)) {
                 return markUnsupportedTypedInitializer(declarations, ctx);
               }
               return preserveObjectValues(declarations, ctx);
@@ -726,7 +727,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
-            if (isRetainedTypedVariable(unwrappedTarget)) {
+            if (isRetainedTypedVariable(unwrappedTarget) || isTypedOnlyTarget(unwrappedTarget)) {
               return visitPreservedAssignment(assignment, ctx);
             }
 
@@ -889,6 +890,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           }
 
           @Override
+          public J postVisit(J tree, ExecutionContext ctx) {
+            J visited = super.postVisit(tree, ctx);
+            if (visited instanceof J.MethodInvocation call
+                && Boolean.TRUE.equals(getCursor().pollMessage(TYPED_RECEIVER_MESSAGE))) {
+              return maybeAutoFormat(call, withTypedMethodHint(call), ctx);
+            }
+            return visited;
+          }
+
+          @Override
           public J visitReturn(J.Return returnStatement, ExecutionContext ctx) {
             J visited = super.visitReturn(returnStatement, ctx);
             if (visited instanceof J.Return result
@@ -903,6 +914,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               J.MethodInvocation invocation, Cursor typedContext, ExecutionContext ctx) {
             if (typedContext.getValue() instanceof J.Return) {
               typedContext.putMessage(TYPED_RETURN_MESSAGE, true);
+              return super.visitMethodInvocation(invocation, ctx);
+            }
+            if (typedContext.getValue() instanceof J.MethodInvocation receiver
+                && receiver != invocation) {
+              typedContext.putMessage(TYPED_RECEIVER_MESSAGE, true);
               return super.visitMethodInvocation(invocation, ctx);
             }
             J.MethodInvocation visited =
@@ -1306,7 +1322,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
                 parent = switchCursor;
               } else if (value instanceof J.TypeCast cast
-                  && isCamunda7TypedValue(cast.getClazz().getType())) {
+                  && isTypedTarget(cast.getClazz().getType())) {
                 typedCast = true;
               } else if (!(value instanceof J.Parentheses<?>)
                   && !(value instanceof J.ControlParentheses<?>
@@ -1346,12 +1362,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   owner instanceof J.MethodDeclaration method && method.getMethodType() != null
                       ? method.getMethodType().getReturnType()
                       : owner instanceof J.Lambda lambda ? lambdaReturnType(lambda) : null;
-              return use.typedCast() || isCamunda7TypedValue(returnType) ? parent : null;
+              return use.typedCast() || isTypedTarget(returnType) ? parent : null;
+            }
+            if (value instanceof J.MethodInvocation call
+                && call.getSelect() == child
+                && unwrapParentheses(call.getSelect()) != start.getValue()
+                && call.getMethodType() != null
+                && isCamunda7TypedValue(call.getMethodType().getDeclaringType())) {
+              // typed receivers reached through ternaries cannot be unwrapped branch by branch
+              return parent;
             }
             boolean typedTarget =
                 (value instanceof J.Lambda lambda
                         && lambda.getBody() == child
-                        && isCamunda7TypedValue(lambdaReturnType(lambda)))
+                        && isTypedTarget(lambdaReturnType(lambda)))
                     || (value instanceof J.NewArray newArray
                         && newArray.getInitializer() != null
                         && newArray.getInitializer().contains(child)
@@ -1391,7 +1415,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         && expression.getType() instanceof JavaType.Array);
             JavaType parameter = parameterType(type, Math.min(index, last), varargsElement);
             if (varargsElement) {
-              return isCamunda7TypedValue(parameter);
+              return isTypedTarget(parameter);
             }
             JavaType.GenericTypeVariable formal = declaredTypeVariable(type, index);
             if (formal == null) {
@@ -1404,9 +1428,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
             if (parameter instanceof JavaType.GenericTypeVariable wildcard
                 && wildcard.getVariance() == JavaType.GenericTypeVariable.Variance.CONTRAVARIANT) {
-              return wildcard.getBounds().stream().anyMatch(this::isCamunda7TypedValue);
+              return wildcard.getBounds().stream().anyMatch(this::isTypedTarget);
             }
-            return isCamunda7TypedValue(parameter);
+            return isTypedTarget(parameter);
           }
 
           /** Returns the type variable a generic method declares at {@code index}, or null. */
@@ -1608,6 +1632,53 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           private boolean isCamunda7TypedValue(JavaType type) {
             return type instanceof JavaType.FullyQualified fqType
                 && fqType.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE);
+          }
+
+          /** Typed values and type variables bounded by them, such as T extends TypedValue. */
+          private boolean isTypedTarget(JavaType type) {
+            return isCamunda7TypedValue(type) || isTypedTypeVariable(type, 0);
+          }
+
+          private boolean isTypedTypeVariable(JavaType type, int depth) {
+            return depth < 8
+                && type instanceof JavaType.GenericTypeVariable variable
+                && variable.getVariance() == JavaType.GenericTypeVariable.Variance.COVARIANT
+                && variable.getBounds().stream()
+                    .anyMatch(
+                        bound ->
+                            isCamunda7TypedValue(bound) || isTypedTypeVariable(bound, depth + 1));
+          }
+
+          /** Typed targets without a raw-value mapping keep their Camunda 7 type. */
+          private boolean isTypedOnlyType(JavaType type) {
+            return isTypedTypeVariable(type, 0)
+                || (isCamunda7TypedValue(type)
+                    && !isConvertibleTypedValue(type)
+                    && !TypeUtils.isOfClassType(type, OBJECT_VALUE_FQN));
+          }
+
+          private boolean isTypedOnlyTarget(Expression target) {
+            return isTypedOnlyType(target.getType()) && convertedTargetType(target) == null;
+          }
+
+          /** Values the recipe would otherwise unwrap or rename to a raw value. */
+          private boolean isRewrittenTypedValue(Expression expression) {
+            Expression unwrapped = unwrapParentheses(expression);
+            if (unwrapped instanceof J.ControlParentheses<?> parentheses
+                && parentheses.getTree() instanceof Expression nested) {
+              return isRewrittenTypedValue(nested);
+            }
+            if (unwrapped instanceof J.Ternary ternary) {
+              return isRewrittenTypedValue(ternary.getTruePart())
+                  || isRewrittenTypedValue(ternary.getFalsePart());
+            }
+            if (unwrapped instanceof J.TypeCast cast) {
+              return isRewrittenTypedValue(cast.getExpression());
+            }
+            return unwrapped instanceof J.MethodInvocation invocation
+                && (matchesTypedVariableGetter(invocation)
+                    || isTypedValueFactory(invocation)
+                    || commonSpecs.stream().anyMatch(spec -> spec.matcher().matches(invocation)));
           }
 
           /** Typed values with a direct Java type; ObjectValue and TypedValue need extra checks. */
@@ -1915,6 +1986,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            */
           private Set<JavaType.Variable> retainedTypedVariables(J.CompilationUnit compilationUnit) {
             Map<JavaType.Variable, String> candidates = new HashMap<>();
+            Set<JavaType.Variable> typedOnly = new HashSet<>();
             Set<JavaType.Variable> retained = new HashSet<>();
             new JavaIsoVisitor<Integer>() {
               @Override
@@ -1944,11 +2016,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       }
                     }
                   }
+                } else if (isTypedOnlyType(elementType)) {
+                  for (J.VariableDeclarations.NamedVariable variable :
+                      declarations.getVariables()) {
+                    if (variable.getName().getFieldType() != null) {
+                      typedOnly.add(variable.getName().getFieldType());
+                    }
+                  }
                 }
                 return super.visitVariableDeclarations(declarations, p);
               }
             }.visit(compilationUnit, 0);
-            if (candidates.isEmpty()) {
+            if (candidates.isEmpty() && typedOnly.isEmpty()) {
               return Set.of();
             }
 
@@ -1962,6 +2041,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     && variable.getInitializer() != null
                     && !isRawWrite(variable.getInitializer(), variable.getType(), target)) {
                   retained.add(target);
+                } else if (typedOnly.contains(target)
+                    && variable.getInitializer() != null
+                    && isRewrittenTypedValue(variable.getInitializer())) {
+                  retained.add(target);
                 }
                 return super.visitVariable(variable, p);
               }
@@ -1971,6 +2054,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 JavaType.Variable target = variableOf(assignment.getVariable());
                 if (candidates.containsKey(target)
                     && !isRawWrite(assignment.getAssignment(), assignment.getType(), target)) {
+                  retained.add(target);
+                } else if (typedOnly.contains(target)
+                    && isRewrittenTypedValue(assignment.getAssignment())) {
+                  // typed-only targets keep typed factories and getters
                   retained.add(target);
                 }
                 return super.visitAssignment(assignment, p);
@@ -2015,8 +2102,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   retained.add(source);
                 } else if (consumer instanceof J.MethodInvocation invocation
                     && invocation.getSelect() == value) {
-                  // typed-only methods such as isTransient() have no raw-value equivalent
-                  if (!"getValue".equals(invocation.getSimpleName())
+                  // typed-only methods such as isTransient() have no raw-value equivalent;
+                  // getValue() is only rewritten on a direct variable read
+                  if ((value != read.getValue() || !"getValue".equals(invocation.getSimpleName()))
                       && invocation.getMethodType() != null
                       && isCamunda7TypedValue(invocation.getMethodType().getDeclaringType())) {
                     retained.add(source);
@@ -2037,7 +2125,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 if (candidates.containsKey(targetVariable)
                     && candidates.get(targetVariable).equals(candidates.get(source))) {
                   union(components, source, targetVariable);
-                } else if (isCamunda7TypedValue(target.getType())) {
+                } else if (isTypedTarget(target.getType())) {
                   retained.add(source);
                 }
               }
