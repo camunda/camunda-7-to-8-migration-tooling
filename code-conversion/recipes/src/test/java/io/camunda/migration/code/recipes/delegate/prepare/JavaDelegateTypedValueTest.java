@@ -844,6 +844,53 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedLambdaReturnsRetainCapturedValues() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class LambdaCaptures {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                Supplier<DateValue> dateSupplier = () -> date;
+                Supplier<BytesValue> bytesSupplier = () -> { return this.bytes; };
+
+                void local() {
+                    DateValue local = Variables.dateValue(new Date(1));
+                    Supplier<DateValue> localSupplier = () -> local;
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class LambdaCaptures {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                Supplier<DateValue> dateSupplier = () -> date;
+                Supplier<BytesValue> bytesSupplier = () -> { return this.bytes; };
+
+                void local() {
+                    // TODO: migrate Camunda 7 typed-value declaration manually
+                    DateValue local = Variables.dateValue(new Date(1));
+                    Supplier<DateValue> localSupplier = () -> local;
+                }
+            }
+            """));
+  }
+
+  @Test
   void laterTypedFactoryAssignmentsBecomeRawValues() {
     rewriteRun(
         java(
@@ -1406,12 +1453,15 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.Variables;
             import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class CastCopies {
                 DateValue sourceDate = Variables.dateValue(new Date(0));
                 DateValue copyDate = (DateValue) sourceDate;
                 BytesValue sourceBytes = Variables.byteArrayValue(new byte[]{1});
                 BytesValue copyBytes = (BytesValue) this.sourceBytes;
+                DateValue genericSource = Variables.dateValue(new Date(2));
+                TypedValue genericCopy = (TypedValue) genericSource;
 
                 void copy() {
                     DateValue local = Variables.dateValue(new Date(1));
@@ -1424,6 +1474,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.Variables;
             import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class CastCopies {
                 // TODO: migrate Camunda 7 typed-value declaration manually
@@ -1434,6 +1485,9 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 BytesValue sourceBytes = Variables.byteArrayValue(new byte[]{1});
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 BytesValue copyBytes = (BytesValue) this.sourceBytes;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue genericSource = Variables.dateValue(new Date(2));
+                TypedValue genericCopy = (TypedValue) genericSource;
 
                 void copy() {
                     // TODO: migrate Camunda 7 typed-value declaration manually
@@ -1441,6 +1495,44 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue copied = (DateValue) local;
                 }
+            }
+            """));
+  }
+
+  @Test
+  void unsupportedTypedInitializersRetainTheirSources() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ChosenValues {
+                boolean chooseFirst;
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                DateValue pickedDate = chooseFirst ? date : null;
+                BytesValue pickedBytes = chooseFirst ? this.bytes : null;
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ChosenValues {
+                boolean chooseFirst;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue pickedDate = chooseFirst ? date : null;
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue pickedBytes = chooseFirst ? this.bytes : null;
             }
             """));
   }

@@ -147,10 +147,28 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
               @Override
               public J.TypeCast visitTypeCast(J.TypeCast cast, ExecutionContext innerCtx) {
-                if (isDateOrBytesValue(cast.getType())) {
+                if (isLegacyTypedValue(cast.getType())) {
                   retainTypedReferences(cast.getExpression(), innerCtx);
                 }
                 return super.visitTypeCast(cast, innerCtx);
+              }
+
+              @Override
+              public J.Ternary visitTernary(J.Ternary ternary, ExecutionContext innerCtx) {
+                if (isDateOrBytesValue(ternary.getType())) {
+                  retainTypedReferences(ternary, innerCtx);
+                }
+                return super.visitTernary(ternary, innerCtx);
+              }
+
+              @Override
+              public J.Lambda visitLambda(J.Lambda lambda, ExecutionContext innerCtx) {
+                if (lambda.getType() instanceof JavaType.Parameterized functional
+                    && functional.getTypeParameters().stream()
+                        .anyMatch(type -> isLegacyTypedValue(type))) {
+                  retainTypedReferences(lambda.getBody(), innerCtx);
+                }
+                return super.visitLambda(lambda, innerCtx);
               }
 
               @Override
@@ -424,7 +442,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     type, "org.camunda.bpm.engine.variable.value.BytesValue");
           }
 
-          private void retainTypedReferences(Expression expression, ExecutionContext ctx) {
+          private void retainTypedReferences(J expression, ExecutionContext ctx) {
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
               public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext innerCtx) {
