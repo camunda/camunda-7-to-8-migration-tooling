@@ -93,7 +93,9 @@ value. Such reads include `value.isTransient()`, method references such as
 `value::getValue`, returns from typed-value methods, typed casts, typed
 `instanceof` checks, and assignments to typed targets such as `TypedValue`.
 Fields read or written from another class, including subclasses and classes in
-other source files of the same recipe run, also stay typed with a TODO.
+other source files of the same recipe run, also stay typed with a TODO. `ObjectValue`
+fields written only from typed getters stay `ObjectValue`, without a TODO, when
+another class reads them.
 Declarations of `TypedValue` and other typed-value types without a
 direct Java type follow the same rules when they are initialized from a factory
 or typed getter; converted fields of this kind also convert forward and qualified
@@ -114,15 +116,18 @@ also stay typed. This includes lower-bounded consumers such as
 them do.
 Parameters retained this way get the TODO on their method; review the method's
 call sites together with the parameter.
-Grouped typed-getter declarations keep every variable and required cast; groups
-with incompatible initializers stay at their Camunda 7 types with a TODO.
+Grouped typed-getter declarations keep every variable and required cast. Groups
+that mix typed getters with factories convert each variable in any order, such as
+`DateValue a = execution.getVariableTyped("a"), b = Variables.dateValue(date);`;
+groups with incompatible initializers stay at their Camunda 7 types with a TODO.
 Assignments through another instance of the same class use converted field
 types, while unrelated owners and retained local values keep their typed calls.
 Nested factory calls, such as `execution.setVariable("date", Variables.dateValue(date))`,
 pass the raw value and get the same transient-flag TODO.
 `Variables.dateValue(date).getValue()` and similar reads become the raw value,
 cast to the boxed type when it is used as a receiver or method argument, such as
-`((Integer) 5).toString()`.
+`((Integer) 5).toString()`. `null` values always keep their type, such as
+`(String) null`.
 Other typed-value methods called on a factory, such as `isTransient()`, and
 method references on a factory, such as `Variables.dateValue(date)::getValue`,
 stay unchanged with a TODO. Typed-value methods called on a ternary, such as

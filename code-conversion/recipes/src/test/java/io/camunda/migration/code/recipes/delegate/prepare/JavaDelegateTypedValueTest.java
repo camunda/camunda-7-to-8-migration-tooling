@@ -2589,4 +2589,90 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedStringNullReadsKeepStringType() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class StringNulls {
+                void print(String value) {}
+
+                void print(Object value) {}
+
+                String read() {
+                    String missing = Variables.stringValue(null).getValue();
+                    print(Variables.stringValue(null).getValue());
+                    String name = Variables.stringValue("name").getValue().trim();
+                    return Variables.stringValue(null).getValue().trim();
+                }
+            }
+            """,
+            """
+            class StringNulls {
+                void print(String value) {}
+
+                void print(Object value) {}
+
+                String read() {
+                    String missing = (String) null;
+                    print((String) null);
+                    String name = "name".trim();
+                    return ((String) null).trim();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void mixedGroupedTypedGettersConvertInAnyOrder() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class MixedGroups {
+                DelegateExecution execution;
+                Date now;
+                DateValue first = execution.getVariableTyped("f"), last = Variables.dateValue(now);
+
+                void read(Date date) {
+                    DateValue a = execution.getVariableTyped("a"), b = Variables.dateValue(date);
+                    DateValue c = Variables.dateValue(date), d = execution.getVariableTyped("d");
+                    Date values = a.getValue();
+                    values = b.getValue();
+                    values = c.getValue();
+                    values = d.getValue();
+                    values = first.getValue();
+                    values = last.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class MixedGroups {
+                DelegateExecution execution;
+                Date now;
+                Date first = (Date) execution.getVariable("f"), last = now;
+
+                void read(Date date) {
+                    Date a = (Date) execution.getVariable("a"), b = date;
+                    Date c = date, d = (Date) execution.getVariable("d");
+                    Date values = a;
+                    values = b;
+                    values = c;
+                    values = d;
+                    values = first;
+                    values = last;
+                }
+            }
+            """));
+  }
 }

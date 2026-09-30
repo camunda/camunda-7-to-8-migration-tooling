@@ -869,4 +869,43 @@ public class TypeValueTestClass {
                 }
                 """));
   }
+
+  @Test
+  void preservesGetterBackedFieldsReadOutsideTheirClass() {
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
+        java(
+            """
+                import org.camunda.bpm.engine.delegate.DelegateExecution;
+                import org.camunda.bpm.engine.variable.value.ObjectValue;
+
+                public class PayloadHolder {
+                    public ObjectValue shared;
+                    ObjectValue sibling;
+
+                    void update(DelegateExecution execution) {
+                        shared = execution.getVariableTyped("shared");
+                        sibling = execution.getVariableTyped("sibling");
+                    }
+
+                    Object read() {
+                        return shared.getValue();
+                    }
+                }
+
+                class SiblingReader {
+                    Object read(PayloadHolder holder) {
+                        return holder.sibling.getValue();
+                    }
+                }
+                """),
+        java(
+            """
+                class PayloadReader {
+                    Object read(PayloadHolder holder) {
+                        return holder.shared.getValue();
+                    }
+                }
+                """));
+  }
 }

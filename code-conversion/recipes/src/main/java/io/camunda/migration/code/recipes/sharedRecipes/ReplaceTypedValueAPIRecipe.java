@@ -24,6 +24,7 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
   private static final String OBJECT_VALUE_FQN =
       "org.camunda.bpm.engine.variable.value.ObjectValue";
   private static final String GETTER_ONLY_OBJECT_VALUE_FIELDS = "getterOnlyObjectValueFields";
+  private static final String SHARED_OBJECT_VALUE_FIELDS = "sharedObjectValueFields";
   private static final String TYPED_VALUE_PACKAGE = "org.camunda.bpm.engine.variable.value.";
   private static final String VARIABLES_FQN = "org.camunda.bpm.engine.variable.Variables";
   private static final String CONVERTED_FIELD_MESSAGE_PREFIX = "convertedField:";
@@ -328,6 +329,9 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
           public J visitCompilationUnit(J.CompilationUnit compilationUnit, ExecutionContext ctx) {
             getCursor()
                 .putMessage(RETAINED_TYPED_VARIABLES, retainedTypedVariables(compilationUnit));
+            getCursor()
+                .putMessage(
+                    SHARED_OBJECT_VALUE_FIELDS, sharedObjectValueFields(compilationUnit));
             return super.visitCompilationUnit(compilationUnit, ctx);
           }
 
@@ -506,8 +510,10 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
               }
 
               boolean castTypedVariable = requiresGetterCast(invocation);
-              if (matchesTypedVariableGetter(invocation)
-                  || GET_ALL_VARIABLES_TYPED.matches(invocation)) {
+              // mixed groups are rewritten per declarator, like groups starting with a factory
+              if ((matchesTypedVariableGetter(invocation)
+                      || GET_ALL_VARIABLES_TYPED.matches(invocation))
+                  && (!grouped || allTypedGetterInitializers(declarations))) {
 
                 if (grouped) {
                   return convertGroupedTypedGetters(declarations, ctx);
@@ -1338,6 +1344,9 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             if (type instanceof JavaType.FullyQualified fullyQualified) {
               return fullyQualified.getFullyQualifiedName();
             }
+            if (type == JavaType.Primitive.String) {
+              return "java.lang.String";
+            }
             return type instanceof JavaType.Array array
                     && array.getElemType() == JavaType.Primitive.Byte
                 ? "byte[]"
@@ -2104,13 +2113,7 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                   boolean keep =
                       isTypedValueArray(declarations)
                           || hasUnsupportedTypeExpression(declarations)
-                          || hasContextFixedType(getCursor())
-                          || (declarations.getVariables().size() > 1
-                              && unwrapParentheses(
-                                      declarations.getVariables().get(0).getInitializer())
-                                  instanceof J.MethodInvocation getter
-                              && matchesTypedVariableGetter(getter)
-                              && !allTypedGetterInitializers(declarations));
+                          || hasContextFixedType(getCursor());
                   for (J.VariableDeclarations.NamedVariable variable :
                       declarations.getVariables()) {
                     JavaType.Variable variableType = variable.getName().getFieldType();
@@ -2367,13 +2370,6 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                   }
                   continue;
                 }
-                if (fields.getVariables().size() > 1
-                    && unwrapParentheses(fields.getVariables().get(0).getInitializer())
-                        instanceof J.MethodInvocation getter
-                    && matchesTypedVariableGetter(getter)
-                    && !allTypedGetterInitializers(fields)) {
-                  continue;
-                }
                 String newFqn = mapTypedValueToNewFqn(typeExpr.getType());
                 if (isRetainedTypedDeclaration(fields)
                     || requiresManualTypedInitializer(fields, typeExpr.getType(), newFqn)) {
@@ -2402,6 +2398,8 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
           }
 
           private Set<JavaType.Variable> getterOnlyObjectValueFields(J.Block body) {
+            Set<JavaType.Variable> shared =
+                getCursor().getNearestMessage(SHARED_OBJECT_VALUE_FIELDS, Set.of());
             Set<JavaType.Variable> fields = new HashSet<>();
             for (Statement statement : body.getStatements()) {
               if (statement instanceof J.VariableDeclarations declarations
@@ -2411,12 +2409,33 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                 JavaType.Variable fieldType = variable.getName().getFieldType();
                 if (variable.getInitializer() == null
                     && fieldType != null
+                    && !shared.contains(fieldType)
                     && hasOnlyCompatibleGetterUses(body, fieldType)) {
                   fields.add(fieldType);
                 }
               }
             }
             return fields;
+          }
+
+          /** ObjectValue fields used outside their declaring class, in this or another file. */
+          private Set<JavaType.Variable> sharedObjectValueFields(
+              J.CompilationUnit compilationUnit) {
+            Set<JavaType.Variable> shared = new HashSet<>();
+            new JavaIsoVisitor<Integer>() {
+              @Override
+              public J.Identifier visitIdentifier(J.Identifier identifier, Integer p) {
+                JavaType.Variable field = identifier.getFieldType();
+                if (field != null
+                    && TypeUtils.isOfClassType(field.getType(), OBJECT_VALUE_FQN)
+                    && (externallyUsedFields.contains(typedFieldKey(field))
+                        || isOutsideDeclaringClass(field, getCursor()))) {
+                  shared.add(field);
+                }
+                return super.visitIdentifier(identifier, p);
+              }
+            }.visit(compilationUnit, 0, new Cursor(null, Cursor.ROOT_VALUE));
+            return shared;
           }
 
           private boolean hasOnlyCompatibleGetterUses(J.Block body, JavaType.Variable fieldType) {
