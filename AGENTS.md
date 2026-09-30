@@ -180,6 +180,7 @@ Examples (with the `related to #<issue-number>` body line shown inline for brevi
 - Use conventional commits format for PR titles
 - Reference issues with `related to #<issue-number>` (not `closes`)
 - Keep PRs focused on a single feature or fix
+- For PRs targeting `main`, inspect the complete changed-file list. If any changed path is outside `agentic-migration-skills/`, add both `bot:backport:maintenance/0.2` and `bot:backport:maintenance/0.3` labels; omit them for PRs whose changes are entirely within `agentic-migration-skills/`.
 - Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows)
 - A human reviewer will merge - do not merge PRs
 
