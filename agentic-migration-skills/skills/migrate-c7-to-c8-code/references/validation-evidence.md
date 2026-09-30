@@ -42,6 +42,10 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
     {"source_path": "models/order.bpmn", "path": "models/converted-c8-order.bpmn",
      "processes": [{"id": "order-process", "standalone": true, "scenarios": ["normal"]}]}
   ],
+  "deployment_sets": [
+    {"name": "web", "modules": ["examples/web"],
+     "models": ["models/converted-c8-order.bpmn"]}
+  ],
   "checks": []
 }
 ```
@@ -52,9 +56,12 @@ Where a module uses a Camunda Spring Boot starter, include its real-client conte
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
 module to skip runtime checks.
 
-The gate compares module and original-model paths with the Step 2 inventory. It parses each
-converted copy to find executable processes and repeating timer starts. Include every executable
-process ID in its model's `processes` array. Use an empty array for DMN.
+Declare each target group in `deployment_sets`. Include every converted model in exactly one set.
+List every migrated module that deploys or calls models in its set. Separate groups that deploy
+to different targets. The gate compares module and original-model paths with the Step 2 inventory.
+It reads all BPMN process IDs, including non-executable definitions, from the source and converted
+copies. It reads repeating timer starts directly under each process, not inside event subprocesses.
+Include every executable process ID in its model's `processes` array. Use an empty array for DMN.
 
 For each standalone process, list `normal` and every missing-worker-input scenario in `scenarios`.
 Record its worker-input review before starting it. For a non-standalone process, set
@@ -75,19 +82,64 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ```
 
 The recorder runs without a shell. It stores JSON evidence under
-`.camunda-migration/validation/logs/`. It returns 0 only when the command exits 0. A failed
-command returns 1 and still saves its output. Continue with other modules, models, and suites.
+`.camunda-migration/validation/logs/`. It returns 0 only when the command and its required
+evidence pass. A failed command or invalid timer observation returns 1 and saves its output.
+Continue with other modules, models, and suites.
 Run recorder invocations sequentially. The default command timeout is five minutes. Use
 `--timeout <seconds>` for checks that need a different limit.
 Never use a command that skips tests, checks only plugin help, or asserts only that a test file exists.
 Use a bounded test that starts the application or packaged JAR. The test must assert startup before
 it stops the process.
 
-Use `review` for the three review kinds. Give a substantive note naming the reviewed files and decisions:
+Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type model --target models/converted-c8-order.bpmn --kind review --note "The skill checked source integrity, converter findings, form decisions, and DI."
 ```
+
+### Deployment and timer decisions
+
+Follow `references/deployment-and-timer-preflight.md` for the caller inventory and decision rules.
+Record every caller and version selection in `MIGRATION_REPORT.md`, including C7 by-key calls,
+C8 `bpmnProcessId` calls, and `.latestVersion()` calls. Resolve IDs from constants and
+configuration. The gate checks the review reference, not caller completeness.
+
+Record one preflight review per deployment set:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type deployment_set --target web --kind preflight --reference MIGRATION_REPORT.md#deployment-set-web --note "Reviewed all process IDs, caller sites, and version selections in the web target."
+```
+
+When source or converted BPMNs share a process ID within a set, record its decision separately.
+Use `explicit_version` only when no retained timer start shares the ID. Use `mapped_rename` only
+after the converted IDs stop colliding. Cite the approved mapping or caller review:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type deployment_set --target web --kind duplicate_process_id --scenario Sample --disposition explicit_version --reference MIGRATION_REPORT.md#sample-callers --note "All Sample callers select an explicit version."
+```
+
+Review each process-level repeating timer found in the source or converted copy. Record its
+`add`, `change`, `preserve`, or `remove` disposition and the approved exact cycle:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type timer --target models/converted-c8-order.bpmn#order-process#Start --kind disposition --disposition preserve --reference MIGRATION_REPORT.md#order-timer --note "Approved R/PT1H and its automatic starts."
+```
+
+Review every module for C7 due-date updates, REST endpoints, helpers, and all callers.
+The source scan is a conservative hint, not a complete parser. Use `no_updates` only when
+no direct hint remains and the manual review found no due-date calls:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition no_updates --note "Reviewed due-date calls and their callers; no active timer update remains."
+```
+
+When every detected hint concerns a non-timer job, use `non_timer` with evidence for each
+`path:line:column` location. If a source line has two hits, then provide two records.
+Use `--non-timer-evidence-json '[{"location":"examples/web/Job.java:42:17","evidence":"MIGRATION_REPORT.md#non-timer-job"}]'`.
+The gate rejects placeholders such as `not applicable` as evidence.
+When any update affects an active timer or cannot be classified, record a `block` check.
+If manual review finds a call the scan missed, then keep the review blocked.
+An `approved` decision or a passing review cannot bypass this blocker.
 
 If a check cannot run, record `block` with a reason. Never substitute a review for an executable
 check:
@@ -107,14 +159,16 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Target | Required checks |
 |---|---|
 | Project `.` | `docker_info` before the first Docker-dependent suite, when any suite needs Docker. Use exactly `docker info`. |
-| Each module | `compile`, one `tests` check per declared suite, and `review`. |
+| Each module | `compile`, one `tests` check per declared suite, `review`, and `active_timer_updates` review or blocker. |
 | Spring Boot runtime module | `configuration`, `spring_boot_run`, and `executable_jar`, in addition to module checks. |
 | External runtime module | `configuration` and `external_launcher`, in addition to module checks. |
 | Each converted BPMN/DMN | `lint`, `review`, then `deployment`. The recorder also checks XML parsing and source separation. |
+| Each deployment set | A preflight review with an approved reference. |
+| Each duplicate process ID in a set | An explicit-version or mapped-rename review with an approved reference. |
 | Each standalone executable process | `worker_input_inventory` review and `process_path` for `normal` and each declared scenario. |
 | Each non-standalone executable process | `process_path` with the `covering_test` as its scenario. |
 | Each applicable behavior | A command check named in the assertion table below. |
-| Each repeating timer start in an executable process | A separate `preflight` before model deployment or process execution. |
+| Each repeating timer start directly under a process | An approved `disposition` review. For a retained timer, a separate runtime `preflight` before deployment or process execution. |
 
 The module review covers the code checks in Step 4 of `SKILL.md`: dependencies and their
 compatibility, imports, TODOs, business keys, client usage, queries, adapters, and packaged resources.
@@ -148,9 +202,30 @@ Use the same restriction for runtime checks. Never start a production worker as 
 probe. Deploy every converted model. Never deploy a validation probe to production.
 
 [Timer starts schedule work on deployment](https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/#timer-start-events).
-Run each repeating timer preflight on an isolated local cluster. Include
-`--isolation-plan "<cleanup or isolation steps>"` and `--environment local`.
-If no safe plan exists, then block the preflight and do not deploy or start that model.
+Run each retained repeating timer preflight on a disposable local or non-production target.
+The command must deploy the converted copy, observe a timer-created instance, and complete
+cleanup. Supply the selected Camunda 8 patch version and a cleanup plan:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type timer --target models/converted-c8-order.bpmn#order-process#Start --kind preflight --environment local --target-disposable --target-version 8.9.21 --isolation-plan "Destroy the disposable target." -- <bounded-disposable-test-command>
+```
+
+After cleanup, the command must print one JSON object on its last stdout line.
+Replace the sample evidence references with records from the actual test:
+
+```json
+{"deployment":{"performed":true,"reference":"deployment-record","environment":"local","target_disposable":true,"target_version":"8.9.21"},"observation":{"model_path":"models/converted-c8-order.bpmn","process_id":"order-process","start_id":"Start","cycle":"R/PT1H","instances_started":1},"cleanup":{"completed":true,"evidence_reference":"cleanup-record"}}
+```
+
+The gate checks the model path, process ID, event ID, exact cycle, observed starts, target,
+and completed cleanup. It cannot inspect the remote target. Never substitute a print-only
+command for the disposable test. If no safe target exists, then block the preflight.
+Do not deploy or start that model.
+
+Each check stores a fingerprint of the declared modules, source and converted models, root build
+configuration, and deployment-set membership. Source changes make old checks stale.
+Refresh stale checks before a dependent command or readiness claim. The recorder rejects a
+dependent command before it runs when its review, lint, or timer preflight is stale.
 
 When a Docker probe fails, block its Docker-dependent suites and run the other suites. When Docker
 responds but Testcontainers fails, classify the suite as `testcontainers`, not

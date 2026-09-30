@@ -8,8 +8,11 @@ Other model checks, a message assertion, and a timer preflight are absent.
 The gate changes that claim to `NOT READY`.
 
 The other tests cover a complete passing scope, independent failures, missing records, runtime
-modules, process assertions, Docker classification, timer ordering, path safety, and report
-replacement. They exercise the command recorder without a Camunda cluster.
+modules, process assertions, Docker classification, path safety, and report replacement.
+They also cover two-module `Sample` collisions, recurring starts, model-bound timer observations,
+due-date blockers, and stale prerequisite checks. These tests use synthetic evidence.
+They do not access a Camunda cluster. A separate disposable-target observation appears in the
+[deployment and timer preflight](../../skills/migrate-c7-to-c8-code/references/deployment-and-timer-preflight.md).
 
 From the repository root, run:
 

@@ -5,10 +5,12 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
@@ -31,6 +33,28 @@ ASSERTIONS = (
 )
 GATE_HEADING = "## Aggregate validation gate"
 RUNTIME_CHECKS = ("spring_boot_run", "executable_jar", "external_launcher")
+SAFE_ENVIRONMENTS = ("local", "non-production")
+SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
+                    ".venv", ".worktree", ".worktrees", "__pycache__",
+                    "build", "dist", "node_modules", "target"}
+CODE_SUFFIXES = {".cjs", ".cts", ".groovy", ".http", ".java", ".js", ".jsx",
+                 ".kt", ".kts", ".mjs", ".mts", ".scala", ".ts", ".tsx"}
+DUE_DATE_HINT = re.compile(r"""\bsetJobDuedate\b|/duedate\b|['"`]duedate['"`]""", re.I)
+TARGET_VERSION = re.compile(r"8\.\d+\.\d+\Z")
+
+
+@dataclass
+class ValidationPlan:
+    required: dict
+    allowed: set
+    timers: dict
+    timer_starts: dict
+    docker_suites: dict
+    model_sets: dict
+    duplicates: dict
+    update_hits: dict
+    source_digest: str
+    issues: list
 
 
 class EvidenceError(ValueError):
@@ -96,6 +120,24 @@ def strings(values, label):
     ):
         raise EvidenceError(f"{label} must contain distinct, non-empty strings")
     return values
+
+
+def concrete_reference(value):
+    if not isinstance(value, str) or not value.strip():
+        return False
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-")
+    return bool(normalized) and normalized not in {
+        "approved", "n-a", "none", "not-applicable", "not-approved",
+        "not-reviewed", "not-run", "not-verified", "notapplicable",
+        "pending", "tbd", "todo", "unknown", "unresolved",
+    } and not normalized.startswith(("not-applicable-", "pending-", "unknown-"))
+
+
+def file_digest(path):
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise EvidenceError(f"Cannot read migration input {path}: {exc}") from exc
 
 
 def initialize(root):
@@ -180,7 +222,67 @@ def read_model(root, source, converted):
         for node in (source_document, document)
     ):
         raise EvidenceError(f"Not DMN definitions documents: {source}, {converted}")
-    return document
+    return source_document, document
+
+
+def scan_module(root, module, module_paths, hashes):
+    path = project_path(root, module, "module", must_exist=True)
+    if not path.is_dir():
+        raise EvidenceError(f"Module directory is missing: {module}")
+    nested = {
+        project_path(root, other, "module")
+        for other in module_paths
+        if other != module and project_path(root, other, "module").is_relative_to(path)
+    }
+    hits = []
+
+    def walk_error(error):
+        raise EvidenceError(f"Cannot scan module {module}: {error}") from error
+
+    for current, directories, files in os.walk(path, followlinks=False, onerror=walk_error):
+        directory = Path(current)
+        for name in directories:
+            candidate = directory / name
+            if name not in SKIP_SOURCE_DIRS and candidate not in nested and candidate.is_symlink():
+                raise EvidenceError(f"Cannot scan symlinked source directory: {candidate}")
+        directories[:] = sorted(
+            name for name in directories
+            if name not in SKIP_SOURCE_DIRS and directory / name not in nested
+        )
+        for name in sorted(files):
+            file = directory / name
+            if file.is_symlink():
+                raise EvidenceError(f"Cannot scan symlinked source file: {file}")
+            try:
+                content = file.read_bytes()
+                text = content.decode("utf-8") if file.suffix.lower() in CODE_SUFFIXES else ""
+            except (OSError, UnicodeError) as exc:
+                raise EvidenceError(f"Cannot scan {file}: {exc}") from exc
+            relative = file.relative_to(root).as_posix()
+            if relative == REPORT.as_posix():
+                continue
+            hashes[relative] = hashlib.sha256(content).hexdigest()
+            for match in DUE_DATE_HINT.finditer(text):
+                line = text.count("\n", 0, match.start()) + 1
+                column = match.start() - text.rfind("\n", 0, match.start())
+                hits.append(f"{relative}:{line}:{column}")
+    return hits
+
+
+def repeating_starts(document):
+    starts = {}
+    for process in document.findall(f"{BPMN}process"):
+        for start in process.findall(f"{BPMN}startEvent"):
+            cycle = start.find(f"{BPMN}timerEventDefinition/{BPMN}timeCycle")
+            if cycle is None:
+                continue
+            if not process.get("id") or not start.get("id"):
+                raise EvidenceError("Repeating timer start lacks a process or event ID")
+            key = (process.get("id"), start.get("id"))
+            if key in starts:
+                raise EvidenceError(f"Duplicate repeating timer start: {key}")
+            starts[key] = "".join(cycle.itertext()).strip()
+    return starts
 
 
 def process_assertions(process):
@@ -210,7 +312,15 @@ def requirements(root, evidence):
     required = {}
     allowed = set()
     timers = {}
+    timer_starts = {}
     issues = []
+    if "active_timer_update_decision" in evidence:
+        issues.append("Active timer update approval is not supported; keep affected flows blocked")
+    hashes = {}
+    update_hits = {}
+    source_ids = {}
+    converted_ids = {}
+    module_paths = {module["path"] for module in modules}
 
     def need(category, target, kind, scenario=None, method="command"):
         key = (category, target, kind, scenario)
@@ -223,10 +333,10 @@ def requirements(root, evidence):
     docker_suites = {}
     for module in modules:
         path = module["path"]
-        if not project_path(root, path, "module").is_dir():
-            issues.append(f"Module directory is missing: {path}")
+        update_hits[path] = scan_module(root, path, module_paths, hashes)
         need("module", path, "compile")
         need("module", path, "review", method="review")
+        need("module", path, "active_timer_updates", method="review")
         suites = module.get("test_suites")
         if not isinstance(suites, list) or not suites:
             issues.append(f"{path}: list every independent test suite")
@@ -272,10 +382,13 @@ def requirements(root, evidence):
         need("model", converted, "review", method="review")
         timers[converted] = []
         try:
-            document = read_model(root, source, converted)
+            source_document, document = read_model(root, source, converted)
         except EvidenceError as exc:
             issues.append(str(exc))
             continue
+        for path in (source, converted):
+            file = project_path(root, path, "model snapshot", must_exist=True)
+            hashes[file.relative_to(root).as_posix()] = file_digest(file)
         processes = model.get("processes")
         if not isinstance(processes, list) or any(not isinstance(item, dict) for item in processes):
             issues.append(f"{converted}: invalid process inventory")
@@ -288,6 +401,11 @@ def requirements(root, evidence):
             if declared:
                 issues.append(f"{converted}: DMN cannot contain executable processes")
             continue
+        for inventory, tree in ((source_ids, source_document), (converted_ids, document)):
+            ids = [process.get("id") for process in tree.findall(f"{BPMN}process")]
+            if not all(ids) or len(ids) != len(set(ids)):
+                issues.append(f"{converted}: BPMN process IDs are missing or repeated")
+            inventory[converted] = {pid for pid in ids if pid}
         executable = {
             process.get("id"): process
             for process in document.findall(f"{BPMN}process")
@@ -324,16 +442,90 @@ def requirements(root, evidence):
             for assertion in process_assertions(process):
                 need("process", target, assertion)
             allowed.update(("process", target, assertion, None) for assertion in ASSERTIONS)
-            for start in process.iter(f"{BPMN}startEvent"):
-                if start.find(f"{BPMN}timerEventDefinition/{BPMN}timeCycle") is None:
-                    continue
-                if not start.get("id"):
-                    issues.append(f"{target}: repeating timer start lacks an ID")
-                    continue
-                timers[converted].append(need("timer", f"{target}#{start.get('id')}", "preflight"))
+        source_timers = repeating_starts(source_document)
+        converted_timers = repeating_starts(document)
+        for (process_id, start_id) in sorted(source_timers.keys() | converted_timers.keys()):
+            old = source_timers.get((process_id, start_id))
+            new = converted_timers.get((process_id, start_id))
+            cycle = new if new is not None else old
+            if new is not None and (
+                not new or new.startswith("=") or "${" in new or "#{" in new
+            ):
+                issues.append(f"{converted}#{process_id}#{start_id}: unresolved timer cycle")
+            disposition = ("add" if old is None else "remove" if new is None
+                           else "preserve" if old == new else "change")
+            target = f"{converted}#{process_id}#{start_id}"
+            review = need("timer", target, "disposition", method="review")
+            timer_starts[review] = {"disposition": disposition, "model_path": converted,
+                                   "process_id": process_id, "start_id": start_id, "cycle": cycle}
+            if new is not None:
+                preflight = need("timer", target, "preflight")
+                timer_starts[preflight] = timer_starts[review]
+                timers[converted].append(preflight)
     if len(converted_paths) != len(set(converted_paths)):
         issues.append("Converted copies must be distinct")
-    return required, allowed, timers, docker_suites, issues
+
+    deployment_sets = {}
+    model_sets = {}
+    duplicates = {}
+    declared_sets = evidence.get("deployment_sets", [])
+    if not isinstance(declared_sets, list) or (models and not declared_sets):
+        issues.append("Declare the intended deployment sets for all models")
+        declared_sets = []
+    for entry in declared_sets:
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str) or not entry["name"]:
+            issues.append("Every deployment set needs a name, modules, and models")
+            continue
+        name = entry["name"]
+        if name in deployment_sets:
+            issues.append(f"Duplicate deployment set: {name}")
+            continue
+        try:
+            set_modules = strings(entry.get("modules"), f"{name} modules")
+            set_models = strings(entry.get("models"), f"{name} models")
+        except EvidenceError as exc:
+            issues.append(str(exc))
+            continue
+        if set(set_modules) - module_paths or set(set_models) - set(timers):
+            issues.append(f"{name}: deployment set includes unknown modules or models")
+        deployment_sets[name] = entry
+        need("deployment_set", name, "preflight", method="review")
+        for model_path in set_models:
+            if model_path in model_sets:
+                issues.append(f"{model_path}: model belongs to multiple deployment sets")
+            model_sets[model_path] = name
+        for inventory in (source_ids, converted_ids):
+            ids = {}
+            for model_path in set_models:
+                for process_id in inventory.get(model_path, set()):
+                    ids.setdefault(process_id, []).append(model_path)
+            for process_id, paths in ids.items():
+                if len(paths) > 1:
+                    duplicates.setdefault((name, process_id), {})[
+                        "source" if inventory is source_ids else "converted"
+                    ] = paths
+    for name, process_id in duplicates:
+        need("deployment_set", name, "duplicate_process_id", process_id, method="review")
+    if set(model_sets) != set(timers):
+        issues.append("Each converted model must belong to exactly one deployment set")
+    if models and module_paths - {path for group in deployment_sets.values() for path in group["modules"]}:
+        issues.append("Include each migrated module in its deployment set inventory")
+    for name in ("pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
+                 "settings.gradle.kts", "gradle.properties"):
+        file = root / name
+        if file.is_symlink():
+            raise EvidenceError(f"Cannot scan symlinked build configuration: {file}")
+        if file.is_file():
+            hashes[name] = file_digest(file)
+    snapshot = {"modules": modules, "models": models, "deployment_sets": declared_sets,
+                "files": hashes}
+    source_digest = hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    return ValidationPlan(
+        required, allowed, timers, timer_starts, docker_suites, model_sets,
+        duplicates, update_hits, source_digest, issues,
+    )
 
 
 def check_key(check):
@@ -348,7 +540,139 @@ def needs_safe_environment(key):
     )
 
 
-def load_checks(root, evidence, allowed, issues):
+def parse_evidence_list(value):
+    try:
+        parsed = json.loads(value) if isinstance(value, str) else None
+    except json.JSONDecodeError as exc:
+        raise EvidenceError("Non-timer evidence must be valid JSON") from exc
+    if not isinstance(parsed, list):
+        raise EvidenceError("Non-timer evidence must be a JSON array")
+    return parsed
+
+
+def validate_risk_check(plan, key, check):
+    if check["result"] != "passed":
+        return
+    category, target, kind, scenario = key
+    if category == "deployment_set" or (category == "timer" and kind == "disposition"):
+        if not concrete_reference(check.get("reference")):
+            raise EvidenceError(f"{key}: cite a concrete approval and review reference")
+    if category == "deployment_set" and kind == "duplicate_process_id":
+        collision = plan.duplicates[(target, scenario)]
+        disposition = check.get("disposition")
+        if disposition == "explicit_version":
+            if "converted" not in collision:
+                raise EvidenceError(f"{key}: a source collision needs a mapped rename")
+            if any(
+                timer[2] == "preflight"
+                and details["process_id"] == scenario
+                and details["model_path"] in collision["converted"]
+                for timer, details in plan.timer_starts.items()
+            ):
+                raise EvidenceError(f"{key}: explicit versions cannot preserve a colliding timer start")
+        elif disposition != "mapped_rename" or "converted" in collision:
+            raise EvidenceError(f"{key}: rename colliding IDs or review explicit-version callers")
+    if category == "timer" and kind == "disposition":
+        if check.get("disposition") != plan.timer_starts[key]["disposition"]:
+            raise EvidenceError(f"{key}: timer disposition does not match the source and converted copies")
+    if category == "module" and kind == "active_timer_updates":
+        hits = plan.update_hits[target]
+        disposition = check.get("disposition")
+        evidence = check.get("non_timer_evidence")
+        if disposition == "no_updates" and not hits and not evidence:
+            return
+        if disposition != "non_timer" or not hits or not isinstance(evidence, list):
+            raise EvidenceError(f"{key}: block active or unclassified due-date updates")
+        locations = [item.get("location") for item in evidence if isinstance(item, dict)]
+        if len(locations) != len(evidence) or any(
+            not isinstance(location, str) for location in locations
+        ) or sorted(locations) != sorted(hits) or any(
+            not concrete_reference(item.get("evidence")) for item in evidence
+        ):
+            raise EvidenceError(f"{key}: classify each detected due-date location with concrete evidence")
+    if category == "timer" and kind == "preflight":
+        if (
+            check.get("environment") not in SAFE_ENVIRONMENTS
+            or check.get("target_disposable") is not True
+            or not isinstance(check.get("isolation_plan"), str)
+            or not check["isolation_plan"].strip()
+            or not isinstance(check.get("target_version"), str)
+            or TARGET_VERSION.fullmatch(check["target_version"]) is None
+        ):
+            raise EvidenceError(f"{key}: use a disposable local or non-production target and cleanup plan")
+        output = check["output"].strip().splitlines()
+        if not output:
+            raise EvidenceError(f"{key}: timer test must emit an observation")
+        try:
+            observation = json.loads(output[-1])
+        except json.JSONDecodeError as exc:
+            raise EvidenceError(f"{key}: timer test must end with one JSON observation line") from exc
+        if not isinstance(observation, dict):
+            raise EvidenceError(f"{key}: timer observation must be an object")
+        deployment = observation.get("deployment")
+        observed = observation.get("observation")
+        cleanup = observation.get("cleanup")
+        expected = plan.timer_starts[key]
+        if not isinstance(deployment, dict) or (
+            deployment.get("performed") is not True
+            or not concrete_reference(deployment.get("reference"))
+            or deployment.get("environment") != check["environment"]
+            or deployment.get("target_disposable") is not True
+            or deployment.get("target_version") != check["target_version"]
+        ):
+            raise EvidenceError(f"{key}: timer observation lacks a matching deployment")
+        if not isinstance(observed, dict) or any(
+            observed.get(field) != expected[field]
+            for field in ("model_path", "process_id", "start_id", "cycle")
+        ) or type(observed.get("instances_started")) is not int or observed["instances_started"] < 1:
+            raise EvidenceError(f"{key}: timer observation must match this model and its timer start")
+        if not isinstance(cleanup, dict) or (
+            cleanup.get("completed") is not True
+            or not concrete_reference(cleanup.get("evidence_reference"))
+        ):
+            raise EvidenceError(f"{key}: timer observation needs completed cleanup evidence")
+
+
+def prerequisites(plan, key):
+    category, target, kind, _ = key
+    dependencies = []
+    if category == "timer" and kind == "preflight":
+        dependencies.append(("timer", target, "disposition", None))
+    if category == "model" and kind == "deployment":
+        dependencies.append(("model", target, "lint", None))
+    if category == "process" and kind == "process_path":
+        review = ("process", target, "worker_input_inventory", None)
+        if review in plan.required:
+            dependencies.append(review)
+    if (category == "process" and kind != "worker_input_inventory") or (
+        category == "model" and kind == "deployment"
+    ):
+        model = target.split("#", 1)[0]
+        deployment_set = plan.model_sets.get(model)
+        if deployment_set is not None:
+            dependencies.append(("deployment_set", deployment_set, "preflight", None))
+            dependencies.extend(
+                ("deployment_set", name, "duplicate_process_id", process_id)
+                for name, process_id in plan.duplicates if name == deployment_set
+            )
+        for timer in plan.timers.get(model, []):
+            dependencies.extend((("timer", timer[1], "disposition", None), timer))
+    return dependencies
+
+
+def require_prerequisites(plan, checks, key, before=None):
+    for dependency in prerequisites(plan, key):
+        previous = checks.get(dependency)
+        if (
+            previous is None or previous[1]["result"] != "passed"
+            or previous[1]["method"] != plan.required.get(dependency, "command")
+            or previous[1].get("source_digest") != plan.source_digest
+            or before is not None and previous[0] >= before
+        ):
+            raise EvidenceError(f"{key}: {dependency[2]} must pass before execution")
+
+
+def load_checks(root, evidence, plan, issues):
     checks = {}
     references = evidence.get("checks", [])
     if not isinstance(references, list):
@@ -366,7 +690,7 @@ def load_checks(root, evidence, allowed, issues):
                 key[3] is not None and (not isinstance(key[3], str) or not key[3])
             ):
                 raise EvidenceError(f"Malformed check in {reference}")
-            if key not in allowed or key in checks:
+            if key not in plan.allowed or key in checks:
                 raise EvidenceError(f"Unexpected or duplicate check: {key}")
             if check.get("run_id") != run_id:
                 raise EvidenceError(f"{key}: check belongs to another migration run")
@@ -384,8 +708,10 @@ def load_checks(root, evidence, allowed, issues):
                     raise EvidenceError(f"{key}: missing command")
                 if result == "passed" and (type(exit_code) is not int or exit_code != 0):
                     raise EvidenceError(f"{key}: passed without exit code 0")
-                if result == "failed" and (type(exit_code) is not int or exit_code == 0):
-                    raise EvidenceError(f"{key}: failed without a nonzero exit code")
+                if result == "failed" and (
+                    type(exit_code) is not int or exit_code == 0 and key[0] != "timer"
+                ):
+                    raise EvidenceError(f"{key}: failed without a nonzero exit code or invalid timer evidence")
                 if result == "blocked" and exit_code is not None:
                     raise EvidenceError(f"{key}: blocked command has an exit code")
             elif method in ("review", "blocked"):
@@ -405,13 +731,11 @@ def load_checks(root, evidence, allowed, issues):
                 raise EvidenceError(f"{key}: evidence output must be text")
             if result != "passed" and (not isinstance(reason, str) or not reason.strip()):
                 raise EvidenceError(f"{key}: non-passing check needs a reason")
-            if key[0] == "timer" and result == "passed" and (
-                check.get("environment") != "local" or not check.get("isolation_plan")
-            ):
-                raise EvidenceError(f"{key}: timer preflight needs local isolation or cleanup")
             if needs_safe_environment(key) and result == "passed":
-                if check.get("environment") not in ("local", "non-production"):
+                if check.get("environment") not in SAFE_ENVIRONMENTS:
                     raise EvidenceError(f"{key}: production or unknown runtime target")
+            if check.get("source_digest") == plan.source_digest:
+                validate_risk_check(plan, key, check)
             checks[key] = (index, check, reference)
         except EvidenceError as exc:
             issues.append(str(exc))
@@ -462,20 +786,27 @@ def report_text(existing, gate, issues):
 def report(root):
     issues = []
     checks = {}
+    plan = None
     try:
         evidence = read_json(root / EVIDENCE)
-        required, allowed, timers, docker_suites, scope_issues = requirements(root, evidence)
-        issues.extend(scope_issues)
-        checks = load_checks(root, evidence, allowed, issues)
-        for key in sorted(required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
+        plan = requirements(root, evidence)
+        issues.extend(plan.issues)
+        checks = load_checks(root, evidence, plan, issues)
+        for key in sorted(plan.required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
             issues.append(f"Missing {key[0]} {key[2]}: {key[1]} {key[3] or ''}".strip())
         for key, (index, check, _) in checks.items():
-            method = required.get(key, "command")
+            method = plan.required.get(key, "command")
             if check["method"] not in (method, "blocked"):
                 issues.append(f"{key}: expected {method} evidence")
             if check["result"] != "passed":
                 issues.append(f"{key}: {check['result']}: {check['reason']}")
-            if key in docker_suites and docker_suites[key]:
+            if check.get("source_digest") != plan.source_digest:
+                issues.append(f"{key}: stale source or deployment-set evidence")
+            try:
+                require_prerequisites(plan, checks, key, before=index)
+            except EvidenceError as exc:
+                issues.append(str(exc))
+            if key in plan.docker_suites and plan.docker_suites[key]:
                 probe = checks.get(("project", ".", "docker_info", None))
                 if probe is None or probe[0] >= index:
                     issues.append(f"{key}: Docker probe must precede the suite")
@@ -483,27 +814,9 @@ def report(root):
                     probe is None or probe[1]["result"] != "failed"
                 ):
                     issues.append(f"{key}: Docker was not shown to be unavailable")
-            if key[0] == "model" and key[2] == "deployment":
-                lint = checks.get(("model", key[1], "lint", None))
-                if lint is None or lint[0] >= index:
-                    issues.append(f"{key}: lint must precede deployment")
-            if key[0] == "process" and key[2] == "process_path":
-                inventory = ("process", key[1], "worker_input_inventory", None)
-                if inventory in required:
-                    review = checks.get(inventory)
-                    if review is None or review[0] >= index or review[1]["result"] != "passed":
-                        issues.append(f"{key}: worker input review must precede process execution")
-            if key[0] in ("model", "process") and (
-                key[0] == "process" or key[2] == "deployment"
-            ):
-                model = key[1].split("#", 1)[0]
-                for timer in timers.get(model, []):
-                    preflight = checks.get(timer)
-                    if preflight is None or preflight[0] >= index or preflight[1]["result"] != "passed":
-                        issues.append(f"{key}: timer preflight must pass before execution")
         if any(
             key[0] == "module" and key[2] == "tests" and check[1].get("failure_class") == "docker_unavailable"
-            and not docker_suites.get(key, False)
+            and not plan.docker_suites.get(key, False)
             for key, check in checks.items()
         ):
             issues.append("A non-Docker test was classified as Docker unavailable")
@@ -520,6 +833,7 @@ def report(root):
     summary = {
         "schema_version": 1,
         "gate": gate,
+        "source_snapshot_sha256": plan.source_digest if plan else None,
         "issues": issues,
         "checks": [
             {**{key: value for key, value in check.items() if key != "output"}, "evidence_path": reference}
@@ -535,41 +849,39 @@ def report(root):
 
 def record(root, args):
     evidence = read_json(root / EVIDENCE)
-    required, allowed, timers, docker_suites, issues = requirements(root, evidence)
-    if issues:
-        raise EvidenceError("; ".join(issues))
+    plan = requirements(root, evidence)
+    if plan.issues:
+        raise EvidenceError("; ".join(plan.issues))
     key = (args.type, args.target, args.kind, args.scenario)
-    if key not in allowed:
+    if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
-    method = required.get(key, "command")
+    method = plan.required.get(key, "command")
     if args.action == "review" and method != "review":
         raise EvidenceError(f"{key} requires an executable command")
     if args.action == "run" and method != "command":
         raise EvidenceError(f"{key} requires a review")
+    if args.non_timer_evidence_json is not None and (
+        args.action != "review" or key[2] != "active_timer_updates"
+    ):
+        raise EvidenceError("Non-timer evidence is only valid for active timer update reviews")
     if args.type == "timer" and args.action == "run":
-        if args.environment != "local" or not args.isolation_plan:
-            raise EvidenceError("Timer preflight needs a local target and an isolation or cleanup plan")
+        if (
+            args.environment not in SAFE_ENVIRONMENTS
+            or not args.isolation_plan
+            or not args.target_disposable
+            or not isinstance(args.target_version, str)
+            or TARGET_VERSION.fullmatch(args.target_version) is None
+        ):
+            raise EvidenceError("Timer preflight needs a disposable local or non-production target, version, and cleanup plan")
     elif args.action == "run" and needs_safe_environment(key):
-        if args.environment not in ("local", "non-production"):
+        if args.environment not in SAFE_ENVIRONMENTS:
             raise EvidenceError("Runtime and deployment checks require a local or non-production target")
     previous_issues = []
-    previous = load_checks(root, evidence, allowed, previous_issues)
+    previous = load_checks(root, evidence, plan, previous_issues)
     if previous_issues:
         raise EvidenceError("; ".join(previous_issues))
-    if args.action == "run" and args.type == "model" and args.kind == "deployment":
-        lint = previous.get(("model", args.target, "lint", None))
-        if lint is None or lint[1]["result"] != "passed":
-            raise EvidenceError("Lint must pass before deployment")
-    if args.action == "run" and (args.type == "process" or args.type == "model" and args.kind == "deployment"):
-        model = args.target.split("#", 1)[0]
-        if any(timer not in previous or previous[timer][1]["result"] != "passed" for timer in timers.get(model, [])):
-            raise EvidenceError("Timer preflight must pass before deployment or process execution")
-    if args.action == "run" and args.type == "process" and args.kind == "process_path":
-        inventory = ("process", args.target, "worker_input_inventory", None)
-        if inventory in required and (
-            inventory not in previous or previous[inventory][1]["result"] != "passed"
-        ):
-            raise EvidenceError("Review worker inputs before testing a direct process start")
+    if args.action == "run":
+        require_prerequisites(plan, previous, key)
     command = None
     exit_code = None
     output = ""
@@ -617,21 +929,6 @@ def record(root, args):
         result = "blocked"
         reason = args.reason
         output = reason
-    failure_class = None
-    if result != "passed":
-        if args.kind == "docker_info":
-            failure_class = "docker_unavailable"
-        elif (
-            args.action == "block"
-            and docker_suites.get(key)
-            and previous.get(("project", ".", "docker_info", None), (None, {}))[1].get("result")
-            == "failed"
-        ):
-            failure_class = "docker_unavailable"
-        elif args.kind == "tests" and "Could not find a valid Docker environment" in output:
-            failure_class = "testcontainers"
-        else:
-            failure_class = "unclassified"
     check = {
         "run_id": read_json(root / INVENTORY)["run_id"],
         "type": args.type,
@@ -643,11 +940,39 @@ def record(root, args):
         "exit_code": exit_code,
         "result": result,
         "reason": reason,
-        "failure_class": failure_class,
         "environment": args.environment,
         "isolation_plan": args.isolation_plan,
+        "target_disposable": args.target_disposable,
+        "target_version": args.target_version,
+        "source_digest": plan.source_digest,
+        "reference": args.reference,
+        "disposition": args.disposition,
+        "non_timer_evidence": (
+            parse_evidence_list(args.non_timer_evidence_json)
+            if args.action == "review" and args.non_timer_evidence_json is not None
+            else None
+        ),
         "output": output,
     }
+    try:
+        validate_risk_check(plan, key, check)
+    except EvidenceError as exc:
+        if args.action != "run" or key[0] != "timer":
+            raise
+        check.update(result="failed", reason=str(exc))
+    result = check["result"]
+    if result != "passed":
+        if args.kind == "docker_info" or (
+            args.action == "block" and plan.docker_suites.get(key)
+            and previous.get(("project", ".", "docker_info", None), (None, {}))[1].get("result") == "failed"
+        ):
+            check["failure_class"] = "docker_unavailable"
+        elif args.kind == "tests" and "Could not find a valid Docker environment" in output:
+            check["failure_class"] = "testcontainers"
+        else:
+            check["failure_class"] = "unclassified"
+    else:
+        check["failure_class"] = None
     digest = hashlib.sha256(json.dumps(key).encode("utf-8")).hexdigest()[:20]
     reference = (LOGS / f"{digest}.json").as_posix()
     write_json(root, Path(reference), check)
@@ -661,18 +986,19 @@ def record(root, args):
 
 def classify(root, args):
     evidence = read_json(root / EVIDENCE)
-    required, allowed, _, docker_suites, issues = requirements(root, evidence)
-    checks = load_checks(root, evidence, allowed, issues)
+    plan = requirements(root, evidence)
+    issues = list(plan.issues)
+    checks = load_checks(root, evidence, plan, issues)
     if issues:
         raise EvidenceError("; ".join(issues))
     key = (args.type, args.target, args.kind, args.scenario)
-    if key not in allowed or key not in checks or checks[key][1]["result"] == "passed":
+    if key not in plan.allowed or key not in checks or checks[key][1]["result"] == "passed":
         raise EvidenceError(f"Only a recorded non-passing check can be classified: {key}")
     if not args.reason.strip():
         raise EvidenceError("Classification requires a reason")
     if args.failure_class == "docker_unavailable":
         probe = checks.get(("project", ".", "docker_info", None))
-        if not docker_suites.get(key) or probe is None or probe[1]["result"] != "failed":
+        if not plan.docker_suites.get(key) or probe is None or probe[1]["result"] != "failed":
             raise EvidenceError("Docker unavailable requires a failed Docker probe and a Docker-dependent suite")
     _, check, reference = checks[key]
     check["failure_class"] = args.failure_class
@@ -690,12 +1016,17 @@ def main():
     actions.add_parser("report", help="Audit scope and write the validation gate")
     for name in ("run", "review", "block"):
         action = actions.add_parser(name)
-        action.add_argument("--type", required=True, choices=("project", "module", "model", "process", "timer"))
+        action.add_argument("--type", required=True, choices=("project", "module", "model", "process", "timer", "deployment_set"))
         action.add_argument("--target", required=True)
         action.add_argument("--kind", required=True)
         action.add_argument("--scenario")
         action.add_argument("--environment", choices=("local", "non-production"))
         action.add_argument("--isolation-plan")
+        action.add_argument("--target-disposable", action="store_true")
+        action.add_argument("--target-version")
+        action.add_argument("--reference")
+        action.add_argument("--disposition")
+        action.add_argument("--non-timer-evidence-json")
         if name == "run":
             action.add_argument("--timeout", type=int, default=300)
             action.add_argument("command", nargs=argparse.REMAINDER)

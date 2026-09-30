@@ -78,6 +78,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "processes": [{"id": "p", "standalone": True, "scenarios": ["normal"]}],
                 }
             ],
+            "deployment_sets": [
+                {"name": "shared", "modules": ["app"],
+                 "models": ["models/converted-c8-process.bpmn"]}
+            ],
             "checks": [],
         }
         self.write_scope()
@@ -101,8 +105,55 @@ class ValidationEvidenceTest(unittest.TestCase):
         with redirect_stdout(StringIO()):
             self.assertEqual(0, gate.initialize(self.root))
 
+    def timer_observation(self, key):
+        expected = gate.requirements(self.root, self.plan).timer_starts[key]
+        return {
+            "deployment": {
+                "performed": True, "reference": "fixture-deployment",
+                "environment": "local", "target_disposable": True,
+                "target_version": "8.9.21",
+            },
+            "observation": {
+                **{field: expected[field] for field in ("model_path", "process_id", "start_id", "cycle")},
+                "instances_started": 1,
+            },
+            "cleanup": {"completed": True, "evidence_reference": "fixture-cleanup"},
+        }
+
+    def sample_models(self, timer=False, isolated=False):
+        self.plan["modules"] = [
+            {"path": f"modules/{name}", "runtime_mode": "none",
+             "test_suites": [{"name": "unit", "requires_docker": False}]}
+            for name in ("a", "b")
+        ]
+        self.plan["models"] = [
+            {"source_path": f"models/{name}.bpmn",
+             "path": f"models/converted-c8-{name}.bpmn",
+             "processes": [{"id": "Sample", "standalone": True, "scenarios": ["normal"]}]}
+            for name in ("a", "b")
+        ]
+        self.plan["deployment_sets"] = (
+            [
+                {"name": name, "modules": [f"modules/{name}"],
+                 "models": [f"models/converted-c8-{name}.bpmn"]}
+                for name in ("a", "b")
+            ]
+            if isolated else
+            [{"name": "shared", "modules": ["modules/a", "modules/b"],
+              "models": [model["path"] for model in self.plan["models"]]}]
+        )
+        self.write_scope(timer=timer)
+
     def submit(self, key, action="run", command=None, **options):
         category, target, kind, scenario = key
+        if category == "timer" and kind == "preflight" and action == "run" and command is None:
+            observation = options.get("observation", self.timer_observation(key))
+            command = [sys.executable, "-c", f"print({json.dumps(json.dumps(observation))})"]
+        disposition = options.get("disposition")
+        if action == "review" and category == "timer" and kind == "disposition" and "disposition" not in options:
+            disposition = gate.requirements(self.root, self.plan).timer_starts[key]["disposition"]
+        if action == "review" and kind == "active_timer_updates" and "disposition" not in options:
+            disposition = "no_updates"
         arguments = Namespace(
             type=category,
             target=target,
@@ -115,16 +166,22 @@ class ValidationEvidenceTest(unittest.TestCase):
             command=command or [sys.executable, "-c", "print('check completed')"],
             note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
+            target_disposable=options.get("target_disposable", category == "timer" and kind == "preflight"),
+            target_version=options.get("target_version", "8.9.21"),
+            reference=options.get("reference", "MIGRATION_REPORT.md#preflight"),
+            disposition=disposition,
+            non_timer_evidence_json=options.get("non_timer_evidence_json"),
         )
         with redirect_stdout(StringIO()):
             return gate.record(self.root, arguments)
 
     def complete_required_checks(self):
-        required, _, _, _, issues = gate.requirements(self.root, self.plan)
-        self.assertEqual([], issues)
-        priorities = {"project": 0, "module": 1, "timer": 2, "model": 3, "process": 4}
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
+        priorities = {"project": 0, "module": 1, "deployment_set": 2,
+                      "timer": 3, "model": 4, "process": 5}
         for key in sorted(
-            required,
+            plan.required,
             key=lambda item: (
                 priorities[item[0]],
                 item[1],
@@ -145,7 +202,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             }
             self.assertEqual(
                 0,
-                self.submit(key, action="review" if required[key] == "review" else "run", **options),
+                self.submit(key, action="review" if plan.required[key] == "review" else "run", **options),
             )
 
     def summary(self):
@@ -226,6 +283,11 @@ class ValidationEvidenceTest(unittest.TestCase):
             }
             for name in model_names
         ]
+        self.plan["deployment_sets"] = [{
+            "name": "shared",
+            "modules": [module["path"] for module in self.plan["modules"]],
+            "models": [model["path"] for model in self.plan["models"]],
+        }]
         self.write_scope()
         for model in self.plan["models"]:
             if model["source_path"] not in ("models/order.bpmn", "models/messaging.bpmn"):
@@ -352,7 +414,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             '<zeebe:taskDefinition type="process" /></bpmn:extensionElements></bpmn:serviceTask>'
         )
         self.write_scope(extra=extra)
-        required, _, _, _, _ = gate.requirements(self.root, self.plan)
+        required = gate.requirements(self.root, self.plan).required
         self.assertEqual(set(gate.ASSERTIONS), {
             key[2] for key in required if key[0] == "process" and key[2] in gate.ASSERTIONS
         })
@@ -379,11 +441,11 @@ class ValidationEvidenceTest(unittest.TestCase):
             converted.read_text(encoding="utf-8").replace('isExecutable="true"', 'isExecutable="1"'),
             encoding="utf-8",
         )
-        required, _, _, _, issues = gate.requirements(self.root, self.plan)
-        self.assertEqual([], issues)
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
         self.assertIn(
             ("process", "models/converted-c8-process.bpmn#p", "process_path", "normal"),
-            required,
+            plan.required,
         )
 
     def test_mismatched_source_model_type_blocks_readiness(self):
@@ -425,6 +487,9 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.plan["models"] = [
             {"source_path": "models/rules.dmn11.xml", "path": "models/converted-c8-rules.dmn", "processes": []}
         ]
+        self.plan["deployment_sets"] = [{
+            "name": "shared", "modules": [], "models": ["models/converted-c8-rules.dmn"]
+        }]
         write_json(self.root / gate.INVENTORY, {
             "schema_version": 1, "modules": [], "models": ["models/rules.dmn11.xml"],
         })
@@ -439,7 +504,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
         self.assertEqual(
-            {"lint", "review", "deployment"},
+            {"lint", "review", "deployment", "preflight"},
             {check["kind"] for check in self.summary()["checks"]},
         )
 
@@ -458,9 +523,9 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.write_scope(timer=True)
         model = "models/converted-c8-process.bpmn"
         self.assertEqual(0, self.submit(("model", model, "lint", None)))
-        with self.assertRaisesRegex(gate.EvidenceError, "Timer preflight"):
+        with self.assertRaisesRegex(gate.EvidenceError, "preflight"):
             self.submit(("model", model, "deployment", None), environment="local")
-        with self.assertRaisesRegex(gate.EvidenceError, "isolation or cleanup"):
+        with self.assertRaisesRegex(gate.EvidenceError, "disposable"):
             self.submit(("timer", f"{model}#p#Start", "preflight", None), environment="local")
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
@@ -468,7 +533,263 @@ class ValidationEvidenceTest(unittest.TestCase):
         plan["checks"] = list(reversed(plan["checks"]))
         write_json(self.root / gate.EVIDENCE, plan)
         self.assertEqual(1, self.audit())
-        self.assertIn("timer preflight must pass before execution", "\n".join(self.summary()["issues"]))
+        self.assertIn("disposition must pass before execution", "\n".join(self.summary()["issues"]))
+
+    def test_duplicate_process_ids_block_deployment_until_caller_decision(self):
+        self.sample_models()
+        model = self.plan["models"][0]["path"]
+        collision = ("deployment_set", "shared", "duplicate_process_id", "Sample")
+        self.assertIn(("shared", "Sample"), gate.requirements(self.root, self.plan).duplicates)
+        self.assertEqual(0, self.submit(("model", model, "lint", None)))
+        self.assertEqual(0, self.submit(
+            ("deployment_set", "shared", "preflight", None), action="review"
+        ))
+        command = [sys.executable, "-c", "from pathlib import Path; Path('executed').touch()"]
+        with self.assertRaisesRegex(gate.EvidenceError, "duplicate_process_id"):
+            self.submit(("model", model, "deployment", None), environment="local", command=command)
+        self.assertFalse((self.root / "executed").exists())
+        with self.assertRaisesRegex(gate.EvidenceError, "concrete approval"):
+            self.submit(collision, action="review", disposition="explicit_version",
+                        reference="not applicable")
+        self.assertEqual(0, self.submit(
+            collision, action="review", disposition="explicit_version",
+            note="Reviewed every caller and pinned the selected version in both modules.",
+        ))
+        self.assertEqual(0, self.submit(
+            ("model", model, "deployment", None), environment="local", command=command
+        ))
+        self.assertTrue((self.root / "executed").exists())
+
+    def test_retained_timer_collision_requires_rename_or_isolation(self):
+        self.sample_models(timer=True)
+        collision = ("deployment_set", "shared", "duplicate_process_id", "Sample")
+        with self.assertRaisesRegex(gate.EvidenceError, "colliding timer start"):
+            self.submit(collision, action="review", disposition="explicit_version")
+        with self.assertRaisesRegex(gate.EvidenceError, "rename colliding IDs"):
+            self.submit(collision, action="review", disposition="mapped_rename")
+        self.sample_models(timer=True, isolated=True)
+        self.assertEqual({}, gate.requirements(self.root, self.plan).duplicates)
+
+    def test_source_collision_stays_open_until_mapped_rename(self):
+        self.sample_models()
+        second = self.plan["models"][1]
+        converted = self.root / second["path"]
+        converted.write_text(
+            converted.read_text(encoding="utf-8").replace("Sample", "Renamed"),
+            encoding="utf-8",
+        )
+        second["processes"][0]["id"] = "Renamed"
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        collision = ("deployment_set", "shared", "duplicate_process_id", "Sample")
+        self.assertNotIn("converted", gate.requirements(self.root, self.plan).duplicates[("shared", "Sample")])
+        with self.assertRaisesRegex(gate.EvidenceError, "source collision"):
+            self.submit(collision, action="review", disposition="explicit_version")
+        self.assertEqual(0, self.submit(
+            collision, action="review", disposition="mapped_rename",
+            note="Mapped Sample to Renamed and updated callers in both modules.",
+        ))
+
+    def test_timer_observation_cannot_be_reused_for_another_model(self):
+        self.sample_models(timer=True, isolated=True)
+        a, b = (f"models/converted-c8-{name}.bpmn#Sample#Start" for name in ("a", "b"))
+        self.assertEqual(0, self.submit(("timer", b, "disposition", None), action="review"))
+        key = ("timer", b, "preflight", None)
+        options = {"environment": "local", "isolation_plan": "Destroy the disposable target."}
+        self.assertEqual(1, self.submit(
+            key, observation=self.timer_observation(("timer", a, "preflight", None)),
+            **options,
+        ))
+        recorded = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        check = json.loads((self.root / recorded["checks"][-1]).read_text(encoding="utf-8"))
+        self.assertEqual(("failed", 0), (check["result"], check["exit_code"]))
+        with redirect_stdout(StringIO()):
+            self.assertEqual(1, gate.report(self.root))
+        self.assertIn("match this model", "\n".join(self.summary()["issues"]))
+        observation = self.timer_observation(key)
+        del observation["observation"]["model_path"]
+        self.assertEqual(1, self.submit(key, observation=observation, **options))
+        observation = self.timer_observation(key)
+        observation["cleanup"]["completed"] = False
+        self.assertEqual(1, self.submit(key, observation=observation, **options))
+        with self.assertRaisesRegex(gate.EvidenceError, "disposable"):
+            self.submit(key, target_disposable=False, **options)
+        self.assertEqual(0, self.submit(key, **options))
+
+    def test_active_timer_calls_cannot_be_approved_without_a_replacement(self):
+        source = self.root / "app" / "Timer.java"
+        source.write_text(
+            'setJobDuedate(jobA, date); request.path("job").path("duedate");',
+            encoding="utf-8",
+        )
+        key = ("module", "app", "active_timer_updates", None)
+        hits = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual(2, len(hits))
+        self.assertEqual(2, len(set(hits)))
+        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
+            self.submit(key, action="review", disposition="no_updates")
+        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
+            self.submit(key, action="review", disposition="verified", reference="not applicable")
+        evidence = [{"location": hit, "evidence": f"decision-{index}"} for index, hit in enumerate(hits)]
+        with self.assertRaisesRegex(gate.EvidenceError, "classify each"):
+            self.submit(key, action="review", disposition="non_timer",
+                        non_timer_evidence_json=json.dumps(evidence[:1]))
+        evidence[1]["evidence"] = "not applicable"
+        with self.assertRaisesRegex(gate.EvidenceError, "classify each"):
+            self.submit(key, action="review", disposition="non_timer",
+                        non_timer_evidence_json=json.dumps(evidence))
+        evidence[1]["evidence"] = "MIGRATION_REPORT.md#non-timer-job"
+        self.assertEqual(0, self.submit(
+            key, action="review", disposition="non_timer",
+            non_timer_evidence_json=json.dumps(evidence),
+        ))
+        self.plan["active_timer_update_decision"] = {"status": "approved"}
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        self.assertEqual(1, self.audit())
+        self.assertIn("not supported", "\n".join(self.summary()["issues"]))
+
+    def test_stale_source_blocks_commands_before_execution_and_can_be_refreshed(self):
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        (self.root / "app" / "Starter.mts").write_text(
+            "class Starter {}", encoding="utf-8"
+        )
+        model = self.plan["models"][0]["path"]
+        command = [sys.executable, "-c", "from pathlib import Path; Path('executed').touch()"]
+        with self.assertRaisesRegex(gate.EvidenceError, "must pass before execution"):
+            self.submit(("model", model, "deployment", None), environment="local", command=command)
+        self.assertFalse((self.root / "executed").exists())
+        self.assertEqual(1, self.audit())
+        self.assertIn("stale source", "\n".join(self.summary()["issues"]))
+        self.assertEqual(0, self.submit(("model", model, "lint", None)))
+        self.assertEqual(0, self.submit(
+            ("deployment_set", "shared", "preflight", None), action="review"
+        ))
+        self.assertEqual(0, self.submit(
+            ("model", model, "deployment", None), environment="local", command=command
+        ))
+        self.assertTrue((self.root / "executed").exists())
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+    def test_stale_timer_review_can_be_refreshed(self):
+        self.write_scope(timer=True)
+        target = "models/converted-c8-process.bpmn#p#Start"
+        review = ("timer", target, "disposition", None)
+        self.assertEqual(0, self.submit(review, action="review"))
+        path = self.root / "models/converted-c8-process.bpmn"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("R/PT1H", "R/PT2H"),
+            encoding="utf-8",
+        )
+        command = [sys.executable, "-c", "from pathlib import Path; Path('executed').touch()"]
+        with self.assertRaisesRegex(gate.EvidenceError, "disposition must pass"):
+            self.submit(
+                ("timer", target, "preflight", None), environment="local",
+                isolation_plan="Destroy the target.", command=command,
+            )
+        self.assertFalse((self.root / "executed").exists())
+        self.assertEqual(0, self.submit(review, action="review", disposition="change"))
+
+    def test_forged_approval_reference_cannot_pass_report(self):
+        key = ("deployment_set", "shared", "preflight", None)
+        self.assertEqual(0, self.submit(key, action="review"))
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        log = self.root / evidence["checks"][0]
+        check = json.loads(log.read_text(encoding="utf-8"))
+        check["reference"] = "not applicable"
+        write_json(log, check)
+        self.assertEqual(1, self.audit())
+        self.assertIn("concrete approval", "\n".join(self.summary()["issues"]))
+
+    def test_cli_records_decisions_and_structured_timer_observation(self):
+        self.write_scope(timer=True)
+        script = [sys.executable, str(SCRIPT_DIR / "validate_migration_evidence.py"),
+                  "--project-root", str(self.root)]
+        target = "models/converted-c8-process.bpmn#p#Start"
+        review = subprocess.run([
+            *script, "review", "--type", "timer", "--target", target,
+            "--kind", "disposition", "--disposition", "preserve",
+            "--reference", "MIGRATION_REPORT.md#timer", "--note", "Approved R/PT1H.",
+        ], capture_output=True, text=True, check=False)
+        self.assertEqual(0, review.returncode, review.stderr)
+        observation = json.dumps(self.timer_observation(("timer", target, "preflight", None)))
+        run = subprocess.run([
+            *script, "run", "--type", "timer", "--target", target,
+            "--kind", "preflight", "--environment", "local",
+            "--target-disposable", "--target-version", "8.9.21",
+            "--isolation-plan", "Destroy the disposable target.", "--",
+            sys.executable, "-c", f"print({observation!r})",
+        ], capture_output=True, text=True, check=False)
+        self.assertEqual(0, run.returncode, run.stderr)
+        self.assertIn("PASSED timer", run.stdout)
+
+    def test_nested_event_subprocess_timer_does_not_schedule_on_deployment(self):
+        extra = (
+            '<bpmn:subProcess id="Sub" triggeredByEvent="true">'
+            '<bpmn:startEvent id="Nested"><bpmn:timerEventDefinition>'
+            '<bpmn:timeCycle>R/PT1H</bpmn:timeCycle>'
+            '</bpmn:timerEventDefinition></bpmn:startEvent></bpmn:subProcess>'
+        )
+        self.write_scope(extra=extra)
+        self.assertEqual([], gate.requirements(self.root, self.plan).timers[
+            "models/converted-c8-process.bpmn"
+        ])
+
+    def test_removed_source_timer_needs_a_decision_but_no_runtime_test(self):
+        self.write_scope(timer=True)
+        source = self.root / "models/process.bpmn"
+        source.write_text(
+            source.read_text(encoding="utf-8").replace("R/PT1H", "${originalCycle}"),
+            encoding="utf-8",
+        )
+        converted = self.root / "models/converted-c8-process.bpmn"
+        converted.write_text(
+            converted.read_text(encoding="utf-8").replace(
+                "<bpmn:timerEventDefinition><bpmn:timeCycle>R/PT1H</bpmn:timeCycle>"
+                "</bpmn:timerEventDefinition>", ""
+            ),
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
+        self.assertEqual([], plan.timers["models/converted-c8-process.bpmn"])
+        self.assertEqual(0, self.submit(
+            ("timer", "models/converted-c8-process.bpmn#p#Start", "disposition", None),
+            action="review", disposition="remove",
+        ))
+
+    def test_retained_unresolved_timer_cycle_blocks_gate(self):
+        self.write_scope(timer=True)
+        converted = self.root / "models/converted-c8-process.bpmn"
+        original = converted.read_text(encoding="utf-8")
+        for cycle in ("= duration", "${timerCycle}", "#{timerCycle}"):
+            with self.subTest(cycle=cycle):
+                converted.write_text(original.replace("R/PT1H", cycle), encoding="utf-8")
+                self.assertEqual(1, self.audit())
+                self.assertIn("unresolved timer cycle", "\n".join(self.summary()["issues"]))
+
+    def test_nested_modules_and_same_line_calls_are_scoped_separately(self):
+        self.plan["modules"].append({
+            "path": ".", "runtime_mode": "none",
+            "test_suites": [{"name": "unit", "requires_docker": False}],
+        })
+        self.plan["deployment_sets"][0]["modules"].append(".")
+        self.write_scope()
+        (self.root / "app" / "Timer.cjs").write_text(
+            "setJobDuedate(a, b); setJobDuedate(c, d);", encoding="utf-8"
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.update_hits["."])
+        self.assertEqual(2, len(set(plan.update_hits["app"])))
+        self.assertEqual([], plan.issues)
+
+    def test_root_module_report_does_not_stale_its_checks(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["deployment_sets"][0]["modules"] = ["."]
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        self.assertEqual(0, self.audit())
 
     def test_unsafe_model_path_is_not_read(self):
         outside = self.root.parent / f"{self.root.name}-outside.bpmn"

@@ -235,6 +235,10 @@ its finding.
 
 Run `references/deployment-and-timer-preflight.md` after the code and model inventories. Record its
 findings and decisions in `MIGRATION_REPORT.md`.
+For a full migration, record deployment sets, timer decisions, and module due-date reviews through
+`references/validation-evidence.md`. Never treat the gate's source hints as a complete caller review.
+When an active timer update remains, keep the flow blocked. This gate has no approved C8 replacement
+path.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.
