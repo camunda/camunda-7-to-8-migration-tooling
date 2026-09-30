@@ -380,7 +380,6 @@ def supports_message_rearm(
                         and element.tag in {
                             f"{BPMN}exclusiveGateway",
                             f"{BPMN}inclusiveGateway",
-                            f"{BPMN}parallelGateway",
                         }
                     ),
                     None,
