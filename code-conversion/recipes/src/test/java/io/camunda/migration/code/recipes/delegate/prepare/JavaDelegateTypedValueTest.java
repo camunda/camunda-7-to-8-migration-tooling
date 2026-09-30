@@ -1245,4 +1245,90 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedFactoriesStayTypedInSwitchAndLambdaReturns() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class SwitchAndLambdaReturns {
+                interface DateSupplier extends Supplier<DateValue> {}
+
+                DateValue pick(int kind, Date date) {
+                    return switch (kind) {
+                        case 1 -> Variables.dateValue(date);
+                        case 2 -> {
+                            yield Variables.dateValue(date);
+                        }
+                        default -> null;
+                    };
+                }
+
+                Object raw(int kind, Date date) {
+                    return switch (kind) {
+                        case 1 -> Variables.dateValue(date);
+                        default -> null;
+                    };
+                }
+
+                void lambdas(Date date) {
+                    Supplier<DateValue> typed = () -> Variables.dateValue(date);
+                    Function<Date, ? extends TypedValue> block = value -> {
+                        return Variables.dateValue(value);
+                    };
+                    DateSupplier inherited = () -> Variables.dateValue(date);
+                    Supplier<Object> untyped = () -> Variables.dateValue(date);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class SwitchAndLambdaReturns {
+                interface DateSupplier extends Supplier<DateValue> {}
+
+                DateValue pick(int kind, Date date) {
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    return switch (kind) {
+                        case 1 -> Variables.dateValue(date);
+                        case 2 -> {
+                            yield Variables.dateValue(date);
+                        }
+                        default -> null;
+                    };
+                }
+
+                Object raw(int kind, Date date) {
+                    return switch (kind) {
+                        case 1 -> date;
+                        default -> null;
+                    };
+                }
+
+                void lambdas(Date date) {
+                    Supplier<DateValue> typed = () -> // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date);
+                    Function<Date, ? extends TypedValue> block = value -> {
+                        // TODO: migrate Camunda 7 typed-value method call manually
+                        return Variables.dateValue(value);
+                    };
+                    DateSupplier inherited = () -> // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date);
+                    Supplier<Object> untyped = () -> date;
+                }
+            }
+            """));
+  }
 }

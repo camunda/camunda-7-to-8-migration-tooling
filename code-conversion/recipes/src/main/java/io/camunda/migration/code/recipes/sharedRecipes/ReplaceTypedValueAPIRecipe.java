@@ -907,9 +907,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
                 Cursor typedReturn = isTypedValueFactory(invocation) ? typedReturnCursor() : null;
                 if (typedReturn != null) {
-                  // method return types keep their Camunda 7 type
-                  typedReturn.putMessage(TYPED_RETURN_MESSAGE, true);
-                  return super.visitMethodInvocation(invocation, ctx);
+                  // method and lambda return types keep their Camunda 7 type
+                  if (typedReturn.getValue() instanceof J.Return) {
+                    typedReturn.putMessage(TYPED_RETURN_MESSAGE, true);
+                    return super.visitMethodInvocation(invocation, ctx);
+                  }
+                  J.MethodInvocation visited =
+                      (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+                  return maybeAutoFormat(invocation, withTypedMethodHint(visited), ctx);
                 }
                 J.MethodInvocation receiverCall = receiverCall(invocation);
                 if (receiverCall != null && isTypedValueFactory(invocation)) {
@@ -1233,14 +1238,38 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     && newClass.getArguments().contains(invocation));
           }
 
+          /**
+           * Returns the return statement, or the expression lambda, that must still produce a
+           * Camunda 7 typed value from the current expression, or null.
+           */
           private Cursor typedReturnCursor() {
             Cursor child = getCursor();
             Cursor parent = child.getParentTreeCursor();
-            while (parent.getValue() instanceof J.Parentheses<?>
-                || (parent.getValue() instanceof J.Ternary ternary
-                    && ternary.getCondition() != child.getValue())) {
+            while (true) {
+              Object value = parent.getValue();
+              if (value instanceof J.Yield
+                  || (value instanceof J.Case switchCase
+                      && switchCase.getBody() == child.getValue())) {
+                Cursor switchCursor =
+                    parent.dropParentUntil(
+                        tree ->
+                            tree instanceof J.SwitchExpression
+                                || tree instanceof J.Switch
+                                || tree == Cursor.ROOT_VALUE);
+                if (!(switchCursor.getValue() instanceof J.SwitchExpression)) {
+                  return null;
+                }
+                parent = switchCursor;
+              } else if (!(value instanceof J.Parentheses<?>)
+                  && !(value instanceof J.Ternary ternary
+                      && ternary.getCondition() != child.getValue())) {
+                break;
+              }
               child = parent;
               parent = parent.getParentTreeCursor();
+            }
+            if (parent.getValue() instanceof J.Lambda lambda) {
+              return isCamunda7TypedValue(lambdaReturnType(lambda)) ? parent : null;
             }
             if (!(parent.getValue() instanceof J.Return)) {
               return null;
@@ -1253,11 +1282,65 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 || value instanceof J.Lambda
                                 || value == Cursor.ROOT_VALUE)
                     .getValue();
-            return owner instanceof J.MethodDeclaration method
-                    && method.getMethodType() != null
-                    && isCamunda7TypedValue(method.getMethodType().getReturnType())
-                ? parent
+            JavaType returnType =
+                owner instanceof J.MethodDeclaration method && method.getMethodType() != null
+                    ? method.getMethodType().getReturnType()
+                    : owner instanceof J.Lambda lambda ? lambdaReturnType(lambda) : null;
+            return isCamunda7TypedValue(returnType) ? parent : null;
+          }
+
+          private JavaType lambdaReturnType(J.Lambda lambda) {
+            return lambda.getType() instanceof JavaType.FullyQualified type
+                ? functionalReturnType(type, 0)
                 : null;
+          }
+
+          /** Resolves the return type of a functional interface's abstract method. */
+          private JavaType functionalReturnType(JavaType.FullyQualified type, int depth) {
+            if (depth > 8) {
+              return null;
+            }
+            JavaType.FullyQualified raw =
+                type instanceof JavaType.Parameterized parameterized
+                    ? parameterized.getType()
+                    : type;
+            for (JavaType.Method method : raw.getMethods()) {
+              if (method.hasFlags(Flag.Abstract)
+                  && !method.hasFlags(Flag.Default)
+                  && !method.hasFlags(Flag.Static)
+                  && !Set.of("equals", "hashCode", "toString").contains(method.getName())) {
+                return resolveTypeVariable(method.getReturnType(), type);
+              }
+            }
+            for (JavaType.FullyQualified superInterface : raw.getInterfaces()) {
+              JavaType returnType = functionalReturnType(superInterface, depth + 1);
+              if (returnType != null) {
+                return resolveTypeVariable(returnType, type);
+              }
+            }
+            return null;
+          }
+
+          private JavaType resolveTypeVariable(JavaType type, JavaType.FullyQualified owner) {
+            if (!(type instanceof JavaType.GenericTypeVariable variable)
+                || !(owner instanceof JavaType.Parameterized parameterized)) {
+              return type;
+            }
+            List<JavaType> declared = parameterized.getType().getTypeParameters();
+            List<JavaType> actual = parameterized.getTypeParameters();
+            for (int i = 0; i < declared.size() && i < actual.size(); i++) {
+              if (declared.get(i) instanceof JavaType.GenericTypeVariable declaredVariable
+                  && declaredVariable.getName().equals(variable.getName())) {
+                JavaType resolved = actual.get(i);
+                if (resolved instanceof JavaType.GenericTypeVariable wildcard
+                    && wildcard.getVariance() == JavaType.GenericTypeVariable.Variance.COVARIANT
+                    && !wildcard.getBounds().isEmpty()) {
+                  return wildcard.getBounds().get(0);
+                }
+                return resolved;
+              }
+            }
+            return type;
           }
 
           private Expression asReceiverSafeExpression(Expression expression) {

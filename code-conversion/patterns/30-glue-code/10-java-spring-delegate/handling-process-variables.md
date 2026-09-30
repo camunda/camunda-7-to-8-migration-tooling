@@ -100,8 +100,9 @@ cast to the boxed type when it is used as a receiver or method argument, such as
 Other typed-value methods called on a factory, such as `isTransient()`, stay
 unchanged with a TODO.
 Method return types keep their Camunda 7 type, so factories returned from a
-method declared to return a typed value, such as `DateValue copy()`, also stay
-unchanged with a TODO on the `return` statement.
+method or lambda declared to return a typed value, such as `DateValue copy()` or
+`Supplier<DateValue>`, also stay unchanged with a TODO. This includes returns
+through parentheses, ternaries, and switch expressions.
 Converted declarations keep their annotations, array dimensions, and varargs, and
 `getValue()` reads of converted array elements become element reads. Typed getters whose untyped form
 returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
