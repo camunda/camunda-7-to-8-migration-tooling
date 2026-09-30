@@ -966,4 +966,198 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void convertedDeclarationsKeepArrayDimensionsAndVarargs() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class ArrayValues {
+                DateValue dates[];
+
+                void read(IntegerValue... values) {
+                    IntegerValue local[] = null, other = null;
+                    dates[0] = Variables.dateValue(null);
+                    Object first = dates[0].getValue();
+                    Integer second = values[0].getValue();
+                }
+
+                void write(DelegateExecution execution, DateValue[] retained) {
+                    dates[0] = execution.getVariableTyped("date");
+                    retained[0] = Variables.dateValue(null);
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            import java.util.Date;
+
+            class ArrayValues {
+                Date dates[];
+
+                void read(Integer... values) {
+                    Integer local[] = null, other = null;
+                    dates[0] = null;
+                    Object first = dates[0];
+                    Integer second = values[0];
+                }
+
+                void write(DelegateExecution execution, DateValue[] retained) {
+                    dates[0] = (Date) execution.getVariable("date");
+                    retained[0] = Variables.dateValue(null);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void retainedTypedTargetsKeepLaterTypedWrites() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            abstract class RetainedValues {
+                abstract IntegerValue loadInteger();
+
+                void read(DelegateExecution execution) {
+                    IntegerValue value = loadInteger();
+                    value = Variables.integerValue(1);
+                    value = execution.getVariableTyped("value");
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            abstract class RetainedValues {
+                abstract IntegerValue loadInteger();
+
+                void read(DelegateExecution execution) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue value = loadInteger();
+                    value = Variables.integerValue(1);
+                    value = execution.getVariableTyped("value");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedFactoryValueReadsKeepBoxedTypes() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class BoxedValues {
+                String read() {
+                    Integer missing = Variables.integerValue(null).getValue();
+                    int direct = Variables.integerValue(5).getValue();
+                    System.out.println(Variables.integerValue(5).getValue());
+                    return Variables.integerValue(5).getValue().toString()
+                        + Variables.longValue(7L).getValue().hashCode();
+                }
+            }
+            """,
+            """
+            class BoxedValues {
+                String read() {
+                    Integer missing = (Integer) null;
+                    int direct = 5;
+                    System.out.println((Integer) 5);
+                    return ((Integer) 5).toString()
+                        + ((Long) 7L).hashCode();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void retainedDeclarationsStillRewriteNestedConvertedReads() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class NestedReads {
+                abstract DateValue load(Date date);
+
+                void read(Date date) {
+                    DateValue raw = Variables.dateValue(date);
+                    DateValue wrapped = load(raw.getValue());
+                    wrapped = load(raw.getValue());
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            abstract class NestedReads {
+                abstract DateValue load(Date date);
+
+                void read(Date date) {
+                    Date raw = date;
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue wrapped = load(raw);
+                    wrapped = load(raw);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedDeclarationsWithUnprovenWritesStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            abstract class LaterWrites {
+                IntegerValue a, b;
+
+                abstract IntegerValue loadInteger();
+
+                void write() {
+                    IntegerValue local = null;
+                    local = loadInteger();
+                    a = loadInteger();
+                    b = null;
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            abstract class LaterWrites {
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                IntegerValue a, b;
+
+                abstract IntegerValue loadInteger();
+
+                void write() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue local = null;
+                    local = loadInteger();
+                    a = loadInteger();
+                    b = null;
+                }
+            }
+            """));
+  }
 }

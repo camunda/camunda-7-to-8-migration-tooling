@@ -84,17 +84,23 @@ Later `Variables.dateValue(...)` and `Variables.byteArrayValue(...)` assignments
 to converted values are unwrapped in the same way as initializers, with a TODO
 for `true` or computed transient flags. Assignments to declarations retained for
 manual migration keep their Camunda 7 typed getters and factories until the
-declaration and its uses can be migrated together.
+declaration and its uses can be migrated together. Reads of converted values
+inside a retained declaration or assignment are still rewritten.
+A declaration also stays typed with a TODO when a later assignment, including
+an array element write, may store a typed value, such as `a = loadInteger();`.
 Grouped typed-getter declarations keep every variable and required cast; groups
 with incompatible initializers stay at their Camunda 7 types with a TODO.
 Assignments through another instance of the same class use converted field
 types, while unrelated owners and retained local values keep their typed calls.
 Nested factory calls, such as `execution.setVariable("date", Variables.dateValue(date))`,
 pass the raw value and get the same transient-flag TODO.
-`Variables.dateValue(date).getValue()` and similar reads become the raw value.
+`Variables.dateValue(date).getValue()` and similar reads become the raw value,
+cast to the boxed type when it is used as a receiver or method argument, such as
+`((Integer) 5).toString()`.
 Other typed-value methods called on a factory, such as `isTransient()`, stay
 unchanged with a TODO.
-Converted declarations keep their annotations. Typed getters whose untyped form
+Converted declarations keep their annotations, array dimensions, and varargs, and
+`getValue()` reads of converted array elements become element reads. Typed getters whose untyped form
 returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
 
 ### autoComplete = false (blocking)
