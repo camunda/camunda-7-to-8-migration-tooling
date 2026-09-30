@@ -1336,14 +1336,18 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.Variables;
             import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class TypedArrays {
                 DateValue date = Variables.dateValue(new Date(0));
                 BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                DateValue genericDate = Variables.dateValue(new Date(2));
+                BytesValue genericBytes = Variables.byteArrayValue(new byte[]{2});
                 DateValue[] dates = {date};
                 DateValue[] constructedDates = new DateValue[]{date};
                 BytesValue[] buffers = {this.bytes};
                 BytesValue[] constructedBuffers = new BytesValue[]{bytes};
+                TypedValue[] typedValues = {genericDate, genericBytes};
 
                 void local() {
                     DateValue localDate = Variables.dateValue(new Date(1));
@@ -1356,12 +1360,17 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             import org.camunda.bpm.engine.variable.Variables;
             import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class TypedArrays {
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue date = Variables.dateValue(new Date(0));
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue genericDate = Variables.dateValue(new Date(2));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue genericBytes = Variables.byteArrayValue(new byte[]{2});
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue[] dates = {date};
                 // TODO: migrate Camunda 7 typed-value declaration manually
@@ -1370,12 +1379,113 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 BytesValue[] buffers = {this.bytes};
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 BytesValue[] constructedBuffers = new BytesValue[]{bytes};
+                TypedValue[] typedValues = {genericDate, genericBytes};
 
                 void local() {
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue localDate = Variables.dateValue(new Date(1));
                     // TODO: migrate Camunda 7 typed-value declaration manually
                     DateValue[] values = {localDate};
+                }
+            }
+            """));
+  }
+
+  @Test
+  void instanceofChecksKeepTypedSourcesAndPatternVariables() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedChecks {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                DateValue genericDate = Variables.dateValue(new Date(2));
+
+                boolean matches(Object candidate) {
+                    boolean dateMatches = date instanceof DateValue;
+                    boolean bytesMatch = this.bytes instanceof BytesValue;
+                    boolean genericMatches = genericDate instanceof TypedValue;
+                    if (candidate instanceof DateValue matchedDate) {
+                        return dateMatches && genericMatches && matchedDate.getValue() != null;
+                    }
+                    if (candidate instanceof BytesValue matchedBytes) {
+                        return bytesMatch && matchedBytes.getValue() != null;
+                    }
+                    return false;
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedChecks {
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue date = Variables.dateValue(new Date(0));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue genericDate = Variables.dateValue(new Date(2));
+
+                boolean matches(Object candidate) {
+                    boolean dateMatches = date instanceof DateValue;
+                    boolean bytesMatch = this.bytes instanceof BytesValue;
+                    boolean genericMatches = genericDate instanceof TypedValue;
+                    if (candidate instanceof DateValue matchedDate) {
+                        return dateMatches && genericMatches && matchedDate.getValue() != null;
+                    }
+                    if (candidate instanceof BytesValue matchedBytes) {
+                        return bytesMatch && matchedBytes.getValue() != null;
+                    }
+                    return false;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void parenthesizedTypedAliasesRemainCompatible() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+
+            class ParenthesizedAliases {
+                DateValue date = Variables.dateValue(new Date(0));
+                BytesValue bytes = Variables.byteArrayValue(new byte[]{1});
+                DateValue copy = (date);
+                BytesValue fieldCopy = (this.bytes);
+
+                void local() {
+                    DateValue value = Variables.dateValue(new Date(2));
+                    DateValue alias = (value);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class ParenthesizedAliases {
+                Date date = new Date(0);
+                byte[] bytes = new byte[]{1};
+                Date copy = (date);
+                byte[] fieldCopy = (this.bytes);
+
+                void local() {
+                    Date value = new Date(2);
+                    Date alias = (value);
                 }
             }
             """));

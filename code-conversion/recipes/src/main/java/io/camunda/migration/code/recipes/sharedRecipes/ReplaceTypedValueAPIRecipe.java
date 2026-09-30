@@ -154,6 +154,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
 
               @Override
+              public J.InstanceOf visitInstanceOf(J.InstanceOf test, ExecutionContext innerCtx) {
+                if (test.getClazz() instanceof TypedTree type
+                    && isLegacyTypedValue(type.getType())) {
+                  retainTypedReferences(test.getExpression(), innerCtx);
+                }
+                return super.visitInstanceOf(test, innerCtx);
+              }
+
+              @Override
               public J.Ternary visitTernary(J.Ternary ternary, ExecutionContext innerCtx) {
                 if (isDateOrBytesValue(ternary.getType())) {
                   retainTypedReferences(ternary, innerCtx);
@@ -190,7 +199,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               @Override
               public J.NewArray visitNewArray(J.NewArray array, ExecutionContext innerCtx) {
                 if (array.getType() instanceof JavaType.Array type
-                    && isDateOrBytesValue(type.getElemType())
+                    && isLegacyTypedValue(type.getElemType())
                     && array.getInitializer() != null) {
                   for (Expression element : array.getInitializer()) {
                     retainTypedReferences(element, innerCtx);
@@ -564,7 +573,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               J.VariableDeclarations declarations, String newFqn) {
             Set<String> convertedNames = new HashSet<>();
             for (J.VariableDeclarations.NamedVariable variable : declarations.getVariables()) {
-              Expression initializer = variable.getInitializer();
+              Expression initializer = unwrapParentheses(variable.getInitializer());
               if (initializer != null
                   && !(initializer instanceof J.Literal literal && literal.getValue() == null)
                   && unwrapTypedValueFactory(
@@ -665,13 +674,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       || allVariablesTypedGetter.matches(getter))) {
                 reviewType = true;
               }
-              if (initializer instanceof J.FieldAccess fieldAccess
+              if (unwrapParentheses(initializer) instanceof J.FieldAccess fieldAccess
                   && newFqn.equals(convertedFieldType(fieldAccess.getName()))) {
                 JavaType newType = JavaType.buildType(newFqn);
                 initializer =
-                    fieldAccess
-                        .withName(fieldAccess.getName().withType(newType))
-                        .withType(newType);
+                    initializer instanceof J.Parentheses<?>
+                        ? initializer.withType(newType)
+                        : fieldAccess
+                            .withName(fieldAccess.getName().withType(newType))
+                            .withType(newType);
               }
               if (initializer != null) {
                 code.append(" = ");
