@@ -113,9 +113,13 @@ Values passed to generic parameters resolved to a typed value, such as
 also stay typed. This includes lower-bounded consumers such as
 `Consumer<? super DateValue>`. Variables that pass values to each other, such as
 `target = source;`, share one decision: when one of them stays typed, all of
-them do. Variables compared with `==` or `!=` share a decision in the same way.
-Variables and factories compared with another typed value, such as the result of
-a method returning `IntegerValue`, stay typed.
+them do. `==` and `!=` compare typed values by reference, which raw values
+cannot reproduce. Factories compared with any value, including `null`, stay
+unchanged with a TODO, because a factory never returns `null`. Variables and
+getters compared with a value other than `null` stay typed. A variable compared
+with `null` stays typed only when a factory can write to it; getter-backed null
+checks, such as `execution.getVariableTyped("x") != null`, still convert,
+because an absent variable stays `null`.
 Parameters retained this way get the TODO on their method; review the method's
 call sites together with the parameter.
 Grouped typed-getter declarations keep every variable and required cast. Groups

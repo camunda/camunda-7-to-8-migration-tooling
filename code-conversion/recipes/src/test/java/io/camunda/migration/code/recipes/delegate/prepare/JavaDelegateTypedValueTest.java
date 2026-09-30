@@ -2775,13 +2775,57 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     IntegerValue typed = loadInteger();
                     // TODO: migrate Camunda 7 typed-value initializer manually
                     IntegerValue v = Variables.integerValue(2);
-                    Integer left = 3;
-                    Integer right = 4;
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue left = Variables.integerValue(3);
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue right = Variables.integerValue(4);
                     boolean same = raw == typed;
                     boolean f = v != // TODO: migrate Camunda 7 typed-value method call manually
                             Variables.integerValue(2);
                     boolean candidates = (left == right);
                     return same || f || candidates || right != null;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void nullChecksKeepFactoryWrappers() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class NullChecks {
+                boolean check(DelegateExecution execution, Integer n) {
+                    IntegerValue created = Variables.integerValue(n);
+                    IntegerValue copy = created;
+                    IntegerValue read = execution.getVariableTyped("read");
+                    boolean direct = Variables.integerValue(n) != null;
+                    boolean present = execution.getVariableTyped("other") != null;
+                    return direct || present || copy == null || read != null;
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class NullChecks {
+                boolean check(DelegateExecution execution, Integer n) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue created = Variables.integerValue(n);
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue copy = created;
+                    // please check type
+                    Integer read = (Integer) execution.getVariable("read");
+                    boolean direct = // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.integerValue(n) != null;
+                    boolean present = execution.getVariable("other") != null;
+                    return direct || present || copy == null || read != null;
                 }
             }
             """));
