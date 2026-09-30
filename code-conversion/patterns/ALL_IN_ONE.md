@@ -1524,7 +1524,8 @@ the transient behavior carries over.
 
 When an initializer instead calls a helper that still returns a typed value,
 the recipe leaves the declaration unchanged and marks it for manual migration
-rather than producing an invalid raw assignment.
+rather than producing an invalid raw assignment. This applies to every typed
+value with a direct Java type, such as `IntegerValue` or `StringValue`.
 Separate fields initialized from another converted field in the same class,
 including qualified forward references such as `this.date`, are converted
 together.
@@ -1543,6 +1544,9 @@ Assignments through another instance of the same class use converted field
 types, while unrelated owners and retained local values keep their typed calls.
 Nested factory calls, such as `execution.setVariable("date", Variables.dateValue(date))`,
 pass the raw value and get the same transient-flag TODO.
+`Variables.dateValue(date).getValue()` and similar reads become the raw value.
+Other typed-value methods called on a factory, such as `isTransient()`, stay
+unchanged with a TODO.
 Converted declarations keep their annotations. Typed getters whose untyped form
 returns `Object`, such as `TaskService#getVariableTyped`, get the required cast.
 

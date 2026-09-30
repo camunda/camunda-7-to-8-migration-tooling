@@ -18,6 +18,7 @@ import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
+import org.openrewrite.marker.Markers;
 
 public class ReplaceTypedValueAPIRecipe extends Recipe {
   private static final String OBJECT_VALUE_FQN =
@@ -30,6 +31,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
       " TODO: review Camunda 7 transient variable semantics for migrated values";
   private static final String MANUAL_INITIALIZER_HINT =
       " TODO: migrate Camunda 7 typed-value initializer manually";
+  private static final String TYPED_METHOD_HINT =
+      " TODO: migrate Camunda 7 typed-value method call manually";
   private static final MethodMatcher DATE_VALUE_FACTORY =
       new MethodMatcher(VARIABLES_FQN + " dateValue(..)");
   private static final MethodMatcher BYTE_ARRAY_VALUE_FACTORY =
@@ -830,9 +833,32 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitMethodInvocation(J.MethodInvocation invocation, ExecutionContext ctx) {
 
+            // Variables.xValue(value).getValue() reads the raw value
+            if (isValueRead(invocation)
+                && unwrapParentheses(invocation.getSelect()) instanceof J.MethodInvocation factory
+                && isTypedValueFactory(factory)) {
+              J.MethodInvocation visited =
+                  (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+              Expression rawValue =
+                  ((J.MethodInvocation) unwrapParentheses(visited.getSelect()))
+                      .getArguments()
+                      .get(0);
+              maybeRemoveImport(VARIABLES_FQN);
+              return asReceiverSafeExpression(rawValue).withPrefix(visited.getPrefix());
+            }
+
             // visit simple method invocations
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
               if (spec.matcher().matches(invocation)) {
+                J.MethodInvocation receiverCall = receiverCall(invocation);
+                if (receiverCall != null && isTypedValueFactory(invocation)) {
+                  // typed-only methods such as isTransient() have no raw-value equivalent
+                  J.MethodInvocation visited =
+                      (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+                  return isValueRead(receiverCall)
+                      ? visited
+                      : maybeAutoFormat(invocation, withTypedMethodHint(visited), ctx);
+                }
 
                 if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
                   maybeRemoveImport(fqn);
@@ -1082,6 +1108,63 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 .anyMatch(spec -> spec.matcher().matches(invocation));
           }
 
+          private boolean isTypedValueFactory(J.MethodInvocation invocation) {
+            return isCamunda7TypedValue(invocation.getType())
+                && simpleMethodInvocations.stream()
+                    .anyMatch(spec -> spec.matcher().matches(invocation));
+          }
+
+          private boolean isValueRead(J.MethodInvocation invocation) {
+            return invocation.getSimpleName().equals("getValue")
+                && invocation.getSelect() != null
+                && invocation.getArguments().stream().allMatch(J.Empty.class::isInstance);
+          }
+
+          /** Returns the call that uses the visited invocation as its receiver. */
+          private J.MethodInvocation receiverCall(J.MethodInvocation invocation) {
+            Cursor parent = getCursor().getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>) {
+              parent = parent.getParentTreeCursor();
+            }
+            return parent.getValue() instanceof J.MethodInvocation call
+                    && call.getSelect() != null
+                    && unwrapParentheses(call.getSelect()) == invocation
+                ? call
+                : null;
+          }
+
+          private Expression asReceiverSafeExpression(Expression expression) {
+            if (expression instanceof J.Identifier
+                || expression instanceof J.Literal
+                || expression instanceof J.MethodInvocation
+                || expression instanceof J.FieldAccess
+                || expression instanceof J.NewClass
+                || expression instanceof J.ArrayAccess
+                || expression instanceof J.Parentheses<?>) {
+              return expression;
+            }
+            return new J.Parentheses<>(
+                Tree.randomId(),
+                Space.EMPTY,
+                Markers.EMPTY,
+                JRightPadded.build(expression.withPrefix(Space.EMPTY)));
+          }
+
+          private J.MethodInvocation withTypedMethodHint(J.MethodInvocation invocation) {
+            if (invocation.getComments().stream()
+                .anyMatch(
+                    comment ->
+                        comment instanceof TextComment textComment
+                            && textComment.getText().contains(TYPED_METHOD_HINT.trim()))) {
+              return invocation;
+            }
+            return invocation.withComments(
+                Stream.concat(
+                        invocation.getComments().stream(),
+                        Stream.of(RecipeUtils.createSimpleComment(invocation, TYPED_METHOD_HINT)))
+                    .toList());
+          }
+
           private boolean isTypedValueGetter(J.MethodInvocation invocation) {
             return TYPED_VALUE_GETTERS.stream().anyMatch(matcher -> matcher.matches(invocation));
           }
@@ -1317,6 +1400,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                           != initializer
                       || (initializer instanceof J.MethodInvocation getter
                           && matchesTypedVariableGetter(getter))
+                      || (initializer instanceof J.MethodInvocation factory
+                          && simpleMethodInvocations.stream()
+                              .anyMatch(
+                                  spec ->
+                                      spec.matcher().matches(factory)
+                                          && newFqn.equals(spec.returnTypeFqn())))
                       || (initializer instanceof J.Identifier identifier
                           && (convertedNames.contains(identifier.getSimpleName())
                               || newFqn.equals(convertedIdentifierType(identifier))))
@@ -1330,10 +1419,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return true;
           }
 
-          /** Date, bytes, and ObjectValue initializers are only rewritten when provably raw. */
+          /** Typed-value initializers are only rewritten when provably raw. */
           private boolean requiresManualTypedInitializer(
               J.VariableDeclarations declarations, JavaType declaredType, String newFqn) {
-            return (isDateOrBytesValue(declaredType)
+            return (isConvertibleTypedValue(declaredType)
                     || TypeUtils.isOfClassType(declaredType, OBJECT_VALUE_FQN))
                 && !canRewriteTypedInitializers(declarations, newFqn);
           }

@@ -892,4 +892,78 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedFactoryReceiversKeepValidJava() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class FactoryReceivers {
+                void read(Date date, String a, String b) {
+                    Date raw = Variables.dateValue(date).getValue();
+                    String joined = Variables.stringValue(a + b).getValue().trim();
+                    int size = (Variables.integerValue(5)).getValue();
+                    boolean transientDate = Variables.dateValue(date, true).isTransient();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class FactoryReceivers {
+                void read(Date date, String a, String b) {
+                    Date raw = date;
+                    String joined = (a + b).trim();
+                    int size = 5;
+                    boolean transientDate = // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date, true).isTransient();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedDeclarationsWithUnprovenInitializersStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.StringValue;
+
+            abstract class LoadedValues {
+                abstract IntegerValue loadInteger();
+
+                abstract StringValue loadString();
+
+                void read() {
+                    IntegerValue a = loadInteger(), b = loadInteger();
+                    StringValue single = loadString();
+                    IntegerValue first = Variables.integerValue(1), second = Variables.integerValue(2);
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.StringValue;
+
+            abstract class LoadedValues {
+                abstract IntegerValue loadInteger();
+
+                abstract StringValue loadString();
+
+                void read() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue a = loadInteger(), b = loadInteger();
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    StringValue single = loadString();
+                    Integer first = 1, second = 2;
+                }
+            }
+            """));
+  }
 }
