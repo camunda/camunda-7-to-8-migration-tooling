@@ -2434,4 +2434,68 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typeAnnotatedDeclarationsStayValid() {
+    rewriteRun(
+        java(
+            """
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+
+            @Target(ElementType.TYPE_USE)
+            @interface Tag {}
+            """),
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class Annotated {
+                @Tag DateValue field = Variables.dateValue(new Date());
+                private @Tag DateValue other = Variables.dateValue(new Date());
+
+                Date read(DelegateExecution execution, Date date) {
+                    @Tag DateValue local = Variables.dateValue(date);
+                    final @Tag DateValue fetched = execution.getVariableTyped("date");
+                    org.camunda.bpm.engine.variable.value.DateValue qualified =
+                            Variables.dateValue(date);
+                    return field.getValue();
+                }
+
+                Date other() {
+                    return other.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class Annotated {
+                @Tag
+                Date field = new Date();
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                private @Tag DateValue other = Variables.dateValue(new Date());
+
+                Date read(DelegateExecution execution, Date date) {
+                    @Tag Date local = date;
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    final @Tag DateValue fetched = execution.getVariableTyped("date");
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    org.camunda.bpm.engine.variable.value.DateValue qualified =
+                            Variables.dateValue(date);
+                    return field;
+                }
+
+                Date other() {
+                    return other.getValue();
+                }
+            }
+            """));
+  }
 }

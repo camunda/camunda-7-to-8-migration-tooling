@@ -2100,6 +2100,7 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                 if (newFqn != null) {
                   boolean keep =
                       isTypedValueArray(declarations)
+                          || hasUnsupportedTypeExpression(declarations)
                           || (declarations.getVariables().size() > 1
                               && unwrapParentheses(
                                       declarations.getVariables().get(0).getInitializer())
@@ -2261,6 +2262,18 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
               }
             }
             return result;
+          }
+
+          /**
+           * Type expressions that are not rebuilt in place, such as type-use annotations after
+           * modifiers ({@code private @Tag DateValue}) or fully qualified typed-value names.
+           */
+          private boolean hasUnsupportedTypeExpression(J.VariableDeclarations declarations) {
+            TypeTree typeExpression = declarations.getTypeExpression();
+            while (typeExpression instanceof J.ArrayType arrayType) {
+              typeExpression = arrayType.getElementType();
+            }
+            return typeExpression != null && !(typeExpression instanceof J.Identifier);
           }
 
           private boolean isOutsideDeclaringClass(JavaType.Variable variable, Cursor cursor) {
