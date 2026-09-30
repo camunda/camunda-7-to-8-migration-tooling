@@ -43,6 +43,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
       new MethodMatcher("org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)");
   private static final String PRESERVE_TYPED_GETTERS = "preserveTypedGetters";
   private static final String PRESERVE_TYPED_FACTORIES = "preserveTypedFactories";
+  private static final String TYPED_RETURN_MESSAGE = "typedReturn";
   private static final List<MethodMatcher> TYPED_VALUE_GETTERS =
       List.of(
           new MethodMatcher("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)"),
@@ -851,6 +852,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return super.visitAssignment(assignment, ctx);
           }
 
+          @Override
+          public J visitReturn(J.Return returnStatement, ExecutionContext ctx) {
+            J visited = super.visitReturn(returnStatement, ctx);
+            if (visited instanceof J.Return result
+                && Boolean.TRUE.equals(getCursor().pollMessage(TYPED_RETURN_MESSAGE))) {
+              return maybeAutoFormat(returnStatement, withTypedMethodHint(result), ctx);
+            }
+            return visited;
+          }
+
           /** Replace variableMap.put() or variableMap.putValue() method invocations */
           @Override
           public J visitMethodInvocation(J.MethodInvocation invocation, ExecutionContext ctx) {
@@ -892,6 +903,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 if (isTypedValueFactory(invocation)
                     && Boolean.TRUE.equals(
                         getCursor().getNearestMessage(PRESERVE_TYPED_FACTORIES))) {
+                  return super.visitMethodInvocation(invocation, ctx);
+                }
+                Cursor typedReturn = isTypedValueFactory(invocation) ? typedReturnCursor() : null;
+                if (typedReturn != null) {
+                  // method return types keep their Camunda 7 type
+                  typedReturn.putMessage(TYPED_RETURN_MESSAGE, true);
                   return super.visitMethodInvocation(invocation, ctx);
                 }
                 J.MethodInvocation receiverCall = receiverCall(invocation);
@@ -1216,6 +1233,33 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     && newClass.getArguments().contains(invocation));
           }
 
+          private Cursor typedReturnCursor() {
+            Cursor child = getCursor();
+            Cursor parent = child.getParentTreeCursor();
+            while (parent.getValue() instanceof J.Parentheses<?>
+                || (parent.getValue() instanceof J.Ternary ternary
+                    && ternary.getCondition() != child.getValue())) {
+              child = parent;
+              parent = parent.getParentTreeCursor();
+            }
+            if (!(parent.getValue() instanceof J.Return)) {
+              return null;
+            }
+            Object owner =
+                parent
+                    .dropParentUntil(
+                        value ->
+                            value instanceof J.MethodDeclaration
+                                || value instanceof J.Lambda
+                                || value == Cursor.ROOT_VALUE)
+                    .getValue();
+            return owner instanceof J.MethodDeclaration method
+                    && method.getMethodType() != null
+                    && isCamunda7TypedValue(method.getMethodType().getReturnType())
+                ? parent
+                : null;
+          }
+
           private Expression asReceiverSafeExpression(Expression expression) {
             if (expression instanceof J.Identifier
                 || expression instanceof J.Literal
@@ -1233,18 +1277,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 JRightPadded.build(expression.withPrefix(Space.EMPTY)));
           }
 
-          private J.MethodInvocation withTypedMethodHint(J.MethodInvocation invocation) {
-            if (invocation.getComments().stream()
+          private <T extends Statement> T withTypedMethodHint(T statement) {
+            if (statement.getComments().stream()
                 .anyMatch(
                     comment ->
                         comment instanceof TextComment textComment
                             && textComment.getText().contains(TYPED_METHOD_HINT.trim()))) {
-              return invocation;
+              return statement;
             }
-            return invocation.withComments(
+            return statement.withComments(
                 Stream.concat(
-                        invocation.getComments().stream(),
-                        Stream.of(RecipeUtils.createSimpleComment(invocation, TYPED_METHOD_HINT)))
+                        statement.getComments().stream(),
+                        Stream.of(RecipeUtils.createSimpleComment(statement, TYPED_METHOD_HINT)))
                     .toList());
           }
 

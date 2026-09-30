@@ -1160,4 +1160,89 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedFactoriesStayTypedWhereTypedValuesAreExpected() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.VariableMap;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            abstract class ExpectedTypes {
+                abstract void accept(DateValue value);
+
+                DateValue copy(Date date) {
+                    return Variables.dateValue(date);
+                }
+
+                IntegerValue count() {
+                    return (Variables.integerValue(1));
+                }
+
+                TypedValue pick(boolean flag, Date date) {
+                    return flag ? Variables.dateValue(date) : null;
+                }
+
+                Object raw(Date date) {
+                    return Variables.dateValue(date);
+                }
+
+                void write(DelegateExecution execution, Date date, byte[] bytes) {
+                    accept(Variables.dateValue(date));
+                    execution.setVariable("date", Variables.dateValue(date));
+                    execution.setVariable("bytes", Variables.byteArrayValue(bytes));
+                    VariableMap map =
+                        Variables.createVariables().putValueTyped("date", Variables.dateValue(date));
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.HashMap;
+            import java.util.Map;
+
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            abstract class ExpectedTypes {
+                abstract void accept(Date value);
+
+                DateValue copy(Date date) {
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    return Variables.dateValue(date);
+                }
+
+                IntegerValue count() {
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    return (Variables.integerValue(1));
+                }
+
+                TypedValue pick(boolean flag, Date date) {
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    return flag ? Variables.dateValue(date) : null;
+                }
+
+                Object raw(Date date) {
+                    return date;
+                }
+
+                void write(DelegateExecution execution, Date date, byte[] bytes) {
+                    accept(date);
+                    execution.setVariable("date", date);
+                    execution.setVariable("bytes", bytes);
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("date", date);
+                }
+            }
+            """));
+  }
 }
