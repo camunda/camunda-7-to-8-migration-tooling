@@ -490,6 +490,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           public J visitVariableDeclarations(
               J.VariableDeclarations declarations, ExecutionContext ctx) {
 
+            if (getCursor().firstEnclosing(J.Block.class) == null) {
+              return declarations;
+            }
             if (isDateOrBytesValue(declarations.getType())) {
               Object parent = getCursor().getParentTreeCursor().getValue();
               if (parent instanceof J.MethodDeclaration

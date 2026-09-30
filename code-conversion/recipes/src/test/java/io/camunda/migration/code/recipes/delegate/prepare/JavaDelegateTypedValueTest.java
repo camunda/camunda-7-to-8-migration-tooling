@@ -487,4 +487,22 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void recordComponentsStayTypedForManualMigration() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            record Payload(DateValue date, BytesValue bytes, IntegerValue amount) {
+                Date readDate() { return date.getValue(); }
+                byte[] readBytes() { return bytes.getValue(); }
+                int readAmount() { return amount.getValue(); }
+            }
+            """));
+  }
 }
