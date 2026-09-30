@@ -338,17 +338,21 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 Object beforeWrapped() { return this.wrapped.getValue(); }
                 Object readReassigned() { return reassigned.getValue(); }
                 Object readQualifiedReassigned() { return this.qualifiedReassigned.getValue(); }
+                Object readReassignedTyped() { return reassignedTyped.getValue(); }
 
                 ObjectValue object = execution.getVariableTyped("object");
                 TypedValue typed = execution.getVariableTyped("typed");
                 ObjectValue wrapped = (execution.getVariableTyped("wrapped"));
                 ObjectValue reassigned = execution.getVariableTyped("reassigned");
                 ObjectValue qualifiedReassigned = execution.getVariableTyped("qualifiedReassigned");
+                TypedValue reassignedTyped = execution.getVariableTyped("reassignedTyped");
                 ObjectValue retained = load();
                 ObjectValue load() { return null; }
+                TypedValue loadTyped() { return null; }
                 void update() {
                     reassigned = load();
                     this.qualifiedReassigned = load();
+                    reassignedTyped = loadTyped();
                     other.object = load();
                 }
 
@@ -365,6 +369,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             """
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.variable.value.ObjectValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
 
             class OtherValues {
                 DelegateExecution execution;
@@ -374,6 +379,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 Object beforeWrapped() { return this.wrapped; }
                 Object readReassigned() { return reassigned.getValue(); }
                 Object readQualifiedReassigned() { return this.qualifiedReassigned.getValue(); }
+                Object readReassignedTyped() { return reassignedTyped.getValue(); }
 
                 // please check type
                 Object object = execution.getVariable("object");
@@ -383,12 +389,15 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 Object wrapped = execution.getVariable("wrapped");
                 ObjectValue reassigned = execution.getVariableTyped("reassigned");
                 ObjectValue qualifiedReassigned = execution.getVariableTyped("qualifiedReassigned");
+                TypedValue reassignedTyped = execution.getVariableTyped("reassignedTyped");
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 ObjectValue retained = load();
                 ObjectValue load() { return null; }
+                TypedValue loadTyped() { return null; }
                 void update() {
                     reassigned = load();
                     this.qualifiedReassigned = load();
+                    reassignedTyped = loadTyped();
                     other.object = load();
                 }
 
@@ -900,6 +909,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
         java(
             """
             import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.variable.value.BytesValue;
             import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
@@ -909,7 +919,30 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                     Date readDate() { return date.getValue(); }
                 }
 
-                void use() {
+                void use(DelegateExecution execution) {
+                    IntegerValue amount = execution.getVariableTyped("amount");
+                    record Local(DateValue date, BytesValue bytes, IntegerValue amount) {
+                        byte[] readBytes() { return bytes.getValue(); }
+                        int readAmount() { return amount.getValue(); }
+                    }
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            class NestedRecords {
+                record Member(DateValue date, BytesValue bytes, IntegerValue amount) {
+                    Date readDate() { return date.getValue(); }
+                }
+
+                void use(DelegateExecution execution) {
+                    // please check type
+                    Integer amount = (Integer) execution.getVariable("amount");
                     record Local(DateValue date, BytesValue bytes, IntegerValue amount) {
                         byte[] readBytes() { return bytes.getValue(); }
                         int readAmount() { return amount.getValue(); }

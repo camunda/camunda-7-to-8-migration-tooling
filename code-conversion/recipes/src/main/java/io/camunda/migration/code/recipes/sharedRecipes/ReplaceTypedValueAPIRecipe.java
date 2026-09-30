@@ -121,12 +121,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     J.VariableDeclarations.NamedVariable variable =
                         declarations.getVariables().get(0);
                     Expression initializer = unwrapParentheses(variable.getInitializer());
-                    boolean reassignedObjectValue =
-                        TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
+                    boolean reassignedTypedValue =
+                        "java.lang.Object".equals(mapped)
+                            && isLegacyTypedValue(declarations.getType())
                             && isReassigned(
                                 variable.getName(), getCursor().firstEnclosing(J.Block.class));
                     converted =
-                        !reassignedObjectValue
+                        !reassignedTypedValue
                             && (initializer instanceof J.MethodInvocation getter
                                     && matchesTypedGetter(getter)
                                 || !"java.lang.Object".equals(mapped)
@@ -526,11 +527,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             J.Identifier originalName = firstVar.getName();
             Expression originalInitializer = unwrapParentheses(firstVar.getInitializer());
             // A declaration without a value might later receive a builder we cannot unwrap.
-            if (TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
-                && ((originalInitializer == null
+            if (isLegacyTypedValue(declarations.getType())
+                && (isReassigned(originalName)
+                    || TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
+                        && originalInitializer == null
                         && (declarationParent instanceof J.Block
-                            || declarationParent instanceof J.ForLoop.Control))
-                    || isReassigned(originalName))) {
+                            || declarationParent instanceof J.ForLoop.Control))) {
               return preserveLegacyValues(declarations);
             }
 
@@ -1167,11 +1169,6 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (invocation.getSimpleName().equals("getValue")) {
               Expression select = unwrapParentheses(invocation.getSelect());
               String mapped = convertedType(select);
-              if (mapped == null
-                  && select instanceof J.Identifier identifier
-                  && !isDateOrBytesValue(identifier.getType())) {
-                mapped = getCursor().getNearestMessage(identifier.getSimpleName());
-              }
               if (mapped != null
                   && !OBJECT_VALUE_FQN.equals(mapped)
                   && !mapped.startsWith(TYPED_VALUE_PACKAGE)) {
