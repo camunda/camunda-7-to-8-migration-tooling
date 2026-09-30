@@ -1010,6 +1010,10 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
             if (isValueRead(invocation)
                 && unwrapParentheses(invocation.getSelect()) instanceof J.MethodInvocation factory
                 && isTypedValueFactory(factory)) {
+              if (isDiscardedResult(getCursor())) {
+                // a bare raw value is not a valid statement
+                return keepTypedCall(invocation, getCursor(), ctx);
+              }
               J.MethodInvocation visited =
                   (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
               Expression rawValue =
@@ -1049,6 +1053,10 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                     isTypedValueFactory(invocation) ? typedContextCursor(getCursor()) : null;
                 if (typedContext != null) {
                   return keepTypedCall(invocation, typedContext, ctx);
+                }
+                if (isDiscardedResult(getCursor())) {
+                  // a bare argument is not a valid statement
+                  return keepTypedCall(invocation, getCursor(), ctx);
                 }
                 J.MethodInvocation receiverCall = receiverCall(invocation);
                 if (receiverCall != null && isTypedValueFactory(invocation)) {
@@ -1465,8 +1473,61 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                         && check.getExpression() == child
                         && check.getClazz() instanceof TypedTree clazz
                         && isCamunda7TypedValue(clazz.getType()))
+                    || isTypedComparisonOperand(comparedOperand(value, child))
                     || isTypedArgument(value, child);
             return use.typedCast() || typedTarget ? start : null;
+          }
+
+          /** The other operand of a reference comparison ({@code ==} or {@code !=}), or null. */
+          private Expression comparedOperand(Object consumer, Object operand) {
+            if (!(consumer instanceof J.Binary binary)
+                || (binary.getOperator() != J.Binary.Type.Equal
+                    && binary.getOperator() != J.Binary.Type.NotEqual)) {
+              return null;
+            }
+            return unwrapParentheses(
+                binary.getLeft() == operand ? binary.getRight() : binary.getLeft());
+          }
+
+          /** Typed operands other than {@code null} keep the compared value typed. */
+          private boolean isTypedComparisonOperand(Expression operand) {
+            return operand != null
+                && !(operand instanceof J.Literal literal && literal.getValue() == null)
+                && isCamunda7TypedValue(operand.getType());
+          }
+
+          /** Expression statements and void lambda bodies, whose value Java discards. */
+          private boolean isDiscardedResult(Cursor expression) {
+            Cursor parent = expression.getParentTreeCursor();
+            Object value = parent.getValue();
+            Object child = expression.getValue();
+            if (value instanceof J.Lambda lambda) {
+              return lambda.getBody() == child
+                  && lambdaReturnType(lambda) == JavaType.Primitive.Void;
+            }
+            if (value instanceof J.Case switchCase && switchCase.getBody() == child) {
+              // arrow cases of switch expressions yield their value
+              return !(parent
+                      .dropParentUntil(
+                          tree ->
+                              tree instanceof J.SwitchExpression
+                                  || tree instanceof J.Switch
+                                  || tree == Cursor.ROOT_VALUE)
+                      .getValue()
+                  instanceof J.SwitchExpression);
+            }
+            if (value instanceof J.ForLoop.Control control) {
+              return control.getCondition() != child;
+            }
+            return value instanceof J.Block
+                || value instanceof J.Case
+                || value instanceof J.If
+                || value instanceof J.If.Else
+                || value instanceof J.WhileLoop
+                || value instanceof J.DoWhileLoop
+                || value instanceof J.ForLoop
+                || value instanceof J.ForEachLoop
+                || value instanceof J.Label;
           }
 
           /**
@@ -2224,6 +2285,13 @@ public class ReplaceTypedValueAPIRecipe extends ScanningRecipe<Set<String>> {
                 } else if (consumer instanceof J.VariableDeclarations.NamedVariable variable
                     && variable.getInitializer() == value) {
                   flowTo(source, variable.getName());
+                } else if (comparedOperand(consumer, value) instanceof Expression other) {
+                  // compared values need comparable types, like assigned ones
+                  if (candidates.containsKey(variableOf(other))) {
+                    flowTo(source, other);
+                  } else if (isTypedComparisonOperand(other)) {
+                    retained.add(source);
+                  }
                 } else if (typedContextCursor(read) != null) {
                   retained.add(source);
                 }

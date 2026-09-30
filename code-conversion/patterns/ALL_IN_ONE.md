@@ -1566,7 +1566,9 @@ Values passed to generic parameters resolved to a typed value, such as
 also stay typed. This includes lower-bounded consumers such as
 `Consumer<? super DateValue>`. Variables that pass values to each other, such as
 `target = source;`, share one decision: when one of them stays typed, all of
-them do.
+them do. Variables compared with `==` or `!=` share a decision in the same way.
+Variables and factories compared with another typed value, such as the result of
+a method returning `IntegerValue`, stay typed.
 Parameters retained this way get the TODO on their method; review the method's
 call sites together with the parameter.
 Grouped typed-getter declarations keep every variable and required cast. Groups
@@ -1583,6 +1585,8 @@ cast to the boxed type when it is used as a receiver or method argument, such as
 `(String) null`.
 Other typed-value methods called on a factory, such as `isTransient()`, and
 method references on a factory, such as `Variables.dateValue(date)::getValue`,
+stay unchanged with a TODO. Factories whose result is discarded, such as the
+statement `Variables.dateValue(date);` or the body of a `Runnable` lambda, also
 stay unchanged with a TODO. Typed-value methods called on a ternary, such as
 `(flag ? Variables.dateValue(a) : Variables.dateValue(b)).getValue()`, also stay
 unchanged with a TODO, and variables read this way stay typed.

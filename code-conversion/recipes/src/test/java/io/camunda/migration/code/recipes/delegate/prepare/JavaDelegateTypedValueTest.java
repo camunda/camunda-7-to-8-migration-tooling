@@ -2675,4 +2675,115 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void discardedTypedValueFactoriesStayValidStatements() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class DiscardedFactories {
+                Object read(Date date, boolean flag, int kind) {
+                    Variables.dateValue(date);
+                    Variables.integerValue(1).getValue();
+                    if (flag) {
+                        Variables.stringValue("a");
+                    }
+                    Runnable run = () -> Variables.dateValue(date);
+                    Supplier<Object> supplier = () -> Variables.dateValue(date);
+                    switch (kind) {
+                        case 1 -> Variables.longValue(1L);
+                        default -> {}
+                    }
+                    return switch (kind) {
+                        case 1 -> Variables.dateValue(date);
+                        default -> date;
+                    };
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+
+            class DiscardedFactories {
+                Object read(Date date, boolean flag, int kind) {
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    Variables.dateValue(date);
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    Variables.integerValue(1).getValue();
+                    if (flag) {
+                        // TODO: migrate Camunda 7 typed-value method call manually
+                        Variables.stringValue("a");
+                    }
+                    Runnable run = () -> // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date);
+                    Supplier<Object> supplier = () -> date;
+                    switch (kind) {
+                        case 1 -> // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.longValue(1L);
+                        default -> {}
+                    }
+                    return switch (kind) {
+                        case 1 -> date;
+                        default -> date;
+                    };
+                }
+            }
+            """));
+  }
+
+  @Test
+  void comparedTypedValuesKeepComparableTypes() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            abstract class Comparisons {
+                abstract IntegerValue loadInteger();
+
+                boolean compare() {
+                    IntegerValue raw = Variables.integerValue(1);
+                    IntegerValue typed = loadInteger();
+                    IntegerValue v = Variables.integerValue(2);
+                    IntegerValue left = Variables.integerValue(3);
+                    IntegerValue right = Variables.integerValue(4);
+                    boolean same = raw == typed;
+                    boolean f = v != Variables.integerValue(2);
+                    boolean candidates = (left == right);
+                    return same || f || candidates || right != null;
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+
+            abstract class Comparisons {
+                abstract IntegerValue loadInteger();
+
+                boolean compare() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue raw = Variables.integerValue(1);
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue typed = loadInteger();
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue v = Variables.integerValue(2);
+                    Integer left = 3;
+                    Integer right = 4;
+                    boolean same = raw == typed;
+                    boolean f = v != // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.integerValue(2);
+                    boolean candidates = (left == right);
+                    return same || f || candidates || right != null;
+                }
+            }
+            """));
+  }
 }
