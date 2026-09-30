@@ -532,6 +532,26 @@ hr {
   }
 }
 
+.preview-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.preview-position {
+  margin: 0 auto;
+  color: var(--neutral-foreground-subtle);
+  font-weight: 600;
+  text-align: center;
+}
+
+.preview-loading {
+  margin: 1rem 0;
+  color: var(--neutral-foreground-subtle);
+}
+
 .findingElementLink {
   background: none;
   border: none;
