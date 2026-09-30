@@ -1510,11 +1510,15 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 BytesValue genericBytes = Variables.byteArrayValue(new byte[]{2});
                 DateValue indexedDate = Variables.dateValue(new Date(4));
                 BytesValue indexedBytes = Variables.byteArrayValue(new byte[]{4});
+                DateValue nestedDate = Variables.dateValue(new Date(5));
+                BytesValue nestedBytes = Variables.byteArrayValue(new byte[]{5});
                 DateValue[] dates = {date};
                 DateValue[] constructedDates = new DateValue[]{date};
                 BytesValue[] buffers = {this.bytes};
                 BytesValue[] constructedBuffers = new BytesValue[]{bytes};
                 TypedValue[] typedValues = {genericDate, genericBytes};
+                DateValue[][] nestedDates = {{nestedDate}};
+                BytesValue[][] nestedBuffers = new BytesValue[][]{{nestedBytes}};
                 DateValue[] uninitializedDates;
                 BytesValue uninitializedBytes[];
                 TypedValue[] uninitializedTyped;
@@ -1553,6 +1557,10 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 BytesValue indexedBytes = Variables.byteArrayValue(new byte[]{4});
                 // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue nestedDate = Variables.dateValue(new Date(5));
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue nestedBytes = Variables.byteArrayValue(new byte[]{5});
+                // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue[] dates = {date};
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue[] constructedDates = new DateValue[]{date};
@@ -1562,6 +1570,10 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 BytesValue[] constructedBuffers = new BytesValue[]{bytes};
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 TypedValue[] typedValues = {genericDate, genericBytes};
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                DateValue[][] nestedDates = {{nestedDate}};
+                // TODO: migrate Camunda 7 typed-value declaration manually
+                BytesValue[][] nestedBuffers = new BytesValue[][]{{nestedBytes}};
                 // TODO: migrate Camunda 7 typed-value declaration manually
                 DateValue[] uninitializedDates;
                 // TODO: migrate Camunda 7 typed-value declaration manually
