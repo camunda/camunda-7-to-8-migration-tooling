@@ -176,6 +176,52 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void dateAndBytesTypedReadInitializersKeepGroupedFieldsAndLocalCasts() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.BytesValue;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class TypedReads {
+                DelegateExecution execution;
+                DateValue firstDate = execution.getVariableTyped("firstDate"), secondDate = execution.getVariableLocalTyped("secondDate");
+                BytesValue firstBytes = execution.getVariableTyped("firstBytes"), secondBytes = execution.getVariableLocalTyped("secondBytes");
+
+                void read(DelegateExecution execution) {
+                    DateValue date = execution.getVariableTyped("date");
+                    BytesValue bytes = execution.getVariableLocalTyped("bytes");
+                    Date dateValue = date.getValue();
+                    byte[] contents = bytes.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class TypedReads {
+                DelegateExecution execution;
+                // please check type
+                Date firstDate = (Date) execution.getVariable("firstDate"), secondDate = (Date) execution.getVariableLocal("secondDate");
+                // please check type
+                byte[] firstBytes = (byte[]) execution.getVariable("firstBytes"), secondBytes = (byte[]) execution.getVariableLocal("secondBytes");
+
+                void read(DelegateExecution execution) {
+                    // please check type
+                    Date date = (Date) execution.getVariable("date");
+                    // please check type
+                    byte[] bytes = (byte[]) execution.getVariableLocal("bytes");
+                    Date dateValue = date;
+                    byte[] contents = bytes;
+                }
+            }
+            """));
+  }
+
+  @Test
   void convertedFieldsKeepQualifiedReadCastsWithoutChangingOtherOwners() {
     rewriteRun(
         java(
