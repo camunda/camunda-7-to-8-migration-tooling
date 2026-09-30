@@ -1258,6 +1258,12 @@ def record(root, args):
             or TARGET_VERSION.fullmatch(args.target_version) is None
         ):
             raise EvidenceError("Timer preflight needs a disposable local or non-production target, version, and cleanup plan")
+        if key[2] == "active_instance_reschedule":
+            decision = plan.active_timer_decisions[key[1]]
+            if args.environment != "local" or args.target_version != decision["target_version"]:
+                raise EvidenceError(
+                    f"{key}: active timer rescheduling needs the approved version on an isolated disposable local target"
+                )
     elif args.action == "run" and needs_safe_environment(key):
         if args.environment not in SAFE_ENVIRONMENTS:
             raise EvidenceError("Runtime and deployment checks require a local or non-production target")

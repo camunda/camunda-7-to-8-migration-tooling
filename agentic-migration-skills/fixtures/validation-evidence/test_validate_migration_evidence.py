@@ -834,6 +834,49 @@ class ValidationEvidenceTest(unittest.TestCase):
         invalid["observation"]["active_timer"]["final_deadline_fire_count"] = 2
         self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
 
+    def test_active_timer_command_rejects_unsafe_environment_and_unapproved_version_before_execution(self):
+        runtime_key = self.install_active_timer_decision()
+        decision_reference = self.plan["active_timer_update_decision"]["reference"]
+        module_key = ("module", "app", "active_timer_updates", None)
+        model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
+        self.assertEqual(
+            0,
+            self.submit(
+                module_key,
+                action="review",
+                disposition="message_rearm",
+                reference=decision_reference,
+            ),
+        )
+        self.assertEqual(0, self.submit(("model", model_path, "lint", None)))
+        self.assertEqual(0, self.submit(("model", model_path, "review", None), action="review"))
+        self.assertEqual(
+            0,
+            self.submit(("deployment_set", "shared", "preflight", None), action="review"),
+        )
+
+        marker = self.root / "active-timer-command-ran"
+        command = [
+            sys.executable,
+            "-c",
+            f"from pathlib import Path; Path({str(marker)!r}).touch()",
+        ]
+        cases = (
+            {"environment": "non-production", "target_version": "8.9.21"},
+            {"environment": "local", "target_version": "8.9.22"},
+        )
+        for options in cases:
+            with self.subTest(**options), self.assertRaisesRegex(
+                gate.EvidenceError, "approved version on an isolated disposable local target"
+            ):
+                self.submit(
+                    runtime_key,
+                    command=command,
+                    isolation_plan="Remove the disposable target after the check.",
+                    **options,
+                )
+            self.assertFalse(marker.exists())
+
     def test_stale_source_blocks_commands_before_execution_and_can_be_refreshed(self):
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
