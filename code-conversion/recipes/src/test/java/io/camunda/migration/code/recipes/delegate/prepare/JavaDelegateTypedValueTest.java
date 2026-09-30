@@ -1862,4 +1862,215 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void fieldsAccessedFromOtherClassesStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class Holder {
+                DateValue shared = Variables.dateValue(new Date());
+                DateValue own = Variables.dateValue(new Date());
+
+                Date read(Holder other) {
+                    return other.own.getValue();
+                }
+            }
+
+            class Reader {
+                Date read(Holder holder) {
+                    return holder.shared.getValue();
+                }
+            }
+
+            class Child extends Holder {
+                Date inherited() {
+                    return shared.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class Holder {
+                // TODO: migrate Camunda 7 typed-value initializer manually
+                DateValue shared = Variables.dateValue(new Date());
+                Date own = new Date();
+
+                Date read(Holder other) {
+                    return other.own;
+                }
+            }
+
+            class Reader {
+                Date read(Holder holder) {
+                    return holder.shared.getValue();
+                }
+            }
+
+            class Child extends Holder {
+                Date inherited() {
+                    return shared.getValue();
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedInstanceofChecksKeepTypedValues() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedChecks {
+                boolean typed() {
+                    IntegerValue value = Variables.integerValue(1);
+                    return value instanceof TypedValue;
+                }
+
+                boolean raw() {
+                    IntegerValue value = Variables.integerValue(1);
+                    return value.getValue() instanceof Integer;
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.IntegerValue;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedChecks {
+                boolean typed() {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    IntegerValue value = Variables.integerValue(1);
+                    return value instanceof TypedValue;
+                }
+
+                boolean raw() {
+                    Integer value = 1;
+                    return value instanceof Integer;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void retypedTypedValueFieldsConvertAllReads() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class RetypedFields {
+                Object early() {
+                    return value.getValue();
+                }
+
+                private TypedValue value = Variables.dateValue(new Date());
+
+                Object qualified() {
+                    return this.value.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+
+            class RetypedFields {
+                Object early() {
+                    return value;
+                }
+
+                private Date value = new Date();
+
+                Object qualified() {
+                    return this.value;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void groupedTypedValueDeclarationsStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class GroupedTypedValues {
+                void store(Date first, Date second) {
+                    TypedValue a = Variables.dateValue(first), b = Variables.dateValue(second);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class GroupedTypedValues {
+                void store(Date first, Date second) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    TypedValue a = Variables.dateValue(first), b = Variables.dateValue(second);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void lowerBoundedTypedConsumersStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class LowerBounded {
+                void accept(Consumer<? super DateValue> sink, Date date) {
+                    sink.accept(Variables.dateValue(date));
+                }
+
+                void add(List<? super DateValue> values, Date date) {
+                    DateValue value = Variables.dateValue(date);
+                    values.add(value);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class LowerBounded {
+                void accept(Consumer<? super DateValue> sink, Date date) {
+                    sink.accept(// TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date));
+                }
+
+                void add(List<? super DateValue> values, Date date) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue value = Variables.dateValue(date);
+                    values.add(value);
+                }
+            }
+            """));
+  }
 }

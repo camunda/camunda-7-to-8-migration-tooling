@@ -90,13 +90,18 @@ inside a retained declaration or assignment are still rewritten.
 A declaration also stays typed with a TODO when a later assignment may store a
 typed value, such as `a = loadInteger();`, or when a read still needs the typed
 value. Such reads include `value.isTransient()`, method references such as
-`value::getValue`, returns from typed-value methods, typed casts, and assignments
-to typed targets such as `TypedValue`. Declarations of `TypedValue` and other
-typed-value types without a direct Java type follow the same rules when they are
-initialized from a factory or typed getter.
+`value::getValue`, returns from typed-value methods, typed casts, typed
+`instanceof` checks, and assignments to typed targets such as `TypedValue`.
+Fields read or written from another class, including subclasses, also stay typed
+with a TODO. Declarations of `TypedValue` and other typed-value types without a
+direct Java type follow the same rules when they are initialized from a factory
+or typed getter; converted fields of this kind also convert forward and qualified
+reads such as `this.value.getValue()`. Grouped declarations of these types with
+factory or typed-getter initializers stay typed with a TODO.
 Values passed to generic parameters resolved to a typed value, such as
 `values.add(value)` on a `List<DateValue>` or `List.of(Variables.dateValue(date))`,
-also stay typed. Variables that pass values to each other, such as
+also stay typed. This includes lower-bounded consumers such as
+`Consumer<? super DateValue>`. Variables that pass values to each other, such as
 `target = source;`, share one decision: when one of them stays typed, all of
 them do.
 Parameters retained this way get the TODO on their method; review the method's

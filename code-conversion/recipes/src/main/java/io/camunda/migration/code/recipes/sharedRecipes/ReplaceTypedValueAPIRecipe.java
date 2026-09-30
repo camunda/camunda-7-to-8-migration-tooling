@@ -334,6 +334,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (grouped
                 && !(declarations.getTypeExpression() instanceof J.Identifier groupType
                     && isConvertibleTypedValue(groupType.getType()))) {
+              if (hasRetypedInitializer(declarations)) {
+                return markUnsupportedTypedInitializer(declarations, ctx);
+              }
               return preserveObjectValues(declarations, ctx);
             }
 
@@ -968,6 +971,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
                   maybeRemoveImport(fqn);
                 }
+                if (isTypedValueFactory(invocation)) {
+                  maybeRemoveImport(VARIABLES_FQN);
+                }
 
                 Expression modifiedInvocation =
                     RecipeUtils.applyTemplate(
@@ -1352,6 +1358,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         && isCamunda7TypedValue(elementType(newArray.getType())))
                     || (value instanceof J.MemberReference reference
                         && reference.getContaining() == child)
+                    || (value instanceof J.InstanceOf check
+                        && check.getExpression() == child
+                        && check.getClazz() instanceof TypedTree clazz
+                        && isCamunda7TypedValue(clazz.getType()))
                     || isTypedArgument(value, child);
             return use.typedCast() || typedTarget ? start : null;
           }
@@ -1380,12 +1390,28 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     && !(argument instanceof Expression expression
                         && expression.getType() instanceof JavaType.Array);
             JavaType parameter = parameterType(type, Math.min(index, last), varargsElement);
-            if (!isCamunda7TypedValue(parameter)) {
+            if (varargsElement) {
+              return isCamunda7TypedValue(parameter);
+            }
+            JavaType.GenericTypeVariable formal = declaredTypeVariable(type, index);
+            if (formal == null) {
               return false;
             }
-            if (varargsElement) {
-              return true;
+            if (parameter instanceof JavaType.GenericTypeVariable captured
+                && captured.getBounds().isEmpty()) {
+              // captured wildcards such as ? super DateValue resolve through the receiver type
+              parameter = receiverTypeArgument(call, type, formal);
             }
+            if (parameter instanceof JavaType.GenericTypeVariable wildcard
+                && wildcard.getVariance() == JavaType.GenericTypeVariable.Variance.CONTRAVARIANT) {
+              return wildcard.getBounds().stream().anyMatch(this::isCamunda7TypedValue);
+            }
+            return isCamunda7TypedValue(parameter);
+          }
+
+          /** Returns the type variable a generic method declares at {@code index}, or null. */
+          private JavaType.GenericTypeVariable declaredTypeVariable(
+              JavaType.Method type, int index) {
             JavaType.FullyQualified owner = type.getDeclaringType();
             if (owner instanceof JavaType.Parameterized parameterized) {
               owner = parameterized.getType();
@@ -1394,13 +1420,32 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 owner == null ? List.of() : owner.getMethods();
             for (JavaType.Method declared : declaredMethods) {
               if (declared.getName().equals(type.getName())
-                  && declared.getParameterTypes().size() == last + 1
+                  && declared.getParameterTypes().size() == type.getParameterTypes().size()
                   && parameterType(declared, index, false)
-                      instanceof JavaType.GenericTypeVariable) {
-                return true;
+                      instanceof JavaType.GenericTypeVariable variable) {
+                return variable;
               }
             }
-            return false;
+            return null;
+          }
+
+          private JavaType receiverTypeArgument(
+              Object call, JavaType.Method type, JavaType.GenericTypeVariable formal) {
+            if (!(call instanceof J.MethodInvocation invocation)
+                || invocation.getSelect() == null
+                || !(invocation.getSelect().getType() instanceof JavaType.Parameterized receiver)
+                || type.getDeclaringType() == null) {
+              return null;
+            }
+            List<JavaType> variables = type.getDeclaringType().getTypeParameters();
+            List<JavaType> arguments = receiver.getTypeParameters();
+            for (int i = 0; i < variables.size() && variables.size() == arguments.size(); i++) {
+              if (variables.get(i) instanceof JavaType.GenericTypeVariable variable
+                  && variable.getName().equals(formal.getName())) {
+                return arguments.get(i);
+              }
+            }
+            return null;
           }
 
           private JavaType parameterType(JavaType.Method method, int index, boolean element) {
@@ -1673,10 +1718,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            */
           private String convertedIdentifierType(J.Identifier identifier) {
             Cursor classBody = declaringFieldCursor(identifier);
+            String fieldType =
+                classBody == null
+                    ? null
+                    : classBody.getMessage(
+                        CONVERTED_FIELD_MESSAGE_PREFIX + identifier.getSimpleName());
             String mappedType =
-                classBody != null && isConvertibleTypedValue(identifier.getType())
-                    ? classBody.getMessage(
-                        CONVERTED_FIELD_MESSAGE_PREFIX + identifier.getSimpleName())
+                classBody != null
+                        && (isConvertibleTypedValue(identifier.getType()) || fieldType != null)
+                    ? fieldType
                     : getCursor().getNearestMessage(identifier.getSimpleName());
             return mappedType != null && mappedType.startsWith(TYPED_VALUE_PACKAGE)
                 ? null
@@ -1816,10 +1866,16 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
            * {@code TypedValue}, gets from its factory or getter initializer, or null.
            */
           private String retypedDeclarationType(J.VariableDeclarations declarations) {
+            return declarations.getVariables().size() == 1
+                ? retypedInitializerType(declarations, declarations.getVariables().get(0))
+                : null;
+          }
+
+          private String retypedInitializerType(
+              J.VariableDeclarations declarations, J.VariableDeclarations.NamedVariable variable) {
             if (!isCamunda7TypedValue(declarations.getType())
                 || TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
-                || declarations.getVariables().size() != 1
-                || !(unwrapParentheses(declarations.getVariables().get(0).getInitializer())
+                || !(unwrapParentheses(variable.getInitializer())
                     instanceof J.MethodInvocation initializer)) {
               return null;
             }
@@ -1831,6 +1887,12 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 .map(ReplacementUtils.SimpleReplacementSpec::returnTypeFqn)
                 .findFirst()
                 .orElse(null);
+          }
+
+          /** Groups of such declarations are not rebuilt, so their initializers stay typed. */
+          private boolean hasRetypedInitializer(J.VariableDeclarations declarations) {
+            return declarations.getVariables().stream()
+                .anyMatch(variable -> retypedInitializerType(declarations, variable) != null);
           }
 
           private boolean isRetainedTypedVariable(Expression target) {
@@ -1918,6 +1980,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               public J.Identifier visitIdentifier(J.Identifier identifier, Integer p) {
                 JavaType.Variable source = identifier.getFieldType();
                 if (candidates.containsKey(source)) {
+                  if (isOutsideDeclaringClass(source, getCursor())) {
+                    // converted field types are only tracked inside the declaring class body
+                    retained.add(source);
+                  }
                   visitRead(source, getCursor());
                 }
                 return super.visitIdentifier(identifier, p);
@@ -2008,6 +2074,23 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return result;
           }
 
+          private boolean isOutsideDeclaringClass(JavaType.Variable variable, Cursor cursor) {
+            if (!(variable.getOwner() instanceof JavaType.FullyQualified)) {
+              return false;
+            }
+            for (Cursor current = cursor;
+                current.getParent() != null;
+                current = current.getParent()) {
+              if (current.getValue() instanceof J.Block body
+                  && (current.getParent().getValue() instanceof J.ClassDeclaration
+                      || current.getParent().getValue() instanceof J.NewClass)
+                  && declaresField(body, variable)) {
+                return false;
+              }
+            }
+            return true;
+          }
+
           private JavaType.Variable variableOf(Expression expression) {
             Expression unwrapped = unwrapParentheses(expression);
             if (unwrapped instanceof J.FieldAccess access) {
@@ -2051,8 +2134,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               foundNewFields = false;
               for (Statement statement : classBody.getStatements()) {
                 if (!(statement instanceof J.VariableDeclarations fields)
-                    || !(fields.getTypeExpression() instanceof J.Identifier typeExpr)
-                    || !isConvertibleTypedValue(typeExpr.getType())) {
+                    || !(fields.getTypeExpression() instanceof J.Identifier typeExpr)) {
+                  continue;
+                }
+                String retypedFqn = retypedDeclarationType(fields);
+                if (!isConvertibleTypedValue(typeExpr.getType())) {
+                  if (retypedFqn != null && !isRetainedTypedDeclaration(fields)) {
+                    foundNewFields |=
+                        registerConvertedField(fields.getVariables().get(0), retypedFqn);
+                  }
                   continue;
                 }
                 if (fields.getVariables().size() > 1
@@ -2068,14 +2158,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   continue;
                 }
                 for (J.VariableDeclarations.NamedVariable field : fields.getVariables()) {
-                  String key = CONVERTED_FIELD_MESSAGE_PREFIX + field.getSimpleName();
-                  if (getCursor().getMessage(key) == null) {
-                    getCursor().putMessage(key, newFqn);
-                    foundNewFields = true;
-                  }
+                  foundNewFields |= registerConvertedField(field, newFqn);
                 }
               }
             } while (foundNewFields);
+          }
+
+          private boolean registerConvertedField(
+              J.VariableDeclarations.NamedVariable field, String newFqn) {
+            String key = CONVERTED_FIELD_MESSAGE_PREFIX + field.getSimpleName();
+            if (getCursor().getMessage(key) != null) {
+              return false;
+            }
+            getCursor().putMessage(key, newFqn);
+            return true;
           }
 
           private boolean isFieldDeclaration() {
