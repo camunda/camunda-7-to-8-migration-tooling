@@ -723,6 +723,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
+            if (isRetainedTypedVariable(unwrappedTarget)) {
+              return visitPreservedAssignment(assignment, ctx);
+            }
+
             Expression assignmentValue = assignment.getAssignment();
             Expression unwrappedAssignmentValue = unwrapParentheses(assignmentValue);
             if (!(unwrappedAssignmentValue instanceof J.MethodInvocation invocation)) {
@@ -891,6 +895,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return visited;
           }
 
+          /** Return types, typed casts, and typed arguments keep their Camunda 7 type. */
+          private J keepTypedCall(
+              J.MethodInvocation invocation, Cursor typedContext, ExecutionContext ctx) {
+            if (typedContext.getValue() instanceof J.Return) {
+              typedContext.putMessage(TYPED_RETURN_MESSAGE, true);
+              return super.visitMethodInvocation(invocation, ctx);
+            }
+            J.MethodInvocation visited =
+                (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
+            return maybeAutoFormat(invocation, withTypedMethodHint(visited), ctx);
+          }
+
           /** Replace variableMap.put() or variableMap.putValue() method invocations */
           @Override
           public J visitMethodInvocation(J.MethodInvocation invocation, ExecutionContext ctx) {
@@ -937,14 +953,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 Cursor typedContext =
                     isTypedValueFactory(invocation) ? typedContextCursor(getCursor()) : null;
                 if (typedContext != null) {
-                  // return types, typed casts, and typed arrays keep their Camunda 7 type
-                  if (typedContext.getValue() instanceof J.Return) {
-                    typedContext.putMessage(TYPED_RETURN_MESSAGE, true);
-                    return super.visitMethodInvocation(invocation, ctx);
-                  }
-                  J.MethodInvocation visited =
-                      (J.MethodInvocation) super.visitMethodInvocation(invocation, ctx);
-                  return maybeAutoFormat(invocation, withTypedMethodHint(visited), ctx);
+                  return keepTypedCall(invocation, typedContext, ctx);
                 }
                 J.MethodInvocation receiverCall = receiverCall(invocation);
                 if (receiverCall != null && isTypedValueFactory(invocation)) {
@@ -1152,6 +1161,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             if (invocation.getSimpleName().equals("getVariableTyped")
                 || invocation.getSimpleName().equals("getVariableLocalTyped")) {
+              Cursor typedContext = typedContextCursor(getCursor());
+              if (typedContext != null) {
+                return keepTypedCall(invocation, typedContext, ctx);
+              }
               J.Identifier newIdent =
                   RecipeUtils.createSimpleIdentifier("getVariable", "java.lang.String");
               return invocation.withName(newIdent);
@@ -1337,6 +1350,8 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         && newArray.getInitializer() != null
                         && newArray.getInitializer().contains(child)
                         && isCamunda7TypedValue(elementType(newArray.getType())))
+                    || (value instanceof J.MemberReference reference
+                        && reference.getContaining() == child)
                     || isTypedArgument(value, child);
             return use.typedCast() || typedTarget ? start : null;
           }
@@ -1796,6 +1811,35 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         .anyMatch(variable -> !variable.getDimensionsAfterName().isEmpty()));
           }
 
+          /**
+           * Returns the type a single typed-value declaration without a direct Java type, such as
+           * {@code TypedValue}, gets from its factory or getter initializer, or null.
+           */
+          private String retypedDeclarationType(J.VariableDeclarations declarations) {
+            if (!isCamunda7TypedValue(declarations.getType())
+                || TypeUtils.isOfClassType(declarations.getType(), OBJECT_VALUE_FQN)
+                || declarations.getVariables().size() != 1
+                || !(unwrapParentheses(declarations.getVariables().get(0).getInitializer())
+                    instanceof J.MethodInvocation initializer)) {
+              return null;
+            }
+            if (matchesTypedVariableGetter(initializer)) {
+              return mapTypedValueToNewFqn(declarations.getType());
+            }
+            return simpleMethodInvocations.stream()
+                .filter(spec -> spec.matcher().matches(initializer))
+                .map(ReplacementUtils.SimpleReplacementSpec::returnTypeFqn)
+                .findFirst()
+                .orElse(null);
+          }
+
+          private boolean isRetainedTypedVariable(Expression target) {
+            Set<JavaType.Variable> retained =
+                getCursor().getNearestMessage(RETAINED_TYPED_VARIABLES, Set.of());
+            JavaType.Variable variable = variableOf(target);
+            return variable != null && retained.contains(variable);
+          }
+
           private boolean isRetainedTypedDeclaration(J.VariableDeclarations declarations) {
             Set<JavaType.Variable> retained =
                 getCursor().getNearestMessage(RETAINED_TYPED_VARIABLES, Set.of());
@@ -1815,7 +1859,11 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               public J.VariableDeclarations visitVariableDeclarations(
                   J.VariableDeclarations declarations, Integer p) {
                 JavaType elementType = elementType(declarations.getType());
-                if (isConvertibleTypedValue(elementType)) {
+                String newFqn =
+                    isConvertibleTypedValue(elementType)
+                        ? mapTypedValueToNewFqn(elementType)
+                        : retypedDeclarationType(declarations);
+                if (newFqn != null) {
                   boolean keep =
                       isTypedValueArray(declarations)
                           || (declarations.getVariables().size() > 1
@@ -1828,7 +1876,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       declarations.getVariables()) {
                     JavaType.Variable variableType = variable.getName().getFieldType();
                     if (variableType != null) {
-                      candidates.put(variableType, mapTypedValueToNewFqn(elementType));
+                      candidates.put(variableType, newFqn);
                       if (keep) {
                         retained.add(variableType);
                       }

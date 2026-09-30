@@ -1542,8 +1542,11 @@ migrated together. Reads of converted values
 inside a retained declaration or assignment are still rewritten.
 A declaration also stays typed with a TODO when a later assignment may store a
 typed value, such as `a = loadInteger();`, or when a read still needs the typed
-value. Such reads include `value.isTransient()`, returns from typed-value
-methods, typed casts, and assignments to typed targets such as `TypedValue`.
+value. Such reads include `value.isTransient()`, method references such as
+`value::getValue`, returns from typed-value methods, typed casts, and assignments
+to typed targets such as `TypedValue`. Declarations of `TypedValue` and other
+typed-value types without a direct Java type follow the same rules when they are
+initialized from a factory or typed getter.
 Values passed to generic parameters resolved to a typed value, such as
 `values.add(value)` on a `List<DateValue>` or `List.of(Variables.dateValue(date))`,
 also stay typed. Variables that pass values to each other, such as
@@ -1560,11 +1563,12 @@ pass the raw value and get the same transient-flag TODO.
 `Variables.dateValue(date).getValue()` and similar reads become the raw value,
 cast to the boxed type when it is used as a receiver or method argument, such as
 `((Integer) 5).toString()`.
-Other typed-value methods called on a factory, such as `isTransient()`, stay
-unchanged with a TODO.
-Method return types keep their Camunda 7 type, so factories returned from a
-method or lambda declared to return a typed value, such as `DateValue copy()` or
-`Supplier<DateValue>`, also stay unchanged with a TODO. This includes returns
+Other typed-value methods called on a factory, such as `isTransient()`, and
+method references on a factory, such as `Variables.dateValue(date)::getValue`,
+stay unchanged with a TODO.
+Method return types keep their Camunda 7 type, so factories and typed getters
+returned from a method or lambda declared to return a typed value, such as
+`DateValue copy()` or `Supplier<DateValue>`, also stay unchanged with a TODO. This includes returns
 through parentheses, ternaries, and switch expressions, and factories cast to a
 typed value, such as `(DateValue) Variables.dateValue(date)`.
 Typed-value arrays and varargs, such as `DateValue[] dates` or `DateValue dates[]`,

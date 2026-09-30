@@ -1697,4 +1697,169 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             }
             """));
   }
+
+  @Test
+  void typedValueTargetsKeepTypedInitializers() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedTargets {
+                TypedValue returned(Date date) {
+                    TypedValue value = Variables.dateValue(date);
+                    return value;
+                }
+
+                TypedValue returnedGetter(DelegateExecution execution) {
+                    TypedValue value = execution.getVariableTyped("date");
+                    return value;
+                }
+
+                void reassigned(DelegateExecution execution, Date date) {
+                    TypedValue value = Variables.dateValue(date);
+                    value = Variables.stringValue("text");
+                    execution.setVariable("value", value);
+                }
+
+                void raw(DelegateExecution execution, Date date) {
+                    TypedValue value = Variables.dateValue(date);
+                    execution.setVariable("date", value);
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.TypedValue;
+
+            class TypedTargets {
+                TypedValue returned(Date date) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    TypedValue value = Variables.dateValue(date);
+                    return value;
+                }
+
+                TypedValue returnedGetter(DelegateExecution execution) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    TypedValue value = execution.getVariableTyped("date");
+                    return value;
+                }
+
+                void reassigned(DelegateExecution execution, Date date) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    TypedValue value = Variables.dateValue(date);
+                    value = Variables.stringValue("text");
+                    execution.setVariable("value", value);
+                }
+
+                void raw(DelegateExecution execution, Date date) {
+                    Date value = date;
+                    execution.setVariable("date", value);
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedGettersStayTypedInTypedContexts() {
+    rewriteRun(
+        java(
+            """
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class TypedGetterReturns {
+                DateValue copy(DelegateExecution execution) {
+                    return execution.getVariableTyped("date");
+                }
+
+                Supplier<DateValue> supplier(DelegateExecution execution) {
+                    return () -> execution.getVariableLocalTyped("date");
+                }
+
+                Object raw(DelegateExecution execution) {
+                    return execution.getVariableTyped("date");
+                }
+            }
+            """,
+            """
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class TypedGetterReturns {
+                DateValue copy(DelegateExecution execution) {
+                    // TODO: migrate Camunda 7 typed-value method call manually
+                    return execution.getVariableTyped("date");
+                }
+
+                Supplier<DateValue> supplier(DelegateExecution execution) {
+                    return () -> // TODO: migrate Camunda 7 typed-value method call manually
+                            execution.getVariableLocalTyped("date");
+                }
+
+                Object raw(DelegateExecution execution) {
+                    return execution.getVariable("date");
+                }
+            }
+            """));
+  }
+
+  @Test
+  void typedValueMethodReferencesStayTyped() {
+    rewriteRun(
+        java(
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class TypedReferences {
+                Supplier<Date> getter(Date date) {
+                    DateValue value = Variables.dateValue(date);
+                    return value::getValue;
+                }
+
+                Supplier<Date> factory(Date date) {
+                    return Variables.dateValue(date)::getValue;
+                }
+
+                Object converted(Date date) {
+                    DateValue value = Variables.dateValue(date);
+                    return value.getValue();
+                }
+            }
+            """,
+            """
+            import java.util.Date;
+            import java.util.function.Supplier;
+            import org.camunda.bpm.engine.variable.Variables;
+            import org.camunda.bpm.engine.variable.value.DateValue;
+
+            class TypedReferences {
+                Supplier<Date> getter(Date date) {
+                    // TODO: migrate Camunda 7 typed-value initializer manually
+                    DateValue value = Variables.dateValue(date);
+                    return value::getValue;
+                }
+
+                Supplier<Date> factory(Date date) {
+                    return // TODO: migrate Camunda 7 typed-value method call manually
+                            Variables.dateValue(date)::getValue;
+                }
+
+                Object converted(Date date) {
+                    Date value = date;
+                    return value;
+                }
+            }
+            """));
+  }
 }
