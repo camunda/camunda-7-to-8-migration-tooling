@@ -271,23 +271,36 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
     rewriteRun(
         java(
             """
+            import java.util.Date;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.DateValue;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
 
             class GroupedValues {
                 void use(DelegateExecution execution) {
                     IntegerValue amount = execution.getVariableTyped("amount");
+                    DateValue date = execution.getVariableTyped("date");
                     class Nested {
                         IntegerValue load() { return null; }
                         int read() {
                             IntegerValue amount = load(), other = load();
                             return amount.getValue();
                         }
+                        Date readParameter(Holder date) { return date.getValue(); }
+                        Date readLocal() {
+                            Holder date = new Holder();
+                            return date.getValue();
+                        }
                     }
                 }
             }
+
+            class Holder {
+                Date getValue() { return new Date(0); }
+            }
             """,
             """
+            import java.util.Date;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
 
@@ -295,14 +308,25 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
                 void use(DelegateExecution execution) {
                     // please check type
                     Integer amount = (Integer) execution.getVariable("amount");
+                    // please check type
+                    Date date = (Date) execution.getVariable("date");
                     class Nested {
                         IntegerValue load() { return null; }
                         int read() {
                             IntegerValue amount = load(), other = load();
                             return amount.getValue();
                         }
+                        Date readParameter(Holder date) { return date.getValue(); }
+                        Date readLocal() {
+                            Holder date = new Holder();
+                            return date.getValue();
+                        }
                     }
                 }
+            }
+
+            class Holder {
+                Date getValue() { return new Date(0); }
             }
             """));
   }

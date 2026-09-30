@@ -309,6 +309,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     type, "org.camunda.bpm.engine.variable.value.BytesValue");
           }
 
+          private boolean canHaveConversionMessage(JavaType type) {
+            return type instanceof JavaType.FullyQualified fullyQualified
+                && (fullyQualified.getFullyQualifiedName().startsWith(TYPED_VALUE_PACKAGE)
+                    || fullyQualified
+                        .getFullyQualifiedName()
+                        .equals("org.camunda.bpm.engine.variable.VariableMap"));
+          }
+
           private boolean matchesTypedGetter(J.MethodInvocation invocation) {
             return typedVariableGetters.stream().anyMatch(matcher -> matcher.matches(invocation));
           }
@@ -821,7 +829,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               JavaType.Variable symbol = identifier.getFieldType();
               return symbol != null && symbol.getOwner() instanceof JavaType.FullyQualified
                   ? convertedFields.get(symbol)
-                  : getCursor().getNearestMessage(identifier.getSimpleName());
+                  : canHaveConversionMessage(identifier.getType())
+                      ? getCursor().getNearestMessage(identifier.getSimpleName())
+                      : null;
             }
             return null;
           }
@@ -1369,6 +1379,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return mapped == null
                   ? identifier
                   : identifier.withType(JavaType.buildType(mapped));
+            }
+            if (!canHaveConversionMessage(identifier.getType())) {
+              return identifier;
             }
             String mapped = getCursor().getNearestMessage(identifier.getSimpleName());
             if (identifier.getType() instanceof JavaType.FullyQualified type
