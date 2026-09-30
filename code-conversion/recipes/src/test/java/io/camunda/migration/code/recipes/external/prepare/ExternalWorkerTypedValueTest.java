@@ -74,7 +74,7 @@ public class RetrievePaymentWorkerProcessVariablesTypedValueAPI implements Exter
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
         // please check type
-        Integer typedAmount = (Integer) externalTask.getVariable("amount");
+        Integer typedAmount = externalTask.getVariable("amount");
         int amount = typedAmount;
         // do something
         String typedTransactionId = "TX12345";
