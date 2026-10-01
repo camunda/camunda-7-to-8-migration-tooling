@@ -24,9 +24,11 @@ import FileItem from "./FileItem";
 import FileResultsTable from "./FileResultsTable";
 import {
   FINDINGS_TABLE_HEADER,
+  SEVERITY_ORDER,
   buildFindingsRows,
   getHighestSeverity,
   getSeverityStyleKey,
+  summarizeFindings,
 } from "./findings";
 import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
@@ -40,8 +42,8 @@ import {
   SUPPORTED_PLATFORM_VERSIONS,
 } from "./platformVersions";
 
-// Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
-// every uploaded file plus the config fields in a single multipart request.
+// Combined batch actions send the files selected for that action plus the
+// config fields in a single multipart request.
 // The server accepts at most MAX_MULTIPART_PARTS parts total (mirrors
 // server.tomcat.max-part-count in application.yaml, which is where the
 // server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
@@ -85,7 +87,7 @@ function App() {
   const [platformVersion, setPlatformVersion] = useState(DEFAULT_PLATFORM_VERSION);
 
   const [showConfig, setShowConfig] = useState(false);
-  const incompatibilityNotifRef = useRef(null);
+  const findingSummaryRef = useRef(null);
   const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
   const bpmnViewerRef = useRef(null);
@@ -112,9 +114,41 @@ function App() {
   }
 
   const allDone = fileResults.length > 0 && fileResults.every(r => r.status !== 'uploading');
-  const totalFindings = allDone
-    ? fileResults.reduce((sum, r) => sum + buildFindingsRows(r.checkResponseJson).length, 0)
-    : 0;
+  const fileFindingEntries = files.map((file, index) => {
+    const result = fileResults[index] || {};
+    const findingRows = buildFindingsRows(result.checkResponseJson);
+    return {
+      file,
+      index,
+      result,
+      findingRows,
+      highestSeverity: getHighestSeverity(findingRows),
+    };
+  });
+  const analyzedFiles = fileFindingEntries
+    .filter(({ result }) => result.checkResponseJson != null)
+    .map(({ file }) => file);
+  const filesByPriority = [...fileFindingEntries].sort((left, right) => {
+    const leftHasFindings = left.findingRows.length > 0;
+    const rightHasFindings = right.findingRows.length > 0;
+    if (leftHasFindings !== rightHasFindings) {
+      return leftHasFindings ? -1 : 1;
+    }
+
+    const leftPriority = left.highestSeverity === null
+      ? SEVERITY_ORDER.length
+      : SEVERITY_ORDER.indexOf(left.highestSeverity);
+    const rightPriority = right.highestSeverity === null
+      ? SEVERITY_ORDER.length
+      : SEVERITY_ORDER.indexOf(right.highestSeverity);
+    return leftPriority - rightPriority || left.index - right.index;
+  });
+  const displayedFileEntries = allDone ? filesByPriority : fileFindingEntries;
+  const batchFindings = allDone
+    ? fileFindingEntries.flatMap((entry) => entry.findingRows)
+    : [];
+  const batchSummary = summarizeFindings(batchFindings);
+  const totalFindings = batchSummary.total;
 
   const [configOptions, setConfigOptions] = useState({
     defaultJobType: "camunda-7-job",
@@ -275,7 +309,7 @@ function App() {
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
     const timer = setTimeout(() => {
-      const el = incompatibilityNotifRef.current?.querySelector('button');
+      const el = findingSummaryRef.current?.querySelector('button');
       if (el && el === document.activeElement) el.blur();
     }, 0);
     return () => clearTimeout(timer);
@@ -494,8 +528,8 @@ function App() {
   }
 
   // Reprocesses only the file at `idx`. Other rows (completed or failed) are
-  // left untouched, and the ZIP/report downloads only ever see files whose
-  // latest result is a success.
+  // left untouched. ZIP, CSV, JSON and the results-page XLSX use successful
+  // conversions; the summary XLSX uses files with a successful analysis.
   async function retryFile(idx) {
     const file = files[idx];
     updateFileResult(idx, { status: "uploading" });
@@ -584,8 +618,8 @@ function App() {
     await download1(filename, response);
   }
 
-  async function downloadXLS() {
-    const formData = createFormData(validFiles);
+  async function downloadXLS(filesToDownload = validFiles) {
+    const formData = createFormData(filesToDownload);
     await handleDownloadResponse("analysis.xlsx",
       await fetch(baseUrl + "/check", {
         body: formData,
@@ -1014,50 +1048,86 @@ function App() {
                 a diagram, DMN files render a decision diagram, and forms show a
                 form preview.
               </p>
-              {allDone && totalFindings > 0 && (
-                <div ref={incompatibilityNotifRef}>
-                  <Alert
-                    variant="warning"
-                    title={`${totalFindings} finding${totalFindings !== 1 ? 's' : ''} detected for Camunda ${platformVersion}`}
-                    description="Some elements may not be fully supported in this version. Use the preview per file or download the XLSX report for a complete overview."
-                    className="incompatibility-notification"
-                  >
-                    <Button variant="secondary" size="sm" onClick={downloadXLS}>
-                      Download XLSX
-                    </Button>
-                  </Alert>
+              {allDone && analyzedFiles.length > 0 && (
+                <div
+                  ref={findingSummaryRef}
+                  className={`findingSummary${batchSummary.needsAction > 0 ? " findingSummary-actionRequired" : ""}`}
+                  role="status"
+                  aria-labelledby="finding-summary-heading"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <div className="findingSummaryContent">
+                    <div>
+                      <h3 id="finding-summary-heading">Findings summary</h3>
+                      <p className="findingSummaryTotal">
+                        {totalFindings === 0
+                          ? "No findings were reported."
+                          : `${totalFindings} finding${totalFindings !== 1 ? "s" : ""} detected for Camunda ${platformVersion}.`}
+                      </p>
+                      <dl className="findingSummaryCounts">
+                        <div>
+                          <dt>Needs action (WARNING and TASK)</dt>
+                          <dd>{batchSummary.needsAction}</dd>
+                        </div>
+                        <div>
+                          <dt>Needs verification (REVIEW)</dt>
+                          <dd>{batchSummary.needsVerification}</dd>
+                        </div>
+                        <div>
+                          <dt>No follow-up (INFO)</dt>
+                          <dd>{batchSummary.noFollowUp}</dd>
+                        </div>
+                        {batchSummary.unclassified > 0 && (
+                          <div>
+                            <dt>Unrecognized severity</dt>
+                            <dd>{batchSummary.unclassified}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                    {totalFindings > 0 && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => downloadXLS(analyzedFiles)}
+                      >
+                        Download XLSX
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
               <FileResultsTable
                 resetKey={files}
-                rows={files.map((file, idx) => {
-                  const r = fileResults[idx] || { status: "uploading" };
-                  const modelType = getPreviewType(file.name, r.originalModelXml);
-                  const isForm = modelType === "form";
-                  const fileFindingRows = buildFindingsRows(r.checkResponseJson);
-                  return {
-                    id: `${file.name}-${idx}`,
-                    name: file.name,
-                    status: r.status,
-                    isChecked: r.checkResponseJson != null,
-                    isConverted: r.convertedFileBlob != null,
-                    findingCount: fileFindingRows.length,
-                    highestSeverity: getHighestSeverity(fileFindingRows),
-                    previewAction: isForm
-                      ? () => previewForm(r, file.name)
-                      : () => preview(r, modelType, file.name),
-                    previewTitle: isForm
-                      ? `Preview form for ${file.name}`
-                      : `Preview analysis findings for ${file.name}`,
-                    downloadAction: () => download(r),
-                    error:
-                      r.status === "error"
-                        ? r.errorMessage || "File processing failed"
-                        : "",
-                    onRetry:
-                      r.status === "error" ? () => retryFile(idx) : undefined,
-                  };
-                })}
+                rows={displayedFileEntries.map(
+                  ({ file, index, result: r, findingRows, highestSeverity }) => {
+                    const modelType = getPreviewType(file.name, r.originalModelXml);
+                    const isForm = modelType === "form";
+                    return {
+                      id: `${file.name}-${index}`,
+                      name: file.name,
+                      status: r.status,
+                      isChecked: r.checkResponseJson != null,
+                      isConverted: r.convertedFileBlob != null,
+                      findingCount: findingRows.length,
+                      highestSeverity,
+                      previewAction: isForm
+                        ? () => previewForm(r, file.name)
+                        : () => preview(r, modelType, file.name),
+                      previewTitle: isForm
+                        ? `Preview form for ${file.name}`
+                        : `Preview analysis findings for ${file.name}`,
+                      downloadAction: () => download(r),
+                      error:
+                        r.status === "error"
+                          ? r.errorMessage || "File processing failed"
+                          : "",
+                      onRetry:
+                        r.status === "error" ? () => retryFile(index) : undefined,
+                    };
+                  }
+                )}
               />
               {downloadError && (
                 <Alert
@@ -1089,7 +1159,7 @@ function App() {
                   <Button
                     variant="default"
                     size="default"
-                    onClick={downloadXLS}
+                    onClick={() => downloadXLS()}
                     disabled={validFiles.length === 0}
                   >
                     <Download />

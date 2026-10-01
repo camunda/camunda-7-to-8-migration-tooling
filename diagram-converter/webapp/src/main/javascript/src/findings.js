@@ -19,7 +19,7 @@ export function getSeverityRank(severity) {
 }
 
 // Action categories, plain-language labels and explanations for each raw
-// analyzer severity code, matching the terminology from the migration-analyzer documentation
+// analyzer severity code, matching the migration-analyzer documentation
 // (https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
 // Raw codes remain visible in the UI as secondary detail so users who already
 // know the analyzer vocabulary (e.g. from downloaded reports) can cross-reference them.
@@ -87,6 +87,30 @@ export function getHighestSeverity(items) {
     }
   }
   return mostSevere;
+}
+
+// Groups findings by the action users need to take, using the canonical
+// severity definitions and ordering above.
+export function summarizeFindings(findings) {
+  const items = Array.isArray(findings) ? findings : [];
+  const counts = Object.fromEntries(SEVERITY_ORDER.map((severity) => [severity, 0]));
+
+  for (const finding of items) {
+    if (Object.hasOwn(counts, finding?.severity)) {
+      counts[finding.severity] += 1;
+    }
+  }
+
+  const [warningSeverity, taskSeverity, reviewSeverity, infoSeverity] = SEVERITY_ORDER;
+  const classifiedCount = Object.values(counts).reduce((total, count) => total + count, 0);
+
+  return {
+    total: items.length,
+    needsAction: (counts[warningSeverity] || 0) + (counts[taskSeverity] || 0),
+    needsVerification: counts[reviewSeverity] || 0,
+    noFollowUp: counts[infoSeverity] || 0,
+    unclassified: items.length - classifiedCount,
+  };
 }
 
 // Flattens the /check response (List<DiagramCheckResult>) into table rows,
