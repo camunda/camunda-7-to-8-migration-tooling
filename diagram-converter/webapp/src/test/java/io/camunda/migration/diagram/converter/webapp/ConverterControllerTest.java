@@ -1135,6 +1135,31 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void convertPreservesOriginalFilenameInContentDisposition()
+      throws URISyntaxException, IOException {
+    byte[] bpmnBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("example.bpmn").toURI()).toPath());
+    String contentDisposition =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "..\\models\\original.bpmn", bpmnBytes, "application/bpmn+xml")
+            .formParam("preserveOriginalFilename", true)
+            .accept("application/bpmn+xml")
+            .post("/convert")
+            .then()
+            .statusCode(200)
+            .extract()
+            .header("Content-Disposition");
+
+    assertThat(contentDisposition)
+        .contains("original.bpmn")
+        .doesNotContain("converted-c8-")
+        .doesNotContain("..")
+        .doesNotContain("/");
+  }
+
+  @Test
   void convertBatchSanitizesZipEntryNames() throws URISyntaxException, IOException {
     byte[] formBytes =
         Files.readAllBytes(
@@ -1163,6 +1188,37 @@ public class ConverterControllerTest {
 
     assertThat(entryNames)
         .containsExactlyInAnyOrder("converted-c8-evil.form", "converted-c8-evil.bpmn");
+  }
+
+  @Test
+  void convertBatchPreservesOriginalFilenamesAndDisambiguatesDuplicates()
+      throws URISyntaxException, IOException {
+    byte[] formBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("simple.form").toURI()).toPath());
+    byte[] zip =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "../../same.form", formBytes, "application/json")
+            .multiPart("file", "..\\..\\same.form", formBytes, "application/json")
+            .formParam("preserveOriginalFilename", true)
+            .accept("application/zip")
+            .post("/convertBatch")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    List<String> entryNames = new ArrayList<>();
+    try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zip))) {
+      ZipEntry zipEntry;
+      while ((zipEntry = zis.getNextEntry()) != null) {
+        entryNames.add(zipEntry.getName());
+        zis.closeEntry();
+      }
+    }
+
+    assertThat(entryNames).containsExactlyInAnyOrder("same.form", "same (1).form");
   }
 
   @Test

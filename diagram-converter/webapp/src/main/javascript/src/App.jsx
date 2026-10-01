@@ -52,16 +52,12 @@ import {
 // The server accepts at most MAX_MULTIPART_PARTS parts total (mirrors
 // server.tomcat.max-part-count in application.yaml, which is where the
 // server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
-// sync if that value ever changes). createFormData() always appends
-// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 6 config
-// options), so the actual per-batch file limit is lower than the raw part
-// count.
+// sync if that value ever changes). createFormData() appends
+// FIXED_FORM_FIELD_COUNT non-file fields by default (platformVersion + the 6
+// config options); filename preservation adds a part only when enabled.
 const MAX_MULTIPART_PARTS = 100;
 const FIXED_FORM_FIELD_COUNT = 7;
 const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
-// Warn a bit before the hard limit so users can trim the batch (or switch to
-// the local converter) before a combined download fails outright.
-const BATCH_FILE_WARNING_THRESHOLD = Math.round(MAX_BATCH_FILES * 0.9);
 
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
@@ -167,7 +163,13 @@ function App() {
     addDataMigrationExecutionListener: false,
     dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
     appendDocumentationOnlyTaskAndWarning: false,
+    preserveOriginalFilename: false,
   });
+
+  const batchFileLimit =
+    MAX_BATCH_FILES - (configOptions.preserveOriginalFilename ? 1 : 0);
+  // Warn before the hard limit so users can trim the batch or switch to the local converter.
+  const batchFileWarningThreshold = Math.round(batchFileLimit * 0.9);
 
   function handleVersionKeyDown(event) {
     const navigationalKeys = [
@@ -411,6 +413,8 @@ function App() {
         "appendDocumentationOnlyTaskAndWarning",
         configOptions.appendDocumentationOnlyTaskAndWarning
       );
+    if (configOptions.preserveOriginalFilename)
+      formData.append("preserveOriginalFilename", configOptions.preserveOriginalFilename);
     return formData;
   }
 
@@ -522,16 +526,21 @@ function App() {
       return result;
     }
 
-    // Extract filename from the Content-Disposition header
+    // Prefer filename* over Spring's encoded filename= fallback.
     let filename = "downloaded-model.bpmn"; // Default filename
 
     const contentDisposition = convertResponse.headers.get("Content-Disposition");
     if (contentDisposition) {
-      const match = contentDisposition.match(
-          /filename\*?=(?:UTF-8'')?["']?([^"';]*)["']?/i
+      const extendedMatch = contentDisposition.match(
+        /(?:^|;)\s*filename\*\s*=\s*(?:UTF-8'[^']*')?["']?([^"';]*)["']?/i
       );
+      const match =
+        extendedMatch ??
+        contentDisposition.match(
+          /(?:^|;)\s*filename\s*=\s*["']?([^"';]*)["']?/i
+        );
       if (match) {
-        filename = decodeURIComponent(match[1]); // Decode if necessary
+        filename = decodeURIComponent(match[1]);
       }
     }
 
@@ -860,7 +869,7 @@ function App() {
                 Upload BPMN, DMN, or Camunda Form files to analyze and convert.
               </p>
               <p className="uploadGuidance">
-                Batch actions (ZIP download, XLSX/CSV/JSON reports) support up to {MAX_BATCH_FILES} files.
+                Batch actions (ZIP download, XLSX/CSV/JSON reports) support up to {batchFileLimit} files.
                 Files are processed by Camunda&apos;s hosted service. To convert more files or keep
                 sensitive models private,{" "}
                 <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
@@ -874,18 +883,18 @@ function App() {
                   setFiles((prevFiles) => [...prevFiles, ...files]);
                 }}
               />
-              {files.length >= BATCH_FILE_WARNING_THRESHOLD && (
+              {files.length >= batchFileWarningThreshold && (
                 <div className="uploadLimitNotice" role="alert">
                   <strong>
-                    {files.length > MAX_BATCH_FILES
-                      ? `Batch limit exceeded (${MAX_BATCH_FILES} max, ${files.length} added)`
-                      : files.length === MAX_BATCH_FILES
-                      ? `Batch limit reached (${MAX_BATCH_FILES} files)`
-                      : `Approaching the batch limit (${files.length} of ${MAX_BATCH_FILES} files)`}
+                    {files.length > batchFileLimit
+                      ? `Batch limit exceeded (${batchFileLimit} max, ${files.length} added)`
+                      : files.length === batchFileLimit
+                      ? `Batch limit reached (${batchFileLimit} files)`
+                      : `Approaching the batch limit (${files.length} of ${batchFileLimit} files)`}
                   </strong>
                   <p>
                     Combined ZIP and analysis-report downloads support up to{" "}
-                    {MAX_BATCH_FILES} files. Remove some files, or{" "}
+                    {batchFileLimit} files. Remove some files, or{" "}
                     <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
                       run the diagram converter locally
                     </a>{" "}
@@ -941,6 +950,27 @@ function App() {
                 ))}
               </div>
             </section>
+            <Form className="configBox" onSubmit={(e) => e.preventDefault()}>
+              <FormGroup legendText="Output filenames">
+                <Checkbox
+                  id="preserveOriginalFilename"
+                  labelText="Use the uploaded file names"
+                  checked={configOptions.preserveOriginalFilename}
+                  aria-describedby="preserveOriginalFilenameHint"
+                  onChange={(e, { checked }) =>
+                    setConfigOptions((prev) => ({
+                      ...prev,
+                      preserveOriginalFilename: checked,
+                    }))
+                  }
+                />
+                <p id="preserveOriginalFilenameHint" className="configOptionHint">
+                  {configOptions.preserveOriginalFilename
+                    ? "Individual downloads and ZIP entries use the uploaded file name, for example order.bpmn."
+                    : "Individual downloads and ZIP entries use a prefixed name, for example converted-c8-order.bpmn."}
+                </p>
+              </FormGroup>
+            </Form>
             <p>
               Click the button below to analyze and convert your files.
             </p>
