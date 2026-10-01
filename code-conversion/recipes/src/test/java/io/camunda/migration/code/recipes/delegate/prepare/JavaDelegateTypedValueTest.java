@@ -485,6 +485,30 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
   }
 
   @Test
+  void typedGettersPassedToVariableSettersUseRawReads() {
+    rewriteRun(
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class SetterReads {
+                void copy(DelegateExecution execution) {
+                    execution.setVariable("copy", execution.getVariableTyped("source"));
+                }
+            }
+            """,
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+
+            class SetterReads {
+                void copy(DelegateExecution execution) {
+                    execution.setVariable("copy", execution.getVariable("source"));
+                }
+            }
+            """));
+  }
+
+  @Test
   void unsupportedTypedConsumersStayTypedForManualMigration() {
     rewriteRun(
         java(
