@@ -106,6 +106,7 @@ function App() {
   const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
   const bpmnViewerRef = useRef(null);
+  const selectedFindingElementIdRef = useRef(null);
   const selectedMarkerElementIdRef = useRef(null);
   const previewDialogRef = useRef(null);
   const previewRequestIdRef = useRef(0);
@@ -184,6 +185,22 @@ function App() {
           }
         });
 
+        const selectedElementId = selectedFindingElementIdRef.current;
+        if (selectedElementId) {
+          const selectedElement = viewer
+            .get("elementRegistry")
+            .get(selectedElementId);
+          if (selectedElement) {
+            canvas.addMarker(selectedElementId, "finding-selected");
+            canvas.scrollToElement(selectedElement);
+            viewer.get("selection").select(selectedElement);
+            selectedMarkerElementIdRef.current = selectedElementId;
+          } else {
+            selectedFindingElementIdRef.current = null;
+            setSelectedFindingElementId(null);
+          }
+        }
+
         bpmnViewerRef.current = viewer;
       }).catch((error) => {
         if (isActive) {
@@ -224,6 +241,7 @@ function App() {
       selectedMarkerElementIdRef.current = elementId;
       canvas.scrollToElement(element);
       viewer.get('selection').select(element);
+      selectedFindingElementIdRef.current = elementId;
       setSelectedFindingElementId(elementId);
     } catch (error) {
       console.error("Unable to locate finding element in the diagram:", error);
@@ -661,7 +679,7 @@ function App() {
     );
   }
 
-  const previewFileAt = useCallback(async (index) => {
+  const previewFileAt = useCallback(async (index, preserveSelection = false) => {
     const file = files[index];
     const response = fileResults[index];
     if (!file || !response) return;
@@ -682,8 +700,11 @@ function App() {
     setPreviewFormError("");
     setPreviewDiagramError(false);
     setPreviewDmnError("");
-    setSelectedFindingElementId(null);
-    selectedMarkerElementIdRef.current = null;
+    if (!preserveSelection) {
+      setSelectedFindingElementId(null);
+      selectedFindingElementIdRef.current = null;
+      selectedMarkerElementIdRef.current = null;
+    }
     setPreviewLoading(true);
     setIsPreviewOpen(true);
 
@@ -727,7 +748,7 @@ function App() {
     const response = fileResults[previewFileIndex];
     if (!response || response === previewedResultRef.current) return;
 
-    void previewFileAt(previewFileIndex);
+    void previewFileAt(previewFileIndex, true);
   }, [fileResults, isPreviewOpen, previewFileIndex, previewFileAt]);
 
   async function download(response) {

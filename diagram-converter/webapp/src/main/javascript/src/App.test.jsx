@@ -818,6 +818,7 @@ describe("preview navigation", () => {
     const converted =
       '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"><process id="converted" /></definitions>';
     const secondAnalysis = deferred();
+    const secondConversion = deferred();
     const secondFinding = [
       {
         results: [
@@ -838,6 +839,7 @@ describe("preview navigation", () => {
           json: vi.fn().mockResolvedValue([]),
         });
       }
+      if (fileName === "second.bpmn") return secondConversion.promise;
 
       return Promise.resolve({
         ok: true,
@@ -870,9 +872,49 @@ describe("preview navigation", () => {
       json: vi.fn().mockResolvedValue(secondFinding),
     });
 
-    expect(await screen.findByText("Finding from the second file.")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "Finding from the second file.",
+        {},
+        { timeout: 10000 }
+      )
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(original)
+    );
+    await waitFor(() =>
+      expect(bpmnMocks.instances.at(-1)?.canvas.zoom).toHaveBeenCalled()
+    );
+    const secondFindingRow = within(screen.getByRole("table")).getByRole("row", {
+      name: /Finding from the second file/,
+    });
+    fireEvent.click(
+      within(secondFindingRow).getByRole("button", { name: "task_2" })
+    );
+    expect(secondFindingRow.getAttribute("aria-selected")).toBe("true");
+    expect(
+      bpmnMocks.instances.at(-1).canvas.addMarker
+    ).toHaveBeenCalledWith("task_2", "finding-selected");
+
+    secondConversion.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      blob: vi.fn().mockResolvedValue(new Blob([converted])),
+    });
+
     await waitFor(() =>
       expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(converted)
+    );
+    const refreshedFindingRow = within(screen.getByRole("table")).getByRole(
+      "row",
+      { name: /Finding from the second file/ }
+    );
+    expect(refreshedFindingRow.getAttribute("aria-selected")).toBe("true");
+    expect(
+      bpmnMocks.instances.at(-1).canvas.addMarker
+    ).toHaveBeenCalledWith("task_2", "finding-selected");
+    expect(bpmnMocks.instances.at(-1).selection.select).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "task_2" })
     );
     expect(screen.getByRole("heading", { name: "Preview: second.bpmn" })).toBeTruthy();
     expect(fetchMock.mock.calls).toHaveLength(4);
