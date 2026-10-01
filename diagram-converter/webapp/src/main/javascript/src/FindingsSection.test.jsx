@@ -271,6 +271,33 @@ describe("FindingsSection filtering (mixed-severity state)", () => {
     expect(severityCellsInOrder()).toHaveLength(3);
   });
 
+  it("keeps the selected finding visible when search and severity filters exclude it", () => {
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={[
+          row(1, "INFO", { elementId: "task_1" }),
+          row(2, "WARNING", { elementId: "task_2" }),
+        ]}
+        onSelectElement={() => {}}
+        selectedElementId="task_1"
+      />
+    );
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search findings" }), {
+      target: { value: "no matching finding" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /No action needed INFO \(1\)/ }));
+
+    const selectedRow = screen.getByRole("button", { name: "task_1" }).closest("tr");
+    expect(selectedRow.getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByRole("button", { name: "task_2" })).toBeNull();
+    expect(
+      screen.getByText("Selected element findings remain visible while filters are active.")
+    ).toBeTruthy();
+    expect(screen.getByText(/Showing 1 of 2 findings/)).toBeTruthy();
+  });
+
   it("resets filters when a new result set is loaded", () => {
     const firstRows = [row(1, "WARNING"), row(2, "INFO")];
     const nextRows = [row(3, "WARNING"), row(4, "INFO")];

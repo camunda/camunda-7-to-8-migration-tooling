@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import {
   Table,
@@ -83,6 +83,7 @@ export default function FindingsSection({
     sortDirection: "asc",
   }));
   const isFilterControlled = controlledHiddenSeverities !== undefined;
+  const tableWrapperRef = useRef(null);
   const currentState =
     tableState.rows === rows
       ? tableState
@@ -97,12 +98,6 @@ export default function FindingsSection({
   const hiddenSeverities = isFilterControlled
     ? controlledHiddenSeverities
     : currentState.hiddenSeverities;
-
-  if (rows.length === 0) {
-    return (
-      <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this file.</p>
-    );
-  }
 
   const severityCounts = [...rows.reduce((counts, row) => {
     const severity = normalizeSeverity(row.severity);
@@ -119,26 +114,34 @@ export default function FindingsSection({
     count,
   }));
   const query = searchValue.trim().toLowerCase();
+  const matchesSearch = (row) =>
+    query.length === 0 ||
+    header
+      .map(({ key }) => {
+        if (key === "severity") {
+          const severity = normalizeSeverity(row.severity);
+          return `${getSeverityInfo(severity).label} ${severity}`;
+        }
+        return String(row[key] ?? "");
+      })
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  const isFilteredOut = (row) =>
+    !matchesSearch(row) ||
+    hiddenSeverities.has(normalizeSeverity(row.severity));
+  const selectedFindingsAreFiltered =
+    !!selectedElementId &&
+    rows.some(
+      (row) =>
+        row.elementId === selectedElementId && isFilteredOut(row)
+    );
   const visibleRows = rows
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => {
-      const matchesSearch =
-        query.length === 0 ||
-        header
-          .map(({ key }) => {
-            if (key === "severity") {
-              const severity = normalizeSeverity(row.severity);
-              return `${getSeverityInfo(severity).label} ${severity}`;
-            }
-            return String(row[key] ?? "");
-          })
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      return (
-        matchesSearch &&
-        !hiddenSeverities.has(normalizeSeverity(row.severity))
-      );
+      const isSelected =
+        !!selectedElementId && row.elementId === selectedElementId;
+      return isSelected || !isFilteredOut(row);
     })
     .sort(
       (left, right) =>
@@ -146,6 +149,21 @@ export default function FindingsSection({
         left.index - right.index
     )
     .map(({ row }) => row);
+
+  useLayoutEffect(() => {
+    if (!selectedElementId) return;
+
+    const selectedRows = [
+      ...(tableWrapperRef.current?.querySelectorAll("tr[data-finding-element-id]") ?? []),
+    ].filter((row) => row.dataset.findingElementId === selectedElementId);
+    selectedRows.forEach((row) => row.scrollIntoView?.({ block: "nearest" }));
+  }, [rows, selectedElementId]);
+
+  if (rows.length === 0) {
+    return (
+      <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this file.</p>
+    );
+  }
 
   function updateTableState(update) {
     setTableState((previous) => {
@@ -211,7 +229,7 @@ export default function FindingsSection({
       <h3>Findings</h3>
       <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
         Elements in this file that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
-        {onSelectElement && ' Select an element ID to locate it in the diagram.'}
+        {onSelectElement && ' Select an element ID to locate it in the diagram, or select a diagram element to locate its findings here.'}
       </p>
 
       <TableFilters
@@ -247,6 +265,11 @@ export default function FindingsSection({
         </dl>
       </details>
 
+      {selectedFindingsAreFiltered && (
+        <p className="table-filter-summary">
+          Selected element findings remain visible while filters are active.
+        </p>
+      )}
       {visibleRows.length === 0 ? (
         <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>
           No findings match the current filters.
@@ -257,6 +280,7 @@ export default function FindingsSection({
           role="region"
           aria-label="Scrollable findings table"
           tabIndex={0}
+          ref={tableWrapperRef}
         >
           <Table
             id="findings-table"
@@ -305,6 +329,7 @@ export default function FindingsSection({
                   <TableRow
                     key={row.id}
                     aria-selected={isLinkable ? selectedElementId === row.elementId : undefined}
+                    data-finding-element-id={isLinkable ? row.elementId : undefined}
                   >
                     {header.map((h) => {
                       const value = row[h.key];
