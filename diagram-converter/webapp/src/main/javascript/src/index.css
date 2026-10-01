@@ -556,30 +556,6 @@ hr {
   margin: 1rem 0;
   color: var(--neutral-foreground-subtle);
 }
-
-.batch-reset-dialog {
-  max-width: 32rem;
-}
-
-.batch-reset-file-list {
-  max-height: 12rem;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-  margin: 0.75rem 0 0;
-  padding-left: 1.5rem;
-}
-
-.batch-reset-file-list li + li {
-  margin-top: 0.375rem;
-}
-
-.batch-reset-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
 .findingElementLink {
   background: none;
   border: none;

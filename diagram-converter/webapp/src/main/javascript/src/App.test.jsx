@@ -2318,7 +2318,7 @@ describe("navigation between configure and results", () => {
     expect(screen.getByText("keep-me.bpmn")).toBeTruthy();
   });
 
-  it("confirms before clearing the previous files and results", async () => {
+  it("starts a new batch immediately and clears the previous files and results", async () => {
     fetchMock.mockImplementation((url) => {
       if (url.endsWith("/check")) {
         return Promise.resolve({
@@ -2345,42 +2345,6 @@ describe("navigation between configure and results", () => {
     });
     startNewBatchButton.focus();
     fireEvent.click(startNewBatchButton);
-
-    const dialog = screen.getByRole("alertdialog", {
-      name: "Start a new batch?",
-    });
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
-    expect(dialog.textContent).toMatch(
-      /replace-me\.bpmn: converted file and analysis results/
-    );
-    expect(document.querySelector(".pageContent")?.hasAttribute("inert")).toBe(
-      true
-    );
-
-    const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
-    const discardButton = within(dialog).getByRole("button", {
-      name: "Discard results and continue",
-    });
-    const fileList = within(dialog).getByRole("list", {
-      name: "Files and results to discard",
-    });
-    expect(document.activeElement).toBe(cancelButton);
-
-    const focusableElements = Array.from(
-      dialog.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    );
-    expect(focusableElements).toEqual([fileList, cancelButton, discardButton]);
-
-    fileList.focus();
-    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
-    expect(document.activeElement).toBe(discardButton);
-    fireEvent.keyDown(document, { key: "Tab" });
-    expect(document.activeElement).toBe(fileList);
-
-    fireEvent.click(discardButton);
-
     const addFilesHeading = await screen.findByRole("heading", {
       name: "Add files",
     });
@@ -2411,23 +2375,10 @@ describe("navigation between configure and results", () => {
     await waitFor(() => expect(convertRequests).toHaveLength(1));
 
     fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
-    const confirmation = screen.getByRole("alertdialog", {
-      name: "Start a new batch?",
-    });
-    await waitFor(() =>
-      expect(confirmation.textContent).toMatch(
-        /old\.bpmn: analysis results and conversion in progress/
-      )
-    );
-    fireEvent.click(
-      within(confirmation).getByRole("button", {
-        name: "Discard results and continue",
-      })
-    );
-
     expect(
       await screen.findByRole("heading", { name: "Add files" })
     ).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     testState.files.splice(0, testState.files.length, mockFile("new.bpmn"));
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
     const analyzeButton = screen.getByRole("button", {
@@ -2475,39 +2426,7 @@ describe("navigation between configure and results", () => {
     await waitFor(() => expect(zipDownload.disabled).toBe(false));
   });
 
-  it("describes a conversion error alongside completed analysis results", async () => {
-    fetchMock.mockImplementation((url) => {
-      if (url.endsWith("/check")) {
-        return Promise.resolve({
-          ok: true,
-          headers: { get: vi.fn().mockReturnValue(null) },
-          json: vi.fn().mockResolvedValue([]),
-        });
-      }
-      return Promise.resolve({
-        ok: false,
-        status: 502,
-        headers: { get: vi.fn().mockReturnValue(null) },
-        text: vi.fn().mockResolvedValue(""),
-      });
-    });
-
-    await uploadAndAnalyze([mockFile("conversion-failed.bpmn")]);
-    const row = await screen
-      .findByText("conversion-failed.bpmn")
-      .then((element) => element.closest(".FileItem"));
-    await within(row).findByRole("alert");
-
-    fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
-    const confirmation = screen.getByRole("alertdialog", {
-      name: "Start a new batch?",
-    });
-    expect(confirmation.textContent).toMatch(
-      /conversion-failed\.bpmn: analysis results and conversion error/
-    );
-  });
-
-  it("cancels without clearing files, results, downloads, or configuration", async () => {
+  it("starts a new batch without losing configuration", async () => {
     configureUpload({
       fileName: "keep-me.bpmn",
       content: "<xml/>",
@@ -2529,36 +2448,14 @@ describe("navigation between configure and results", () => {
     fireEvent.click(analyzeButton);
 
     await screen.findByRole("heading", { name: "Converted files" });
-    const fileDownload = await screen.findByRole("button", {
-      name: "Download keep-me.bpmn",
+    await screen.findByRole("button", { name: "Download keep-me.bpmn" });
+    fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
+    const addFilesHeading = await screen.findByRole("heading", {
+      name: "Add files",
     });
-    const batchDownload = screen.getByRole("button", {
-      name: "Download all converted files as ZIP",
-    });
-    await waitFor(() => expect(batchDownload.disabled).toBe(false));
-
-    const startNewBatchButton = screen.getByRole("button", {
-      name: "Start a new batch",
-    });
-    startNewBatchButton.focus();
-    fireEvent.click(startNewBatchButton);
-
-    const dialog = screen.getByRole("alertdialog", {
-      name: "Start a new batch?",
-    });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-
+    expect(document.activeElement).toBe(addFilesHeading);
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(document.activeElement).toBe(startNewBatchButton);
-    expect(screen.getByRole("heading", { name: "Converted files" })).toBeTruthy();
-    expect(fileRow("keep-me.bpmn")).toBeTruthy();
-    expect(fileDownload).toBeTruthy();
-    expect(batchDownload.disabled).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "Back to configure" }));
-
-    expect(await screen.findByRole("heading", { name: "Add files" })).toBeTruthy();
-    expect(screen.getByText("keep-me.bpmn")).toBeTruthy();
+    expect(screen.queryByText("keep-me.bpmn")).toBeNull();
     expect(
       screen.getByRole("checkbox", {
         name: "Append WARNING and TASK findings to BPMN documentation",
