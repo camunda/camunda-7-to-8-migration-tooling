@@ -72,6 +72,8 @@ export default function FindingsSection({
   rows,
   onSelectElement,
   selectedElementId,
+  hiddenSeverities: controlledHiddenSeverities,
+  onHiddenSeveritiesChange,
 }) {
   const [tableState, setTableState] = useState(() => ({
     rows,
@@ -80,6 +82,7 @@ export default function FindingsSection({
     sortKey: "severity",
     sortDirection: "asc",
   }));
+  const isFilterControlled = controlledHiddenSeverities !== undefined;
   const currentState =
     tableState.rows === rows
       ? tableState
@@ -90,7 +93,10 @@ export default function FindingsSection({
           sortKey: "severity",
           sortDirection: "asc",
         };
-  const { searchValue, hiddenSeverities, sortKey, sortDirection } = currentState;
+  const { searchValue, sortKey, sortDirection } = currentState;
+  const hiddenSeverities = isFilterControlled
+    ? controlledHiddenSeverities
+    : currentState.hiddenSeverities;
 
   if (rows.length === 0) {
     return (
@@ -158,6 +164,17 @@ export default function FindingsSection({
   }
 
   function toggleSeverity(severity) {
+    if (isFilterControlled) {
+      const next = new Set(controlledHiddenSeverities);
+      if (next.has(severity)) {
+        next.delete(severity);
+      } else {
+        next.add(severity);
+      }
+      onHiddenSeveritiesChange?.(next);
+      return;
+    }
+
     updateTableState((previous) => {
       const next = new Set(previous.hiddenSeverities);
       if (next.has(severity)) {
@@ -184,6 +201,9 @@ export default function FindingsSection({
       searchValue: "",
       hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
     }));
+    if (isFilterControlled) {
+      onHiddenSeveritiesChange?.(EMPTY_HIDDEN_SEVERITIES);
+    }
   }
 
   return (

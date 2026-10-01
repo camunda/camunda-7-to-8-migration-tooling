@@ -318,7 +318,7 @@ export default function FileResultsTable({ rows, resetKey = rows }) {
                         <FileItemActions
                           name={row.name}
                           error={row.error}
-                          isChecked={row.isChecked}
+                          isChecked={row.isChecked || row.status === "error"}
                           isConverted={row.isConverted}
                           downloadAction={row.downloadAction}
                           previewAction={row.previewAction}
