@@ -1067,6 +1067,52 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
 
+    def test_active_timer_mapping_ignores_recipe_comments_when_classifying_current_hits(self):
+        self.install_active_timer_decision()
+        (self.root / "app" / "Timer.java").write_text(
+            "// TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).\n"
+            "// For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.\n"
+            "// See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/\n"
+            "terminationDateUpdater.update(projectId, terminationDate);\n",
+            encoding="utf-8",
+        )
+        caller = self.plan["active_timer_update_decision"]["updates"][0][
+            "caller_mappings"
+        ][0]
+        caller["migrated_caller_location"] = "app/Timer.java:4:1"
+        write_json(self.root / gate.EVIDENCE, self.plan)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertEqual([], plan.issues, "\n".join(plan.issues))
+        self.assertEqual([], plan.update_hits["app"])
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "active_timer_updates", None),
+                action="review",
+                disposition="message_rearm",
+                reference=self.plan["active_timer_update_decision"]["reference"],
+                note=(
+                    "Inspected app/Timer.java:4:1. It sends DueDateChanged with projectId "
+                    "and maps updatedDueDate to dueDate."
+                ),
+            ),
+        )
+
+    def test_due_date_scan_ignores_http_comments_and_preserves_request_urls(self):
+        self.install_active_timer_decision()
+        (self.root / "app" / "requests.http").write_text(
+            "# Historical setJobDuedate /duedate example\n"
+            "POST http://localhost/engine-rest/job/123/duedate\n",
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertEqual(1, len(plan.update_hits["app"]))
+        self.assertTrue(plan.update_hits["app"][0].startswith("app/requests.http:2:"))
+
     def test_active_timer_mapping_rejects_a_retained_c7_due_date_caller(self):
         self.install_active_timer_decision(retain_c7_caller=True)
         plan = gate.requirements(self.root, self.plan)

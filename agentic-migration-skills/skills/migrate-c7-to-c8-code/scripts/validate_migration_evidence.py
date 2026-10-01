@@ -239,7 +239,7 @@ def read_model(root, source, converted):
     return source_document, document
 
 
-def source_without_comments(text):
+def source_without_comments(text, suffix):
     characters = list(text)
     index = 0
     block_comment_depth = 0
@@ -266,7 +266,7 @@ def source_without_comments(text):
                 string_delimiter = None
             else:
                 index += 1
-        elif text.startswith("//", index) and not (
+        elif suffix != ".http" and text.startswith("//", index) and not (
             index > 0 and text[index - 1] == ":"
         ):
             while index < len(text) and text[index] not in "\r\n":
@@ -276,6 +276,14 @@ def source_without_comments(text):
             characters[index : index + 2] = "  "
             block_comment_depth = 1
             index += 2
+        elif suffix == ".http" and text[index] == "#":
+            line_start = text.rfind("\n", 0, index) + 1
+            if not text[line_start:index].strip():
+                while index < len(text) and text[index] not in "\r\n":
+                    characters[index] = " "
+                    index += 1
+            else:
+                index += 1
         elif text.startswith('"""', index) or text.startswith("'''", index):
             string_delimiter = text[index : index + 3]
             index += 3
@@ -288,7 +296,6 @@ def source_without_comments(text):
 
 
 def source_update_fingerprint(text, start, end):
-    text = source_without_comments(text)
     statement_start = max(
         text.rfind(delimiter, 0, start) for delimiter in (";", "{", "}")
     ) + 1
@@ -339,9 +346,10 @@ def scan_module(root, module, module_paths, hashes, hit_details=None):
             if relative == REPORT.as_posix():
                 continue
             hashes[relative] = hashlib.sha256(content).hexdigest()
-            for match in DUE_DATE_HINT.finditer(text):
-                line = text.count("\n", 0, match.start()) + 1
-                column = match.start() - text.rfind("\n", 0, match.start())
+            scan_text = source_without_comments(text, file.suffix.lower())
+            for match in DUE_DATE_HINT.finditer(scan_text):
+                line = scan_text.count("\n", 0, match.start()) + 1
+                column = match.start() - scan_text.rfind("\n", 0, match.start())
                 location = f"{relative}:{line}:{column}"
                 hits.append(location)
                 if hit_details is not None:
@@ -349,7 +357,7 @@ def scan_module(root, module, module_paths, hashes, hit_details=None):
                         {
                             "location": location,
                             "fingerprint": source_update_fingerprint(
-                                text, match.start(), match.end()
+                                scan_text, match.start(), match.end()
                             ),
                         }
                     )
