@@ -16,7 +16,7 @@ import {
 } from "@carbon/react/icons";
 
 import Paperclip from "./Paperclip.svg";
-import { getSeverityStyleKey } from "./findings";
+import { getSeverityInfo, getSeverityStyleKey } from "./findings";
 
 function statusLabel(isChecked) {
   return isChecked ? "Converting..." : "Analyzing...";
@@ -99,7 +99,15 @@ export default function FileItem({
   highestSeverity,
 }) {
   const severityKey = getSeverityStyleKey(highestSeverity);
-  const highestSeverityLabel = highestSeverity || "Unknown";
+  const severityInfo = getSeverityInfo(highestSeverity);
+  const hasKnownSeverity = Boolean(highestSeverity && severityInfo.description);
+  const highestSeverityLabel =
+    severityInfo.actionLabel && severityInfo.actionLabel !== severityInfo.label
+      ? `${severityInfo.actionLabel}: ${severityInfo.label}`
+      : severityInfo.label;
+  const highestSeverityText = hasKnownSeverity
+    ? `${highestSeverityLabel} (${highestSeverity})`
+    : highestSeverityLabel;
   const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
 
   return (
@@ -118,11 +126,12 @@ export default function FileItem({
           {findingCount > 0 && (
             <span
               className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
-              title={`Highest severity: ${highestSeverityLabel}`}
-              aria-label={`${findingCountLabel}, highest severity ${highestSeverityLabel}`}
+              title={`Highest severity: ${highestSeverityText}`}
+              aria-label={`${findingCountLabel}, highest severity ${highestSeverityText}`}
             >
               {severityKey === "info" ? <CheckmarkFilled aria-hidden="true" /> : <WarningFilled aria-hidden="true" />}
-              {findingCountLabel}
+              <span className="fileItemFindingCountLabel">{findingCountLabel}</span>
+              <span className="fileItemFindingSeverity">Highest: {highestSeverityText}</span>
             </span>
           )}
           <FileItemActions

@@ -145,11 +145,15 @@ describe("FileItem", () => {
       />
     );
 
-    const badge = screen.getByText("3 findings").closest("span");
+    const badge = screen.getByLabelText(
+      "3 findings, highest severity No action needed (INFO)"
+    );
     expect(badge.className).toContain("fileItemFindingCount-info");
     expect(badge.className).not.toContain("fileItemFindingCount-warning");
-    expect(badge.getAttribute("title")).toBe("Highest severity: INFO");
-    expect(badge.getAttribute("aria-label")).toBe("3 findings, highest severity INFO");
+    expect(badge.getAttribute("title")).toBe(
+      "Highest severity: No action needed (INFO)"
+    );
+    expect(screen.getByText("Highest: No action needed (INFO)")).toBeTruthy();
   });
 
   it("styles the badge for the highest severity in a mixed-severity file", () => {
@@ -162,9 +166,38 @@ describe("FileItem", () => {
       />
     );
 
-    const badge = screen.getByText("5 findings").closest("span");
+    const badge = screen.getByLabelText(
+      "5 findings, highest severity Action required: No direct mapping (WARNING)"
+    );
     expect(badge.className).toContain("fileItemFindingCount-warning");
-    expect(badge.getAttribute("title")).toBe("Highest severity: WARNING");
+    expect(badge.getAttribute("title")).toBe(
+      "Highest severity: Action required: No direct mapping (WARNING)"
+    );
+    expect(
+      screen.getByText("Highest: Action required: No direct mapping (WARNING)")
+    ).toBeTruthy();
+  });
+
+  it("identifies a manual-action finding as action required", () => {
+    render(
+      <FileItem
+        name="manual-action.bpmn"
+        status="success"
+        findingCount={1}
+        highestSeverity="TASK"
+      />
+    );
+
+    expect(
+      screen.getByLabelText(
+        "1 finding, highest severity Action required: Manual action required (TASK)"
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Highest: Action required: Manual action required (TASK)"
+      )
+    ).toBeTruthy();
   });
 
   it("does not claim an INFO severity when the highest severity is unknown", () => {
@@ -172,10 +205,10 @@ describe("FileItem", () => {
       <FileItem name="unrecognized.bpmn" status="success" findingCount={2} highestSeverity={null} />
     );
 
-    const badge = screen.getByText("2 findings").closest("span");
+    const badge = screen.getByLabelText("2 findings, highest severity Unknown");
     expect(badge.className).toContain("fileItemFindingCount-info");
     expect(badge.getAttribute("title")).toBe("Highest severity: Unknown");
-    expect(badge.getAttribute("aria-label")).toBe("2 findings, highest severity Unknown");
+    expect(screen.getByText("Highest: Unknown")).toBeTruthy();
   });
 
   it("uses singular finding text for a single finding", () => {
@@ -200,6 +233,13 @@ describe("FileItem", () => {
         highestSeverity="REVIEW"
       />
     );
-    expect(screen.getByLabelText("2 findings, highest severity REVIEW")).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        "2 findings, highest severity Review: Verify after conversion (REVIEW)"
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Highest: Review: Verify after conversion (REVIEW)")
+    ).toBeTruthy();
   });
 });
