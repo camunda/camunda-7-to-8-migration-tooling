@@ -11,6 +11,7 @@ import FindingsSection from "./FindingsSection";
 import { FINDINGS_TABLE_HEADER } from "./findings";
 
 vi.mock("@camunda/design-system", () => ({
+  Input: (props) => <input {...props} />,
   Table: ({ children, ...props }) => <table {...props}>{children}</table>,
   TableBody: ({ children, ...props }) => <tbody {...props}>{children}</tbody>,
   TableCell: ({ children, ...props }) => <td {...props}>{children}</td>,
@@ -155,6 +156,54 @@ describe("FindingsSection sorting", () => {
       "No action needed (INFO)",
     ]);
   });
+
+  it("sorts by other columns and exposes the active direction accessibly", () => {
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={[
+          row(1, "INFO", { elementName: "Zebra" }),
+          row(2, "WARNING", { elementName: "Alpha" }),
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Element name" }));
+
+    const table = screen.getByRole("table");
+    expect(
+      within(table)
+        .getAllByRole("row")
+        .slice(1)
+        .map((tableRow) => within(tableRow).getAllByRole("cell")[2].textContent)
+    ).toEqual(["Alpha", "Zebra"]);
+    expect(
+      screen.getByRole("button", { name: "Sort by Element name" }).closest("th").getAttribute("aria-sort")
+    ).toBe("ascending");
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Severity" }));
+    expect(severityCellsInOrder()).toEqual([
+      "No direct mapping (WARNING)",
+      "No action needed (INFO)",
+    ]);
+  });
+
+  it("reverses the severity order when the active severity sort is toggled", () => {
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={[row(1, "WARNING"), row(2, "INFO"), row(3, "TASK")]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Severity" }));
+
+    expect(severityCellsInOrder()).toEqual([
+      "No action needed (INFO)",
+      "Manual action required (TASK)",
+      "No direct mapping (WARNING)",
+    ]);
+  });
 });
 
 describe("FindingsSection filtering (mixed-severity state)", () => {
@@ -181,21 +230,35 @@ describe("FindingsSection filtering (mixed-severity state)", () => {
     expect(screen.getByText(/Showing 2 of 3 findings/)).toBeTruthy();
   });
 
-  it("returns to the complete list without losing the result set via 'Show all findings'", () => {
+  it("combines search and severity filters and clears both without changing the result set", () => {
     render(
       <FindingsSection
         header={FINDINGS_TABLE_HEADER}
-        rows={[row(1, "WARNING"), row(2, "INFO")]}
+        rows={[
+          row(1, "WARNING", { elementName: "Order", message: "Review order task" }),
+          row(2, "INFO", { elementName: "Order", message: "Converted order" }),
+          row(3, "WARNING", { elementName: "Invoice", message: "Review invoice task" }),
+        ]}
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /No action needed INFO \(1\)/ }));
+    const search = screen.getByRole("searchbox", { name: "Search findings" });
+    fireEvent.change(search, { target: { value: "ORDER" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: /No direct mapping WARNING \(2\)/ })
+    );
+
     expect(severityCellsInOrder()).toHaveLength(1);
+    expect(screen.getByText(/Showing 1 of 3 findings/)).toBeTruthy();
+    expect(screen.getByText(/Search "ORDER"/)).toBeTruthy();
+    expect(screen.getByText(/Excluded severities: No direct mapping \(WARNING\)/)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show all findings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
 
-    expect(screen.queryByText(/Showing \d+ of \d+ findings/)).toBeNull();
-    expect(severityCellsInOrder()).toHaveLength(2);
+    expect(search.value).toBe("");
+    expect(screen.getByText(/Showing 3 of 3 findings/)).toBeTruthy();
+    expect(screen.queryByText(/Active filters:/)).toBeNull();
+    expect(severityCellsInOrder()).toHaveLength(3);
   });
 
   it("resets filters when a new result set is loaded", () => {
@@ -209,10 +272,10 @@ describe("FindingsSection filtering (mixed-severity state)", () => {
     view.rerender(<FindingsSection header={FINDINGS_TABLE_HEADER} rows={nextRows} />);
 
     expect(severityCellsInOrder()).toHaveLength(2);
-    expect(screen.queryByText(/Showing \d+ of \d+ findings/)).toBeNull();
+    expect(screen.getByText(/Showing 2 of 2 findings/)).toBeTruthy();
   });
 
-  it("shows a clear message when every visible severity is filtered out", () => {
+  it("shows an empty state and clear action when filters match no findings", () => {
     render(
       <FindingsSection
         header={FINDINGS_TABLE_HEADER}
@@ -223,8 +286,28 @@ describe("FindingsSection filtering (mixed-severity state)", () => {
     fireEvent.click(screen.getByRole("button", { name: /No direct mapping WARNING \(1\)/ }));
     fireEvent.click(screen.getByRole("button", { name: /No action needed INFO \(1\)/ }));
 
-    expect(screen.getByText("No findings match the selected severities.")).toBeTruthy();
+    expect(screen.getByText("No findings match the current filters.")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText(/Showing 0 of 2 findings/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeTruthy();
+  });
+
+  it("searches finding fields case-insensitively and reports no matching results", () => {
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={[row(1, "WARNING", { message: "Review the service task" })]}
+      />
+    );
+
+    const search = screen.getByRole("searchbox", { name: "Search findings" });
+    fireEvent.change(search, { target: { value: "SERVICE TASK" } });
+
+    expect(severityCellsInOrder()).toHaveLength(1);
+    fireEvent.change(search, { target: { value: "not present" } });
+
+    expect(screen.getByText("No findings match the current filters.")).toBeTruthy();
+    expect(screen.getByText(/Showing 0 of 1 finding/)).toBeTruthy();
   });
 });
 

@@ -13,6 +13,11 @@
 // duplicating the list.
 export const SEVERITY_ORDER = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
 
+export function getSeverityRank(severity) {
+  const index = SEVERITY_ORDER.indexOf(severity);
+  return index === -1 ? SEVERITY_ORDER.length : index;
+}
+
 // Plain-language labels and explanations for each raw analyzer severity code,
 // matching the terminology from the migration-analyzer documentation
 // (https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
