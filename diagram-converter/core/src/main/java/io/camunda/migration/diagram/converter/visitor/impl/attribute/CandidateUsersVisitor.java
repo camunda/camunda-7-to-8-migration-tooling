@@ -27,7 +27,8 @@ public class CandidateUsersVisitor extends AbstractSupportedAttributeVisitor {
         ExpressionTransformer.transformToFeel("Candidate users", attribute);
     context.addConversion(
         UserTaskConvertible.class,
-        convertible -> convertible.getZeebeAssignmentDefinition().setCandidateUsers(attribute));
+        convertible ->
+            convertible.getZeebeAssignmentDefinition().setCandidateUsers(candidateUsers.result()));
     return ExpressionTransformationResultMessageFactory.getMessage(
         candidateUsers,
         "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#assignments");

@@ -10,6 +10,11 @@ For Camunda 8.10 targets, the converter also maps C7 call-activity business-key
 propagation to `zeebe:calledElement businessId`, static execution-listener fields
 to listener task headers, and dynamic DMN decision version-tag expressions to FEEL.
 
+For Camunda 8.6 and later, user-task `camunda:priority` is mapped to
+`zeebe:priorityDefinition`. Invalid constant priorities are not emitted, and
+method-invocation or execution-only expressions, along with legacy user-task
+`jobPriority` and `taskPriority`, are reported for manual migration.
+
 ## Online Availability
 
 The Diagram Converter is available online at [https://diagram-converter.camunda.io/](https://diagram-converter.camunda.io/), hosted by Camunda. Your diagrams are transiently processed - we don't store any of your data.
