@@ -188,8 +188,8 @@ async function openPreview({
 
   const previewButton = await screen.findByRole("button", {
     name: fileName.endsWith(".form")
-      ? "Preview form"
-      : "Preview analysis findings",
+      ? `Preview form for ${fileName}`
+      : `Preview analysis findings for ${fileName}`,
   });
   // Focus before clicking, mirroring how a real click/keyboard activation
   // focuses the button in a browser (jsdom's fireEvent.click doesn't do
@@ -1163,7 +1163,9 @@ describe("preview overlay behaves as a modal dialog", () => {
       checkResponseJson: [],
     });
 
-    const opener = screen.getByRole("button", { name: "Preview analysis findings" });
+    const opener = screen.getByRole("button", {
+      name: "Preview analysis findings for process.bpmn",
+    });
 
     fireEvent.keyDown(document, { key: "Escape" });
 

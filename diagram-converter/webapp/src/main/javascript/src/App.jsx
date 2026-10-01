@@ -1034,7 +1034,9 @@ function App() {
                     previewAction: isForm
                       ? () => previewForm(r, file.name)
                       : () => preview(r, modelType, file.name),
-                    previewTitle: isForm ? "Preview form" : undefined,
+                    previewTitle: isForm
+                      ? `Preview form for ${file.name}`
+                      : `Preview analysis findings for ${file.name}`,
                     downloadAction: () => download(r),
                     error:
                       r.status === "error"

@@ -196,6 +196,34 @@ describe("FileResultsTable", () => {
     expect(fileNamesInOrder()).toHaveLength(4);
   });
 
+  it("searches filenames independent of the user's locale", () => {
+    const originalToLocaleLowerCase = String.prototype.toLocaleLowerCase;
+    const localeSpy = vi
+      .spyOn(String.prototype, "toLocaleLowerCase")
+      .mockImplementation(function (locales) {
+        return originalToLocaleLowerCase.call(this, locales ?? "tr");
+      });
+
+    try {
+      render(
+        <FileResultsTable
+          rows={[
+            row("invoice", "INVOICE.bpmn", "INFO", 1),
+            row("other", "other.bpmn", "INFO", 1),
+          ]}
+        />
+      );
+
+      fireEvent.change(screen.getByRole("searchbox", { name: "Search files" }), {
+        target: { value: "invoice" },
+      });
+
+      expect(fileNamesInOrder()).toEqual(["INVOICE.bpmn"]);
+    } finally {
+      localeSpy.mockRestore();
+    }
+  });
+
   it("shows an empty-filter state with a visible count and reset action", () => {
     render(
       <FileResultsTable

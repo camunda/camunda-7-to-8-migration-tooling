@@ -112,7 +112,7 @@ export default function FindingsSection({
     code: severity,
     count,
   }));
-  const query = searchValue.trim().toLocaleLowerCase();
+  const query = searchValue.trim().toLowerCase();
   const visibleRows = rows
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => {
@@ -127,7 +127,7 @@ export default function FindingsSection({
             return String(row[key] ?? "");
           })
           .join(" ")
-          .toLocaleLowerCase()
+          .toLowerCase()
           .includes(query);
       return (
         matchesSearch &&

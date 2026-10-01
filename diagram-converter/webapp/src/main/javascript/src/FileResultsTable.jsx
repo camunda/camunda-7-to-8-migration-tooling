@@ -181,13 +181,13 @@ export default function FileResultsTable({ rows, resetKey = rows }) {
     }))
     .sort((left, right) => severityRank(left.value) - severityRank(right.value));
 
-  const query = searchValue.trim().toLocaleLowerCase();
+  const query = searchValue.trim().toLowerCase();
   const visibleRows = rows
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => {
       const matchesSearch =
         query.length === 0 ||
-        String(row.name ?? "").toLocaleLowerCase().includes(query);
+        String(row.name ?? "").toLowerCase().includes(query);
       return matchesSearch && !hiddenSeverities.has(severityFilterValue(row));
     })
     .sort(
