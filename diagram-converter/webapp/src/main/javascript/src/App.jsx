@@ -344,6 +344,7 @@ function App() {
                 canvas.removeMarker(previousMarkerElementId, 'finding-selected');
               }
               selectedMarkerElementIdRef.current = null;
+              selectedFindingElementIdRef.current = null;
               setSelectedFindingElementId(null);
               return;
             }
@@ -355,6 +356,7 @@ function App() {
               canvas.addMarker(elementId, 'finding-selected');
             }
             selectedMarkerElementIdRef.current = elementId;
+            selectedFindingElementIdRef.current = elementId;
             setSelectedFindingElementId(elementId);
           } catch (error) {
             console.error("Unable to synchronize the selected finding with the diagram:", error);
