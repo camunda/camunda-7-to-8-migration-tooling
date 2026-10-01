@@ -221,6 +221,8 @@
           <forkedProcessExitTimeoutInSeconds>300</forkedProcessExitTimeoutInSeconds>
           <systemPropertyVariables>
             <repositoryRoot>${maven.multiModuleProjectDirectory}</repositoryRoot>
+            <jackson2Version>${version.jackson-bom}</jackson2Version>
+            <jackson3Version>${version.jackson-3-bom}</jackson3Version>
           </systemPropertyVariables>
         </configuration>
       </plugin>
