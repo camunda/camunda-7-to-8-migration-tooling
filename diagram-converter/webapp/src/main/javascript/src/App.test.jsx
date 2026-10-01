@@ -11,27 +11,32 @@ import App from "./App.jsx";
 
 const bpmnMocks = vi.hoisted(() => {
   const instances = [];
+  const missingElementIds = new Set();
 
   class MockBpmnJS {
     constructor(options) {
       this.options = options;
       this.importedXml = [];
       this.destroyed = false;
-      this.canvas = {
-        zoom: vi.fn(),
-        addMarker: vi.fn(),
-        removeMarker: vi.fn(),
-        scrollToElement: vi.fn(),
-      };
-      this.selection = { select: vi.fn() };
       // Any element id resolves to a stub element unless explicitly seeded
       // as missing, so tests can assert both "found" and "not found" paths.
-      this.missingElementIds = new Set();
+      this.missingElementIds = new Set(missingElementIds);
       this.elementRegistry = {
         get: vi.fn((id) =>
           this.missingElementIds.has(id) ? undefined : { id, businessObject: {} }
         ),
       };
+      this.canvas = {
+        zoom: vi.fn(),
+        addMarker: vi.fn((elementId) => {
+          if (!this.elementRegistry.get(elementId)) {
+            throw new Error(`Cannot add marker to missing element ${elementId}`);
+          }
+        }),
+        removeMarker: vi.fn(),
+        scrollToElement: vi.fn(),
+      };
+      this.selection = { select: vi.fn() };
       instances.push(this);
     }
 
@@ -52,7 +57,7 @@ const bpmnMocks = vi.hoisted(() => {
     }
   }
 
-  return { MockBpmnJS, instances };
+  return { MockBpmnJS, instances, missingElementIds };
 });
 
 const testState = vi.hoisted(() => ({
@@ -175,7 +180,9 @@ async function openPreview({
   content,
   checkResponseJson,
   convertedContent,
+  missingElementIds = [],
 }) {
+  missingElementIds.forEach((id) => bpmnMocks.missingElementIds.add(id));
   configureUpload({ fileName, content, checkResponseJson, convertedContent });
   render(<App />);
 
@@ -285,6 +292,7 @@ beforeEach(() => {
   testState.dmnPreviewProps.length = 0;
   testState.formPreviewProps.length = 0;
   bpmnMocks.instances.length = 0;
+  bpmnMocks.missingElementIds.clear();
 });
 
 afterEach(() => {
@@ -1192,6 +1200,66 @@ describe("finding severity communicates without relying on color alone", () => {
       "task_1",
       "highlight-info"
     );
+  });
+
+  it("keeps the diagram visible when a finding targets a non-rendered BPMN definition", async () => {
+    await openPreview({
+      fileName: "example-c7.bpmn",
+      content: `<definitions
+        xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+        xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+        xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+      >
+        <message id="Message_1rhrnqe" name="myMessage" />
+        <process id="Process_0c0a05x">
+          <serviceTask id="Activity_0kko3uz" name="Connector" />
+        </process>
+        <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+          <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0c0a05x">
+            <bpmndi:BPMNShape id="Activity_0kko3uz_di" bpmnElement="Activity_0kko3uz">
+              <dc:Bounds x="100" y="100" width="100" height="80" />
+            </bpmndi:BPMNShape>
+          </bpmndi:BPMNPlane>
+        </bpmndi:BPMNDiagram>
+      </definitions>`,
+      checkResponseJson: [
+        {
+          results: [
+            {
+              elementId: "Activity_0kko3uz",
+              elementType: "bpmn:ServiceTask",
+              elementName: "Connector",
+              messages: [{ severity: "WARNING", message: "Review the service task." }],
+            },
+            {
+              elementId: "Message_1rhrnqe",
+              elementType: "bpmn:Message",
+              elementName: "myMessage",
+              messages: [
+                {
+                  severity: "TASK",
+                  message: "Please define a correlation key if the message is used in a message catch event.",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      missingElementIds: ["Message_1rhrnqe"],
+    });
+
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+    expect(document.querySelector("#bpmnDiagram")).toBeTruthy();
+    expect(screen.queryByText(/The diagram could not be rendered/)).toBeNull();
+    expect(bpmnMocks.instances[0].canvas.addMarker).toHaveBeenCalledWith(
+      "Activity_0kko3uz",
+      "highlight-warning"
+    );
+    expect(bpmnMocks.instances[0].canvas.addMarker).not.toHaveBeenCalledWith(
+      "Message_1rhrnqe",
+      "highlight-task"
+    );
+    expect(screen.getByText("Message_1rhrnqe")).toBeTruthy();
   });
 
   it("styles the file-results severity cell by the highest severity, not always warning", async () => {
