@@ -884,6 +884,51 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.submit(key, target_disposable=False, **options)
         self.assertEqual(0, self.submit(key, **options))
 
+    def test_documented_active_timer_observation_passes_validation(self):
+        documentation = (
+            FIXTURE.parents[1]
+            / "skills"
+            / "migrate-c7-to-c8-code"
+            / "references"
+            / "validation-evidence.md"
+        ).read_text(encoding="utf-8")
+        json_examples = [
+            block.split("```", 1)[0].strip()
+            for block in documentation.split("```json\n")[1:]
+            if '"final_deadline_last_active_at"' in block
+        ]
+        self.assertEqual(1, len(json_examples))
+        evidence = json.loads(json_examples[0])
+        active_timer = evidence["observation"]["active_timer"]
+        mapping_fields = (
+            "model_path",
+            "process_id",
+            "rearm_process_id",
+            "rearm_call_activity_id",
+            "timer_id",
+            "strategy",
+            "message_name",
+            "correlation_key_variable",
+            "date_variable",
+            "message_date_variable",
+        )
+        decision = {field: active_timer[field] for field in mapping_fields}
+        decision["target_version"] = evidence["deployment"]["target_version"]
+        runtime_key = "documented-example"
+        check = {
+            "environment": evidence["deployment"]["environment"],
+            "target_disposable": evidence["deployment"]["target_disposable"],
+            "target_version": evidence["deployment"]["target_version"],
+            "isolation_plan": "Remove the documented disposable target.",
+            "output": json.dumps(evidence),
+        }
+
+        gate.validate_active_timer_observation(
+            Namespace(active_timer_decisions={runtime_key: decision}),
+            ("timer", runtime_key, "active_instance_reschedule", None),
+            check,
+        )
+
     def test_active_timer_updates_need_approved_rearm_and_live_runtime_evidence(self):
         runtime_key = self.install_active_timer_decision()
         decision_reference = self.plan["active_timer_update_decision"]["reference"]
@@ -1242,6 +1287,52 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "converted model lacks the mapped message-driven timer rearm path" in issue
                 for issue in plan.issues
             )
+        )
+
+    def test_active_timer_mapping_rejects_multiple_boundary_outgoing_flows(self):
+        self.install_active_timer_decision()
+        model_path = self.root / "models/converted-c8-process.bpmn"
+        xml = model_path.read_text(encoding="utf-8")
+        boundary_outgoing = "<bpmn:outgoing>Update_Prepare</bpmn:outgoing>"
+        end_event = (
+            '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming>'
+            "</bpmn:endEvent>"
+        )
+        rearm_flow = (
+            '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" '
+            'targetRef="Prepare" />'
+        )
+        for marker in (boundary_outgoing, end_event, rearm_flow):
+            self.assertIn(marker, xml)
+        xml = xml.replace(
+            boundary_outgoing,
+            boundary_outgoing + "<bpmn:outgoing>Update_Extra</bpmn:outgoing>",
+            1,
+        )
+        xml = xml.replace(
+            end_event,
+            end_event
+            + '<bpmn:endEvent id="AuditEnd"><bpmn:incoming>Update_Extra</bpmn:incoming>'
+            "</bpmn:endEvent>",
+            1,
+        )
+        xml = xml.replace(
+            rearm_flow,
+            rearm_flow
+            + '<bpmn:sequenceFlow id="Update_Extra" sourceRef="DateChanged" '
+            'targetRef="AuditEnd" />',
+            1,
+        )
+        model_path.write_text(xml, encoding="utf-8")
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertTrue(
+            any(
+                "converted model lacks the mapped message-driven timer rearm path" in issue
+                for issue in plan.issues
+            ),
+            "\n".join(plan.issues),
         )
 
     def test_active_timer_command_rejects_unsafe_environment_and_unapproved_version_before_execution(self):

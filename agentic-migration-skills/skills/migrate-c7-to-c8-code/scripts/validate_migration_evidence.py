@@ -467,9 +467,10 @@ def supports_message_rearm(
         for output in date_outputs
     ):
         return False
-    for boundary_flow_id in (
-        node.text for node in boundary.findall(f"{BPMN}outgoing") if node.text
-    ):
+    boundary_outgoing = boundary.findall(f"{BPMN}outgoing")
+    if len(boundary_outgoing) != 1:
+        return False
+    for boundary_flow_id in (node.text for node in boundary_outgoing if node.text):
         boundary_flow = flows.get(boundary_flow_id)
         if boundary_flow is None:
             continue

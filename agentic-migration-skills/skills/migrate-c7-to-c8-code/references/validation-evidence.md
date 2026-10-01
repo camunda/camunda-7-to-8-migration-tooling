@@ -252,21 +252,21 @@ deployment and prove cleanup:
       "timer_was_active_before_first_update": true,
       "updates": [
         {
-          "old_deadline": "2050-11-23T00:00:05Z",
-          "new_deadline": "2050-11-23T00:00:15Z",
+          "old_deadline": "2050-11-23T00:00:15Z",
+          "new_deadline": "2050-11-23T00:00:05Z",
           "timer_active_before_update": true,
           "correlated": true
         },
         {
-          "old_deadline": "2050-11-23T00:00:15Z",
+          "old_deadline": "2050-11-23T00:00:05Z",
           "new_deadline": "2050-11-23T00:00:25Z",
           "timer_active_before_update": true,
           "correlated": true
         }
       ],
       "obsolete_deadlines": [
-        {"deadline": "2050-11-23T00:00:05Z", "fire_count": 0},
-        {"deadline": "2050-11-23T00:00:15Z", "fire_count": 0}
+        {"deadline": "2050-11-23T00:00:15Z", "fire_count": 0},
+        {"deadline": "2050-11-23T00:00:05Z", "fire_count": 0}
       ],
       "advanced_past_obsolete_deadlines": true,
       "final_deadline": "2050-11-23T00:00:25Z",
