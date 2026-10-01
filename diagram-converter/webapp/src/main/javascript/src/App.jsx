@@ -293,6 +293,7 @@ function App() {
         if (!isActive) return;
 
         const canvas = viewer.get('canvas');
+        const elementRegistry = viewer.get('elementRegistry');
         canvas.zoom('fit-viewport');
 
         const elementsWithMessages =
@@ -301,7 +302,7 @@ function App() {
             .filter((el) => Array.isArray(el?.messages) && el.messages.length > 0);
 
         elementsWithMessages.forEach((el) => {
-          if (el.elementId) {
+          if (el.elementId && elementRegistry.get(el.elementId)) {
             const severityStyleKey = getSeverityStyleKey(getHighestSeverity(el.messages));
             canvas.addMarker(el.elementId, `highlight-${severityStyleKey}`);
           }
