@@ -670,13 +670,13 @@ describe("output filenames", () => {
     );
     const hint = document.getElementById("preserveOriginalFilenameHint");
     expect(hint?.textContent).toBe(
-      "The converter adds a prefix, for example converted-c8-order.bpmn."
+      "Individual downloads and ZIP entries use a prefixed name, for example converted-c8-order.bpmn."
     );
 
     fireEvent.click(checkbox);
     expect(screen.getByText(/support up to 92 files/i)).toBeTruthy();
     expect(hint?.textContent).toBe(
-      "The converted file has the same name as the uploaded file, for example order.bpmn."
+      "Individual downloads and ZIP entries use the uploaded file name, for example order.bpmn."
     );
   });
 

@@ -851,8 +851,8 @@ function App() {
                 </label>
                 <p id="preserveOriginalFilenameHint" className="configOptionHint">
                   {configOptions.preserveOriginalFilename
-                    ? "The converted file has the same name as the uploaded file, for example order.bpmn."
-                    : "The converter adds a prefix, for example converted-c8-order.bpmn."}
+                    ? "Individual downloads and ZIP entries use the uploaded file name, for example order.bpmn."
+                    : "Individual downloads and ZIP entries use a prefixed name, for example converted-c8-order.bpmn."}
                 </p>
               </fieldset>
 
