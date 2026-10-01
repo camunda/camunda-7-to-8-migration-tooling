@@ -2520,6 +2520,15 @@ describe("per-file request failures and retry", () => {
 });
 
 describe("navigation between configure and results", () => {
+  it("does not show a confirmation when there is no batch to clear", () => {
+    render(<App />);
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Start a new batch" })
+    ).toBeNull();
+  });
+
   it("returns to configure without discarding the uploaded file list", async () => {
     fetchMock.mockImplementation((url) => {
       if (url.endsWith("/check")) {
@@ -2548,7 +2557,7 @@ describe("navigation between configure and results", () => {
     expect(screen.getByText("keep-me.bpmn")).toBeTruthy();
   });
 
-  it("starts a new batch that clears the previous files and results", async () => {
+  it("starts a new batch immediately and clears the previous files and results", async () => {
     fetchMock.mockImplementation((url) => {
       if (url.endsWith("/check")) {
         return Promise.resolve({
@@ -2570,10 +2579,125 @@ describe("navigation between configure and results", () => {
 
     await screen.findByRole("heading", { name: "Converted files" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Convert more files" }));
-
-    expect(await screen.findByRole("heading", { name: "Add files" })).toBeTruthy();
+    const startNewBatchButton = screen.getByRole("button", {
+      name: "Start a new batch",
+    });
+    startNewBatchButton.focus();
+    fireEvent.click(startNewBatchButton);
+    const addFilesHeading = await screen.findByRole("heading", {
+      name: "Add files",
+    });
+    expect(document.activeElement).toBe(addFilesHeading);
     expect(screen.queryByText("replace-me.bpmn")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("does not let an in-flight old batch overwrite a new batch", async () => {
+    const convertRequests = [];
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      if (url.endsWith("/convert")) {
+        const request = deferred();
+        convertRequests.push(request);
+        return request.promise;
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await uploadAndAnalyze([mockFile("old.bpmn")]);
+    await waitFor(() => expect(convertRequests).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
+    expect(
+      await screen.findByRole("heading", { name: "Add files" })
+    ).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    testState.files.splice(0, testState.files.length, mockFile("new.bpmn"));
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await waitFor(() => expect(convertRequests).toHaveLength(2));
+    const newRow = await screen.findByRole("row", { name: /new\.bpmn/ });
+    await within(newRow).findByRole("status");
+
+    await act(async () => {
+      convertRequests[0].resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["old conversion"])),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(within(newRow).getByRole("status")).toBeTruthy();
+    expect(
+      within(newRow).queryByRole("button", { name: "Download new.bpmn" })
+    ).toBeNull();
+    const zipDownload = screen.getByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    expect(zipDownload.disabled).toBe(true);
+
+    await act(async () => {
+      convertRequests[1].resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["new conversion"])),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      await within(newRow).findByRole("button", { name: "Download new.bpmn" })
+    ).toBeTruthy();
+    await waitFor(() => expect(zipDownload.disabled).toBe(false));
+  });
+
+  it("starts a new batch without losing configuration", async () => {
+    configureUpload({
+      fileName: "keep-me.bpmn",
+      content: "<xml/>",
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced options" }));
+    const configOption = screen.getByRole("checkbox", {
+      name: "Append WARNING and TASK findings to BPMN documentation",
+    });
+    fireEvent.click(configOption);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await screen.findByRole("heading", { name: "Converted files" });
+    await screen.findByRole("button", { name: "Download keep-me.bpmn" });
+    fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
+    const addFilesHeading = await screen.findByRole("heading", {
+      name: "Add files",
+    });
+    expect(document.activeElement).toBe(addFilesHeading);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByText("keep-me.bpmn")).toBeNull();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Append WARNING and TASK findings to BPMN documentation",
+      }).checked
+    ).toBe(true);
   });
 });
 
