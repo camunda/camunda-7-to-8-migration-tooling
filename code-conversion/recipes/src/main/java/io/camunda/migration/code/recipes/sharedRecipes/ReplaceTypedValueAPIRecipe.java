@@ -838,8 +838,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
           private boolean isDirectConvertedRead() {
             Cursor parent = getCursor().getParentTreeCursor();
+            Expression reference = (Expression) getCursor().getValue();
             while (parent.getValue() instanceof J.Parentheses<?>
                 || parent.getValue() instanceof J.TypeCast) {
+              reference = (Expression) parent.getValue();
               parent = parent.getParentTreeCursor();
             }
             if (parent.getValue() instanceof J.VariableDeclarations.NamedVariable) {
@@ -854,7 +856,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
               return true;
             }
-            return false;
+            return parent.getValue() instanceof J.MethodInvocation call
+                && variableSetter.matches(call)
+                && call.getArguments().size() == 2
+                && call.getArguments().get(1) == reference;
           }
 
           /** Replace initializers of assignments */
