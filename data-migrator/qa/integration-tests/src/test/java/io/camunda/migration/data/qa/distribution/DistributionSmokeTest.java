@@ -8,7 +8,9 @@
 package io.camunda.migration.data.qa.distribution;
 
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
+import static io.camunda.migration.data.impl.logging.SchemaShutdownCleanerLogs.PERFORMING_DROP_ON_SUCCESSFUL_MIGRATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -37,6 +39,8 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Smoke test for the ZIP distribution that validates the start script functionality.
@@ -44,6 +48,8 @@ import org.junit.jupiter.api.io.TempDir;
  * (start.sh on Unix/Linux/macOS, start.bat on Windows) to ensure basic functionality works as expected.
  */
 public class DistributionSmokeTest {
+
+  protected static final String DEFAULT_LOG_FILE = "logs/camunda-7-to-8-data-migrator.log";
 
   @TempDir
   protected Path tempDir;
@@ -110,25 +116,20 @@ public class DistributionSmokeTest {
     assertThat(output).contains("--retry-skipped");
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(strings = {DEFAULT_LOG_FILE, "custom logs/migrator.log"})
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
-  void shouldFailSinceC8DataSourceNotConfigured() throws Exception {
+  void shouldFailSinceC8DataSourceNotConfigured(String logFileName) throws Exception {
     // given
-    ProcessBuilder processBuilder = createProcessBuilder("--history");
-
-    // Read the existing configuration file and set auto-ddl to true
     replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
+    replaceConfigProperty("name: " + DEFAULT_LOG_FILE, "name: " + logFileName);
 
     // when
-    Process process = processBuilder.start();
+    String output = runProcessToCompletion(createProcessBuilder("--history"), 1);
 
     // then
-    String output = readProcessOutput(process);
-    int exitCode = process.waitFor();
-
-    assertThat(exitCode).isEqualTo(1);
-    assertThat(output).matches("(?s).*ERROR.*No C8 datasource configured\\. "
-        + "Configure 'camunda\\.migrator\\.c8\\.datasource' to allow history migration\\..*");
+    assertLoggedToConsoleAndFile(logFileName, output, " ERROR ",
+        "No C8 datasource configured. Configure 'camunda.migrator.c8.datasource' to allow history migration.");
   }
 
   @Test
@@ -438,41 +439,66 @@ public class DistributionSmokeTest {
     assertThat(output).contains("ENGINE-03057 There are no Camunda tables in the database.");
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(strings = {DEFAULT_LOG_FILE, "custom logs/migrator.log"})
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
-  void shouldCreateLogFileWhenConfigured() throws Exception {
+  void shouldCreateLogFileWhenConfigured(String logFileName) throws Exception {
     // given
-    Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
-    assertThat(configFile).exists();
-
-    // Read the existing configuration file and set auto-ddl to true
     replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
-
-    ProcessBuilder processBuilder = createProcessBuilder("--runtime");
+    replaceConfigProperty("io.camunda.migration.data: WARN", "io.camunda.migration.data: INFO");
+    replaceConfigProperty("name: " + DEFAULT_LOG_FILE, "name: " + logFileName);
 
     // when
-    process = processBuilder.start();
+    // Listing and cleaning up the empty local schema do not contact Camunda 8.
+    String output = runProcessToCompletion(
+        createProcessBuilder("--runtime", "--list-migrated", "--drop-schema"), 0);
 
     // then
-    String output = readProcessOutput(process);
+    assertLoggedToConsoleAndFile(logFileName, output, " INFO ", PERFORMING_DROP_ON_SUCCESSFUL_MIGRATION);
+  }
 
-    // Verify that log file was created at the configured location
-    Path logFile = extractedDistributionPath.resolve("logs/camunda-7-to-8-data-migrator.log");
-    assertThat(logFile).exists();
-    assertThat(logFile.toFile().length()).isGreaterThan(0);
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldReportUnexpectedProcessExit() {
+    assertThatThrownBy(() -> runProcessToCompletion(createProcessBuilder("--runtime", "--invalid-flag"), 0))
+        .isInstanceOf(AssertionError.class)
+        .hasMessageContaining("Process exit code: 1")
+        .hasMessageContaining("Console output:")
+        .hasMessageContaining("Invalid flag: --invalid-flag");
+  }
 
-    // Verify the log file contains expected log messages
-    // Note: early startup messages before Spring Boot initializes logging won't be in the file
-    String logContent = Files.readString(logFile);
-    assertThat(logContent).containsAnyOf(
-        "Failed to activate jobs",
-        "ENGINE-"
-    );
+  protected String runProcessToCompletion(ProcessBuilder processBuilder, int expectedExitCode)
+      throws IOException, InterruptedException {
+    Path consoleOutput = tempDir.resolve("console-output.log");
+    process = processBuilder.redirectOutput(consoleOutput.toFile()).start();
+    boolean exited = process.waitFor(25, TimeUnit.SECONDS);
+    String output = Files.readString(consoleOutput);
+    String diagnostics = "Command: %s%nProcess exit code: %s%nConsole output:%n%s".formatted(
+        processBuilder.command(), exited ? process.exitValue() : "still running after 25 seconds", output);
+
+    assertThat(exited).as(diagnostics).isTrue();
+    assertThat(process.exitValue()).as(diagnostics).isEqualTo(expectedExitCode);
+    return output;
+  }
+
+  protected void assertLoggedToConsoleAndFile(String logFileName, String output, String... expectedMessages)
+      throws IOException {
+    Path logFile = extractedDistributionPath.resolve(logFileName);
+    String diagnostics = "Log file: %s%nProcess exit code: %s%nConsole output:%n%s".formatted(
+        logFile, process.exitValue(), output);
+
+    assertThat(output).as(diagnostics).contains(expectedMessages);
+    assertThat(logFile).as(diagnostics).isRegularFile().isNotEmptyFile();
+    assertThat(Files.readString(logFile)).as(diagnostics).contains(expectedMessages);
+    if (!DEFAULT_LOG_FILE.equals(logFileName)) {
+      assertThat(extractedDistributionPath.resolve(DEFAULT_LOG_FILE)).as(diagnostics).doesNotExist();
+    }
   }
 
   protected void replaceConfigProperty(String before, String after) throws IOException {
     Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
     String originalConfig = Files.readString(configFile);
+    assertThat(originalConfig).as("Configuration fixture must contain the property being replaced").contains(before);
     String modifiedConfig = originalConfig.replace(before, after);
     Files.write(configFile, modifiedConfig.getBytes());
   }

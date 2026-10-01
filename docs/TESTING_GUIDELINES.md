@@ -415,6 +415,26 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 }
 ```
 
+### Distribution Smoke Tests
+
+Run smoke tests against the assembled ZIP, not a loose classpath:
+
+```bash
+mvn -B -ntp -pl data-migrator/assembly,data-migrator/qa -am install -DskipTests
+mvn -B -ntp -Pintegration -pl data-migrator/qa/integration-tests test -Dtest=DistributionSmokeTest
+```
+
+File-logging scenarios must not depend on an unavailable Camunda 8 endpoint or
+incidental startup warnings. Use deterministic local operations: list and clean
+up an empty schema with INFO logging, or reject history migration without a C8
+datasource at the shipped WARN level. Verify the exit code, a nonempty file at the
+configured path, and the expected event in both console and file output. Cover
+the default path and a custom path.
+
+Capture subprocess output without blocking the exit deadline. Include the exit
+status and captured output in assertion failures, and retain process-tree cleanup
+for timeouts and failures.
+
 ### Skip/Retry Tests
 
 **Focus:** Verifying skip behavior and retry mechanisms

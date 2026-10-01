@@ -90,9 +90,6 @@
         <configuration>
           <layout>ZIP</layout>
           <mainClass>io.camunda.migration.data.app.MigratorApp</mainClass>
-          <manifest>
-            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-          </manifest>
         </configuration>
         <executions>
           <execution>
