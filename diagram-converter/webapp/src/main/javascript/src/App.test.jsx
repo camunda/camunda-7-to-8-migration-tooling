@@ -1055,7 +1055,11 @@ describe("batch findings summary and file priority", () => {
 
   async function analyzeBatch(
     responsesByFile,
-    { conversionFailures = [], onXlsxDownload = () => {} } = {}
+    {
+      conversionFailures = [],
+      analysisFailures = [],
+      onXlsxDownload = () => {},
+    } = {}
   ) {
     fetchMock.mockImplementation((url, request) => {
       if (
@@ -1072,6 +1076,15 @@ describe("batch findings summary and file priority", () => {
 
       const fileName = request.body.get("file").name;
       if (url.endsWith("/check")) {
+        if (analysisFailures.includes(fileName)) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            headers: { get: vi.fn().mockReturnValue(null) },
+            text: vi.fn().mockResolvedValue("Analysis failed"),
+          });
+        }
+
         return Promise.resolve({
           ok: true,
           headers: { get: vi.fn().mockReturnValue(null) },
@@ -1097,6 +1110,14 @@ describe("batch findings summary and file priority", () => {
     await uploadAndAnalyze(
       Object.keys(responsesByFile).map((fileName) => mockFile(fileName))
     );
+
+    if (analysisFailures.length === Object.keys(responsesByFile).length) {
+      await waitFor(() =>
+        expect(screen.getAllByRole("alert")).toHaveLength(analysisFailures.length)
+      );
+      return screen.queryByRole("status", { name: "Findings summary" });
+    }
+
     return screen.findByRole("status", { name: "Findings summary" });
   }
 
@@ -1121,6 +1142,35 @@ describe("batch findings summary and file priority", () => {
     expect(summaryCount(summary, "No follow-up (INFO)")).toBe("0");
     expect(summary.className).not.toContain("findingSummary-actionRequired");
     expect(within(fileRow("empty.bpmn")).getByText("No findings")).toBeTruthy();
+  });
+
+  it("hides the findings summary when every analysis fails", async () => {
+    const summary = await analyzeBatch(
+      {
+        "first-failure.bpmn": checkResponse("WARNING"),
+        "second-failure.bpmn": checkResponse("INFO"),
+      },
+      {
+        analysisFailures: ["first-failure.bpmn", "second-failure.bpmn"],
+      }
+    );
+
+    expect(summary).toBeNull();
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+  });
+
+  it("summarizes successfully analyzed files when another analysis fails", async () => {
+    const summary = await analyzeBatch(
+      {
+        "analyzed.bpmn": checkResponse("INFO"),
+        "analysis-failed.bpmn": checkResponse("WARNING"),
+      },
+      { analysisFailures: ["analysis-failed.bpmn"] }
+    );
+
+    expect(summary.textContent).toContain("1 finding detected");
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("0");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
   });
 
   it("keeps an informational-only batch in neutral styling", async () => {

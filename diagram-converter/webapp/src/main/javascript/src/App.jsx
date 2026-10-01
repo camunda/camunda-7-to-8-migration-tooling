@@ -1036,7 +1036,7 @@ function App() {
                 BPMN and DMN files also render a diagram, and forms show a form
                 preview.
               </p>
-              {allDone && (
+              {allDone && analyzedFiles.length > 0 && (
                 <div
                   ref={findingSummaryRef}
                   className={`findingSummary${batchSummary.needsAction > 0 ? " findingSummary-actionRequired" : ""}`}

@@ -154,13 +154,37 @@ describe("FileItem", () => {
     );
 
     const badge = screen.getByLabelText(
-      "5 findings, highest severity No direct mapping (WARNING)"
+      "5 findings, highest severity Action required: No direct mapping (WARNING)"
     );
     expect(badge.className).toContain("fileItemFindingCount-warning");
     expect(badge.getAttribute("title")).toBe(
-      "Highest severity: No direct mapping (WARNING)"
+      "Highest severity: Action required: No direct mapping (WARNING)"
     );
-    expect(screen.getByText("Highest: No direct mapping (WARNING)")).toBeTruthy();
+    expect(
+      screen.getByText("Highest: Action required: No direct mapping (WARNING)")
+    ).toBeTruthy();
+  });
+
+  it("identifies a manual-action finding as action required", () => {
+    render(
+      <FileItem
+        name="manual-action.bpmn"
+        status="success"
+        findingCount={1}
+        highestSeverity="TASK"
+      />
+    );
+
+    expect(
+      screen.getByLabelText(
+        "1 finding, highest severity Action required: Manual action required (TASK)"
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Highest: Action required: Manual action required (TASK)"
+      )
+    ).toBeTruthy();
   });
 
   it("does not claim an INFO severity when the highest severity is unknown", () => {
@@ -198,8 +222,11 @@ describe("FileItem", () => {
     );
     expect(
       screen.getByLabelText(
-        "2 findings, highest severity Verify after conversion (REVIEW)"
+        "2 findings, highest severity Review: Verify after conversion (REVIEW)"
       )
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Highest: Review: Verify after conversion (REVIEW)")
     ).toBeTruthy();
   });
 });

@@ -19,7 +19,7 @@ export function getSeverityRank(severity) {
 }
 
 // Action categories, plain-language labels and explanations for each raw
-// analyzer severity code, matching the terminology from the migration-analyzer documentation
+// analyzer severity code, matching the migration-analyzer documentation
 // (https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
 // Raw codes remain visible in the UI as secondary detail so users who already
 // know the analyzer vocabulary (e.g. from downloaded reports) can cross-reference them.
