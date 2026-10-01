@@ -241,7 +241,7 @@ def main():
                 timeout=900,
                 check=False,
             )
-        except (OSError, subprocess.SubprocessError) as exc:
+        except (OSError, subprocess.SubprocessError, KeyboardInterrupt) as exc:
             command_error = exc
     finally:
         if event_stream.poll() is not None:

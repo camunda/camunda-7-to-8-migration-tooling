@@ -1745,6 +1745,12 @@ class LiveTimerFixtureRunnerTest(unittest.TestCase):
         self.assertEqual(set(), destroyed)
 
     def test_maven_timeout_removes_fixture_container_before_propagating(self):
+        self._assert_maven_failure_removes_fixture_container(subprocess.TimeoutExpired)
+
+    def test_keyboard_interrupt_removes_fixture_container_before_propagating(self):
+        self._assert_maven_failure_removes_fixture_container(KeyboardInterrupt)
+
+    def _assert_maven_failure_removes_fixture_container(self, error_type):
         container_id = "created-container"
         session_id = "01234567-89ab-cdef-0123-456789abcdef"
         containers = set()
@@ -1815,10 +1821,12 @@ class LiveTimerFixtureRunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary, ExitStack() as patches:
             session_id_file = Path(temporary) / "session-id"
 
-            def timeout(command, **options):
+            def fail(command, **options):
                 containers.add(container_id)
                 session_id_file.write_text(session_id, encoding="utf-8")
-                raise subprocess.TimeoutExpired(command, options["timeout"])
+                if error_type is subprocess.TimeoutExpired:
+                    raise error_type(command, options["timeout"])
+                raise error_type()
 
             patches.enter_context(
                 patch.object(
@@ -1845,13 +1853,13 @@ class LiveTimerFixtureRunnerTest(unittest.TestCase):
                 )
             )
             patches.enter_context(
-                patch.object(live_timer_fixture.subprocess, "run", side_effect=timeout)
+                patch.object(live_timer_fixture.subprocess, "run", side_effect=fail)
             )
             patches.enter_context(
                 patch.object(live_timer_fixture.threading, "Thread", ImmediateThread)
             )
             patches.enter_context(patch.object(live_timer_fixture.time, "sleep"))
-            with self.assertRaises(subprocess.TimeoutExpired):
+            with self.assertRaises(error_type):
                 live_timer_fixture.main()
             self.assertFalse(session_id_file.exists())
 
