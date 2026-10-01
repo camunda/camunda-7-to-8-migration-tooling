@@ -77,6 +77,30 @@ describe("FileResultsTable", () => {
     expect(within(table).getByText("3 findings")).toBeTruthy();
   });
 
+  it("shows a severity filter when all files have the same severity", () => {
+    render(
+      <FileResultsTable
+        rows={[
+          row("info-1", "info-1.bpmn", "INFO", 1),
+          row("info-2", "info-2.bpmn", "INFO", 1),
+        ]}
+      />
+    );
+
+    const filterGroup = screen.getByRole("group", {
+      name: "Filter files by severity",
+    });
+    const severityFilter = within(filterGroup).getByRole("button", {
+      name: /No action needed INFO \(2\)/,
+    });
+    expect(severityFilter.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(severityFilter);
+
+    expect(screen.getByText("No files match the current filters.")).toBeTruthy();
+    expect(screen.getByText(/Showing 0 of 2 files/)).toBeTruthy();
+  });
+
   it("shows accessible processing states in a separate status column", () => {
     render(
       <FileResultsTable

@@ -1024,7 +1024,10 @@ describe("finding severity communicates without relying on color alone", () => {
     await waitFor(() => expect(analyzeButton.disabled).toBe(false));
     fireEvent.click(analyzeButton);
 
-    const severityLabel = await screen.findByText("No action needed");
+    const resultsTable = await screen.findByRole("table", {
+      name: "Batch file results",
+    });
+    const severityLabel = within(resultsTable).getByText("No action needed");
     expect(severityLabel.closest(".severity-cell").className).toContain(
       "severity-cell-info"
     );

@@ -53,7 +53,7 @@ describe("FindingsSection empty state", () => {
 });
 
 describe("FindingsSection informational-only state", () => {
-  it("renders a plain-language label without a severity filter when only one severity is present", () => {
+  it("keeps the severity filter available when only one severity is present", () => {
     render(
       <FindingsSection
         header={FINDINGS_TABLE_HEADER}
@@ -61,12 +61,22 @@ describe("FindingsSection informational-only state", () => {
       />
     );
 
-    // A single-severity result set needs no filter chips (nothing to filter between).
-    expect(screen.queryByRole("group", { name: "Filter findings by severity" })).toBeNull();
+    const filterGroup = screen.getByRole("group", {
+      name: "Filter findings by severity",
+    });
+    const severityFilter = within(filterGroup).getByRole("button", {
+      name: /No action needed INFO \(2\)/,
+    });
+    expect(severityFilter.getAttribute("aria-pressed")).toBe("true");
     expect(severityCellsInOrder()).toEqual([
       "No action needed (INFO)",
       "No action needed (INFO)",
     ]);
+
+    fireEvent.click(severityFilter);
+
+    expect(screen.getByText("No findings match the current filters.")).toBeTruthy();
+    expect(screen.getByText(/Showing 0 of 2 findings/)).toBeTruthy();
   });
 });
 

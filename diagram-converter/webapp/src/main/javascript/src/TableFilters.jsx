@@ -63,7 +63,7 @@ export default function TableFilters({
           />
         </div>
 
-        {severityOptions.length > 1 && (
+        {severityOptions.length > 0 && (
           <fieldset className="severity-filter-control">
             <legend>{severityLabel}</legend>
             <div className="severity-filter">
