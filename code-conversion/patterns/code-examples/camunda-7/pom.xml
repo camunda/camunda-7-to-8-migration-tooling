@@ -11,10 +11,27 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
+    <version.jackson-bom>2.22.3</version.jackson-bom>
+    <version.jackson-3-bom>3.2.3</version.jackson-3-bom>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- This standalone example does not inherit the root dependency management. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>tools.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-3-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
@@ -51,7 +68,27 @@
 
     <dependency>
       <groupId>org.camunda.spin</groupId>
-      <artifactId>camunda-spin-dataformat-all</artifactId>
+      <artifactId>camunda-spin-dataformat-json-jackson</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.camunda.spin</groupId>
+      <artifactId>camunda-spin-dataformat-xml-dom</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>javax.xml.bind</groupId>
+      <artifactId>jaxb-api</artifactId>
+      <version>2.3.1</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.glassfish.jaxb</groupId>
+      <artifactId>jaxb-runtime</artifactId>
+      <!-- The Camunda 7.24.5 XML provider uses javax.xml.bind, not Jakarta XML Binding 4. -->
+      <version>2.3.9</version>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>
@@ -74,6 +111,45 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.3</version>
+        <executions>
+          <execution>
+            <id>reject-vulnerable-jackson</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>com.fasterxml.jackson.core:jackson-core:[2.8,2.18.11)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-core:[2.19,2.21.7)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-core:[2.22,2.22.3)</exclude>
+                    <exclude>tools.jackson.core:jackson-core:[3.0,3.1.7)</exclude>
+                    <exclude>tools.jackson.core:jackson-core:[3.2,3.2.3)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.18.11)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.7)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.3)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.7)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.3)</exclude>
+                    <exclude>org.camunda.spin:camunda-spin-dataformat-all</exclude>
+                  </excludes>
+                  <message>
+                    Use Jackson Core and Databind 2.18.11+ on 2.18, 2.21.7+ on 2.21,
+                    2.22.3+ on 2.22, 3.1.7+ on 3.1, or 3.2.3+ on 3.2.
+                    Use individual Spin JSON/XML data formats instead of camunda-spin-dataformat-all.
+                  </message>
+                  <searchTransitive>true</searchTransitive>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

@@ -11,13 +11,19 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPL
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -58,6 +64,23 @@ public class DistributionSmokeTest {
   @AfterEach
   public void tearDown() {
     destroyProcessTree(process);
+  }
+
+  @Test
+  void shouldOnlyPackageManagedJacksonVersions() throws IOException {
+    var expectedVersions = Map.of(
+        "com.fasterxml.jackson.core", System.getProperty("jackson2Version"),
+        "tools.jackson.core", System.getProperty("jackson3Version"));
+    Set<String> inspectedArtifacts = new HashSet<>();
+    var application = extractedDistributionPath.resolve("internal/camunda-7-to-8-data-migrator.jar");
+
+    try (var input = Files.newInputStream(application)) {
+      assertPackagedJacksonVersions(input, application.getFileName().toString(), expectedVersions, inspectedArtifacts);
+    }
+
+    assertThat(inspectedArtifacts).contains(
+        "com.fasterxml.jackson.core:jackson-core",
+        "com.fasterxml.jackson.core:jackson-databind");
   }
 
   @Test
@@ -441,6 +464,33 @@ public class DistributionSmokeTest {
     }
 
     startScriptPath = extractedDistributionPath.resolve(startScriptName);
+  }
+
+  protected void assertPackagedJacksonVersions(
+      InputStream input, String archivePath, Map<String, String> expectedVersions, Set<String> inspectedArtifacts)
+      throws IOException {
+    try (var archive = new ZipInputStream(input)) {
+      ZipEntry entry;
+      while ((entry = archive.getNextEntry()) != null) {
+        var path = archivePath + "!/" + entry.getName();
+        if (entry.getName().endsWith(".jar")) {
+          assertPackagedJacksonVersions(
+              new ByteArrayInputStream(archive.readAllBytes()), path, expectedVersions, inspectedArtifacts);
+        } else if (entry.getName().endsWith("/pom.properties")) {
+          var properties = new Properties();
+          properties.load(archive);
+          var groupId = properties.getProperty("groupId");
+          var artifactId = properties.getProperty("artifactId");
+          if (expectedVersions.containsKey(groupId)
+              && ("jackson-core".equals(artifactId) || "jackson-databind".equals(artifactId))) {
+            assertThat(properties.getProperty("version"))
+                .as("Jackson version in %s", path)
+                .isEqualTo(expectedVersions.get(groupId));
+            inspectedArtifacts.add(groupId + ":" + artifactId);
+          }
+        }
+      }
+    }
   }
 
   protected Path findZipDistribution() {
