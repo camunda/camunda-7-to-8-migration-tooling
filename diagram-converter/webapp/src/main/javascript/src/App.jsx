@@ -72,7 +72,13 @@ const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
 
-function useAccessibleModal(isOpen, dialogRef, setIsOpen, onEscape) {
+function useAccessibleModal(
+  isOpen,
+  dialogRef,
+  setIsOpen,
+  initialFocusRef = null,
+  onEscape
+) {
   useLayoutEffect(() => {
     if (!isOpen) return undefined;
 
@@ -88,7 +94,7 @@ function useAccessibleModal(isOpen, dialogRef, setIsOpen, onEscape) {
       return dialogEl ? Array.from(dialogEl.querySelectorAll(focusableSelector)) : [];
     }
 
-    const initialFocusTarget = getFocusable()[0] || dialogEl;
+    const initialFocusTarget = initialFocusRef?.current || getFocusable()[0] || dialogEl;
     initialFocusTarget?.focus();
 
     function handleKeyDown(e) {
@@ -130,7 +136,7 @@ function useAccessibleModal(isOpen, dialogRef, setIsOpen, onEscape) {
         opener.focus();
       }
     };
-  }, [isOpen, dialogRef, setIsOpen, onEscape]);
+  }, [isOpen, dialogRef, setIsOpen, initialFocusRef, onEscape]);
 }
 
 function App() {
@@ -181,14 +187,23 @@ function App() {
   }, [setIsPreviewOpen, setPreviewLoading]);
 
   const newBatchDialogRef = useRef(null);
+  const newBatchCancelButtonRef = useRef(null);
   const addFilesHeadingRef = useRef(null);
   const focusAddFilesAfterResetRef = useRef(false);
+  const batchGenerationRef = useRef(0);
 
-  useAccessibleModal(isPreviewOpen, previewDialogRef, setIsPreviewOpen, closePreview);
+  useAccessibleModal(
+    isPreviewOpen,
+    previewDialogRef,
+    setIsPreviewOpen,
+    null,
+    closePreview
+  );
   useAccessibleModal(
     isNewBatchConfirmationOpen,
     newBatchDialogRef,
-    setIsNewBatchConfirmationOpen
+    setIsNewBatchConfirmationOpen,
+    newBatchCancelButtonRef
   );
 
   useLayoutEffect(() => {
@@ -414,8 +429,11 @@ function App() {
     return formData;
   }
 
-  function updateFileResult(idx, result) {
+  function updateFileResult(idx, result, batchGeneration) {
+    if (batchGenerationRef.current !== batchGeneration) return;
+
     setFileResults((prevResults) => {
+      if (batchGenerationRef.current !== batchGeneration) return prevResults;
       const updated = [...prevResults];
       updated[idx] = result;
       return updated;
@@ -433,12 +451,14 @@ function App() {
   // fileResults as each phase completes. Used both for the initial batch
   // upload and for retrying a single failed file, so failures never affect
   // sibling rows and a retry only reprocesses the file it targets.
-  async function processFile(file, idx) {
+  async function processFile(file, idx, batchGeneration) {
+    const isCurrentBatch = () => batchGenerationRef.current === batchGeneration;
     const formData = createFormData(file);
 
     let originalModelXml;
     try {
       originalModelXml = await file.text();
+      if (!isCurrentBatch()) return null;
     } catch {
       const result = {
         status: "error",
@@ -446,7 +466,7 @@ function App() {
         originalModelXml: "",
         checkResponseJson: null,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
@@ -459,6 +479,7 @@ function App() {
            "Accept": "application/json"
         },
       });
+      if (!isCurrentBatch()) return null;
     } catch {
       const result = {
         status: "error",
@@ -466,7 +487,7 @@ function App() {
         originalModelXml: originalModelXml,
         checkResponseJson: null,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
@@ -480,13 +501,14 @@ function App() {
         originalModelXml: originalModelXml,
         checkResponseJson: null,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
     let checkResponseJson;
     try {
       checkResponseJson = await checkResponse.json();
+      if (!isCurrentBatch()) return null;
     } catch {
       const result = {
         status: "error",
@@ -494,7 +516,7 @@ function App() {
         originalModelXml: originalModelXml,
         checkResponseJson: null,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
@@ -503,7 +525,7 @@ function App() {
       originalModelXml: originalModelXml,
       checkResponseJson: checkResponseJson,
     };
-    updateFileResult(idx, result);
+    updateFileResult(idx, result, batchGeneration);
 
     let convertResponse;
     try {
@@ -511,6 +533,7 @@ function App() {
         body: formData,
         method: "POST",
       });
+      if (!isCurrentBatch()) return null;
     } catch {
       result = {
         status: "error",
@@ -518,7 +541,7 @@ function App() {
         originalModelXml: originalModelXml,
         checkResponseJson: checkResponseJson,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
@@ -550,13 +573,14 @@ function App() {
         originalModelXml: originalModelXml,
         checkResponseJson: checkResponseJson,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
     let blob;
     try {
       blob = await convertResponse.blob();
+      if (!isCurrentBatch()) return null;
     } catch {
       result = {
         status: "error",
@@ -564,7 +588,7 @@ function App() {
         originalModelXml: originalModelXml,
         checkResponseJson: checkResponseJson,
       };
-      updateFileResult(idx, result);
+      updateFileResult(idx, result, batchGeneration);
       return result;
     }
 
@@ -576,17 +600,20 @@ function App() {
       filename
     };
 
-    updateFileResult(idx, result);
+    updateFileResult(idx, result, batchGeneration);
     return result;
   }
 
   async function analyzeAndConvert() {
+    const batchGeneration = batchGenerationRef.current;
     setStep(2);
     setFileResults(files.map(() => ({ status: "uploading" })));
 
     const uploadResults = await Promise.all(
-      files.map((file, idx) => processFile(file, idx))
+      files.map((file, idx) => processFile(file, idx, batchGeneration))
     );
+
+    if (batchGenerationRef.current !== batchGeneration) return;
 
     const newValidFiles = files.filter(
       (_, idx) => uploadResults[idx].status === "success"
@@ -598,12 +625,15 @@ function App() {
   // left untouched. ZIP, CSV, JSON and the results-page XLSX use successful
   // conversions; the summary XLSX uses files with a successful analysis.
   async function retryFile(idx) {
+    const batchGeneration = batchGenerationRef.current;
     const file = files[idx];
-    updateFileResult(idx, { status: "uploading" });
+    updateFileResult(idx, { status: "uploading" }, batchGeneration);
 
-    const result = await processFile(file, idx);
+    const result = await processFile(file, idx, batchGeneration);
+    if (batchGenerationRef.current !== batchGeneration) return;
 
     setValidFiles((prevValidFiles) => {
+      if (batchGenerationRef.current !== batchGeneration) return prevValidFiles;
       const withoutFile = prevValidFiles.filter((f) => f !== file);
       return result.status === "success" ? [...withoutFile, file] : withoutFile;
     });
@@ -619,6 +649,7 @@ function App() {
   // Starts a fresh batch: clears the uploaded files, all per-file results and
   // any lingering download error before returning to the configure step.
   function startNewBatch() {
+    batchGenerationRef.current += 1;
     setFiles([]);
     setFileResults([]);
     setValidFiles([]);
@@ -1383,19 +1414,30 @@ function App() {
       <p id="newBatchConfirmationDescription">
         Starting a new batch will discard the current files and their results:
       </p>
-      <ul id="newBatchConfirmationFiles" className="batch-reset-file-list">
+      <ul
+        id="newBatchConfirmationFiles"
+        className="batch-reset-file-list"
+        tabIndex={0}
+        aria-label="Files and results to discard"
+      >
         {files.map((file, index) => {
           const result = fileResults[index];
-          const resultDescription =
-            result?.status === "success"
-              ? "converted file and analysis results"
-              : result?.checkResponseJson
-              ? "analysis results and conversion status"
-              : result?.status === "uploading"
-              ? "analysis and conversion in progress"
-              : result?.status === "error"
-              ? "processing error"
-              : "processing result";
+          const hasAnalysisResults = result?.checkResponseJson != null;
+          let resultDescription = "processing result";
+
+          if (result?.status === "success") {
+            resultDescription = "converted file and analysis results";
+          } else if (result?.status === "uploading") {
+            resultDescription = hasAnalysisResults
+              ? "analysis results and conversion in progress"
+              : "analysis in progress";
+          } else if (result?.status === "error") {
+            resultDescription = hasAnalysisResults
+              ? "analysis results and conversion error"
+              : "processing error";
+          } else if (hasAnalysisResults) {
+            resultDescription = "analysis results";
+          }
 
           return (
             <li key={file.name + "-" + index}>
@@ -1408,6 +1450,7 @@ function App() {
         <Button
           variant="secondary"
           size="sm"
+          ref={newBatchCancelButtonRef}
           onClick={() => setIsNewBatchConfirmationOpen(false)}
         >
           Cancel
