@@ -2091,11 +2091,14 @@ describe("linking a finding row to its diagram element", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /No action needed INFO \(1\)/ }));
-    expect(within(screen.getByRole("table")).queryByText("This task was converted.")).toBeNull();
+    const findingsTable = screen.getByRole("table", {
+      name: "Findings for this file",
+    });
+    expect(within(findingsTable).queryByText("This task was converted.")).toBeNull();
 
     act(() => viewer.eventBus.fireSelectionChanged([{ id: "task_1" }]));
 
-    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    const rows = within(findingsTable).getAllByRole("row").slice(1);
     const selectedRows = rows.filter((row) =>
       within(row).queryByRole("button", { name: "task_1" })
     );
@@ -2104,7 +2107,7 @@ describe("linking a finding row to its diagram element", () => {
       "true",
       "true",
     ]);
-    expect(within(screen.getByRole("table")).getByText("This task was converted.")).toBeTruthy();
+    expect(within(findingsTable).getByText("This task was converted.")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /No action needed INFO \(1\)/ }).getAttribute("aria-pressed")
     ).toBe("false");
@@ -2119,7 +2122,7 @@ describe("linking a finding row to its diagram element", () => {
 
     act(() => viewer.eventBus.fireSelectionChanged([{ id: "task_without_findings" }]));
 
-    const remainingTaskRows = within(screen.getByRole("table"))
+    const remainingTaskRows = within(findingsTable)
       .getAllByRole("row")
       .filter((row) => within(row).queryByRole("button", { name: "task_1" }));
     expect(remainingTaskRows).toHaveLength(1);
