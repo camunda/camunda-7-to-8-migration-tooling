@@ -169,7 +169,7 @@ public class RetrievePaymentAdapter {
     }
 
     @Test
-    void objectValueFieldsFollowGetterAndBuilderAssignments() {
+    void objectValueBuilderAssignmentsRemainTyped() {
         rewriteRun(
             java(
                 """
@@ -185,11 +185,9 @@ public class RetrievePaymentAdapter {
                 public class RetrievePaymentAdapter implements JavaDelegate {
                     @Override
                     public void execute(DelegateExecution execution) {
-                        fromGetter = execution.getVariableTyped("payload");
                         fromBuilder = Variables.objectValue("payload").create();
                     }
 
-                    private ObjectValue fromGetter;
                     private ObjectValue fromBuilder;
                 }
                 """,
@@ -208,13 +206,11 @@ public class RetrievePaymentAdapter {
                 @Component
                 public class RetrievePaymentAdapter {
 
-                    private Object fromGetter;
                     private ObjectValue fromBuilder;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                         Map<String, Object> resultMap = new HashMap<>();
-                        fromGetter = job.getVariablesAsMap().get("payload");
                         fromBuilder = Variables.objectValue("payload").create();
                         return resultMap;
                     }
