@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 
@@ -1451,12 +1451,23 @@ describe("navigation between configure and results", () => {
     const discardButton = within(dialog).getByRole("button", {
       name: "Discard results and continue",
     });
+    const fileList = within(dialog).getByRole("list", {
+      name: "Files and results to discard",
+    });
     expect(document.activeElement).toBe(cancelButton);
 
+    const focusableElements = Array.from(
+      dialog.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    expect(focusableElements).toEqual([fileList, cancelButton, discardButton]);
+
+    fileList.focus();
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(discardButton);
     fireEvent.keyDown(document, { key: "Tab" });
-    expect(document.activeElement).toBe(cancelButton);
+    expect(document.activeElement).toBe(fileList);
 
     fireEvent.click(discardButton);
 
@@ -1466,6 +1477,124 @@ describe("navigation between configure and results", () => {
     expect(document.activeElement).toBe(addFilesHeading);
     expect(screen.queryByText("replace-me.bpmn")).toBeNull();
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("does not let an in-flight old batch overwrite a new batch", async () => {
+    const convertRequests = [];
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      if (url.endsWith("/convert")) {
+        const request = deferred();
+        convertRequests.push(request);
+        return request.promise;
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await uploadAndAnalyze([mockFile("old.bpmn")]);
+    await waitFor(() => expect(convertRequests).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
+    const confirmation = screen.getByRole("alertdialog", {
+      name: "Start a new batch?",
+    });
+    await waitFor(() =>
+      expect(confirmation.textContent).toMatch(
+        /old\.bpmn: analysis results and conversion in progress/
+      )
+    );
+    fireEvent.click(
+      within(confirmation).getByRole("button", {
+        name: "Discard results and continue",
+      })
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Add files" })
+    ).toBeTruthy();
+    testState.files.splice(0, testState.files.length, mockFile("new.bpmn"));
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await waitFor(() => expect(convertRequests).toHaveLength(2));
+    const newRow = await screen
+      .findByText("new.bpmn")
+      .then((element) => element.closest(".FileItem"));
+    await within(newRow).findByRole("status");
+
+    await act(async () => {
+      convertRequests[0].resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["old conversion"])),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(within(newRow).getByRole("status")).toBeTruthy();
+    expect(
+      within(newRow).queryByRole("button", { name: "Download new.bpmn" })
+    ).toBeNull();
+    const zipDownload = screen.getByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    expect(zipDownload.disabled).toBe(true);
+
+    await act(async () => {
+      convertRequests[1].resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["new conversion"])),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      await within(newRow).findByRole("button", { name: "Download new.bpmn" })
+    ).toBeTruthy();
+    await waitFor(() => expect(zipDownload.disabled).toBe(false));
+  });
+
+  it("describes a conversion error alongside completed analysis results", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 502,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        text: vi.fn().mockResolvedValue(""),
+      });
+    });
+
+    await uploadAndAnalyze([mockFile("conversion-failed.bpmn")]);
+    const row = await screen
+      .findByText("conversion-failed.bpmn")
+      .then((element) => element.closest(".FileItem"));
+    await within(row).findByRole("alert");
+
+    fireEvent.click(screen.getByRole("button", { name: "Start a new batch" }));
+    const confirmation = screen.getByRole("alertdialog", {
+      name: "Start a new batch?",
+    });
+    expect(confirmation.textContent).toMatch(
+      /conversion-failed\.bpmn: analysis results and conversion error/
+    );
   });
 
   it("cancels without clearing files, results, downloads, or configuration", async () => {
