@@ -71,10 +71,36 @@ describe("FileResultsTable", () => {
       "clean.dmn",
     ]);
     expect(
-      within(table).getByText("No direct mapping").closest(".severity-cell").className
+      within(table)
+        .getByText("Action required: No direct mapping")
+        .closest(".severity-cell").className
     ).toContain("severity-cell-warning");
     expect(within(table).getByText("No findings")).toBeTruthy();
     expect(within(table).getByText("3 findings")).toBeTruthy();
+  });
+
+  it("shows action categories for each per-file severity", () => {
+    render(
+      <FileResultsTable
+        rows={[
+          row("warning", "warning.bpmn", "WARNING", 1),
+          row("task", "task.bpmn", "TASK", 1),
+          row("review", "review.bpmn", "REVIEW", 1),
+          row("info", "info.bpmn", "INFO", 1),
+        ]}
+      />
+    );
+
+    for (const [fileName, expectedSeverity] of [
+      ["warning.bpmn", "Action required: No direct mapping (WARNING)"],
+      ["task.bpmn", "Action required: Manual action required (TASK)"],
+      ["review.bpmn", "Review: Verify after conversion (REVIEW)"],
+      ["info.bpmn", "No action needed (INFO)"],
+    ]) {
+      const fileRow = screen.getByText(fileName).closest("tr");
+      const severityCell = within(fileRow).getAllByRole("cell")[2];
+      expect(severityCell.textContent.trim()).toBe(expectedSeverity);
+    }
   });
 
   it("shows a severity filter when all files have the same severity", () => {

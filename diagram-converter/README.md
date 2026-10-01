@@ -14,7 +14,7 @@ to listener task headers, and dynamic DMN decision version-tag expressions to FE
 
 The Diagram Converter is available online at [https://diagram-converter.camunda.io/](https://diagram-converter.camunda.io/), hosted by Camunda. Your diagrams are transiently processed - we don't store any of your data.
 
-The results view provides searchable, sortable tables for batch files and per-file findings, with filters for severity.
+The results view provides searchable, sortable tables for batch files and per-file findings, with severity filters and clear action categories in per-file severity cells.
 
 ## Excel analysis reports
 

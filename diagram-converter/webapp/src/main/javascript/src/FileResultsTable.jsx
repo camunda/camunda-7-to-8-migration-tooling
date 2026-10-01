@@ -292,7 +292,10 @@ export default function FileResultsTable({ rows, resetKey = rows }) {
                     ) : row.findingCount === 0 ? (
                       <span className="file-result-no-severity">No findings</span>
                     ) : (
-                      <SeverityCell severity={row.highestSeverity} />
+                      <SeverityCell
+                        severity={row.highestSeverity}
+                        showActionLabel
+                      />
                     )}
                   </TableCell>
                   <TableCell>

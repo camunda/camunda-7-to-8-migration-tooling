@@ -7,17 +7,21 @@
  */
 import { getSeverityInfo, getSeverityStyleKey } from "./findings";
 
-export default function SeverityCell({ severity }) {
+export default function SeverityCell({ severity, showActionLabel = false }) {
   const normalizedSeverity = severity || "Unknown";
-  const { label } = getSeverityInfo(normalizedSeverity);
+  const { actionLabel, label } = getSeverityInfo(normalizedSeverity);
   const styleKey = getSeverityStyleKey(normalizedSeverity);
+  const displayLabel =
+    showActionLabel && actionLabel && actionLabel !== label
+      ? `${actionLabel}: ${label}`
+      : label;
 
   return (
     <span
       className={`severity-cell severity-cell-${styleKey}`}
       data-severity={normalizedSeverity}
     >
-      <span className="severity-cell-label">{label}</span>
+      <span className="severity-cell-label">{displayLabel}</span>
       <span className="severity-cell-code"> ({normalizedSeverity})</span>
     </span>
   );
