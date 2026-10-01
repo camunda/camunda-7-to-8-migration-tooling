@@ -326,15 +326,21 @@ describe("analysis result downloads", () => {
 });
 
 async function waitForProcessingToFinish() {
-  await waitFor(() => expect(screen.queryAllByRole("status")).toHaveLength(0));
+  await waitFor(() =>
+    expect(
+      screen
+        .queryAllByRole("status")
+        .filter((status) => /^(Analyzing|Converting)…$/.test(status.textContent))
+    ).toHaveLength(0)
+  );
 }
 
 async function openUploadedPreview(fileName) {
   await waitForProcessingToFinish();
 
   const previewButtonName = fileName.endsWith(".form")
-    ? "Preview form"
-    : "Preview analysis findings";
+    ? `Preview form for ${fileName}`
+    : `Preview analysis findings for ${fileName}`;
   const previewButton = await within(fileRow(fileName)).findByRole("button", {
     name: previewButtonName,
   });
@@ -698,9 +704,9 @@ describe("preview navigation", () => {
     await openUploadedPreview("first.bpmn");
     await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
 
-    const firstWarningRow = within(screen.getByRole("table")).getByRole("row", {
-      name: /warning finding/,
-    });
+    const firstWarningRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /warning finding/ });
     fireEvent.click(
       within(firstWarningRow).getByRole("button", { name: "task_1" })
     );
@@ -727,9 +733,9 @@ describe("preview navigation", () => {
         "aria-pressed"
       )
     ).toBe("false");
-    const secondWarningRow = within(screen.getByRole("table")).getByRole("row", {
-      name: /warning finding/,
-    });
+    const secondWarningRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /warning finding/ });
     expect(secondWarningRow.getAttribute("aria-selected")).toBe("false");
     expect(screen.queryByText("info finding")).toBeNull();
   });
@@ -875,7 +881,9 @@ describe("preview navigation", () => {
     const firstRow = fileRow("first.bpmn");
     await within(firstRow).findByRole("button", { name: "Download first.bpmn" });
     fireEvent.click(
-      within(firstRow).getByRole("button", { name: "Preview analysis findings" })
+      within(firstRow).getByRole("button", {
+        name: "Preview analysis findings for first.bpmn",
+      })
     );
     await screen.findByRole("heading", { name: "Preview: first.bpmn" });
     await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
@@ -903,9 +911,9 @@ describe("preview navigation", () => {
     await waitFor(() =>
       expect(bpmnMocks.instances.at(-1)?.canvas.zoom).toHaveBeenCalled()
     );
-    const secondFindingRow = within(screen.getByRole("table")).getByRole("row", {
-      name: /Finding from the second file/,
-    });
+    const secondFindingRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /Finding from the second file/ });
     fireEvent.click(
       within(secondFindingRow).getByRole("button", { name: "task_2" })
     );
@@ -923,10 +931,9 @@ describe("preview navigation", () => {
     await waitFor(() =>
       expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(converted)
     );
-    const refreshedFindingRow = within(screen.getByRole("table")).getByRole(
-      "row",
-      { name: /Finding from the second file/ }
-    );
+    const refreshedFindingRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /Finding from the second file/ });
     expect(refreshedFindingRow.getAttribute("aria-selected")).toBe("true");
     expect(
       bpmnMocks.instances.at(-1).canvas.addMarker
