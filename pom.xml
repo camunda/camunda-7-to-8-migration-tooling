@@ -191,6 +191,18 @@
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
       </dependency>
+      <!-- CVE-2026-89425: manage Core explicitly as well as Databind, including
+           modules that import a competing Spring Boot BOM. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>${version.jackson-bom}</version>
+      </dependency>
+      <dependency>
+        <groupId>tools.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>${version.jackson-3-bom}</version>
+      </dependency>
       <!-- CVE-2026-54515 / CVE-2026-59889: close residual jackson-databind gaps in modules not covered by the per-module jackson-bom import (plugins/cockpit, examples/*) -->
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
@@ -378,16 +390,25 @@
               <rules>
                 <bannedDependencies>
                   <excludes>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.18.10)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.6)</exclude>
-                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.2)</exclude>
-                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.6)</exclude>
-                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.2)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-core:[2.8,2.18.11)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-core:[2.19,2.21.7)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-core:[2.22,2.22.3)</exclude>
+                    <exclude>tools.jackson.core:jackson-core:[3.0,3.1.7)</exclude>
+                    <exclude>tools.jackson.core:jackson-core:[3.2,3.2.3)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.18.11)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.7)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.3)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.7)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.3)</exclude>
+                    <!-- BOM overrides cannot replace Jackson shaded inside this bundle. -->
+                    <exclude>org.camunda.spin:camunda-spin-dataformat-all</exclude>
                     <exclude>io.netty:netty-codec-http:[4.1,4.1.138)</exclude>
                     <exclude>io.netty:netty-codec-http:[4.2,4.2.18)</exclude>
                   </excludes>
                   <message>
-                    Jackson databind and Netty HTTP dependencies must not resolve to versions affected by the current CVE set. Fixed versions are Jackson 2.22.2/3.2.2 and Netty 4.1.138/4.2.18 or newer.
+                    Use Jackson Core and Databind 2.18.11+ on 2.18, 2.21.7+ on 2.21,
+                    2.22.3+ on 2.22, 3.1.7+ on 3.1, or 3.2.3+ on 3.2, and Netty 4.1.138+ or 4.2.18+.
+                    Use individual Spin JSON/XML data formats instead of camunda-spin-dataformat-all.
                   </message>
                   <searchTransitive>true</searchTransitive>
                 </bannedDependencies>

@@ -121,6 +121,31 @@ mvn test -Dtest=ArchitectureTest
 
 ### Testing Guidelines
 
+Dependency updates must cover the distribution contents, not only `dependency:tree`.
+The migrator uses the individual Spin JSON and XML data formats with managed
+Jackson dependencies. Do not add `camunda-spin-dataformat-all`: it embeds relocated
+Jackson classes that Maven BOM overrides cannot update. The root dependency guard
+rejects that bundle and known affected Jackson Core/Databind versions.
+
+`SpinDataFormatsTest` checks JSON/XML round trips and that Spin uses the managed
+Jackson implementation. The distribution smoke test also checks Jackson metadata
+inside every nested JAR against the configured BOM versions. Run these checks from
+the repository root:
+
+```bash
+mvn test -pl data-migrator/core -am -Dtest=SpinDataFormatsTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn install -pl data-migrator/assembly -am -DskipTests
+mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=DistributionSmokeTest#shouldOnlyPackageManagedJacksonVersions
+```
+
+The standalone Camunda 7 code example is outside the root reactor and maintains its
+own Jackson BOMs and dependency guard. With the Camunda EE repository available in
+your Maven settings, also run
+`mvn -f code-conversion/patterns/code-examples/camunda-7/pom.xml package spring-boot:repackage`.
+
+Published release archives are immutable. A dependency fix must be included in a
+new release; it does not change the contents of an already downloaded archive.
+
 We follow a **black-box testing approach** where tests verify behavior through observable outputs rather than internal implementation details. 
 
 **Key Principles:**
