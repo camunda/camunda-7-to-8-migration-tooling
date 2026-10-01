@@ -917,6 +917,29 @@ th, td {
     padding: 20px;
   }
 
+  .FileItem .FileItemMain {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .FileItem .right {
+    flex-wrap: wrap;
+    margin-left: 8px;
+  }
+
+  .fileItemFindingCount {
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .fileItemFindingSeverity {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
   .versionSegmented {
     flex-wrap: wrap;
     width: 100%;
