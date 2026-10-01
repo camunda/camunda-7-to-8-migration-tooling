@@ -22,15 +22,12 @@ starts a separate timer process for each wait. The test holds negative observati
 bounded intervals. It verifies that the process is still waiting immediately before the final
 deadline. It then advances the test clock to the deadline and records when completion is observed.
 The test proves that both old deadlines stay unfired and the final deadline fires once. A second
-Process Test queues two consecutive updates before the message subscription opens and verifies that
-buffered publication applies both updates.
+update occurs after the first rearm, while the replacement timer is active.
 
-The runner captures Docker create and destroy events. It also reads the Testcontainers session
-label and reconciles the matching Camunda containers after Maven exits. Cleanup does not depend on
-capturing every create event and does not remove containers from other Testcontainers sessions.
-An unexpected event-stream exit fails the fixture after owned containers are cleaned up. After a
-Maven failure, the runner removes session-owned fixture containers before it reports the original
-failure.
+The runner reads the Testcontainers session ID and removes only matching Camunda 8.9.21 containers
+after Maven exits, including on failure or interruption. It verifies that none remain and does not
+remove containers from other sessions. If it cannot identify the session or confirm cleanup, it
+fails rather than reporting a successful disposable test.
 
 Use Java 21, Maven, and a running Docker daemon. From the repository root, run:
 
@@ -39,8 +36,9 @@ JAVA_HOME=/path/to/jdk-21 PATH=/path/to/jdk-21/bin:$PATH \
   python3 agentic-migration-skills/fixtures/validation-evidence/run_live_timer_fixture.py
 ```
 
-The fixture pins its process-test runtime to 8.9.21. It refuses to run when a matching Camunda
-container is already active. See the [deployment and timer preflight](../../skills/migrate-c7-to-c8-code/references/deployment-and-timer-preflight.md)
+The fixture pins its process-test runtime to 8.9.21 and verifies that no Camunda container from
+its session remains. Other sessions can remain active.
+See the [deployment and timer preflight](../../skills/migrate-c7-to-c8-code/references/deployment-and-timer-preflight.md)
 for the approved active-timer strategy and the validation evidence schema.
 
 From the repository root, run:

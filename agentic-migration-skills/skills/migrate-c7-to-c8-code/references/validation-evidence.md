@@ -29,7 +29,8 @@ Run it again for a new migration, even if the paths have not changed. Old check 
 make the new gate `READY`. Where the project uses Git, add `.camunda-migration/validation/` to
 its `.gitignore`. Never commit generated logs, manifests, or summaries.
 Run `init` before code conversion. It records detected due-date locations in the Step 2 inventory
-so the gate can compare original C7 callers with the migrated source.
+so the gate can compare original C7 callers with the migrated source. Normalized statement
+fingerprints also detect retained setters after line movement or formatting changes.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 
@@ -181,8 +182,7 @@ Each `caller_mappings` entry must identify one migrated caller and its module. E
 caller and confirm that it sends the mapped message, correlation key, and date variable. Use a
 separate mapping for each migrated caller, even when several callers rearm the same timer. The gate
 retains all caller mappings under the shared timer decision. A C7 due-date call that remains at a
-mapped source location blocks readiness. For backward compatibility, the gate also accepts the
-former top-level `module`, `source_locations`, and `migrated_caller_location` fields as one mapping.
+mapped source location blocks readiness.
 
 The `message_date_variable` identifies the date field in the message payload. The `date_variable`
 identifies the variable read by the timer.
@@ -218,7 +218,9 @@ key, and both date variables. It must record
 that the timer was active before both updates. Each update must contain its old and new deadlines.
 The two updates must move the deadline both earlier and later.
 Each update must set `timer_active_before_update` and `correlated` to `true`. The test must advance
-past both obsolete deadlines and record a zero fire count for each.
+past both obsolete deadlines. Record `checked_after_old_deadline` and
+`old_deadline_fire_count: 0` in each update. The check time must follow its old deadline and
+precede the final deadline.
 For consecutive publications, use a bounded TTL and a unique message ID, or wait for a rearm
 acknowledgement before publishing the next update.
 When the test confirms the process is still waiting immediately before the final deadline, record
@@ -249,27 +251,24 @@ deployment and prove cleanup:
       "correlation_key_variable": "projectId",
       "date_variable": "terminationDate",
       "message_date_variable": "updatedTerminationDate",
-      "timer_was_active_before_first_update": true,
       "updates": [
         {
           "old_deadline": "2050-11-23T00:00:15Z",
           "new_deadline": "2050-11-23T00:00:05Z",
           "timer_active_before_update": true,
-          "correlated": true
+          "correlated": true,
+          "checked_after_old_deadline": "2050-11-23T00:00:16Z",
+          "old_deadline_fire_count": 0
         },
         {
           "old_deadline": "2050-11-23T00:00:05Z",
           "new_deadline": "2050-11-23T00:00:25Z",
           "timer_active_before_update": true,
-          "correlated": true
+          "correlated": true,
+          "checked_after_old_deadline": "2050-11-23T00:00:06Z",
+          "old_deadline_fire_count": 0
         }
       ],
-      "obsolete_deadlines": [
-        {"deadline": "2050-11-23T00:00:15Z", "fire_count": 0},
-        {"deadline": "2050-11-23T00:00:05Z", "fire_count": 0}
-      ],
-      "advanced_past_obsolete_deadlines": true,
-      "final_deadline": "2050-11-23T00:00:25Z",
       "final_deadline_fire_count": 1,
       "final_deadline_last_active_at": "2050-11-23T00:00:24Z",
       "final_deadline_fired_at": "2050-11-23T00:00:26Z"

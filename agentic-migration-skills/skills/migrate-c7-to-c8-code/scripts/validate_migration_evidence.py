@@ -154,16 +154,9 @@ def initialize(root):
         raise EvidenceError("A migration run needs at least one module or model")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
-    source_update_locations = {}
-    source_update_hits = {}
-    for module in modules:
-        hit_details = []
-        source_update_locations[module] = scan_module(
-            root, module, set(modules), {}, hit_details
-        )
-        source_update_hits[module] = hit_details
-    inventory["source_update_locations"] = source_update_locations
-    inventory["source_update_hits"] = source_update_hits
+    inventory["source_updates"] = {
+        module: scan_module(root, module, set(modules), {}) for module in modules
+    }
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
     evidence_path = root / EVIDENCE
@@ -296,20 +289,17 @@ def source_without_comments(text, suffix):
 
 
 def source_update_fingerprint(text, start, end):
-    statement_start = max(
-        text.rfind(delimiter, 0, start) for delimiter in (";", "{", "}")
-    ) + 1
-    statement_ends = [
-        position
-        for delimiter in (";", "{", "}")
-        if (position := text.find(delimiter, end)) != -1
-    ]
-    statement_end = min(statement_ends, default=len(text))
-    statement = re.sub(r"\s+", "", text[statement_start:statement_end])
+    before = max(text.rfind(delimiter, 0, start) for delimiter in (";", "{", "}")) + 1
+    after = min(
+        (position for delimiter in (";", "{", "}")
+         if (position := text.find(delimiter, end)) != -1),
+        default=len(text),
+    )
+    statement = re.sub(r"\s+", "", text[before:after])
     return hashlib.sha256(statement.encode("utf-8")).hexdigest()
 
 
-def scan_module(root, module, module_paths, hashes, hit_details=None):
+def scan_module(root, module, module_paths, hashes):
     path = project_path(root, module, "module", must_exist=True)
     if not path.is_dir():
         raise EvidenceError(f"Module directory is missing: {module}")
@@ -318,7 +308,7 @@ def scan_module(root, module, module_paths, hashes, hit_details=None):
         for other in module_paths
         if other != module and project_path(root, other, "module").is_relative_to(path)
     }
-    hits = []
+    hits = {}
 
     def walk_error(error):
         raise EvidenceError(f"Cannot scan module {module}: {error}") from error
@@ -350,17 +340,9 @@ def scan_module(root, module, module_paths, hashes, hit_details=None):
             for match in DUE_DATE_HINT.finditer(scan_text):
                 line = scan_text.count("\n", 0, match.start()) + 1
                 column = match.start() - scan_text.rfind("\n", 0, match.start())
-                location = f"{relative}:{line}:{column}"
-                hits.append(location)
-                if hit_details is not None:
-                    hit_details.append(
-                        {
-                            "location": location,
-                            "fingerprint": source_update_fingerprint(
-                                scan_text, match.start(), match.end()
-                            ),
-                        }
-                    )
+                hits[f"{relative}:{line}:{column}"] = source_update_fingerprint(
+                    scan_text, match.start(), match.end()
+                )
     return hits
 
 
@@ -410,6 +392,12 @@ def repeating_starts(document):
                 raise EvidenceError(f"Duplicate repeating timer start: {key}")
             starts[key] = "".join(cycle.itertext()).strip()
     return starts
+
+
+def single_outgoing_flow(node, flows):
+    actual = [flow for flow in flows if flow.get("sourceRef") == node.get("id")]
+    declared = [ref.text for ref in node.findall(f"{BPMN}outgoing")]
+    return actual[0] if len(actual) == 1 and declared == [actual[0].get("id")] else None
 
 
 def supports_message_rearm(
@@ -509,11 +497,10 @@ def supports_message_rearm(
     ]
     if len(message_boundaries) != 1:
         return False
-    flows = {
-        flow.get("id"): flow
-        for flow in parent_process.findall(f"{BPMN}sequenceFlow")
-        if flow.get("id")
-    }
+    flows = parent_process.findall(f"{BPMN}sequenceFlow")
+    ids = [flow.get("id") for flow in flows]
+    if None in ids or len(ids) != len(set(ids)):
+        return False
     boundary = message_boundaries[0]
     date_outputs = boundary.findall(
         f"{BPMN}extensionElements/{ZEEBE}ioMapping/{ZEEBE}output"
@@ -524,60 +511,35 @@ def supports_message_rearm(
         for output in date_outputs
     ):
         return False
-    boundary_outgoing = [
-        flow_id
-        for flow_id, flow in flows.items()
-        if flow.get("sourceRef") == boundary.get("id")
-    ]
-    if len(boundary_outgoing) != 1:
+    boundary_flow = single_outgoing_flow(boundary, flows)
+    if boundary_flow is None:
         return False
-    for boundary_flow_id in boundary_outgoing:
-        boundary_flow = flows.get(boundary_flow_id)
-        if boundary_flow is None:
-            continue
-        merge_id = boundary_flow.get("targetRef")
-        merge = next(
-            (
-                element
-                for element in parent_process.findall(f"{BPMN}exclusiveGateway")
-                if element.get("id") == merge_id
-            ),
-            None,
-        )
-        if merge is None:
-            continue
-        merge_incoming = {
-            node.text for node in merge.findall(f"{BPMN}incoming") if node.text
+    merge = next(
+        (
+            element
+            for element in parent_process.findall(f"{BPMN}exclusiveGateway")
+            if element.get("id") == boundary_flow.get("targetRef")
+        ),
+        None,
+    )
+    if merge is None:
+        return False
+    incoming = {ref.text for ref in merge.findall(f"{BPMN}incoming")}
+    if (
+        len(incoming) < 2
+        or boundary_flow.get("id") not in incoming
+        or incoming != {flow.get("id") for flow in flows
+                        if flow.get("targetRef") == merge.get("id")}
+    ):
+        return False
+    reentry = single_outgoing_flow(merge, flows)
+    return (
+        reentry is not None
+        and reentry.get("targetRef") == rearm_call_activity_id
+        and reentry.get("id") in {
+            ref.text for ref in call_activity.findall(f"{BPMN}incoming")
         }
-        actual_merge_incoming = {
-            flow_id
-            for flow_id, flow in flows.items()
-            if flow.get("targetRef") == merge_id
-        }
-        merge_outgoing = [
-            node.text for node in merge.findall(f"{BPMN}outgoing") if node.text
-        ]
-        if (
-            boundary_flow_id not in merge_incoming
-            or len(merge_incoming) < 2
-            or actual_merge_incoming != merge_incoming
-        ):
-            continue
-        if len(merge_outgoing) != 1 or merge_outgoing[0] not in flows:
-            continue
-        reentry_flow = flows[merge_outgoing[0]]
-        call_activity_incoming = {
-            node.text
-            for node in call_activity.findall(f"{BPMN}incoming")
-            if node.text
-        }
-        if (
-            reentry_flow.get("targetRef") != rearm_call_activity_id
-            or merge_outgoing[0] not in call_activity_incoming
-        ):
-            continue
-        return True
-    return False
+    )
 
 
 def process_assertions(process):
@@ -612,73 +574,33 @@ def requirements(root, evidence):
     issues = []
     hashes = {}
     update_hits = {}
-    retained_source_update_locations = {}
-    source_update_locations = inventory.get("source_update_locations")
+    current_updates = {}
+    source_updates = inventory.get("source_updates")
     if (
-        not isinstance(source_update_locations, dict)
-        or set(source_update_locations) != {module["path"] for module in modules}
+        not isinstance(source_updates, dict)
+        or set(source_updates) != {module["path"] for module in modules}
     ):
         issues.append(
             "Step 2 inventory lacks the pre-migration due-date source snapshot; run init before conversion"
         )
-        source_update_locations = {}
-        source_update_fingerprints = {}
-    else:
-        for module in modules:
-            module_path = module["path"]
-            try:
-                source_update_locations[module_path] = strings(
-                    source_update_locations[module_path],
-                    f"{module_path} pre-migration due-date locations",
-                )
-            except EvidenceError as exc:
-                issues.append(str(exc))
-                source_update_locations[module_path] = []
-        source_update_fingerprints = {}
-        source_update_hits = inventory.get("source_update_hits")
-        if (
-            not isinstance(source_update_hits, dict)
-            or set(source_update_hits) != {module["path"] for module in modules}
+        source_updates = {}
+    source_update_locations = {}
+    for module in modules:
+        path = module["path"]
+        hits = source_updates.get(path)
+        if not isinstance(hits, dict) or any(
+            not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+            for digest in hits.values()
         ):
-            issues.append(
-                "Step 2 inventory lacks pre-migration due-date source fingerprints; run init before conversion"
+            issues.append(f"{path}: invalid pre-migration due-date source snapshot")
+            hits = {}
+        try:
+            source_update_locations[path] = strings(
+                list(hits), f"{path} pre-migration due-date locations"
             )
-            source_update_hits = {}
-        for module in modules:
-            module_path = module["path"]
-            hit_details = source_update_hits.get(module_path)
-            try:
-                if not isinstance(hit_details, list):
-                    raise EvidenceError(
-                        f"{module_path} pre-migration due-date fingerprints must be a list"
-                    )
-                hit_locations = []
-                fingerprints = {}
-                for hit in hit_details:
-                    if (
-                        not isinstance(hit, dict)
-                        or set(hit) != {"location", "fingerprint"}
-                        or not isinstance(hit["location"], str)
-                        or not isinstance(hit["fingerprint"], str)
-                        or re.fullmatch(r"[0-9a-f]{64}", hit["fingerprint"]) is None
-                    ):
-                        raise EvidenceError(
-                            f"{module_path} pre-migration due-date hit has an invalid fingerprint"
-                        )
-                    hit_locations.append(hit["location"])
-                    fingerprints[hit["location"]] = hit["fingerprint"]
-                strings(
-                    hit_locations,
-                    f"{module_path} pre-migration due-date fingerprint locations",
-                )
-                if hit_locations != source_update_locations[module_path]:
-                    raise EvidenceError(
-                        f"{module_path} pre-migration due-date fingerprints do not match the source locations"
-                    )
-                source_update_fingerprints[module_path] = fingerprints
-            except EvidenceError as exc:
-                issues.append(str(exc))
-                source_update_fingerprints[module_path] = {}
+        except EvidenceError as exc:
+            issues.append(str(exc))
+            source_update_locations[path] = []
     source_ids = {}
     converted_ids = {}
     converted_documents = {}
@@ -695,24 +617,8 @@ def requirements(root, evidence):
     docker_suites = {}
     for module in modules:
         path = module["path"]
-        current_hit_details = []
-        update_hits[path] = scan_module(
-            root, path, module_paths, hashes, current_hit_details
-        )
-        current_locations_by_fingerprint = {}
-        for hit in current_hit_details:
-            source_path = hit["location"].rsplit(":", 2)[0]
-            current_locations_by_fingerprint.setdefault(
-                (source_path, hit["fingerprint"]), []
-            ).append(hit["location"])
-        retained_source_update_locations[path] = {}
-        for location, fingerprint in source_update_fingerprints.get(path, {}).items():
-            source_path = location.rsplit(":", 2)[0]
-            matching_locations = current_locations_by_fingerprint.get(
-                (source_path, fingerprint), []
-            )
-            if matching_locations:
-                retained_source_update_locations[path][location] = matching_locations
+        current_updates[path] = scan_module(root, path, module_paths, hashes)
+        update_hits[path] = list(current_updates[path])
         need("module", path, "compile")
         need("module", path, "review", method="review")
         need("module", path, "active_timer_updates", method="review")
@@ -866,25 +772,11 @@ def requirements(root, evidence):
         else:
             seen_locations = set()
             seen_migrated_caller_locations = set()
-            legacy_caller_fields = (
-                "module",
-                "source_locations",
-                "migrated_caller_location",
-            )
             for entry in decision["updates"]:
                 if not isinstance(entry, dict):
                     issues.append("Each active timer update needs a timer mapping")
                     continue
                 caller_mappings = entry.get("caller_mappings")
-                if caller_mappings is None:
-                    caller_mappings = [
-                        {field: entry.get(field) for field in legacy_caller_fields}
-                    ]
-                elif any(field in entry for field in legacy_caller_fields):
-                    issues.append(
-                        "An active timer update cannot combine caller_mappings with legacy caller fields"
-                    )
-                    continue
                 if not isinstance(caller_mappings, list) or not caller_mappings:
                     issues.append(
                         "Each active timer update needs at least one caller mapping"
@@ -1030,19 +922,18 @@ def requirements(root, evidence):
                             f"{module}: mapped C7 due-date location remains in the migrated source"
                         )
                         continue
-                    retained_locations = sorted(
-                        {
-                            current_location
-                            for location in source_locations
-                            for current_location in retained_source_update_locations.get(
-                                module, {}
-                            ).get(location, [])
-                        }
-                    )
-                    if retained_locations:
+                    retained = {
+                        current_location
+                        for location in source_locations
+                        for current_location, digest in current_updates[module].items()
+                        if location.rsplit(":", 2)[0]
+                        == current_location.rsplit(":", 2)[0]
+                        and digest == source_updates[module][location]
+                    }
+                    if retained:
                         issues.append(
                             f"{module}: mapped C7 due-date location remains in the migrated source at "
-                            f"{', '.join(retained_locations)}"
+                            + ", ".join(sorted(retained))
                         )
                         continue
                     try:
@@ -1267,8 +1158,6 @@ def validate_active_timer_observation(plan, key, check):
         )
     ):
         raise EvidenceError(f"{key}: live result does not match the approved timer mapping")
-    if active_timer.get("timer_was_active_before_first_update") is not True:
-        raise EvidenceError(f"{key}: timer must already be active before its first date update")
     updates = active_timer.get("updates")
     if not isinstance(updates, list) or len(updates) != 2 or any(
         not isinstance(update, dict)
@@ -1299,27 +1188,22 @@ def validate_active_timer_observation(plan, key, check):
         raise EvidenceError(
             f"{key}: two date updates must include an earlier and a later deadline"
         )
-    obsolete = active_timer.get("obsolete_deadlines")
-    if not isinstance(obsolete, list) or len(obsolete) != 2 or any(
-        not isinstance(item, dict)
-        or item.get("deadline") != updates[index].get("old_deadline")
-        or type(item.get("fire_count")) is not int
-        or item["fire_count"] != 0
-        for index, item in enumerate(obsolete)
+    final_deadline = deadlines[2]
+    if any(
+        type(update.get("old_deadline_fire_count")) is not int
+        or update["old_deadline_fire_count"] != 0
+        or (checked := parse_observation_time(update.get("checked_after_old_deadline"))) is None
+        or not deadlines[index] < checked < final_deadline
+        for index, update in enumerate(updates)
     ):
-        raise EvidenceError(f"{key}: neither obsolete timer deadline may fire")
-    if active_timer.get("advanced_past_obsolete_deadlines") is not True:
-        raise EvidenceError(f"{key}: live clock must advance past both obsolete deadlines")
-    final_deadline = parse_observation_time(active_timer.get("final_deadline"))
+        raise EvidenceError(f"{key}: check zero fires after each obsolete deadline")
     last_active_at = parse_observation_time(
         active_timer.get("final_deadline_last_active_at")
     )
     fired_at = parse_observation_time(active_timer.get("final_deadline_fired_at"))
     if (
-        active_timer.get("final_deadline") != updates[1].get("new_deadline")
-        or type(active_timer.get("final_deadline_fire_count")) is not int
+        type(active_timer.get("final_deadline_fire_count")) is not int
         or active_timer["final_deadline_fire_count"] != 1
-        or final_deadline is None
         or last_active_at is None
         or last_active_at >= final_deadline
         or final_deadline - last_active_at > timedelta(seconds=5)

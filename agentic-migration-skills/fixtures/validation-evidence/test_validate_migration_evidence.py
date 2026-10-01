@@ -5,20 +5,19 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import uuid
 from argparse import Namespace
-from contextlib import ExitStack, redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 
 FIXTURE = Path(__file__).resolve().parent
 SCRIPT_DIR = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code" / "scripts"
-sys.path.insert(0, str(FIXTURE))
-import run_live_timer_fixture as live_timer_fixture  # noqa: E402
-
 sys.path.insert(0, str(SCRIPT_DIR))
 import validate_migration_evidence as gate  # noqa: E402
+import run_live_timer_fixture as runner  # noqa: E402
 
 
 def write_json(path, data):
@@ -60,67 +59,49 @@ def bpmn(process_id, timer=False, extra=""):
     )
 
 
-def message_rearm_bpmn(process_id, setup_before_merge=False):
-    parent_process_id = f"{process_id}-parent"
-    xml = (
-        '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
-        'xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" '
-        'id="Definitions" targetNamespace="http://camunda.io/schema/1.0/bpmn">'
-        '<bpmn:message id="DateChangedMessage" name="DueDateChanged">'
-        '<bpmn:extensionElements><zeebe:subscription correlationKey="=projectId" />'
-        "</bpmn:extensionElements></bpmn:message>"
-        f'<bpmn:process id="{parent_process_id}" isExecutable="true">'
-        '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Prepare</bpmn:outgoing></bpmn:startEvent>'
-        '<bpmn:exclusiveGateway id="Prepare"><bpmn:incoming>Start_Prepare</bpmn:incoming>'
-        '<bpmn:incoming>Update_Prepare</bpmn:incoming><bpmn:outgoing>Prepare_Call</bpmn:outgoing>'
-        '</bpmn:exclusiveGateway>'
-        '<bpmn:callActivity id="DeadlineWaitCall">'
-        '<bpmn:extensionElements><zeebe:calledElement processId="'
-        f'{process_id}" propagateAllChildVariables="false" />'
-        '<zeebe:ioMapping><zeebe:input source="=dueDate" target="dueDate" />'
-        '</zeebe:ioMapping></bpmn:extensionElements>'
-        '<bpmn:incoming>Prepare_Call</bpmn:incoming><bpmn:outgoing>Call_End</bpmn:outgoing>'
-        '</bpmn:callActivity>'
-        '<bpmn:boundaryEvent id="DateChanged" attachedToRef="DeadlineWaitCall" cancelActivity="true">'
-        '<bpmn:extensionElements><zeebe:ioMapping>'
-        '<zeebe:output source="=updatedDueDate" target="dueDate" />'
-        "</zeebe:ioMapping></bpmn:extensionElements>"
-        '<bpmn:outgoing>Update_Prepare</bpmn:outgoing>'
-        '<bpmn:messageEventDefinition messageRef="DateChangedMessage" /></bpmn:boundaryEvent>'
-        '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming></bpmn:endEvent>'
-        '<bpmn:sequenceFlow id="Start_Prepare" sourceRef="Start" targetRef="Prepare" />'
-        '<bpmn:sequenceFlow id="Prepare_Call" sourceRef="Prepare" targetRef="DeadlineWaitCall" />'
-        '<bpmn:sequenceFlow id="Call_End" sourceRef="DeadlineWaitCall" targetRef="End" />'
-        '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" targetRef="Prepare" />'
-        "</bpmn:process>"
-        f'<bpmn:process id="{process_id}" isExecutable="true">'
-        '<bpmn:startEvent id="TimerStart"><bpmn:outgoing>TimerStart_Timer</bpmn:outgoing></bpmn:startEvent>'
-        '<bpmn:intermediateCatchEvent id="Timer">'
-        '<bpmn:incoming>TimerStart_Timer</bpmn:incoming><bpmn:outgoing>Timer_End</bpmn:outgoing>'
-        '<bpmn:timerEventDefinition><bpmn:timeDate>=dueDate</bpmn:timeDate>'
-        '</bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>'
-        '<bpmn:endEvent id="TimerEnd"><bpmn:incoming>Timer_End</bpmn:incoming></bpmn:endEvent>'
-        '<bpmn:sequenceFlow id="TimerStart_Timer" sourceRef="TimerStart" targetRef="Timer" />'
-        '<bpmn:sequenceFlow id="Timer_End" sourceRef="Timer" targetRef="TimerEnd" />'
-        "</bpmn:process></bpmn:definitions>"
-    )
-    if setup_before_merge:
-        xml = xml.replace(
-            '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Prepare</bpmn:outgoing></bpmn:startEvent>',
-            '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Setup</bpmn:outgoing></bpmn:startEvent>'
-            '<bpmn:task id="Setup"><bpmn:incoming>Start_Setup</bpmn:incoming>'
-            '<bpmn:outgoing>Setup_Prepare</bpmn:outgoing></bpmn:task>',
-        )
-        xml = xml.replace(
-            "<bpmn:incoming>Start_Prepare</bpmn:incoming>",
-            "<bpmn:incoming>Setup_Prepare</bpmn:incoming>",
-        )
-        xml = xml.replace(
-            '<bpmn:sequenceFlow id="Start_Prepare" sourceRef="Start" targetRef="Prepare" />',
-            '<bpmn:sequenceFlow id="Start_Setup" sourceRef="Start" targetRef="Setup" />'
-            '<bpmn:sequenceFlow id="Setup_Prepare" sourceRef="Setup" targetRef="Prepare" />',
-        )
-    return xml
+def message_rearm_bpmn():
+    return """<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+      xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions">
+      <bpmn:message id="DateChangedMessage" name="DueDateChanged">
+        <bpmn:extensionElements><zeebe:subscription correlationKey="=projectId" /></bpmn:extensionElements>
+      </bpmn:message>
+      <bpmn:process id="p-parent" isExecutable="true">
+        <bpmn:startEvent id="Start"><bpmn:outgoing>Start_Prepare</bpmn:outgoing></bpmn:startEvent>
+        <bpmn:exclusiveGateway id="Prepare">
+          <bpmn:incoming>Start_Prepare</bpmn:incoming><bpmn:incoming>Update_Prepare</bpmn:incoming>
+          <bpmn:outgoing>Prepare_Call</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+        <bpmn:callActivity id="DeadlineWaitCall">
+          <bpmn:extensionElements>
+            <zeebe:calledElement processId="p" propagateAllChildVariables="false" />
+            <zeebe:ioMapping><zeebe:input source="=dueDate" target="dueDate" /></zeebe:ioMapping>
+          </bpmn:extensionElements>
+          <bpmn:incoming>Prepare_Call</bpmn:incoming><bpmn:outgoing>Call_End</bpmn:outgoing>
+        </bpmn:callActivity>
+        <bpmn:boundaryEvent id="DateChanged" attachedToRef="DeadlineWaitCall" cancelActivity="true">
+          <bpmn:extensionElements><zeebe:ioMapping>
+            <zeebe:output source="=updatedDueDate" target="dueDate" />
+          </zeebe:ioMapping></bpmn:extensionElements>
+          <bpmn:outgoing>Update_Prepare</bpmn:outgoing>
+          <bpmn:messageEventDefinition messageRef="DateChangedMessage" />
+        </bpmn:boundaryEvent>
+        <bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming></bpmn:endEvent>
+        <bpmn:sequenceFlow id="Start_Prepare" sourceRef="Start" targetRef="Prepare" />
+        <bpmn:sequenceFlow id="Prepare_Call" sourceRef="Prepare" targetRef="DeadlineWaitCall" />
+        <bpmn:sequenceFlow id="Call_End" sourceRef="DeadlineWaitCall" targetRef="End" />
+        <bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" targetRef="Prepare" />
+      </bpmn:process>
+      <bpmn:process id="p" isExecutable="true">
+        <bpmn:startEvent id="TimerStart"><bpmn:outgoing>TimerStart_Timer</bpmn:outgoing></bpmn:startEvent>
+        <bpmn:intermediateCatchEvent id="Timer">
+          <bpmn:incoming>TimerStart_Timer</bpmn:incoming><bpmn:outgoing>Timer_End</bpmn:outgoing>
+          <bpmn:timerEventDefinition><bpmn:timeDate>=dueDate</bpmn:timeDate></bpmn:timerEventDefinition>
+        </bpmn:intermediateCatchEvent>
+        <bpmn:endEvent id="TimerEnd"><bpmn:incoming>Timer_End</bpmn:incoming></bpmn:endEvent>
+        <bpmn:sequenceFlow id="TimerStart_Timer" sourceRef="TimerStart" targetRef="Timer" />
+        <bpmn:sequenceFlow id="Timer_End" sourceRef="Timer" targetRef="TimerEnd" />
+      </bpmn:process>
+    </bpmn:definitions>"""
 
 
 class ValidationEvidenceTest(unittest.TestCase):
@@ -186,167 +167,92 @@ class ValidationEvidenceTest(unittest.TestCase):
             "cleanup": {"completed": True, "evidence_reference": "fixture-cleanup"},
         }
 
-    def active_timer_observation(self, key):
-        decision = gate.requirements(self.root, self.plan).active_timer_decisions[key[1]]
-        original_deadline = "2050-11-23T00:00:25Z"
-        first_updated_deadline = "2050-11-23T00:00:15Z"
-        final_deadline = "2050-11-23T00:00:35Z"
-        return {
-            "deployment": {
-                "performed": True,
-                "reference": "camunda/camunda:8.9.21 container fixture-1",
-                "environment": "local",
-                "target_disposable": True,
-                "target_version": decision["target_version"],
-            },
-            "observation": {
-                "case1": {
-                    "module_a_model": "module-a/src/main/resources/module-a/sample.bpmn",
-                    "module_b_model": "module-b/src/main/resources/module-b/sample.bpmn",
-                    "process_id": "Sample",
-                    "module_a_timer_start_id": "RecurringStart",
-                    "module_a_cycle": "R/PT5S",
-                    "module_b_has_timer_start": False,
-                    "timer_started_instances_before_replacement": 1,
-                    "timer_started_instances_after_replacement": 1,
-                    "new_instances_after_replacement": 0,
-                    "latest_by_id_start_element": "Hold_B",
-                },
-                "active_timer": {
-                    "model_path": decision["model_path"],
-                    "process_id": decision["process_id"],
-                    "rearm_process_id": decision["rearm_process_id"],
-                    "rearm_call_activity_id": decision["rearm_call_activity_id"],
-                    "timer_id": decision["timer_id"],
-                    "strategy": decision["strategy"],
-                    "message_name": decision["message_name"],
-                    "correlation_key_variable": decision["correlation_key_variable"],
-                    "date_variable": decision["date_variable"],
-                    "message_date_variable": decision["message_date_variable"],
-                    "timer_was_active_before_first_update": True,
-                    "updates": [
-                        {
-                            "old_deadline": original_deadline,
-                            "new_deadline": first_updated_deadline,
-                            "timer_active_before_update": True,
-                            "correlated": True,
-                        },
-                        {
-                            "old_deadline": first_updated_deadline,
-                            "new_deadline": final_deadline,
-                            "timer_active_before_update": True,
-                            "correlated": True,
-                        },
-                    ],
-                    "obsolete_deadlines": [
-                        {"deadline": original_deadline, "fire_count": 0},
-                        {"deadline": first_updated_deadline, "fire_count": 0},
-                    ],
-                    "advanced_past_obsolete_deadlines": True,
-                    "final_deadline": final_deadline,
-                    "final_deadline_fire_count": 1,
-                    "final_deadline_last_active_at": "2050-11-23T00:00:34Z",
-                    "final_deadline_fired_at": "2050-11-23T00:00:36Z",
-                },
-            },
-            "cleanup": {
-                "completed": True,
-                "evidence_reference": "Docker destroy event fixture-1",
-            },
-        }
-
-    def install_active_timer_decision(
-        self,
-        retain_c7_caller=False,
-        multiple_callers=False,
-        setup_before_merge=False,
-        separate_caller_module=False,
-    ):
-        if separate_caller_module:
-            self.plan["modules"].append(
-                {
-                    "path": "other",
-                    "runtime_mode": "none",
-                    "test_suites": [{"name": "unit", "requires_docker": False}],
-                }
-            )
-            self.plan["deployment_sets"][0]["modules"].append("other")
-        self.write_scope()
-        source_files = [("app", self.root / "app" / "Timer.java")]
-        if multiple_callers:
-            other_module = "other" if separate_caller_module else "app"
-            other_source = self.root / other_module / "OtherTimer.java"
-            source_files.append((other_module, other_source))
-        for _, source_file in source_files:
-            source_file.write_text(
-                "managementService.setJobDuedate(jobId, terminationDate);\n",
-                encoding="utf-8",
-            )
+    def install_active_timer_decision(self, multiple_callers=False):
+        source = self.root / "app" / "Timer.java"
+        count = 2 if multiple_callers else 1
+        source.write_text(
+            "managementService.setJobDuedate(jobId, dueDate);\n" * count,
+            encoding="utf-8",
+        )
         with redirect_stdout(StringIO()):
             self.assertEqual(0, gate.initialize(self.root))
-        source_update_locations = json.loads(
-            (self.root / gate.INVENTORY).read_text(encoding="utf-8")
-        )["source_update_locations"]
-        if not retain_c7_caller:
-            for _, source_file in source_files:
-                source_file.write_text(
-                    "terminationDateUpdater.update(projectId, terminationDate);\n",
-                    encoding="utf-8",
-                )
-        model_path = "models/converted-c8-process.bpmn"
+        snapshot = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        locations = list(snapshot["source_updates"]["app"])
+        self.assertEqual(count, len(locations))
+        source.write_text(
+            "terminationDateUpdater.update(projectId, dueDate);\n" * count,
+            encoding="utf-8",
+        )
+        model = "models/converted-c8-process.bpmn"
         self.plan["models"][0]["processes"] = [
             {"id": "p-parent", "standalone": True, "scenarios": ["normal"]},
-            {
-                "id": "p",
-                "standalone": False,
-                "scenarios": [],
-                "covering_test": "timer-rearm",
-            },
+            {"id": "p", "standalone": False, "scenarios": [], "covering_test": "rearm"},
         ]
-        for name in ("models/process.bpmn", model_path):
-            path = self.root / name
-            path.write_text(
-                message_rearm_bpmn("p", setup_before_merge=setup_before_merge),
-                encoding="utf-8",
-            )
-        caller_mappings = []
-        for module, source_file in source_files:
-            source_path = source_file.relative_to(self.root).as_posix()
-            locations = [
-                location
-                for location in source_update_locations[module]
-                if location.rsplit(":", 2)[0] == source_path
-            ]
-            self.assertEqual(1, len(locations))
-            caller_mappings.append(
-                {
-                    "module": module,
-                    "source_locations": locations,
-                    "migrated_caller_location": f"{source_path}:1:1",
-                }
-            )
+        for path in ("models/process.bpmn", model):
+            (self.root / path).write_text(message_rearm_bpmn(), encoding="utf-8")
         self.plan["active_timer_update_decision"] = {
             "status": "approved",
             "strategy": "message_rearm",
-            "reference": "MIGRATION_DECISIONS.md#active-timer-rearm",
+            "reference": "MIGRATION_REPORT.md#approved-rearm",
             "target_version": "8.9.21",
-            "updates": [
-                {
-                    "caller_mappings": caller_mappings,
-                    "model_path": model_path,
-                    "process_id": "p",
-                    "rearm_process_id": "p-parent",
-                    "rearm_call_activity_id": "DeadlineWaitCall",
-                    "timer_id": "Timer",
-                    "message_name": "DueDateChanged",
-                    "correlation_key_variable": "projectId",
-                    "date_variable": "dueDate",
-                    "message_date_variable": "updatedDueDate",
-                }
-            ],
+            "updates": [{
+                "model_path": model,
+                "process_id": "p",
+                "rearm_process_id": "p-parent",
+                "rearm_call_activity_id": "DeadlineWaitCall",
+                "timer_id": "Timer",
+                "message_name": "DueDateChanged",
+                "correlation_key_variable": "projectId",
+                "date_variable": "dueDate",
+                "message_date_variable": "updatedDueDate",
+                "caller_mappings": [
+                    {
+                        "module": "app",
+                        "source_locations": [location],
+                        "migrated_caller_location": f"app/Timer.java:{index}:1",
+                    }
+                    for index, location in enumerate(locations, start=1)
+                ],
+            }],
         }
         write_json(self.root / gate.EVIDENCE, self.plan)
-        return ("timer", f"{model_path}#p#Timer", "active_instance_reschedule", None)
+        return ("timer", f"{model}#p#Timer", "active_instance_reschedule", None)
+
+    def active_timer_observation(self, key):
+        decision = gate.requirements(self.root, self.plan).active_timer_decisions[key[1]]
+        mapping = {
+            field: decision[field] for field in (
+                "model_path", "process_id", "rearm_process_id", "rearm_call_activity_id",
+                "timer_id", "strategy", "message_name", "correlation_key_variable",
+                "date_variable", "message_date_variable",
+            )
+        }
+        return {
+            "deployment": {
+                "performed": True, "reference": "fixture-deployment",
+                "environment": "local", "target_disposable": True,
+                "target_version": decision["target_version"],
+            },
+            "observation": {"active_timer": {
+                **mapping,
+                "updates": [
+                    {"old_deadline": "2050-11-23T00:00:25Z",
+                     "new_deadline": "2050-11-23T00:00:15Z",
+                     "timer_active_before_update": True, "correlated": True,
+                     "checked_after_old_deadline": "2050-11-23T00:00:25.500Z",
+                     "old_deadline_fire_count": 0},
+                    {"old_deadline": "2050-11-23T00:00:15Z",
+                     "new_deadline": "2050-11-23T00:00:35Z",
+                     "timer_active_before_update": True, "correlated": True,
+                     "checked_after_old_deadline": "2050-11-23T00:00:15.500Z",
+                     "old_deadline_fire_count": 0},
+                ],
+                "final_deadline_fire_count": 1,
+                "final_deadline_last_active_at": "2050-11-23T00:00:30Z",
+                "final_deadline_fired_at": "2050-11-23T00:00:35Z",
+            }},
+            "cleanup": {"completed": True, "evidence_reference": "fixture-cleanup"},
+        }
 
     def sample_models(self, timer=False, isolated=False):
         self.plan["modules"] = [
@@ -383,39 +289,25 @@ class ValidationEvidenceTest(unittest.TestCase):
         disposition = options.get("disposition")
         if action == "review" and category == "timer" and kind == "disposition" and "disposition" not in options:
             disposition = gate.requirements(self.root, self.plan).timer_starts[key]["disposition"]
-        if action == "review" and kind == "active_timer_updates" and "disposition" not in options:
-            plan = gate.requirements(self.root, self.plan)
-            disposition = "message_rearm" if plan.active_timer_locations.get(target) else "no_updates"
-            if disposition == "message_rearm":
-                options.setdefault(
-                    "reference",
-                    next(
-                        decision["reference"]
-                        for decision in plan.active_timer_decisions.values()
-                        if target in decision["modules"]
-                    ),
-                )
-        note = options.get("note", "Reviewed the migration checklist and recorded decisions.")
-        if (
-            action == "review"
-            and category == "module"
-            and kind == "active_timer_updates"
-            and options.get("note") is None
-        ):
-            plan = gate.requirements(self.root, self.plan)
+        if action == "review" and kind == "active_timer_updates":
             decisions = [
                 decision
-                for decision in plan.active_timer_decisions.values()
+                for decision in gate.requirements(self.root, self.plan).active_timer_decisions.values()
                 if target in decision["modules"]
             ]
+            disposition = options.get("disposition", "message_rearm" if decisions else "no_updates")
             if decisions:
-                note = " ".join(
-                    f"Inspected {caller['migrated_caller_location']}. "
-                    f"It sends {decision['message_name']} with "
-                    f"{decision['correlation_key_variable']} and maps "
-                    f"{decision['message_date_variable']} to {decision['date_variable']}."
-                    for decision in decisions
-                    for caller in decision["caller_mappings"]
+                options.setdefault("reference", decisions[0]["reference"])
+                options.setdefault(
+                    "note",
+                    "Reviewed "
+                    + " ".join(
+                        caller["migrated_caller_location"]
+                        for decision in decisions
+                        for caller in decision["caller_mappings"]
+                        if caller["module"] == target
+                    )
+                    + " publishing DueDateChanged with projectId and updatedDueDate into dueDate.",
                 )
         arguments = Namespace(
             type=category,
@@ -427,7 +319,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             timeout=5,
             action=action,
             command=command or [sys.executable, "-c", "print('check completed')"],
-            note=note,
+            note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
             target_disposable=options.get(
                 "target_disposable",
@@ -445,13 +337,12 @@ class ValidationEvidenceTest(unittest.TestCase):
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
         priorities = {"project": 0, "module": 1, "deployment_set": 2,
-                      "timer": 3, "model": 4, "process": 5}
+                      "timer": 3, "model": 4, "process": 6}
         for key in sorted(
             plan.required,
             key=lambda item: (
-                4 if item[0] == "timer" and item[2] == "active_instance_reschedule"
+                5 if item[0] == "timer" and item[2] == "active_instance_reschedule"
                 else priorities[item[0]],
-                0,
                 item[1],
                 {"lint": 0, "review": 1, "deployment": 2, "worker_input_inventory": 0}.get(item[2], 3),
                 item[2],
@@ -471,7 +362,6 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual(
                 0,
                 self.submit(key, action="review" if plan.required[key] == "review" else "run", **options),
-                f"Failed to record required check: {key}",
             )
 
     def summary(self):
@@ -884,606 +774,240 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.submit(key, target_disposable=False, **options)
         self.assertEqual(0, self.submit(key, **options))
 
-    def test_documented_active_timer_observation_passes_validation(self):
-        documentation = (
-            FIXTURE.parents[1]
-            / "skills"
-            / "migrate-c7-to-c8-code"
-            / "references"
-            / "validation-evidence.md"
-        ).read_text(encoding="utf-8")
-        json_examples = [
-            block.split("```", 1)[0].strip()
-            for block in documentation.split("```json\n")[1:]
-            if '"final_deadline_last_active_at"' in block
-        ]
-        self.assertEqual(1, len(json_examples))
-        evidence = json.loads(json_examples[0])
-        active_timer = evidence["observation"]["active_timer"]
-        mapping_fields = (
-            "model_path",
-            "process_id",
-            "rearm_process_id",
-            "rearm_call_activity_id",
-            "timer_id",
-            "strategy",
-            "message_name",
-            "correlation_key_variable",
-            "date_variable",
-            "message_date_variable",
+    def test_active_timer_calls_cannot_be_approved_without_a_replacement(self):
+        source = self.root / "app" / "Timer.java"
+        source.write_text(
+            'setJobDuedate(jobA, date); request.path("job").path("duedate");',
+            encoding="utf-8",
         )
-        decision = {field: active_timer[field] for field in mapping_fields}
-        decision["target_version"] = evidence["deployment"]["target_version"]
-        runtime_key = "documented-example"
-        check = {
-            "environment": evidence["deployment"]["environment"],
-            "target_disposable": evidence["deployment"]["target_disposable"],
-            "target_version": evidence["deployment"]["target_version"],
-            "isolation_plan": "Remove the documented disposable target.",
-            "output": json.dumps(evidence),
-        }
+        key = ("module", "app", "active_timer_updates", None)
+        hits = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual(2, len(hits))
+        self.assertEqual(2, len(set(hits)))
+        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
+            self.submit(key, action="review", disposition="no_updates")
+        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
+            self.submit(key, action="review", disposition="verified", reference="not applicable")
+        evidence = [{"location": hit, "evidence": f"decision-{index}"} for index, hit in enumerate(hits)]
+        with self.assertRaisesRegex(gate.EvidenceError, "classify each"):
+            self.submit(key, action="review", disposition="non_timer",
+                        non_timer_evidence_json=json.dumps(evidence[:1]))
+        evidence[1]["evidence"] = "not applicable"
+        with self.assertRaisesRegex(gate.EvidenceError, "classify each"):
+            self.submit(key, action="review", disposition="non_timer",
+                        non_timer_evidence_json=json.dumps(evidence))
+        evidence[1]["evidence"] = "MIGRATION_REPORT.md#non-timer-job"
+        self.assertEqual(0, self.submit(
+            key, action="review", disposition="non_timer",
+            non_timer_evidence_json=json.dumps(evidence),
+        ))
+        self.plan["active_timer_update_decision"] = {"status": "approved"}
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        self.assertEqual(1, self.audit())
+        self.assertIn("approved message_rearm decision", "\n".join(self.summary()["issues"]))
 
-        gate.validate_active_timer_observation(
-            Namespace(active_timer_decisions={runtime_key: decision}),
-            ("timer", runtime_key, "active_instance_reschedule", None),
-            check,
+    def test_due_date_scan_skips_comments_but_preserves_http_urls(self):
+        (self.root / "app" / "Timer.java").write_text(
+            "// setJobDuedate(commented, date);\n"
+            "/* setJobDuedate(blocked, date); */\n"
+            'String url = "http://localhost/job/42/duedate";\n'
+            "managementService.setJobDuedate(jobId, date);\n",
+            encoding="utf-8",
         )
+        (self.root / "app" / "requests.http").write_text(
+            "# GET http://localhost/job/old/duedate\n"
+            "GET http://localhost/job/42/duedate/recalculate\n",
+            encoding="utf-8",
+        )
+        hits = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual(3, len(hits))
+        self.assertEqual({"Timer.java", "requests.http"}, {
+            location.split("/")[-1].split(":")[0] for location in hits
+        })
 
-    def test_active_timer_updates_need_approved_rearm_and_live_runtime_evidence(self):
-        runtime_key = self.install_active_timer_decision()
-        decision_reference = self.plan["active_timer_update_decision"]["reference"]
-        module_key = ("module", "app", "active_timer_updates", None)
+    def test_active_timer_gate_requires_mapping_and_runtime_evidence(self):
+        key = self.install_active_timer_decision()
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
-        self.assertEqual(
-            [
-                location
-                for caller in self.plan["active_timer_update_decision"]["updates"][0][
-                    "caller_mappings"
-                ]
-                for location in caller["source_locations"]
-            ],
-            plan.source_update_locations["app"],
-        )
-        self.assertEqual([], plan.update_hits["app"])
-
-        decision = self.plan.pop("active_timer_update_decision")
-        write_json(self.root / gate.EVIDENCE, self.plan)
-        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
-            self.submit(module_key, action="review", disposition="message_rearm")
-        self.plan["active_timer_update_decision"] = decision
-        write_json(self.root / gate.EVIDENCE, self.plan)
-
-        with self.assertRaisesRegex(gate.EvidenceError, "approved active-timer decision"):
+        self.assertIn(key, plan.required)
+        with self.assertRaises(gate.EvidenceError):
             self.submit(
-                module_key,
-                action="review",
-                disposition="message_rearm",
-                reference="not applicable",
+                ("module", "app", "active_timer_updates", None),
+                action="review", disposition="no_updates",
             )
-        with self.assertRaisesRegex(
-            gate.EvidenceError, "review note must identify the migrated caller"
-        ):
-            self.submit(
-                module_key,
-                action="review",
-                disposition="message_rearm",
-                reference=decision_reference,
-                note="Approved the message rearm mapping.",
-            )
-        self.assertEqual(
-            0,
-            self.submit(
-                module_key,
-                action="review",
-                disposition="message_rearm",
-                reference=decision_reference,
-                note=(
-                    "Inspected app/Timer.java:1:1. It sends DueDateChanged with projectId and "
-                    "maps updatedDueDate to dueDate."
-                ),
-            ),
-        )
-        model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
-        self.assertEqual(0, self.submit(("model", model_path, "lint", None)))
-        self.assertEqual(0, self.submit(("model", model_path, "review", None), action="review"))
-        self.assertEqual(
-            0,
-            self.submit(("deployment_set", "shared", "preflight", None), action="review"),
-        )
-
         self.assertEqual(1, self.audit())
-        self.assertIn(
-            "Missing timer active_instance_reschedule",
-            "\n".join(self.summary()["issues"]),
-        )
-        options = {
-            "environment": "local",
-            "isolation_plan": "Run the pinned 8.9.21 fixture and remove its disposable container.",
-        }
-        later_only = self.active_timer_observation(runtime_key)
-        active_timer = later_only["observation"]["active_timer"]
-        original_deadline = "2050-11-23T00:00:05Z"
-        first_updated_deadline = "2050-11-23T00:00:15Z"
-        final_deadline = "2050-11-23T00:00:25Z"
-        active_timer["updates"] = [
-            {
-                "old_deadline": original_deadline,
-                "new_deadline": first_updated_deadline,
-                "timer_active_before_update": True,
-                "correlated": True,
-            },
-            {
-                "old_deadline": first_updated_deadline,
-                "new_deadline": final_deadline,
-                "timer_active_before_update": True,
-                "correlated": True,
-            },
-        ]
-        active_timer["obsolete_deadlines"] = [
-            {"deadline": original_deadline, "fire_count": 0},
-            {"deadline": first_updated_deadline, "fire_count": 0},
-        ]
-        active_timer["final_deadline"] = final_deadline
-        active_timer["final_deadline_last_active_at"] = "2050-11-23T00:00:24Z"
-        active_timer["final_deadline_fired_at"] = "2050-11-23T00:00:26Z"
-        self.assertEqual(1, self.submit(runtime_key, observation=later_only, **options))
-        self.assertEqual(1, self.audit())
-        self.assertTrue(
-            any(
-                "must include an earlier and a later deadline" in issue
-                for issue in self.summary()["issues"]
-            ),
-            "\n".join(self.summary()["issues"]),
-        )
-
-        invalid = self.active_timer_observation(runtime_key)
-        invalid["observation"]["active_timer"]["obsolete_deadlines"][0]["fire_count"] = 1
-        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
-        self.assertEqual(1, self.audit())
-        self.assertTrue(
-            any(
-                check["kind"] == "active_instance_reschedule"
-                and check["result"] == "failed"
-                for check in self.summary()["checks"]
-            )
-        )
-
-        invalid = self.active_timer_observation(runtime_key)
-        invalid["observation"]["active_timer"]["updates"][1]["timer_active_before_update"] = False
-        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
-
-        self.assertEqual(0, self.submit(runtime_key, **options))
+        self.assertIn("Missing timer active_instance_reschedule", "\n".join(self.summary()["issues"]))
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
         self.assertEqual("READY", self.summary()["gate"])
 
-        invalid = self.active_timer_observation(runtime_key)
-        invalid["observation"]["active_timer"]["final_deadline_fire_count"] = 2
-        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
-        invalid = self.active_timer_observation(runtime_key)
-        invalid["observation"]["active_timer"]["final_deadline_last_active_at"] = (
-            "2050-11-23T00:00:25Z"
-        )
-        self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
-
-    def test_active_timer_mapping_ignores_recipe_comments_when_classifying_current_hits(self):
-        self.install_active_timer_decision()
-        (self.root / "app" / "Timer.java").write_text(
-            "// TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).\n"
-            "// For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.\n"
-            "// See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/\n"
-            "terminationDateUpdater.update(projectId, terminationDate);\n",
-            encoding="utf-8",
-        )
-        caller = self.plan["active_timer_update_decision"]["updates"][0][
-            "caller_mappings"
-        ][0]
-        caller["migrated_caller_location"] = "app/Timer.java:4:1"
-        write_json(self.root / gate.EVIDENCE, self.plan)
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertEqual([], plan.issues, "\n".join(plan.issues))
-        self.assertEqual([], plan.update_hits["app"])
-        self.assertEqual(
-            0,
-            self.submit(
-                ("module", "app", "active_timer_updates", None),
-                action="review",
-                disposition="message_rearm",
-                reference=self.plan["active_timer_update_decision"]["reference"],
-                note=(
-                    "Inspected app/Timer.java:4:1. It sends DueDateChanged with projectId "
-                    "and maps updatedDueDate to dueDate."
-                ),
-            ),
-        )
-
-    def test_due_date_scan_ignores_http_comments_and_preserves_request_urls(self):
-        self.install_active_timer_decision()
-        (self.root / "app" / "requests.http").write_text(
-            "# Historical setJobDuedate /duedate example\n"
-            "POST http://localhost/engine-rest/job/123/duedate\n",
-            encoding="utf-8",
-        )
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertEqual(1, len(plan.update_hits["app"]))
-        self.assertTrue(plan.update_hits["app"][0].startswith("app/requests.http:2:"))
-
-    def test_active_timer_mapping_rejects_a_retained_c7_due_date_caller(self):
-        self.install_active_timer_decision(retain_c7_caller=True)
-        plan = gate.requirements(self.root, self.plan)
-        self.assertTrue(
-            any(
-                "mapped C7 due-date location remains in the migrated source" in issue
-                for issue in plan.issues
-            )
-        )
-        self.assertEqual(1, self.audit())
-        self.assertNotEqual("READY", self.summary()["gate"])
-
-    def test_active_timer_mapping_rejects_a_retained_c7_caller_after_line_movement(self):
-        retained_sources = (
-            "terminationDateUpdater.update(projectId, terminationDate);\n"
-            "managementService.setJobDuedate(jobId, terminationDate);\n",
-            "terminationDateUpdater.update(projectId, terminationDate);\n"
-            "managementService\n"
-            "    .setJobDuedate(\n"
-            "        jobId,\n"
-            "        terminationDate\n"
-            "    );\n",
-        )
-        for source in retained_sources:
-            with self.subTest(source=source):
-                self.install_active_timer_decision(retain_c7_caller=True)
-                (self.root / "app" / "Timer.java").write_text(
-                    source, encoding="utf-8"
-                )
-
-                plan = gate.requirements(self.root, self.plan)
-
-                self.assertTrue(
-                    any(
-                        "mapped C7 due-date location remains in the migrated source"
-                        in issue
-                        for issue in plan.issues
-                    )
-                )
-                self.assertEqual(1, self.audit())
-                self.assertNotEqual("READY", self.summary()["gate"])
-
-    def test_active_timer_mapping_rejects_a_retained_c7_caller_after_recipe_comments(self):
-        self.install_active_timer_decision(retain_c7_caller=True)
-        (self.root / "app" / "Timer.java").write_text(
-            "// TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).\n"
-            "// For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.\n"
-            "// See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/\n"
-            "managementService.setJobDuedate(jobId, terminationDate);\n",
-            encoding="utf-8",
-        )
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertTrue(
-            any(
-                "mapped C7 due-date location remains in the migrated source" in issue
-                for issue in plan.issues
-            )
-        )
-        self.assertEqual(1, self.audit())
-        self.assertNotEqual("READY", self.summary()["gate"])
-
-    def test_active_timer_mapping_keeps_distinct_callers_for_the_same_timer(self):
-        runtime_key = self.install_active_timer_decision(multiple_callers=True)
-        caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
-            "caller_mappings"
-        ]
-        caller_mappings[1]["migrated_caller_location"] = "app/Timer.java:1:10"
-        write_json(self.root / gate.EVIDENCE, self.plan)
-        plan = gate.requirements(self.root, self.plan)
-        self.assertEqual([], plan.issues)
-        decision = plan.active_timer_decisions[runtime_key[1]]
-        self.assertEqual(2, len(decision["caller_mappings"]))
-        self.assertEqual(
-            {"app/Timer.java:1:1", "app/Timer.java:1:10"},
-            {caller["migrated_caller_location"] for caller in decision["caller_mappings"]},
-        )
-        module_key = ("module", "app", "active_timer_updates", None)
-        decision_reference = self.plan["active_timer_update_decision"]["reference"]
-        with self.assertRaisesRegex(
-            gate.EvidenceError, "review note must identify the migrated caller"
-        ):
-            self.submit(
-                module_key,
-                action="review",
-                disposition="message_rearm",
-                reference=decision_reference,
-                note=(
-                    "Inspected app/Timer.java:1:10. It sends DueDateChanged with projectId "
-                    "and maps updatedDueDate to dueDate."
-                ),
-            )
-        self.assertEqual(
-            0,
-            self.submit(
-                module_key,
-                action="review",
-                disposition="message_rearm",
-                reference=decision_reference,
-                note=(
-                    "Inspected app/Timer.java:1:1 and app/Timer.java:1:10. Both send "
-                    "DueDateChanged with projectId and map updatedDueDate to dueDate."
-                ),
-            ),
-        )
-
-    def test_active_timer_mapping_rejects_a_shared_migrated_caller_location(self):
+    def test_active_timer_gate_rejects_reused_caller_and_unmapped_source(self):
         self.install_active_timer_decision(multiple_callers=True)
-        caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
-            "caller_mappings"
-        ]
-        caller_mappings[1]["migrated_caller_location"] = caller_mappings[0][
-            "migrated_caller_location"
-        ]
-        write_json(self.root / gate.EVIDENCE, self.plan)
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertTrue(
-            any(
-                "migrated caller location can map to only one due-date caller" in issue
-                for issue in plan.issues
-            )
-        )
-        self.assertEqual(1, self.audit())
-        self.assertNotEqual("READY", self.summary()["gate"])
-
-    def test_active_timer_mapping_allows_many_to_one_caller_consolidation(self):
-        runtime_key = self.install_active_timer_decision(multiple_callers=True)
-        caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
-            "caller_mappings"
-        ]
-        source_locations = [
-            location
-            for caller in caller_mappings
-            for location in caller["source_locations"]
-        ]
-        caller_mappings[:] = [
-            {
-                "module": "app",
-                "source_locations": source_locations,
-                "migrated_caller_location": "app/Timer.java:1:1",
-            }
-        ]
-        write_json(self.root / gate.EVIDENCE, self.plan)
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertEqual([], plan.issues)
-        self.assertEqual(
-            1,
-            len(plan.active_timer_decisions[runtime_key[1]]["caller_mappings"]),
-        )
-
-    def test_active_timer_mapping_accepts_the_legacy_single_caller_shape(self):
-        self.install_active_timer_decision()
         update = self.plan["active_timer_update_decision"]["updates"][0]
-        caller = update.pop("caller_mappings")[0]
-        update.update(caller)
-        write_json(self.root / gate.EVIDENCE, self.plan)
+        callers = update["caller_mappings"]
         self.assertEqual([], gate.requirements(self.root, self.plan).issues)
 
-    def test_active_timer_module_reviews_only_require_callers_from_that_module(self):
-        self.install_active_timer_decision(
-            multiple_callers=True, separate_caller_module=True
-        )
-        plan = gate.requirements(self.root, self.plan)
-        self.assertEqual([], plan.issues)
-        reference = self.plan["active_timer_update_decision"]["reference"]
-        for module, caller_location in (
-            ("app", "app/Timer.java:1:1"),
-            ("other", "other/OtherTimer.java:1:1"),
-        ):
-            with self.subTest(module=module):
-                self.assertEqual(
-                    0,
-                    self.submit(
-                        ("module", module, "active_timer_updates", None),
-                        action="review",
-                        disposition="message_rearm",
-                        reference=reference,
-                        note=(
-                            f"Inspected {caller_location}. It sends DueDateChanged with "
-                            "projectId and maps updatedDueDate to dueDate."
-                        ),
-                    ),
-                )
-
-    def test_active_timer_mapping_allows_setup_before_the_converging_gateway(self):
-        self.install_active_timer_decision(setup_before_merge=True)
-        plan = gate.requirements(self.root, self.plan)
-        self.assertEqual([], plan.issues)
-
-    def test_active_timer_mapping_requires_module_and_model_in_same_deployment_set(self):
-        self.install_active_timer_decision()
-        model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
-        self.plan["deployment_sets"] = [
-            {"name": "module-only", "modules": ["app"], "models": []},
-            {"name": "model-only", "modules": [], "models": [model_path]},
-        ]
+        callers[1]["migrated_caller_location"] = callers[0]["migrated_caller_location"]
         write_json(self.root / gate.EVIDENCE, self.plan)
-        plan = gate.requirements(self.root, self.plan)
-        self.assertTrue(
-            any("must share the same deployment set" in issue for issue in plan.issues)
+        self.assertIn(
+            "migrated caller location can map to only one due-date caller",
+            "\n".join(gate.requirements(self.root, self.plan).issues),
         )
-
-    def test_active_timer_mapping_rejects_a_non_executable_process(self):
-        self.install_active_timer_decision()
-        model_path = self.root / "models/converted-c8-process.bpmn"
-        model_path.write_text(
-            model_path.read_text(encoding="utf-8").replace(
-                'isExecutable="true"', 'isExecutable="false"'
-            ),
-            encoding="utf-8",
-        )
-        self.plan["models"][0]["processes"] = []
+        callers[1]["migrated_caller_location"] = "app/Timer.java:2:1"
+        callers.pop()
         write_json(self.root / gate.EVIDENCE, self.plan)
-        plan = gate.requirements(self.root, self.plan)
-        self.assertTrue(
-            any(
-                "message_rearm mapping requires an executable BPMN process" in issue
-                for issue in plan.issues
-            )
-        )
-
-    def test_active_timer_mapping_requires_boundary_output_mapping(self):
-        self.install_active_timer_decision()
-        model_path = self.root / "models/converted-c8-process.bpmn"
-        model_path.write_text(
-            model_path.read_text(encoding="utf-8").replace(
-                '<zeebe:output source="=updatedDueDate" target="dueDate" />', ""
-            ),
-            encoding="utf-8",
-        )
-        plan = gate.requirements(self.root, self.plan)
-        self.assertTrue(
-            any(
-                "converted model lacks the mapped message-driven timer rearm path" in issue
-                for issue in plan.issues
-            )
-        )
-
-    def test_active_timer_mapping_rejects_multiple_boundary_outgoing_flows(self):
-        self.install_active_timer_decision()
-        model_path = self.root / "models/converted-c8-process.bpmn"
-        xml = model_path.read_text(encoding="utf-8")
-        boundary_outgoing = "<bpmn:outgoing>Update_Prepare</bpmn:outgoing>"
-        end_event = (
-            '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming>'
-            "</bpmn:endEvent>"
-        )
-        rearm_flow = (
-            '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" '
-            'targetRef="Prepare" />'
-        )
-        for marker in (boundary_outgoing, end_event, rearm_flow):
-            self.assertIn(marker, xml)
-        xml = xml.replace(
-            boundary_outgoing,
-            boundary_outgoing + "<bpmn:outgoing>Update_Extra</bpmn:outgoing>",
-            1,
-        )
-        xml = xml.replace(
-            end_event,
-            end_event
-            + '<bpmn:endEvent id="AuditEnd"><bpmn:incoming>Update_Extra</bpmn:incoming>'
-            "</bpmn:endEvent>",
-            1,
-        )
-        xml = xml.replace(
-            rearm_flow,
-            rearm_flow
-            + '<bpmn:sequenceFlow id="Update_Extra" sourceRef="DateChanged" '
-            'targetRef="AuditEnd" />',
-            1,
-        )
-        model_path.write_text(xml, encoding="utf-8")
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertTrue(
-            any(
-                "converted model lacks the mapped message-driven timer rearm path" in issue
-                for issue in plan.issues
-            ),
-            "\n".join(plan.issues),
-        )
-
-    def test_active_timer_mapping_rejects_an_undeclared_boundary_outgoing_flow(self):
-        self.install_active_timer_decision()
-        model_path = self.root / "models/converted-c8-process.bpmn"
-        xml = model_path.read_text(encoding="utf-8")
-        end_event = (
-            '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming>'
-            "</bpmn:endEvent>"
-        )
-        rearm_flow = (
-            '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" '
-            'targetRef="Prepare" />'
-        )
-        for marker in (end_event, rearm_flow):
-            self.assertIn(marker, xml)
-        xml = xml.replace(
-            end_event,
-            end_event
-            + '<bpmn:endEvent id="AuditEnd"><bpmn:incoming>Update_Extra</bpmn:incoming>'
-            "</bpmn:endEvent>",
-            1,
-        )
-        xml = xml.replace(
-            rearm_flow,
-            rearm_flow
-            + '<bpmn:sequenceFlow id="Update_Extra" sourceRef="DateChanged" '
-            'targetRef="AuditEnd" />',
-            1,
-        )
-        model_path.write_text(xml, encoding="utf-8")
-
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertTrue(
-            any(
-                "converted model lacks the mapped message-driven timer rearm path" in issue
-                for issue in plan.issues
-            ),
-            "\n".join(plan.issues),
-        )
-
-    def test_active_timer_command_rejects_unsafe_environment_and_unapproved_version_before_execution(self):
-        runtime_key = self.install_active_timer_decision()
-        decision_reference = self.plan["active_timer_update_decision"]["reference"]
-        module_key = ("module", "app", "active_timer_updates", None)
-        model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
-        self.assertEqual(
-            0,
+        with self.assertRaisesRegex(gate.EvidenceError, "classify each non-timer"):
             self.submit(
-                module_key,
-                action="review",
-                disposition="message_rearm",
-                reference=decision_reference,
+                ("module", "app", "active_timer_updates", None),
+                action="review", disposition="mixed",
+            )
+
+    def test_active_timer_gate_rejects_retained_setters_after_moving(self):
+        self.install_active_timer_decision()
+        source = self.root / "app" / "Timer.java"
+        for current in (
+            "terminationDateUpdater.update(projectId, dueDate);\n"
+            "managementService.setJobDuedate(jobId, dueDate);\n",
+            "// Recipe TODO: setJobDuedate() needs migration.\n"
+            "managementService\n  .setJobDuedate(\n    jobId, dueDate);\n",
+        ):
+            with self.subTest(current=current):
+                source.write_text(current, encoding="utf-8")
+                plan = gate.requirements(self.root, self.plan)
+                self.assertIn(
+                    "mapped C7 due-date location remains in the migrated source",
+                    "\n".join(plan.issues),
+                )
+
+    def test_active_timer_mapping_rejects_an_undeclared_gateway_outgoing_flow(self):
+        self.install_active_timer_decision()
+        model = self.root / "models/converted-c8-process.bpmn"
+        original = model.read_text(encoding="utf-8")
+        end = '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming></bpmn:endEvent>'
+        self.assertIn(end, original)
+        for source, anchor in (
+            ("Prepare", '<bpmn:sequenceFlow id="Prepare_Call" sourceRef="Prepare" targetRef="DeadlineWaitCall" />'),
+            ("DateChanged", '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" targetRef="Prepare" />'),
+        ):
+            with self.subTest(source=source):
+                self.assertIn(anchor, original)
+                model.write_text(
+                    original.replace(
+                        end, end + '<bpmn:endEvent id="Bypass"><bpmn:incoming>BypassFlow</bpmn:incoming></bpmn:endEvent>',
+                        1,
+                    ).replace(
+                        anchor,
+                        anchor + f'<bpmn:sequenceFlow id="BypassFlow" sourceRef="{source}" targetRef="Bypass" />',
+                        1,
+                    ),
+                    encoding="utf-8",
+                )
+                plan = gate.requirements(self.root, self.plan)
+                self.assertIn(
+                    "converted model lacks the mapped message-driven timer rearm path",
+                    "\n".join(plan.issues),
+                )
+
+    def test_active_timer_gate_accepts_setup_before_the_merge(self):
+        self.install_active_timer_decision()
+        model = self.root / "models/converted-c8-process.bpmn"
+        xml = model.read_text(encoding="utf-8")
+        model.write_text(
+            xml.replace(
+                '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Prepare</bpmn:outgoing></bpmn:startEvent>',
+                '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Setup</bpmn:outgoing></bpmn:startEvent>'
+                '<bpmn:task id="Setup"><bpmn:incoming>Start_Setup</bpmn:incoming>'
+                '<bpmn:outgoing>Setup_Prepare</bpmn:outgoing></bpmn:task>',
+            ).replace(
+                "<bpmn:incoming>Start_Prepare</bpmn:incoming>",
+                "<bpmn:incoming>Setup_Prepare</bpmn:incoming>",
+            ).replace(
+                '<bpmn:sequenceFlow id="Start_Prepare" sourceRef="Start" targetRef="Prepare" />',
+                '<bpmn:sequenceFlow id="Start_Setup" sourceRef="Start" targetRef="Setup" />'
+                '<bpmn:sequenceFlow id="Setup_Prepare" sourceRef="Setup" targetRef="Prepare" />',
             ),
+            encoding="utf-8",
         )
-        self.assertEqual(0, self.submit(("model", model_path, "lint", None)))
-        self.assertEqual(0, self.submit(("model", model_path, "review", None), action="review"))
-        self.assertEqual(
-            0,
-            self.submit(("deployment_set", "shared", "preflight", None), action="review"),
+        self.assertEqual([], gate.requirements(self.root, self.plan).issues)
+
+    def test_active_timer_gate_validates_deadlines_and_cleanup(self):
+        key = self.install_active_timer_decision()
+        plan = gate.requirements(self.root, self.plan)
+        observation = self.active_timer_observation(key)
+        check = {
+            "environment": "local",
+            "target_disposable": True,
+            "target_version": "8.9.21",
+            "isolation_plan": "Remove the disposable target.",
+            "output": json.dumps(observation),
+        }
+        gate.validate_active_timer_observation(plan, key, check)
+        for path, field, value in (
+            (("observation", "active_timer", "updates", 0), "timer_active_before_update", False),
+            (("observation", "active_timer", "updates", 0), "old_deadline_fire_count", 1),
+            (("observation", "active_timer", "updates", 0), "checked_after_old_deadline", "2050-11-23T00:00:24Z"),
+            (("observation", "active_timer"), "final_deadline_last_active_at", "2050-11-23T00:00:29Z"),
+            (("observation", "active_timer"), "final_deadline_fired_at", "2050-11-23T00:00:34Z"),
+            (("observation", "active_timer"), "final_deadline_fire_count", 2),
+            (("cleanup",), "completed", False),
+        ):
+            with self.subTest(field=field, value=value):
+                invalid = json.loads(json.dumps(observation))
+                target = invalid
+                for part in path:
+                    target = target[part]
+                target[field] = value
+                with self.assertRaises(gate.EvidenceError):
+                    gate.validate_active_timer_observation(
+                        plan, key, {**check, "output": json.dumps(invalid)}
+                    )
+        invalid = json.loads(json.dumps(observation))
+        invalid["observation"]["active_timer"]["updates"][0]["old_deadline"] = "2050-11-23T00:00:05Z"
+        with self.assertRaisesRegex(gate.EvidenceError, "earlier and a later"):
+            gate.validate_active_timer_observation(
+                plan, key, {**check, "output": json.dumps(invalid)}
+            )
+
+    def test_documented_active_timer_observation_passes_validation(self):
+        key = self.install_active_timer_decision()
+        plan = gate.requirements(self.root, self.plan)
+        reference = (
+            FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code"
+            / "references" / "validation-evidence.md"
+        ).read_text(encoding="utf-8")
+        example = json.loads(
+            reference.split("The outer object must identify the disposable", 1)[1]
+            .split("```json\n", 1)[1].split("\n```", 1)[0]
+        )
+        decision = plan.active_timer_decisions[key[1]]
+        for field in (
+            "model_path", "process_id", "rearm_process_id", "rearm_call_activity_id",
+            "timer_id", "strategy", "message_name", "correlation_key_variable",
+            "date_variable", "message_date_variable",
+        ):
+            example["observation"]["active_timer"][field] = decision[field]
+        gate.validate_active_timer_observation(
+            plan, key, {
+                "environment": "local",
+                "target_disposable": True,
+                "target_version": "8.9.21",
+                "isolation_plan": "Remove the disposable target.",
+                "output": json.dumps(example),
+            },
         )
 
-        marker = self.root / "active-timer-command-ran"
-        command = [
-            sys.executable,
-            "-c",
-            f"from pathlib import Path; Path({str(marker)!r}).touch()",
-        ]
-        cases = (
-            {"environment": "non-production", "target_version": "8.9.21"},
-            {"environment": "local", "target_version": "8.9.22"},
-        )
-        for options in cases:
-            with self.subTest(**options), self.assertRaisesRegex(
-                gate.EvidenceError, "approved version on an isolated disposable local target"
-            ):
-                self.submit(
-                    runtime_key,
-                    command=command,
-                    isolation_plan="Remove the disposable target after the check.",
-                    **options,
-                )
-            self.assertFalse(marker.exists())
+    def test_active_timer_gate_rejects_unsafe_runtime_before_execution(self):
+        key = self.install_active_timer_decision()
+        marker = self.root / "ran"
+        command = [sys.executable, "-c", f"from pathlib import Path; Path({str(marker)!r}).touch()"]
+        for environment, version in (("non-production", "8.9.21"), ("local", "8.9.22")):
+            with self.subTest(environment=environment, version=version):
+                with self.assertRaisesRegex(gate.EvidenceError, "approved version"):
+                    self.submit(
+                        key, command=command, environment=environment,
+                        target_version=version, isolation_plan="Remove the target.",
+                    )
+                self.assertFalse(marker.exists())
 
     def test_stale_source_blocks_commands_before_execution_and_can_be_refreshed(self):
         self.complete_required_checks()
@@ -1773,330 +1297,112 @@ class ValidationEvidenceTest(unittest.TestCase):
 
 
 class LiveTimerFixtureRunnerTest(unittest.TestCase):
-    def test_cleanup_reconciles_owned_container_when_create_event_is_missing(self):
-        session_id = "fixture-session"
-        container_id = "fixture-container"
-        image = f"camunda/camunda:{live_timer_fixture.VERSION}"
-        unrelated_id = "unrelated-container"
-        remaining = {container_id, unrelated_id}
-        docker_calls = []
-
-        def docker(*arguments):
-            docker_calls.append(arguments)
-            if arguments[:2] == ("container", "ls"):
-                self.assertIn(
-                    f"label=org.testcontainers.sessionId={session_id}",
-                    arguments,
-                )
-                return (
-                    f"{container_id}\t{image}"
-                    if container_id in remaining
-                    else ""
-                )
-            if arguments[:3] == ("container", "rm", "--force"):
-                remaining.discard(arguments[3])
-                return arguments[3]
-            raise AssertionError(f"Unexpected Docker command: {arguments}")
-
-        with patch.object(live_timer_fixture, "docker", side_effect=docker):
-            leaked, cleanup_errors = live_timer_fixture.remove_created_containers(
-                session_id, set()
-            )
-
-        self.assertEqual(set(), leaked)
-        self.assertEqual([], cleanup_errors)
-        self.assertEqual({unrelated_id}, remaining)
+    def test_cleanup_is_scoped_to_the_fixture_session_and_version(self):
+        session = str(uuid.uuid4())
+        listing = (
+            "owned\tcamunda/camunda:8.9.21\n"
+            "different-version\tcamunda/camunda:8.10\n"
+            "ryuk\ttestcontainers/ryuk:0.8.1\n"
+        )
+        with patch.object(runner, "docker", side_effect=[listing, "", ""]) as docker:
+            runner.cleanup_session(session)
         self.assertIn(
-            ("container", "rm", "--force", container_id),
-            docker_calls,
+            f"label=org.testcontainers.sessionId={session}", docker.call_args_list[0].args
         )
-        self.assertNotIn(
-            ("container", "rm", "--force", unrelated_id),
-            docker_calls,
-        )
-
-    def test_target_container_events_ignore_other_testcontainers_sessions(self):
-        image = f"camunda/camunda:{live_timer_fixture.VERSION}"
-        lines = [
-            json.dumps(
-                {
-                    "status": "create",
-                    "id": "fixture-container",
-                    "Actor": {
-                        "ID": "fixture-container",
-                        "Attributes": {
-                            "image": image,
-                            "org.testcontainers.sessionId": "fixture-session",
-                        },
-                    },
-                }
-            ),
-            json.dumps(
-                {
-                    "status": "create",
-                    "id": "external-container",
-                    "Actor": {
-                        "ID": "external-container",
-                        "Attributes": {
-                            "image": image,
-                            "org.testcontainers.sessionId": "external-session",
-                        },
-                    },
-                }
-            ),
-        ]
-        created, destroyed = live_timer_fixture.target_container_events(
-            lines, set(), "fixture-session"
-        )
-        self.assertEqual({"fixture-container"}, created)
-        self.assertEqual(set(), destroyed)
-
-    def test_maven_timeout_removes_fixture_container_before_propagating(self):
-        self._assert_maven_failure_removes_fixture_container(subprocess.TimeoutExpired)
-
-    def test_keyboard_interrupt_removes_fixture_container_before_propagating(self):
-        self._assert_maven_failure_removes_fixture_container(KeyboardInterrupt)
-
-    def _assert_maven_failure_removes_fixture_container(self, error_type):
-        container_id = "created-container"
-        session_id = "01234567-89ab-cdef-0123-456789abcdef"
-        containers = set()
-        docker_calls = []
-        event = json.dumps(
-            {
-                "status": "create",
-                "id": container_id,
-                "Actor": {
-                    "ID": container_id,
-                    "Attributes": {
-                        "image": f"camunda/camunda:{live_timer_fixture.VERSION}",
-                        "org.testcontainers.sessionId": session_id,
-                    },
-                },
-            }
+        self.assertEqual(
+            [call("container", "rm", "--force", "owned")],
+            [invocation for invocation in docker.call_args_list if invocation.args[1] == "rm"],
         )
 
-        class EventStream:
-            def __init__(self):
-                self.stdout = [event]
-                self.running = True
+    def test_cleanup_rejects_a_remaining_owned_target(self):
+        session = str(uuid.uuid4())
+        listing = "owned\tcamunda/camunda:8.9.21\n"
+        with patch.object(runner, "docker", side_effect=[listing, "", listing]):
+            with self.assertRaisesRegex(RuntimeError, "cleanup failed"):
+                runner.cleanup_session(session)
 
-            def poll(self):
-                return None if self.running else 0
+    def test_failed_fixture_still_cleans_up_without_reporting_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session_file = Path(directory) / "session"
+            observation_file = Path(directory) / "observation"
+            session = str(uuid.uuid4())
 
-            def terminate(self):
-                self.running = False
+            def fail_maven(*args, **kwargs):
+                session_file.write_text(session, encoding="utf-8")
+                return subprocess.CompletedProcess(args, 1, "Maven failed\n", "")
 
-            def wait(self, timeout):
-                self.running = False
-                return 0
-
-            def kill(self):
-                self.running = False
-
-        class ImmediateThread:
-            def __init__(self, target, args, daemon):
-                self.target = target
-                self.args = args
-
-            def start(self):
-                self.target(*self.args)
-
-            def join(self, timeout):
-                return None
-
-        def docker(*arguments):
-            docker_calls.append(arguments)
-            if arguments[:2] == ("info", "--format"):
-                return "29.8.1"
-            if arguments == ("container", "ls", "--format", "{{.Image}}"):
-                return ""
-            if arguments[:2] == ("container", "ls") and "--filter" in arguments:
-                if f"label=org.testcontainers.sessionId={session_id}" in arguments:
-                    return (
-                        f"{container_id}\tcamunda/camunda:"
-                        f"{live_timer_fixture.VERSION}"
-                        if container_id in containers
-                        else ""
-                    )
-                return ""
-            if arguments[:3] == ("container", "rm", "--force"):
-                containers.discard(arguments[3])
-                return arguments[3]
-            raise AssertionError(f"Unexpected Docker command: {arguments}")
-
-        with tempfile.TemporaryDirectory() as temporary, ExitStack() as patches:
-            session_id_file = Path(temporary) / "session-id"
-
-            def fail(command, **options):
-                containers.add(container_id)
-                session_id_file.write_text(session_id, encoding="utf-8")
-                if error_type is subprocess.TimeoutExpired:
-                    raise error_type(command, options["timeout"])
-                raise error_type()
-
-            patches.enter_context(
+            with (
+                patch.object(runner, "SESSION_FILE", session_file),
+                patch.object(runner, "OBSERVATION", observation_file),
+                patch.object(runner, "require_java_21"),
                 patch.object(
-                    live_timer_fixture,
-                    "OBSERVATION",
-                    Path(temporary) / "observation.json",
-                )
-            )
-            patches.enter_context(
-                patch.object(live_timer_fixture, "SESSION_ID_FILE", session_id_file)
-            )
-            patches.enter_context(patch.object(live_timer_fixture, "require_java_21"))
-            patches.enter_context(patch.object(live_timer_fixture, "docker", side_effect=docker))
-            patches.enter_context(
-                patch.object(
-                    live_timer_fixture, "container_ids", side_effect=lambda: set(containers)
-                )
-            )
-            patches.enter_context(
-                patch.object(
-                    live_timer_fixture.subprocess,
-                    "Popen",
-                    side_effect=lambda *a, **k: EventStream(),
-                )
-            )
-            patches.enter_context(
-                patch.object(live_timer_fixture.subprocess, "run", side_effect=fail)
-            )
-            patches.enter_context(
-                patch.object(live_timer_fixture.threading, "Thread", ImmediateThread)
-            )
-            patches.enter_context(patch.object(live_timer_fixture.time, "sleep"))
-            with self.assertRaises(error_type):
-                live_timer_fixture.main()
-            self.assertFalse(session_id_file.exists())
-
-        self.assertIn(("container", "rm", "--force", container_id), docker_calls)
-        self.assertEqual(set(), containers)
-
-    def test_event_stream_exit_fails_after_reconciling_owned_containers(self):
-        container_id = "fixture-container"
-        session_id = "01234567-89ab-cdef-0123-456789abcdef"
-        image = f"camunda/camunda:{live_timer_fixture.VERSION}"
-        containers = {"unrelated-container"}
-        docker_calls = []
-        event = json.dumps(
-            {
-                "status": "create",
-                "id": container_id,
-                "Actor": {
-                    "ID": container_id,
-                    "Attributes": {
-                        "image": image,
-                        "org.testcontainers.sessionId": session_id,
-                    },
-                },
-            }
-        )
-
-        class EventStream:
-            def __init__(self):
-                self.stdout = [event]
-                self.running = True
-
-            def poll(self):
-                return None if self.running else 1
-
-            def terminate(self):
-                self.running = False
-
-            def wait(self, timeout):
-                self.running = False
-                return 1
-
-            def kill(self):
-                self.running = False
-
-        class ImmediateThread:
-            def __init__(self, target, args, daemon):
-                self.target = target
-                self.args = args
-
-            def start(self):
-                self.target(*self.args)
-
-            def join(self, timeout):
-                return None
-
-        event_stream = EventStream()
-
-        def docker(*arguments):
-            docker_calls.append(arguments)
-            if arguments[:2] == ("info", "--format"):
-                return "29.8.1"
-            if arguments == ("container", "ls", "--format", "{{.Image}}"):
-                return ""
-            if arguments[:2] == ("container", "ls") and "--filter" in arguments:
-                if f"label=org.testcontainers.sessionId={session_id}" in arguments:
-                    return (
-                        f"{container_id}\t{image}"
-                        if container_id in containers
-                        else ""
-                    )
-                return ""
-            if arguments[:3] == ("container", "rm", "--force"):
-                containers.discard(arguments[3])
-                return arguments[3]
-            raise AssertionError(f"Unexpected Docker command: {arguments}")
-
-        with tempfile.TemporaryDirectory() as temporary, ExitStack() as patches:
-            session_id_file = Path(temporary) / "session-id"
-            patches.enter_context(
-                patch.object(
-                    live_timer_fixture,
-                    "OBSERVATION",
-                    Path(temporary) / "observation.json",
-                )
-            )
-            patches.enter_context(
-                patch.object(live_timer_fixture, "SESSION_ID_FILE", session_id_file)
-            )
-            patches.enter_context(patch.object(live_timer_fixture, "require_java_21"))
-            patches.enter_context(patch.object(live_timer_fixture, "docker", side_effect=docker))
-            patches.enter_context(
-                patch.object(
-                    live_timer_fixture,
-                    "container_ids",
-                    side_effect=lambda: set(containers),
-                )
-            )
-            patches.enter_context(
-                patch.object(
-                    live_timer_fixture.subprocess,
-                    "Popen",
-                    side_effect=lambda *a, **k: event_stream,
-                )
-            )
-
-            def complete(command, **options):
-                containers.add(container_id)
-                session_id_file.write_text(session_id, encoding="utf-8")
-                event_stream.running = False
-                return subprocess.CompletedProcess(command, 0, "Test completed\n")
-
-            patches.enter_context(
-                patch.object(live_timer_fixture.subprocess, "run", side_effect=complete)
-            )
-            patches.enter_context(
-                patch.object(
-                    live_timer_fixture.threading,
-                    "Thread",
-                    ImmediateThread,
-                )
-            )
-            patches.enter_context(patch.object(live_timer_fixture.time, "sleep"))
-            with self.assertRaisesRegex(
-                RuntimeError, "Docker event capture exited while the fixture was running"
+                    runner,
+                    "docker",
+                    side_effect=["Docker ready", "owned\tcamunda/camunda:8.9.21\n", "", ""],
+                ) as docker,
+                patch.object(runner.subprocess, "run", side_effect=fail_maven),
+                redirect_stdout(StringIO()) as output,
+                redirect_stderr(StringIO()),
             ):
-                live_timer_fixture.main()
+                result = runner.main()
+            self.assertEqual(1, result)
+            self.assertFalse(session_file.exists())
+            self.assertFalse(observation_file.exists())
+            self.assertIn("Maven failed", output.getvalue())
+            docker.assert_any_call("container", "rm", "--force", "owned")
 
-        self.assertEqual({"unrelated-container"}, containers)
-        self.assertIn(("container", "rm", "--force", container_id), docker_calls)
-        self.assertFalse(session_id_file.exists())
+    def test_interrupted_fixture_cleans_up_before_propagating(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session_file = Path(directory) / "session"
+            session = str(uuid.uuid4())
+
+            def interrupt_maven(*args, **kwargs):
+                session_file.write_text(session, encoding="utf-8")
+                raise KeyboardInterrupt
+
+            with (
+                patch.object(runner, "SESSION_FILE", session_file),
+                patch.object(runner, "OBSERVATION", Path(directory) / "observation"),
+                patch.object(runner, "require_java_21"),
+                patch.object(
+                    runner,
+                    "docker",
+                    side_effect=["Docker ready", "owned\tcamunda/camunda:8.9.21\n", "", ""],
+                ) as docker,
+                patch.object(runner.subprocess, "run", side_effect=interrupt_maven),
+            ):
+                with self.assertRaises(KeyboardInterrupt):
+                    runner.main()
+            self.assertFalse(session_file.exists())
+            docker.assert_any_call("container", "rm", "--force", "owned")
+
+    def test_successful_fixture_emits_gate_observation_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session_file = Path(directory) / "session"
+            observation_file = Path(directory) / "observation"
+            session = str(uuid.uuid4())
+
+            def complete_maven(*args, **kwargs):
+                session_file.write_text(session, encoding="utf-8")
+                write_json(observation_file, {"case1": {}, "active_timer": {}})
+                return subprocess.CompletedProcess(args, 0, "", "")
+
+            with (
+                patch.object(runner, "SESSION_FILE", session_file),
+                patch.object(runner, "OBSERVATION", observation_file),
+                patch.object(runner, "require_java_21"),
+                patch.object(runner, "docker", side_effect=["Docker ready", "", ""]),
+                patch.object(runner.subprocess, "run", side_effect=complete_maven),
+                redirect_stdout(StringIO()) as output,
+                redirect_stderr(StringIO()),
+            ):
+                self.assertEqual(0, runner.main())
+            result = json.loads(output.getvalue().splitlines()[-1])
+            self.assertEqual("8.9.21", result["deployment"]["target_version"])
+            self.assertEqual("local", result["deployment"]["environment"])
+            self.assertTrue(result["cleanup"]["completed"])
+            self.assertIn(session, result["cleanup"]["evidence_reference"])
+            self.assertEqual({"case1": {}, "active_timer": {}}, result["observation"])
 
 
 if __name__ == "__main__":
