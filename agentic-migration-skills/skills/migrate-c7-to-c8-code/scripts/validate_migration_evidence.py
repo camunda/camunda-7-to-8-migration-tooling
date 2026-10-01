@@ -300,6 +300,16 @@ def valid_migrated_caller_location(root, module, location, hashes):
     return line <= len(lines) and column <= len(lines[line - 1])
 
 
+def exact_location_is_mentioned(text, location):
+    return (
+        re.search(
+            rf"(?<![\w./\\-]){re.escape(location)}(?![\w/\\-])",
+            text,
+        )
+        is not None
+    )
+
+
 def repeating_starts(document):
     starts = {}
     for process in document.findall(f"{BPMN}process"):
@@ -1189,7 +1199,7 @@ def validate_risk_check(plan, key, check):
                 raise EvidenceError(f"{key}: cite the approved active-timer decision")
             if any(
                 not all(
-                    detail in check["output"]
+                    exact_location_is_mentioned(check["output"], detail)
                     for detail in (
                         *(
                             caller["migrated_caller_location"]

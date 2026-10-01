@@ -1000,12 +1000,17 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_active_timer_mapping_keeps_distinct_callers_for_the_same_timer(self):
         runtime_key = self.install_active_timer_decision(multiple_callers=True)
+        caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
+            "caller_mappings"
+        ]
+        caller_mappings[1]["migrated_caller_location"] = "app/Timer.java:1:10"
+        write_json(self.root / gate.EVIDENCE, self.plan)
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
         decision = plan.active_timer_decisions[runtime_key[1]]
         self.assertEqual(2, len(decision["caller_mappings"]))
         self.assertEqual(
-            {"app/OtherTimer.java:1:1", "app/Timer.java:1:1"},
+            {"app/Timer.java:1:1", "app/Timer.java:1:10"},
             {caller["migrated_caller_location"] for caller in decision["caller_mappings"]},
         )
         module_key = ("module", "app", "active_timer_updates", None)
@@ -1019,7 +1024,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 disposition="message_rearm",
                 reference=decision_reference,
                 note=(
-                    "Inspected app/Timer.java:1:1. It sends DueDateChanged with projectId "
+                    "Inspected app/Timer.java:1:10. It sends DueDateChanged with projectId "
                     "and maps updatedDueDate to dueDate."
                 ),
             )
@@ -1031,7 +1036,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 disposition="message_rearm",
                 reference=decision_reference,
                 note=(
-                    "Inspected app/Timer.java:1:1 and app/OtherTimer.java:1:1. Both send "
+                    "Inspected app/Timer.java:1:1 and app/Timer.java:1:10. Both send "
                     "DueDateChanged with projectId and map updatedDueDate to dueDate."
                 ),
             ),

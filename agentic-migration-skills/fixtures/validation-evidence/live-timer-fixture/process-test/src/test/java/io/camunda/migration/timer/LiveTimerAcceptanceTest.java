@@ -244,7 +244,7 @@ class LiveTimerAcceptanceTest {
         activeCallActivityInstanceKey);
     processTestContext.increaseTime(
         Duration.between(
-            processTestContext.getCurrentTime(), finalDeadline.minusSeconds(1)));
+            processTestContext.getCurrentTime(), finalDeadline.minusSeconds(5)));
     assertWaitingForDeadlineOnce(
         camundaClient,
         timerInstance.getProcessInstanceKey(),
