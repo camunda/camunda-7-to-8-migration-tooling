@@ -87,6 +87,7 @@ io.camunda.migration.diagram.converter.visitor.impl.attribute.FormRefBindingVisi
 io.camunda.migration.diagram.converter.visitor.impl.attribute.ErrorMessageVariableVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.CandidateStarterGroupsVisitor
 io.camunda.migration.diagram.converter.visitor.impl.activity.SendTaskVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.UserTaskPriorityVisitor
 io.camunda.migration.diagram.converter.visitor.impl.activity.TaskVisitor
 io.camunda.migration.diagram.converter.visitor.impl.activity.ManualTaskVisitor
 io.camunda.migration.diagram.converter.visitor.impl.eventReference.MessageVisitor
