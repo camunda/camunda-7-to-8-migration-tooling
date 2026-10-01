@@ -550,12 +550,13 @@ describe("target platform version", () => {
 });
 
 describe("upload onboarding guidance", () => {
-  // The 92-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
+  // The 93-file default batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
   // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
-  // createFormData() always appends 8 non-file fields (platformVersion + 7
-  // config options), leaving 92 parts available for files.
-  const MAX_BATCH_FILES = 92;
-  const BATCH_FILE_WARNING_THRESHOLD = 83;
+  // createFormData() always appends 7 non-file fields (platformVersion + 6
+  // config options), leaving 93 parts available for files. The optional
+  // filename-preservation field reduces that limit to 92 when enabled.
+  const MAX_BATCH_FILES = 93;
+  const BATCH_FILE_WARNING_THRESHOLD = 84;
 
   it("states the batch limit and hosted-processing disclosure before any files are uploaded", () => {
     render(<App />);
@@ -663,12 +664,16 @@ describe("output filenames", () => {
       name: "Preserve original filenames",
     });
     expect(checkbox.checked).toBe(false);
+    expect(screen.getByText(/support up to 93 files/i)).toBeTruthy();
     expect(checkbox.getAttribute("aria-describedby")).toBe(
       "preserveOriginalFilenameHint"
     );
     expect(
       document.getElementById("preserveOriginalFilenameHint")?.textContent
     ).toMatch(/individual downloads and ZIP entries/);
+
+    fireEvent.click(checkbox);
+    expect(screen.getByText(/support up to 92 files/i)).toBeTruthy();
   });
 
   it("sends the selected filename option to individual and ZIP conversions", async () => {
@@ -716,6 +721,45 @@ describe("output filenames", () => {
       );
       expect(batchCall).toBeTruthy();
       expect(batchCall[1].body.get("preserveOriginalFilename")).toBe("true");
+      expect(Array.from(batchCall[1].body.entries())).toHaveLength(9);
+    });
+  });
+
+  it("omits the disabled filename option from multipart batch requests", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const zipButton = await screen.findByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    await waitFor(() => expect(zipButton.disabled).toBe(false));
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        json: vi.fn().mockResolvedValue({ errorCode: "UNKNOWN_ERROR" }),
+      })
+    );
+    fireEvent.click(zipButton);
+
+    await waitFor(() => {
+      const batchCall = fetchMock.mock.calls.find(([url]) =>
+        url.endsWith("/convertBatch")
+      );
+      expect(batchCall).toBeTruthy();
+      expect(batchCall[1].body.get("preserveOriginalFilename")).toBeNull();
+      expect(Array.from(batchCall[1].body.entries())).toHaveLength(8);
     });
   });
 });
