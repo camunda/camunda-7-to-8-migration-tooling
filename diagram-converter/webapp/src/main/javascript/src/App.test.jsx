@@ -66,7 +66,6 @@ vi.mock("@carbon/react", () => {
     Object.fromEntries(
       Object.entries(props).filter(([name]) => !omitted.includes(name)),
     );
-
   return {
     ProgressIndicator: ({ children, ...props }) => (
       <div {...omitProps(props, ["spaceEqually"])}>{children}</div>
@@ -196,8 +195,8 @@ async function openPreview({
 
   const previewButton = await screen.findByRole("button", {
     name: fileName.endsWith(".form")
-      ? "Preview form"
-      : "Preview analysis findings",
+      ? `Preview form for ${fileName}`
+      : `Preview analysis findings for ${fileName}`,
   });
   // Focus before clicking, mirroring how a real click/keyboard activation
   // focuses the button in a browser (jsdom's fireEvent.click doesn't do
@@ -238,7 +237,7 @@ async function uploadAndAnalyze(files) {
 }
 
 function fileRow(fileName) {
-  return screen.getByText(fileName).closest(".FileItem");
+  return screen.getByText(fileName).closest(".file-result-row");
 }
 
 beforeEach(() => {
@@ -281,7 +280,7 @@ describe("analysis findings preview", () => {
       ],
     });
 
-    const table = screen.getByRole("table");
+    const table = screen.getByRole("table", { name: "Findings for this file" });
     expect(
       within(table)
         .getAllByRole("columnheader")
@@ -338,7 +337,7 @@ describe("analysis findings preview", () => {
       ],
     });
 
-    const table = screen.getByRole("table");
+    const table = screen.getByRole("table", { name: "Findings for this file" });
     const rows = within(table).getAllByRole("row");
     expect(
       within(rows[1])
@@ -355,7 +354,9 @@ describe("analysis findings preview", () => {
     });
 
     expect(screen.getByText("No findings for this file.")).toBeTruthy();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(
+      screen.queryByRole("table", { name: "Findings for this file" })
+    ).toBeNull();
   });
 });
 
@@ -770,7 +771,7 @@ describe("finding severity communicates without relying on color alone", () => {
     );
   });
 
-  it("styles the file list findings badge by the highest severity, not always warning", async () => {
+  it("styles the file-results severity cell by the highest severity, not always warning", async () => {
     configureUpload({
       fileName: "informational.bpmn",
       content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
@@ -794,9 +795,16 @@ describe("finding severity communicates without relying on color alone", () => {
     await waitFor(() => expect(analyzeButton.disabled).toBe(false));
     fireEvent.click(analyzeButton);
 
-    const badge = await screen.findByText("1 finding");
-    expect(badge.closest("span").className).toContain("fileItemFindingCount-info");
-    expect(badge.closest("span").className).not.toContain("fileItemFindingCount-warning");
+    const resultsTable = await screen.findByRole("table", {
+      name: "Batch file results",
+    });
+    const severityLabel = within(resultsTable).getByText("No action needed");
+    expect(severityLabel.closest(".severity-cell").className).toContain(
+      "severity-cell-info"
+    );
+    expect(severityLabel.closest(".severity-cell").className).not.toContain(
+      "severity-cell-warning"
+    );
   });
 });
 
@@ -849,7 +857,7 @@ describe("linking a finding row to its diagram element", () => {
   it("keeps rows without a stable element reference as plain, non-interactive text", async () => {
     await openBpmnPreviewWithFindings();
 
-    const table = screen.getByRole("table");
+    const table = screen.getByRole("table", { name: "Findings for this file" });
     const rows = within(table).getAllByRole("row");
     // Row 2 is the finding without an elementId (rendered as "-").
     const fallbackCell = within(rows[2]).getAllByRole("cell")[1];
@@ -885,8 +893,9 @@ describe("linking a finding row to its diagram element", () => {
       ],
     });
 
-    const table = screen.getByRole("table");
-    expect(within(table).queryByRole("button")).toBeNull();
+    await screen.findByTestId("dmn-preview");
+    const table = screen.getByRole("table", { name: "Findings for this file" });
+    expect(within(table).queryByRole("button", { name: "decision_1" })).toBeNull();
     expect(within(table).getByText("decision_1")).toBeTruthy();
   });
 });
@@ -928,7 +937,9 @@ describe("preview overlay behaves as a modal dialog", () => {
       checkResponseJson: [],
     });
 
-    const opener = screen.getByRole("button", { name: "Preview analysis findings" });
+    const opener = screen.getByRole("button", {
+      name: "Preview analysis findings for process.bpmn",
+    });
 
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -1129,7 +1140,9 @@ describe("per-file request failures and retry", () => {
       { name: "offline.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
     ]);
 
-    const row = await screen.findByText("offline.bpmn").then((el) => el.closest(".FileItem"));
+    const row = await screen.findByText("offline.bpmn").then((el) =>
+      el.closest(".file-result-row")
+    );
     const alert = await within(row).findByRole("alert");
     expect(alert.textContent).toMatch(/could not reach the server/i);
 
@@ -1253,7 +1266,9 @@ describe("per-file request failures and retry", () => {
       mockFile("bad.bpmn"),
     ]);
 
-    const goodRow = await screen.findByText("good.bpmn").then((el) => el.closest(".FileItem"));
+    const goodRow = await screen.findByText("good.bpmn").then((el) =>
+      el.closest(".file-result-row")
+    );
     await within(goodRow).findByRole("button", { name: "Download good.bpmn" });
 
     const badRow = fileRow("bad.bpmn");
