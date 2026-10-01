@@ -531,7 +531,7 @@ th, td {
 }
 
 .analysis-table tr[aria-selected="true"] {
-  background: #edf5ff;
+  background: #d0e2ff;
 }
 
 .highlight-info:not(.djs-connection) .djs-visual > :nth-child(1) {
