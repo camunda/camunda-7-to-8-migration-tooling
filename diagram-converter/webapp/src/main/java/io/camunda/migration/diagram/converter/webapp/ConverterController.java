@@ -353,7 +353,9 @@ public class ConverterController {
               value = "dataMigrationExecutionListenerJobType",
               required = false,
               defaultValue = "migrator")
-          String dataMigrationExecutionListenerJobType) {
+          String dataMigrationExecutionListenerJobType,
+      @RequestParam(value = "preserveOriginalFilename", required = false, defaultValue = "false")
+          Boolean preserveOriginalFilename) {
 
     // Form files are JSON and use the combined conversion and checking traversal
     if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
@@ -369,7 +371,8 @@ public class ConverterController {
         return ResponseEntity.ok()
             .header(
                 HttpHeaders.CONTENT_DISPOSITION,
-                attachmentDisposition(convertedFileName(diagramFile.getOriginalFilename())))
+                attachmentDisposition(
+                    convertedFileName(diagramFile.getOriginalFilename(), preserveOriginalFilename)))
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .body(file);
       } catch (IllegalArgumentException e) {
@@ -414,7 +417,8 @@ public class ConverterController {
       return ResponseEntity.ok()
           .header(
               HttpHeaders.CONTENT_DISPOSITION,
-              attachmentDisposition(convertedFileName(diagramFile.getOriginalFilename())))
+              attachmentDisposition(
+                  convertedFileName(diagramFile.getOriginalFilename(), preserveOriginalFilename)))
           .header(HttpHeaders.CONTENT_TYPE, diagramType.getContentType())
           .body(file);
     } catch (IOException e) {
@@ -457,7 +461,9 @@ public class ConverterController {
               value = "dataMigrationExecutionListenerJobType",
               required = false,
               defaultValue = "migrator")
-          String dataMigrationExecutionListenerJobType) {
+          String dataMigrationExecutionListenerJobType,
+      @RequestParam(value = "preserveOriginalFilename", required = false, defaultValue = "false")
+          Boolean preserveOriginalFilename) {
 
     HashMap<String, Resource> resultList = new HashMap<String, Resource>();
 
@@ -477,7 +483,10 @@ public class ConverterController {
                       converterProperties(platformVersion))
                   .convertedForm();
           Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
-          putConverted(resultList, convertedFileName(diagramFile.getOriginalFilename()), file);
+          putConverted(
+              resultList,
+              convertedFileName(diagramFile.getOriginalFilename(), preserveOriginalFilename),
+              file);
         } catch (IllegalArgumentException e) {
           // client error (invalid JSON or platform version) - no stack trace noise
           return invalidFormResponse(e);
@@ -519,7 +528,10 @@ public class ConverterController {
             dataMigrationExecutionListenerJobType);
         String xml = bpmnConverter.printXml(modelInstance.getDocument(), true);
         Resource file = new ByteArrayResource(xml.getBytes(StandardCharsets.UTF_8));
-        putConverted(resultList, convertedFileName(diagramFile.getOriginalFilename()), file);
+        putConverted(
+            resultList,
+            convertedFileName(diagramFile.getOriginalFilename(), preserveOriginalFilename),
+            file);
 
       } catch (IOException e) {
         LOG.error("IO Error while converting resources in batch", e);
@@ -599,21 +611,28 @@ public class ConverterController {
   }
 
   /**
-   * Builds the name of a converted output file from the user-supplied filename. Only the filename
-   * portion is used, preventing path traversal via separators in the original filename from
-   * propagating into ZIP entry names or response headers.
+   * Builds a safe output name from the uploaded filename. Directory components and control
+   * characters are removed before the name is used in a response header or ZIP entry.
    */
-  private String convertedFileName(String originalFilename) {
+  private String convertedFileName(String originalFilename, Boolean preserveOriginalFilename) {
+    String baseName = safeOriginalFilename(originalFilename);
+    return Boolean.TRUE.equals(preserveOriginalFilename) ? baseName : "converted-c8-" + baseName;
+  }
+
+  private String safeOriginalFilename(String originalFilename) {
     if (originalFilename == null) {
-      return "converted-c8-file";
+      return "file";
     }
-    // normalize Windows-style separators so they are stripped on any platform
+    // Normalize Windows-style separators so they are stripped on any platform.
     String baseName = StringUtils.getFilename(originalFilename.replace('\\', '/'));
     if (!StringUtils.hasText(baseName)) {
-      // e.g. filename ended with a path separator
-      return "converted-c8-file";
+      return "file";
     }
-    return "converted-c8-" + baseName;
+    baseName = baseName.replaceAll("[\\p{Cntrl}]", "");
+    if (!StringUtils.hasText(baseName) || baseName.equals(".") || baseName.equals("..")) {
+      return "file";
+    }
+    return baseName;
   }
 
   private String attachmentDisposition(String fileName) {

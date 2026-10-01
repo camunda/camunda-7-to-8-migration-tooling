@@ -45,11 +45,11 @@ import {
 // server.tomcat.max-part-count in application.yaml, which is where the
 // server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
 // sync if that value ever changes). createFormData() always appends
-// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 6 config
+// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 7 config
 // options), so the actual per-batch file limit is lower than the raw part
 // count.
 const MAX_MULTIPART_PARTS = 100;
-const FIXED_FORM_FIELD_COUNT = 7;
+const FIXED_FORM_FIELD_COUNT = 8;
 const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 // Warn a bit before the hard limit so users can trim the batch (or switch to
 // the local converter) before a combined download fails outright.
@@ -122,6 +122,7 @@ function App() {
     addDataMigrationExecutionListener: false,
     dataMigrationExecutionListenerJobType: "migrator",
     appendDocumentationOnlyTaskAndWarning: false,
+    preserveOriginalFilename: false,
   });
 
 
@@ -302,6 +303,8 @@ function App() {
         "appendDocumentationOnlyTaskAndWarning",
         configOptions.appendDocumentationOnlyTaskAndWarning
       );
+    if (configOptions.preserveOriginalFilename !== undefined)
+      formData.append("preserveOriginalFilename", configOptions.preserveOriginalFilename);
     return formData;
   }
 
@@ -823,6 +826,33 @@ function App() {
                   </button>
                 ))}
               </div>
+
+              <fieldset
+                className="flex flex-col gap-2 rounded-md border bg-background p-4"
+                style={{ marginTop: "1.5rem" }}
+              >
+                <legend className="px-1 text-sm font-medium text-foreground">
+                  Output filenames
+                </legend>
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    id="preserveOriginalFilename"
+                    checked={configOptions.preserveOriginalFilename}
+                    aria-describedby="preserveOriginalFilenameHint"
+                    onCheckedChange={(checked) =>
+                      setConfigOptions((prev) => ({
+                        ...prev,
+                        preserveOriginalFilename: checked === true,
+                      }))
+                    }
+                  />
+                  <span>Preserve original filenames</span>
+                </label>
+                <p id="preserveOriginalFilenameHint" className="configOptionHint">
+                  When selected, individual downloads and ZIP entries use each uploaded filename
+                  without its directory path. When cleared, the converted-c8- prefix is used.
+                </p>
+              </fieldset>
 
               <form className="configBox" style={{ marginTop: "1.5rem" }} onSubmit={(e) => e.preventDefault()}>
                 <button
