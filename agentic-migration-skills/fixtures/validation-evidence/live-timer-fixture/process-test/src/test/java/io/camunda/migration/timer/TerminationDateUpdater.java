@@ -25,7 +25,7 @@ final class TerminationDateUpdater {
         .newCorrelateMessageCommand()
         .messageName(MESSAGE_NAME)
         .correlationKey(projectId)
-        .variables(Map.of("terminationDate", terminationDate))
+        .variables(Map.of("updatedTerminationDate", terminationDate))
         .send()
         .join();
   }

@@ -84,12 +84,13 @@ update does not reschedule a timer that already waits.
 
 | Finding | Required outcome |
 |---|---|
-| Project-approved message-rearm model | Map each due-date call to its process, timer, message, correlation key, and date variable. Test two updates to an already-active timer on a disposable target. Assert that obsolete deadlines never fire and the final deadline fires once. Allow late firing, not early firing. |
+| Project-approved message-rearm model | Map each due-date call to the executable timer process, parent call activity, timer, message, correlation key, and both date variables. Test two updates to an already-active timer on a disposable target. Assert that obsolete deadlines never fire and the final deadline fires once. Allow late firing, not early firing. |
 | No verified or approved replacement, unknown timer link, or reachable throwing placeholder | Keep the affected flow blocked as manual work. Do not report it ready or substitute a no-op or unverified API. |
 
-The repository fixture uses message-driven BPMN rearming. A correlated date-update message wins
-against the timer branch of an event-based gateway. The message branch passes through a converging
-gateway, then re-enters the event-based gateway. The new timer activation reads the updated date.
+The repository fixture uses message-driven BPMN rearming. A parent call activity starts a separate
+timer process. An interrupting message boundary event cancels that call and maps the received date
+to the parent scope. The message branch passes through an exclusive converging gateway and starts a
+new child process instance. The new timer reads the updated date.
 This design requires a process-specific message, correlation key, and model change. A variable
 update alone does not rearm the active timer.
 

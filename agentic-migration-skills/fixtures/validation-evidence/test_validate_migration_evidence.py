@@ -6,7 +6,7 @@ import sys
 import tempfile
 import unittest
 from argparse import Namespace
-from contextlib import redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -14,6 +14,9 @@ from unittest.mock import patch
 
 FIXTURE = Path(__file__).resolve().parent
 SCRIPT_DIR = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code" / "scripts"
+sys.path.insert(0, str(FIXTURE))
+import run_live_timer_fixture as live_timer_fixture  # noqa: E402
+
 sys.path.insert(0, str(SCRIPT_DIR))
 import validate_migration_evidence as gate  # noqa: E402
 
@@ -58,6 +61,7 @@ def bpmn(process_id, timer=False, extra=""):
 
 
 def message_rearm_bpmn(process_id):
+    parent_process_id = f"{process_id}-parent"
     return (
         '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
         'xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" '
@@ -65,27 +69,39 @@ def message_rearm_bpmn(process_id):
         '<bpmn:message id="DateChangedMessage" name="DueDateChanged">'
         '<bpmn:extensionElements><zeebe:subscription correlationKey="=projectId" />'
         "</bpmn:extensionElements></bpmn:message>"
-        f'<bpmn:process id="{process_id}" isExecutable="true">'
+        f'<bpmn:process id="{parent_process_id}" isExecutable="true">'
         '<bpmn:startEvent id="Start"><bpmn:outgoing>Start_Prepare</bpmn:outgoing></bpmn:startEvent>'
         '<bpmn:exclusiveGateway id="Prepare"><bpmn:incoming>Start_Prepare</bpmn:incoming>'
-        '<bpmn:incoming>Update_Prepare</bpmn:incoming><bpmn:outgoing>Prepare_Wait</bpmn:outgoing>'
+        '<bpmn:incoming>Update_Prepare</bpmn:incoming><bpmn:outgoing>Prepare_Call</bpmn:outgoing>'
         '</bpmn:exclusiveGateway>'
-        '<bpmn:eventBasedGateway id="Wait"><bpmn:incoming>Prepare_Wait</bpmn:incoming>'
-        '<bpmn:outgoing>Wait_Timer</bpmn:outgoing>'
-        '<bpmn:outgoing>Wait_Update</bpmn:outgoing></bpmn:eventBasedGateway>'
-        '<bpmn:intermediateCatchEvent id="Timer">'
-        '<bpmn:incoming>Wait_Timer</bpmn:incoming><bpmn:timerEventDefinition>'
-        '<bpmn:timeDate>=date and time(dueDate)</bpmn:timeDate>'
-        '</bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>'
-        '<bpmn:intermediateCatchEvent id="DateChanged">'
-        '<bpmn:incoming>Wait_Update</bpmn:incoming><bpmn:outgoing>Update_Prepare</bpmn:outgoing>'
-        '<bpmn:messageEventDefinition messageRef="DateChangedMessage" />'
-        '</bpmn:intermediateCatchEvent>'
+        '<bpmn:callActivity id="DeadlineWaitCall">'
+        '<bpmn:extensionElements><zeebe:calledElement processId="'
+        f'{process_id}" propagateAllChildVariables="false" />'
+        '<zeebe:ioMapping><zeebe:input source="=dueDate" target="dueDate" />'
+        '</zeebe:ioMapping></bpmn:extensionElements>'
+        '<bpmn:incoming>Prepare_Call</bpmn:incoming><bpmn:outgoing>Call_End</bpmn:outgoing>'
+        '</bpmn:callActivity>'
+        '<bpmn:boundaryEvent id="DateChanged" attachedToRef="DeadlineWaitCall" cancelActivity="true">'
+        '<bpmn:extensionElements><zeebe:ioMapping>'
+        '<zeebe:output source="=updatedDueDate" target="dueDate" />'
+        "</zeebe:ioMapping></bpmn:extensionElements>"
+        '<bpmn:outgoing>Update_Prepare</bpmn:outgoing>'
+        '<bpmn:messageEventDefinition messageRef="DateChangedMessage" /></bpmn:boundaryEvent>'
+        '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming></bpmn:endEvent>'
         '<bpmn:sequenceFlow id="Start_Prepare" sourceRef="Start" targetRef="Prepare" />'
-        '<bpmn:sequenceFlow id="Prepare_Wait" sourceRef="Prepare" targetRef="Wait" />'
-        '<bpmn:sequenceFlow id="Wait_Timer" sourceRef="Wait" targetRef="Timer" />'
-        '<bpmn:sequenceFlow id="Wait_Update" sourceRef="Wait" targetRef="DateChanged" />'
+        '<bpmn:sequenceFlow id="Prepare_Call" sourceRef="Prepare" targetRef="DeadlineWaitCall" />'
+        '<bpmn:sequenceFlow id="Call_End" sourceRef="DeadlineWaitCall" targetRef="End" />'
         '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" targetRef="Prepare" />'
+        "</bpmn:process>"
+        f'<bpmn:process id="{process_id}" isExecutable="true">'
+        '<bpmn:startEvent id="TimerStart"><bpmn:outgoing>TimerStart_Timer</bpmn:outgoing></bpmn:startEvent>'
+        '<bpmn:intermediateCatchEvent id="Timer">'
+        '<bpmn:incoming>TimerStart_Timer</bpmn:incoming><bpmn:outgoing>Timer_End</bpmn:outgoing>'
+        '<bpmn:timerEventDefinition><bpmn:timeDate>=dueDate</bpmn:timeDate>'
+        '</bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>'
+        '<bpmn:endEvent id="TimerEnd"><bpmn:incoming>Timer_End</bpmn:incoming></bpmn:endEvent>'
+        '<bpmn:sequenceFlow id="TimerStart_Timer" sourceRef="TimerStart" targetRef="Timer" />'
+        '<bpmn:sequenceFlow id="Timer_End" sourceRef="Timer" targetRef="TimerEnd" />'
         "</bpmn:process></bpmn:definitions>"
     )
 
@@ -182,11 +198,14 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "active_timer": {
                     "model_path": decision["model_path"],
                     "process_id": decision["process_id"],
+                    "rearm_process_id": decision["rearm_process_id"],
+                    "rearm_call_activity_id": decision["rearm_call_activity_id"],
                     "timer_id": decision["timer_id"],
                     "strategy": decision["strategy"],
                     "message_name": decision["message_name"],
                     "correlation_key_variable": decision["correlation_key_variable"],
                     "date_variable": decision["date_variable"],
+                    "message_date_variable": decision["message_date_variable"],
                     "timer_was_active_before_first_update": True,
                     "updates": [
                         {
@@ -218,16 +237,34 @@ class ValidationEvidenceTest(unittest.TestCase):
             },
         }
 
-    def install_active_timer_decision(self):
+    def install_active_timer_decision(self, retain_c7_caller=False):
         self.write_scope()
         source = self.root / "app" / "Timer.java"
         source.write_text("managementService.setJobDuedate(jobId, terminationDate);\n", encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        source_locations = json.loads(
+            (self.root / gate.INVENTORY).read_text(encoding="utf-8")
+        )["source_update_locations"]["app"]
+        if not retain_c7_caller:
+            source.write_text(
+                "terminationDateUpdater.update(projectId, terminationDate);\n",
+                encoding="utf-8",
+            )
         model_path = "models/converted-c8-process.bpmn"
+        self.plan["models"][0]["processes"] = [
+            {"id": "p-parent", "standalone": True, "scenarios": ["normal"]},
+            {
+                "id": "p",
+                "standalone": False,
+                "scenarios": [],
+                "covering_test": "timer-rearm",
+            },
+        ]
         for name in ("models/process.bpmn", model_path):
             path = self.root / name
             path.write_text(message_rearm_bpmn("p"), encoding="utf-8")
-        locations = gate.requirements(self.root, self.plan).update_hits["app"]
-        self.assertEqual(1, len(locations))
+        self.assertEqual(1, len(source_locations))
         self.plan["active_timer_update_decision"] = {
             "status": "approved",
             "strategy": "message_rearm",
@@ -236,13 +273,17 @@ class ValidationEvidenceTest(unittest.TestCase):
             "updates": [
                 {
                     "module": "app",
-                    "locations": locations,
+                    "source_locations": source_locations,
+                    "migrated_caller_location": "app/Timer.java:1:1",
                     "model_path": model_path,
                     "process_id": "p",
+                    "rearm_process_id": "p-parent",
+                    "rearm_call_activity_id": "DeadlineWaitCall",
                     "timer_id": "Timer",
                     "message_name": "DueDateChanged",
                     "correlation_key_variable": "projectId",
                     "date_variable": "dueDate",
+                    "message_date_variable": "updatedDueDate",
                 }
             ],
         }
@@ -296,6 +337,27 @@ class ValidationEvidenceTest(unittest.TestCase):
                         if target in decision["modules"]
                     ),
                 )
+        note = options.get("note", "Reviewed the migration checklist and recorded decisions.")
+        if (
+            action == "review"
+            and category == "module"
+            and kind == "active_timer_updates"
+            and options.get("note") is None
+        ):
+            plan = gate.requirements(self.root, self.plan)
+            decisions = [
+                decision
+                for decision in plan.active_timer_decisions.values()
+                if target in decision["modules"]
+            ]
+            if decisions:
+                note = " ".join(
+                    f"Inspected {decision['migrated_caller_location']}. "
+                    f"It sends {decision['message_name']} with "
+                    f"{decision['correlation_key_variable']} and maps "
+                    f"{decision['message_date_variable']} to {decision['date_variable']}."
+                    for decision in decisions
+                )
         arguments = Namespace(
             type=category,
             target=target,
@@ -306,7 +368,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             timeout=5,
             action=action,
             command=command or [sys.executable, "-c", "print('check completed')"],
-            note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
+            note=note,
             reason=options.get("reason", "Check could not run."),
             target_disposable=options.get(
                 "target_disposable",
@@ -350,6 +412,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual(
                 0,
                 self.submit(key, action="review" if plan.required[key] == "review" else "run", **options),
+                f"Failed to record required check: {key}",
             )
 
     def summary(self):
@@ -766,7 +829,13 @@ class ValidationEvidenceTest(unittest.TestCase):
         runtime_key = self.install_active_timer_decision()
         decision_reference = self.plan["active_timer_update_decision"]["reference"]
         module_key = ("module", "app", "active_timer_updates", None)
-        self.assertEqual([], gate.requirements(self.root, self.plan).issues)
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
+        self.assertEqual(
+            self.plan["active_timer_update_decision"]["updates"][0]["source_locations"],
+            plan.source_update_locations["app"],
+        )
+        self.assertEqual([], plan.update_hits["app"])
 
         decision = self.plan.pop("active_timer_update_decision")
         write_json(self.root / gate.EVIDENCE, self.plan)
@@ -782,6 +851,16 @@ class ValidationEvidenceTest(unittest.TestCase):
                 disposition="message_rearm",
                 reference="not applicable",
             )
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "review note must identify the migrated caller"
+        ):
+            self.submit(
+                module_key,
+                action="review",
+                disposition="message_rearm",
+                reference=decision_reference,
+                note="Approved the message rearm mapping.",
+            )
         self.assertEqual(
             0,
             self.submit(
@@ -789,7 +868,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                 action="review",
                 disposition="message_rearm",
                 reference=decision_reference,
-                note="Approved BPMN message rearming and mapped the due-date call to this timer.",
+                note=(
+                    "Inspected app/Timer.java:1:1. It sends DueDateChanged with projectId and "
+                    "maps updatedDueDate to dueDate."
+                ),
             ),
         )
         model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
@@ -833,6 +915,67 @@ class ValidationEvidenceTest(unittest.TestCase):
         invalid = self.active_timer_observation(runtime_key)
         invalid["observation"]["active_timer"]["final_deadline_fire_count"] = 2
         self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
+
+    def test_active_timer_mapping_rejects_a_retained_c7_due_date_caller(self):
+        self.install_active_timer_decision(retain_c7_caller=True)
+        plan = gate.requirements(self.root, self.plan)
+        self.assertTrue(
+            any(
+                "mapped C7 due-date location remains in the migrated source" in issue
+                for issue in plan.issues
+            )
+        )
+        self.assertEqual(1, self.audit())
+        self.assertNotEqual("READY", self.summary()["gate"])
+
+    def test_active_timer_mapping_requires_module_and_model_in_same_deployment_set(self):
+        self.install_active_timer_decision()
+        model_path = self.plan["active_timer_update_decision"]["updates"][0]["model_path"]
+        self.plan["deployment_sets"] = [
+            {"name": "module-only", "modules": ["app"], "models": []},
+            {"name": "model-only", "modules": [], "models": [model_path]},
+        ]
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        plan = gate.requirements(self.root, self.plan)
+        self.assertTrue(
+            any("must share the same deployment set" in issue for issue in plan.issues)
+        )
+
+    def test_active_timer_mapping_rejects_a_non_executable_process(self):
+        self.install_active_timer_decision()
+        model_path = self.root / "models/converted-c8-process.bpmn"
+        model_path.write_text(
+            model_path.read_text(encoding="utf-8").replace(
+                'isExecutable="true"', 'isExecutable="false"'
+            ),
+            encoding="utf-8",
+        )
+        self.plan["models"][0]["processes"] = []
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        plan = gate.requirements(self.root, self.plan)
+        self.assertTrue(
+            any(
+                "message_rearm mapping requires an executable BPMN process" in issue
+                for issue in plan.issues
+            )
+        )
+
+    def test_active_timer_mapping_requires_boundary_output_mapping(self):
+        self.install_active_timer_decision()
+        model_path = self.root / "models/converted-c8-process.bpmn"
+        model_path.write_text(
+            model_path.read_text(encoding="utf-8").replace(
+                '<zeebe:output source="=updatedDueDate" target="dueDate" />', ""
+            ),
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertTrue(
+            any(
+                "converted model lacks the mapped message-driven timer rearm path" in issue
+                for issue in plan.issues
+            )
+        )
 
     def test_active_timer_command_rejects_unsafe_environment_and_unapproved_version_before_execution(self):
         runtime_key = self.install_active_timer_decision()
@@ -1162,6 +1305,99 @@ class ValidationEvidenceTest(unittest.TestCase):
         with self.assertRaises(gate.EvidenceError):
             self.audit()
         self.assertEqual(original, (self.root / gate.EVIDENCE).read_bytes())
+
+
+class LiveTimerFixtureRunnerTest(unittest.TestCase):
+    def test_maven_timeout_removes_fixture_container_before_propagating(self):
+        container_id = "created-container"
+        containers = set()
+        docker_calls = []
+        event = json.dumps(
+            {
+                "status": "create",
+                "id": container_id,
+                "Actor": {"Attributes": {"image": f"camunda/camunda:{live_timer_fixture.VERSION}"}},
+            }
+        )
+
+        class EventStream:
+            def __init__(self):
+                self.stdout = [event]
+                self.running = True
+
+            def poll(self):
+                return None if self.running else 0
+
+            def terminate(self):
+                self.running = False
+
+            def wait(self, timeout):
+                self.running = False
+                return 0
+
+            def kill(self):
+                self.running = False
+
+        class ImmediateThread:
+            def __init__(self, target, args, daemon):
+                self.target = target
+                self.args = args
+
+            def start(self):
+                self.target(*self.args)
+
+            def join(self, timeout):
+                return None
+
+        def docker(*arguments):
+            docker_calls.append(arguments)
+            if arguments[:2] == ("info", "--format"):
+                return "29.8.1"
+            if arguments == ("container", "ls", "--format", "{{.Image}}"):
+                return ""
+            if arguments[:3] == ("container", "rm", "--force"):
+                containers.discard(arguments[3])
+                return arguments[3]
+            raise AssertionError(f"Unexpected Docker command: {arguments}")
+
+        def timeout(command, **options):
+            containers.add(container_id)
+            raise subprocess.TimeoutExpired(command, options["timeout"])
+
+        with tempfile.TemporaryDirectory() as temporary, ExitStack() as patches:
+            patches.enter_context(
+                patch.object(
+                    live_timer_fixture,
+                    "OBSERVATION",
+                    Path(temporary) / "observation.json",
+                )
+            )
+            patches.enter_context(patch.object(live_timer_fixture, "require_java_21"))
+            patches.enter_context(patch.object(live_timer_fixture, "docker", side_effect=docker))
+            patches.enter_context(
+                patch.object(
+                    live_timer_fixture, "container_ids", side_effect=lambda: set(containers)
+                )
+            )
+            patches.enter_context(
+                patch.object(
+                    live_timer_fixture.subprocess,
+                    "Popen",
+                    side_effect=lambda *a, **k: EventStream(),
+                )
+            )
+            patches.enter_context(
+                patch.object(live_timer_fixture.subprocess, "run", side_effect=timeout)
+            )
+            patches.enter_context(
+                patch.object(live_timer_fixture.threading, "Thread", ImmediateThread)
+            )
+            patches.enter_context(patch.object(live_timer_fixture.time, "sleep"))
+            with self.assertRaises(subprocess.TimeoutExpired):
+                live_timer_fixture.main()
+
+        self.assertIn(("container", "rm", "--force", container_id), docker_calls)
+        self.assertEqual(set(), containers)
 
 
 if __name__ == "__main__":

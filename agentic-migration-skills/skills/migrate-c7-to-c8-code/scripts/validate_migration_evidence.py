@@ -54,6 +54,7 @@ class ValidationPlan:
     model_sets: dict
     duplicates: dict
     update_hits: dict
+    source_update_locations: dict
     active_timer_locations: dict
     active_timer_decisions: dict
     source_digest: str
@@ -153,6 +154,11 @@ def initialize(root):
         raise EvidenceError("A migration run needs at least one module or model")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
+    source_update_locations = {
+        module: scan_module(root, module, set(modules), {})
+        for module in modules
+    }
+    inventory["source_update_locations"] = source_update_locations
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
     evidence_path = root / EVIDENCE
@@ -272,6 +278,28 @@ def scan_module(root, module, module_paths, hashes):
     return hits
 
 
+def valid_migrated_caller_location(root, module, location, hashes):
+    match = re.fullmatch(r"(.+):([1-9]\d*):([1-9]\d*)", location)
+    if match is None:
+        return False
+    source = project_path(root, match.group(1), "migrated caller", must_exist=True)
+    module_path = project_path(root, module, "module", must_exist=True)
+    relative = source.relative_to(root).as_posix()
+    if (
+        not source.is_file()
+        or not source.is_relative_to(module_path)
+        or relative not in hashes
+        or source.suffix.lower() not in CODE_SUFFIXES
+    ):
+        return False
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise EvidenceError(f"Cannot read migrated caller {source}: {exc}") from exc
+    line, column = int(match.group(2)), int(match.group(3))
+    return line <= len(lines) and column <= len(lines[line - 1])
+
+
 def repeating_starts(document):
     starts = {}
     for process in document.findall(f"{BPMN}process"):
@@ -289,14 +317,22 @@ def repeating_starts(document):
 
 
 def supports_message_rearm(
-    document, process, timer_id, message_name, correlation_key, date_variable
+    document,
+    process,
+    timer_id,
+    message_name,
+    correlation_key,
+    date_variable,
+    message_date_variable,
+    rearm_process_id,
+    rearm_call_activity_id,
 ):
     timer = next(
         (
             element
             for element in process.iter()
             if element.get("id") == timer_id
-            and element.tag != f"{BPMN}startEvent"
+            and element.tag == f"{BPMN}intermediateCatchEvent"
             and any(child.tag == f"{BPMN}timerEventDefinition" for child in element)
         ),
         None,
@@ -328,73 +364,118 @@ def supports_message_rearm(
     if subscription is None or subscription.get("correlationKey") != f"={correlation_key}":
         return False
     message_id = messages[0].get("id")
-    flows = {
-        flow.get("id"): flow
-        for flow in process.findall(f"{BPMN}sequenceFlow")
-        if flow.get("id")
-    }
-    message_catches = {
-        element.get("id")
-        for element in process.iter()
-        if element.tag == f"{BPMN}intermediateCatchEvent"
-        and element.get("id")
+    parent_process = next(
+        (
+            candidate
+            for candidate in document.findall(f"{BPMN}process")
+            if candidate.get("id") == rearm_process_id
+        ),
+        None,
+    )
+    if parent_process is None or parent_process is process:
+        return False
+    call_activity = next(
+        (
+            element
+            for element in parent_process.findall(f"{BPMN}callActivity")
+            if element.get("id") == rearm_call_activity_id
+        ),
+        None,
+    )
+    if call_activity is None:
+        return False
+    called_element = call_activity.find(
+        f"{BPMN}extensionElements/{ZEEBE}calledElement"
+    )
+    input_mappings = call_activity.findall(
+        f"{BPMN}extensionElements/{ZEEBE}ioMapping/{ZEEBE}input"
+    )
+    if (
+        called_element is None
+        or called_element.get("processId") != process.get("id")
+        or not any(
+            mapping.get("source") == f"={date_variable}"
+            and mapping.get("target") == date_variable
+            for mapping in input_mappings
+        )
+    ):
+        return False
+    message_boundaries = [
+        boundary
+        for boundary in parent_process.findall(f"{BPMN}boundaryEvent")
+        if boundary.get("attachedToRef") == rearm_call_activity_id
+        and boundary.get("cancelActivity") not in ("false", "0")
         and any(
             definition.tag == f"{BPMN}messageEventDefinition"
             and definition.get("messageRef") == message_id
-            for definition in element
+            for definition in boundary
         )
+    ]
+    if len(message_boundaries) != 1:
+        return False
+    flows = {
+        flow.get("id"): flow
+        for flow in parent_process.findall(f"{BPMN}sequenceFlow")
+        if flow.get("id")
     }
-    for gateway in process.iter(f"{BPMN}eventBasedGateway"):
-        gateway_id = gateway.get("id")
-        incoming = [
-            node.text for node in gateway.findall(f"{BPMN}incoming") if node.text
-        ]
-        outgoing = [
-            flows[flow_id].get("targetRef")
-            for flow_id in (node.text for node in gateway.findall(f"{BPMN}outgoing"))
-            if flow_id in flows
-        ]
-        if len(incoming) != 1 or timer_id not in outgoing or not message_catches.intersection(outgoing):
+    boundary = message_boundaries[0]
+    date_outputs = boundary.findall(
+        f"{BPMN}extensionElements/{ZEEBE}ioMapping/{ZEEBE}output"
+    )
+    if not any(
+        output.get("source") == f"={message_date_variable}"
+        and output.get("target") == date_variable
+        for output in date_outputs
+    ):
+        return False
+    start_ids = {
+        start.get("id")
+        for start in parent_process.findall(f"{BPMN}startEvent")
+        if start.get("id")
+    }
+    for boundary_flow_id in (
+        node.text for node in boundary.findall(f"{BPMN}outgoing") if node.text
+    ):
+        boundary_flow = flows.get(boundary_flow_id)
+        if boundary_flow is None:
             continue
-        for message_catch_id in message_catches.intersection(outgoing):
-            catch = next(
-                (
-                    element
-                    for element in process.iter()
-                    if element.get("id") == message_catch_id
-                ),
-                None,
-            )
-            if catch is None:
-                continue
-            for flow_id in (node.text for node in catch.findall(f"{BPMN}outgoing")):
-                catch_flow = flows.get(flow_id)
-                if catch_flow is None:
-                    continue
-                merge_id = catch_flow.get("targetRef")
-                merge = next(
-                    (
-                        element
-                        for element in process.iter()
-                        if element.get("id") == merge_id
-                        and element.tag in {
-                            f"{BPMN}exclusiveGateway",
-                            f"{BPMN}inclusiveGateway",
-                        }
-                    ),
-                    None,
-                )
-                if merge is None:
-                    continue
-                merge_outgoing = [
-                    flows[merge_flow_id].get("targetRef")
-                    for merge_flow_id in (
-                        node.text for node in merge.findall(f"{BPMN}outgoing")
-                    )
-                    if merge_flow_id in flows
-                ]
-                if gateway_id in merge_outgoing:
-                    return True
+        merge_id = boundary_flow.get("targetRef")
+        merge = next(
+            (
+                element
+                for element in parent_process.findall(f"{BPMN}exclusiveGateway")
+                if element.get("id") == merge_id
+            ),
+            None,
+        )
+        if merge is None:
+            continue
+        merge_incoming = {
+            node.text for node in merge.findall(f"{BPMN}incoming") if node.text
+        }
+        merge_outgoing = [
+            node.text for node in merge.findall(f"{BPMN}outgoing") if node.text
+        ]
+        if boundary_flow_id not in merge_incoming or len(merge_incoming) < 2:
+            continue
+        if len(merge_outgoing) != 1 or merge_outgoing[0] not in flows:
+            continue
+        reentry_flow = flows[merge_outgoing[0]]
+        call_activity_incoming = {
+            node.text
+            for node in call_activity.findall(f"{BPMN}incoming")
+            if node.text
+        }
+        if (
+            reentry_flow.get("targetRef") != rearm_call_activity_id
+            or merge_outgoing[0] not in call_activity_incoming
+        ):
+            continue
+        if any(
+            flow.get("sourceRef") in start_ids and flow.get("targetRef") == merge_id
+            for flow in flows.values()
+        ):
+            return True
     return False
 
 
@@ -422,6 +503,7 @@ def process_assertions(process):
 
 def requirements(root, evidence):
     modules, models = scope(root, evidence)
+    inventory = read_json(root / INVENTORY)
     required = {}
     allowed = set()
     timers = {}
@@ -429,6 +511,26 @@ def requirements(root, evidence):
     issues = []
     hashes = {}
     update_hits = {}
+    source_update_locations = inventory.get("source_update_locations")
+    if (
+        not isinstance(source_update_locations, dict)
+        or set(source_update_locations) != {module["path"] for module in modules}
+    ):
+        issues.append(
+            "Step 2 inventory lacks the pre-migration due-date source snapshot; run init before conversion"
+        )
+        source_update_locations = {}
+    else:
+        for module in modules:
+            module_path = module["path"]
+            try:
+                source_update_locations[module_path] = strings(
+                    source_update_locations[module_path],
+                    f"{module_path} pre-migration due-date locations",
+                )
+            except EvidenceError as exc:
+                issues.append(str(exc))
+                source_update_locations[module_path] = []
     source_ids = {}
     converted_ids = {}
     converted_documents = {}
@@ -603,24 +705,37 @@ def requirements(root, evidence):
                     issues.append("Each active timer update needs a timer mapping")
                     continue
                 module = entry.get("module")
-                locations = entry.get("locations")
+                source_locations = entry.get("source_locations")
+                migrated_caller_location = entry.get("migrated_caller_location")
                 model_path = entry.get("model_path")
                 process_id = entry.get("process_id")
+                rearm_process_id = entry.get("rearm_process_id")
+                rearm_call_activity_id = entry.get("rearm_call_activity_id")
                 timer_id = entry.get("timer_id")
                 message_name = entry.get("message_name")
                 correlation_key = entry.get("correlation_key_variable")
                 date_variable = entry.get("date_variable")
+                message_date_variable = entry.get("message_date_variable")
                 if (
                     not isinstance(module, str)
                     or module not in module_paths
-                    or not isinstance(locations, list)
-                    or not locations
-                    or any(not isinstance(location, str) or not location for location in locations)
-                    or len(locations) != len(set(locations))
+                    or not isinstance(source_locations, list)
+                    or not source_locations
+                    or any(
+                        not isinstance(location, str) or not location
+                        for location in source_locations
+                    )
+                    or len(source_locations) != len(set(source_locations))
+                    or not isinstance(migrated_caller_location, str)
+                    or not migrated_caller_location
                     or not isinstance(model_path, str)
                     or model_path not in converted_documents
                     or not isinstance(process_id, str)
                     or process_id not in converted_ids.get(model_path, set())
+                    or not isinstance(rearm_process_id, str)
+                    or rearm_process_id not in converted_ids.get(model_path, set())
+                    or not isinstance(rearm_call_activity_id, str)
+                    or not rearm_call_activity_id
                     or not isinstance(timer_id, str)
                     or not timer_id
                     or not isinstance(message_name, str)
@@ -629,18 +744,45 @@ def requirements(root, evidence):
                     or not correlation_key
                     or not isinstance(date_variable, str)
                     or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", date_variable)
+                    or not isinstance(message_date_variable, str)
+                    or not re.fullmatch(
+                        r"[A-Za-z][A-Za-z0-9_]*", message_date_variable
+                    )
                 ):
                     issues.append("Active timer update mapping has invalid scope or identifiers")
                     continue
                 if any(
-                    location not in update_hits.get(module, [])
-                    for location in locations
+                    location not in source_update_locations.get(module, [])
+                    for location in source_locations
                 ):
                     issues.append(
-                        f"{module}: active timer mapping cites an undetected due-date location"
+                        f"{module}: active timer mapping cites an undetected pre-migration due-date location"
                     )
                     continue
-                if any(location in seen_locations for location in locations):
+                if any(
+                    location in update_hits.get(module, [])
+                    for location in source_locations
+                ):
+                    issues.append(
+                        f"{module}: mapped C7 due-date location remains in the migrated source"
+                    )
+                    continue
+                try:
+                    caller_is_valid = valid_migrated_caller_location(
+                        root, module, migrated_caller_location, hashes
+                    )
+                except EvidenceError as exc:
+                    issues.append(str(exc))
+                    continue
+                if (
+                    not caller_is_valid
+                    or migrated_caller_location in update_hits.get(module, [])
+                ):
+                    issues.append(
+                        f"{module}: migrated caller location does not identify current module source code"
+                    )
+                    continue
+                if any(location in seen_locations for location in source_locations):
                     issues.append("A due-date location cannot map to multiple active timers")
                     continue
                 document = converted_documents[model_path]
@@ -652,13 +794,37 @@ def requirements(root, evidence):
                     ),
                     None,
                 )
-                if process is None or not supports_message_rearm(
+                if process is None or process.get("isExecutable") not in ("true", "1"):
+                    issues.append(
+                        f"{model_path}#{process_id}: message_rearm mapping requires an executable BPMN process"
+                    )
+                    continue
+                rearm_process = next(
+                    (
+                        candidate
+                        for candidate in document.findall(f"{BPMN}process")
+                        if candidate.get("id") == rearm_process_id
+                    ),
+                    None,
+                )
+                if (
+                    rearm_process is None
+                    or rearm_process.get("isExecutable") not in ("true", "1")
+                ):
+                    issues.append(
+                        f"{model_path}#{rearm_process_id}: rearm call activity must belong to an executable BPMN process"
+                    )
+                    continue
+                if not supports_message_rearm(
                     document,
                     process,
                     timer_id,
                     message_name,
                     correlation_key,
                     date_variable,
+                    message_date_variable,
+                    rearm_process_id,
+                    rearm_call_activity_id,
                 ):
                     issues.append(
                         f"{model_path}#{process_id}: converted model lacks the mapped message-driven timer rearm path"
@@ -667,13 +833,18 @@ def requirements(root, evidence):
                 target = f"{model_path}#{process_id}#{timer_id}"
                 details = {
                     "target": target,
+                    "source_locations": source_locations,
+                    "migrated_caller_location": migrated_caller_location,
                     "model_path": model_path,
                     "process_id": process_id,
+                    "rearm_process_id": rearm_process_id,
+                    "rearm_call_activity_id": rearm_call_activity_id,
                     "timer_id": timer_id,
                     "strategy": decision["strategy"],
                     "message_name": message_name,
                     "correlation_key_variable": correlation_key,
                     "date_variable": date_variable,
+                    "message_date_variable": message_date_variable,
                     "target_version": decision["target_version"],
                     "reference": decision["reference"],
                 }
@@ -689,8 +860,8 @@ def requirements(root, evidence):
                     need("timer", target, "active_instance_reschedule")
                 if module not in active_timer_decisions[target]["modules"]:
                     active_timer_decisions[target]["modules"].append(module)
-                seen_locations.update(locations)
-                active_timer_locations.setdefault(module, set()).update(locations)
+                seen_locations.update(source_locations)
+                active_timer_locations.setdefault(module, set()).update(source_locations)
             if not active_timer_decisions:
                 issues.append("Approved active timer decision does not map a detected timer update")
 
@@ -717,7 +888,7 @@ def requirements(root, evidence):
             continue
         if set(set_modules) - module_paths or set(set_models) - set(timers):
             issues.append(f"{name}: deployment set includes unknown modules or models")
-        deployment_sets[name] = entry
+        deployment_sets[name] = {"modules": set_modules, "models": set_models}
         need("deployment_set", name, "preflight", method="review")
         for model_path in set_models:
             if model_path in model_sets:
@@ -739,6 +910,15 @@ def requirements(root, evidence):
         issues.append("Each converted model must belong to exactly one deployment set")
     if models and module_paths - {path for group in deployment_sets.values() for path in group["modules"]}:
         issues.append("Include each migrated module in its deployment set inventory")
+    for details in active_timer_decisions.values():
+        for module in details["modules"]:
+            if not any(
+                module in group["modules"] and details["model_path"] in group["models"]
+                for group in deployment_sets.values()
+            ):
+                issues.append(
+                    f"{details['target']}: module {module} and its mapped model must share the same deployment set"
+                )
     for name in ("pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
                  "settings.gradle.kts", "gradle.properties"):
         file = root / name
@@ -750,6 +930,7 @@ def requirements(root, evidence):
         "modules": modules,
         "models": models,
         "deployment_sets": declared_sets,
+        "source_update_locations": source_update_locations,
         "active_timer_update_decision": decision,
         "files": hashes,
     }
@@ -758,8 +939,8 @@ def requirements(root, evidence):
     ).hexdigest()
     return ValidationPlan(
         required, allowed, timers, timer_starts, docker_suites, model_sets,
-        duplicates, update_hits, active_timer_locations, active_timer_decisions,
-        source_digest, issues,
+        duplicates, update_hits, source_update_locations, active_timer_locations,
+        active_timer_decisions, source_digest, issues,
     )
 
 
@@ -842,11 +1023,14 @@ def validate_active_timer_observation(plan, key, check):
         for field in (
             "model_path",
             "process_id",
+            "rearm_process_id",
+            "rearm_call_activity_id",
             "timer_id",
             "strategy",
             "message_name",
             "correlation_key_variable",
             "date_variable",
+            "message_date_variable",
         )
     ):
         raise EvidenceError(f"{key}: live result does not match the approved timer mapping")
@@ -923,21 +1107,41 @@ def validate_risk_check(plan, key, check):
         if check.get("disposition") != plan.timer_starts[key]["disposition"]:
             raise EvidenceError(f"{key}: timer disposition does not match the source and converted copies")
     if category == "module" and kind == "active_timer_updates":
-        hits = plan.update_hits[target]
+        source_hits = set(plan.source_update_locations[target])
+        current_hits = set(plan.update_hits[target])
         disposition = check.get("disposition")
         evidence = check.get("non_timer_evidence")
         active_locations = plan.active_timer_locations.get(target, set())
-        non_timer_locations = set(hits) - active_locations
-        if disposition == "no_updates" and not hits and not evidence:
+        if current_hits & active_locations:
+            raise EvidenceError(f"{key}: a mapped C7 due-date call remains in the migrated source")
+        non_timer_locations = (source_hits - active_locations) | (current_hits - source_hits)
+        if disposition == "no_updates" and not source_hits and not current_hits and not evidence:
             return
         if active_locations:
-            expected_references = {
-                decision["reference"]
+            active_decisions = [
+                decision
                 for decision in plan.active_timer_decisions.values()
                 if target in decision["modules"]
-            }
+            ]
+            expected_references = {decision["reference"] for decision in active_decisions}
             if check.get("reference") not in expected_references:
                 raise EvidenceError(f"{key}: cite the approved active-timer decision")
+            if any(
+                not all(
+                    detail in check["output"]
+                    for detail in (
+                        decision["migrated_caller_location"],
+                        decision["message_name"],
+                        decision["correlation_key_variable"],
+                        decision["message_date_variable"],
+                        decision["date_variable"],
+                    )
+                )
+                for decision in active_decisions
+            ):
+                raise EvidenceError(
+                    f"{key}: review note must identify the migrated caller and message mapping"
+                )
             expected_disposition = "mixed" if non_timer_locations else "message_rearm"
             if disposition != expected_disposition:
                 raise EvidenceError(f"{key}: active timer updates require approved message_rearm evidence")

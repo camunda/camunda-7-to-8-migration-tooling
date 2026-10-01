@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
+import io.camunda.client.api.search.enums.ElementInstanceState;
 import io.camunda.client.api.search.enums.ProcessInstanceState;
 import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
@@ -43,6 +44,7 @@ class LiveTimerAcceptanceTest {
 
   private static final String CASE_1_PROCESS_ID = "Sample";
   private static final String ACTIVE_TIMER_PROCESS_ID = "active-timer-rescheduling";
+  private static final String ACTIVE_TIMER_WAIT_PROCESS_ID = "deadline-wait";
   private static final String PROJECT_ID = "project-2927";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String BPMN_NAMESPACE =
@@ -83,12 +85,7 @@ class LiveTimerAcceptanceTest {
             .anyMatch(p -> CASE_1_PROCESS_ID.equals(p.getBpmnProcessId())));
 
     processTestContext.increaseTime(Duration.ofSeconds(16));
-    await()
-        .atMost(Duration.ofSeconds(20))
-        .untilAsserted(
-            () ->
-                assertEquals(
-                    timerStartedInstancesBeforeReplacement, activeSampleCount(camundaClient)));
+    assertStableSampleCount(camundaClient, timerStartedInstancesBeforeReplacement);
     int timerStartedInstancesAfterReplacement = activeSampleCount(camundaClient);
 
     ProcessInstanceEvent latestVersionInstance =
@@ -114,7 +111,7 @@ class LiveTimerAcceptanceTest {
     var timerExpressionResult =
         camundaClient
             .newEvaluateExpressionCommand()
-            .expression("=date and time(terminationDate)")
+            .expression("=terminationDate")
             .variables(Map.of("terminationDate", originalDeadline.toString()))
             .send()
             .join();
@@ -137,32 +134,90 @@ class LiveTimerAcceptanceTest {
                     "terminationDate", originalDeadline.toString()))
             .send()
             .join();
-    assertWaitingForDateOrUpdate(timerInstance);
+    long activeCallActivityInstanceKey =
+        awaitActiveCallActivityInstanceKey(
+            camundaClient, timerInstance.getProcessInstanceKey());
+    long childProcessInstanceKey =
+        awaitActiveChildProcessInstanceKey(
+            camundaClient, timerInstance.getProcessInstanceKey());
+    long activeTimerElementInstanceKey =
+        awaitActiveTimerElementInstanceKey(camundaClient, childProcessInstanceKey);
+    assertWaitingForDeadline(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
 
     TerminationDateUpdater updater = new TerminationDateUpdater(camundaClient);
 
+    long firstChildProcessInstanceKey = childProcessInstanceKey;
     assertEquals(
         timerInstance.getProcessInstanceKey(),
         updater.update(PROJECT_ID, firstUpdatedDeadline.toString()).getProcessInstanceKey());
-    assertWaitingForDateOrUpdate(timerInstance);
+    awaitChildProcessTermination(camundaClient, firstChildProcessInstanceKey);
+    activeCallActivityInstanceKey =
+        awaitRearmedCallActivityInstanceKey(
+            camundaClient,
+            timerInstance.getProcessInstanceKey(),
+            activeCallActivityInstanceKey);
+    childProcessInstanceKey =
+        awaitActiveChildProcessInstanceKey(
+            camundaClient, timerInstance.getProcessInstanceKey());
+    activeTimerElementInstanceKey =
+        awaitActiveTimerElementInstanceKey(camundaClient, childProcessInstanceKey);
+    assertWaitingForDeadline(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
 
     processTestContext.increaseTime(
-        Duration.between(processTestContext.getCurrentTime(), originalDeadline.plusSeconds(1)));
-    assertWaitingForDateOrUpdate(timerInstance);
+        Duration.between(processTestContext.getCurrentTime(), originalDeadline.plusSeconds(30)));
+    assertWaitingForDeadline(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
 
+    long secondChildProcessInstanceKey = childProcessInstanceKey;
     assertEquals(
         timerInstance.getProcessInstanceKey(),
         updater.update(PROJECT_ID, finalDeadline.toString()).getProcessInstanceKey());
-    assertWaitingForDateOrUpdate(timerInstance);
+    awaitChildProcessTermination(camundaClient, secondChildProcessInstanceKey);
+    activeCallActivityInstanceKey =
+        awaitRearmedCallActivityInstanceKey(
+            camundaClient,
+            timerInstance.getProcessInstanceKey(),
+            activeCallActivityInstanceKey);
+    childProcessInstanceKey =
+        awaitActiveChildProcessInstanceKey(
+            camundaClient, timerInstance.getProcessInstanceKey());
+    activeTimerElementInstanceKey =
+        awaitActiveTimerElementInstanceKey(camundaClient, childProcessInstanceKey);
+    assertWaitingForDeadline(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
 
     processTestContext.increaseTime(
-        Duration.between(processTestContext.getCurrentTime(), firstUpdatedDeadline.plusSeconds(1)));
-    assertWaitingForDateOrUpdate(timerInstance);
+        Duration.between(
+            processTestContext.getCurrentTime(), firstUpdatedDeadline.plusSeconds(30)));
+    assertWaitingForDeadline(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
     processTestContext.increaseTime(
-        Duration.between(processTestContext.getCurrentTime(), finalDeadline.minusSeconds(1)));
-    assertWaitingForDateOrUpdate(timerInstance);
+        Duration.between(processTestContext.getCurrentTime(), finalDeadline.minusSeconds(30)));
+    assertWaitingForDeadline(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
 
-    processTestContext.increaseTime(Duration.ofSeconds(2));
+    processTestContext.increaseTime(
+        Duration.between(processTestContext.getCurrentTime(), finalDeadline.plusSeconds(30)));
     assertThat(timerInstance)
         .isCompleted()
         .hasCompletedElement("DeadlineReached", 1);
@@ -192,8 +247,168 @@ class LiveTimerAcceptanceTest {
         .size();
   }
 
-  private static void assertWaitingForDateOrUpdate(ProcessInstanceEvent instance) {
-    assertThat(instance).isActive().hasActiveElements("WaitForDateOrUpdate");
+  private static Long activeCallActivityInstanceKey(
+      CamundaClient camundaClient, long parentProcessInstanceKey) {
+    var callActivities =
+        camundaClient
+            .newElementInstanceSearchRequest()
+            .filter(
+                filter ->
+                    filter
+                    .processInstanceKey(parentProcessInstanceKey)
+                    .elementId("DeadlineWaitCall")
+                        .state(ElementInstanceState.ACTIVE))
+            .send()
+            .join()
+            .items();
+    if (callActivities.size() > 1) {
+      throw new AssertionError("Expected one active deadline call activity");
+    }
+    return callActivities.isEmpty()
+        ? null
+        : callActivities.get(0).getElementInstanceKey();
+  }
+
+  private static Long activeChildProcessInstanceKey(
+      CamundaClient camundaClient, long parentProcessInstanceKey) {
+    var children =
+        camundaClient
+            .newProcessInstanceSearchRequest()
+            .filter(
+                filter ->
+                    filter
+                    .parentProcessInstanceKey(parentProcessInstanceKey)
+                    .processDefinitionId(ACTIVE_TIMER_WAIT_PROCESS_ID)
+                    .state(ProcessInstanceState.ACTIVE))
+            .send()
+            .join()
+            .items();
+    if (children.size() > 1) {
+      throw new AssertionError("Expected one active timer child process");
+    }
+    return children.isEmpty() ? null : children.get(0).getProcessInstanceKey();
+  }
+
+  private static Long activeTimerElementInstanceKey(
+      CamundaClient camundaClient, long childProcessInstanceKey) {
+    var timers =
+        camundaClient
+            .newElementInstanceSearchRequest()
+            .filter(
+                filter ->
+                    filter
+                    .processInstanceKey(childProcessInstanceKey)
+                    .elementId("TerminationTimer")
+                    .state(ElementInstanceState.ACTIVE))
+            .send()
+            .join()
+            .items();
+    if (timers.size() > 1) {
+      throw new AssertionError("Expected one active termination timer");
+    }
+    return timers.isEmpty() ? null : timers.get(0).getElementInstanceKey();
+  }
+
+  private static boolean processInstanceHasState(
+      CamundaClient camundaClient, long processInstanceKey, ProcessInstanceState state) {
+    return !camundaClient
+        .newProcessInstanceSearchRequest()
+        .filter(
+            filter -> filter.processInstanceKey(processInstanceKey).state(state))
+        .send()
+        .join()
+        .items()
+        .isEmpty();
+  }
+
+  private static long awaitActiveCallActivityInstanceKey(
+      CamundaClient camundaClient, long parentProcessInstanceKey) {
+    return await()
+        .atMost(Duration.ofSeconds(20))
+        .until(
+            () -> activeCallActivityInstanceKey(camundaClient, parentProcessInstanceKey),
+            callActivityInstanceKey -> callActivityInstanceKey != null);
+  }
+
+  private static long awaitRearmedCallActivityInstanceKey(
+      CamundaClient camundaClient,
+      long parentProcessInstanceKey,
+      long previousCallActivityInstanceKey) {
+    return await()
+        .atMost(Duration.ofSeconds(20))
+        .until(
+            () -> activeCallActivityInstanceKey(camundaClient, parentProcessInstanceKey),
+            callActivityInstanceKey ->
+                callActivityInstanceKey != null
+                    && callActivityInstanceKey != previousCallActivityInstanceKey);
+  }
+
+  private static long awaitActiveChildProcessInstanceKey(
+      CamundaClient camundaClient, long parentProcessInstanceKey) {
+    return await()
+        .atMost(Duration.ofSeconds(20))
+        .until(
+            () -> activeChildProcessInstanceKey(camundaClient, parentProcessInstanceKey),
+            childProcessInstanceKey -> childProcessInstanceKey != null);
+  }
+
+  private static void awaitChildProcessTermination(
+      CamundaClient camundaClient, long childProcessInstanceKey) {
+    await()
+        .atMost(Duration.ofSeconds(20))
+        .until(
+            () ->
+                processInstanceHasState(
+                    camundaClient, childProcessInstanceKey, ProcessInstanceState.TERMINATED));
+  }
+
+  private static long awaitActiveTimerElementInstanceKey(
+      CamundaClient camundaClient, long childProcessInstanceKey) {
+    return await()
+        .atMost(Duration.ofSeconds(20))
+        .until(
+            () -> activeTimerElementInstanceKey(camundaClient, childProcessInstanceKey),
+            timerInstanceKey -> timerInstanceKey != null);
+  }
+
+  private static void assertWaitingForDeadline(
+      CamundaClient camundaClient,
+      long parentProcessInstanceKey,
+      long childProcessInstanceKey,
+      long callActivityInstanceKey) {
+    await()
+        .pollInterval(Duration.ofMillis(100))
+        .atMost(Duration.ofSeconds(20))
+        .during(Duration.ofSeconds(2))
+        .until(
+            () ->
+                isActiveAndWaitingForDeadline(
+                    camundaClient,
+                    parentProcessInstanceKey,
+                    childProcessInstanceKey,
+                    callActivityInstanceKey));
+  }
+
+  private static boolean isActiveAndWaitingForDeadline(
+      CamundaClient camundaClient,
+      long parentProcessInstanceKey,
+      long childProcessInstanceKey,
+      long callActivityInstanceKey) {
+    return processInstanceHasState(
+            camundaClient, parentProcessInstanceKey, ProcessInstanceState.ACTIVE)
+        && processInstanceHasState(
+            camundaClient, childProcessInstanceKey, ProcessInstanceState.ACTIVE)
+        && Long.valueOf(callActivityInstanceKey)
+            .equals(activeCallActivityInstanceKey(camundaClient, parentProcessInstanceKey))
+        && activeTimerElementInstanceKey(camundaClient, childProcessInstanceKey) != null;
+  }
+
+  private static void assertStableSampleCount(CamundaClient camundaClient, int expectedCount) {
+    await()
+        .pollInterval(Duration.ofMillis(100))
+        .atMost(Duration.ofSeconds(20))
+        .during(Duration.ofSeconds(5))
+        .untilAsserted(() -> assertEquals(expectedCount, activeSampleCount(camundaClient)));
   }
 
   private static void writeObservation(
@@ -223,12 +438,15 @@ class LiveTimerAcceptanceTest {
         Map.ofEntries(
             Map.entry(
                 "model_path", "process-test/src/test/resources/active-timer-rescheduling.bpmn"),
-            Map.entry("process_id", ACTIVE_TIMER_PROCESS_ID),
+            Map.entry("process_id", ACTIVE_TIMER_WAIT_PROCESS_ID),
+            Map.entry("rearm_process_id", ACTIVE_TIMER_PROCESS_ID),
+            Map.entry("rearm_call_activity_id", "DeadlineWaitCall"),
             Map.entry("timer_id", "TerminationTimer"),
             Map.entry("strategy", "message_rearm"),
             Map.entry("message_name", "TerminationDateChanged"),
             Map.entry("correlation_key_variable", "projectId"),
             Map.entry("date_variable", "terminationDate"),
+            Map.entry("message_date_variable", "updatedTerminationDate"),
             Map.entry("timer_was_active_before_first_update", true),
             Map.entry("updates",
                 List.of(

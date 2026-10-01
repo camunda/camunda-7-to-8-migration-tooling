@@ -28,6 +28,8 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 Run it again for a new migration, even if the paths have not changed. Old check logs cannot
 make the new gate `READY`. Where the project uses Git, add `.camunda-migration/validation/` to
 its `.gitignore`. Never commit generated logs, manifests, or summaries.
+Run `init` before code conversion. It records detected due-date locations in the Step 2 inventory
+so the gate can compare original C7 callers with the migrated source.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 
@@ -139,7 +141,8 @@ Use `--non-timer-evidence-json '[{"location":"examples/web/Job.java:42:17","evid
 The gate rejects placeholders such as `not applicable` as evidence.
 When the project approves message-driven timer rearming, add an `active_timer_update_decision`
 object to `.camunda-migration/validation/validation-evidence.json`. Use the exact converted model,
-process, timer, message name, correlation-key variable, and detected source locations:
+timer process, parent process, parent call activity, timer, message name, correlation-key variable,
+message date variable, captured source locations, and current migrated-caller location:
 
 ```json
 {
@@ -151,28 +154,45 @@ process, timer, message name, correlation-key variable, and detected source loca
     "updates": [
       {
         "module": "examples/web",
-        "locations": ["examples/web/TerminationService.java:42:9"],
+        "source_locations": ["examples/web/LegacyTerminationService.java:42:9"],
+        "migrated_caller_location": "examples/web/TerminationService.java:52:13",
         "model_path": "models/converted-c8-order.bpmn",
-        "process_id": "order-process",
+        "process_id": "order-timer-wait",
+        "rearm_process_id": "order-process",
+        "rearm_call_activity_id": "WaitForTermination",
         "timer_id": "TerminationTimer",
         "message_name": "TerminationDateChanged",
         "correlation_key_variable": "projectId",
-        "date_variable": "terminationDate"
+        "date_variable": "terminationDate",
+        "message_date_variable": "updatedTerminationDate"
       }
     ]
   }
 }
 ```
 
-The timer expression must use the mapped date variable. The converted model must declare the named
-message with the mapped correlation key. Its message catch and timer must branch from one
-event-based gateway. The message branch must pass through a converging gateway before it re-enters
-that event-based gateway.
+Each `source_locations` entry must match the Step 2 inventory captured by `init`. The
+`migrated_caller_location` must identify current source code in the mapped module. Inspect that
+caller and confirm that it sends the mapped message, correlation key, and date variable. A C7
+due-date call that remains at a mapped source location blocks readiness.
+
+The `message_date_variable` identifies the date field in the message payload. The `date_variable`
+identifies the variable read by the timer.
+
+The `process_id` identifies the executable timer child process. List that process and its parent in
+the model inventory. Mark the timer process as non-standalone and set `covering_test` to the parent
+test. The timer process must use the mapped date variable in its timer expression. The parent
+process must call it through the mapped `bpmn:callActivity`. The call activity must input-map the
+date variable into the timer process. Attach an interrupting message boundary event to that call
+activity. Map the `message_date_variable` into the parent `date_variable` on the boundary event.
+Route the message branch through an exclusive converging gateway before the call activity is
+entered again. Each call creates a fresh child process instance with the updated date.
+The mapped module and model must appear together in at least one deployment set.
 
 Record the module review with the same approval reference:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition message_rearm --reference MIGRATION_REPORT.md#active-timer-rearm --note "Mapped every active timer due-date call to the approved message-rearm model."
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition message_rearm --reference MIGRATION_REPORT.md#active-timer-rearm --note "Inspected examples/web/TerminationService.java:52:13. It sends TerminationDateChanged with projectId and maps updatedTerminationDate to terminationDate."
 ```
 
 Run the required `active_instance_reschedule` check after the module review, converted-model lint
@@ -180,11 +200,12 @@ and review, and deployment-set preflight. Use the approved target version and a 
 target:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type timer --target models/converted-c8-order.bpmn#order-process#TerminationTimer --kind active_instance_reschedule --environment local --target-disposable --target-version 8.9.21 --isolation-plan "Remove the disposable target and all test state." -- <bounded-two-update-test-command>
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type timer --target models/converted-c8-order.bpmn#order-timer-wait#TerminationTimer --kind active_instance_reschedule --environment local --target-disposable --target-version 8.9.21 --isolation-plan "Remove the disposable target and all test state." -- <bounded-two-update-test-command>
 ```
 
 The command must end with one JSON object. Its `observation.active_timer` object must identify the
-mapped model, process, timer, strategy, message, correlation key, and date variable. It must record
+mapped model, timer process, parent process and call activity, timer, strategy, message, correlation
+key, and both date variables. It must record
 that the timer was active before both updates. Each update must contain its old and new deadlines.
 Each update must set `timer_active_before_update` and `correlated` to `true`. The test must advance
 past both obsolete deadlines and record a zero fire count for each.
@@ -203,12 +224,15 @@ must identify the disposable deployment and prove cleanup:
   "observation": {
     "active_timer": {
       "model_path": "models/converted-c8-order.bpmn",
-      "process_id": "order-process",
+      "process_id": "order-timer-wait",
+      "rearm_process_id": "order-process",
+      "rearm_call_activity_id": "WaitForTermination",
       "timer_id": "TerminationTimer",
       "strategy": "message_rearm",
       "message_name": "TerminationDateChanged",
       "correlation_key_variable": "projectId",
       "date_variable": "terminationDate",
+      "message_date_variable": "updatedTerminationDate",
       "timer_was_active_before_first_update": true,
       "updates": [
         {

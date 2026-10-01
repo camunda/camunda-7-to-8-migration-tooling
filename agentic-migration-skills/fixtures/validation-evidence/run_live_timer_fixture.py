@@ -95,6 +95,41 @@ def target_container_events(lines, existing_ids):
     return created, destroyed
 
 
+def remove_created_containers(created):
+    cleanup_errors = []
+    try:
+        remaining_ids = container_ids()
+    except (OSError, subprocess.SubprocessError) as exc:
+        return set(created), [f"Could not inspect fixture containers: {exc}"]
+
+    for container_id in sorted(created):
+        is_present = any(
+            container_id.startswith(remaining) or remaining.startswith(container_id)
+            for remaining in remaining_ids
+        )
+        if not is_present:
+            continue
+        try:
+            docker("container", "rm", "--force", container_id)
+        except (OSError, subprocess.SubprocessError) as exc:
+            cleanup_errors.append(f"Could not remove fixture container {container_id}: {exc}")
+
+    try:
+        remaining_ids = container_ids()
+    except (OSError, subprocess.SubprocessError) as exc:
+        return set(created), cleanup_errors + [f"Could not verify fixture cleanup: {exc}"]
+
+    leaked = {
+        container_id
+        for container_id in created
+        if any(
+            container_id.startswith(remaining) or remaining.startswith(container_id)
+            for remaining in remaining_ids
+        )
+    }
+    return leaked, cleanup_errors
+
+
 def main():
     require_java_21()
     if not docker("info", "--format", "{{.ServerVersion}}"):
@@ -137,50 +172,67 @@ def main():
     if event_stream.poll() is not None:
         raise RuntimeError("Docker event capture did not start")
 
+    completed = None
+    command_error = None
+    event_stream_error = None
     try:
-        completed = subprocess.run(
-            [
-                "mvn",
-                "--batch-mode",
-                "--no-transfer-progress",
-                "-f",
-                str(FIXTURE / "pom.xml"),
-                "test",
-            ],
-            cwd=FIXTURE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            errors="replace",
-            timeout=900,
-            check=False,
-        )
-        print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
+        try:
+            completed = subprocess.run(
+                [
+                    "mvn",
+                    "--batch-mode",
+                    "--no-transfer-progress",
+                    "-f",
+                    str(FIXTURE / "pom.xml"),
+                    "test",
+                ],
+                cwd=FIXTURE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                timeout=900,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            command_error = exc
     finally:
-        stop_event_stream(event_stream, reader)
+        try:
+            stop_event_stream(event_stream, reader)
+        except (OSError, subprocess.SubprocessError) as exc:
+            event_stream_error = exc
 
     created, destroyed = target_container_events(event_lines, existing_ids)
-    remaining_ids = container_ids()
-    leaked = {
-        container_id
-        for container_id in created
-        if any(
-            container_id.startswith(remaining) or remaining.startswith(container_id)
-            for remaining in remaining_ids
+    leaked, cleanup_errors = remove_created_containers(created)
+    if event_stream_error is not None:
+        cleanup_errors.append(f"Could not stop Docker event capture: {event_stream_error}")
+    if cleanup_errors or leaked:
+        command_failure = (
+            str(command_error)
+            if command_error is not None
+            else f"Maven exited with code {completed.returncode}"
+            if completed is not None and completed.returncode != 0
+            else "Maven fixture did not complete successfully"
         )
-    }
-    if completed.returncode != 0 and not created:
+        raise RuntimeError(
+            f"{command_failure}; fixture container cleanup failed: "
+            f"errors={cleanup_errors}, remaining={sorted(leaked)}"
+        ) from command_error
+    if command_error is not None:
+        raise command_error
+    if completed is None:
+        raise RuntimeError("Maven fixture did not return a process result")
+    print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
+    if completed.returncode != 0:
         return completed.returncode
     if not created:
         raise RuntimeError(f"No Camunda {VERSION} Testcontainers target was observed")
-    if created - destroyed or leaked:
+    if created - destroyed:
         raise RuntimeError(
-            "The disposable Camunda target was not fully removed: "
+            "The disposable Camunda target did not report destruction: "
             f"created={sorted(created)}, destroyed={sorted(destroyed)}, "
-            f"remaining={sorted(leaked)}"
+            "any remaining fixture containers were removed by the runner"
         )
-    if completed.returncode != 0:
-        return completed.returncode
     if not OBSERVATION.is_file():
         raise RuntimeError("Process Test did not write its acceptance observation")
 
