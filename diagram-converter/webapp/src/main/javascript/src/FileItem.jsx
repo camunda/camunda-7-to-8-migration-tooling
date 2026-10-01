@@ -44,6 +44,65 @@ const SEVERITY_BADGE_ICON = {
   info: Info,
 };
 
+export function FileItemActions({
+  name,
+  error,
+  status,
+  isChecked,
+  isConverted,
+  downloadAction,
+  previewAction,
+  previewTitle = "Preview analysis findings",
+}) {
+  return (
+    <>
+      {status === "uploading" && (
+        <span className="fileItemStatus" role="status">
+          <Spinner />
+          <span className="fileItemStatusLabel">{statusLabel(isChecked)}</span>
+        </span>
+      )}
+      {isChecked && previewAction && (
+        <button
+          type="button"
+          className="download"
+          onClick={previewAction}
+          title={previewTitle}
+          aria-label={previewTitle}
+        >
+          <Eye aria-hidden="true" />
+        </button>
+      )}
+      {isConverted && downloadAction && !error && (
+        <button
+          type="button"
+          className="download"
+          onClick={downloadAction}
+          title={`Download ${name}`}
+          aria-label={`Download ${name}`}
+        >
+          <Download aria-hidden="true" />
+        </button>
+      )}
+    </>
+  );
+}
+
+export function FileItemError({ error, onRetry, className = "FileItemError" }) {
+  return (
+    <div className={className} role="alert">
+      <AlertTriangle aria-hidden="true" className="fileItemErrorIcon" />
+      <span className="fileItemErrorText">{error}</span>
+      {onRetry && (
+        <button type="button" className="fileItemRetry" onClick={onRetry}>
+          <RefreshCw aria-hidden="true" />
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function FileItem({
   name,
   error,
@@ -85,35 +144,16 @@ export default function FileItem({
               {findingCountLabel}
             </span>
           )}
-
-          {status === "uploading" && (
-            <span className="fileItemStatus" role="status">
-              <Spinner />
-              <span className="fileItemStatusLabel">{statusLabel(isChecked)}</span>
-            </span>
-          )}
-          {isChecked && previewAction && (
-            <button
-              type="button"
-              className="download"
-              onClick={previewAction}
-              title={previewTitle}
-              aria-label={previewTitle}
-            >
-              <Eye />
-            </button>
-          )}
-          {isConverted && downloadAction && !error && (
-            <button
-              type="button"
-              className="download"
-              onClick={downloadAction}
-              title={`Download ${name}`}
-              aria-label={`Download ${name}`}
-            >
-              <Download />
-            </button>
-          )}
+          <FileItemActions
+            name={name}
+            error={error}
+            status={status}
+            isChecked={isChecked}
+            isConverted={isConverted}
+            downloadAction={downloadAction}
+            previewAction={previewAction}
+            previewTitle={previewTitle}
+          />
           {onDelete && (
             <button
               type="button"
@@ -126,18 +166,7 @@ export default function FileItem({
           )}
         </div>
       </div>
-      {error && (
-        <div className="FileItemError" role="alert">
-          <AlertTriangle aria-hidden="true" className="fileItemErrorIcon" />
-          <span className="fileItemErrorText">{error}</span>
-          {onRetry && (
-            <button type="button" className="fileItemRetry" onClick={onRetry}>
-              <RefreshCw aria-hidden="true" />
-              Retry
-            </button>
-          )}
-        </div>
-      )}
+      {error && <FileItemError error={error} onRetry={onRetry} />}
     </div>
   );
 }

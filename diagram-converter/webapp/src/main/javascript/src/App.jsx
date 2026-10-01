@@ -21,6 +21,7 @@ import {
 import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
+import FileResultsTable from "./FileResultsTable";
 import {
   FINDINGS_TABLE_HEADER,
   buildFindingsRows,
@@ -1015,34 +1016,37 @@ function App() {
                   </Alert>
                 </div>
               )}
-              {files.map((file, idx) => {
-                const r = fileResults[idx];
-                const modelType = getPreviewType(file.name, r.originalModelXml);
-                const isForm = modelType === "form";
-                const fileFindingRows = buildFindingsRows(r.checkResponseJson);
-                const fileFindingCount = fileFindingRows.length;
-                const fileHighestSeverity = getHighestSeverity(fileFindingRows);
-                return (
-                <FileItem
-                  key={file.name + "-" + idx}
-                  name={file.name}
-                  status={r.status}
-                  isChecked={r.checkResponseJson != null}
-                  isConverted={r.convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(r, file.name) : () => preview(r, modelType, file.name)}
-                  previewTitle={isForm ? "Preview form" : undefined}
-                  downloadAction={() => download(r)}
-                  findingCount={fileFindingCount}
-                  highestSeverity={fileHighestSeverity}
-                  error={
-                    r.status === "error"
-                      ? (r.errorMessage || "File processing failed")
-                      : ""
-                  }
-                  onRetry={r.status === "error" ? () => retryFile(idx) : undefined}
-                />
-                );
-              })}
+              <FileResultsTable
+                resetKey={files}
+                rows={files.map((file, idx) => {
+                  const r = fileResults[idx] || { status: "uploading" };
+                  const modelType = getPreviewType(file.name, r.originalModelXml);
+                  const isForm = modelType === "form";
+                  const fileFindingRows = buildFindingsRows(r.checkResponseJson);
+                  return {
+                    id: `${file.name}-${idx}`,
+                    name: file.name,
+                    status: r.status,
+                    isChecked: r.checkResponseJson != null,
+                    isConverted: r.convertedFileBlob != null,
+                    findingCount: fileFindingRows.length,
+                    highestSeverity: getHighestSeverity(fileFindingRows),
+                    previewAction: isForm
+                      ? () => previewForm(r, file.name)
+                      : () => preview(r, modelType, file.name),
+                    previewTitle: isForm
+                      ? `Preview form for ${file.name}`
+                      : `Preview analysis findings for ${file.name}`,
+                    downloadAction: () => download(r),
+                    error:
+                      r.status === "error"
+                        ? r.errorMessage || "File processing failed"
+                        : "",
+                    onRetry:
+                      r.status === "error" ? () => retryFile(idx) : undefined,
+                  };
+                })}
+              />
               {downloadError && (
                 <Alert
                   variant="destructive"
