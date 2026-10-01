@@ -239,7 +239,7 @@ For a full migration, record deployment sets, timer decisions, and module due-da
 `references/validation-evidence.md`. Never treat the gate's source hints as a complete caller review.
 The validation gate supports a guarded `message_rearm` path for project-approved active-timer updates.
 When the project approves this path, map each source location to a reviewed migrated caller and run the live check.
-If a mapping is unknown or unapproved, keep the affected flow blocked.
+If a mapping is unknown or unapproved, then keep the affected flow blocked.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.

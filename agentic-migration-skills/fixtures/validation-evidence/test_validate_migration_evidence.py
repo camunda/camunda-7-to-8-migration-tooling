@@ -1109,6 +1109,27 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.assertEqual(1, self.audit())
                 self.assertNotEqual("READY", self.summary()["gate"])
 
+    def test_active_timer_mapping_rejects_a_retained_c7_caller_after_recipe_comments(self):
+        self.install_active_timer_decision(retain_c7_caller=True)
+        (self.root / "app" / "Timer.java").write_text(
+            "// TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).\n"
+            "// For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.\n"
+            "// See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/\n"
+            "managementService.setJobDuedate(jobId, terminationDate);\n",
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertTrue(
+            any(
+                "mapped C7 due-date location remains in the migrated source" in issue
+                for issue in plan.issues
+            )
+        )
+        self.assertEqual(1, self.audit())
+        self.assertNotEqual("READY", self.summary()["gate"])
+
     def test_active_timer_mapping_keeps_distinct_callers_for_the_same_timer(self):
         runtime_key = self.install_active_timer_decision(multiple_callers=True)
         caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
@@ -1309,6 +1330,46 @@ class ValidationEvidenceTest(unittest.TestCase):
             boundary_outgoing + "<bpmn:outgoing>Update_Extra</bpmn:outgoing>",
             1,
         )
+        xml = xml.replace(
+            end_event,
+            end_event
+            + '<bpmn:endEvent id="AuditEnd"><bpmn:incoming>Update_Extra</bpmn:incoming>'
+            "</bpmn:endEvent>",
+            1,
+        )
+        xml = xml.replace(
+            rearm_flow,
+            rearm_flow
+            + '<bpmn:sequenceFlow id="Update_Extra" sourceRef="DateChanged" '
+            'targetRef="AuditEnd" />',
+            1,
+        )
+        model_path.write_text(xml, encoding="utf-8")
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertTrue(
+            any(
+                "converted model lacks the mapped message-driven timer rearm path" in issue
+                for issue in plan.issues
+            ),
+            "\n".join(plan.issues),
+        )
+
+    def test_active_timer_mapping_rejects_an_undeclared_boundary_outgoing_flow(self):
+        self.install_active_timer_decision()
+        model_path = self.root / "models/converted-c8-process.bpmn"
+        xml = model_path.read_text(encoding="utf-8")
+        end_event = (
+            '<bpmn:endEvent id="End"><bpmn:incoming>Call_End</bpmn:incoming>'
+            "</bpmn:endEvent>"
+        )
+        rearm_flow = (
+            '<bpmn:sequenceFlow id="Update_Prepare" sourceRef="DateChanged" '
+            'targetRef="Prepare" />'
+        )
+        for marker in (end_event, rearm_flow):
+            self.assertIn(marker, xml)
         xml = xml.replace(
             end_event,
             end_event

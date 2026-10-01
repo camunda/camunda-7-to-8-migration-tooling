@@ -239,7 +239,56 @@ def read_model(root, source, converted):
     return source_document, document
 
 
+def source_without_comments(text):
+    characters = list(text)
+    index = 0
+    block_comment_depth = 0
+    string_delimiter = None
+    while index < len(text):
+        if block_comment_depth:
+            if text.startswith("/*", index):
+                characters[index : index + 2] = "  "
+                block_comment_depth += 1
+                index += 2
+            elif text.startswith("*/", index):
+                characters[index : index + 2] = "  "
+                block_comment_depth -= 1
+                index += 2
+            else:
+                if text[index] not in "\r\n":
+                    characters[index] = " "
+                index += 1
+        elif string_delimiter:
+            if text[index] == "\\":
+                index += 2
+            elif text.startswith(string_delimiter, index):
+                index += len(string_delimiter)
+                string_delimiter = None
+            else:
+                index += 1
+        elif text.startswith("//", index) and not (
+            index > 0 and text[index - 1] == ":"
+        ):
+            while index < len(text) and text[index] not in "\r\n":
+                characters[index] = " "
+                index += 1
+        elif text.startswith("/*", index):
+            characters[index : index + 2] = "  "
+            block_comment_depth = 1
+            index += 2
+        elif text.startswith('"""', index) or text.startswith("'''", index):
+            string_delimiter = text[index : index + 3]
+            index += 3
+        elif text[index] in "\"'`":
+            string_delimiter = text[index]
+            index += 1
+        else:
+            index += 1
+    return "".join(characters)
+
+
 def source_update_fingerprint(text, start, end):
+    text = source_without_comments(text)
     statement_start = max(
         text.rfind(delimiter, 0, start) for delimiter in (";", "{", "}")
     ) + 1
@@ -467,10 +516,14 @@ def supports_message_rearm(
         for output in date_outputs
     ):
         return False
-    boundary_outgoing = boundary.findall(f"{BPMN}outgoing")
+    boundary_outgoing = [
+        flow_id
+        for flow_id, flow in flows.items()
+        if flow.get("sourceRef") == boundary.get("id")
+    ]
     if len(boundary_outgoing) != 1:
         return False
-    for boundary_flow_id in (node.text for node in boundary_outgoing if node.text):
+    for boundary_flow_id in boundary_outgoing:
         boundary_flow = flows.get(boundary_flow_id)
         if boundary_flow is None:
             continue

@@ -284,7 +284,7 @@ deployment and prove cleanup:
 
 For modules that contain both active-timer and non-timer updates, use `mixed`. Supply
 `--non-timer-evidence-json` for every non-timer source location. If the project has no approved
-replacement, if a timer link remains unknown, or if manual review finds a call the scan missed,
+replacement, a timer link remains unknown, or manual review finds a call the scan missed, then
 record a `block` check. A passing review cannot bypass an active-timer runtime check.
 
 If a check cannot run, record `block` with a reason. Never substitute a review for an executable
