@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.openrewrite.java.Assertions.java;
 
-import io.camunda.client.impl.search.response.SearchResponsePageImpl;
+import io.camunda.client.api.search.response.SearchResponsePage;
 import io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -85,7 +85,28 @@ class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
 
   @Test
   void rejectsCappedTotalInsteadOfReturningTheLowerBound() {
-    var page = new SearchResponsePageImpl(10_000L, true, null, null);
+    var page =
+        new SearchResponsePage() {
+          @Override
+          public Long totalItems() {
+            return 10_000L;
+          }
+
+          @Override
+          public Boolean hasMoreTotalItems() {
+            return true;
+          }
+
+          @Override
+          public String startCursor() {
+            return null;
+          }
+
+          @Override
+          public String endCursor() {
+            return null;
+          }
+        };
     var error =
         assertThrows(
             IllegalStateException.class,
