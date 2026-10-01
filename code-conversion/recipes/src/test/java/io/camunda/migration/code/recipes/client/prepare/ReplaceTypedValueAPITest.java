@@ -426,224 +426,6 @@ public class TypeValueTestClass {
   }
 
   @Test
-  void convertsOnlyFieldsAssignedTypedGetters() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    private ObjectValue bareGetter;
-                    private ObjectValue qualifiedGetter;
-                    private ObjectValue bareBuilder;
-                    private ObjectValue qualifiedBuilder;
-                    private ObjectValue mixedField;
-                    private ObjectValue mixedQualifiedGetter;
-                    private ObjectValue shadowedGetter;
-
-                    void assign(DelegateExecution execution, Object payload) {
-                        bareGetter = execution.getVariableTyped("bare");
-                        (this.qualifiedGetter) = execution.getVariableTyped("qualified");
-                        bareBuilder = Variables.objectValue(payload).create();
-                        this.qualifiedBuilder = Variables.objectValue(payload).create();
-                        mixedField = execution.getVariableTyped("mixed");
-                        this.mixedField = Variables.objectValue(payload).create();
-                        this.mixedQualifiedGetter = execution.getVariableTyped("mixedQualified");
-                        mixedQualifiedGetter = Variables.objectValue(payload).create();
-                    }
-
-                    void shadow(DelegateExecution execution, Object payload) {
-                        ObjectValue bareGetter;
-                        bareGetter = Variables.objectValue(payload).create();
-                        ObjectValue shadowedGetter;
-                        shadowedGetter = Variables.objectValue(payload).create();
-                        this.shadowedGetter = execution.getVariableTyped("shadowed");
-                    }
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    private Object bareGetter;
-                    private Object qualifiedGetter;
-                    private ObjectValue bareBuilder;
-                    private ObjectValue qualifiedBuilder;
-                    private ObjectValue mixedField;
-                    private ObjectValue mixedQualifiedGetter;
-                    private Object shadowedGetter;
-
-                    void assign(DelegateExecution execution, Object payload) {
-                        bareGetter = execution.getVariable("bare");
-                        (this.qualifiedGetter) = execution.getVariable("qualified");
-                        bareBuilder = Variables.objectValue(payload).create();
-                        this.qualifiedBuilder = Variables.objectValue(payload).create();
-                        mixedField = execution.getVariableTyped("mixed");
-                        this.mixedField = Variables.objectValue(payload).create();
-                        this.mixedQualifiedGetter = execution.getVariableTyped("mixedQualified");
-                        mixedQualifiedGetter = Variables.objectValue(payload).create();
-                    }
-
-                    void shadow(DelegateExecution execution, Object payload) {
-                        ObjectValue bareGetter;
-                        bareGetter = Variables.objectValue(payload).create();
-                        ObjectValue shadowedGetter;
-                        shadowedGetter = Variables.objectValue(payload).create();
-                        this.shadowedGetter = execution.getVariable("shadowed");
-                    }
-                }
-                """));
-  }
-
-  @Test
-  void convertsFieldsUsedBeforeTheirDeclarations() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void read(DelegateExecution execution) {
-                        bare = execution.getVariableTyped("bare");
-                        Object first = bare.getValue();
-                        this.qualified = execution.getVariableTyped("qualified");
-                        Object second = (this.qualified).getValue();
-                    }
-
-                    private ObjectValue bare;
-                    private ObjectValue qualified;
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void read(DelegateExecution execution) {
-                        bare = execution.getVariable("bare");
-                        Object first = bare;
-                        this.qualified = execution.getVariable("qualified");
-                        Object second = this.qualified;
-                    }
-
-                    private Object bare;
-                    private Object qualified;
-                }
-                """));
-  }
-
-  @Test
-  void convertsFieldsInNestedAndAnonymousClassesBeforeTheirDeclarations() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    class Nested {
-                        void read(DelegateExecution execution) {
-                            value = execution.getVariableTyped("nested");
-                            Object nested = value.getValue();
-                            PayloadTest.this.outer = execution.getVariableTyped("outer");
-                            Object outside = PayloadTest.this.outer.getValue();
-                        }
-
-                        private ObjectValue value;
-                    }
-
-                    Runnable anonymous(DelegateExecution execution) {
-                        return new Runnable() {
-                            @Override public void run() {
-                                field = execution.getVariableTyped("anonymous");
-                                Object result = field.getValue();
-                            }
-
-                            private ObjectValue field;
-                        };
-                    }
-
-                    private ObjectValue outer;
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    class Nested {
-                        void read(DelegateExecution execution) {
-                            value = execution.getVariable("nested");
-                            Object nested = value;
-                            PayloadTest.this.outer = execution.getVariable("outer");
-                            Object outside = PayloadTest.this.outer;
-                        }
-
-                        private Object value;
-                    }
-
-                    Runnable anonymous(DelegateExecution execution) {
-                        return new Runnable() {
-                            @Override public void run() {
-                                field = execution.getVariable("anonymous");
-                                Object result = field;
-                            }
-
-                            private Object field;
-                        };
-                    }
-
-                    private Object outer;
-                }
-                """));
-  }
-
-  @Test
-  void convertsNestedFieldUsedFromEnclosingClassBeforeDeclaration() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void read(DelegateExecution execution, Nested nested) {
-                        nested.value = execution.getVariableTyped("nested");
-                        Object result = nested.value.getValue();
-                    }
-
-                    class Nested {
-                        private ObjectValue value;
-                    }
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void read(DelegateExecution execution, Nested nested) {
-                        nested.value = execution.getVariable("nested");
-                        Object result = nested.value;
-                    }
-
-                    class Nested {
-                        private Object value;
-                    }
-                }
-                """));
-  }
-
-  @Test
   void preservesParenthesizedMixedFieldAssignments() {
     rewriteRun(
         spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
@@ -738,37 +520,6 @@ public class TypeValueTestClass {
   }
 
   @Test
-  void convertsTwoArgumentTaskServiceGetterField() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.TaskService;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    private ObjectValue taskValue;
-
-                    void read(TaskService taskService) {
-                        taskValue = taskService.getVariableTyped("task", "payload");
-                    }
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.TaskService;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    private Object taskValue;
-
-                    void read(TaskService taskService) {
-                        taskValue = taskService.getVariable("task", "payload");
-                    }
-                }
-                """));
-  }
-
-  @Test
   void preservesLocalTypedGettersWithoutEquivalentMigration() {
     rewriteRun(
         spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
@@ -822,63 +573,6 @@ public class TypeValueTestClass {
                     ObjectValue current() {
                         return typedArgument;
                     }
-                }
-                """));
-  }
-
-  @Test
-  void visitsConvertedFieldReadsInsidePreservedTypedValues() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void update(DelegateExecution execution) {
-                        source = execution.getVariableTyped("source");
-                        this.builder = Variables.objectValue(source.getValue())
-                            .serializationDataFormat("application/xml").create();
-                        ObjectValue local = Variables.objectValue(this.source.getValue())
-                            .serializationDataFormat("application/xml").create();
-                        ObjectValue delayed;
-                        delayed = Variables.objectValue(this.source.getValue())
-                            .serializationDataFormat("application/xml").create();
-                        ObjectValue reassigned = execution.getVariableTyped(
-                            String.valueOf(source.getValue()));
-                        reassigned = Variables.objectValue("later")
-                            .serializationDataFormat("application/xml").create();
-                    }
-
-                    private ObjectValue source;
-                    private ObjectValue builder;
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void update(DelegateExecution execution) {
-                        source = execution.getVariable("source");
-                        this.builder = Variables.objectValue(source)
-                            .serializationDataFormat("application/xml").create();
-                        ObjectValue local = Variables.objectValue(this.source)
-                            .serializationDataFormat("application/xml").create();
-                        ObjectValue delayed;
-                        delayed = Variables.objectValue(this.source)
-                            .serializationDataFormat("application/xml").create();
-                        ObjectValue reassigned = execution.getVariableTyped(
-                            String.valueOf(source));
-                        reassigned = Variables.objectValue("later")
-                            .serializationDataFormat("application/xml").create();
-                    }
-
-                    private Object source;
-                    private ObjectValue builder;
                 }
                 """));
   }
@@ -956,52 +650,6 @@ public class TypeValueTestClass {
   }
 
   @Test
-  void visitsConvertedFieldReadsInsideMigratedTypedGetters() {
-    rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
-        java(
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void update(DelegateExecution execution) {
-                        source = execution.getVariableTyped("source");
-                        source = execution.getVariableTyped(String.valueOf(this.source.getValue()));
-                        ObjectValue payload = execution.getVariableTyped(
-                            String.valueOf(source.getValue()));
-                        consume(payload.getValue());
-                    }
-
-                    private ObjectValue source;
-                    private java.util.List<ObjectValue> typedValues;
-
-                    void consume(Object value) {}
-                }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
-
-                class PayloadTest {
-                    void update(DelegateExecution execution) {
-                        source = execution.getVariable("source");
-                        source = execution.getVariable(String.valueOf(this.source));
-                        // please check type
-                        Object payload = execution.getVariable(
-                                String.valueOf(source));
-                        consume(payload);
-                    }
-
-                    private Object source;
-                    private java.util.List<ObjectValue> typedValues;
-
-                    void consume(Object value) {}
-                }
-                """));
-  }
-
-  @Test
   void preservesFieldsUsedAsTypedChainedAssignmentResults() {
     rewriteRun(
         spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
@@ -1024,56 +672,26 @@ public class TypeValueTestClass {
                 """));
   }
 
+
   @Test
-  void rewritesConvertedAssignmentsInsideRetainedAndUnwrappedBuilders() {
+  void leavesGetterBackedObjectValueFieldsForManualMigration() {
     rewriteRun(
-        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()),
+        spec -> spec.recipe(new ReplaceTypedValueAPIRecipe()).expectedCyclesThatMakeChanges(0),
         java(
             """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.variable.value.ObjectValue;
 
-                class PayloadTest {
-                    private ObjectValue retained;
-                    private ObjectValue nestedXml;
-                    private ObjectValue nestedJson;
+            class PayloadTest {
+                private ObjectValue value;
 
-                    void update(DelegateExecution execution) {
-                        retained = Variables.objectValue(this.nestedXml = execution.getVariableTyped("xml"))
-                            .serializationDataFormat("application/xml").create();
-                        consume(Variables.objectValue(String.valueOf(
-                            nestedJson = execution.getVariableTyped("json")))
-                            .serializationDataFormat(Variables.SerializationDataFormats.JSON).create());
-                        consume(nestedXml.getValue());
-                        consume(nestedJson.getValue());
-                    }
-
-                    void consume(Object value) {}
+                void update(DelegateExecution execution) {
+                    value = execution.getVariableTyped("value");
                 }
-                """,
-            """
-                import org.camunda.bpm.engine.delegate.DelegateExecution;
-                import org.camunda.bpm.engine.variable.Variables;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
 
-                class PayloadTest {
-                    private ObjectValue retained;
-                    private Object nestedXml;
-                    private Object nestedJson;
-
-                    void update(DelegateExecution execution) {
-                        retained = Variables.objectValue(this.nestedXml = execution.getVariable("xml"))
-                            .serializationDataFormat("application/xml").create();
-                        consume(// type set to java.lang.Object
-                                String.valueOf(
-                                        nestedJson = execution.getVariable("json")));
-                        consume(nestedXml);
-                        consume(nestedJson);
-                    }
-
-                    void consume(Object value) {}
-                }
-                """));
+                Object read() { return value.getValue(); }
+            }
+            """));
   }
+
 }

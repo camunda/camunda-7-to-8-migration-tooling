@@ -9,6 +9,7 @@ package io.camunda.migration.code.recipes.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.properties.Assertions.properties;
 import static org.openrewrite.yaml.Assertions.yaml;
 
@@ -45,6 +46,64 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
             ~~(Invalid Camunda client mode 'simple'. Use 'self-managed' or 'saas' for camunda.client.mode.)~~>camunda.client.mode=simple
             """,
             spec -> spec.path("src/main/resources/application.properties")));
+  }
+
+  @Test
+  void flagsWorkersDisabledByGlobalDefaultsInTheSameModule() {
+    rewriteRun(
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment")
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/PaymentWorker.java")),
+        yaml(
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    enabled: false
+            """,
+            """
+            camunda:
+              client:
+                worker:
+                  defaults:
+                    ~~(This setting may disable a declared job worker. Resolve the effective configuration. Verify worker registration at runtime.)~~>enabled: false
+            """,
+            spec -> spec.path("src/main/resources/application.yml")));
+  }
+
+  @Test
+  void flagsAnnotationDisabledWorkersWithoutApplicationConfiguration() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResource(
+                "/META-INF/rewrite/configRecipes.yml",
+                "io.camunda.migration.code.recipes.ValidateCamundaClientConfigurationRecipe"),
+        java(
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                @JobWorker(type = "process-payment", enabled = false)
+                void handle() {}
+            }
+            """,
+            """
+            import io.camunda.client.annotation.JobWorker;
+
+            class PaymentWorker {
+                /*~~(This @JobWorker is disabled unless configuration overrides it. Verify registration at runtime.)~~>*/@JobWorker(type = "process-payment", enabled = false)
+                void handle() {}
+            }
+            """,
+            spec -> spec.path("src/main/java/com/example/PaymentWorker.java")));
   }
 
   @Test

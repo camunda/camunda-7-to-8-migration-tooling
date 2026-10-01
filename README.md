@@ -127,3 +127,4 @@ The source files in this repository are made available under the [Camunda Licens
 - **[Migration Analyzer](https://migration-analyzer.consulting-sandbox.camunda.cloud/)** - Tool for migrating BPMN models
 - **[Community Forum](https://forum.camunda.io/)** - Get help from the community
 - **[GitHub Issues](https://github.com/camunda/camunda-bpm-platform/issues)** - Report bugs and request features in the issue tracker
+

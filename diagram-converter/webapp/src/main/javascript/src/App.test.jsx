@@ -5,26 +5,23 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
+import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
 
+const appCss = readFileSync("src/index.css", "utf8");
+
 const bpmnMocks = vi.hoisted(() => {
   const instances = [];
+  const missingElementIds = new Set();
 
   class MockBpmnJS {
     constructor(options) {
       this.options = options;
       this.importedXml = [];
       this.destroyed = false;
-      this.canvas = {
-        zoom: vi.fn(),
-        addMarker: vi.fn(),
-        removeMarker: vi.fn(),
-        scrollToElement: vi.fn(),
-      };
-      this.selection = { select: vi.fn() };
       this.selectionChangedListener = null;
       this.eventBus = {
         on: vi.fn((eventName, listener) => {
@@ -42,12 +39,23 @@ const bpmnMocks = vi.hoisted(() => {
       };
       // Any element id resolves to a stub element unless explicitly seeded
       // as missing, so tests can assert both "found" and "not found" paths.
-      this.missingElementIds = new Set();
+      this.missingElementIds = new Set(missingElementIds);
       this.elementRegistry = {
         get: vi.fn((id) =>
           this.missingElementIds.has(id) ? undefined : { id, businessObject: {} }
         ),
       };
+      this.canvas = {
+        zoom: vi.fn(),
+        addMarker: vi.fn((elementId) => {
+          if (!this.elementRegistry.get(elementId)) {
+            throw new Error(`Cannot add marker to missing element ${elementId}`);
+          }
+        }),
+        removeMarker: vi.fn(),
+        scrollToElement: vi.fn(),
+      };
+      this.selection = { select: vi.fn() };
       instances.push(this);
     }
 
@@ -69,7 +77,7 @@ const bpmnMocks = vi.hoisted(() => {
     }
   }
 
-  return { MockBpmnJS, instances };
+  return { MockBpmnJS, instances, missingElementIds };
 });
 
 const testState = vi.hoisted(() => ({
@@ -198,7 +206,9 @@ async function openPreview({
   content,
   checkResponseJson,
   convertedContent,
+  missingElementIds = [],
 }) {
+  missingElementIds.forEach((id) => bpmnMocks.missingElementIds.add(id));
   configureUpload({ fileName, content, checkResponseJson, convertedContent });
   render(<App />);
 
@@ -209,6 +219,7 @@ async function openPreview({
   });
   await waitFor(() => expect(analyzeButton.disabled).toBe(false));
   fireEvent.click(analyzeButton);
+  await screen.findByRole("button", { name: `Download ${fileName}` });
 
   const previewButton = await screen.findByRole("button", {
     name: fileName.endsWith(".form")
@@ -223,6 +234,9 @@ async function openPreview({
   fireEvent.click(previewButton);
 
   await screen.findByRole("heading", { name: `Preview: ${fileName}` });
+  await waitFor(() =>
+    expect(screen.queryByText("Loading preview…")).toBeNull()
+  );
 }
 
 function deferred() {
@@ -238,6 +252,50 @@ function deferred() {
 // formData.get("file").name.
 function mockFile(name, content = "<xml/>") {
   return new File([content], name);
+}
+
+function configureBatchResponses(responsesByFile) {
+  fetchMock.mockImplementation((url, options) => {
+    const fileName = options.body.get("file").name;
+    const response = responsesByFile[fileName];
+    if (!response) {
+      throw new Error(`Unexpected request for ${fileName}`);
+    }
+
+    if (url.endsWith("/check")) {
+      if (response.analysisError) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue(response.analysisError),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        json: vi.fn().mockResolvedValue(response.checkResponseJson),
+      });
+    }
+
+    if (response.conversionError) {
+      return Promise.resolve({
+        ok: false,
+        status: 502,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        text: vi.fn().mockResolvedValue(""),
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      blob: vi
+        .fn()
+        .mockResolvedValue(new Blob([response.convertedContent || ""])),
+    });
+  });
 }
 
 async function uploadAndAnalyze(files) {
@@ -259,6 +317,35 @@ function fileRow(fileName) {
 
 let originalScrollIntoView;
 let scrollIntoView;
+
+async function waitForProcessingToFinish() {
+  await waitFor(() =>
+    expect(
+      screen
+        .queryAllByRole("status")
+        .filter((status) => /^(Analyzing|Converting)…$/.test(status.textContent))
+    ).toHaveLength(0)
+  );
+}
+
+async function openUploadedPreview(fileName) {
+  await waitForProcessingToFinish();
+
+  const previewButtonName = fileName.endsWith(".form")
+    ? `Preview form for ${fileName}`
+    : `Preview analysis findings for ${fileName}`;
+  const previewButton = await within(fileRow(fileName)).findByRole("button", {
+    name: previewButtonName,
+  });
+  previewButton.focus();
+  fireEvent.click(previewButton);
+
+  await screen.findByRole("heading", { name: `Preview: ${fileName}` });
+  await waitFor(() =>
+    expect(screen.queryByText("Loading preview…")).toBeNull()
+  );
+}
+
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
@@ -266,6 +353,7 @@ beforeEach(() => {
   testState.dmnPreviewProps.length = 0;
   testState.formPreviewProps.length = 0;
   bpmnMocks.instances.length = 0;
+  bpmnMocks.missingElementIds.clear();
   originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
   scrollIntoView = vi.fn();
   HTMLElement.prototype.scrollIntoView = scrollIntoView;
@@ -494,6 +582,388 @@ describe("preview routing", () => {
   });
 });
 
+describe("preview navigation", () => {
+  it("keeps navigation sticky at the top while the preview dialog scrolls", async () => {
+    const scrollContainerRule = appCss.match(/\.modal\s*\{[^}]*overflow-y:\s*auto;/);
+    const navigationRule = appCss.match(/\.preview-navigation\s*\{[^}]*\}/);
+    expect(scrollContainerRule).not.toBeNull();
+    expect(navigationRule).not.toBeNull();
+
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = `${scrollContainerRule[0]}}\n${navigationRule[0]}`;
+    document.head.append(stylesheet);
+
+    try {
+      await openPreview({
+        fileName: "process.bpmn",
+        content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+        checkResponseJson: [],
+      });
+
+      const dialog = screen.getByRole("dialog");
+      const navigation = within(dialog).getByRole("navigation", {
+        name: "File preview navigation",
+      });
+      expect(window.getComputedStyle(dialog).overflowY).toBe("auto");
+      expect(window.getComputedStyle(navigation).position).toBe("sticky");
+      expect(window.getComputedStyle(navigation).top).toBe("0px");
+    } finally {
+      stylesheet.remove();
+    }
+  });
+
+  it("shows the position and disables navigation for a single-file batch", async () => {
+    await openPreview({
+      fileName: "only.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("1 of 1")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Previous file" }).disabled).toBe(
+      true
+    );
+    expect(within(dialog).getByRole("button", { name: "Next file" }).disabled).toBe(
+      true
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Next with findings" }).disabled
+    ).toBe(true);
+  });
+
+  it("jumps over files without findings and disables controls at the result boundaries", async () => {
+    const bpmn = '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />';
+    const oneFinding = [
+      {
+        results: [
+          {
+            elementId: "task",
+            messages: [{ severity: "WARNING", message: "Review this task." }],
+          },
+        ],
+      },
+    ];
+    configureBatchResponses({
+      "first.bpmn": { checkResponseJson: oneFinding, convertedContent: bpmn },
+      "empty.bpmn": { checkResponseJson: [], convertedContent: bpmn },
+      "last.bpmn": { checkResponseJson: oneFinding, convertedContent: bpmn },
+    });
+    await uploadAndAnalyze([
+      mockFile("first.bpmn", bpmn),
+      mockFile("empty.bpmn", bpmn),
+      mockFile("last.bpmn", bpmn),
+    ]);
+    await openUploadedPreview("first.bpmn");
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("1 of 3")).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Previous file" }).disabled
+    ).toBe(true);
+    expect(within(dialog).getByRole("button", { name: "Next file" }).disabled).toBe(
+      false
+    );
+    const requestCount = fetchMock.mock.calls.length;
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Next with findings" })
+    );
+
+    await screen.findByRole("heading", { name: "Preview: last.bpmn" });
+    await waitFor(() =>
+      expect(screen.queryByText("Loading preview…")).toBeNull()
+    );
+    expect(within(dialog).getByText("3 of 3")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Previous file" }).disabled).toBe(
+      false
+    );
+    expect(within(dialog).getByRole("button", { name: "Next file" }).disabled).toBe(
+      true
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Next with findings" }).disabled
+    ).toBe(true);
+    expect(fetchMock.mock.calls).toHaveLength(requestCount);
+  });
+
+  it("preserves the severity filter and clears selection when moving to another file", async () => {
+    const bpmn = '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />';
+    const responseWithMixedSeverities = (warningId, infoId) => [
+      {
+        results: [
+          {
+            elementId: warningId,
+            elementType: "bpmn:ServiceTask",
+            messages: [{ severity: "WARNING", message: "warning finding" }],
+          },
+          {
+            elementId: infoId,
+            elementType: "bpmn:ServiceTask",
+            messages: [{ severity: "INFO", message: "info finding" }],
+          },
+        ],
+      },
+    ];
+    configureBatchResponses({
+      "first.bpmn": {
+        checkResponseJson: responseWithMixedSeverities("task_1", "info_1"),
+        convertedContent: bpmn,
+      },
+      "second.bpmn": {
+        checkResponseJson: responseWithMixedSeverities("task_2", "info_2"),
+        convertedContent: bpmn,
+      },
+    });
+    await uploadAndAnalyze([
+      mockFile("first.bpmn", bpmn),
+      mockFile("second.bpmn", bpmn),
+    ]);
+    await openUploadedPreview("first.bpmn");
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+
+    const firstWarningRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /warning finding/ });
+    fireEvent.click(
+      within(firstWarningRow).getByRole("button", { name: "task_1" })
+    );
+    expect(firstWarningRow.getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /No action needed INFO \(1\)/ })
+    );
+    expect(
+      screen.getByRole("button", { name: /No action needed INFO \(1\)/ }).getAttribute(
+        "aria-pressed"
+      )
+    ).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", { name: "Preview: second.bpmn" });
+    await waitFor(() =>
+      expect(screen.queryByText("Loading preview…")).toBeNull()
+    );
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(2));
+
+    expect(
+      screen.getByRole("button", { name: /No action needed INFO \(1\)/ }).getAttribute(
+        "aria-pressed"
+      )
+    ).toBe("false");
+    const secondWarningRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /warning finding/ });
+    expect(secondWarningRow.getAttribute("aria-selected")).toBe("false");
+    expect(screen.queryByText("info finding")).toBeNull();
+  });
+
+  it("keeps the position and preview content in sync across BPMN, DMN, and form files", async () => {
+    const bpmn = '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"><process id="converted" /></definitions>';
+    const dmn = '<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"><decision id="converted" /></definitions>';
+    const form = JSON.stringify({ type: "default", components: [] });
+    configureBatchResponses({
+      "process.bpmn": { checkResponseJson: [], convertedContent: bpmn },
+      "decision.dmn": { checkResponseJson: [], convertedContent: dmn },
+      "customer.form": { checkResponseJson: [], convertedContent: form },
+    });
+    await uploadAndAnalyze([
+      mockFile("process.bpmn"),
+      mockFile("decision.dmn"),
+      mockFile("customer.form"),
+    ]);
+    await openUploadedPreview("process.bpmn");
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+    expect(bpmnMocks.instances[0].importedXml).toEqual([bpmn]);
+    expect(screen.getByText("1 of 3")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", { name: "Preview: decision.dmn" });
+    expect(await screen.findByTestId("dmn-preview")).toBeTruthy();
+    expect(testState.dmnPreviewProps.at(-1).xml).toBe(dmn);
+    expect(screen.getByText("2 of 3")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", { name: "Preview: customer.form" });
+    expect(await screen.findByTestId("form-preview")).toBeTruthy();
+    expect(testState.formPreviewProps.at(-1).schema).toEqual({
+      type: "default",
+      components: [],
+    });
+    expect(screen.getByText("3 of 3")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Next file" }).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous file" }));
+    await screen.findByRole("heading", { name: "Preview: decision.dmn" });
+    expect(testState.dmnPreviewProps.at(-1).xml).toBe(dmn);
+    expect(screen.getByText("2 of 3")).toBeTruthy();
+  });
+
+  it("navigates through failed files and distinguishes missing analysis from empty results", async () => {
+    const bpmn = '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />';
+    const finding = [
+      {
+        results: [
+          {
+            elementId: "failed_task",
+            messages: [{ severity: "TASK", message: "Resolve this task." }],
+          },
+        ],
+      },
+    ];
+    configureBatchResponses({
+      "first.bpmn": { checkResponseJson: [], convertedContent: bpmn },
+      "conversion-failed.bpmn": {
+        checkResponseJson: finding,
+        conversionError: true,
+      },
+      "analysis-failed.bpmn": {
+        analysisError: "Analysis service unavailable.",
+      },
+    });
+    await uploadAndAnalyze([
+      mockFile("first.bpmn", bpmn),
+      mockFile("conversion-failed.bpmn", bpmn),
+      mockFile("analysis-failed.bpmn", bpmn),
+    ]);
+    await openUploadedPreview("first.bpmn");
+
+    const requestCount = fetchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", {
+      name: "Preview: conversion-failed.bpmn",
+    });
+    expect(screen.getByText("2 of 3")).toBeTruthy();
+    expect(
+      within(screen.getByRole("dialog")).getByRole("alert").textContent
+    ).toContain("Conversion failed (HTTP 502)");
+    expect(screen.getByText("Resolve this task.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", {
+      name: "Preview: analysis-failed.bpmn",
+    });
+    expect(screen.getByText("3 of 3")).toBeTruthy();
+    expect(
+      within(screen.getByRole("dialog"))
+        .getByRole("alert")
+        .textContent
+    ).toContain("Analysis service unavailable.");
+    expect(screen.queryByText("No findings for this file.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Next file" }).disabled).toBe(true);
+    expect(fetchMock.mock.calls).toHaveLength(requestCount);
+  });
+
+  it("refreshes the selected preview when a file's existing result finishes processing", async () => {
+    const original =
+      '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"><process id="original" /></definitions>';
+    const converted =
+      '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"><process id="converted" /></definitions>';
+    const secondAnalysis = deferred();
+    const secondConversion = deferred();
+    const secondFinding = [
+      {
+        results: [
+          {
+            elementId: "task_2",
+            messages: [{ severity: "WARNING", message: "Finding from the second file." }],
+          },
+        ],
+      },
+    ];
+    fetchMock.mockImplementation((url, options) => {
+      const fileName = options.body.get("file").name;
+      if (url.endsWith("/check")) {
+        if (fileName === "second.bpmn") return secondAnalysis.promise;
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      if (fileName === "second.bpmn") return secondConversion.promise;
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi
+          .fn()
+          .mockResolvedValue(new Blob([fileName === "second.bpmn" ? converted : original])),
+      });
+    });
+    await uploadAndAnalyze([
+      mockFile("first.bpmn", original),
+      mockFile("second.bpmn", original),
+    ]);
+
+    const firstRow = fileRow("first.bpmn");
+    await within(firstRow).findByRole("button", { name: "Download first.bpmn" });
+    fireEvent.click(
+      within(firstRow).getByRole("button", {
+        name: "Preview analysis findings for first.bpmn",
+      })
+    );
+    await screen.findByRole("heading", { name: "Preview: first.bpmn" });
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    await screen.findByRole("heading", { name: "Preview: second.bpmn" });
+    expect(screen.getByText("File analysis is still in progress.")).toBeTruthy();
+
+    secondAnalysis.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      json: vi.fn().mockResolvedValue(secondFinding),
+    });
+
+    expect(
+      await screen.findByText(
+        "Finding from the second file.",
+        {},
+        { timeout: 10000 }
+      )
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(original)
+    );
+    await waitFor(() =>
+      expect(bpmnMocks.instances.at(-1)?.canvas.zoom).toHaveBeenCalled()
+    );
+    const secondFindingRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /Finding from the second file/ });
+    fireEvent.click(
+      within(secondFindingRow).getByRole("button", { name: "task_2" })
+    );
+    expect(secondFindingRow.getAttribute("aria-selected")).toBe("true");
+    expect(
+      bpmnMocks.instances.at(-1).canvas.addMarker
+    ).toHaveBeenCalledWith("task_2", "finding-selected");
+
+    secondConversion.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      blob: vi.fn().mockResolvedValue(new Blob([converted])),
+    });
+
+    await waitFor(() =>
+      expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(converted)
+    );
+    const refreshedFindingRow = within(
+      screen.getByRole("table", { name: "Findings for this file" })
+    ).getByRole("row", { name: /Finding from the second file/ });
+    expect(refreshedFindingRow.getAttribute("aria-selected")).toBe("true");
+    expect(
+      bpmnMocks.instances.at(-1).canvas.addMarker
+    ).toHaveBeenCalledWith("task_2", "finding-selected");
+    expect(bpmnMocks.instances.at(-1).selection.select).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "task_2" })
+    );
+    expect(screen.getByRole("heading", { name: "Preview: second.bpmn" })).toBeTruthy();
+    expect(fetchMock.mock.calls).toHaveLength(4);
+  });
+});
+
 describe("accessibility", () => {
   it("renders one page h1 followed by section-level h2 headings", () => {
     render(<App />);
@@ -549,31 +1019,29 @@ describe("accessibility", () => {
 });
 
 describe("target platform version", () => {
-  it("marks 8.10 as latest stable and selects it by default", () => {
+  it("labels every supported version and selects the latest stable by default", () => {
     render(<App />);
 
     const versionGroup = screen.getByRole("radiogroup", {
       name: "Target Camunda 8 version",
     });
     const latestStable = within(versionGroup).getByRole("radio", {
-      name: "8.10 Latest stable",
+      name: "8.9 Latest stable",
     });
-    const previousStable = within(versionGroup).getByRole("radio", {
-      name: "8.9 Previous stable",
+    const earlierStable = within(versionGroup).getByRole("radio", {
+      name: "8.8 Earlier stable",
     });
     const nextVersion = within(versionGroup).getByRole("radio", {
-      name: "8.11 Next version",
-    });
-
-    const olderSupported = within(versionGroup).getByRole("radio", {
-      name: "8.8",
+      name: "8.10 Next version",
     });
 
     expect(within(versionGroup).getByText("Latest stable")).toBeTruthy();
+    expect(within(earlierStable).getByText("Earlier stable")).toBeDefined();
+    expect(within(latestStable).getByText("Latest stable")).toBeDefined();
+    expect(within(nextVersion).getByText("Next version")).toBeDefined();
     expect(latestStable.getAttribute("aria-checked")).toBe("true");
     expect(latestStable.getAttribute("tabindex")).toBe("0");
-    expect(olderSupported.getAttribute("aria-checked")).toBe("false");
-    expect(previousStable.getAttribute("aria-checked")).toBe("false");
+    expect(earlierStable.getAttribute("aria-checked")).toBe("false");
     expect(nextVersion.getAttribute("aria-checked")).toBe("false");
   });
 
@@ -590,7 +1058,7 @@ describe("target platform version", () => {
     });
     fireEvent.click(
       within(versionGroup).getByRole("radio", {
-        name: "8.9 Previous stable",
+        name: "8.9 Latest stable",
       })
     );
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
@@ -796,6 +1264,66 @@ describe("finding severity communicates without relying on color alone", () => {
       "task_1",
       "highlight-info"
     );
+  });
+
+  it("keeps the diagram visible when a finding targets a non-rendered BPMN definition", async () => {
+    await openPreview({
+      fileName: "example-c7.bpmn",
+      content: `<definitions
+        xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+        xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+        xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+      >
+        <message id="Message_1rhrnqe" name="myMessage" />
+        <process id="Process_0c0a05x">
+          <serviceTask id="Activity_0kko3uz" name="Connector" />
+        </process>
+        <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+          <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0c0a05x">
+            <bpmndi:BPMNShape id="Activity_0kko3uz_di" bpmnElement="Activity_0kko3uz">
+              <dc:Bounds x="100" y="100" width="100" height="80" />
+            </bpmndi:BPMNShape>
+          </bpmndi:BPMNPlane>
+        </bpmndi:BPMNDiagram>
+      </definitions>`,
+      checkResponseJson: [
+        {
+          results: [
+            {
+              elementId: "Activity_0kko3uz",
+              elementType: "bpmn:ServiceTask",
+              elementName: "Connector",
+              messages: [{ severity: "WARNING", message: "Review the service task." }],
+            },
+            {
+              elementId: "Message_1rhrnqe",
+              elementType: "bpmn:Message",
+              elementName: "myMessage",
+              messages: [
+                {
+                  severity: "TASK",
+                  message: "Please define a correlation key if the message is used in a message catch event.",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      missingElementIds: ["Message_1rhrnqe"],
+    });
+
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+    expect(document.querySelector("#bpmnDiagram")).toBeTruthy();
+    expect(screen.queryByText(/The diagram could not be rendered/)).toBeNull();
+    expect(bpmnMocks.instances[0].canvas.addMarker).toHaveBeenCalledWith(
+      "Activity_0kko3uz",
+      "highlight-warning"
+    );
+    expect(bpmnMocks.instances[0].canvas.addMarker).not.toHaveBeenCalledWith(
+      "Message_1rhrnqe",
+      "highlight-task"
+    );
+    expect(screen.getByText("Message_1rhrnqe")).toBeTruthy();
   });
 
   it("styles the file-results severity cell by the highest severity, not always warning", async () => {

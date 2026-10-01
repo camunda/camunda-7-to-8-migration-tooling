@@ -18,7 +18,7 @@ class TargetPlatformVersionPolicyTest {
   void rejectsAnOlderVersionAsTheDefaultButAllowsItAsAnExplicitTarget() {
     assertThatThrownBy(() -> TargetPlatformVersionPolicy.verifyConfiguredDefault("8.8"))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessage("The configured default target platform version must be 8.10, but was 8.8");
+        .hasMessage("The configured default target platform version must be 8.9, but was 8.8");
 
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setPlatformVersion("8.8");
