@@ -16,24 +16,54 @@ import {
   TableCell,
 } from "@carbon/react";
 
-import { SEVERITY_ORDER, getSeverityInfo } from "./findings";
-
-function severityRank(severity) {
-  const index = SEVERITY_ORDER.indexOf(severity);
-  return index === -1 ? SEVERITY_ORDER.length : index;
-}
+import { SEVERITY_ORDER, getSeverityInfo, getSeverityRank } from "./findings";
+import SeverityCell from "./SeverityCell";
+import TableFilters from "./TableFilters";
 
 const EMPTY_HIDDEN_SEVERITIES = new Set();
 const UNKNOWN_SEVERITY = "Unknown";
+const SORTABLE_COLUMNS = new Set([
+  "elementType",
+  "elementId",
+  "elementName",
+  "severity",
+  "message",
+]);
 
 function normalizeSeverity(severity) {
   return severity || UNKNOWN_SEVERITY;
 }
 
+function compareSeverity(left, right, direction) {
+  const leftRank = getSeverityRank(normalizeSeverity(left));
+  const rightRank = getSeverityRank(normalizeSeverity(right));
+  const leftIsUnknown = leftRank === SEVERITY_ORDER.length;
+  const rightIsUnknown = rightRank === SEVERITY_ORDER.length;
+
+  if (leftIsUnknown !== rightIsUnknown) {
+    return leftIsUnknown ? 1 : -1;
+  }
+
+  const difference = leftRank - rightRank;
+  return direction === "desc" ? -difference : difference;
+}
+
+function compareRows(left, right, sortKey, direction) {
+  if (sortKey === "severity") {
+    return compareSeverity(left.severity, right.severity, direction);
+  }
+
+  const difference = String(left[sortKey] ?? "").localeCompare(
+    String(right[sortKey] ?? ""),
+    undefined,
+    { numeric: true, sensitivity: "base" }
+  );
+  return direction === "desc" ? -difference : difference;
+}
+
 // Renders the findings table for a previewed file, plus the controls needed
 // to make large or mixed-severity result sets actionable:
-//  - a severity filter so users can show only the findings that matter to
-//    them and return to the full list without losing their place,
+//  - search, severity filters and sorting for large result sets,
 //  - a short legend translating the raw analyzer severity codes into plain
 //    language, and
 //  - a "showing X of Y" summary so the current filter state stays visible.
@@ -43,12 +73,24 @@ export default function FindingsSection({
   onSelectElement,
   selectedElementId,
 }) {
-  const [filterState, setFilterState] = useState(() => ({
+  const [tableState, setTableState] = useState(() => ({
     rows,
+    searchValue: "",
     hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
+    sortKey: "severity",
+    sortDirection: "asc",
   }));
-  const hiddenSeverities =
-    filterState.rows === rows ? filterState.hiddenSeverities : EMPTY_HIDDEN_SEVERITIES;
+  const currentState =
+    tableState.rows === rows
+      ? tableState
+      : {
+          rows,
+          searchValue: "",
+          hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
+          sortKey: "severity",
+          sortDirection: "asc",
+        };
+  const { searchValue, hiddenSeverities, sortKey, sortDirection } = currentState;
 
   if (rows.length === 0) {
     return (
@@ -62,38 +104,86 @@ export default function FindingsSection({
     return counts;
   }, new Map())]
     .map(([severity, count]) => ({ severity, count }))
-    .sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+    .sort((a, b) => getSeverityRank(a.severity) - getSeverityRank(b.severity));
 
-  const sortedRows = [...rows].sort(
-    (a, b) => severityRank(normalizeSeverity(a.severity)) - severityRank(normalizeSeverity(b.severity))
-  );
-  const visibleRows = sortedRows.filter(
-    (row) => !hiddenSeverities.has(normalizeSeverity(row.severity))
-  );
-  const isFiltered = hiddenSeverities.size > 0;
+  const severityOptions = severityCounts.map(({ severity, count }) => ({
+    value: severity,
+    label: getSeverityInfo(severity).label,
+    code: severity,
+    count,
+  }));
+  const query = searchValue.trim().toLowerCase();
+  const visibleRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => {
+      const matchesSearch =
+        query.length === 0 ||
+        header
+          .map(({ key }) => {
+            if (key === "severity") {
+              const severity = normalizeSeverity(row.severity);
+              return `${getSeverityInfo(severity).label} ${severity}`;
+            }
+            return String(row[key] ?? "");
+          })
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      return (
+        matchesSearch &&
+        !hiddenSeverities.has(normalizeSeverity(row.severity))
+      );
+    })
+    .sort(
+      (left, right) =>
+        compareRows(left.row, right.row, sortKey, sortDirection) ||
+        left.index - right.index
+    )
+    .map(({ row }) => row);
+
+  function updateTableState(update) {
+    setTableState((previous) => {
+      const base =
+        previous.rows === rows
+          ? previous
+          : {
+              rows,
+              searchValue: "",
+              hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
+              sortKey: "severity",
+              sortDirection: "asc",
+            };
+      return { ...base, ...update(base) };
+    });
+  }
 
   function toggleSeverity(severity) {
-    setFilterState((prev) => {
-      const previousHiddenSeverities =
-        prev.rows === rows ? prev.hiddenSeverities : EMPTY_HIDDEN_SEVERITIES;
-      const next = new Set(previousHiddenSeverities);
+    updateTableState((previous) => {
+      const next = new Set(previous.hiddenSeverities);
       if (next.has(severity)) {
         next.delete(severity);
       } else {
         next.add(severity);
       }
-      return {
-        rows,
-        hiddenSeverities: next,
-      };
+      return { hiddenSeverities: next };
     });
   }
 
-  function showAll() {
-    setFilterState({
-      rows,
+  function sortBy(key) {
+    updateTableState((previous) => ({
+      sortKey: key,
+      sortDirection:
+        previous.sortKey === key && previous.sortDirection === "asc"
+          ? "desc"
+          : "asc",
+    }));
+  }
+
+  function clearFilters() {
+    updateTableState(() => ({
+      searchValue: "",
       hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
-    });
+    }));
   }
 
   return (
@@ -104,26 +194,23 @@ export default function FindingsSection({
         {onSelectElement && ' Select an element ID to locate it in the diagram.'}
       </p>
 
-      {severityCounts.length > 1 && (
-        <div className="severity-filter" role="group" aria-label="Filter findings by severity">
-          {severityCounts.map(({ severity, count }) => {
-            const info = getSeverityInfo(severity);
-            const isActive = !hiddenSeverities.has(severity);
-            return (
-              <button
-                key={severity}
-                type="button"
-                className="severity-chip"
-                data-severity={severity}
-                aria-pressed={isActive}
-                onClick={() => toggleSeverity(severity)}
-              >
-                {info.label} <span className="severity-chip-code">{severity}</span> ({count})
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <TableFilters
+        tableId="findings-table"
+        searchLabel="Search findings"
+        searchPlaceholder="Search element, severity, or message"
+        searchValue={searchValue}
+        onSearchChange={(value) =>
+          updateTableState(() => ({ searchValue: value }))
+        }
+        severityLabel="Filter findings by severity"
+        severityOptions={severityOptions}
+        hiddenSeverities={hiddenSeverities}
+        onToggleSeverity={toggleSeverity}
+        visibleCount={visibleRows.length}
+        totalCount={rows.length}
+        resultLabel="finding"
+        onClearFilters={clearFilters}
+      />
 
       <details className="severity-legend">
         <summary>What do these severities mean?</summary>
@@ -140,29 +227,54 @@ export default function FindingsSection({
         </dl>
       </details>
 
-      {isFiltered && (
-        <p className="severity-filter-summary">
-          Showing {visibleRows.length} of {rows.length} finding{rows.length !== 1 ? 's' : ''}.{' '}
-          <button type="button" className="link-button" onClick={showAll}>
-            Show all findings
-          </button>
-        </p>
-      )}
-
       {visibleRows.length === 0 ? (
         <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>
-          No findings match the selected severities.
+          No findings match the current filters.
         </p>
       ) : (
-        <div className="analysisTableWrapper">
-          <Table className="analysis-table">
+        <div
+          className="analysisTableWrapper"
+          role="region"
+          aria-label="Scrollable findings table"
+          tabIndex={0}
+        >
+          <Table
+            id="findings-table"
+            className="analysis-table"
+            aria-label="Findings for this file"
+          >
             <TableHead>
               <TableRow>
-                {header.map((h) => (
-                  <TableHeader key={h.key}>
-                    {h.header}
-                  </TableHeader>
-                ))}
+                {header.map((h) => {
+                  const isSortable = SORTABLE_COLUMNS.has(h.key);
+                  const ariaSort =
+                    sortKey === h.key
+                      ? sortDirection === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none";
+
+                  return (
+                    <TableHeader
+                      key={h.key}
+                      aria-label={h.header}
+                      aria-sort={isSortable ? ariaSort : undefined}
+                    >
+                      {isSortable ? (
+                        <button
+                          type="button"
+                          className="table-sort-button"
+                          aria-label={`Sort by ${h.header}`}
+                          onClick={() => sortBy(h.key)}
+                        >
+                          {h.header}
+                        </button>
+                      ) : (
+                        h.header
+                      )}
+                    </TableHeader>
+                  );
+                })}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -176,7 +288,6 @@ export default function FindingsSection({
                   >
                     {header.map((h) => {
                       const value = row[h.key];
-                      const severity = normalizeSeverity(value);
                       if (h.key === 'elementId' && isLinkable) {
                         return (
                           <TableCell key={`${row.id}-${h.key}`}>
@@ -187,6 +298,13 @@ export default function FindingsSection({
                             >
                               {value}
                             </button>
+                          </TableCell>
+                        );
+                      }
+                      if (h.key === "severity") {
+                        return (
+                          <TableCell key={`${row.id}-${h.key}`}>
+                            <SeverityCell severity={value} />
                           </TableCell>
                         );
                       }
@@ -203,11 +321,6 @@ export default function FindingsSection({
                                 Link
                               </a>
                             ) : '-'
-                          ) : h.key === 'severity' ? (
-                            <span className="severity-cell">
-                              <span className="severity-cell-label">{getSeverityInfo(severity).label}</span>
-                              <span className="severity-cell-code"> ({severity})</span>
-                            </span>
                           ) : value}
                         </TableCell>
                       );

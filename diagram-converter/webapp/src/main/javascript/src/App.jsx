@@ -20,6 +20,7 @@ import {
 import { Download, Launch, Close, Settings } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
+import FileResultsTable from "./FileResultsTable";
 import {
   FINDINGS_TABLE_HEADER,
   buildFindingsRows,
@@ -950,31 +951,37 @@ function App() {
                 icon to preview analysis findings for each file; BPMN files also
                 render a diagram, and forms show a form preview.
               </p>
-              {files.map((file, idx) => {
-                const result = fileResults[idx];
-                const modelType = getPreviewType(file.name);
-                const isForm = modelType === "form";
-                return (
-                <FileItem
-                  key={file.name + "-" + idx}
-                  name={file.name}
-                  status={result.status}
-                  isChecked={result.checkResponseJson != null}
-                  isConverted={result.convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(result, file.name) : () => preview(result, file.name)}
-                  previewTitle={isForm ? "Preview form" : undefined}
-                  downloadAction={() => download(result)}
-                  findingCount={buildFindingsRows(result.checkResponseJson).length}
-                  highestSeverity={getHighestSeverity(buildFindingsRows(result.checkResponseJson))}
-                  error={
-                    result.status === "error"
-                      ? result.errorMessage || "File processing failed"
-                      : ""
-                  }
-                  onRetry={result.status === "error" ? () => retryFile(idx) : undefined}
-                />
-                );
-              })}
+              <FileResultsTable
+                resetKey={files}
+                rows={files.map((file, idx) => {
+                  const r = fileResults[idx] || { status: "uploading" };
+                  const modelType = getPreviewType(file.name);
+                  const isForm = modelType === "form";
+                  const fileFindingRows = buildFindingsRows(r.checkResponseJson);
+                  return {
+                    id: `${file.name}-${idx}`,
+                    name: file.name,
+                    status: r.status,
+                    isChecked: r.checkResponseJson != null,
+                    isConverted: r.convertedFileBlob != null,
+                    findingCount: fileFindingRows.length,
+                    highestSeverity: getHighestSeverity(fileFindingRows),
+                    previewAction: isForm
+                      ? () => previewForm(r, file.name)
+                      : () => preview(r, file.name),
+                    previewTitle: isForm
+                      ? `Preview form for ${file.name}`
+                      : `Preview analysis findings for ${file.name}`,
+                    downloadAction: () => download(r),
+                    error:
+                      r.status === "error"
+                        ? r.errorMessage || "File processing failed"
+                        : "",
+                    onRetry:
+                      r.status === "error" ? () => retryFile(idx) : undefined,
+                  };
+                })}
+              />
               <Button
                 kind="tertiary"
                 size="lg"
