@@ -10,11 +10,11 @@ All diagrams that should be converted need to have the `.bpmn`, `.bpmn20.xml`,
 To convert the latest BPMN and DMN definitions from a running Camunda 7 engine, use the `engine` subcommand with the engine REST URL. Converted diagrams are written directly into the target directory (resource subdirectories are flattened); the CLI creates the target directory if it does not already exist.
 
 ```shell
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine http://localhost:8080/engine-rest --target-directory .camunda-migration/c7-models --platform-version 8.10
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine http://localhost:8080/engine-rest --target-directory .camunda-migration/c7-models --platform-version 8.9
 ```
 
 The `--platform-version` option accepts Camunda 8.0 through 8.11 targets.
-It defaults to Camunda 8.9, the latest stable target. Use 8.8 for the previous
+It defaults to Camunda 8.9, the latest stable target. Use 8.8 for the earlier
 stable version or 8.10 for the next version. The CLI still accepts 8.11 as an
 explicit target, although the webapp does not show it.
 
