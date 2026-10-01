@@ -179,4 +179,32 @@ public class RetrievePaymentAdapterNotExtended  {
             }
             """));
   }
+
+  @Test
+  void removesExecuteFromClassInheritingJavaDelegate() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+            """
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+
+            abstract class BaseDelegate implements JavaDelegate {
+                @Override
+                public void execute(DelegateExecution execution) {}
+            }
+
+            class InheritedDelegate extends BaseDelegate {
+                @Override
+                public void execute(DelegateExecution execution) {}
+            }
+            """,
+            """
+            abstract class BaseDelegate {
+            }
+
+            class InheritedDelegate extends BaseDelegate {
+            }
+            """));
+  }
 }

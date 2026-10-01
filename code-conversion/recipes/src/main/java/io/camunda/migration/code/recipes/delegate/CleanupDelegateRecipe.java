@@ -59,17 +59,16 @@ public class CleanupDelegateRecipe extends Recipe {
               return super.visitClassDeclaration(classDecl, ctx);
             }
 
-            List<TypeTree> implementsTypes = classDecl.getImplements();
-            if (implementsTypes == null
-                || implementsTypes.stream()
-                    .noneMatch(id -> isJavaDelegateAssignable(id.getType()))) {
+            if (!isJavaDelegateAssignable(classDecl.getType())) {
               return super.visitClassDeclaration(classDecl, ctx);
             }
 
             List<TypeTree> updatedImplements =
-                implementsTypes.stream()
-                    .filter(id -> !isJavaDelegateAssignable(id.getType()))
-                    .collect(Collectors.toList());
+                classDecl.getImplements() == null
+                    ? Collections.emptyList()
+                    : classDecl.getImplements().stream()
+                        .filter(id -> !isJavaDelegateAssignable(id.getType()))
+                        .collect(Collectors.toList());
 
             List<Statement> filteredStatements =
                 classDecl.getBody().getStatements().stream()
