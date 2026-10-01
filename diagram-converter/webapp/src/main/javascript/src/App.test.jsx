@@ -45,8 +45,16 @@ const bpmnMocks = vi.hoisted(() => {
           this.missingElementIds.has(id) ? undefined : { id, businessObject: {} }
         ),
       };
+      this.zoomLevel = 1;
       this.canvas = {
-        zoom: vi.fn(),
+        zoom: vi.fn((scale) => {
+          if (scale === "fit-viewport") {
+            this.zoomLevel = 1;
+          } else if (typeof scale === "number") {
+            this.zoomLevel = scale;
+          }
+          return this.zoomLevel;
+        }),
         addMarker: vi.fn((elementId) => {
           if (!this.elementRegistry.get(elementId)) {
             throw new Error(`Cannot add marker to missing element ${elementId}`);
@@ -54,6 +62,13 @@ const bpmnMocks = vi.hoisted(() => {
         }),
         removeMarker: vi.fn(),
         scrollToElement: vi.fn(),
+      };
+      this.zoomScroll = {
+        stepZoom: vi.fn((direction) => {
+          const currentZoom = this.canvas.zoom();
+          const factor = direction > 0 ? 1.2 : 1 / 1.2;
+          this.canvas.zoom(currentZoom * factor);
+        }),
       };
       this.selection = { select: vi.fn() };
       instances.push(this);
@@ -66,6 +81,7 @@ const bpmnMocks = vi.hoisted(() => {
 
     get(serviceName) {
       if (serviceName === "canvas") return this.canvas;
+      if (serviceName === "zoomScroll") return this.zoomScroll;
       if (serviceName === "selection") return this.selection;
       if (serviceName === "elementRegistry") return this.elementRegistry;
       if (serviceName === "eventBus") return this.eventBus;
@@ -138,7 +154,7 @@ vi.mock("@camunda/design-system", () => ({
   TooltipTrigger: ({ children }) => children,
 }));
 
-vi.mock("bpmn-js", () => ({
+vi.mock("bpmn-js/lib/NavigatedViewer", () => ({
   default: bpmnMocks.MockBpmnJS,
 }));
 
@@ -977,7 +993,9 @@ describe("preview navigation", () => {
       expect(bpmnMocks.instances.at(-1)?.importedXml).toContain(original)
     );
     await waitFor(() =>
-      expect(bpmnMocks.instances.at(-1)?.canvas.zoom).toHaveBeenCalled()
+      expect(bpmnMocks.instances.at(-1)?.canvas.zoom).toHaveBeenCalledWith(
+        "fit-viewport"
+      )
     );
     const secondFindingRow = within(
       screen.getByRole("table", { name: "Findings for this file" })
@@ -2127,8 +2145,44 @@ describe("linking a finding row to its diagram element", () => {
     });
   }
 
+  it("provides keyboard-accessible zoom controls and fits the BPMN preview", async () => {
+    const user = userEvent.setup();
+    const viewer = await openBpmnPreviewWithFindings();
+    const controls = screen.getByRole("group", {
+      name: "BPMN diagram zoom controls",
+    });
+    const zoomOut = within(controls).getByRole("button", { name: "Zoom out" });
+    const fit = within(controls).getByRole("button", {
+      name: "Fit to viewport",
+    });
+    const zoomIn = within(controls).getByRole("button", { name: "Zoom in" });
+
+    expect(
+      screen.getByRole("region", { name: "BPMN diagram preview" })
+    ).toBeTruthy();
+    expect(zoomOut.disabled).toBe(false);
+    expect(viewer.canvas.zoom).toHaveBeenCalledWith("fit-viewport");
+    expect(screen.getByText(/Drag the diagram to pan/)).toBeTruthy();
+
+    zoomIn.focus();
+    await user.keyboard("{Enter}");
+    expect(viewer.zoomScroll.stepZoom).toHaveBeenCalledWith(1);
+    const zoomedIn = viewer.canvas.zoom.mock.calls.at(-1)[0];
+    expect(zoomedIn).toBeGreaterThan(1);
+
+    await user.click(zoomOut);
+    expect(viewer.zoomScroll.stepZoom).toHaveBeenLastCalledWith(-1);
+    const zoomedOut = viewer.canvas.zoom.mock.calls.at(-1)[0];
+    expect(zoomedOut).toBeLessThan(zoomedIn);
+    await user.click(fit);
+    expect(viewer.canvas.zoom).toHaveBeenLastCalledWith("fit-viewport");
+  });
+
   it("focuses and reveals the matching element when a row with a stable reference is selected", async () => {
     const viewer = await openBpmnPreviewWithFindings();
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(viewer.zoomScroll.stepZoom).toHaveBeenCalledWith(1);
 
     const elementLink = screen.getByRole("button", { name: "task_1" });
     expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("false");
