@@ -216,8 +216,11 @@ The command must end with one JSON object. Its `observation.active_timer` object
 mapped model, timer process, parent process and call activity, timer, strategy, message, correlation
 key, and both date variables. It must record
 that the timer was active before both updates. Each update must contain its old and new deadlines.
+The two updates must move the deadline both earlier and later.
 Each update must set `timer_active_before_update` and `correlated` to `true`. The test must advance
 past both obsolete deadlines and record a zero fire count for each.
+For consecutive publications, use a bounded TTL and a unique message ID, or wait for a rearm
+acknowledgement before publishing the next update.
 When the test confirms the process is still waiting immediately before the final deadline, record
 the current test-clock time as `final_deadline_last_active_at`. Keep this timestamp no more than five
 seconds before the deadline. Advance the test clock to the final deadline after this check. When the

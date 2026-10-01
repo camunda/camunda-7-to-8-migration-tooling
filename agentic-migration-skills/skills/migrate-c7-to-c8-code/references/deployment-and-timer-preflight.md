@@ -84,7 +84,7 @@ update does not reschedule a timer that already waits.
 
 | Finding | Required outcome |
 |---|---|
-| Project-approved message-rearm model | Map each due-date call to the executable timer process, parent call activity, timer, message, correlation key, and both date variables. Test two updates to an already-active timer on a disposable target. Verify the process remains active no more than five seconds before the final deadline. Assert that obsolete deadlines never fire and the final deadline fires once. Allow late firing, not early firing. |
+| Project-approved message-rearm model | Map each due-date call to the executable timer process, parent call activity, timer, message, correlation key, and both date variables. Test two updates to an already-active timer on a disposable target. Include one earlier and one later deadline change. For consecutive publications, use a bounded TTL and a unique message ID, or wait for a rearm acknowledgement before publishing the next update. Verify the process remains active no more than five seconds before the final deadline. Assert that obsolete deadlines never fire and the final deadline fires once. Allow late firing, not early firing. |
 | No verified or approved replacement, unknown timer link, or reachable throwing placeholder | Keep the affected flow blocked as manual work. Do not report it ready or substitute a no-op or unverified API. |
 
 The repository fixture uses message-driven BPMN rearming. A parent call activity starts a separate

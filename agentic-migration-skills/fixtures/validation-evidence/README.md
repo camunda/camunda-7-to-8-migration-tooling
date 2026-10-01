@@ -15,12 +15,15 @@ not access a Camunda cluster.
 
 The `live-timer-fixture/` Maven reactor runs both deployment-set and active-timer acceptance
 scenarios against a disposable Camunda 8.9.21 container. One Process Test deploys both `Sample`
-definitions, verifies recurring-start replacement and latest-version-by-ID start, then rearms an
-already-active timer twice. A parent call activity starts a separate timer process for each wait.
-The test waits for each new child instance and holds negative observations stable across bounded
-intervals. It verifies that the process is still waiting immediately before the final deadline.
-It then advances the test clock to the deadline and records when completion is observed. The test
-proves that both old deadlines stay unfired and the final deadline fires once.
+definitions, verifies recurring-start replacement and latest-version-by-ID start, then publishes
+two updates to an already-active timer. The first update moves the deadline earlier, and the second
+moves it later. Each publication uses a bounded TTL and a unique message ID. A parent call activity
+starts a separate timer process for each wait. The test holds negative observations stable across
+bounded intervals. It verifies that the process is still waiting immediately before the final
+deadline. It then advances the test clock to the deadline and records when completion is observed.
+The test proves that both old deadlines stay unfired and the final deadline fires once. A second
+Process Test queues two consecutive updates before the message subscription opens and verifies that
+buffered publication applies both updates.
 
 The runner captures Docker create and destroy events. It also reads the Testcontainers session
 label and reconciles the matching Camunda containers after Maven exits. Cleanup does not depend on

@@ -188,9 +188,9 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def active_timer_observation(self, key):
         decision = gate.requirements(self.root, self.plan).active_timer_decisions[key[1]]
-        original_deadline = "2050-11-23T00:00:05Z"
+        original_deadline = "2050-11-23T00:00:25Z"
         first_updated_deadline = "2050-11-23T00:00:15Z"
-        final_deadline = "2050-11-23T00:00:25Z"
+        final_deadline = "2050-11-23T00:00:35Z"
         return {
             "deployment": {
                 "performed": True,
@@ -245,8 +245,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "advanced_past_obsolete_deadlines": True,
                     "final_deadline": final_deadline,
                     "final_deadline_fire_count": 1,
-                    "final_deadline_last_active_at": "2050-11-23T00:00:24Z",
-                    "final_deadline_fired_at": "2050-11-23T00:00:26Z",
+                    "final_deadline_last_active_at": "2050-11-23T00:00:34Z",
+                    "final_deadline_fired_at": "2050-11-23T00:00:36Z",
                 },
             },
             "cleanup": {
@@ -956,6 +956,42 @@ class ValidationEvidenceTest(unittest.TestCase):
             "environment": "local",
             "isolation_plan": "Run the pinned 8.9.21 fixture and remove its disposable container.",
         }
+        later_only = self.active_timer_observation(runtime_key)
+        active_timer = later_only["observation"]["active_timer"]
+        original_deadline = "2050-11-23T00:00:05Z"
+        first_updated_deadline = "2050-11-23T00:00:15Z"
+        final_deadline = "2050-11-23T00:00:25Z"
+        active_timer["updates"] = [
+            {
+                "old_deadline": original_deadline,
+                "new_deadline": first_updated_deadline,
+                "timer_active_before_update": True,
+                "correlated": True,
+            },
+            {
+                "old_deadline": first_updated_deadline,
+                "new_deadline": final_deadline,
+                "timer_active_before_update": True,
+                "correlated": True,
+            },
+        ]
+        active_timer["obsolete_deadlines"] = [
+            {"deadline": original_deadline, "fire_count": 0},
+            {"deadline": first_updated_deadline, "fire_count": 0},
+        ]
+        active_timer["final_deadline"] = final_deadline
+        active_timer["final_deadline_last_active_at"] = "2050-11-23T00:00:24Z"
+        active_timer["final_deadline_fired_at"] = "2050-11-23T00:00:26Z"
+        self.assertEqual(1, self.submit(runtime_key, observation=later_only, **options))
+        self.assertEqual(1, self.audit())
+        self.assertTrue(
+            any(
+                "must include an earlier and a later deadline" in issue
+                for issue in self.summary()["issues"]
+            ),
+            "\n".join(self.summary()["issues"]),
+        )
+
         invalid = self.active_timer_observation(runtime_key)
         invalid["observation"]["active_timer"]["obsolete_deadlines"][0]["fire_count"] = 1
         self.assertEqual(1, self.submit(runtime_key, observation=invalid, **options))
@@ -997,6 +1033,36 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual(1, self.audit())
         self.assertNotEqual("READY", self.summary()["gate"])
+
+    def test_active_timer_mapping_rejects_a_retained_c7_caller_after_line_movement(self):
+        retained_sources = (
+            "terminationDateUpdater.update(projectId, terminationDate);\n"
+            "managementService.setJobDuedate(jobId, terminationDate);\n",
+            "terminationDateUpdater.update(projectId, terminationDate);\n"
+            "managementService\n"
+            "    .setJobDuedate(\n"
+            "        jobId,\n"
+            "        terminationDate\n"
+            "    );\n",
+        )
+        for source in retained_sources:
+            with self.subTest(source=source):
+                self.install_active_timer_decision(retain_c7_caller=True)
+                (self.root / "app" / "Timer.java").write_text(
+                    source, encoding="utf-8"
+                )
+
+                plan = gate.requirements(self.root, self.plan)
+
+                self.assertTrue(
+                    any(
+                        "mapped C7 due-date location remains in the migrated source"
+                        in issue
+                        for issue in plan.issues
+                    )
+                )
+                self.assertEqual(1, self.audit())
+                self.assertNotEqual("READY", self.summary()["gate"])
 
     def test_active_timer_mapping_keeps_distinct_callers_for_the_same_timer(self):
         runtime_key = self.install_active_timer_decision(multiple_callers=True)

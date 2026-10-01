@@ -8,23 +8,27 @@
 package io.camunda.migration.timer;
 
 import io.camunda.client.CamundaClient;
-import io.camunda.client.api.response.CorrelateMessageResponse;
+import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 final class TerminationDateUpdater {
 
   private static final String MESSAGE_NAME = "TerminationDateChanged";
+  private static final Duration MESSAGE_TTL = Duration.ofSeconds(30);
   private final CamundaClient camundaClient;
 
   TerminationDateUpdater(CamundaClient camundaClient) {
     this.camundaClient = camundaClient;
   }
 
-  CorrelateMessageResponse update(String projectId, String terminationDate) {
-    return camundaClient
-        .newCorrelateMessageCommand()
+  void update(String projectId, String terminationDate) {
+    camundaClient
+        .newPublishMessageCommand()
         .messageName(MESSAGE_NAME)
         .correlationKey(projectId)
+        .messageId(UUID.randomUUID().toString())
+        .timeToLive(MESSAGE_TTL)
         .variables(Map.of("updatedTerminationDate", terminationDate))
         .send()
         .join();

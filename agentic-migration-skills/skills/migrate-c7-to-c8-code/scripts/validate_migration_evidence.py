@@ -154,11 +154,16 @@ def initialize(root):
         raise EvidenceError("A migration run needs at least one module or model")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
-    source_update_locations = {
-        module: scan_module(root, module, set(modules), {})
-        for module in modules
-    }
+    source_update_locations = {}
+    source_update_hits = {}
+    for module in modules:
+        hit_details = []
+        source_update_locations[module] = scan_module(
+            root, module, set(modules), {}, hit_details
+        )
+        source_update_hits[module] = hit_details
     inventory["source_update_locations"] = source_update_locations
+    inventory["source_update_hits"] = source_update_hits
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
     evidence_path = root / EVIDENCE
@@ -234,7 +239,21 @@ def read_model(root, source, converted):
     return source_document, document
 
 
-def scan_module(root, module, module_paths, hashes):
+def source_update_fingerprint(text, start, end):
+    statement_start = max(
+        text.rfind(delimiter, 0, start) for delimiter in (";", "{", "}")
+    ) + 1
+    statement_ends = [
+        position
+        for delimiter in (";", "{", "}")
+        if (position := text.find(delimiter, end)) != -1
+    ]
+    statement_end = min(statement_ends, default=len(text))
+    statement = re.sub(r"\s+", "", text[statement_start:statement_end])
+    return hashlib.sha256(statement.encode("utf-8")).hexdigest()
+
+
+def scan_module(root, module, module_paths, hashes, hit_details=None):
     path = project_path(root, module, "module", must_exist=True)
     if not path.is_dir():
         raise EvidenceError(f"Module directory is missing: {module}")
@@ -274,7 +293,17 @@ def scan_module(root, module, module_paths, hashes):
             for match in DUE_DATE_HINT.finditer(text):
                 line = text.count("\n", 0, match.start()) + 1
                 column = match.start() - text.rfind("\n", 0, match.start())
-                hits.append(f"{relative}:{line}:{column}")
+                location = f"{relative}:{line}:{column}"
+                hits.append(location)
+                if hit_details is not None:
+                    hit_details.append(
+                        {
+                            "location": location,
+                            "fingerprint": source_update_fingerprint(
+                                text, match.start(), match.end()
+                            ),
+                        }
+                    )
     return hits
 
 
@@ -521,6 +550,7 @@ def requirements(root, evidence):
     issues = []
     hashes = {}
     update_hits = {}
+    retained_source_update_locations = {}
     source_update_locations = inventory.get("source_update_locations")
     if (
         not isinstance(source_update_locations, dict)
@@ -530,6 +560,7 @@ def requirements(root, evidence):
             "Step 2 inventory lacks the pre-migration due-date source snapshot; run init before conversion"
         )
         source_update_locations = {}
+        source_update_fingerprints = {}
     else:
         for module in modules:
             module_path = module["path"]
@@ -541,6 +572,51 @@ def requirements(root, evidence):
             except EvidenceError as exc:
                 issues.append(str(exc))
                 source_update_locations[module_path] = []
+        source_update_fingerprints = {}
+        source_update_hits = inventory.get("source_update_hits")
+        if (
+            not isinstance(source_update_hits, dict)
+            or set(source_update_hits) != {module["path"] for module in modules}
+        ):
+            issues.append(
+                "Step 2 inventory lacks pre-migration due-date source fingerprints; run init before conversion"
+            )
+            source_update_hits = {}
+        for module in modules:
+            module_path = module["path"]
+            hit_details = source_update_hits.get(module_path)
+            try:
+                if not isinstance(hit_details, list):
+                    raise EvidenceError(
+                        f"{module_path} pre-migration due-date fingerprints must be a list"
+                    )
+                hit_locations = []
+                fingerprints = {}
+                for hit in hit_details:
+                    if (
+                        not isinstance(hit, dict)
+                        or set(hit) != {"location", "fingerprint"}
+                        or not isinstance(hit["location"], str)
+                        or not isinstance(hit["fingerprint"], str)
+                        or re.fullmatch(r"[0-9a-f]{64}", hit["fingerprint"]) is None
+                    ):
+                        raise EvidenceError(
+                            f"{module_path} pre-migration due-date hit has an invalid fingerprint"
+                        )
+                    hit_locations.append(hit["location"])
+                    fingerprints[hit["location"]] = hit["fingerprint"]
+                strings(
+                    hit_locations,
+                    f"{module_path} pre-migration due-date fingerprint locations",
+                )
+                if hit_locations != source_update_locations[module_path]:
+                    raise EvidenceError(
+                        f"{module_path} pre-migration due-date fingerprints do not match the source locations"
+                    )
+                source_update_fingerprints[module_path] = fingerprints
+            except EvidenceError as exc:
+                issues.append(str(exc))
+                source_update_fingerprints[module_path] = {}
     source_ids = {}
     converted_ids = {}
     converted_documents = {}
@@ -557,7 +633,24 @@ def requirements(root, evidence):
     docker_suites = {}
     for module in modules:
         path = module["path"]
-        update_hits[path] = scan_module(root, path, module_paths, hashes)
+        current_hit_details = []
+        update_hits[path] = scan_module(
+            root, path, module_paths, hashes, current_hit_details
+        )
+        current_locations_by_fingerprint = {}
+        for hit in current_hit_details:
+            source_path = hit["location"].rsplit(":", 2)[0]
+            current_locations_by_fingerprint.setdefault(
+                (source_path, hit["fingerprint"]), []
+            ).append(hit["location"])
+        retained_source_update_locations[path] = {}
+        for location, fingerprint in source_update_fingerprints.get(path, {}).items():
+            source_path = location.rsplit(":", 2)[0]
+            matching_locations = current_locations_by_fingerprint.get(
+                (source_path, fingerprint), []
+            )
+            if matching_locations:
+                retained_source_update_locations[path][location] = matching_locations
         need("module", path, "compile")
         need("module", path, "review", method="review")
         need("module", path, "active_timer_updates", method="review")
@@ -875,6 +968,21 @@ def requirements(root, evidence):
                             f"{module}: mapped C7 due-date location remains in the migrated source"
                         )
                         continue
+                    retained_locations = sorted(
+                        {
+                            current_location
+                            for location in source_locations
+                            for current_location in retained_source_update_locations.get(
+                                module, {}
+                            ).get(location, [])
+                        }
+                    )
+                    if retained_locations:
+                        issues.append(
+                            f"{module}: mapped C7 due-date location remains in the migrated source at "
+                            f"{', '.join(retained_locations)}"
+                        )
+                        continue
                     try:
                         caller_is_valid = valid_migrated_caller_location(
                             root, module, migrated_caller_location, hashes
@@ -1117,9 +1225,18 @@ def validate_active_timer_observation(plan, key, check):
     if (
         any(deadline is None for deadline in deadlines)
         or updates[1].get("old_deadline") != updates[0].get("new_deadline")
-        or not deadlines[0] < deadlines[1] < deadlines[2]
     ):
-        raise EvidenceError(f"{key}: two date updates must move one active timer to later deadlines")
+        raise EvidenceError(f"{key}: two date updates must record sequential deadlines")
+    first_change = deadlines[1] - deadlines[0]
+    second_change = deadlines[2] - deadlines[1]
+    if (
+        first_change == timedelta(0)
+        or second_change == timedelta(0)
+        or (first_change > timedelta(0)) == (second_change > timedelta(0))
+    ):
+        raise EvidenceError(
+            f"{key}: two date updates must include an earlier and a later deadline"
+        )
     obsolete = active_timer.get("obsolete_deadlines")
     if not isinstance(obsolete, list) or len(obsolete) != 2 or any(
         not isinstance(item, dict)
