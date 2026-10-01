@@ -5,7 +5,13 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 
 import {
   Button,
@@ -18,7 +24,16 @@ import {
 
 // Carbon icons → lucide-react equivalents:
 //   Launch → ExternalLink, Close → X (rest keep their names)
-import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  X,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import FileResultsTable from "./FileResultsTable";
@@ -64,6 +79,8 @@ function App() {
   const [fileResults, setFileResults] = useState([]);
   const [validFiles, setValidFiles] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewFileIndex, setPreviewFileIndex] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [previewType, setPreviewType] = useState(null);
   const [previewModelXml, setPreviewModelXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
@@ -76,6 +93,7 @@ function App() {
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
   const [previewTableRows, setPreviewTableRows] = useState([]);
+  const [hiddenSeverities, setHiddenSeverities] = useState(() => new Set());
 
   const [downloadError, setDownloadError] = useState(null);
   const [downloadErrorTitle, setDownloadErrorTitle] = useState("");
@@ -87,8 +105,17 @@ function App() {
   const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
   const bpmnViewerRef = useRef(null);
+  const selectedFindingElementIdRef = useRef(null);
   const selectedMarkerElementIdRef = useRef(null);
   const previewDialogRef = useRef(null);
+  const previewRequestIdRef = useRef(0);
+  const previewedResultRef = useRef(null);
+
+  function closePreview() {
+    previewRequestIdRef.current += 1;
+    setPreviewLoading(false);
+    setIsPreviewOpen(false);
+  }
 
   function handleVersionKeyDown(e) {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
@@ -145,6 +172,16 @@ function App() {
     : [];
   const batchSummary = summarizeFindings(batchFindings);
   const totalFindings = batchSummary.total;
+  const currentPreviewResult =
+    previewFileIndex === null ? null : fileResults[previewFileIndex];
+  const nextFileWithFindingsIndex =
+    previewFileIndex === null
+      ? -1
+      : fileResults.findIndex(
+          (result, index) =>
+            index > previewFileIndex &&
+            buildFindingsRows(result?.checkResponseJson).length > 0
+        );
 
   const [configOptions, setConfigOptions] = useState({
     defaultJobType: "camunda-7-job",
@@ -194,6 +231,22 @@ function App() {
             canvas.addMarker(el.elementId, `highlight-${severityStyleKey}`);
           }
         });
+
+        const selectedElementId = selectedFindingElementIdRef.current;
+        if (selectedElementId) {
+          const selectedElement = viewer
+            .get("elementRegistry")
+            .get(selectedElementId);
+          if (selectedElement) {
+            canvas.addMarker(selectedElementId, "finding-selected");
+            canvas.scrollToElement(selectedElement);
+            viewer.get("selection").select(selectedElement);
+            selectedMarkerElementIdRef.current = selectedElementId;
+          } else {
+            selectedFindingElementIdRef.current = null;
+            setSelectedFindingElementId(null);
+          }
+        }
 
         bpmnViewerRef.current = viewer;
         eventBus = viewer.get('eventBus');
@@ -281,6 +334,7 @@ function App() {
       selectedMarkerElementIdRef.current = elementId;
       canvas.scrollToElement(element);
       viewer.get('selection').select(element);
+      selectedFindingElementIdRef.current = elementId;
       setSelectedFindingElementId(elementId);
     } catch (error) {
       console.error("Unable to locate finding element in the diagram:", error);
@@ -314,7 +368,7 @@ function App() {
     function handleKeyDown(e) {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        setIsPreviewOpen(false);
+        closePreview();
         return;
       }
       if (e.key !== 'Tab' || !dialogEl) return;
@@ -607,6 +661,9 @@ function App() {
     setFiles([]);
     setFileResults([]);
     setValidFiles([]);
+    setPreviewFileIndex(null);
+    previewedResultRef.current = null;
+    setHiddenSeverities(new Set());
     setDownloadError(null);
     setDownloadErrorTitle("");
     setStep(0);
@@ -721,55 +778,77 @@ function App() {
     );
   }
 
-  async function preview(response, modelType, fileName) {
-    if (!response?.checkResponseJson) return;
+  const previewFileAt = useCallback(async (index, preserveSelection = false) => {
+    const file = files[index];
+    const response = fileResults[index];
+    if (!file || !response) return;
 
+    const requestId = ++previewRequestIdRef.current;
+    previewedResultRef.current = response;
+    const modelType = getPreviewType(file.name, response.originalModelXml);
+    const checkResponseJson = response.checkResponseJson ?? [];
+
+    setPreviewFileIndex(index);
+    setPreviewFileName(file.name);
+    setPreviewType(modelType);
+    setPreviewCheckJson(checkResponseJson);
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
-    setPreviewTableRows(buildFindingsRows(response.checkResponseJson));
-
-    setPreviewCheckJson(response.checkResponseJson);
-    const modelXml =
-      (modelType === "bpmn" || modelType === "dmn") &&
-      response?.convertedFileBlob
-        ? await response.convertedFileBlob.text()
-        : response.originalModelXml;
-    setPreviewModelXml(modelXml);
+    setPreviewTableRows(buildFindingsRows(checkResponseJson));
+    setPreviewModelXml("");
     setPreviewFormSchema(null);
     setPreviewFormError("");
     setPreviewDmnError("");
     setPreviewDiagramError(false);
-    setPreviewType(modelType);
-    setPreviewFileName(fileName || "");
-    setSelectedFindingElementId(null);
-
+    if (!preserveSelection) {
+      setSelectedFindingElementId(null);
+      selectedFindingElementIdRef.current = null;
+      selectedMarkerElementIdRef.current = null;
+    }
+    setPreviewLoading(true);
     setIsPreviewOpen(true);
-  }
 
-  function openFormPreview(schema, errorMessage = "", fileName = "") {
-    setPreviewFormSchema(schema);
-    setPreviewFormError(errorMessage);
-    setPreviewModelXml("");
-    setPreviewCheckJson([]);
-    setPreviewTableHeader([]);
-    setPreviewTableRows([]);
-    setPreviewDmnError("");
-    setPreviewDiagramError(false);
-    setPreviewType("form");
-    setPreviewFileName(fileName);
-    setSelectedFindingElementId(null);
-    setIsPreviewOpen(true);
-  }
+    try {
+      const previewContent =
+        response.convertedFileBlob &&
+        ["bpmn", "dmn", "form"].includes(modelType)
+          ? await response.convertedFileBlob.text()
+          : response.originalModelXml || "";
 
-  async function previewForm(response, fileName) {
-    const formContent = response?.convertedFileBlob
-      ? await response.convertedFileBlob.text()
-      : response?.originalModelXml;
-    const { schema, error } = parseFormSchema(formContent);
-    openFormPreview(schema, error, fileName);
-    setPreviewCheckJson(response?.checkResponseJson || []);
-    setPreviewTableHeader(FINDINGS_TABLE_HEADER);
-    setPreviewTableRows(buildFindingsRows(response?.checkResponseJson));
-  }
+      if (requestId !== previewRequestIdRef.current) return;
+
+      if (modelType === "form") {
+        const { schema, error } = parseFormSchema(previewContent);
+        setPreviewFormSchema(schema);
+        setPreviewFormError(error);
+      } else {
+        setPreviewModelXml(previewContent);
+      }
+    } catch (error) {
+      if (requestId !== previewRequestIdRef.current) return;
+
+      console.error("Unable to read preview content:", error);
+      if (modelType === "form") {
+        setPreviewFormError("The form preview content could not be read.");
+      } else if (modelType === "dmn") {
+        setPreviewDmnError("The DMN preview content could not be read.");
+      } else if (modelType === "bpmn") {
+        setPreviewDiagramError(true);
+      }
+    } finally {
+      if (requestId === previewRequestIdRef.current) {
+        setPreviewLoading(false);
+      }
+    }
+  }, [files, fileResults]);
+
+  useEffect(() => {
+    if (!isPreviewOpen || previewFileIndex === null) return;
+
+    const response = fileResults[previewFileIndex];
+    if (!response || response === previewedResultRef.current) return;
+
+    void previewFileAt(previewFileIndex, true);
+  }, [fileResults, isPreviewOpen, previewFileIndex, previewFileAt]);
 
   async function download(response) {
     let filename = response.filename;
@@ -1123,10 +1202,11 @@ function App() {
             <section>
               <h2 className="sectionHeading">Converted files</h2>
               <p>
-                Download each converted file or all of them as a ZIP. Use the eye
-                icon to preview analysis findings for each file; BPMN files render
-                a diagram, DMN files render a decision diagram, and forms show a
-                form preview.
+                Download files converted to Camunda 8 individually or as one ZIP
+                file. Use the eye icon to preview analysis findings for each file;
+                BPMN and DMN files also render a diagram, and forms show a form
+                preview. In a preview, use Previous and Next to move through the
+                batch, or Next with findings to skip files without findings.
               </p>
               {allDone && analyzedFiles.length > 0 && (
                 <div
@@ -1182,7 +1262,10 @@ function App() {
                 resetKey={files}
                 rows={displayedFileEntries.map(
                   ({ file, index, result: r, findingRows, highestSeverity }) => {
-                    const modelType = getPreviewType(file.name, r.originalModelXml);
+                    const modelType = getPreviewType(
+                      file.name,
+                      r.originalModelXml
+                    );
                     const isForm = modelType === "form";
                     return {
                       id: `${file.name}-${index}`,
@@ -1192,9 +1275,7 @@ function App() {
                       isConverted: r.convertedFileBlob != null,
                       findingCount: findingRows.length,
                       highestSeverity,
-                      previewAction: isForm
-                        ? () => previewForm(r, file.name)
-                        : () => preview(r, modelType, file.name),
+                      previewAction: () => previewFileAt(index),
                       previewTitle: isForm
                         ? `Preview form for ${file.name}`
                         : `Preview analysis findings for ${file.name}`,
@@ -1331,7 +1412,7 @@ function App() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsPreviewOpen(false)}
+            onClick={closePreview}
           >
             <X />
             Close
@@ -1339,42 +1420,146 @@ function App() {
         </div>
       </div>
 
-      {(previewType === "bpmn" || previewType === "dmn" || previewType === "other") && (
-        <>
-          {previewType === "bpmn" && !previewDiagramError && (
-            <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
-          )}
-          {previewType === "dmn" &&
-            (previewDmnError ? (
-              <Alert
-                variant="destructive"
-                title="DMN preview unavailable"
-                description={previewDmnError}
-              />
-            ) : (
-              <DmnPreview xml={previewModelXml} onError={setPreviewDmnError} />
-            ))}
-          {(previewType === "other" || (previewType === "bpmn" && previewDiagramError)) && (
-            <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>
-              {previewDiagramError
-                ? 'The diagram could not be rendered. The findings for this file are listed below.'
-                : 'Diagram preview is only available for BPMN files. The findings for this file are listed below.'}
-            </p>
-          )}
-          <FindingsSection
-            header={previewTableHeader}
-            rows={previewTableRows}
-            onSelectElement={previewType === "bpmn" && !previewDiagramError ? selectFindingElement : undefined}
-            selectedElementId={selectedFindingElementId}
-          />
-        </>
+      <nav className="preview-navigation" aria-label="File preview navigation">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => previewFileAt(previewFileIndex - 1)}
+          disabled={previewFileIndex === 0}
+        >
+          <ChevronLeft aria-hidden="true" />
+          Previous file
+        </Button>
+        <span className="preview-position" aria-live="polite" aria-atomic="true">
+          {previewFileIndex + 1} of {files.length}
+        </span>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => previewFileAt(previewFileIndex + 1)}
+          disabled={previewFileIndex === files.length - 1}
+        >
+          Next file
+          <ChevronRight aria-hidden="true" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => previewFileAt(nextFileWithFindingsIndex)}
+          disabled={nextFileWithFindingsIndex === -1}
+        >
+          Next with findings
+        </Button>
+      </nav>
+
+      {currentPreviewResult?.status === "error" && (
+        <Alert
+          variant="destructive"
+          title="File processing failed"
+          description={
+            currentPreviewResult.errorMessage || "File processing failed."
+          }
+        />
       )}
-      {previewType === "form" && (
+      {currentPreviewResult?.status === "uploading" &&
+        currentPreviewResult.checkResponseJson == null && (
+          <p className="preview-loading" role="status">
+            File analysis is still in progress.
+          </p>
+        )}
+      {currentPreviewResult?.checkResponseJson == null &&
+        currentPreviewResult?.status !== "error" &&
+        currentPreviewResult?.status !== "uploading" && (
+          <Alert
+            variant="destructive"
+            title="Analysis unavailable"
+            description="Analysis did not return findings for this file."
+          />
+        )}
+
+      {previewLoading ? (
+        <p className="preview-loading" role="status">
+          Loading preview…
+        </p>
+      ) : (
         <>
-          {previewFormError
-            ? <Alert variant="destructive" title="Form preview unavailable" description={previewFormError} />
-            : <FormPreview schema={previewFormSchema} onError={setPreviewFormError} />}
-          <FindingsSection header={previewTableHeader} rows={previewTableRows} />
+          {(previewType === "bpmn" ||
+            previewType === "dmn" ||
+            previewType === "other") && (
+            <>
+              {previewType === "bpmn" && !previewDiagramError && (
+                <div
+                  ref={bpmnPreviewRef}
+                  id="bpmnDiagram"
+                  className="diagram-container"
+                ></div>
+              )}
+              {previewType === "dmn" &&
+                (previewDmnError ? (
+                  <Alert
+                    variant="destructive"
+                    title="DMN preview unavailable"
+                    description={previewDmnError}
+                  />
+                ) : (
+                  <DmnPreview
+                    xml={previewModelXml}
+                    onError={setPreviewDmnError}
+                  />
+                ))}
+              {(previewType === "other" ||
+                (previewType === "bpmn" && previewDiagramError)) && (
+                <p
+                  style={{
+                    color: "var(--neutral-foreground-subtle)",
+                    marginTop: "1rem",
+                  }}
+                >
+                  {previewDiagramError
+                    ? "The diagram could not be rendered. The findings for this file are listed below."
+                    : "Diagram preview is only available for BPMN or DMN files. The findings for this file are listed below."}
+                </p>
+              )}
+              {currentPreviewResult?.checkResponseJson != null && (
+                <FindingsSection
+                  header={previewTableHeader}
+                  rows={previewTableRows}
+                  onSelectElement={
+                    previewType === "bpmn" && !previewDiagramError
+                      ? selectFindingElement
+                      : undefined
+                  }
+                  selectedElementId={selectedFindingElementId}
+                  hiddenSeverities={hiddenSeverities}
+                  onHiddenSeveritiesChange={setHiddenSeverities}
+                />
+              )}
+            </>
+          )}
+          {previewType === "form" && (
+            <>
+              {previewFormError ? (
+                <Alert
+                  variant="destructive"
+                  title="Form preview unavailable"
+                  description={previewFormError}
+                />
+              ) : (
+                <FormPreview
+                  schema={previewFormSchema}
+                  onError={setPreviewFormError}
+                />
+              )}
+              {currentPreviewResult?.checkResponseJson != null && (
+                <FindingsSection
+                  header={previewTableHeader}
+                  rows={previewTableRows}
+                  hiddenSeverities={hiddenSeverities}
+                  onHiddenSeveritiesChange={setHiddenSeverities}
+                />
+              )}
+            </>
+          )}
         </>
       )}
 
