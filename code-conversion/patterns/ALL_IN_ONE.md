@@ -1582,6 +1582,13 @@ Object comment = job.getVariablesAsMap().get("comment");
 Do not replace it with `job.getVariable("comment")`, which fails for an absent variable.
 Check local and typed variable lookups separately; they have different scope or type semantics.
 
+###### Typed date and byte values
+
+The recipe converts `DateValue` and `BytesValue` declarations with supported direct
+factory or typed-getter initializers. It leaves unsupported contexts and nested
+factory calls for manual migration; a transient flag that is `true` or computed
+gets a review TODO.
+
 ###### autoComplete = false (blocking)
 
 ```java
