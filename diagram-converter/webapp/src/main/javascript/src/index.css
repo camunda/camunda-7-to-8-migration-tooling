@@ -478,6 +478,39 @@ hr {
   margin-bottom: 20px;
 }
 
+.bpmn-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.bpmn-preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bpmn-preview-hint {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--neutral-foreground-subtle);
+  font-size: 0.9rem;
+}
+
+.bpmn-preview-canvas {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  cursor: grab;
+}
+
+.bpmn-preview-canvas:active {
+  cursor: grabbing;
+}
+
 .form-preview-container {
   width: 100%;
   min-height: 320px;
