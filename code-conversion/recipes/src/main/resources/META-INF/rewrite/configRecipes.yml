@@ -47,10 +47,13 @@ displayName: Validate Camunda client configuration
 description: >-
   Validates Camunda client configuration values and shapes against the target Spring Boot
   starter in application.properties and application.yml/application.yaml files. It marks legacy
-  camunda.client.zeebe.* aliases as deprecated without contacting a Camunda cluster.
+  camunda.client.zeebe.* aliases as deprecated. For modules with production @JobWorker declarations,
+  it flags settings and annotation values that may prevent registration without resolving the
+  effective Spring configuration or contacting a Camunda cluster.
 preconditions:
   - org.openrewrite.FindSourceFiles:
-      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
+      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml;**/src/main/java/**/*.java"
 recipeList:
   - io.camunda.migration.code.recipes.config.ValidateCamundaClientProperties
   - io.camunda.migration.code.recipes.config.ValidateCamundaClientYaml
+  - io.camunda.migration.code.recipes.config.ValidateCamundaClientWorkerEnablement
