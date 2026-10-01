@@ -152,6 +152,12 @@
       <groupId>org.openrewrite</groupId>
       <artifactId>rewrite-test</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-nop</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
