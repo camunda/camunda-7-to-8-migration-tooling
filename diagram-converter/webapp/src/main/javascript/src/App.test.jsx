@@ -346,6 +346,58 @@ async function openUploadedPreview(fileName) {
   );
 }
 
+function stubDownloadUrl() {
+  vi.stubGlobal("URL", {
+    createObjectURL: vi.fn().mockReturnValue("blob:analysis"),
+    revokeObjectURL: vi.fn(),
+  });
+}
+
+describe("analysis result downloads", () => {
+  it("uses the analyzed files when the XLSX button is clicked", async () => {
+    const xlsxFileNames = [];
+    fetchMock.mockImplementation((url, request) => {
+      if (
+        url.endsWith("/check") &&
+        request.headers?.Accept ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ) {
+        xlsxFileNames.push(
+          request.body.getAll("file").map((file) => file.name)
+        );
+        return Promise.resolve({
+          ok: true,
+          blob: vi.fn().mockResolvedValue(new Blob(["analysis"])),
+        });
+      }
+
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze([mockFile("process.bpmn")]);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download XLSX",
+    });
+    stubDownloadUrl();
+    fireEvent.click(downloadButton);
+
+    await waitFor(() => expect(xlsxFileNames).toEqual([["process.bpmn"]]));
+  });
+});
+
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
@@ -1359,6 +1411,248 @@ describe("finding severity communicates without relying on color alone", () => {
     );
     expect(severityLabel.closest(".severity-cell").className).not.toContain(
       "severity-cell-warning"
+    );
+  });
+});
+
+describe("batch findings summary and file priority", () => {
+  function checkResponse(...severities) {
+    return [
+      {
+        results: [
+          {
+            messages: severities.map((severity) => ({
+              severity,
+              message: `${severity} finding`,
+            })),
+          },
+        ],
+      },
+    ];
+  }
+
+  async function analyzeBatch(
+    responsesByFile,
+    {
+      conversionFailures = [],
+      analysisFailures = [],
+      onXlsxDownload = () => {},
+    } = {}
+  ) {
+    fetchMock.mockImplementation((url, request) => {
+      if (
+        url.endsWith("/check") &&
+        request.headers?.Accept ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ) {
+        onXlsxDownload(request.body.getAll("file"));
+        return Promise.resolve({
+          ok: true,
+          blob: vi.fn().mockResolvedValue(new Blob(["analysis"])),
+        });
+      }
+
+      const fileName = request.body.get("file").name;
+      if (url.endsWith("/check")) {
+        if (analysisFailures.includes(fileName)) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            headers: { get: vi.fn().mockReturnValue(null) },
+            text: vi.fn().mockResolvedValue("Analysis failed"),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue(responsesByFile[fileName]),
+        });
+      }
+
+      if (conversionFailures.includes(fileName)) {
+        return Promise.resolve({
+          ok: false,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue("Conversion failed"),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze(
+      Object.keys(responsesByFile).map((fileName) => mockFile(fileName))
+    );
+
+    if (analysisFailures.length === Object.keys(responsesByFile).length) {
+      await waitFor(() =>
+        expect(screen.getAllByRole("alert")).toHaveLength(analysisFailures.length)
+      );
+      return screen.queryByRole("status", { name: "Findings summary" });
+    }
+
+    return screen.findByRole("status", { name: "Findings summary" });
+  }
+
+  function summaryCount(summary, label) {
+    return within(summary).getByText(label).nextElementSibling.textContent;
+  }
+
+  function fileNamesInResultsTable() {
+    const table = screen.getByRole("table", { name: "Batch file results" });
+    return within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getAllByRole("cell")[0].textContent.trim());
+  }
+
+  it("shows zero counts for a batch with no findings", async () => {
+    const summary = await analyzeBatch({ "empty.bpmn": checkResponse() });
+
+    expect(summary.textContent).toContain("No findings were reported.");
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("0");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("0");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("0");
+    expect(summary.className).not.toContain("findingSummary-actionRequired");
+    expect(within(fileRow("empty.bpmn")).getByText("No findings")).toBeTruthy();
+  });
+
+  it("hides the findings summary when every analysis fails", async () => {
+    const summary = await analyzeBatch(
+      {
+        "first-failure.bpmn": checkResponse("WARNING"),
+        "second-failure.bpmn": checkResponse("INFO"),
+      },
+      {
+        analysisFailures: ["first-failure.bpmn", "second-failure.bpmn"],
+      }
+    );
+
+    expect(summary).toBeNull();
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+  });
+
+  it("summarizes successfully analyzed files when another analysis fails", async () => {
+    const summary = await analyzeBatch(
+      {
+        "analyzed.bpmn": checkResponse("INFO"),
+        "analysis-failed.bpmn": checkResponse("WARNING"),
+      },
+      { analysisFailures: ["analysis-failed.bpmn"] }
+    );
+
+    expect(summary.textContent).toContain("1 finding detected");
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("0");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+  });
+
+  it("keeps an informational-only batch in neutral styling", async () => {
+    const summary = await analyzeBatch({
+      "informational.bpmn": checkResponse("INFO"),
+    });
+
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("0");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("0");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+    expect(summary.className).not.toContain("findingSummary-actionRequired");
+    expect(screen.queryByRole("alert")).toBeNull();
+    const severityCell = within(fileRow("informational.bpmn"))
+      .getByText("No action needed")
+      .closest(".severity-cell");
+    expect(severityCell.textContent).toBe("No action needed (INFO)");
+  });
+
+  it("groups mixed severities into action, verification and no-follow-up counts", async () => {
+    const summary = await analyzeBatch({
+      "mixed.bpmn": checkResponse("WARNING", "TASK", "REVIEW", "INFO"),
+    });
+
+    expect(summary.textContent).toContain("4 findings detected");
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("2");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("1");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+    expect(summary.className).toContain("findingSummary-actionRequired");
+    expect(within(fileRow("mixed.bpmn")).getByText("4 findings")).toBeTruthy();
+    const severityCell = within(fileRow("mixed.bpmn"))
+      .getByText("Action required: No direct mapping")
+      .closest(".severity-cell");
+    expect(severityCell.textContent).toBe(
+      "Action required: No direct mapping (WARNING)"
+    );
+  });
+
+  it("aggregates multiple files and sorts by highest severity with stable ties", async () => {
+    const summary = await analyzeBatch({
+      "informational.bpmn": checkResponse("INFO"),
+      "task.bpmn": checkResponse("TASK"),
+      "warning-first.bpmn": checkResponse("WARNING"),
+      "empty.bpmn": checkResponse(),
+      "warning-second.bpmn": checkResponse("WARNING"),
+      "review.bpmn": checkResponse("REVIEW"),
+    });
+
+    expect(summaryCount(summary, "Needs action (WARNING and TASK)")).toBe("3");
+    expect(summaryCount(summary, "Needs verification (REVIEW)")).toBe("1");
+    expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
+    expect(fileNamesInResultsTable()).toEqual([
+      "warning-first.bpmn",
+      "warning-second.bpmn",
+      "task.bpmn",
+      "review.bpmn",
+      "informational.bpmn",
+      "empty.bpmn",
+    ]);
+  });
+
+  it("exports analyzed findings when every conversion fails", async () => {
+    const xlsxFileNames = [];
+    const summary = await analyzeBatch(
+      { "conversion-failed.bpmn": checkResponse("WARNING") },
+      {
+        conversionFailures: ["conversion-failed.bpmn"],
+        onXlsxDownload: (files) =>
+          xlsxFileNames.push(files.map((file) => file.name)),
+      }
+    );
+
+    stubDownloadUrl();
+    fireEvent.click(
+      within(summary).getByRole("button", { name: "Download XLSX" })
+    );
+
+    await waitFor(() =>
+      expect(xlsxFileNames).toEqual([["conversion-failed.bpmn"]])
+    );
+  });
+
+  it("exports findings for all analyzed files in a mixed conversion batch", async () => {
+    const xlsxFileNames = [];
+    const summary = await analyzeBatch(
+      {
+        "converted.bpmn": checkResponse("INFO"),
+        "conversion-failed.bpmn": checkResponse("WARNING"),
+      },
+      {
+        conversionFailures: ["conversion-failed.bpmn"],
+        onXlsxDownload: (files) =>
+          xlsxFileNames.push(files.map((file) => file.name)),
+      }
+    );
+
+    stubDownloadUrl();
+    fireEvent.click(
+      within(summary).getByRole("button", { name: "Download XLSX" })
+    );
+
+    await waitFor(() =>
+      expect(xlsxFileNames).toEqual([
+        ["converted.bpmn", "conversion-failed.bpmn"],
+      ])
     );
   });
 });
