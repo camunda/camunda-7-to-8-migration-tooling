@@ -41,8 +41,8 @@ import {
   SUPPORTED_PLATFORM_VERSIONS,
 } from "./platformVersions";
 
-// Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
-// every uploaded file plus the config fields in a single multipart request.
+// Combined batch actions send the files selected for that action plus the
+// config fields in a single multipart request.
 // The server accepts at most MAX_MULTIPART_PARTS parts total (mirrors
 // server.tomcat.max-part-count in application.yaml, which is where the
 // server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
@@ -124,6 +124,9 @@ function App() {
       highestSeverity: getHighestSeverity(findingRows),
     };
   });
+  const analyzedFiles = fileFindingEntries
+    .filter(({ result }) => result.checkResponseJson != null)
+    .map(({ file }) => file);
   const filesByPriority = [...fileFindingEntries].sort((left, right) => {
     const leftHasFindings = left.findingRows.length > 0;
     const rightHasFindings = right.findingRows.length > 0;
@@ -512,8 +515,8 @@ function App() {
   }
 
   // Reprocesses only the file at `idx`. Other rows (completed or failed) are
-  // left untouched, and the ZIP/report downloads only ever see files whose
-  // latest result is a success.
+  // left untouched. ZIP, CSV, JSON and the results-page XLSX use successful
+  // conversions; the summary XLSX uses files with a successful analysis.
   async function retryFile(idx) {
     const file = files[idx];
     updateFileResult(idx, { status: "uploading" });
@@ -602,8 +605,8 @@ function App() {
     await download1(filename, response);
   }
 
-  async function downloadXLS() {
-    const formData = createFormData(validFiles);
+  async function downloadXLS(filesToDownload = validFiles) {
+    const formData = createFormData(filesToDownload);
     await handleDownloadResponse("analysis.xlsx",
       await fetch(baseUrl + "/check", {
         body: formData,
@@ -1071,7 +1074,11 @@ function App() {
                       </dl>
                     </div>
                     {totalFindings > 0 && (
-                      <Button variant="secondary" size="sm" onClick={downloadXLS}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => downloadXLS(analyzedFiles)}
+                      >
                         Download XLSX
                       </Button>
                     )}

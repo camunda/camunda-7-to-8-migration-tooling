@@ -1019,11 +1019,11 @@ describe("finding severity communicates without relying on color alone", () => {
     fireEvent.click(analyzeButton);
 
     const badge = await screen.findByLabelText(
-      "1 finding, highest severity INFO (No action needed)"
+      "1 finding, highest severity No action needed (INFO)"
     );
     expect(badge.className).toContain("fileItemFindingCount-info");
     expect(badge.className).not.toContain("fileItemFindingCount-warning");
-    expect(screen.getByText("Highest: INFO")).toBeTruthy();
+    expect(screen.getByText("Highest: No action needed (INFO)")).toBeTruthy();
   });
 });
 
@@ -1043,14 +1043,37 @@ describe("batch findings summary and file priority", () => {
     ];
   }
 
-  async function analyzeBatch(responsesByFile) {
+  async function analyzeBatch(
+    responsesByFile,
+    { conversionFailures = [], onXlsxDownload = () => {} } = {}
+  ) {
     fetchMock.mockImplementation((url, request) => {
+      if (
+        url.endsWith("/check") &&
+        request.headers?.Accept ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ) {
+        onXlsxDownload(request.body.getAll("file"));
+        return Promise.resolve({
+          ok: false,
+          json: vi.fn().mockResolvedValue({ errorCode: "MULTIPART_ERROR" }),
+        });
+      }
+
       const fileName = request.body.get("file").name;
       if (url.endsWith("/check")) {
         return Promise.resolve({
           ok: true,
           headers: { get: vi.fn().mockReturnValue(null) },
           json: vi.fn().mockResolvedValue(responsesByFile[fileName]),
+        });
+      }
+
+      if (conversionFailures.includes(fileName)) {
+        return Promise.resolve({
+          ok: false,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue("Conversion failed"),
         });
       }
 
@@ -1092,7 +1115,11 @@ describe("batch findings summary and file priority", () => {
     expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
     expect(summary.className).not.toContain("findingSummary-actionRequired");
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(within(fileRow("informational.bpmn")).getByText("Highest: INFO")).toBeTruthy();
+    expect(
+      within(fileRow("informational.bpmn")).getByText(
+        "Highest: No action needed (INFO)"
+      )
+    ).toBeTruthy();
   });
 
   it("groups mixed severities into action, verification and no-follow-up counts", async () => {
@@ -1106,7 +1133,11 @@ describe("batch findings summary and file priority", () => {
     expect(summaryCount(summary, "No follow-up (INFO)")).toBe("1");
     expect(summary.className).toContain("findingSummary-actionRequired");
     expect(within(fileRow("mixed.bpmn")).getByText("4 findings")).toBeTruthy();
-    expect(within(fileRow("mixed.bpmn")).getByText("Highest: WARNING")).toBeTruthy();
+    expect(
+      within(fileRow("mixed.bpmn")).getByText(
+        "Highest: No direct mapping (WARNING)"
+      )
+    ).toBeTruthy();
   });
 
   it("aggregates multiple files and sorts by highest severity with stable ties", async () => {
@@ -1134,6 +1165,51 @@ describe("batch findings summary and file priority", () => {
       "informational.bpmn",
       "empty.bpmn",
     ]);
+  });
+
+  it("exports analyzed findings when every conversion fails", async () => {
+    const xlsxFileNames = [];
+    const summary = await analyzeBatch(
+      { "conversion-failed.bpmn": checkResponse("WARNING") },
+      {
+        conversionFailures: ["conversion-failed.bpmn"],
+        onXlsxDownload: (files) =>
+          xlsxFileNames.push(files.map((file) => file.name)),
+      }
+    );
+
+    fireEvent.click(
+      within(summary).getByRole("button", { name: "Download XLSX" })
+    );
+
+    await waitFor(() =>
+      expect(xlsxFileNames).toEqual([["conversion-failed.bpmn"]])
+    );
+  });
+
+  it("exports findings for all analyzed files in a mixed conversion batch", async () => {
+    const xlsxFileNames = [];
+    const summary = await analyzeBatch(
+      {
+        "converted.bpmn": checkResponse("INFO"),
+        "conversion-failed.bpmn": checkResponse("WARNING"),
+      },
+      {
+        conversionFailures: ["conversion-failed.bpmn"],
+        onXlsxDownload: (files) =>
+          xlsxFileNames.push(files.map((file) => file.name)),
+      }
+    );
+
+    fireEvent.click(
+      within(summary).getByRole("button", { name: "Download XLSX" })
+    );
+
+    await waitFor(() =>
+      expect(xlsxFileNames).toEqual([
+        ["converted.bpmn", "conversion-failed.bpmn"],
+      ])
+    );
   });
 });
 
