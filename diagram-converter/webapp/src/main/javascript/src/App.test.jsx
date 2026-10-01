@@ -557,31 +557,29 @@ describe("accessibility", () => {
 });
 
 describe("target platform version", () => {
-  it("marks 8.10 as latest stable and selects it by default", () => {
+  it("labels every supported version and selects the latest stable by default", () => {
     render(<App />);
 
     const versionGroup = screen.getByRole("radiogroup", {
       name: "Target Camunda 8 version",
     });
     const latestStable = within(versionGroup).getByRole("radio", {
-      name: "8.10 Latest stable",
+      name: "8.9 Latest stable",
     });
-    const previousStable = within(versionGroup).getByRole("radio", {
-      name: "8.9 Previous stable",
+    const earlierStable = within(versionGroup).getByRole("radio", {
+      name: "8.8 Earlier stable",
     });
     const nextVersion = within(versionGroup).getByRole("radio", {
-      name: "8.11 Next version",
-    });
-
-    const olderSupported = within(versionGroup).getByRole("radio", {
-      name: "8.8",
+      name: "8.10 Next version",
     });
 
     expect(within(versionGroup).getByText("Latest stable")).toBeTruthy();
+    expect(within(earlierStable).getByText("Earlier stable")).toBeDefined();
+    expect(within(latestStable).getByText("Latest stable")).toBeDefined();
+    expect(within(nextVersion).getByText("Next version")).toBeDefined();
     expect(latestStable.getAttribute("aria-checked")).toBe("true");
     expect(latestStable.getAttribute("tabindex")).toBe("0");
-    expect(olderSupported.getAttribute("aria-checked")).toBe("false");
-    expect(previousStable.getAttribute("aria-checked")).toBe("false");
+    expect(earlierStable.getAttribute("aria-checked")).toBe("false");
     expect(nextVersion.getAttribute("aria-checked")).toBe("false");
   });
 
@@ -598,7 +596,7 @@ describe("target platform version", () => {
     });
     fireEvent.click(
       within(versionGroup).getByRole("radio", {
-        name: "8.9 Previous stable",
+        name: "8.9 Latest stable",
       })
     );
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
