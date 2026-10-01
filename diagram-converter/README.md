@@ -14,6 +14,8 @@ to listener task headers, and dynamic DMN decision version-tag expressions to FE
 
 The Diagram Converter is available online at [https://diagram-converter.camunda.io/](https://diagram-converter.camunda.io/), hosted by Camunda. Your diagrams are transiently processed - we don't store any of your data.
 
+The results view provides searchable, sortable tables for batch files and per-file findings, with filters for severity.
+
 ## Excel analysis reports
 
 Downloaded XLSX reports and CLI exports keep the current findings on the `AnalysisResults` tab. The `AnalysisSummary` and `PivotTable` tabs use pivot tables and charts; in Excel Protected View, they may appear blank because Excel cannot refresh them. Select **Enable Editing** to display the current summaries, or inspect `AnalysisResults` while the workbook remains read-only.
