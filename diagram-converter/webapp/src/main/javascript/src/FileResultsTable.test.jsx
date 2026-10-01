@@ -62,7 +62,7 @@ describe("FileResultsTable", () => {
       within(table)
         .getAllByRole("columnheader")
         .map((header) => header.textContent)
-    ).toEqual(["File name", "Finding count", "Severity", "Actions"]);
+    ).toEqual(["File name", "Finding count", "Severity", "Status", "Actions"]);
     expect(fileNamesInOrder()).toEqual([
       "warning.bpmn",
       "task.bpmn",
@@ -75,6 +75,58 @@ describe("FileResultsTable", () => {
     ).toContain("severity-cell-warning");
     expect(within(table).getByText("No findings")).toBeTruthy();
     expect(within(table).getByText("3 findings")).toBeTruthy();
+  });
+
+  it("shows accessible processing states in a separate status column", () => {
+    render(
+      <FileResultsTable
+        rows={[
+          row("analyzing", "analyzing.bpmn", null, 0, {
+            status: "uploading",
+            isChecked: false,
+            isConverted: false,
+          }),
+          row("converting", "converting.bpmn", null, 0, {
+            status: "uploading",
+            isChecked: true,
+            isConverted: false,
+          }),
+          row("success", "success.bpmn", null, 0),
+          row("failure", "failure.bpmn", null, 0, {
+            status: "error",
+            isChecked: false,
+            isConverted: false,
+            error: "Conversion failed.",
+          }),
+        ]}
+      />
+    );
+
+    const table = screen.getByRole("table", { name: "Batch file results" });
+    const headers = within(table)
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    const statusColumn = headers.indexOf("Status");
+    expect(statusColumn).toBe(3);
+
+    for (const [fileName, statusLabel] of [
+      ["analyzing.bpmn", "Analyzing…"],
+      ["converting.bpmn", "Converting…"],
+      ["success.bpmn", "Success"],
+      ["failure.bpmn", "Failed"],
+    ]) {
+      const tableRow = screen.getByText(fileName).closest("tr");
+      const cells = within(tableRow).getAllByRole("cell");
+      const statusCell = cells[statusColumn];
+      expect(statusCell.textContent).toBe(statusLabel);
+      expect(cells[statusColumn + 1].textContent).not.toContain(statusLabel);
+
+      if (statusLabel === "Analyzing…" || statusLabel === "Converting…") {
+        expect(within(statusCell).getByRole("status").textContent).toBe(
+          statusLabel
+        );
+      }
+    }
   });
 
   it("sorts numeric finding counts and keeps the selected direction visible", () => {

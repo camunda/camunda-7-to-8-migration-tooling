@@ -363,6 +363,13 @@ section {
   color: var(--success-foreground-subtle);
 }
 
+.file-result-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
 .file-result-no-severity {
   color: var(--neutral-foreground-subtle);
 }

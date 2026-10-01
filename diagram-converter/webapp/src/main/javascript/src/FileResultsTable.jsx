@@ -14,7 +14,7 @@ import {
   TableBody,
   TableCell,
 } from "@camunda/design-system";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 import { getSeverityInfo, getSeverityRank, SEVERITY_ORDER } from "./findings";
 import { FileItemActions, FileItemError } from "./FileItem";
@@ -62,6 +62,19 @@ function severityDescription(value) {
     return { label: "Not analyzed", code: null };
   }
   return { label: getSeverityInfo(value).label, code: value };
+}
+
+function fileStatusLabel(row) {
+  switch (row.status) {
+    case "uploading":
+      return row.isChecked ? "Converting…" : "Analyzing…";
+    case "success":
+      return "Success";
+    case "error":
+      return "Failed";
+    default:
+      return "Unknown";
+  }
 }
 
 function compareSeverity(left, right, direction) {
@@ -248,6 +261,7 @@ export default function FileResultsTable({ rows, resetKey = rows }) {
                     </button>
                   </TableHead>
                 ))}
+                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -282,12 +296,25 @@ export default function FileResultsTable({ rows, resetKey = rows }) {
                     )}
                   </TableCell>
                   <TableCell>
+                    <span
+                      className="file-result-status"
+                      role={row.status === "uploading" ? "status" : undefined}
+                    >
+                      {row.status === "uploading" && (
+                        <Loader2
+                          aria-hidden="true"
+                          className="size-4 animate-spin text-primary-action-default"
+                        />
+                      )}
+                      {fileStatusLabel(row)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
                     <div className="file-result-action-cell">
                       <div className="file-result-actions">
                         <FileItemActions
                           name={row.name}
                           error={row.error}
-                          status={row.status}
                           isChecked={row.isChecked}
                           isConverted={row.isConverted}
                           downloadAction={row.downloadAction}
