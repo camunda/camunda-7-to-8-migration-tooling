@@ -50,6 +50,17 @@ Review and validate both paths.
 
 If no BPMN/DMN model is found under the project root, the skill can offer the Diagram Converter's C7 engine source mode instead. It asks for a reachable C7 REST URL and the required authentication before fetching; when local models are present, it does not offer or request engine access. The released engine mode supports REST with optional Basic authentication and fetches latest BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
+For agentic model migration targeting Camunda 8.5 and later, every Camunda 7 user task becomes a
+Camunda 8 user task by default, including form-free tasks. The skill preserves compatible
+assignments, schedules, forms, and listeners, records unsupported semantics, and does not create a
+legacy user-task job. A job-based replacement requires an explicit user decision. For targets
+before Camunda 8.5, the skill does not apply this mapping and records that modern user-task support
+is unavailable.
+
+The Diagram Converter maps `camunda:priority` on user tasks to `zeebe:priorityDefinition` for
+Camunda 8.6 and later. It validates constant priorities against the supported 0–100 range and
+reports unsupported or invalid values for manual review.
+
 Call-activity migration preserves the C7 input and output scopes. In Camunda 8.9, the child inherits the parent's Business ID independently of process variables.
 
 Before deployment, the skill checks recurring timer starts and duplicate process IDs on each target,
@@ -90,6 +101,9 @@ The [`grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthroug
 resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
 `MIGRATION_REPORT.md`. It also includes a runnable documentation test for the dependency workflow
 and blocked-item contract. The test does not run an application migration.
+
+The [`user-tasks`](fixtures/user-tasks) walkthrough covers a message-start process with a form-free
+user task and a user task carrying assignment and form metadata.
 
 ## License
 

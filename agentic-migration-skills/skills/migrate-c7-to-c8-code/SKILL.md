@@ -599,6 +599,11 @@ Use when Java 21 is unavailable, the user wants to review every change, or the C
 
 Then, for each in-scope diagram, produce a **new** `converted-c8-<name>.bpmn`/`.dmn` (never edit the original in place) applying, respecting the target version:
 - `camunda:` namespace/extension elements → `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
+- For target version 8.5 or later, convert every Camunda 7 user task to a Camunda 8 user task, including form-free tasks. Ensure it has a `bpmn:extensionElements` container and add exactly one `<zeebe:userTask />`.
+- For target version 8.5 or later, preserve compatible user-task assignment, schedule, form, and task-listener metadata in their corresponding Zeebe extensions.
+- For target version 8.5 or later, preserve a user task and record a finding with its source element and required manual action when any semantic is unsupported. Do not create a legacy `io.camunda.zeebe:userTask` job unless the user explicitly requests a job-based replacement.
+- For target versions before 8.5, do not add `<zeebe:userTask />`. Preserve the source implementation and record that modern user-task support is unavailable.
+- For target version 8.6 or later, map a supported user-task `camunda:priority` to `zeebe:priorityDefinition`; only emit a valid priority from 0 through 100 or a compatible expression. Report invalid values and method-invocation or execution-only expressions for manual migration.
 - Execution/task listeners → `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references → job types (or blank, to be filled)
 - Simple JUEL → FEEL for pure data expressions; flag bean-invoking expressions for manual work
@@ -610,6 +615,18 @@ Never add the listener to the C8 start event.
 Keep the finding **needs review** when those rules do not allow relocation.
 
 Emit a findings summary mirroring the CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review. This path is slower and non-deterministic — recommend M1 whenever Java 21 is available.
+
+Before resolving model findings, validate every converted user task:
+
+| Check | Required result |
+|---|---|
+| Zeebe namespace | `bpmn:definitions` declares `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` when any Zeebe extension is present |
+| User-task marker | Exactly one `zeebe:userTask` child exists in the task's `bpmn:extensionElements` for targets 8.5+ |
+| User-task metadata | Supported assignment, schedule, form, and listener values are present in their matching Zeebe extensions |
+| Unsupported semantics | A finding names the source task and required manual action |
+| Job-worker fallback | No `zeebe:taskDefinition` exists unless the user explicitly selected a job-based replacement and the decision is recorded in `MIGRATION_REPORT.md` |
+
+For targets before 8.5, do not add the marker. Preserve the source implementation and record why modern user-task support is unavailable.
 
 ### Approach M3 — Online Diagram Converter (hosted)
 

@@ -19,6 +19,7 @@ public class UserTaskConvertible extends AbstractActivityConvertible
       new ZeebeAssignmentDefinition();
   private final ZeebeTaskSchedule zeebeTaskSchedule = new ZeebeTaskSchedule();
   private boolean zeebeUserTask;
+  private String zeebeUserTaskPriority;
 
   private List<ZeebeTaskListener> zeebeTaskListeners = new ArrayList<>();
 
@@ -52,6 +53,14 @@ public class UserTaskConvertible extends AbstractActivityConvertible
 
   public void setZeebeUserTask(boolean zeebeUserTask) {
     this.zeebeUserTask = zeebeUserTask;
+  }
+
+  public String getZeebeUserTaskPriority() {
+    return zeebeUserTaskPriority;
+  }
+
+  public void setZeebeUserTaskPriority(String zeebeUserTaskPriority) {
+    this.zeebeUserTaskPriority = zeebeUserTaskPriority;
   }
 
   public static class ZeebeFormDefinition {

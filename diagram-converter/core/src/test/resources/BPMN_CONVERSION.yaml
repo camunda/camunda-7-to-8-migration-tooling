@@ -134,6 +134,191 @@ categories:
           </bpmn:userTask>
         expectedMessages: |
           <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form ' embedded:app:forms/loan.html' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+  - category: user tasks
+    cases:
+      - name: Candidate-user expressions are transformed when mapped to a user-task assignment
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:userTask id="assigned" name="Review approval" camunda:assignee="${reviewer}" camunda:candidateGroups="approvers" camunda:candidateUsers="${candidateUsers}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="assigned" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:assignmentDefinition assignee="=reviewer" candidateGroups="approvers" candidateUsers="=candidateUsers"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Assignee: Please review transformed expression: '${reviewer}' -&gt; '=reviewer'.</conversion:message>
+          <conversion:message severity="REVIEW">Candidate users: Please review transformed expression: '${candidateUsers}' -&gt; '=candidateUsers'.</conversion:message>
+      - name: User-task priority lower bound maps to the bounded priority definition
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityZero" name="Zero priority" camunda:priority="0"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityZero" implementation="##unspecified" isForCompensation="false" name="Zero priority" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="0"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: ""
+      - name: User-task priority upper bound maps to the bounded priority definition
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityHundred" name="Highest priority" camunda:priority="100"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityHundred" implementation="##unspecified" isForCompensation="false" name="Highest priority" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="100"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: ""
+      - name: User-task priority expression is transformed to FEEL
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityExpression" name="Review approval" camunda:priority="${priority}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityExpression" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:priorityDefinition priority="=priority"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">User task priority: Please review transformed expression: '${priority}' -&gt; '=priority'.</conversion:message>
+      - name: User-task priority method invocation remains for manual migration
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityMethod" name="Review approval" camunda:priority="${order.getPriority()}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityMethod" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">User task priority: Transformed expression: '${order.getPriority()}' -&gt; '${order.getPriority()}'. Method invocation is not possible in FEEL.</conversion:message>
+      - name: Negative user-task priority is rejected
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityNegative" name="Review approval" camunda:priority="-1"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityNegative" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '-1' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: User-task priority above the upper bound is rejected
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityTooHigh" name="Review approval" camunda:priority="101"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityTooHigh" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '101' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Constant user-task priority expression is validated after FEEL conversion
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityExpressionTooHigh" name="Review approval" camunda:priority="${101}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityExpressionTooHigh" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${101}' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Non-integer user-task priority expression is rejected
+        properties:
+          platformVersion: "8.6"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityDecimal" name="Review approval" camunda:priority="${1.5}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityDecimal" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '${1.5}' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: User-task priority is unsupported for pre-8.6 targets
+        properties:
+          platformVersion: "8.5"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityUnsupported" name="Review approval" camunda:priority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityUnsupported" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Attribute 'priority' with value '80' on 'userTask' is not supported.</conversion:message>
+      - name: User-task job priority is reported as not migrated
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:userTask id="JobPriority" name="Review approval" camunda:jobPriority="20"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="JobPriority" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Camunda 7 'jobPriority' value '20' on user task 'JobPriority' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
+      - name: User-task task priority is reported as not migrated
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:userTask id="TaskPriority" name="Review approval" camunda:taskPriority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="TaskPriority" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Camunda 7 'taskPriority' value '80' on user task 'TaskPriority' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
+      - name: User-task job and task priorities report a collision
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:userTask id="PriorityCollision" name="Review approval" camunda:jobPriority="20" camunda:taskPriority="80"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PriorityCollision" implementation="##unspecified" isForCompensation="false" name="Review approval" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on user task 'PriorityCollision'. Neither priority maps to the Camunda 8 user-task priority slot. Handle both priorities manually.</conversion:message>
+          <conversion:message severity="TASK">Camunda 7 'taskPriority' value '80' on user task 'PriorityCollision' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.</conversion:message>
+      - name: Priority attributes retain their existing handling on non-user tasks
+        givenBpmn: |
+          <bpmn:serviceTask id="PriorityCompatibility" name="Priority compatibility" camunda:jobPriority="20" camunda:priority="40" camunda:taskPriority="80"/>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="PriorityCompatibility" implementation="##WebService" isForCompensation="false" name="Priority compatibility" startQuantity="1">
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Unused attribute 'jobPriority' on 'serviceTask' is removed.</conversion:message>
+          <conversion:message severity="WARNING">Attribute 'priority' with value '40' on 'serviceTask' is not supported.</conversion:message>
+          <conversion:message severity="WARNING">Attribute 'taskPriority' with value '80' on 'serviceTask' is not supported.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output

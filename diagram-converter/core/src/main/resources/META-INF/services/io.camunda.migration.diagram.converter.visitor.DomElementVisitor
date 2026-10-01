@@ -62,6 +62,7 @@ io.camunda.migration.diagram.converter.visitor.impl.attribute.CandidateStarterUs
 io.camunda.migration.diagram.converter.visitor.impl.attribute.CaseBindingVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.CollectionVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.PriorityVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.UserTaskPriorityVisitor
 io.camunda.migration.diagram.converter.visitor.impl.CompletionConditionVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.CalledElementVersionVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.StartEventFormKeyVisitor

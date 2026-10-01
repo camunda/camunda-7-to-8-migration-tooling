@@ -160,6 +160,42 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildPriorityInvalid() {
+    Message message = MessageFactory.priorityInvalid("userTask", "101");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Priority '101' on 'userTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#define-user-task-priority");
+  }
+
+  @Test
+  void shouldBuildUserTaskPriorityCollision() {
+    Message message = userTaskPriorityCollision("review", "20", "80");
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on user task 'review'. Neither priority maps to the Camunda 8 user-task priority slot. Handle both priorities manually.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#define-user-task-priority");
+  }
+
+  @Test
+  void shouldBuildUserTaskPriorityNotMigrated() {
+    Message message = userTaskPriorityNotMigrated("jobPriority", "review", "30");
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Camunda 7 'jobPriority' value '30' on user task 'review' has no direct equivalent for a Camunda 8 user task and was not migrated. Preserve the user-task implementation and handle this priority manually.");
+    assertThat(message.getLink())
+        .isEqualTo(
+            "https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/#define-user-task-priority");
+  }
+
+  @Test
   void shouldBuildAttributeRemoved() {
     Message message = MessageFactory.attributeRemoved(random(), random());
     assertNotNull(message);
