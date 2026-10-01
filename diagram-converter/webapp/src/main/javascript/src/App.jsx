@@ -36,7 +36,7 @@ import {
   summarizeFindings,
 } from "./findings";
 import FindingsSection from "./FindingsSection";
-import BpmnJS from 'bpmn-js';
+import BpmnJS from "bpmn-js/lib/NavigatedViewer";
 import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
@@ -80,6 +80,7 @@ function App() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewType, setPreviewType] = useState(null);
   const [previewModelXml, setPreviewModelXml] = useState("");
+  const [bpmnPreviewReady, setBpmnPreviewReady] = useState(false);
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
   const [previewFormError, setPreviewFormError] = useState("");
   const [previewDiagramError, setPreviewDiagramError] = useState(false);
@@ -103,11 +104,12 @@ function App() {
   const previewRequestIdRef = useRef(0);
   const previewedResultRef = useRef(null);
 
-  function closePreview() {
+  const closePreview = useCallback(() => {
     previewRequestIdRef.current += 1;
     setPreviewLoading(false);
+    setBpmnPreviewReady(false);
     setIsPreviewOpen(false);
-  }
+  }, [setBpmnPreviewReady, setIsPreviewOpen, setPreviewLoading]);
 
   const currentPreviewResult =
     previewFileIndex === null ? null : fileResults[previewFileIndex];
@@ -281,6 +283,7 @@ function App() {
           }
         };
         eventBus.on('selection.changed', handleSelectionChanged);
+        setBpmnPreviewReady(true);
       }).catch((error) => {
         if (isActive) {
           console.error("Unable to render BPMN preview:", error);
@@ -322,6 +325,20 @@ function App() {
     } catch (error) {
       console.error("Unable to locate finding element in the diagram:", error);
     }
+  }
+
+  function zoomBpmnPreview(direction) {
+    const viewer = bpmnViewerRef.current;
+    if (!viewer) return;
+
+    viewer.get("zoomScroll").stepZoom(direction);
+  }
+
+  function fitBpmnPreview() {
+    const viewer = bpmnViewerRef.current;
+    if (!viewer) return;
+
+    viewer.get("canvas").zoom("fit-viewport");
   }
 
   useLayoutEffect(() => {
@@ -369,7 +386,7 @@ function App() {
       document.body.style.overflow = previousBodyOverflow;
       if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
     };
-  }, [isPreviewOpen]);
+  }, [closePreview, isPreviewOpen]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -705,6 +722,7 @@ function App() {
     if (!file || !response) return;
 
     const requestId = ++previewRequestIdRef.current;
+    setBpmnPreviewReady(false);
     previewedResultRef.current = response;
     const modelType = getPreviewType(file.name);
     const checkResponseJson = response.checkResponseJson ?? [];
@@ -760,7 +778,7 @@ function App() {
         setPreviewLoading(false);
       }
     }
-  }, [files, fileResults]);
+  }, [files, fileResults, setBpmnPreviewReady]);
 
   useEffect(() => {
     if (!isPreviewOpen || previewFileIndex === null) return;
@@ -1378,11 +1396,61 @@ function App() {
             previewType === "other") && (
             <>
               {previewType === "bpmn" && !previewDiagramError && (
-                <div
-                  ref={bpmnPreviewRef}
-                  id="bpmnDiagram"
-                  className="diagram-container"
-                ></div>
+                <div className="bpmn-preview">
+                  <div className="bpmn-preview-toolbar">
+                    <div
+                      className="bpmn-preview-controls"
+                      role="group"
+                      aria-label="BPMN diagram zoom controls"
+                    >
+                      <Button
+                        type="button"
+                        kind="secondary"
+                        size="sm"
+                        aria-label="Zoom out"
+                        onClick={() => zoomBpmnPreview(-1)}
+                        disabled={!bpmnPreviewReady}
+                      >
+                        Zoom out
+                      </Button>
+                      <Button
+                        type="button"
+                        kind="secondary"
+                        size="sm"
+                        aria-label="Fit to viewport"
+                        onClick={fitBpmnPreview}
+                        disabled={!bpmnPreviewReady}
+                      >
+                        Fit to viewport
+                      </Button>
+                      <Button
+                        type="button"
+                        kind="secondary"
+                        size="sm"
+                        aria-label="Zoom in"
+                        onClick={() => zoomBpmnPreview(1)}
+                        disabled={!bpmnPreviewReady}
+                      >
+                        Zoom in
+                      </Button>
+                    </div>
+                    <p
+                      className="bpmn-preview-hint"
+                      id="bpmn-preview-instructions"
+                    >
+                      Drag the diagram to pan or scroll within it to move. Hold
+                      Ctrl or Command while scrolling to zoom.
+                    </p>
+                  </div>
+                  <div
+                    ref={bpmnPreviewRef}
+                    id="bpmnDiagram"
+                    className="diagram-container bpmn-preview-canvas"
+                    role="region"
+                    aria-label="BPMN diagram preview"
+                    aria-describedby="bpmn-preview-instructions"
+                  />
+                </div>
               )}
               {previewType === "dmn" &&
                 (previewDmnError ? (
