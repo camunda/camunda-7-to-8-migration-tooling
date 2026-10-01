@@ -768,6 +768,11 @@ describe("preview navigation", () => {
     });
     expect(screen.getByText("3 of 3")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Next file" }).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous file" }));
+    await screen.findByRole("heading", { name: "Preview: decision.dmn" });
+    expect(testState.dmnPreviewProps.at(-1).xml).toBe(dmn);
+    expect(screen.getByText("2 of 3")).toBeTruthy();
   });
 
   it("navigates through failed files and distinguishes missing analysis from empty results", async () => {
