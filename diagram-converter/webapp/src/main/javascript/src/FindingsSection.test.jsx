@@ -292,6 +292,31 @@ describe("FindingsSection filtering (mixed-severity state)", () => {
     expect(screen.getByRole("button", { name: "Clear filters" })).toBeTruthy();
   });
 
+  it("searches findings by the displayed severity labels and raw codes", () => {
+    const severities = [
+      ["WARNING", "No direct mapping"],
+      ["TASK", "Manual action required"],
+      ["REVIEW", "Verify after conversion"],
+      ["INFO", "No action needed"],
+    ];
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={severities.map(([severity], index) =>
+          row(index, severity, { elementType: "bpmn:StartEvent" })
+        )}
+      />
+    );
+
+    const search = screen.getByRole("searchbox", { name: "Search findings" });
+    for (const [severity, label] of severities) {
+      for (const query of [label.toLocaleLowerCase(), severity.toLocaleLowerCase()]) {
+        fireEvent.change(search, { target: { value: query } });
+        expect(severityCellsInOrder()).toEqual([`${label} (${severity})`]);
+      }
+    }
+  });
+
   it("searches finding fields case-insensitively and reports no matching results", () => {
     render(
       <FindingsSection

@@ -119,7 +119,13 @@ export default function FindingsSection({
       const matchesSearch =
         query.length === 0 ||
         header
-          .map(({ key }) => String(row[key] ?? ""))
+          .map(({ key }) => {
+            if (key === "severity") {
+              const severity = normalizeSeverity(row.severity);
+              return `${getSeverityInfo(severity).label} ${severity}`;
+            }
+            return String(row[key] ?? "");
+          })
           .join(" ")
           .toLocaleLowerCase()
           .includes(query);
