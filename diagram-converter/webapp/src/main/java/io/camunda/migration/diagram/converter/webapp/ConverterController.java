@@ -323,6 +323,9 @@ public class ConverterController {
   /**
    * POST method to actually convert a BPMN, DMN or form model.
    *
+   * <p>When {@code preserveOriginalFilename} is enabled, the response attachment uses the uploaded
+   * filename's safe basename instead of the default {@code converted-c8-} prefix.
+   *
    * @throws InterruptedException
    */
   @PostMapping(
@@ -431,7 +434,8 @@ public class ConverterController {
 
   /**
    * POST method to convert a list of BPMN or DMN models in one go. Returns a ZIP file with all the
-   * contents
+   * contents. When {@code preserveOriginalFilename} is enabled, ZIP entry names use the uploaded
+   * filenames' safe basenames; duplicate names are disambiguated as before.
    */
   @PostMapping(
       value = "/convertBatch",
