@@ -142,6 +142,7 @@ function configureUpload({
   content,
   checkResponseJson,
   convertedContent = content,
+  convertedContentDisposition = null,
 }) {
   testState.files.splice(0, testState.files.length, {
     name: fileName,
@@ -159,7 +160,7 @@ function configureUpload({
 
     return Promise.resolve({
       ok: true,
-      headers: { get: vi.fn().mockReturnValue(null) },
+      headers: { get: vi.fn().mockReturnValue(convertedContentDisposition) },
       blob: vi.fn().mockResolvedValue(new Blob([convertedContent])),
     });
   });
@@ -678,6 +679,42 @@ describe("output filenames", () => {
     expect(hint?.textContent).toBe(
       "Individual downloads and ZIP entries use the uploaded file name, for example order.bpmn."
     );
+  });
+
+  it("prefers and decodes Spring's UTF-8 filename* parameter for downloads", async () => {
+    configureUpload({
+      fileName: "original model.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+      convertedContentDisposition:
+        'attachment; filename="=?UTF-8?Q?original_model.bpmn?="; filename*=UTF-8\'\'original%20model.bpmn',
+    });
+    render(<App />);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Use the uploaded file names" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download original model.bpmn",
+    });
+    const downloadedFilenames = [];
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function () {
+        downloadedFilenames.push(this.download);
+      });
+
+    fireEvent.click(downloadButton);
+
+    expect(downloadedFilenames).toEqual(["original model.bpmn"]);
+    anchorClick.mockRestore();
   });
 
   it("sends the selected filename option to individual and ZIP conversions", async () => {

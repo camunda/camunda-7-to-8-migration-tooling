@@ -417,16 +417,21 @@ function App() {
       return result;
     }
 
-    // Extract filename from the Content-Disposition header
+    // Prefer filename* over Spring's encoded filename= fallback.
     let filename = "downloaded-model.bpmn"; // Default filename
 
     const contentDisposition = convertResponse.headers.get("Content-Disposition");
     if (contentDisposition) {
-      const match = contentDisposition.match(
-          /filename\*?=(?:UTF-8'')?["']?([^"';]*)["']?/i
+      const extendedMatch = contentDisposition.match(
+        /(?:^|;)\s*filename\*\s*=\s*(?:UTF-8'[^']*')?["']?([^"';]*)["']?/i
       );
+      const match =
+        extendedMatch ??
+        contentDisposition.match(
+          /(?:^|;)\s*filename\s*=\s*["']?([^"';]*)["']?/i
+        );
       if (match) {
-        filename = decodeURIComponent(match[1]); // Decode if necessary
+        filename = decodeURIComponent(match[1]);
       }
     }
 
