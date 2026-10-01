@@ -126,7 +126,6 @@ function App() {
   const [fileResults, setFileResults] = useState([]);
   const [validFiles, setValidFiles] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isNewBatchConfirmationOpen, setIsNewBatchConfirmationOpen] = useState(false);
   const [previewType, setPreviewType] = useState(null);
   const [previewModelXml, setPreviewModelXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
@@ -152,19 +151,11 @@ function App() {
   const bpmnViewerRef = useRef(null);
   const selectedMarkerElementIdRef = useRef(null);
   const previewDialogRef = useRef(null);
-  const newBatchDialogRef = useRef(null);
-  const newBatchCancelButtonRef = useRef(null);
   const addFilesHeadingRef = useRef(null);
   const focusAddFilesAfterResetRef = useRef(false);
   const batchGenerationRef = useRef(0);
 
   useAccessibleModal(isPreviewOpen, previewDialogRef, setIsPreviewOpen);
-  useAccessibleModal(
-    isNewBatchConfirmationOpen,
-    newBatchDialogRef,
-    setIsNewBatchConfirmationOpen,
-    newBatchCancelButtonRef
-  );
 
   useLayoutEffect(() => {
     if (step !== 0 || !focusAddFilesAfterResetRef.current) return;
@@ -538,27 +529,13 @@ function App() {
   // any lingering download error before returning to the configure step.
   function startNewBatch() {
     batchGenerationRef.current += 1;
+    focusAddFilesAfterResetRef.current = true;
     setFiles([]);
     setFileResults([]);
     setValidFiles([]);
     setDownloadError(null);
     setDownloadErrorTitle("");
     setStep(0);
-  }
-
-  function requestNewBatch() {
-    if (files.length === 0 && fileResults.length === 0 && validFiles.length === 0) {
-      focusAddFilesAfterResetRef.current = true;
-      startNewBatch();
-      return;
-    }
-    setIsNewBatchConfirmationOpen(true);
-  }
-
-  function confirmNewBatch() {
-    setIsNewBatchConfirmationOpen(false);
-    focusAddFilesAfterResetRef.current = true;
-    startNewBatch();
   }
 
   async function responseErrorMessage(response, fallback) {
@@ -747,7 +724,7 @@ function App() {
 
   return (
     <div className="container">
-      <div className="pageContent" inert={isPreviewOpen || isNewBatchConfirmationOpen}>
+      <div className="pageContent" inert={isPreviewOpen}>
       <div className="whiteBox hero">
         <h1>Camunda Migration Analyzer &amp; Diagram Converter</h1>
         <p>
@@ -1037,7 +1014,7 @@ function App() {
               <Button variant="secondary" size="sm" onClick={backToConfigure}>
                 Back to configure
               </Button>
-              <Button variant="secondary" size="sm" onClick={requestNewBatch}>
+              <Button variant="secondary" size="sm" onClick={startNewBatch}>
                 Start a new batch
               </Button>
             </div>
@@ -1192,70 +1169,6 @@ function App() {
         )}
       </div>
       </div>
-
-{isNewBatchConfirmationOpen && (
-  <div className="modal-backdrop">
-    <div
-      className="modal batch-reset-dialog"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="newBatchConfirmationTitle"
-      aria-describedby="newBatchConfirmationDescription newBatchConfirmationFiles"
-      tabIndex={-1}
-      ref={newBatchDialogRef}
-    >
-      <h2 id="newBatchConfirmationTitle">Start a new batch?</h2>
-      <p id="newBatchConfirmationDescription">
-        Starting a new batch will discard the current files and their results:
-      </p>
-      <ul
-        id="newBatchConfirmationFiles"
-        className="batch-reset-file-list"
-        tabIndex={0}
-        aria-label="Files and results to discard"
-      >
-        {files.map((file, index) => {
-          const result = fileResults[index];
-          const hasAnalysisResults = result?.checkResponseJson != null;
-          let resultDescription = "processing result";
-
-          if (result?.status === "success") {
-            resultDescription = "converted file and analysis results";
-          } else if (result?.status === "uploading") {
-            resultDescription = hasAnalysisResults
-              ? "analysis results and conversion in progress"
-              : "analysis in progress";
-          } else if (result?.status === "error") {
-            resultDescription = hasAnalysisResults
-              ? "analysis results and conversion error"
-              : "processing error";
-          } else if (hasAnalysisResults) {
-            resultDescription = "analysis results";
-          }
-
-          return (
-            <li key={file.name + "-" + index}>
-              <strong>{file.name}</strong>: {resultDescription}
-            </li>
-          );
-        })}
-      </ul>
-      <div className="batch-reset-actions">
-        <Button
-          variant="secondary"
-          size="sm"
-          ref={newBatchCancelButtonRef}
-          onClick={() => setIsNewBatchConfirmationOpen(false)}
-        >
-          Cancel
-        </Button>
-        <Button variant="default" size="sm" onClick={confirmNewBatch}>
-          Discard results and continue
-        </Button>
-      </div>
-    </div>
-  </div>
-)}
 
 {isPreviewOpen && (
   <div className="modal-backdrop">
