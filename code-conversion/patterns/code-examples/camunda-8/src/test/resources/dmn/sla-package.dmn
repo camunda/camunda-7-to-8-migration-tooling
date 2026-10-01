@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_sla_package"
+             name="SLA package"
+             namespace="http://camunda.org/schema/1.0/dmn">
+    <decision id="sla_package_id" name="SLA package id">
+        <decisionTable id="DecisionTable_sla_package" hitPolicy="UNIQUE">
+            <input id="Input_timezone" label="timezone">
+                <inputExpression id="InputExpression_timezone" typeRef="string">
+                    <text>timezone</text>
+                </inputExpression>
+            </input>
+            <input id="Input_sla" label="sla">
+                <inputExpression id="InputExpression_sla" typeRef="string">
+                    <text>sla</text>
+                </inputExpression>
+            </input>
+            <input id="Input_tier" label="tier">
+                <inputExpression id="InputExpression_tier" typeRef="string">
+                    <text>tier</text>
+                </inputExpression>
+            </input>
+            <input id="Input_account" label="account">
+                <inputExpression id="InputExpression_account" typeRef="string">
+                    <text>account</text>
+                </inputExpression>
+            </input>
+            <output id="Output_sla_package_id" label="SLA package id" name="slaPackageId" typeRef="string"/>
+            <output id="Output_matched_rule" label="Matched rule" name="matchedRule" typeRef="string"/>
+            <rule id="Rule_complete">
+                <inputEntry id="InputEntry_complete_timezone"><text>"Europe/Prague"</text></inputEntry>
+                <inputEntry id="InputEntry_complete_sla"><text>"gold"</text></inputEntry>
+                <inputEntry id="InputEntry_complete_tier"><text>"priority"</text></inputEntry>
+                <inputEntry id="InputEntry_complete_account"><text>"acme"</text></inputEntry>
+                <outputEntry id="OutputEntry_complete"><text>"complete"</text></outputEntry>
+                <outputEntry id="OutputEntry_complete_rule"><text>"complete"</text></outputEntry>
+            </rule>
+            <rule id="Rule_null_sla">
+                <inputEntry id="InputEntry_null_sla_timezone"><text>"Europe/Prague"</text></inputEntry>
+                <inputEntry id="InputEntry_null_sla"><text>null</text></inputEntry>
+                <inputEntry id="InputEntry_null_sla_tier"><text>"priority"</text></inputEntry>
+                <inputEntry id="InputEntry_null_sla_account"><text>"acme"</text></inputEntry>
+                <outputEntry id="OutputEntry_null_sla"><text>"null-sla"</text></outputEntry>
+                <outputEntry id="OutputEntry_null_sla_rule"><text>"null-sla"</text></outputEntry>
+            </rule>
+            <rule id="Rule_null_tier">
+                <inputEntry id="InputEntry_null_tier_timezone"><text>"Europe/Prague"</text></inputEntry>
+                <inputEntry id="InputEntry_null_tier_sla"><text>"gold"</text></inputEntry>
+                <inputEntry id="InputEntry_null_tier"><text>null</text></inputEntry>
+                <inputEntry id="InputEntry_null_tier_account"><text>"acme"</text></inputEntry>
+                <outputEntry id="OutputEntry_null_tier"><text>"null-tier"</text></outputEntry>
+                <outputEntry id="OutputEntry_null_tier_rule"><text>"null-tier"</text></outputEntry>
+            </rule>
+            <rule id="Rule_null_account">
+                <inputEntry id="InputEntry_null_account_timezone"><text>"Europe/Prague"</text></inputEntry>
+                <inputEntry id="InputEntry_null_account_sla"><text>"gold"</text></inputEntry>
+                <inputEntry id="InputEntry_null_account_tier"><text>"priority"</text></inputEntry>
+                <inputEntry id="InputEntry_null_account"><text>null</text></inputEntry>
+                <outputEntry id="OutputEntry_null_account"><text>"null-account"</text></outputEntry>
+                <outputEntry id="OutputEntry_null_account_rule"><text>"null-account"</text></outputEntry>
+            </rule>
+        </decisionTable>
+    </decision>
+</definitions>
