@@ -12,6 +12,10 @@ results list. Preview dialogs let you move through the batch or jump directly
 to the next file with findings. BPMN previews support drag-to-pan, scroll-to-zoom
 (with Ctrl or Command), and keyboard-accessible zoom controls.
 
+From the results page, select **Start a new batch** to clear the current files
+and results and return to upload. The selected target version and conversion
+options remain in place.
+
 ## Rest API
 
 ### CORS policy
