@@ -49,8 +49,20 @@
     </dependency>
     <dependency>
       <groupId>org.camunda.spin</groupId>
-      <artifactId>camunda-spin-dataformat-all</artifactId>
+      <artifactId>camunda-spin-dataformat-json-jackson</artifactId>
       <version>${version.camunda-7}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.camunda.spin</groupId>
+      <artifactId>camunda-spin-dataformat-xml-dom-jakarta</artifactId>
+      <version>${version.camunda-7}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish.jaxb</groupId>
+      <artifactId>jaxb-runtime</artifactId>
+      <version>4.0.9</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
