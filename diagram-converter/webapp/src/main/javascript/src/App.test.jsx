@@ -2388,9 +2388,7 @@ describe("navigation between configure and results", () => {
     fireEvent.click(analyzeButton);
 
     await waitFor(() => expect(convertRequests).toHaveLength(2));
-    const newRow = await screen
-      .findByText("new.bpmn")
-      .then((element) => element.closest(".FileItem"));
+    const newRow = await screen.findByRole("row", { name: /new\.bpmn/ });
     await within(newRow).findByRole("status");
 
     await act(async () => {
