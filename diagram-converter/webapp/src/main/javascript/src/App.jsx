@@ -847,11 +847,12 @@ function App() {
                       }))
                     }
                   />
-                  <span>Preserve original filenames</span>
+                  <span>Use the uploaded file names</span>
                 </label>
                 <p id="preserveOriginalFilenameHint" className="configOptionHint">
-                  When selected, individual downloads and ZIP entries use each uploaded filename
-                  without its directory path. When cleared, the converted-c8- prefix is used.
+                  {configOptions.preserveOriginalFilename
+                    ? "The converted file has the same name as the uploaded file, for example order.bpmn."
+                    : "The converter adds a prefix, for example converted-c8-order.bpmn."}
                 </p>
               </fieldset>
 

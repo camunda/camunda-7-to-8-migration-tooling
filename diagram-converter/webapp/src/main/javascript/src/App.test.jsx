@@ -657,23 +657,27 @@ describe("upload onboarding guidance", () => {
 });
 
 describe("output filenames", () => {
-  it("describes the original filename option and keeps it off by default", () => {
+  it("describes the uploaded filename option and keeps it off by default", () => {
     render(<App />);
 
     const checkbox = screen.getByRole("checkbox", {
-      name: "Preserve original filenames",
+      name: "Use the uploaded file names",
     });
     expect(checkbox.checked).toBe(false);
     expect(screen.getByText(/support up to 93 files/i)).toBeTruthy();
     expect(checkbox.getAttribute("aria-describedby")).toBe(
       "preserveOriginalFilenameHint"
     );
-    expect(
-      document.getElementById("preserveOriginalFilenameHint")?.textContent
-    ).toMatch(/individual downloads and ZIP entries/);
+    const hint = document.getElementById("preserveOriginalFilenameHint");
+    expect(hint?.textContent).toBe(
+      "The converter adds a prefix, for example converted-c8-order.bpmn."
+    );
 
     fireEvent.click(checkbox);
     expect(screen.getByText(/support up to 92 files/i)).toBeTruthy();
+    expect(hint?.textContent).toBe(
+      "The converted file has the same name as the uploaded file, for example order.bpmn."
+    );
   });
 
   it("sends the selected filename option to individual and ZIP conversions", async () => {
@@ -684,7 +688,7 @@ describe("output filenames", () => {
     });
     render(<App />);
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "Preserve original filenames" })
+      screen.getByRole("checkbox", { name: "Use the uploaded file names" })
     );
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
 
