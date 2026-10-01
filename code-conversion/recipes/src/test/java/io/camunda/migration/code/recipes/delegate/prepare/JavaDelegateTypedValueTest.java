@@ -494,6 +494,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             class SetterReads {
                 void copy(DelegateExecution execution) {
                     execution.setVariable("copy", execution.getVariableTyped("source"));
+                    execution.setVariable("serialized", execution.getVariableTyped("serialized", false));
                 }
             }
             """,
@@ -503,6 +504,7 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             class SetterReads {
                 void copy(DelegateExecution execution) {
                     execution.setVariable("copy", execution.getVariable("source"));
+                    execution.setVariable("serialized", execution.getVariableTyped("serialized", false));
                 }
             }
             """));

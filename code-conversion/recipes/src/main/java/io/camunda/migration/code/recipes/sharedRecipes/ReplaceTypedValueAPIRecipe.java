@@ -859,6 +859,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             return parent.getValue() instanceof J.MethodInvocation call
                 && variableSetter.matches(call)
                 && call.getArguments().size() == 2
+                && ((J.MethodInvocation) getCursor().getValue()).getArguments().size() == 1
                 && call.getArguments().get(1) == reference;
           }
 
