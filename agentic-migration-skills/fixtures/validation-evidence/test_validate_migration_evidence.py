@@ -1037,6 +1037,54 @@ class ValidationEvidenceTest(unittest.TestCase):
             ),
         )
 
+    def test_active_timer_mapping_rejects_a_shared_migrated_caller_location(self):
+        self.install_active_timer_decision(multiple_callers=True)
+        caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
+            "caller_mappings"
+        ]
+        caller_mappings[1]["migrated_caller_location"] = caller_mappings[0][
+            "migrated_caller_location"
+        ]
+        write_json(self.root / gate.EVIDENCE, self.plan)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertTrue(
+            any(
+                "migrated caller location can map to only one due-date caller" in issue
+                for issue in plan.issues
+            )
+        )
+        self.assertEqual(1, self.audit())
+        self.assertNotEqual("READY", self.summary()["gate"])
+
+    def test_active_timer_mapping_allows_many_to_one_caller_consolidation(self):
+        runtime_key = self.install_active_timer_decision(multiple_callers=True)
+        caller_mappings = self.plan["active_timer_update_decision"]["updates"][0][
+            "caller_mappings"
+        ]
+        source_locations = [
+            location
+            for caller in caller_mappings
+            for location in caller["source_locations"]
+        ]
+        caller_mappings[:] = [
+            {
+                "module": "app",
+                "source_locations": source_locations,
+                "migrated_caller_location": "app/Timer.java:1:1",
+            }
+        ]
+        write_json(self.root / gate.EVIDENCE, self.plan)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertEqual([], plan.issues)
+        self.assertEqual(
+            1,
+            len(plan.active_timer_decisions[runtime_key[1]]["caller_mappings"]),
+        )
+
     def test_active_timer_mapping_accepts_the_legacy_single_caller_shape(self):
         self.install_active_timer_decision()
         update = self.plan["active_timer_update_decision"]["updates"][0]

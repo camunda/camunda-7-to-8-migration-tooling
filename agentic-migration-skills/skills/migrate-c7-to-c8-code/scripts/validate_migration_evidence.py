@@ -700,6 +700,7 @@ def requirements(root, evidence):
             )
         else:
             seen_locations = set()
+            seen_migrated_caller_locations = set()
             legacy_caller_fields = (
                 "module",
                 "source_locations",
@@ -884,7 +885,13 @@ def requirements(root, evidence):
                             "A due-date location can map to only one migrated caller and timer"
                         )
                         continue
+                    if migrated_caller_location in seen_migrated_caller_locations:
+                        issues.append(
+                            f"{module}: migrated caller location can map to only one due-date caller"
+                        )
+                        continue
                     used_locations.update(source_locations)
+                    seen_migrated_caller_locations.add(migrated_caller_location)
                     valid_callers.append(
                         {
                             "module": module,
