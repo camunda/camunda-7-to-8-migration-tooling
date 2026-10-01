@@ -510,6 +510,7 @@ th, td {
 }
 
 .findingSummary {
+  box-sizing: border-box;
   width: 100%;
   max-inline-size: 100%;
   margin-bottom: 1rem;

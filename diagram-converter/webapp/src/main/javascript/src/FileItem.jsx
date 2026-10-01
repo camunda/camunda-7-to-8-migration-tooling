@@ -62,7 +62,10 @@ export default function FileItem({
   const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
   const severityInfo = getSeverityInfo(highestSeverity);
   const hasKnownSeverity = Boolean(highestSeverity && severityInfo.description);
-  const highestSeverityLabel = hasKnownSeverity ? severityInfo.label : "Unknown";
+  const highestSeverityLabel =
+    severityInfo.actionLabel && severityInfo.actionLabel !== severityInfo.label
+      ? `${severityInfo.actionLabel}: ${severityInfo.label}`
+      : severityInfo.label;
   const highestSeverityText = hasKnownSeverity
     ? `${highestSeverityLabel} (${highestSeverity})`
     : highestSeverityLabel;

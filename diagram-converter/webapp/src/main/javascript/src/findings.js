@@ -13,25 +13,29 @@
 // duplicating the list.
 export const SEVERITY_ORDER = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
 
-// Plain-language labels and explanations for each raw analyzer severity code,
-// matching the terminology from the migration-analyzer documentation
+// Action categories, plain-language labels and explanations for each raw
+// analyzer severity code, matching the migration-analyzer documentation
 // (https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
 // Raw codes remain visible in the UI as secondary detail so users who already
 // know the analyzer vocabulary (e.g. from downloaded reports) can cross-reference them.
 export const SEVERITY_INFO = {
   WARNING: {
+    actionLabel: 'Action required',
     label: 'No direct mapping',
     description: "A Camunda 7 concept can't be directly mapped to a Camunda 8 equivalent. Review the Camunda 8 roadmap or explore a workaround.",
   },
   TASK: {
+    actionLabel: 'Action required',
     label: 'Manual action required',
     description: 'Manual changes are required to make this element work in Camunda 8.',
   },
   REVIEW: {
+    actionLabel: 'Review',
     label: 'Verify after conversion',
     description: 'The conversion changed an expression or attribute. Verify that the intended behavior is unchanged.',
   },
   INFO: {
+    actionLabel: 'No action needed',
     label: 'No action needed',
     description: 'This was converted automatically and needs no follow-up.',
   },
