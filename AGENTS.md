@@ -166,11 +166,16 @@ mvn verify -Pintegration
 mvn verify -Pe2e
 ```
 
-For scoped changes, use `-pl <module-path>` rather than rebuilding the entire reactor. The `checkFormat` profile is required for diagram-converter and code-conversion changes:
+Use `-pl <module-path>` to select concrete modules for scoped changes.
+Add `-am` when the selected modules require other modules in the same reactor.
+Use `-f <module-path>/pom.xml` to build all modules in that reactor.
+Only diagram-converter defines `checkFormat`.
+Select `distro` with `checkFormat` to include its distribution modules.
+Code-conversion has no formatting profile.
 
 ```bash
-mvn verify -PcheckFormat -pl diagram-converter
-mvn verify -PcheckFormat -pl code-conversion
+mvn -f diagram-converter/pom.xml verify -Pdistro,checkFormat
+mvn verify -pl code-conversion/recipes -am
 ```
 
 ## CI and release lines
