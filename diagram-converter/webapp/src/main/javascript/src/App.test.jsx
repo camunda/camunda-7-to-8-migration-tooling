@@ -5,8 +5,9 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
 
 const bpmnMocks = vi.hoisted(() => {
@@ -24,6 +25,21 @@ const bpmnMocks = vi.hoisted(() => {
         scrollToElement: vi.fn(),
       };
       this.selection = { select: vi.fn() };
+      this.selectionChangedListener = null;
+      this.eventBus = {
+        on: vi.fn((eventName, listener) => {
+          if (eventName === "selection.changed") {
+            this.selectionChangedListener = listener;
+          }
+        }),
+        off: vi.fn((eventName, listener) => {
+          if (eventName === "selection.changed" && this.selectionChangedListener === listener) {
+            this.selectionChangedListener = null;
+          }
+        }),
+        fireSelectionChanged: (newSelection) =>
+          this.selectionChangedListener?.({ newSelection }),
+      };
       // Any element id resolves to a stub element unless explicitly seeded
       // as missing, so tests can assert both "found" and "not found" paths.
       this.missingElementIds = new Set();
@@ -44,6 +60,7 @@ const bpmnMocks = vi.hoisted(() => {
       if (serviceName === "canvas") return this.canvas;
       if (serviceName === "selection") return this.selection;
       if (serviceName === "elementRegistry") return this.elementRegistry;
+      if (serviceName === "eventBus") return this.eventBus;
       return undefined;
     }
 
@@ -278,6 +295,8 @@ describe("analysis result downloads", () => {
   });
 });
 
+let originalScrollIntoView;
+let scrollIntoView;
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
@@ -285,10 +304,18 @@ beforeEach(() => {
   testState.dmnPreviewProps.length = 0;
   testState.formPreviewProps.length = 0;
   bpmnMocks.instances.length = 0;
+  originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  scrollIntoView = vi.fn();
+  HTMLElement.prototype.scrollIntoView = scrollIntoView;
 });
 
 afterEach(() => {
   cleanup();
+  if (originalScrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  } else {
+    delete HTMLElement.prototype.scrollIntoView;
+  }
   vi.unstubAllGlobals();
 });
 
@@ -1495,7 +1522,14 @@ describe("linking a finding row to its diagram element", () => {
       ],
     });
     await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
-    return bpmnMocks.instances[0];
+    const viewer = bpmnMocks.instances[0];
+    await waitFor(() =>
+      expect(viewer.eventBus.on).toHaveBeenCalledWith(
+        "selection.changed",
+        expect.any(Function)
+      )
+    );
+    return viewer;
   }
 
   it("focuses and reveals the matching element when a row with a stable reference is selected", async () => {
@@ -1536,6 +1570,134 @@ describe("linking a finding row to its diagram element", () => {
 
     expect(viewer.canvas.scrollToElement).not.toHaveBeenCalled();
     expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("keeps element ID buttons operable with the keyboard", async () => {
+    const user = userEvent.setup();
+    const viewer = await openBpmnPreviewWithFindings();
+    const elementLink = screen.getByRole("button", { name: "task_1" });
+
+    elementLink.focus();
+    expect(document.activeElement).toBe(elementLink);
+    await user.keyboard("{Enter}");
+
+    expect(viewer.selection.select).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "task_1" })
+    );
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("highlights and scrolls every finding row when its diagram element is selected", async () => {
+    await openPreview({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [
+        {
+          results: [
+            {
+              elementId: "task_1",
+              elementType: "bpmn:ServiceTask",
+              elementName: "Ship order",
+              messages: [
+                { severity: "WARNING", message: "Review this task." },
+                { severity: "INFO", message: "This task was converted." },
+              ],
+            },
+            {
+              elementId: null,
+              elementType: "bpmn:Process",
+              elementName: null,
+              messages: [{ severity: "REVIEW", message: "Review the process." }],
+            },
+            {
+              elementId: "task_without_findings",
+              elementType: "bpmn:ServiceTask",
+              elementName: "No findings",
+              messages: [],
+            },
+          ],
+        },
+      ],
+    });
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+    const viewer = bpmnMocks.instances[0];
+    await waitFor(() =>
+      expect(viewer.eventBus.on).toHaveBeenCalledWith(
+        "selection.changed",
+        expect.any(Function)
+      )
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /No action needed INFO \(1\)/ }));
+    const findingsTable = screen.getByRole("table", {
+      name: "Findings for this file",
+    });
+    expect(within(findingsTable).queryByText("This task was converted.")).toBeNull();
+
+    act(() => viewer.eventBus.fireSelectionChanged([{ id: "task_1" }]));
+
+    const rows = within(findingsTable).getAllByRole("row").slice(1);
+    const selectedRows = rows.filter((row) =>
+      within(row).queryByRole("button", { name: "task_1" })
+    );
+    expect(selectedRows).toHaveLength(2);
+    expect(selectedRows.map((row) => row.getAttribute("aria-selected"))).toEqual([
+      "true",
+      "true",
+    ]);
+    expect(within(findingsTable).getByText("This task was converted.")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /No action needed INFO \(1\)/ }).getAttribute("aria-pressed")
+    ).toBe("false");
+    expect(
+      screen.getByText("Selected element findings remain visible while filters are active.")
+    ).toBeTruthy();
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(scrollIntoView.mock.contexts).toEqual(selectedRows);
+    expect(scrollIntoView).toHaveBeenNthCalledWith(1, { block: "nearest" });
+    expect(scrollIntoView).toHaveBeenNthCalledWith(2, { block: "nearest" });
+    expect(viewer.canvas.addMarker).toHaveBeenCalledWith("task_1", "finding-selected");
+
+    act(() => viewer.eventBus.fireSelectionChanged([{ id: "task_without_findings" }]));
+
+    const remainingTaskRows = within(findingsTable)
+      .getAllByRole("row")
+      .filter((row) => within(row).queryByRole("button", { name: "task_1" }));
+    expect(remainingTaskRows).toHaveLength(1);
+    expect(remainingTaskRows[0].getAttribute("aria-selected")).toBe("false");
+    expect(viewer.canvas.removeMarker).toHaveBeenCalledWith(
+      "task_1",
+      "finding-selected"
+    );
+    expect(viewer.canvas.addMarker).not.toHaveBeenCalledWith(
+      "task_without_findings",
+      "finding-selected"
+    );
+  });
+
+  it("clears synchronized row selection when the diagram selection has no stable ID", async () => {
+    const viewer = await openBpmnPreviewWithFindings();
+    const elementLink = screen.getByRole("button", { name: "task_1" });
+
+    act(() => viewer.eventBus.fireSelectionChanged([{ id: "task_1" }]));
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("true");
+
+    act(() => viewer.eventBus.fireSelectionChanged([{}]));
+
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("false");
+    expect(viewer.canvas.removeMarker).toHaveBeenCalledWith(
+      "task_1",
+      "finding-selected"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    await waitFor(() =>
+      expect(viewer.eventBus.off).toHaveBeenCalledWith(
+        "selection.changed",
+        expect.any(Function)
+      )
+    );
   });
 
   it("does not offer element linking for DMN previews, preserving the graceful fallback", async () => {

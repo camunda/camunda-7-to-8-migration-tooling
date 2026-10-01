@@ -174,6 +174,8 @@ function App() {
 
     const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
     let isActive = true;
+    let eventBus;
+    let handleSelectionChanged;
     viewer.importXML(previewModelXml).then(() => {
       if (!isActive) return;
 
@@ -193,6 +195,42 @@ function App() {
         });
 
         bpmnViewerRef.current = viewer;
+        eventBus = viewer.get('eventBus');
+        // Mirror direct BPMN selections in the table by stable element ID.
+        handleSelectionChanged = ({ newSelection }) => {
+          const selectedElement =
+            Array.isArray(newSelection) && newSelection.length === 1
+              ? newSelection[0]
+              : null;
+          const elementId = selectedElement?.id;
+          const hasFindings = previewTableRows.some(
+            (row) => row.elementId === elementId && elementId !== '-'
+          );
+
+          try {
+            const previousMarkerElementId = selectedMarkerElementIdRef.current;
+            if (!hasFindings || !viewer.get('elementRegistry').get(elementId)) {
+              if (previousMarkerElementId) {
+                canvas.removeMarker(previousMarkerElementId, 'finding-selected');
+              }
+              selectedMarkerElementIdRef.current = null;
+              setSelectedFindingElementId(null);
+              return;
+            }
+
+            if (previousMarkerElementId && previousMarkerElementId !== elementId) {
+              canvas.removeMarker(previousMarkerElementId, 'finding-selected');
+            }
+            if (previousMarkerElementId !== elementId) {
+              canvas.addMarker(elementId, 'finding-selected');
+            }
+            selectedMarkerElementIdRef.current = elementId;
+            setSelectedFindingElementId(elementId);
+          } catch (error) {
+            console.error("Unable to synchronize the selected finding with the diagram:", error);
+          }
+        };
+        eventBus.on('selection.changed', handleSelectionChanged);
       }).catch((error) => {
         if (isActive) {
           console.error("Unable to render BPMN preview:", error);
@@ -202,6 +240,9 @@ function App() {
 
       return () => {
         isActive = false;
+        if (eventBus && handleSelectionChanged) {
+          eventBus.off('selection.changed', handleSelectionChanged);
+        }
         bpmnViewerRef.current = null;
         selectedMarkerElementIdRef.current = null;
         viewer.destroy();
@@ -212,6 +253,7 @@ function App() {
       previewDiagramError,
       previewModelXml,
       previewCheckJson,
+      previewTableRows,
     ]);
 
   // Locates a finding's element in the rendered BPMN diagram: scrolls it

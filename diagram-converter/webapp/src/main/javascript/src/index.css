@@ -547,7 +547,7 @@ hr {
 }
 
 .analysis-table tr[aria-selected="true"] {
-  background: var(--primary-background-subtle);
+  background: var(--primary-background-strong);
 }
 
 
