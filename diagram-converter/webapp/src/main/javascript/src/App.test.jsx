@@ -870,6 +870,71 @@ describe("linking a finding row to its diagram element", () => {
     return viewer;
   }
 
+  async function openBpmnPreviewWithPendingConversion() {
+    const conversion = deferred();
+    const checkResponseJson = [
+      {
+        results: [
+          {
+            elementId: "task_1",
+            elementType: "bpmn:ServiceTask",
+            elementName: "Ship order",
+            messages: [{ severity: "WARNING", message: "Review this task." }],
+          },
+        ],
+      },
+    ];
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue(checkResponseJson),
+        });
+      }
+      if (url.endsWith("/convert")) return conversion.promise;
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await uploadAndAnalyze([
+      mockFile(
+        "process.bpmn",
+        '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />'
+      ),
+    ]);
+    const previewButton = await screen.findByRole("button", {
+      name: "Preview analysis findings for process.bpmn",
+    });
+    previewButton.focus();
+    fireEvent.click(previewButton);
+    await screen.findByRole("heading", { name: "Preview: process.bpmn" });
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+
+    const viewer = bpmnMocks.instances[0];
+    await waitFor(() =>
+      expect(viewer.eventBus.on).toHaveBeenCalledWith(
+        "selection.changed",
+        expect.any(Function)
+      )
+    );
+    return { viewer, conversion };
+  }
+
+  async function completePendingConversion(conversion) {
+    await act(async () => {
+      conversion.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(
+          new Blob([
+            '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+          ])
+        ),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
   it("focuses and reveals the matching element when a row with a stable reference is selected", async () => {
     const viewer = await openBpmnPreviewWithFindings();
 
@@ -886,6 +951,50 @@ describe("linking a finding row to its diagram element", () => {
     expect(viewer.canvas.addMarker).toHaveBeenCalledWith("task_1", "finding-selected");
     expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("true");
     expect(elementLink.getAttribute("aria-pressed")).toBeNull();
+  });
+
+  it("restores a diagram-first selection after a result update recreates the viewer", async () => {
+    const { viewer, conversion } = await openBpmnPreviewWithPendingConversion();
+    const elementLink = screen.getByRole("button", { name: "task_1" });
+
+    act(() => viewer.eventBus.fireSelectionChanged([{ id: "task_1" }]));
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("true");
+
+    await completePendingConversion(conversion);
+    await waitFor(() => expect(bpmnMocks.instances.length).toBeGreaterThan(1));
+    const refreshedViewer = bpmnMocks.instances.at(-1);
+    await waitFor(() =>
+      expect(refreshedViewer.eventBus.on).toHaveBeenCalledWith(
+        "selection.changed",
+        expect.any(Function)
+      )
+    );
+    expect(refreshedViewer.selection.select).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "task_1" })
+    );
+  });
+
+  it("does not restore a stale diagram selection after selecting an element without findings", async () => {
+    const { viewer, conversion } = await openBpmnPreviewWithPendingConversion();
+    const elementLink = screen.getByRole("button", { name: "task_1" });
+
+    fireEvent.click(elementLink);
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("true");
+    act(() =>
+      viewer.eventBus.fireSelectionChanged([{ id: "element_without_findings" }])
+    );
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("false");
+
+    await completePendingConversion(conversion);
+    await waitFor(() => expect(bpmnMocks.instances.length).toBeGreaterThan(1));
+    const refreshedViewer = bpmnMocks.instances.at(-1);
+    await waitFor(() =>
+      expect(refreshedViewer.eventBus.on).toHaveBeenCalledWith(
+        "selection.changed",
+        expect.any(Function)
+      )
+    );
+    expect(refreshedViewer.selection.select).not.toHaveBeenCalled();
   });
 
   it("keeps rows without a stable element reference as plain, non-interactive text", async () => {
