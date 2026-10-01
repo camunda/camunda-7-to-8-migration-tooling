@@ -2281,6 +2281,15 @@ describe("per-file request failures and retry", () => {
 });
 
 describe("navigation between configure and results", () => {
+  it("does not show a confirmation when there is no batch to clear", () => {
+    render(<App />);
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Start a new batch" })
+    ).toBeNull();
+  });
+
   it("returns to configure without discarding the uploaded file list", async () => {
     fetchMock.mockImplementation((url) => {
       if (url.endsWith("/check")) {
@@ -2309,7 +2318,7 @@ describe("navigation between configure and results", () => {
     expect(screen.getByText("keep-me.bpmn")).toBeTruthy();
   });
 
-  it("starts a new batch that clears the previous files and results", async () => {
+  it("confirms before clearing the previous files and results", async () => {
     fetchMock.mockImplementation((url) => {
       if (url.endsWith("/check")) {
         return Promise.resolve({
@@ -2331,10 +2340,101 @@ describe("navigation between configure and results", () => {
 
     await screen.findByRole("heading", { name: "Converted files" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Convert more files" }));
+    const startNewBatchButton = screen.getByRole("button", {
+      name: "Start a new batch",
+    });
+    startNewBatchButton.focus();
+    fireEvent.click(startNewBatchButton);
+
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Start a new batch?",
+    });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.textContent).toMatch(
+      /replace-me\.bpmn: converted file and analysis results/
+    );
+    expect(document.querySelector(".pageContent")?.hasAttribute("inert")).toBe(
+      true
+    );
+
+    const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
+    const discardButton = within(dialog).getByRole("button", {
+      name: "Discard results and continue",
+    });
+    expect(document.activeElement).toBe(cancelButton);
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(discardButton);
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(cancelButton);
+
+    fireEvent.click(discardButton);
+
+    const addFilesHeading = await screen.findByRole("heading", {
+      name: "Add files",
+    });
+    expect(document.activeElement).toBe(addFilesHeading);
+    expect(screen.queryByText("replace-me.bpmn")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("cancels without clearing files, results, downloads, or configuration", async () => {
+    configureUpload({
+      fileName: "keep-me.bpmn",
+      content: "<xml/>",
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced options" }));
+    const configOption = screen.getByRole("checkbox", {
+      name: "Append WARNING and TASK findings to BPMN documentation",
+    });
+    fireEvent.click(configOption);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await screen.findByRole("heading", { name: "Converted files" });
+    const fileDownload = await screen.findByRole("button", {
+      name: "Download keep-me.bpmn",
+    });
+    const batchDownload = screen.getByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    await waitFor(() => expect(batchDownload.disabled).toBe(false));
+
+    const startNewBatchButton = screen.getByRole("button", {
+      name: "Start a new batch",
+    });
+    startNewBatchButton.focus();
+    fireEvent.click(startNewBatchButton);
+
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Start a new batch?",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(document.activeElement).toBe(startNewBatchButton);
+    expect(screen.getByRole("heading", { name: "Converted files" })).toBeTruthy();
+    expect(fileRow("keep-me.bpmn")).toBeTruthy();
+    expect(fileDownload).toBeTruthy();
+    expect(batchDownload.disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to configure" }));
 
     expect(await screen.findByRole("heading", { name: "Add files" })).toBeTruthy();
-    expect(screen.queryByText("replace-me.bpmn")).toBeNull();
+    expect(screen.getByText("keep-me.bpmn")).toBeTruthy();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Append WARNING and TASK findings to BPMN documentation",
+      }).checked
+    ).toBe(true);
   });
 });
 

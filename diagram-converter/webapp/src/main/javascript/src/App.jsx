@@ -71,6 +71,68 @@ const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
+
+function useAccessibleModal(isOpen, dialogRef, setIsOpen, onEscape) {
+  useLayoutEffect(() => {
+    if (!isOpen) return undefined;
+
+    const dialogEl = dialogRef.current;
+    const opener = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    function getFocusable() {
+      return dialogEl ? Array.from(dialogEl.querySelectorAll(focusableSelector)) : [];
+    }
+
+    const initialFocusTarget = getFocusable()[0] || dialogEl;
+    initialFocusTarget?.focus();
+
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        if (onEscape) onEscape();
+        else setIsOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !dialogEl) return;
+
+      const items = getFocusable();
+      if (items.length === 0) {
+        e.preventDefault();
+        dialogEl.focus();
+        return;
+      }
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      const isInsideDialog = dialogEl.contains(active);
+
+      if (e.shiftKey && (active === first || !isInsideDialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !isInsideDialog)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.body.style.overflow = previousBodyOverflow;
+      if (opener instanceof HTMLElement && document.contains(opener)) {
+        opener.focus();
+      }
+    };
+  }, [isOpen, dialogRef, setIsOpen, onEscape]);
+}
+
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
 
@@ -81,6 +143,7 @@ function App() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewFileIndex, setPreviewFileIndex] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [isNewBatchConfirmationOpen, setIsNewBatchConfirmationOpen] = useState(false);
   const [previewType, setPreviewType] = useState(null);
   const [previewModelXml, setPreviewModelXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
@@ -111,11 +174,28 @@ function App() {
   const previewRequestIdRef = useRef(0);
   const previewedResultRef = useRef(null);
 
-  function closePreview() {
+  const closePreview = useCallback(() => {
     previewRequestIdRef.current += 1;
     setPreviewLoading(false);
     setIsPreviewOpen(false);
-  }
+  }, [setIsPreviewOpen, setPreviewLoading]);
+
+  const newBatchDialogRef = useRef(null);
+  const addFilesHeadingRef = useRef(null);
+  const focusAddFilesAfterResetRef = useRef(false);
+
+  useAccessibleModal(isPreviewOpen, previewDialogRef, setIsPreviewOpen, closePreview);
+  useAccessibleModal(
+    isNewBatchConfirmationOpen,
+    newBatchDialogRef,
+    setIsNewBatchConfirmationOpen
+  );
+
+  useLayoutEffect(() => {
+    if (step !== 0 || !focusAddFilesAfterResetRef.current) return;
+    focusAddFilesAfterResetRef.current = false;
+    addFilesHeadingRef.current?.focus();
+  }, [step]);
 
   function handleVersionKeyDown(e) {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
@@ -284,70 +364,6 @@ function App() {
       console.error("Unable to locate finding element in the diagram:", error);
     }
   }
-
-  // Turns the preview overlay into a real modal dialog while it is open:
-  // moves focus in, traps Tab/Shift+Tab within it, closes on Escape, locks
-  // background scrolling, and restores focus to whatever opened it on close.
-  // Uses useLayoutEffect (not useEffect) so the initial focus move happens
-  // synchronously right after the dialog mounts, before paint — avoiding a
-  // race where focus briefly stays outside the dialog on slower runners.
-  useLayoutEffect(() => {
-    if (!isPreviewOpen) return undefined;
-
-    const dialogEl = previewDialogRef.current;
-    const opener = document.activeElement;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const focusableSelector =
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-    function getFocusable() {
-      return dialogEl ? Array.from(dialogEl.querySelectorAll(focusableSelector)) : [];
-    }
-
-    const initialFocusTarget = getFocusable()[0] || dialogEl;
-    initialFocusTarget?.focus();
-
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        closePreview();
-        return;
-      }
-      if (e.key !== 'Tab' || !dialogEl) return;
-
-      const items = getFocusable();
-      if (items.length === 0) {
-        e.preventDefault();
-        dialogEl.focus();
-        return;
-      }
-
-      const first = items[0];
-      const last = items[items.length - 1];
-      const active = document.activeElement;
-      const isInsideDialog = dialogEl.contains(active);
-
-      if (e.shiftKey && (active === first || !isInsideDialog)) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && (active === last || !isInsideDialog)) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown, true);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown, true);
-      document.body.style.overflow = previousBodyOverflow;
-      if (opener instanceof HTMLElement && document.contains(opener)) {
-        opener.focus();
-      }
-    };
-  }, [isPreviewOpen]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -614,6 +630,21 @@ function App() {
     setStep(0);
   }
 
+  function requestNewBatch() {
+    if (files.length === 0 && fileResults.length === 0 && validFiles.length === 0) {
+      focusAddFilesAfterResetRef.current = true;
+      startNewBatch();
+      return;
+    }
+    setIsNewBatchConfirmationOpen(true);
+  }
+
+  function confirmNewBatch() {
+    setIsNewBatchConfirmationOpen(false);
+    focusAddFilesAfterResetRef.current = true;
+    startNewBatch();
+  }
+
   async function responseErrorMessage(response, fallback) {
     const message = (await response.text()).trim();
     if (!message) return fallback;
@@ -822,7 +853,7 @@ function App() {
 
   return (
     <div className="container">
-      <div className="pageContent" inert={isPreviewOpen}>
+      <div className="pageContent" inert={isPreviewOpen || isNewBatchConfirmationOpen}>
       <div className="whiteBox hero">
         <h1>Camunda Migration Analyzer &amp; Diagram Converter</h1>
         <p>
@@ -857,7 +888,7 @@ function App() {
             <section className="flowStep">
               <div className="flowStepHeader">
                 <span className="flowStepNumber">A</span>
-                <h2>Add files</h2>
+                <h2 ref={addFilesHeadingRef} tabIndex={-1}>Add files</h2>
               </div>
               <p>Upload BPMN, DMN, or Camunda Form files to analyze and convert.</p>
               <p className="uploadGuidance">
@@ -1140,8 +1171,8 @@ function App() {
               <Button variant="secondary" size="sm" onClick={backToConfigure}>
                 Back to configure
               </Button>
-              <Button variant="secondary" size="sm" onClick={startNewBatch}>
-                Convert more files
+              <Button variant="secondary" size="sm" onClick={requestNewBatch}>
+                Start a new batch
               </Button>
             </div>
             <section>
@@ -1336,6 +1367,58 @@ function App() {
         )}
       </div>
       </div>
+
+{isNewBatchConfirmationOpen && (
+  <div className="modal-backdrop">
+    <div
+      className="modal batch-reset-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="newBatchConfirmationTitle"
+      aria-describedby="newBatchConfirmationDescription newBatchConfirmationFiles"
+      tabIndex={-1}
+      ref={newBatchDialogRef}
+    >
+      <h2 id="newBatchConfirmationTitle">Start a new batch?</h2>
+      <p id="newBatchConfirmationDescription">
+        Starting a new batch will discard the current files and their results:
+      </p>
+      <ul id="newBatchConfirmationFiles" className="batch-reset-file-list">
+        {files.map((file, index) => {
+          const result = fileResults[index];
+          const resultDescription =
+            result?.status === "success"
+              ? "converted file and analysis results"
+              : result?.checkResponseJson
+              ? "analysis results and conversion status"
+              : result?.status === "uploading"
+              ? "analysis and conversion in progress"
+              : result?.status === "error"
+              ? "processing error"
+              : "processing result";
+
+          return (
+            <li key={file.name + "-" + index}>
+              <strong>{file.name}</strong>: {resultDescription}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="batch-reset-actions">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setIsNewBatchConfirmationOpen(false)}
+        >
+          Cancel
+        </Button>
+        <Button variant="default" size="sm" onClick={confirmNewBatch}>
+          Discard results and continue
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
 {isPreviewOpen && (
   <div className="modal-backdrop">
