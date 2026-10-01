@@ -233,6 +233,50 @@ function fileRow(fileName) {
   return screen.getByText(fileName).closest(".file-result-row");
 }
 
+describe("analysis result downloads", () => {
+  it("uses the analyzed files when the XLSX button is clicked", async () => {
+    const xlsxFileNames = [];
+    fetchMock.mockImplementation((url, request) => {
+      if (
+        url.endsWith("/check") &&
+        request.headers?.Accept ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ) {
+        xlsxFileNames.push(
+          request.body.getAll("file").map((file) => file.name)
+        );
+        return Promise.resolve({
+          ok: false,
+          json: vi.fn().mockResolvedValue({ errorCode: "MULTIPART_ERROR" }),
+        });
+      }
+
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze([mockFile("process.bpmn")]);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download XLSX",
+    });
+    fireEvent.click(downloadButton);
+
+    await waitFor(() => expect(xlsxFileNames).toEqual([["process.bpmn"]]));
+  });
+});
+
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();

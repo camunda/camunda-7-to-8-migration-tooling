@@ -1147,7 +1147,7 @@ function App() {
                   <Button
                     variant="default"
                     size="default"
-                    onClick={downloadXLS}
+                    onClick={() => downloadXLS()}
                     disabled={validFiles.length === 0}
                   >
                     <Download />
