@@ -133,12 +133,14 @@ describe("FileItem", () => {
     );
 
     const badge = screen.getByLabelText(
-      "3 findings, highest severity INFO (No action needed)"
+      "3 findings, highest severity No action needed (INFO)"
     );
     expect(badge.className).toContain("fileItemFindingCount-info");
     expect(badge.className).not.toContain("fileItemFindingCount-warning");
-    expect(badge.getAttribute("title")).toBe("Highest severity: INFO (No action needed)");
-    expect(screen.getByText("Highest: INFO")).toBeTruthy();
+    expect(badge.getAttribute("title")).toBe(
+      "Highest severity: No action needed (INFO)"
+    );
+    expect(screen.getByText("Highest: No action needed (INFO)")).toBeTruthy();
   });
 
   it("styles the badge for the highest severity in a mixed-severity file", () => {
@@ -152,13 +154,13 @@ describe("FileItem", () => {
     );
 
     const badge = screen.getByLabelText(
-      "5 findings, highest severity WARNING (No direct mapping)"
+      "5 findings, highest severity No direct mapping (WARNING)"
     );
     expect(badge.className).toContain("fileItemFindingCount-warning");
     expect(badge.getAttribute("title")).toBe(
-      "Highest severity: WARNING (No direct mapping)"
+      "Highest severity: No direct mapping (WARNING)"
     );
-    expect(screen.getByText("Highest: WARNING")).toBeTruthy();
+    expect(screen.getByText("Highest: No direct mapping (WARNING)")).toBeTruthy();
   });
 
   it("does not claim an INFO severity when the highest severity is unknown", () => {
@@ -196,7 +198,7 @@ describe("FileItem", () => {
     );
     expect(
       screen.getByLabelText(
-        "2 findings, highest severity REVIEW (Verify after conversion)"
+        "2 findings, highest severity Verify after conversion (REVIEW)"
       )
     ).toBeTruthy();
   });

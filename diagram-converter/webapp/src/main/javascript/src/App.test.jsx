@@ -1053,14 +1053,37 @@ describe("batch findings summary and file priority", () => {
     ];
   }
 
-  async function analyzeBatch(responsesByFile) {
+  async function analyzeBatch(
+    responsesByFile,
+    { conversionFailures = [], onXlsxDownload = () => {} } = {}
+  ) {
     fetchMock.mockImplementation((url, request) => {
+      if (
+        url.endsWith("/check") &&
+        request.headers?.Accept ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ) {
+        onXlsxDownload(request.body.getAll("file"));
+        return Promise.resolve({
+          ok: false,
+          json: vi.fn().mockResolvedValue({ errorCode: "MULTIPART_ERROR" }),
+        });
+      }
+
       const fileName = request.body.get("file").name;
       if (url.endsWith("/check")) {
         return Promise.resolve({
           ok: true,
           headers: { get: vi.fn().mockReturnValue(null) },
           json: vi.fn().mockResolvedValue(responsesByFile[fileName]),
+        });
+      }
+
+      if (conversionFailures.includes(fileName)) {
+        return Promise.resolve({
+          ok: false,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue("Conversion failed"),
         });
       }
 
@@ -1156,6 +1179,51 @@ describe("batch findings summary and file priority", () => {
       "informational.bpmn",
       "empty.bpmn",
     ]);
+  });
+
+  it("exports analyzed findings when every conversion fails", async () => {
+    const xlsxFileNames = [];
+    const summary = await analyzeBatch(
+      { "conversion-failed.bpmn": checkResponse("WARNING") },
+      {
+        conversionFailures: ["conversion-failed.bpmn"],
+        onXlsxDownload: (files) =>
+          xlsxFileNames.push(files.map((file) => file.name)),
+      }
+    );
+
+    fireEvent.click(
+      within(summary).getByRole("button", { name: "Download XLSX" })
+    );
+
+    await waitFor(() =>
+      expect(xlsxFileNames).toEqual([["conversion-failed.bpmn"]])
+    );
+  });
+
+  it("exports findings for all analyzed files in a mixed conversion batch", async () => {
+    const xlsxFileNames = [];
+    const summary = await analyzeBatch(
+      {
+        "converted.bpmn": checkResponse("INFO"),
+        "conversion-failed.bpmn": checkResponse("WARNING"),
+      },
+      {
+        conversionFailures: ["conversion-failed.bpmn"],
+        onXlsxDownload: (files) =>
+          xlsxFileNames.push(files.map((file) => file.name)),
+      }
+    );
+
+    fireEvent.click(
+      within(summary).getByRole("button", { name: "Download XLSX" })
+    );
+
+    await waitFor(() =>
+      expect(xlsxFileNames).toEqual([
+        ["converted.bpmn", "conversion-failed.bpmn"],
+      ])
+    );
   });
 });
 

@@ -121,10 +121,10 @@ export default function FileItem({
   const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
   const severityInfo = getSeverityInfo(highestSeverity);
   const hasKnownSeverity = Boolean(highestSeverity && severityInfo.description);
-  const highestSeverityLabel = hasKnownSeverity ? highestSeverity : "Unknown";
+  const highestSeverityLabel = hasKnownSeverity ? severityInfo.label : "Unknown";
   const highestSeverityText = hasKnownSeverity
-    ? `${highestSeverity} (${severityInfo.label})`
-    : "Unknown";
+    ? `${highestSeverityLabel} (${highestSeverity})`
+    : highestSeverityLabel;
   const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
 
   return (
@@ -147,7 +147,7 @@ export default function FileItem({
             >
               <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
               <span className="fileItemFindingCountLabel">{findingCountLabel}</span>
-              <span className="fileItemFindingSeverity">Highest: {highestSeverityLabel}</span>
+              <span className="fileItemFindingSeverity">Highest: {highestSeverityText}</span>
             </span>
           )}
           <FileItemActions
