@@ -87,7 +87,7 @@
       <groupId>org.glassfish.jaxb</groupId>
       <artifactId>jaxb-runtime</artifactId>
       <!-- The Camunda 7.24.5 XML provider uses javax.xml.bind, not Jakarta XML Binding 4. -->
-      <version>2.3.9</version>
+      <version>4.0.9</version>
       <scope>runtime</scope>
     </dependency>
 
