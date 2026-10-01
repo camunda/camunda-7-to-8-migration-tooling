@@ -5,9 +5,12 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
+import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
+
+const appCss = readFileSync("src/index.css", "utf8");
 
 const bpmnMocks = vi.hoisted(() => {
   const instances = [];
@@ -538,6 +541,35 @@ describe("preview routing", () => {
 });
 
 describe("preview navigation", () => {
+  it("keeps navigation sticky at the top while the preview dialog scrolls", async () => {
+    const scrollContainerRule = appCss.match(/\.modal\s*\{[^}]*overflow-y:\s*auto;/);
+    const navigationRule = appCss.match(/\.preview-navigation\s*\{[^}]*\}/);
+    expect(scrollContainerRule).not.toBeNull();
+    expect(navigationRule).not.toBeNull();
+
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = `${scrollContainerRule[0]}}\n${navigationRule[0]}`;
+    document.head.append(stylesheet);
+
+    try {
+      await openPreview({
+        fileName: "process.bpmn",
+        content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+        checkResponseJson: [],
+      });
+
+      const dialog = screen.getByRole("dialog");
+      const navigation = within(dialog).getByRole("navigation", {
+        name: "File preview navigation",
+      });
+      expect(window.getComputedStyle(dialog).overflowY).toBe("auto");
+      expect(window.getComputedStyle(navigation).position).toBe("sticky");
+      expect(window.getComputedStyle(navigation).top).toBe("0px");
+    } finally {
+      stylesheet.remove();
+    }
+  });
+
   it("shows the position and disables navigation for a single-file batch", async () => {
     await openPreview({
       fileName: "only.bpmn",
