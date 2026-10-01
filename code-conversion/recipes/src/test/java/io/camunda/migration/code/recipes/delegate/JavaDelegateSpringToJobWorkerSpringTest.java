@@ -129,7 +129,6 @@ public class RetrievePaymentAdapter {
                 import org.camunda.bpm.engine.variable.value.BytesValue;
                 import org.camunda.bpm.engine.variable.value.DateValue;
                 import org.camunda.bpm.engine.variable.value.IntegerValue;
-                import org.camunda.bpm.engine.variable.value.ObjectValue;
                 import org.springframework.stereotype.Component;
 
                 import java.util.Date;
@@ -141,7 +140,6 @@ public class RetrievePaymentAdapter {
                     private BytesValue fieldBytes = null, anotherBytes = null;
                     private DateValue initialDate = Variables.dateValue(new Date(0));
                     private BytesValue initialBytes = Variables.byteArrayValue(new byte[] {1});
-                    ObjectValue fieldObject;
 
                     @Override
                     public void execute(DelegateExecution execution) {
@@ -153,7 +151,6 @@ public class RetrievePaymentAdapter {
                         this.anotherDate = execution.getVariableTyped("anotherDate");
                         this.fieldBytes = execution.getVariableTyped("fieldBytes");
                         this.anotherBytes = execution.getVariableTyped("anotherBytes");
-                        this.fieldObject = execution.getVariableTyped("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                     }
@@ -177,7 +174,6 @@ public class RetrievePaymentAdapter {
                     private byte[] fieldBytes = null, anotherBytes = null;
                     private Date initialDate = new Date(0);
                     private byte[] initialBytes = new byte[]{1};
-                    Object fieldObject;
 
                     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
@@ -191,7 +187,6 @@ public class RetrievePaymentAdapter {
                         this.anotherDate = (Date) job.getVariablesAsMap().get("anotherDate");
                         this.fieldBytes = (byte[]) job.getVariablesAsMap().get("fieldBytes");
                         this.anotherBytes = (byte[]) job.getVariablesAsMap().get("anotherBytes");
-                        this.fieldObject = job.getVariablesAsMap().get("fieldObject");
                         System.out.println(typedAmount);
                         System.out.println(laterAmount);
                         return resultMap;
