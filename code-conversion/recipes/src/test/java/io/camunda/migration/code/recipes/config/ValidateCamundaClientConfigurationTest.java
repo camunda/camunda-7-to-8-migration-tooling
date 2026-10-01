@@ -13,7 +13,9 @@ import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.properties.Assertions.properties;
 import static org.openrewrite.yaml.Assertions.yaml;
 
+import io.camunda.client.spring.properties.CamundaClientAuthProperties;
 import io.camunda.client.spring.properties.CamundaClientProperties;
+import java.util.Arrays;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Bindable;
@@ -24,6 +26,10 @@ import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 class ValidateCamundaClientConfigurationTest implements RewriteTest {
+
+  private static final boolean TARGET_SUPPORTS_TOKEN_FETCH_RETRYABLE_STATUS_CODES =
+      Arrays.stream(CamundaClientAuthProperties.class.getMethods())
+          .anyMatch(method -> method.getName().equals("getTokenFetchRetryableStatusCodes"));
 
   @Override
   public void defaults(RecipeSpec spec) {
@@ -339,16 +345,31 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
-  void acceptsSequenceAuthenticationCollectionProperty() {
-    rewriteRun(
-        yaml(
-            """
-            camunda:
-              client:
-                auth:
-                  token-fetch-retryable-status-codes: [500, 502, 503]
-            """,
-            spec -> spec.path("src/main/resources/application.yaml")));
+  void validatesSequenceAuthenticationCollectionPropertyForTargetVersion() {
+    String applicationYaml =
+        """
+        camunda:
+          client:
+            auth:
+              token-fetch-retryable-status-codes: [500, 502, 503]
+        """;
+    if (TARGET_SUPPORTS_TOKEN_FETCH_RETRYABLE_STATUS_CODES) {
+      rewriteRun(
+          yaml(
+              applicationYaml,
+              spec -> spec.path("src/main/resources/application.yaml")));
+    } else {
+      rewriteRun(
+          yaml(
+              applicationYaml,
+              """
+              camunda:
+                client:
+                  auth:
+                    ~~(Unsupported Camunda client authentication property 'camunda.client.auth.token-fetch-retryable-status-codes'. Configure authentication directly under camunda.client.auth.)~~>token-fetch-retryable-status-codes: [500, 502, 503]
+              """,
+              spec -> spec.path("src/main/resources/application.yaml")));
+    }
   }
 
   @Test
@@ -387,14 +408,27 @@ class ValidateCamundaClientConfigurationTest implements RewriteTest {
   }
 
   @Test
-  void acceptsIndexedAuthenticationCollectionProperty() {
-    rewriteRun(
-        properties(
-            """
-            camunda.client.auth.token-fetch-retryable-status-codes[0]=500
-            camunda.client.auth.token-fetch-retryable-status-codes[1]=502
-            """,
-            spec -> spec.path("src/main/resources/application.properties")));
+  void validatesIndexedAuthenticationCollectionPropertyForTargetVersion() {
+    String applicationProperties =
+        """
+        camunda.client.auth.token-fetch-retryable-status-codes[0]=500
+        camunda.client.auth.token-fetch-retryable-status-codes[1]=502
+        """;
+    if (TARGET_SUPPORTS_TOKEN_FETCH_RETRYABLE_STATUS_CODES) {
+      rewriteRun(
+          properties(
+              applicationProperties,
+              spec -> spec.path("src/main/resources/application.properties")));
+    } else {
+      rewriteRun(
+          properties(
+              applicationProperties,
+              """
+              ~~(Unsupported Camunda client authentication property 'camunda.client.auth.token-fetch-retryable-status-codes[0]'. Configure authentication directly under camunda.client.auth.)~~>camunda.client.auth.token-fetch-retryable-status-codes[0]=500
+              ~~(Unsupported Camunda client authentication property 'camunda.client.auth.token-fetch-retryable-status-codes[1]'. Configure authentication directly under camunda.client.auth.)~~>camunda.client.auth.token-fetch-retryable-status-codes[1]=502
+              """,
+              spec -> spec.path("src/main/resources/application.properties")));
+    }
   }
 
   @Test
