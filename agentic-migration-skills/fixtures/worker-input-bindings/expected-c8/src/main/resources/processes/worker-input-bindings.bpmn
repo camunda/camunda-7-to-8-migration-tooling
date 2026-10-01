@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_worker_input_bindings"
+                  targetNamespace="http://camunda.org/examples/worker-input-bindings">
+  <bpmn:process id="worker-input-bindings" name="Worker input bindings" isExecutable="true">
+    <bpmn:startEvent id="start_worker_input_bindings" />
+    <bpmn:sequenceFlow id="flow_start_loan" sourceRef="start_worker_input_bindings" targetRef="task_loan" />
+    <bpmn:serviceTask id="task_loan" name="Grant loan">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="loan-granting" retries="1" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="flow_loan_sync" sourceRef="task_loan" targetRef="task_sync" />
+    <bpmn:serviceTask id="task_sync" name="Synchronous service task">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="synchronous-service-task" retries="1" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="flow_sync_twitter" sourceRef="task_sync" targetRef="task_twitter" />
+    <bpmn:serviceTask id="task_twitter" name="Publish Twitter content">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="twitter" retries="1" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="flow_twitter_project" sourceRef="task_twitter" targetRef="task_persist_project" />
+    <bpmn:serviceTask id="task_persist_project" name="Persist project">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="persist-project" retries="1" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="flow_project_end" sourceRef="task_persist_project" targetRef="end_worker_input_bindings" />
+    <bpmn:endEvent id="end_worker_input_bindings" />
+  </bpmn:process>
+
+  <bpmn:process id="missing-required-score" name="Missing required score" isExecutable="true">
+    <bpmn:startEvent id="start_missing_required_score" />
+    <bpmn:sequenceFlow id="flow_missing_score_loan" sourceRef="start_missing_required_score" targetRef="task_missing_score_loan" />
+    <bpmn:serviceTask id="task_missing_score_loan" name="Grant loan">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="loan-granting" retries="1" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="flow_missing_score_end" sourceRef="task_missing_score_loan" targetRef="end_missing_required_score" />
+    <bpmn:endEvent id="end_missing_required_score" />
+  </bpmn:process>
+</bpmn:definitions>

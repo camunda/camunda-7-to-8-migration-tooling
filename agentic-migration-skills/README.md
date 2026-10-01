@@ -72,10 +72,14 @@ skills/
         ├── deployment-and-timer-preflight.md
         ├── pattern-catalog-sources.md
         └── call-activity-variable-scope.md
+fixtures/                                  ← sample projects and executable regression walkthroughs
 ```
 
 The `fixtures/delegate-transaction-boundaries` path test checks C7
 `camunda:asyncAfter` boundaries before a JavaDelegate.
+
+The [`worker-input-bindings`](fixtures/worker-input-bindings) fixture tests explicit single-variable
+bindings and complete-map access without retained Java parameter names.
 
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture checks that a
 compatible active library under an `org.camunda.bpm` group survives migration. Its tests cover both
