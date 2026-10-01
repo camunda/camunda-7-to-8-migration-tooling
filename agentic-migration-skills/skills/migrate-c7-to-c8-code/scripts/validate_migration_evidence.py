@@ -288,17 +288,6 @@ def source_without_comments(text, suffix):
     return "".join(characters)
 
 
-def source_update_fingerprint(text, start, end):
-    before = max(text.rfind(delimiter, 0, start) for delimiter in (";", "{", "}")) + 1
-    after = min(
-        (position for delimiter in (";", "{", "}")
-         if (position := text.find(delimiter, end)) != -1),
-        default=len(text),
-    )
-    statement = re.sub(r"\s+", "", text[before:after])
-    return hashlib.sha256(statement.encode("utf-8")).hexdigest()
-
-
 def scan_module(root, module, module_paths, hashes):
     path = project_path(root, module, "module", must_exist=True)
     if not path.is_dir():
@@ -340,9 +329,7 @@ def scan_module(root, module, module_paths, hashes):
             for match in DUE_DATE_HINT.finditer(scan_text):
                 line = scan_text.count("\n", 0, match.start()) + 1
                 column = match.start() - scan_text.rfind("\n", 0, match.start())
-                hits[f"{relative}:{line}:{column}"] = source_update_fingerprint(
-                    scan_text, match.start(), match.end()
-                )
+                hits[f"{relative}:{line}:{column}"] = match.group(0).casefold().lstrip("'\"`")
     return hits
 
 
@@ -434,12 +421,7 @@ def supports_message_rearm(
         if message.get("name") == message_name
     ]
     if (
-        not timer_expression
-        or re.search(
-            rf"(?<![A-Za-z0-9_]){re.escape(date_variable)}(?![A-Za-z0-9_])",
-            timer_expression,
-        )
-        is None
+        re.fullmatch(rf"=\s*{re.escape(date_variable)}", timer_expression) is None
         or len(messages) != 1
         or not messages[0].get("id")
     ):
@@ -589,8 +571,9 @@ def requirements(root, evidence):
         path = module["path"]
         hits = source_updates.get(path)
         if not isinstance(hits, dict) or any(
-            not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None
-            for digest in hits.values()
+            not isinstance(operation, str)
+            or operation not in {"setjobduedate", "/duedate", "duedate"}
+            for operation in hits.values()
         ):
             issues.append(f"{path}: invalid pre-migration due-date source snapshot")
             hits = {}
@@ -925,10 +908,10 @@ def requirements(root, evidence):
                     retained = {
                         current_location
                         for location in source_locations
-                        for current_location, digest in current_updates[module].items()
+                        for current_location, operation in current_updates[module].items()
                         if location.rsplit(":", 2)[0]
                         == current_location.rsplit(":", 2)[0]
-                        and digest == source_updates[module][location]
+                        and operation == source_updates[module][location]
                     }
                     if retained:
                         issues.append(

@@ -879,6 +879,77 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "\n".join(plan.issues),
                 )
 
+    def test_active_timer_gate_rejects_moved_setter_with_changed_arguments(self):
+        self.install_active_timer_decision()
+        (self.root / "app" / "Timer.java").write_text(
+            "terminationDateUpdater.update(projectId, dueDate);\n"
+            "managementService.setJobDuedate(renamedJobId, renamedDate);\n",
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertIn(
+            "mapped C7 due-date location remains in the migrated source",
+            "\n".join(plan.issues),
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "mapped C7 due-date location remains"):
+            self.submit(
+                ("module", "app", "active_timer_updates", None),
+                action="review",
+                disposition="mixed",
+                non_timer_evidence_json=json.dumps([{
+                    "location": plan.update_hits["app"][0],
+                    "evidence": "MIGRATION_REPORT.md#claimed-non-timer",
+                }]),
+            )
+
+    def test_active_timer_gate_allows_evidenced_different_operation(self):
+        self.install_active_timer_decision()
+        (self.root / "app" / "Timer.java").write_text(
+            "terminationDateUpdater.update(projectId, dueDate);\n"
+            'String jobUrl = "http://localhost/job/42/duedate";\n',
+            encoding="utf-8",
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
+        self.assertEqual(0, self.submit(
+            ("module", "app", "active_timer_updates", None),
+            action="review",
+            disposition="mixed",
+            non_timer_evidence_json=json.dumps([{
+                "location": plan.update_hits["app"][0],
+                "evidence": "MIGRATION_REPORT.md#non-timer-job",
+            }]),
+        ))
+
+    def test_active_timer_gate_rejects_invalid_operation_snapshot(self):
+        self.install_active_timer_decision()
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        location = next(iter(inventory["source_updates"]["app"]))
+        inventory["source_updates"]["app"][location] = []
+        write_json(self.root / gate.INVENTORY, inventory)
+        self.assertIn(
+            "invalid pre-migration due-date source snapshot",
+            "\n".join(gate.requirements(self.root, self.plan).issues),
+        )
+
+    def test_active_timer_mapping_requires_direct_date_expression(self):
+        self.install_active_timer_decision()
+        model = self.root / "models/converted-c8-process.bpmn"
+        original = model.read_text(encoding="utf-8")
+        for expression in ('="dueDate"', "=payload.dueDate"):
+            with self.subTest(expression=expression):
+                model.write_text(
+                    original.replace(
+                        "<bpmn:timeDate>=dueDate</bpmn:timeDate>",
+                        f"<bpmn:timeDate>{expression}</bpmn:timeDate>",
+                    ),
+                    encoding="utf-8",
+                )
+                self.assertIn(
+                    "converted model lacks the mapped message-driven timer rearm path",
+                    "\n".join(gate.requirements(self.root, self.plan).issues),
+                )
+
     def test_active_timer_mapping_rejects_an_undeclared_gateway_outgoing_flow(self):
         self.install_active_timer_decision()
         model = self.root / "models/converted-c8-process.bpmn"

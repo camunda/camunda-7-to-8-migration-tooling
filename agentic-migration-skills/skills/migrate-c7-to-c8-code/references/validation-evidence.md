@@ -28,9 +28,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 Run it again for a new migration, even if the paths have not changed. Old check logs cannot
 make the new gate `READY`. Where the project uses Git, add `.camunda-migration/validation/` to
 its `.gitignore`. Never commit generated logs, manifests, or summaries.
-Run `init` before code conversion. It records detected due-date locations in the Step 2 inventory
-so the gate can compare original C7 callers with the migrated source. Normalized statement
-fingerprints also detect retained setters after line movement or formatting changes.
+Run `init` before code conversion. It records detected due-date locations and operations in the
+Step 2 inventory. The gate detects retained operations in the same source file even when arguments,
+line numbers, or formatting change.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 
@@ -182,17 +182,21 @@ Each `caller_mappings` entry must identify one migrated caller and its module. E
 caller and confirm that it sends the mapped message, correlation key, and date variable. Use a
 separate mapping for each migrated caller, even when several callers rearm the same timer. The gate
 retains all caller mappings under the shared timer decision. A C7 due-date call that remains at a
-mapped source location blocks readiness.
+mapped source location blocks readiness. If the mapped source file retains the same due-date
+operation, then the gate also blocks readiness after line or argument changes.
+When an unrelated non-timer call shares that file and operation, the gate cannot distinguish it.
+Keep readiness blocked until the project separates those calls.
 
 The `message_date_variable` identifies the date field in the message payload. The `date_variable`
 identifies the variable read by the timer.
 
 The `process_id` identifies the executable timer child process. List that process and its parent in
 the model inventory. Mark the timer process as non-standalone and set `covering_test` to the parent
-test. The timer process must use the mapped date variable in its timer expression. The parent
-process must call it through the mapped `bpmn:callActivity`. The call activity must input-map the
-date variable into the timer process. Attach an interrupting message boundary event to that call
-activity. Map the `message_date_variable` into the parent `date_variable` on the boundary event.
+test. The timer process must use a direct `=<date_variable>` timer expression. The gate does not interpret
+other FEEL expressions. The parent process must call it through the mapped `bpmn:callActivity`.
+The call activity must input-map the date variable into the timer process.
+Attach an interrupting message boundary event to that call activity.
+Map the `message_date_variable` into the parent `date_variable` on the boundary event.
 Route the message branch through an exclusive converging gateway before the call activity is
 entered again. Each call creates a fresh child process instance with the updated date.
 The mapped module and model must appear together in at least one deployment set.
