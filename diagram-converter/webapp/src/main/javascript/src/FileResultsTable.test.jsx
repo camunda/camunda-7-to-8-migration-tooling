@@ -17,6 +17,9 @@ vi.mock("@carbon/react", () => ({
   TableHead: ({ children, ...props }) => <thead {...props}>{children}</thead>,
   TableHeader: ({ children, ...props }) => <th {...props}>{children}</th>,
   TableRow: ({ children, ...props }) => <tr {...props}>{children}</tr>,
+  TextInput: ({ labelText, ...props }) => (
+    <input aria-label={labelText} {...props} />
+  ),
 }));
 
 vi.mock("@carbon/react/icons", () => ({

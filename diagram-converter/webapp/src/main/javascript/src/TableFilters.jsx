@@ -6,6 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 import { useId } from "react";
+import { TextInput } from "@carbon/react";
 
 function describeSeverity(option) {
   return option.code ? `${option.label} (${option.code})` : option.label;
@@ -50,11 +51,11 @@ export default function TableFilters({
     <>
       <div className="table-filter-controls">
         <div className="table-search-control">
-          <label htmlFor={searchInputId}>{searchLabel}</label>
-          <input
+          <TextInput
             id={searchInputId}
-            className="table-search-input"
             type="search"
+            className="table-search-input"
+            labelText={searchLabel}
             value={searchValue}
             placeholder={searchPlaceholder}
             aria-controls={visibleCount > 0 ? tableId : undefined}

@@ -102,8 +102,8 @@ vi.mock("@carbon/react", () => {
         {...omitProps(props, ["labelText", "helperText"])}
       />
     ),
-    TextInput: ({ ...props }) => (
-      <input {...omitProps(props, ["labelText", "helperText"])} />
+    TextInput: ({ labelText, ...props }) => (
+      <input aria-label={labelText} {...omitProps(props, ["helperText"])} />
     ),
     Loading: () => null,
   };
