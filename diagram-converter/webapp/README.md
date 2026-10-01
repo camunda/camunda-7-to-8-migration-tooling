@@ -72,6 +72,8 @@ server proxies API requests to `http://localhost:8080` and forwards the browser'
       migration execution listener to blank start events _(default: `false`)_
     - `dataMigrationExecutionListenerJobType` (`String`): job type for the data
       migration execution listener _(default: `migrator`)_
+    - `preserveOriginalFilename` (`Boolean`): use the uploaded filename (without
+      its directory path) instead of the `converted-c8-` prefix _(default: `false`)_
 - Response:
   - `200`: Everything fine. The body contains the converted model. The header
     contains a `Content-Disposition` field that declares this as attachment and
@@ -79,6 +81,11 @@ server proxies API requests to `http://localhost:8080` and forwards the browser'
     `application/dmn+xml` or `application/json` for forms.
 
 `POST /convertBatch`: Convert all provided models from Camunda 7 to 8 and return a ZIP file
+
+The optional `preserveOriginalFilename` form field has the same behavior as for
+`POST /convert`: when enabled, ZIP entries use each uploaded filename without its
+directory path or the `converted-c8-` prefix. Duplicate entry names are
+disambiguated by appending ` (1)`, ` (2)`, and so on before the extension.
 
 ## Slack Notifications
 

@@ -146,6 +146,7 @@ function configureUpload({
   content,
   checkResponseJson,
   convertedContent = content,
+  convertedContentDisposition = null,
 }) {
   testState.files.splice(0, testState.files.length, {
     name: fileName,
@@ -163,7 +164,7 @@ function configureUpload({
 
     return Promise.resolve({
       ok: true,
-      headers: { get: vi.fn().mockReturnValue(null) },
+      headers: { get: vi.fn().mockReturnValue(convertedContentDisposition) },
       blob: vi.fn().mockResolvedValue(new Blob([convertedContent])),
     });
   });
@@ -600,10 +601,11 @@ describe("target platform version", () => {
 });
 
 describe("upload onboarding guidance", () => {
-  // The 93-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
+  // The 93-file default batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
   // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
   // createFormData() always appends 7 non-file fields (platformVersion + 6
-  // config options), leaving 93 parts available for files.
+  // config options), leaving 93 parts available for files. The optional
+  // filename-preservation field reduces that limit to 92 when enabled.
   const MAX_BATCH_FILES = 93;
   const BATCH_FILE_WARNING_THRESHOLD = 84;
 
@@ -702,6 +704,154 @@ describe("upload onboarding guidance", () => {
     expect(alert.textContent).toMatch(
       new RegExp(`Batch limit exceeded \\(${MAX_BATCH_FILES} max, ${uploadedCount} added\\)`)
    );
+  });
+});
+
+describe("output filenames", () => {
+  it("describes the uploaded filename option and keeps it off by default", () => {
+    render(<App />);
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Use the uploaded file names",
+    });
+    expect(checkbox.checked).toBe(false);
+    expect(screen.getByText(/support up to 93 files/i)).toBeTruthy();
+    expect(checkbox.getAttribute("aria-describedby")).toBe(
+      "preserveOriginalFilenameHint"
+    );
+    const hint = document.getElementById("preserveOriginalFilenameHint");
+    expect(hint?.textContent).toBe(
+      "Individual downloads and ZIP entries use a prefixed name, for example converted-c8-order.bpmn."
+    );
+
+    fireEvent.click(checkbox);
+    expect(screen.getByText(/support up to 92 files/i)).toBeTruthy();
+    expect(hint?.textContent).toBe(
+      "Individual downloads and ZIP entries use the uploaded file name, for example order.bpmn."
+    );
+  });
+
+  it("prefers and decodes Spring's UTF-8 filename* parameter for downloads", async () => {
+    configureUpload({
+      fileName: "original model.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+      convertedContentDisposition:
+        'attachment; filename="=?UTF-8?Q?original_model.bpmn?="; filename*=UTF-8\'\'original%20model.bpmn',
+    });
+    render(<App />);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Use the uploaded file names" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download original model.bpmn",
+    });
+    const downloadedFilenames = [];
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function () {
+        downloadedFilenames.push(this.download);
+      });
+
+    fireEvent.click(downloadButton);
+
+    expect(downloadedFilenames).toEqual(["original model.bpmn"]);
+    anchorClick.mockRestore();
+  });
+
+  it("sends the selected filename option to individual and ZIP conversions", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Use the uploaded file names" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await waitFor(() => {
+      const convertCall = fetchMock.mock.calls.find(([url]) =>
+        url.endsWith("/convert")
+      );
+      expect(convertCall).toBeTruthy();
+      expect(convertCall[1].body.get("preserveOriginalFilename")).toBe("true");
+    });
+
+    const zipButton = await screen.findByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    await waitFor(() => expect(zipButton.disabled).toBe(false));
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        json: vi.fn().mockResolvedValue({ errorCode: "UNKNOWN_ERROR" }),
+      })
+    );
+    fireEvent.click(zipButton);
+
+    await waitFor(() => {
+      const batchCall = fetchMock.mock.calls.find(([url]) =>
+        url.endsWith("/convertBatch")
+      );
+      expect(batchCall).toBeTruthy();
+      expect(batchCall[1].body.get("preserveOriginalFilename")).toBe("true");
+      expect(Array.from(batchCall[1].body.entries())).toHaveLength(9);
+    });
+  });
+
+  it("omits the disabled filename option from multipart batch requests", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const zipButton = await screen.findByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    await waitFor(() => expect(zipButton.disabled).toBe(false));
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        json: vi.fn().mockResolvedValue({ errorCode: "UNKNOWN_ERROR" }),
+      })
+    );
+    fireEvent.click(zipButton);
+
+    await waitFor(() => {
+      const batchCall = fetchMock.mock.calls.find(([url]) =>
+        url.endsWith("/convertBatch")
+      );
+      expect(batchCall).toBeTruthy();
+      expect(batchCall[1].body.get("preserveOriginalFilename")).toBeNull();
+      expect(Array.from(batchCall[1].body.entries())).toHaveLength(8);
+    });
   });
 });
 
