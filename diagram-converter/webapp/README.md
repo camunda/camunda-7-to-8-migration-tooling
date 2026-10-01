@@ -9,7 +9,8 @@ tasks for manual migration. Schema versions and deprecated component properties 
 preserved because changing them without a schema-aware migration could alter
 form behavior. Forms can be opened as a read-only rendered preview from the
 results list. Preview dialogs let you move through the batch or jump directly
-to the next file with findings.
+to the next file with findings. BPMN diagrams can be panned by dragging or
+scrolling; use the zoom controls or hold Ctrl/Command while scrolling to zoom.
 
 ## Rest API
 
