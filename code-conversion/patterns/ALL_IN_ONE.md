@@ -1645,8 +1645,10 @@ that mix typed getters with factories convert each variable in any order, such a
 groups with incompatible initializers stay at their Camunda 7 types with a TODO.
 Assignments through another instance of the same class use converted field
 types, while unrelated owners and retained local values keep their typed calls.
-Nested factory calls, such as `execution.setVariable("date", Variables.dateValue(date))`,
-pass the raw value and get the same transient-flag TODO.
+Date and byte factories are converted when they initialize or assign a directly
+mapped `DateValue` or `BytesValue` declaration. Nested factory calls, such as
+`execution.setVariable("date", Variables.dateValue(date))`, stay unchanged and
+receive a TODO for manual migration.
 `Variables.dateValue(date).getValue()` and similar reads become the raw value,
 cast to the boxed type when it is used as a receiver or method argument, such as
 `((Integer) 5).toString()`. `null` values always keep their type, such as
