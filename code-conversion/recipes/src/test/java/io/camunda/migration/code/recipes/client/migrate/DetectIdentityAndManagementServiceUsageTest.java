@@ -257,14 +257,14 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void update(ManagementService managementService, String jobId, Date dueDate) {
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
-                    // For an active BPMN timer, use project-approved message-driven rearming with a correlated date-update message and event-based gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.
+                    // For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobDuedate(jobId, dueDate);
                 }
 
                 public BiConsumer<String, Date> updater(ManagementService managementService) {
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
-                    // For an active BPMN timer, use project-approved message-driven rearming with a correlated date-update message and event-based gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.
+                    // For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     return managementService::setJobDuedate;
                 }

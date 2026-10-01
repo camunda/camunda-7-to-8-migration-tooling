@@ -18,10 +18,16 @@ scenarios against a disposable Camunda 8.9.21 container. One Process Test deploy
 definitions, verifies recurring-start replacement and latest-version-by-ID start, then rearms an
 already-active timer twice. A parent call activity starts a separate timer process for each wait.
 The test waits for each new child instance and holds negative observations stable across bounded
-intervals. It proves that both old deadlines stay unfired, the final deadline fires once, and the
-container is removed. The runner prints the runtime observation as its final JSON line and verifies
-Docker create and destroy events. After a Maven failure, it removes any captured fixture container
-before it reports the original failure.
+intervals. It verifies that the process is still waiting immediately before the final deadline.
+It then advances the test clock to the deadline and records when completion is observed. The test
+proves that both old deadlines stay unfired and the final deadline fires once.
+
+The runner captures Docker create and destroy events. It also reads the Testcontainers session
+label and reconciles the matching Camunda containers after Maven exits. Cleanup does not depend on
+capturing every create event and does not remove containers from other Testcontainers sessions.
+An unexpected event-stream exit fails the fixture after owned containers are cleaned up. After a
+Maven failure, the runner removes session-owned fixture containers before it reports the original
+failure.
 
 Use Java 21, Maven, and a running Docker daemon. From the repository root, run:
 

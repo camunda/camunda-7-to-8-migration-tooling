@@ -142,7 +142,7 @@ The gate rejects placeholders such as `not applicable` as evidence.
 When the project approves message-driven timer rearming, add an `active_timer_update_decision`
 object to `.camunda-migration/validation/validation-evidence.json`. Use the exact converted model,
 timer process, parent process, parent call activity, timer, message name, correlation-key variable,
-message date variable, captured source locations, and current migrated-caller location:
+and message date variable. Put each caller-to-source mapping in `caller_mappings`:
 
 ```json
 {
@@ -153,9 +153,6 @@ message date variable, captured source locations, and current migrated-caller lo
     "target_version": "8.9.21",
     "updates": [
       {
-        "module": "examples/web",
-        "source_locations": ["examples/web/LegacyTerminationService.java:42:9"],
-        "migrated_caller_location": "examples/web/TerminationService.java:52:13",
         "model_path": "models/converted-c8-order.bpmn",
         "process_id": "order-timer-wait",
         "rearm_process_id": "order-process",
@@ -164,17 +161,28 @@ message date variable, captured source locations, and current migrated-caller lo
         "message_name": "TerminationDateChanged",
         "correlation_key_variable": "projectId",
         "date_variable": "terminationDate",
-        "message_date_variable": "updatedTerminationDate"
+        "message_date_variable": "updatedTerminationDate",
+        "caller_mappings": [
+          {
+            "module": "examples/web",
+            "source_locations": ["examples/web/LegacyTerminationService.java:42:9"],
+            "migrated_caller_location": "examples/web/TerminationService.java:52:13"
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-Each `source_locations` entry must match the Step 2 inventory captured by `init`. The
-`migrated_caller_location` must identify current source code in the mapped module. Inspect that
-caller and confirm that it sends the mapped message, correlation key, and date variable. A C7
-due-date call that remains at a mapped source location blocks readiness.
+Each `caller_mappings` entry must identify one migrated caller and its module. Every
+`source_locations` entry must match the Step 2 inventory captured by `init`. The
+`migrated_caller_location` must identify current source code in the mapped module. Inspect each
+caller and confirm that it sends the mapped message, correlation key, and date variable. Use a
+separate mapping for each migrated caller, even when several callers rearm the same timer. The gate
+retains all caller mappings under the shared timer decision. A C7 due-date call that remains at a
+mapped source location blocks readiness. For backward compatibility, the gate also accepts the
+former top-level `module`, `source_locations`, and `migrated_caller_location` fields as one mapping.
 
 The `message_date_variable` identifies the date field in the message payload. The `date_variable`
 identifies the variable read by the timer.
@@ -189,7 +197,8 @@ Route the message branch through an exclusive converging gateway before the call
 entered again. Each call creates a fresh child process instance with the updated date.
 The mapped module and model must appear together in at least one deployment set.
 
-Record the module review with the same approval reference:
+Record the module review with the same approval reference. Include every migrated caller location
+for that module in the review note:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition message_rearm --reference MIGRATION_REPORT.md#active-timer-rearm --note "Inspected examples/web/TerminationService.java:52:13. It sends TerminationDateChanged with projectId and maps updatedTerminationDate to terminationDate."
@@ -209,8 +218,12 @@ key, and both date variables. It must record
 that the timer was active before both updates. Each update must contain its old and new deadlines.
 Each update must set `timer_active_before_update` and `correlated` to `true`. The test must advance
 past both obsolete deadlines and record a zero fire count for each.
-It must record a fire count of one and a timestamp at or after the final deadline. The outer object
-must identify the disposable deployment and prove cleanup:
+When the test confirms the process is still waiting immediately before the final deadline, record
+the current test-clock time as `final_deadline_last_active_at`. Keep this timestamp no more than five
+seconds before the deadline. Advance the test clock to the final deadline after this check. When the
+test observes completion, record the current test-clock time as `final_deadline_fired_at`. This
+timestamp must be at or after the final deadline. The outer object must identify the disposable
+deployment and prove cleanup:
 
 ```json
 {
@@ -255,6 +268,7 @@ must identify the disposable deployment and prove cleanup:
       "advanced_past_obsolete_deadlines": true,
       "final_deadline": "2050-11-23T00:00:25Z",
       "final_deadline_fire_count": 1,
+      "final_deadline_last_active_at": "2050-11-23T00:00:24Z",
       "final_deadline_fired_at": "2050-11-23T00:00:26Z"
     }
   },

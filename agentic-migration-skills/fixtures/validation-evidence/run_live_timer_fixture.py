@@ -7,13 +7,16 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 
 
 VERSION = "8.9.21"
 IMAGE_TAG = f":{VERSION}"
+TESTCONTAINERS_SESSION_LABEL = "org.testcontainers.sessionId"
 FIXTURE = Path(__file__).resolve().parent / "live-timer-fixture"
 OBSERVATION = FIXTURE / "process-test" / "target" / "acceptance-observation.json"
+SESSION_ID_FILE = FIXTURE / "process-test" / "target" / "testcontainers-session-id"
 
 
 def docker(*arguments):
@@ -54,6 +57,48 @@ def container_ids(all_containers=True):
     return set(output.splitlines()) if output else set()
 
 
+def target_container_records(existing_ids, session_id=None):
+    options = [
+        "container",
+        "ls",
+        "--all",
+        "--no-trunc",
+        "--format",
+        "{{.ID}}\t{{.Image}}",
+    ]
+    if session_id is not None:
+        options.extend(
+            ["--filter", f"label={TESTCONTAINERS_SESSION_LABEL}={session_id}"]
+        )
+    output = docker(*options)
+    targets = {}
+    for line in output.splitlines():
+        container_id, separator, image = line.partition("\t")
+        if not separator or not container_id:
+            raise RuntimeError("Docker returned a malformed container listing")
+        if (
+            container_id not in existing_ids
+            and image.startswith("camunda/")
+            and image.endswith(IMAGE_TAG)
+        ):
+            targets[container_id] = image
+    return targets
+
+
+def read_testcontainers_session_id():
+    if SESSION_ID_FILE.is_symlink():
+        raise RuntimeError("Refusing to read a symlinked Testcontainers session ID")
+    try:
+        session_id = SESSION_ID_FILE.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    try:
+        uuid.UUID(session_id)
+    except ValueError as exc:
+        raise RuntimeError("Testcontainers wrote an invalid session ID") from exc
+    return session_id
+
+
 def collect_events(process, lines):
     for line in process.stdout:
         lines.append(line)
@@ -70,64 +115,62 @@ def stop_event_stream(process, reader):
     reader.join(timeout=10)
 
 
-def target_container_events(lines, existing_ids):
+def target_container_events(lines, existing_ids, session_id):
     created = set()
     destroyed = set()
+    if not session_id:
+        return created, destroyed
     for line in lines:
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
         actor = event.get("Actor") or {}
-        container_id = event.get("id") or actor.get("ID")
+        attributes = actor.get("Attributes") or {}
+        container_id = actor.get("ID") or event.get("id")
         action = event.get("status") or event.get("Action")
-        image = (actor.get("Attributes") or {}).get("image") or event.get("from", "")
-        if not isinstance(container_id, str) or container_id in existing_ids:
-            continue
-        if action == "create":
-            if image.startswith("camunda/") and image.endswith(IMAGE_TAG):
-                created.add(container_id)
-        elif action == "destroy" and (
-            container_id in created
-            or image.startswith("camunda/") and image.endswith(IMAGE_TAG)
+        image = attributes.get("image") or event.get("from", "")
+        if (
+            not isinstance(container_id, str)
+            or container_id in existing_ids
+            or attributes.get(TESTCONTAINERS_SESSION_LABEL) != session_id
         ):
+            continue
+        is_target = image.startswith("camunda/") and image.endswith(IMAGE_TAG)
+        if action in ("create", "start") and is_target:
+            created.add(container_id)
+        elif action == "destroy" and (is_target or container_id in created):
+            created.add(container_id)
             destroyed.add(container_id)
     return created, destroyed
 
 
-def remove_created_containers(created):
+def remove_created_containers(session_id, existing_ids):
     cleanup_errors = []
+    if not session_id:
+        return set(), [
+            "Testcontainers session ID is unavailable; refusing to remove unowned containers"
+        ]
     try:
-        remaining_ids = container_ids()
+        targets = target_container_records(existing_ids, session_id)
     except (OSError, subprocess.SubprocessError) as exc:
-        return set(created), [f"Could not inspect fixture containers: {exc}"]
+        return set(), [f"Could not inspect fixture containers: {exc}"]
+    except RuntimeError as exc:
+        return set(), [f"Could not inspect fixture containers: {exc}"]
 
-    for container_id in sorted(created):
-        is_present = any(
-            container_id.startswith(remaining) or remaining.startswith(container_id)
-            for remaining in remaining_ids
-        )
-        if not is_present:
-            continue
+    for container_id in sorted(targets):
         try:
             docker("container", "rm", "--force", container_id)
         except (OSError, subprocess.SubprocessError) as exc:
             cleanup_errors.append(f"Could not remove fixture container {container_id}: {exc}")
 
     try:
-        remaining_ids = container_ids()
+        remaining = target_container_records(existing_ids, session_id)
     except (OSError, subprocess.SubprocessError) as exc:
-        return set(created), cleanup_errors + [f"Could not verify fixture cleanup: {exc}"]
-
-    leaked = {
-        container_id
-        for container_id in created
-        if any(
-            container_id.startswith(remaining) or remaining.startswith(container_id)
-            for remaining in remaining_ids
-        )
-    }
-    return leaked, cleanup_errors
+        return set(targets), cleanup_errors + [f"Could not verify fixture cleanup: {exc}"]
+    except RuntimeError as exc:
+        return set(targets), cleanup_errors + [f"Could not verify fixture cleanup: {exc}"]
+    return set(remaining), cleanup_errors
 
 
 def main():
@@ -146,6 +189,9 @@ def main():
             "Refusing to run while an existing Camunda 8.9.21 container is active"
         )
 
+    if SESSION_ID_FILE.is_symlink():
+        raise RuntimeError("Refusing to replace a symlinked Testcontainers session ID")
+    SESSION_ID_FILE.unlink(missing_ok=True)
     if OBSERVATION.is_symlink():
         raise RuntimeError("Refusing to replace a symlinked acceptance observation")
     OBSERVATION.unlink(missing_ok=True)
@@ -170,6 +216,7 @@ def main():
     reader.start()
     time.sleep(0.5)
     if event_stream.poll() is not None:
+        stop_event_stream(event_stream, reader)
         raise RuntimeError("Docker event capture did not start")
 
     completed = None
@@ -197,15 +244,53 @@ def main():
         except (OSError, subprocess.SubprocessError) as exc:
             command_error = exc
     finally:
+        if event_stream.poll() is not None:
+            event_stream_error = RuntimeError(
+                "Docker event capture exited while the fixture was running"
+            )
         try:
             stop_event_stream(event_stream, reader)
         except (OSError, subprocess.SubprocessError) as exc:
-            event_stream_error = exc
+            if event_stream_error is None:
+                event_stream_error = exc
 
-    created, destroyed = target_container_events(event_lines, existing_ids)
-    leaked, cleanup_errors = remove_created_containers(created)
+    cleanup_errors = []
+    try:
+        session_id = read_testcontainers_session_id()
+    except (OSError, RuntimeError) as exc:
+        session_id = None
+        cleanup_errors.append(f"Could not read Testcontainers session ID: {exc}")
+    created, destroyed = target_container_events(
+        event_lines, existing_ids, session_id
+    )
+    if session_id is not None:
+        try:
+            created.update(target_container_records(existing_ids, session_id))
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            cleanup_errors.append(f"Could not reconcile fixture containers: {exc}")
+        leaked, container_cleanup_errors = remove_created_containers(
+            session_id, existing_ids
+        )
+        cleanup_errors.extend(container_cleanup_errors)
+    else:
+        try:
+            unowned_targets = target_container_records(existing_ids)
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            unowned_targets = {}
+            cleanup_errors.append(f"Could not inspect containers after the fixture: {exc}")
+        leaked = set(unowned_targets)
+        if leaked:
+            cleanup_errors.append(
+                "Cannot safely clean up new Camunda containers without the fixture session label"
+            )
     if event_stream_error is not None:
-        cleanup_errors.append(f"Could not stop Docker event capture: {event_stream_error}")
+        cleanup_errors.append(f"Could not capture Docker events: {event_stream_error}")
+    try:
+        if SESSION_ID_FILE.is_symlink():
+            raise RuntimeError("Refusing to remove a symlinked Testcontainers session ID")
+        SESSION_ID_FILE.unlink(missing_ok=True)
+    except (OSError, RuntimeError) as exc:
+        cleanup_errors.append(f"Could not remove Testcontainers session ID file: {exc}")
     if cleanup_errors or leaked:
         command_failure = (
             str(command_error)
@@ -240,7 +325,10 @@ def main():
     result = {
         "deployment": {
             "performed": True,
-            "reference": f"Testcontainers image camunda/*:{VERSION}; containers {sorted(created)}",
+            "reference": (
+                f"Testcontainers session {session_id}; "
+                f"Camunda {VERSION} containers {sorted(created)}"
+            ),
             "environment": "local",
             "target_disposable": True,
             "target_version": VERSION,
@@ -248,7 +336,10 @@ def main():
         "observation": observation,
         "cleanup": {
             "completed": True,
-            "evidence_reference": f"Docker destroy events for {sorted(created)}",
+            "evidence_reference": (
+                f"Testcontainers session {session_id} container events and label reconciliation "
+                f"for {sorted(created)}"
+            ),
         },
     }
     print(json.dumps(result, separators=(",", ":"), sort_keys=True))

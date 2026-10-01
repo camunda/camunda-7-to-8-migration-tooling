@@ -22,6 +22,7 @@ import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -35,10 +36,15 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.testcontainers.DockerClientFactory;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+@ExtendWith(LiveTimerAcceptanceTest.SessionIdCaptureExtension.class)
 @CamundaProcessTest
 class LiveTimerAcceptanceTest {
 
@@ -52,6 +58,27 @@ class LiveTimerAcceptanceTest {
   private CamundaProcessTestContext processTestContext;
 
   private record TimerStart(String id, String cycle) {}
+
+  public static final class SessionIdCaptureExtension implements BeforeAllCallback {
+
+    @Override
+    public void beforeAll(ExtensionContext context) throws IOException {
+      String configuredPath =
+          System.getProperty("timer.fixture.testcontainers-session-id-file");
+      if (configuredPath == null || configuredPath.isBlank()) {
+        throw new IllegalStateException("Testcontainers session ID file path is not configured");
+      }
+      Path sessionIdFile = Path.of(configuredPath);
+      if (Files.isSymbolicLink(sessionIdFile)) {
+        throw new IOException("Refusing to write a symlinked Testcontainers session ID");
+      }
+      if (sessionIdFile.getParent() != null) {
+        Files.createDirectories(sessionIdFile.getParent());
+      }
+      Files.writeString(
+          sessionIdFile, DockerClientFactory.SESSION_ID, StandardCharsets.UTF_8);
+    }
+  }
 
   @Test
   void shouldVerifyDeploymentSetAndRearmAnActiveTimerTwice() throws IOException {
@@ -215,22 +242,50 @@ class LiveTimerAcceptanceTest {
         timerInstance.getProcessInstanceKey(),
         childProcessInstanceKey,
         activeCallActivityInstanceKey);
+    processTestContext.increaseTime(
+        Duration.between(
+            processTestContext.getCurrentTime(), finalDeadline.minusSeconds(1)));
+    assertWaitingForDeadlineOnce(
+        camundaClient,
+        timerInstance.getProcessInstanceKey(),
+        childProcessInstanceKey,
+        activeCallActivityInstanceKey);
+    Instant finalDeadlineLastActiveAtInstant = processTestContext.getCurrentTime();
+    OffsetDateTime finalDeadlineLastActiveAt =
+        OffsetDateTime.ofInstant(finalDeadlineLastActiveAtInstant, ZoneOffset.UTC);
+    assertTrue(
+        finalDeadlineLastActiveAt.isBefore(finalDeadline),
+        "The timer must still be active immediately before the final deadline");
 
     processTestContext.increaseTime(
-        Duration.between(processTestContext.getCurrentTime(), finalDeadline.plusSeconds(30)));
+        Duration.between(finalDeadlineLastActiveAtInstant, finalDeadline.toInstant()));
+    await()
+        .atMost(Duration.ofSeconds(20))
+        .until(
+            () ->
+                processInstanceHasState(
+                    camundaClient,
+                    timerInstance.getProcessInstanceKey(),
+                    ProcessInstanceState.COMPLETED));
     assertThat(timerInstance)
         .isCompleted()
         .hasCompletedElement("DeadlineReached", 1);
+    OffsetDateTime finalDeadlineFiredAt =
+        OffsetDateTime.ofInstant(processTestContext.getCurrentTime(), ZoneOffset.UTC);
+    assertTrue(
+        !finalDeadlineFiredAt.isBefore(finalDeadline),
+        "The final timer must not complete before its deadline");
 
     writeObservation(
-        processTestContext,
         timerStartedInstancesBeforeReplacement,
         timerStartedInstancesAfterReplacement,
         moduleATimer,
         moduleBTimer,
         originalDeadline,
         firstUpdatedDeadline,
-        finalDeadline);
+        finalDeadline,
+        finalDeadlineLastActiveAt,
+        finalDeadlineFiredAt);
   }
 
   private static int activeSampleCount(CamundaClient camundaClient) {
@@ -389,6 +444,23 @@ class LiveTimerAcceptanceTest {
                     callActivityInstanceKey));
   }
 
+  private static void assertWaitingForDeadlineOnce(
+      CamundaClient camundaClient,
+      long parentProcessInstanceKey,
+      long childProcessInstanceKey,
+      long callActivityInstanceKey) {
+    await()
+        .pollInterval(Duration.ofMillis(100))
+        .atMost(Duration.ofSeconds(5))
+        .until(
+            () ->
+                isActiveAndWaitingForDeadline(
+                    camundaClient,
+                    parentProcessInstanceKey,
+                    childProcessInstanceKey,
+                    callActivityInstanceKey));
+  }
+
   private static boolean isActiveAndWaitingForDeadline(
       CamundaClient camundaClient,
       long parentProcessInstanceKey,
@@ -412,14 +484,15 @@ class LiveTimerAcceptanceTest {
   }
 
   private static void writeObservation(
-      CamundaProcessTestContext processTestContext,
       int timerStartsBeforeReplacement,
       int timerStartsAfterReplacement,
       TimerStart moduleATimer,
       TimerStart moduleBTimer,
       OffsetDateTime originalDeadline,
       OffsetDateTime firstUpdatedDeadline,
-      OffsetDateTime finalDeadline)
+      OffsetDateTime finalDeadline,
+      OffsetDateTime finalDeadlineLastActiveAt,
+      OffsetDateTime finalDeadlineFiredAt)
       throws IOException {
     Map<String, Object> case1 =
         Map.of(
@@ -467,7 +540,9 @@ class LiveTimerAcceptanceTest {
             Map.entry("advanced_past_obsolete_deadlines", true),
             Map.entry("final_deadline", finalDeadline.toString()),
             Map.entry("final_deadline_fire_count", 1),
-            Map.entry("final_deadline_fired_at", processTestContext.getCurrentTime().toString()));
+            Map.entry(
+                "final_deadline_last_active_at", finalDeadlineLastActiveAt.toString()),
+            Map.entry("final_deadline_fired_at", finalDeadlineFiredAt.toString()));
 
     Path observation =
         Path.of(

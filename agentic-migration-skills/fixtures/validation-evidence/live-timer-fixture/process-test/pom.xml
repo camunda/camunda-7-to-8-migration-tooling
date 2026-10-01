@@ -71,6 +71,7 @@
           <systemPropertyVariables>
             <camunda.process-test.camunda-docker-image-version>${camunda.process-test.camunda-docker-image-version}</camunda.process-test.camunda-docker-image-version>
             <timer.fixture.observation>${project.build.directory}/acceptance-observation.json</timer.fixture.observation>
+            <timer.fixture.testcontainers-session-id-file>${project.build.directory}/testcontainers-session-id</timer.fixture.testcontainers-session-id-file>
           </systemPropertyVariables>
         </configuration>
       </plugin>

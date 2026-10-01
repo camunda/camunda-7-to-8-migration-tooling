@@ -11,7 +11,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
@@ -428,11 +428,6 @@ def supports_message_rearm(
         for output in date_outputs
     ):
         return False
-    start_ids = {
-        start.get("id")
-        for start in parent_process.findall(f"{BPMN}startEvent")
-        if start.get("id")
-    }
     for boundary_flow_id in (
         node.text for node in boundary.findall(f"{BPMN}outgoing") if node.text
     ):
@@ -453,10 +448,19 @@ def supports_message_rearm(
         merge_incoming = {
             node.text for node in merge.findall(f"{BPMN}incoming") if node.text
         }
+        actual_merge_incoming = {
+            flow_id
+            for flow_id, flow in flows.items()
+            if flow.get("targetRef") == merge_id
+        }
         merge_outgoing = [
             node.text for node in merge.findall(f"{BPMN}outgoing") if node.text
         ]
-        if boundary_flow_id not in merge_incoming or len(merge_incoming) < 2:
+        if (
+            boundary_flow_id not in merge_incoming
+            or len(merge_incoming) < 2
+            or actual_merge_incoming != merge_incoming
+        ):
             continue
         if len(merge_outgoing) != 1 or merge_outgoing[0] not in flows:
             continue
@@ -471,11 +475,7 @@ def supports_message_rearm(
             or merge_outgoing[0] not in call_activity_incoming
         ):
             continue
-        if any(
-            flow.get("sourceRef") in start_ids and flow.get("targetRef") == merge_id
-            for flow in flows.values()
-        ):
-            return True
+        return True
     return False
 
 
@@ -700,13 +700,30 @@ def requirements(root, evidence):
             )
         else:
             seen_locations = set()
+            legacy_caller_fields = (
+                "module",
+                "source_locations",
+                "migrated_caller_location",
+            )
             for entry in decision["updates"]:
                 if not isinstance(entry, dict):
                     issues.append("Each active timer update needs a timer mapping")
                     continue
-                module = entry.get("module")
-                source_locations = entry.get("source_locations")
-                migrated_caller_location = entry.get("migrated_caller_location")
+                caller_mappings = entry.get("caller_mappings")
+                if caller_mappings is None:
+                    caller_mappings = [
+                        {field: entry.get(field) for field in legacy_caller_fields}
+                    ]
+                elif any(field in entry for field in legacy_caller_fields):
+                    issues.append(
+                        "An active timer update cannot combine caller_mappings with legacy caller fields"
+                    )
+                    continue
+                if not isinstance(caller_mappings, list) or not caller_mappings:
+                    issues.append(
+                        "Each active timer update needs at least one caller mapping"
+                    )
+                    continue
                 model_path = entry.get("model_path")
                 process_id = entry.get("process_id")
                 rearm_process_id = entry.get("rearm_process_id")
@@ -717,18 +734,7 @@ def requirements(root, evidence):
                 date_variable = entry.get("date_variable")
                 message_date_variable = entry.get("message_date_variable")
                 if (
-                    not isinstance(module, str)
-                    or module not in module_paths
-                    or not isinstance(source_locations, list)
-                    or not source_locations
-                    or any(
-                        not isinstance(location, str) or not location
-                        for location in source_locations
-                    )
-                    or len(source_locations) != len(set(source_locations))
-                    or not isinstance(migrated_caller_location, str)
-                    or not migrated_caller_location
-                    or not isinstance(model_path, str)
+                    not isinstance(model_path, str)
                     or model_path not in converted_documents
                     or not isinstance(process_id, str)
                     or process_id not in converted_ids.get(model_path, set())
@@ -750,40 +756,6 @@ def requirements(root, evidence):
                     )
                 ):
                     issues.append("Active timer update mapping has invalid scope or identifiers")
-                    continue
-                if any(
-                    location not in source_update_locations.get(module, [])
-                    for location in source_locations
-                ):
-                    issues.append(
-                        f"{module}: active timer mapping cites an undetected pre-migration due-date location"
-                    )
-                    continue
-                if any(
-                    location in update_hits.get(module, [])
-                    for location in source_locations
-                ):
-                    issues.append(
-                        f"{module}: mapped C7 due-date location remains in the migrated source"
-                    )
-                    continue
-                try:
-                    caller_is_valid = valid_migrated_caller_location(
-                        root, module, migrated_caller_location, hashes
-                    )
-                except EvidenceError as exc:
-                    issues.append(str(exc))
-                    continue
-                if (
-                    not caller_is_valid
-                    or migrated_caller_location in update_hits.get(module, [])
-                ):
-                    issues.append(
-                        f"{module}: migrated caller location does not identify current module source code"
-                    )
-                    continue
-                if any(location in seen_locations for location in source_locations):
-                    issues.append("A due-date location cannot map to multiple active timers")
                     continue
                 document = converted_documents[model_path]
                 process = next(
@@ -833,8 +805,6 @@ def requirements(root, evidence):
                 target = f"{model_path}#{process_id}#{timer_id}"
                 details = {
                     "target": target,
-                    "source_locations": source_locations,
-                    "migrated_caller_location": migrated_caller_location,
                     "model_path": model_path,
                     "process_id": process_id,
                     "rearm_process_id": rearm_process_id,
@@ -854,14 +824,90 @@ def requirements(root, evidence):
                 ):
                     issues.append(f"{target}: conflicting active timer update decisions")
                     continue
+                used_locations = set(seen_locations)
+                valid_callers = []
+                for caller in caller_mappings:
+                    if not isinstance(caller, dict):
+                        issues.append(f"{target}: each caller mapping must be an object")
+                        continue
+                    module = caller.get("module")
+                    source_locations = caller.get("source_locations")
+                    migrated_caller_location = caller.get("migrated_caller_location")
+                    if (
+                        not isinstance(module, str)
+                        or module not in module_paths
+                        or not isinstance(source_locations, list)
+                        or not source_locations
+                        or any(
+                            not isinstance(location, str) or not location
+                            for location in source_locations
+                        )
+                        or len(source_locations) != len(set(source_locations))
+                        or not isinstance(migrated_caller_location, str)
+                        or not migrated_caller_location
+                    ):
+                        issues.append(f"{target}: caller mapping has invalid scope or locations")
+                        continue
+                    if any(
+                        location not in source_update_locations.get(module, [])
+                        for location in source_locations
+                    ):
+                        issues.append(
+                            f"{module}: active timer mapping cites an undetected pre-migration due-date location"
+                        )
+                        continue
+                    if any(
+                        location in update_hits.get(module, [])
+                        for location in source_locations
+                    ):
+                        issues.append(
+                            f"{module}: mapped C7 due-date location remains in the migrated source"
+                        )
+                        continue
+                    try:
+                        caller_is_valid = valid_migrated_caller_location(
+                            root, module, migrated_caller_location, hashes
+                        )
+                    except EvidenceError as exc:
+                        issues.append(str(exc))
+                        continue
+                    if (
+                        not caller_is_valid
+                        or migrated_caller_location in update_hits.get(module, [])
+                    ):
+                        issues.append(
+                            f"{module}: migrated caller location does not identify current module source code"
+                        )
+                        continue
+                    if any(location in used_locations for location in source_locations):
+                        issues.append(
+                            "A due-date location can map to only one migrated caller and timer"
+                        )
+                        continue
+                    used_locations.update(source_locations)
+                    valid_callers.append(
+                        {
+                            "module": module,
+                            "source_locations": source_locations,
+                            "migrated_caller_location": migrated_caller_location,
+                        }
+                    )
+                if not valid_callers:
+                    continue
                 if existing is None:
                     details["modules"] = []
+                    details["caller_mappings"] = []
                     active_timer_decisions[target] = details
                     need("timer", target, "active_instance_reschedule")
-                if module not in active_timer_decisions[target]["modules"]:
-                    active_timer_decisions[target]["modules"].append(module)
-                seen_locations.update(source_locations)
-                active_timer_locations.setdefault(module, set()).update(source_locations)
+                active_decision = active_timer_decisions[target]
+                for caller in valid_callers:
+                    if caller["module"] not in active_decision["modules"]:
+                        active_decision["modules"].append(caller["module"])
+                    active_decision["caller_mappings"].append(caller)
+                    seen_locations.update(caller["source_locations"])
+                    active_timer_locations.setdefault(caller["module"], set()).update(
+                        caller["source_locations"]
+                    )
             if not active_timer_decisions:
                 issues.append("Approved active timer decision does not map a detected timer update")
 
@@ -1069,16 +1115,24 @@ def validate_active_timer_observation(plan, key, check):
     if active_timer.get("advanced_past_obsolete_deadlines") is not True:
         raise EvidenceError(f"{key}: live clock must advance past both obsolete deadlines")
     final_deadline = parse_observation_time(active_timer.get("final_deadline"))
+    last_active_at = parse_observation_time(
+        active_timer.get("final_deadline_last_active_at")
+    )
     fired_at = parse_observation_time(active_timer.get("final_deadline_fired_at"))
     if (
         active_timer.get("final_deadline") != updates[1].get("new_deadline")
         or type(active_timer.get("final_deadline_fire_count")) is not int
         or active_timer["final_deadline_fire_count"] != 1
         or final_deadline is None
+        or last_active_at is None
+        or last_active_at >= final_deadline
+        or final_deadline - last_active_at > timedelta(seconds=5)
         or fired_at is None
         or fired_at < final_deadline
     ):
-        raise EvidenceError(f"{key}: final deadline must fire exactly once")
+        raise EvidenceError(
+            f"{key}: final deadline must remain active immediately before firing exactly once"
+        )
 
 
 def validate_risk_check(plan, key, check):
@@ -1130,7 +1184,11 @@ def validate_risk_check(plan, key, check):
                 not all(
                     detail in check["output"]
                     for detail in (
-                        decision["migrated_caller_location"],
+                        *(
+                            caller["migrated_caller_location"]
+                            for caller in decision["caller_mappings"]
+                            if caller["module"] == target
+                        ),
                         decision["message_name"],
                         decision["correlation_key_variable"],
                         decision["message_date_variable"],

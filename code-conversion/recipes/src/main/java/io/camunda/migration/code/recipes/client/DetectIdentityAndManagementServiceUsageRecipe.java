@@ -123,7 +123,7 @@ public class DetectIdentityAndManagementServiceUsageRecipe extends Recipe {
               "Camunda 8 has no operation to execute an arbitrary job by ID. In timer tests, use processTestContext.increaseTime(Duration); production work must run in a job worker that activates jobs by type.",
           "createIncidentQuery", "Use POST /v2/incidents/search.",
           "setJobDuedate",
-              "For an active BPMN timer, use project-approved message-driven rearming with a correlated date-update message and event-based gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.",
+              "For an active BPMN timer, use project-approved message-driven rearming with an interrupting message boundary event followed by an exclusive converging gateway. Map each caller, timer, message, correlation key, and date variable. Test two date changes on a disposable target. Keep unknown mappings blocked.",
           "getRegisteredDeployments",
               "Camunda 8 uses job-type-based workers instead of deployment-aware registration. There is no direct equivalent; use deployment search only as an optional inventory.",
           "updateJobSuspensionState",
