@@ -518,13 +518,62 @@ in `references/model-migration-approaches.md`.
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
-20. Every executable process has a test that starts it directly, with the normal inputs and without
+20. When the model uses M2, the skill runs the expression-prefix validator for every source and
+    converted pair:
+
+    ```sh
+    python3 "<skill-directory>/scripts/validate_model_expressions.py" \
+      --pair "<source.bpmn>" "<converted-c8-source.bpmn>"
+    ```
+
+    The skill supplies one `--pair` argument for every in-scope BPMN or DMN model.
+    The validator parses each pair with a namespace-aware XML parser.
+    The validator applies the first matching row to each `bpmn:conditionExpression` and
+    conditional-event `bpmn:condition`:
+
+    | Language attribute | Source value | Validator action |
+    | --- | --- | --- |
+    | Other than `juel` or `feel` on either copy | Any | Report a blocking redesign finding. Keep the finding blocked until the user approves a replacement. Do not translate the source condition automatically. |
+    | `juel` or `feel` on the source | Any | Require a leading `=` on the converted expression. |
+    | Missing or blank (default JUEL) | Starts with `=`, contains `${` or `#{`, or is another non-empty non-literal value | Require a leading `=` on the converted expression. |
+    | Missing or blank (default JUEL) | Boolean, number, `null`, or quoted string without those markers | Treat the value as a literal. Do not require a leading `=`. |
+    | Missing or blank (default JUEL) | Empty | Do not check the source as a dynamic condition. |
+    The validator pairs `bpmn:conditionExpression` with its sequence flow.
+    The validator pairs conditional-event `bpmn:condition` by its owning definition or event ID,
+    not its optional condition ID.
+    The validator pairs C7 input and output expressions with their Zeebe source attributes.
+    The validator fails when the converted copy has no Zeebe mapping with the source parameter's
+    name as its target.
+    The validator treats C7 input and output parameters with nested
+    `camunda:script scriptFormat="feel"` elements as dynamic expressions.
+    The validator requires a leading `=` on each paired dynamic input or output source.
+    The validator pairs dynamic `zeebe:subscription/@correlationKey` values with their source
+    expressions.
+    The validator requires a leading `=` on each converted
+    `zeebe:subscription/@correlationKey`.
+    The validator pairs dynamic `zeebe:calledElement/@processId`, `zeebe:taskDefinition/@type`,
+    `zeebe:assignmentDefinition`, and `zeebe:formDefinition/@formId` values with their source
+    expressions.
+    The validator requires a leading `=` on each paired dynamic value.
+    The validator rejects every `language="feel"` and `language="juel"` attribute in the converted
+    copy.
+    The validator rejects every BPMN `expressionLanguage` attribute.
+    The validator does not check DMN `expressionLanguage` attributes.
+    The skill preserves valid DMN expression languages.
+    The skill records the command, exit code, source and converted paths, and each finding in
+    `MIGRATION_REPORT.md`.
+    | Validator finding | Skill action |
+    | --- | --- |
+    | Missing prefix or mapping | Fix each finding and rerun the validator before marking the model row passed. |
+    | The converted BPMN copy retains a `language="feel"`, `language="juel"`, or `expressionLanguage` attribute | Remove the leftover attribute and rerun the validator before marking the model row passed. |
+    | Unsupported condition language | Keep the redesign finding blocked until the user approves a replacement. Do not translate the source condition automatically. |
+21. Every executable process has a test that starts it directly, with the normal inputs and without
     each input that a worker may not receive. Coverage through a call activity does not count,
     because the parent can supply variables that a direct start lacks. If a process is not a valid
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
-21. For each call activity, compare the converted scope with its original inputs and outputs.
+22. For each call activity, compare the converted scope with its original inputs and outputs.
     Use a namespace-aware XML parser to check every `bpmn:callActivity` in every
     `converted-c8-*.bpmn` file. For each call with a compatible C8 mapping, require its
     `zeebe:calledElement` to set `propagateAllChildVariables` explicitly.
@@ -536,10 +585,10 @@ in `references/model-migration-approaches.md`.
     If the skill cannot establish a delegated contract, keep the call **needs review**.
     Ask the user to decide its scope.
     Do not assign propagation flags to a call without a compatible C8 mapping.
+    Do not pass readiness validation while a call remains **needs review**.
     Test selected inputs with a parent-only variable, and check child identity independently.
     Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
-    Do not pass readiness validation while a call remains **needs review**.
-22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+23. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
     version. Apply step 3b in `references/model-migration-approaches.md` to every source start
     listener and converted copy.
 
@@ -549,7 +598,7 @@ in `references/model-migration-approaches.md`.
     | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
     | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
 
-23. **Target deployment** — when the user authorizes a test target, verify its profile and version
+24. **Target deployment** — when the user authorizes a test target, verify its profile and version
     as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
     DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
     `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
