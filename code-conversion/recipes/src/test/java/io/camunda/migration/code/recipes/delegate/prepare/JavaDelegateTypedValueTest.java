@@ -227,16 +227,13 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
         java(
             """
             import org.camunda.bpm.client.task.ExternalTask;
-            import org.camunda.bpm.engine.TaskService;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.variable.VariableMap;
             import org.camunda.bpm.engine.variable.value.IntegerValue;
 
             class GetterCasts {
-                void read(DelegateExecution execution, TaskService service, ExternalTask external) {
+                void read(DelegateExecution execution, ExternalTask external) {
                     IntegerValue local = execution.getVariableLocalTyped("local");
-                    IntegerValue task = service.getVariableTyped("taskId", "value");
-                    IntegerValue taskLocal = service.getVariableLocalTyped("taskId", "local");
                     IntegerValue externalValue = external.getVariableTyped("external");
                     VariableMap values = external.getAllVariablesTyped();
                 }
@@ -244,19 +241,14 @@ public class RetrievePaymentAdapterProcessVariablesTypedValueAPI implements Java
             """,
             """
             import org.camunda.bpm.client.task.ExternalTask;
-            import org.camunda.bpm.engine.TaskService;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
 
             import java.util.Map;
 
             class GetterCasts {
-                void read(DelegateExecution execution, TaskService service, ExternalTask external) {
+                void read(DelegateExecution execution, ExternalTask external) {
                     // please check type
                     Integer local = (Integer) execution.getVariableLocal("local");
-                    // please check type
-                    Integer task = (Integer) service.getVariable("taskId", "value");
-                    // please check type
-                    Integer taskLocal = (Integer) service.getVariableLocal("taskId", "local");
                     // please check type
                     Integer externalValue = external.getVariable("external");
                     // please check type
