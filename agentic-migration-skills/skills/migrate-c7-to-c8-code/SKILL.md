@@ -530,7 +530,7 @@ in `references/model-migration-approaches.md`.
 
     | Language attribute | Source value | Validator action |
     | --- | --- | --- |
-    | Other than `juel` or `feel` on either copy | Any | Report a blocking redesign finding. |
+    | Other than `juel` or `feel` on either copy | Any | Report a blocking redesign finding. Keep the finding blocked until the user approves a replacement. Do not translate the source condition automatically. |
     | `juel` or `feel` on the source | Any | Require a leading `=` on the converted expression. |
     | Missing or blank (default JUEL) | Starts with `=`, contains `${` or `#{`, or is another non-empty non-literal value | Require a leading `=` on the converted expression. |
     | Missing or blank (default JUEL) | Boolean, number, `null`, or quoted string without those markers | Treat the value as a literal. Do not require a leading `=`. |
@@ -559,8 +559,11 @@ in `references/model-migration-approaches.md`.
     The skill preserves valid DMN expression languages.
     The skill records the command, exit code, source and converted paths, and each finding in
     `MIGRATION_REPORT.md`.
-    If the validator exits nonzero, then the skill fixes each finding and reruns it before marking
-    any model row passed.
+    | Validator finding | Skill action |
+    | --- | --- |
+    | Missing prefix or mapping | Fix each finding and rerun the validator before marking the model row passed. |
+    | The converted BPMN copy retains a `language="feel"`, `language="juel"`, or `expressionLanguage` attribute | Remove the leftover attribute and rerun the validator before marking the model row passed. |
+    | Unsupported condition language | Keep the redesign finding blocked until the user approves a replacement. Do not translate the source condition automatically. |
 21. Every executable process has a test that starts it directly, with the normal inputs and without
     each input that a worker may not receive. Coverage through a call activity does not count,
     because the parent can supply variables that a direct start lacks. If a process is not a valid
