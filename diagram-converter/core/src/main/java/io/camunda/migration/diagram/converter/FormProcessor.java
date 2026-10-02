@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
+import io.camunda.migration.diagram.converter.expression.FeelReservedWords;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import java.util.ArrayList;
@@ -53,28 +54,6 @@ final class FormProcessor {
   private static final Set<String> STRUCTURAL_PROPERTIES = Set.of("id", "key", "type");
   private static final Set<String> CAMUNDA_CONTEXT_VARIABLES =
       Set.of("authenticatedUserId", "caseExecution", "execution", "task");
-  private static final Set<String> FEEL_RESERVED_WORDS =
-      Set.of(
-          "and",
-          "between",
-          "else",
-          "every",
-          "external",
-          "false",
-          "for",
-          "function",
-          "if",
-          "in",
-          "instance",
-          "not",
-          "null",
-          "of",
-          "or",
-          "return",
-          "satisfies",
-          "some",
-          "then",
-          "true");
 
   private static final Pattern JUEL_EXPRESSION = Pattern.compile("[$#]\\{[^}]*}");
   private static final Pattern SIMPLE_JUEL_EXPRESSION =
@@ -211,7 +190,7 @@ final class FormProcessor {
 
   private static boolean isSafeVariableName(String variableName) {
     return !CAMUNDA_CONTEXT_VARIABLES.contains(variableName)
-        && !FEEL_RESERVED_WORDS.contains(variableName);
+        && !FeelReservedWords.isReservedWord(variableName);
   }
 
   private static ElementCheckResult componentResult(

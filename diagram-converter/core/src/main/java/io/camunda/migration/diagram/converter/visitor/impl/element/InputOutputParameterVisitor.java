@@ -15,6 +15,7 @@ import io.camunda.migration.diagram.converter.convertible.AbstractDataMapperConv
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
+import io.camunda.migration.diagram.converter.expression.FeelReservedWords;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.visitor.AbstractCamundaElementVisitor;
@@ -28,8 +29,6 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
   private static final Pattern FEEL_NUMBER_PATTERN =
       Pattern.compile("-?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
   private static final Pattern FEEL_ESCAPED_IDENTIFIER_PATTERN = Pattern.compile("`[^`]+`");
-  private static final Set<String> FEEL_KEYWORDS =
-      Set.of("and", "else", "function", "in", "or", "return", "satisfies", "then");
   private static final Set<String> FEEL_LITERAL_VALUES = Set.of("false", "null", "true");
 
   @Override
@@ -105,7 +104,7 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     if (FEEL_ESCAPED_IDENTIFIER_PATTERN.matcher(value).matches()) {
       return true;
     }
-    if (value.isEmpty() || FEEL_KEYWORDS.contains(value)) {
+    if (value.isEmpty() || FeelReservedWords.isReservedWord(value)) {
       return false;
     }
     int offset = 0;

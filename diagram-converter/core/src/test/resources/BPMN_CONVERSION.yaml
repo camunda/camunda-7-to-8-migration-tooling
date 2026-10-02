@@ -343,13 +343,32 @@ categories:
         expectedMessages: |
           <conversion:message severity="REVIEW">in, Parameter: 'input': Please review transformed expression: 'input' -&gt; '=input'.</conversion:message>
           <conversion:message severity="REVIEW">out, Parameter: 'output': Please review transformed expression: 'output' -&gt; '=output'.</conversion:message>
-      - name: Static input/output parameter values are valid FEEL literals
+      - name: Static input/output parameters preserve names and quote FEEL keywords
         givenBpmn: |
           <bpmn:serviceTask id="StaticParameterValues">
             <bpmn:extensionElements>
               <camunda:inputOutput>
                 <camunda:inputParameter name="identifier">myVar</camunda:inputParameter>
-                <camunda:inputParameter name="contextualKeyword">if</camunda:inputParameter>
+                <camunda:inputParameter name="reservedIf">if</camunda:inputParameter>
+                <camunda:inputParameter name="reservedFor">for</camunda:inputParameter>
+                <camunda:inputParameter name="reservedSome">some</camunda:inputParameter>
+                <camunda:inputParameter name="reservedEvery">every</camunda:inputParameter>
+                <camunda:inputParameter name="reservedNot">not</camunda:inputParameter>
+                <camunda:inputParameter name="reservedBetween">between</camunda:inputParameter>
+                <camunda:inputParameter name="reservedInstance">instance</camunda:inputParameter>
+                <camunda:inputParameter name="reservedOf">of</camunda:inputParameter>
+                <camunda:inputParameter name="reservedExternal">external</camunda:inputParameter>
+                <camunda:inputParameter name="reservedAnd">and</camunda:inputParameter>
+                <camunda:inputParameter name="reservedElse">else</camunda:inputParameter>
+                <camunda:inputParameter name="reservedFunction">function</camunda:inputParameter>
+                <camunda:inputParameter name="reservedIn">in</camunda:inputParameter>
+                <camunda:inputParameter name="reservedOr">or</camunda:inputParameter>
+                <camunda:inputParameter name="reservedReturn">return</camunda:inputParameter>
+                <camunda:inputParameter name="reservedSatisfies">satisfies</camunda:inputParameter>
+                <camunda:inputParameter name="reservedThen">then</camunda:inputParameter>
+                <camunda:inputParameter name="literalFalse">false</camunda:inputParameter>
+                <camunda:inputParameter name="literalNull">null</camunda:inputParameter>
+                <camunda:inputParameter name="literalTrue">true</camunda:inputParameter>
                 <camunda:inputParameter name="escapedIdentifier">`my variable`</camunda:inputParameter>
                 <camunda:inputParameter name="text">my given value</camunda:inputParameter>
                 <camunda:inputParameter name="numeric">42</camunda:inputParameter>
@@ -367,7 +386,26 @@ categories:
             <bpmn:extensionElements>
               <zeebe:ioMapping>
                 <zeebe:input source="=myVar" target="identifier"/>
-                <zeebe:input source="=if" target="contextualKeyword"/>
+                <zeebe:input source="=&quot;if&quot;" target="reservedIf"/>
+                <zeebe:input source="=&quot;for&quot;" target="reservedFor"/>
+                <zeebe:input source="=&quot;some&quot;" target="reservedSome"/>
+                <zeebe:input source="=&quot;every&quot;" target="reservedEvery"/>
+                <zeebe:input source="=&quot;not&quot;" target="reservedNot"/>
+                <zeebe:input source="=&quot;between&quot;" target="reservedBetween"/>
+                <zeebe:input source="=&quot;instance&quot;" target="reservedInstance"/>
+                <zeebe:input source="=&quot;of&quot;" target="reservedOf"/>
+                <zeebe:input source="=&quot;external&quot;" target="reservedExternal"/>
+                <zeebe:input source="=&quot;and&quot;" target="reservedAnd"/>
+                <zeebe:input source="=&quot;else&quot;" target="reservedElse"/>
+                <zeebe:input source="=&quot;function&quot;" target="reservedFunction"/>
+                <zeebe:input source="=&quot;in&quot;" target="reservedIn"/>
+                <zeebe:input source="=&quot;or&quot;" target="reservedOr"/>
+                <zeebe:input source="=&quot;return&quot;" target="reservedReturn"/>
+                <zeebe:input source="=&quot;satisfies&quot;" target="reservedSatisfies"/>
+                <zeebe:input source="=&quot;then&quot;" target="reservedThen"/>
+                <zeebe:input source="=false" target="literalFalse"/>
+                <zeebe:input source="=null" target="literalNull"/>
+                <zeebe:input source="=true" target="literalTrue"/>
                 <zeebe:input source="=`my variable`" target="escapedIdentifier"/>
                 <zeebe:input source="=&quot;my given value&quot;" target="text"/>
                 <zeebe:input source="=42" target="numeric"/>
