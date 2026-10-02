@@ -285,6 +285,25 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 self.assertIn("redesign", result.stderr)
                 self.assertNotIn("without the required leading", result.stderr)
 
+    def test_condition_expression_id_uses_sequence_flow_pairing(self):
+        source = bpmn(
+            '<bpmn:sequenceFlow id="flow">'
+            '<bpmn:conditionExpression id="condition" language="feel">'
+            "decision.wait</bpmn:conditionExpression></bpmn:sequenceFlow>"
+        )
+        for case, expression_id in (
+            ("retained", ' id="condition"'),
+            ("dropped", ""),
+        ):
+            with self.subTest(expression_id=case):
+                converted = bpmn(
+                    '<bpmn:sequenceFlow id="flow">'
+                    f'<bpmn:conditionExpression{expression_id}>'
+                    "=decision.wait</bpmn:conditionExpression></bpmn:sequenceFlow>"
+                )
+                result = self.run_validator(source, converted)
+                self.assertEqual(0, result.returncode, result.stderr)
+
     def test_converted_non_feel_condition_language_is_blocking(self):
         converted = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
