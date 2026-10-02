@@ -128,7 +128,7 @@ def verify_json_option(java, jar, major):
     )
     require(
         "--json" in result.stdout + result.stderr,
-        f"CLI release {jar.name} does not support `--json`. Use release 0.3.7 or later. "
+        f"CLI release {jar.name} does not support `--json`. Use release 0.3.9 or later. "
         "This is a CLI capability failure, not a Java compatibility failure.",
     )
 

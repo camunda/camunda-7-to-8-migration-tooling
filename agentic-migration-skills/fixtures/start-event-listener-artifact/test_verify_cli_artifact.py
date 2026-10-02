@@ -153,7 +153,10 @@ class JavaRuntimeTest(unittest.TestCase):
                 stdout="Options: --csv --xlsx",
                 stderr="",
             )
-            with self.assertRaisesRegex(SystemExit, "CLI capability failure, not a Java"):
+            with self.assertRaisesRegex(
+                SystemExit,
+                r"Use release 0\.3\.9 or later.*CLI capability failure, not a Java",
+            ):
                 verify_json_option(java, jar, 21)
 
     def test_rejects_versions_below_the_cli_minimum_with_alternatives(self):
