@@ -285,6 +285,42 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 self.assertIn("redesign", result.stderr)
                 self.assertNotIn("without the required leading", result.stderr)
 
+    def test_paired_condition_languages_precede_prefix_validation(self):
+        cases = (
+            (
+                "unsupported source",
+                bpmn(
+                    '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
+                    'language="groovy">decision.wait'
+                    "</bpmn:conditionExpression></bpmn:sequenceFlow>"
+                ),
+                bpmn(
+                    '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression>'
+                    "decision.wait</bpmn:conditionExpression></bpmn:sequenceFlow>"
+                ),
+            ),
+            (
+                "unsupported converted",
+                bpmn(
+                    '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
+                    'language="feel">decision.wait'
+                    "</bpmn:conditionExpression></bpmn:sequenceFlow>"
+                ),
+                bpmn(
+                    '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
+                    'language="groovy">decision.wait'
+                    "</bpmn:conditionExpression></bpmn:sequenceFlow>"
+                ),
+            ),
+        )
+
+        for name, source, converted in cases:
+            with self.subTest(name=name):
+                result = self.run_validator(source, converted)
+                self.assertNotEqual(0, result.returncode, result.stdout)
+                self.assertIn("unsupported condition language", result.stderr)
+                self.assertNotIn("without the required leading", result.stderr)
+
     def test_condition_expression_id_uses_sequence_flow_pairing(self):
         source = bpmn(
             '<bpmn:sequenceFlow id="flow">'
