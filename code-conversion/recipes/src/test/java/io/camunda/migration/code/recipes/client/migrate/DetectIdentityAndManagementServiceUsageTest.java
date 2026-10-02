@@ -257,6 +257,37 @@ class DetectIdentityAndManagementServiceUsageTest implements RewriteTest {
 
                 public void update(ManagementService managementService, String jobId, Date dueDate) {
                     // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
+                    // For an active BPMN timer, use message-driven rearming: isolate the timer in a called child process with a direct date expression, and map the parent date into the child timer variable. Attach an interrupting message boundary event to the parent call activity so it cancels the child timer; map the message date into the parent date variable, then route through an exclusive converging gateway to start a fresh child process instance. Record each caller, timer process, call activity, timer, message, correlation key, and both date mappings. Test one earlier and one later deadline change on an active timer in a disposable target. Obsolete deadlines must not fire, and the final deadline must fire once. Keep unknown mappings blocked.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    managementService.setJobDuedate(jobId, dueDate);
+                }
+
+                public BiConsumer<String, Date> updater(ManagementService managementService) {
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
+                    // For an active BPMN timer, use message-driven rearming: isolate the timer in a called child process with a direct date expression, and map the parent date into the child timer variable. Attach an interrupting message boundary event to the parent call activity so it cancels the child timer; map the message date into the parent date variable, then route through an exclusive converging gateway to start a fresh child process instance. Record each caller, timer process, call activity, timer, message, correlation key, and both date mappings. Test one earlier and one later deadline change on an active timer in a disposable target. Obsolete deadlines must not fire, and the final deadline must fire once. Keep unknown mappings blocked.
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    return managementService::setJobDuedate;
+                }
+            }
+            """));
+  }
+
+  @Test
+  void doesNotDuplicateExistingTimerGuidanceWhenHintChanges() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import java.util.Date;
+            import java.util.function.BiConsumer;
+            import org.camunda.bpm.engine.ManagementService;
+
+            public class TimerDueDateUpdate {
+
+                public void update(ManagementService managementService, String jobId, Date dueDate) {
+                    // TODO: ManagementService has no direct Java client equivalent in Camunda 8 (setJobDuedate()).
                     // Check whether the job is an active timer. If so, trace callers and BPMN timers; verify a target-supported alternative or keep the flow blocked.
                     // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
                     managementService.setJobDuedate(jobId, dueDate);
