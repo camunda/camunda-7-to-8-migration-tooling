@@ -68,7 +68,35 @@ runs:
       java-version: ${{ inputs.java-version }}
       distribution: ${{ inputs.distribution }}
       cache: "maven"
+  - name: Check preinstalled Maven
+    id: check-maven
+    shell: pwsh
+    env:
+      MAVEN_VERSION: ${{ inputs.maven-version }}
+    run: |
+      $maven = Get-Command mvn -ErrorAction SilentlyContinue
+      $versionMatches = $false
+
+      if ($null -ne $maven) {
+        $mavenVersionOutput = @(& mvn --version)
+        if ($LASTEXITCODE -ne 0 -or $mavenVersionOutput.Count -eq 0) {
+          throw "Failed to query Maven on PATH."
+        }
+
+        $installedVersion = $mavenVersionOutput[0] -replace '^Apache Maven (\S+).*$', '$1'
+        $versionMatches = $installedVersion -eq $env:MAVEN_VERSION
+        Write-Host "Found Maven $installedVersion on PATH."
+      } else {
+        Write-Host "Maven is not on PATH."
+      }
+
+      if (-not $versionMatches) {
+        Write-Host "Installing requested Maven $env:MAVEN_VERSION."
+      }
+
+      "matches=$($versionMatches.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
   - name: Setup Maven
+    if: steps.check-maven.outputs.matches != 'true'
     uses: stCarolas/setup-maven@v5
     with:
       maven-version: ${{ inputs.maven-version }}
