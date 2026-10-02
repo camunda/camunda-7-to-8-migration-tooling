@@ -175,7 +175,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             encoding="utf-8",
         )
         with redirect_stdout(StringIO()):
-            self.assertEqual(0, gate.initialize(self.root))
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
         snapshot = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
         locations = list(snapshot["source_updates"]["app"])
         self.assertEqual(count, len(locations))
@@ -398,6 +398,50 @@ class ValidationEvidenceTest(unittest.TestCase):
         checks = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))["checks"]
         stale = [issue for issue in self.summary()["issues"] if "another migration run" in issue]
         self.assertEqual(len(checks), len(stale))
+
+    def test_repeated_init_preserves_source_updates_after_conversion(self):
+        self.install_active_timer_decision()
+        original = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        del self.plan["active_timer_update_decision"]
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        with self.assertRaisesRegex(gate.EvidenceError, "block active"):
+            self.submit(
+                ("module", "app", "active_timer_updates", None),
+                action="review", disposition="no_updates",
+            )
+        current = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        self.assertNotEqual(original["run_id"], current["run_id"])
+        self.assertEqual(original["source_updates"], current["source_updates"])
+
+    def test_init_requires_explicit_reset_for_a_restored_c7_baseline(self):
+        self.install_active_timer_decision()
+        original = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        (self.root / "app" / "Timer.java").write_text(
+            "managementService.setJobDuedate(jobId, dueDate);\n"
+            "managementService.setJobDuedate(otherJobId, otherDate);\n",
+            encoding="utf-8",
+        )
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        current = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        self.assertEqual(original["source_updates"], current["source_updates"])
+        reset = subprocess.run(
+            [sys.executable, str(SCRIPT_DIR / "validate_migration_evidence.py"),
+             "--project-root", str(self.root), "init", "--reset-source-snapshot"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, reset.returncode, reset.stderr)
+        updated = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        self.assertEqual(2, len(updated["source_updates"]["app"]))
+
+    def test_init_rejects_missing_source_snapshot_in_existing_run(self):
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        del inventory["source_updates"]
+        write_json(self.root / gate.INVENTORY, inventory)
+        with self.assertRaisesRegex(gate.EvidenceError, "source snapshot is missing"):
+            gate.initialize(self.root)
 
     def test_report_needs_an_initialized_scope(self):
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
@@ -831,7 +875,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             encoding="utf-8",
         )
         with redirect_stdout(StringIO()):
-            self.assertEqual(0, gate.initialize(self.root))
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
         snapshot = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
         self.assertEqual(
             ["duedate"] * 3, list(snapshot["source_updates"]["app"].values())

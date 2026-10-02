@@ -187,6 +187,8 @@ in `.camunda-migration/validation/step2-inventory.json` before conversion. Where
 model, add its original path before converting it. Run the `init` command in
 `references/validation-evidence.md` after completing the scope. Never create this file for
 assessment-only or analyze-only.
+When rerunning validation, preserve the inventory's source snapshot. Reset it only from a restored
+C7 baseline with the command in `references/validation-evidence.md`.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.

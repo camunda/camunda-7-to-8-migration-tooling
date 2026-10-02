@@ -24,13 +24,22 @@ Then start a new validation run before recording checks:
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . init
 ```
 
-`init` assigns a new run ID to the Step 2 inventory and marks previous readiness `NOT READY`.
-Run it again for a new migration, even if the paths have not changed. Old check logs cannot
-make the new gate `READY`. Where the project uses Git, add `.camunda-migration/validation/` to
-its `.gitignore`. Never commit generated logs, manifests, or summaries.
-Run `init` before code conversion. It records detected due-date locations and operations in the
-Step 2 inventory. The gate detects retained operations in the same source file even when arguments,
-line numbers, or formatting change.
+`init` assigns a new run ID and marks previous readiness `NOT READY`. Run it again to invalidate old
+check logs without replacing the source snapshot. Run `init` before code conversion to capture
+due-date locations and operations in the Step 2 inventory. Never rewrite that inventory during
+the same migration. The gate detects retained operations in the same source file even when
+arguments, line numbers, or formatting change.
+
+When starting a new migration from a restored C7 baseline, confirm the Step 2 scope and reset the
+snapshot before conversion:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . init --reset-source-snapshot
+```
+
+Never reset the snapshot using converted source code. Where the project uses Git, add
+`.camunda-migration/validation/` to its `.gitignore`. Never commit generated logs, manifests, or
+summaries.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 

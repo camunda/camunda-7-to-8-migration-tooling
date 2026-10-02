@@ -144,7 +144,7 @@ def file_digest(path):
         raise EvidenceError(f"Cannot read migration input {path}: {exc}") from exc
 
 
-def initialize(root):
+def initialize(root, reset_source_snapshot=False):
     inventory = read_json(root / INVENTORY)
     if inventory.get("schema_version") != 1:
         raise EvidenceError("Unsupported Step 2 inventory version")
@@ -154,9 +154,22 @@ def initialize(root):
         raise EvidenceError("A migration run needs at least one module or model")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
-    inventory["source_updates"] = {
-        module: scan_module(root, module, set(modules), {}) for module in modules
-    }
+    if not reset_source_snapshot and "source_updates" in inventory:
+        snapshot = inventory["source_updates"]
+        if not isinstance(snapshot, dict) or set(snapshot) != set(modules):
+            raise EvidenceError(
+                "Pre-migration source snapshot differs from the Step 2 scope; "
+                "restore the C7 baseline before init --reset-source-snapshot"
+            )
+    elif not reset_source_snapshot and "run_id" in inventory:
+        raise EvidenceError(
+            "Pre-migration source snapshot is missing; "
+            "restore the C7 baseline before init --reset-source-snapshot"
+        )
+    else:
+        inventory["source_updates"] = {
+            module: scan_module(root, module, set(modules), {}) for module in modules
+        }
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
     evidence_path = root / EVIDENCE
@@ -1729,7 +1742,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     actions = parser.add_subparsers(dest="action", required=True)
-    actions.add_parser("init", help="Bind the Step 2 scope to a new migration validation run")
+    init = actions.add_parser("init", help="Bind the Step 2 scope to a new migration validation run")
+    init.add_argument(
+        "--reset-source-snapshot", action="store_true",
+        help="Replace the due-date snapshot only after restoring the C7 baseline",
+    )
     actions.add_parser("report", help="Audit scope and write the validation gate")
     for name in ("run", "review", "block"):
         action = actions.add_parser(name)
@@ -1767,7 +1784,7 @@ def main():
         if not root.is_dir():
             raise EvidenceError(f"Not a project directory: {root}")
         if args.action == "init":
-            return initialize(root)
+            return initialize(root, args.reset_source_snapshot)
         if args.action == "report":
             return report(root)
         if args.action == "classify":
