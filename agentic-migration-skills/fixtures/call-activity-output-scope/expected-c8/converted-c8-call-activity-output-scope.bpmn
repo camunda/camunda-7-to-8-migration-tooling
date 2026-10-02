@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_CallActivityOutputScope"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="ParentProcess" isExecutable="true">
+    <bpmn:startEvent id="StartEvent">
+      <bpmn:outgoing>Flow_Start_NoOutputs</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_NoOutputs" sourceRef="StartEvent" targetRef="Call_No_Outputs" />
+    <bpmn:callActivity id="Call_No_Outputs" calledElement="ChildProcess">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="ChildProcess" propagateAllChildVariables="false" propagateAllParentVariables="false" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_NoOutputs</bpmn:incoming>
+      <bpmn:outgoing>Flow_NoOutputs_Selected</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:sequenceFlow id="Flow_NoOutputs_Selected" sourceRef="Call_No_Outputs" targetRef="Call_Selected_Output" />
+    <bpmn:callActivity id="Call_Selected_Output" calledElement="ChildProcess">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="ChildProcess" propagateAllChildVariables="false" propagateAllParentVariables="false" />
+        <zeebe:ioMapping>
+          <zeebe:output source="=selectedChildValue" target="selectedParentValue" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_NoOutputs_Selected</bpmn:incoming>
+      <bpmn:outgoing>Flow_Selected_All</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:sequenceFlow id="Flow_Selected_All" sourceRef="Call_Selected_Output" targetRef="Call_All_Outputs" />
+    <bpmn:callActivity id="Call_All_Outputs" calledElement="ChildProcess">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="ChildProcess" propagateAllChildVariables="true" propagateAllParentVariables="false" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Selected_All</bpmn:incoming>
+      <bpmn:outgoing>Flow_All_End</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:sequenceFlow id="Flow_All_End" sourceRef="Call_All_Outputs" targetRef="EndEvent" />
+    <bpmn:endEvent id="EndEvent">
+      <bpmn:incoming>Flow_All_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:process id="ChildProcess" isExecutable="true">
+    <bpmn:startEvent id="ChildStartEvent">
+      <bpmn:outgoing>ChildFlow</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="ChildEndEvent">
+      <bpmn:incoming>ChildFlow</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="ChildFlow" sourceRef="ChildStartEvent" targetRef="ChildEndEvent" />
+  </bpmn:process>
+</bpmn:definitions>
