@@ -315,6 +315,91 @@ class ModelExpressionPrefixTest(unittest.TestCase):
         self.assertIn("unsupported condition language", result.stderr)
         self.assertIn("javascript", result.stderr)
 
+    def test_conditional_event_conditions_are_validated(self):
+        def conditional_event(condition):
+            return bpmn(
+                '<bpmn:boundaryEvent id="event">'
+                '<bpmn:conditionalEventDefinition id="definition">'
+                f"{condition}</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+            )
+
+        cases = (
+            (
+                "unprefixed source-paired condition",
+                conditional_event(
+                    '<bpmn:condition language="feel">decision.wait</bpmn:condition>'
+                ),
+                conditional_event("<bpmn:condition>decision.wait</bpmn:condition>"),
+                "without the required leading",
+            ),
+            (
+                "unpaired converted condition",
+                bpmn(""),
+                conditional_event("<bpmn:condition>decision.wait</bpmn:condition>"),
+                "without the required leading",
+            ),
+            (
+                "missing converted condition",
+                conditional_event(
+                    '<bpmn:condition language="feel">decision.wait</bpmn:condition>'
+                ),
+                conditional_event(""),
+                "missing its converted condition",
+            ),
+            (
+                "unsupported source language",
+                conditional_event(
+                    '<bpmn:condition language="javascript">decision.wait'
+                    "</bpmn:condition>"
+                ),
+                conditional_event("<bpmn:condition>=decision.wait</bpmn:condition>"),
+                "unsupported condition language",
+            ),
+            (
+                "unsupported converted language",
+                bpmn(""),
+                conditional_event(
+                    '<bpmn:condition language="javascript">=decision.wait'
+                    "</bpmn:condition>"
+                ),
+                "unsupported condition language",
+            ),
+        )
+
+        for name, source, converted, expected in cases:
+            with self.subTest(name=name):
+                result = self.run_validator(source, converted)
+                self.assertNotEqual(0, result.returncode, result.stdout)
+                self.assertIn(expected, result.stderr)
+
+    def test_conditional_event_conditions_pair_through_definition_or_event(self):
+        cases = (
+            ("identified definition", ' id="definition"', ' id="definition"'),
+            ("generated definition", "", ' id="generatedDefinition"'),
+        )
+
+        for name, source_definition_id, converted_definition_id in cases:
+            with self.subTest(name=name):
+                source = bpmn(
+                    '<bpmn:boundaryEvent id="event">'
+                    f'<bpmn:conditionalEventDefinition{source_definition_id}>'
+                    '<bpmn:condition id="sourceCondition" language="feel">'
+                    "decision.wait</bpmn:condition>"
+                    "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+                )
+                converted = bpmn(
+                    '<bpmn:boundaryEvent id="event">'
+                    f'<bpmn:conditionalEventDefinition{converted_definition_id}>'
+                    "<bpmn:condition>=decision.wait</bpmn:condition>"
+                    "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+                    '<bpmn:boundaryEvent id="literalEvent">'
+                    "<bpmn:conditionalEventDefinition>"
+                    "<bpmn:condition>true</bpmn:condition>"
+                    "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+                )
+                result = self.run_validator(source, converted)
+                self.assertEqual(0, result.returncode, result.stderr)
+
     def test_prefixed_expressions_and_static_values_pass(self):
         source = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
