@@ -522,8 +522,20 @@ in `references/model-migration-approaches.md`.
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
 21. For each call activity, compare the converted scope with its original inputs and outputs.
+    Use a namespace-aware XML parser to check every `bpmn:callActivity` in every
+    `converted-c8-*.bpmn` file. For each call with a compatible C8 mapping, require its
+    `zeebe:calledElement` to set `propagateAllChildVariables` explicitly.
+    Require the flag to be `true` or `false`.
+    Confirm that each flag matches the original C7 `camunda:out` mappings and the established
+    contract or user-approved scope. Apply the rules in
+    `references/model-migration-approaches.md`. Include both C7
+    `camunda:variableMappingClass` and `camunda:variableMappingDelegateExpression` in this check.
+    If the skill cannot establish a delegated contract, keep the call **needs review**.
+    Ask the user to decide its scope.
+    Do not assign propagation flags to a call without a compatible C8 mapping.
     Test selected inputs with a parent-only variable, and check child identity independently.
     Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
+    Do not pass readiness validation while a call remains **needs review**.
 22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
     version. Apply step 3b in `references/model-migration-approaches.md` to every source start
     listener and converted copy.
