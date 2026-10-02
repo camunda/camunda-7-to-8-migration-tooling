@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_TimerRearm" targetNamespace="http://camunda.io/schema/1.0/bpmn" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.21">
+  <bpmn:message id="Message_TerminationDateChanged" name="TerminationDateChanged">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=projectId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:process id="active-timer-rescheduling" isExecutable="true">
+    <bpmn:startEvent id="Start" name="Start timer">
+      <bpmn:outgoing>Flow_Start_Prepare</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:exclusiveGateway id="PrepareTimer" name="Prepare timer">
+      <bpmn:incoming>Flow_Start_Prepare</bpmn:incoming>
+      <bpmn:incoming>Flow_Update_Prepare</bpmn:incoming>
+      <bpmn:outgoing>Flow_Prepare_DeadlineWait</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:callActivity id="DeadlineWaitCall" name="Wait for termination date">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="deadline-wait" propagateAllChildVariables="false" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=terminationDate" target="terminationDate" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Prepare_DeadlineWait</bpmn:incoming>
+      <bpmn:outgoing>Flow_DeadlineWait_DeadlineReached</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:boundaryEvent id="DateChanged" name="Termination date changed" attachedToRef="DeadlineWaitCall" cancelActivity="true">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="=updatedTerminationDate" target="terminationDate" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_Update_Prepare</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_TerminationDateChanged" />
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="DeadlineReached" name="Termination deadline reached">
+      <bpmn:incoming>Flow_DeadlineWait_DeadlineReached</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Prepare" sourceRef="Start" targetRef="PrepareTimer" />
+    <bpmn:sequenceFlow id="Flow_Prepare_DeadlineWait" sourceRef="PrepareTimer" targetRef="DeadlineWaitCall" />
+    <bpmn:sequenceFlow id="Flow_DeadlineWait_DeadlineReached" sourceRef="DeadlineWaitCall" targetRef="DeadlineReached" />
+    <bpmn:sequenceFlow id="Flow_Update_Prepare" sourceRef="DateChanged" targetRef="PrepareTimer" />
+  </bpmn:process>
+  <bpmn:process id="deadline-wait" isExecutable="true">
+    <bpmn:startEvent id="DeadlineWaitStarted" name="Start deadline wait">
+      <bpmn:outgoing>Flow_DeadlineWaitStarted_Timer</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:intermediateCatchEvent id="TerminationTimer" name="Termination date reached">
+      <bpmn:incoming>Flow_DeadlineWaitStarted_Timer</bpmn:incoming>
+      <bpmn:outgoing>Flow_Timer_DeadlineWaitFinished</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDate>=terminationDate</bpmn:timeDate>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="DeadlineWaitFinished" name="Deadline wait finished">
+      <bpmn:incoming>Flow_Timer_DeadlineWaitFinished</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_DeadlineWaitStarted_Timer" sourceRef="DeadlineWaitStarted" targetRef="TerminationTimer" />
+    <bpmn:sequenceFlow id="Flow_Timer_DeadlineWaitFinished" sourceRef="TerminationTimer" targetRef="DeadlineWaitFinished" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_TimerRearm">
+    <bpmndi:BPMNPlane id="Plane_TimerRearm" bpmnElement="active-timer-rescheduling">
+      <bpmndi:BPMNShape id="Start_parent_di" bpmnElement="Start">
+        <dc:Bounds x="150" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="PrepareTimer_parent_di" bpmnElement="PrepareTimer">
+        <dc:Bounds x="245" y="153" width="50" height="50" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DeadlineWaitCall_parent_di" bpmnElement="DeadlineWaitCall">
+        <dc:Bounds x="390" y="150" width="140" height="90" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DateChanged_parent_di" bpmnElement="DateChanged">
+        <dc:Bounds x="442" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DeadlineReached_parent_di" bpmnElement="DeadlineReached">
+        <dc:Bounds x="690" y="177" width="36" height="36" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Prepare_parent_di" bpmnElement="Flow_Start_Prepare">
+        <di:waypoint x="186" y="178" />
+        <di:waypoint x="245" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Prepare_DeadlineWait_parent_di" bpmnElement="Flow_Prepare_DeadlineWait">
+        <di:waypoint x="295" y="178" />
+        <di:waypoint x="390" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DeadlineWait_DeadlineReached_parent_di" bpmnElement="Flow_DeadlineWait_DeadlineReached">
+        <di:waypoint x="530" y="195" />
+        <di:waypoint x="690" y="195" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Update_Prepare_parent_di" bpmnElement="Flow_Update_Prepare">
+        <di:waypoint x="460" y="258" />
+        <di:waypoint x="460" y="325" />
+        <di:waypoint x="270" y="315" />
+        <di:waypoint x="270" y="203" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_DeadlineWait">
+    <bpmndi:BPMNPlane id="Plane_DeadlineWait" bpmnElement="deadline-wait">
+      <bpmndi:BPMNShape id="DeadlineWaitStarted_child_di" bpmnElement="DeadlineWaitStarted">
+        <dc:Bounds x="150" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TerminationTimer_child_di" bpmnElement="TerminationTimer">
+        <dc:Bounds x="310" y="160" width="36" height="36" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DeadlineWaitFinished_child_di" bpmnElement="DeadlineWaitFinished">
+        <dc:Bounds x="470" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_DeadlineWaitStarted_Timer_child_di" bpmnElement="Flow_DeadlineWaitStarted_Timer">
+        <di:waypoint x="186" y="178" />
+        <di:waypoint x="310" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Timer_DeadlineWaitFinished_child_di" bpmnElement="Flow_Timer_DeadlineWaitFinished">
+        <di:waypoint x="346" y="178" />
+        <di:waypoint x="470" y="178" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

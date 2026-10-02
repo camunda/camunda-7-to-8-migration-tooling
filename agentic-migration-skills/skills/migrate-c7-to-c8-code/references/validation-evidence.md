@@ -24,10 +24,22 @@ Then start a new validation run before recording checks:
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . init
 ```
 
-`init` assigns a new run ID to the Step 2 inventory and marks previous readiness `NOT READY`.
-Run it again for a new migration, even if the paths have not changed. Old check logs cannot
-make the new gate `READY`. Where the project uses Git, add `.camunda-migration/validation/` to
-its `.gitignore`. Never commit generated logs, manifests, or summaries.
+`init` assigns a new run ID and marks previous readiness `NOT READY`. Run it again to invalidate old
+check logs without replacing the source snapshot. Run `init` before code conversion to capture
+due-date locations and operations in the Step 2 inventory. Never rewrite that inventory during
+the same migration. The gate detects retained operations in the same source file even when
+arguments, line numbers, or formatting change.
+
+When starting a new migration from a restored C7 baseline, confirm the Step 2 scope and reset the
+snapshot before conversion:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . init --reset-source-snapshot
+```
+
+Never reset the snapshot using converted source code. Where the project uses Git, add
+`.camunda-migration/validation/` to its `.gitignore`. Never commit generated logs, manifests, or
+summaries.
 
 After conversion, create `.camunda-migration/validation/validation-evidence.json`:
 
@@ -137,9 +149,157 @@ When every detected hint concerns a non-timer job, use `non_timer` with evidence
 `path:line:column` location. If a source line has two hits, then provide two records.
 Use `--non-timer-evidence-json '[{"location":"examples/web/Job.java:42:17","evidence":"MIGRATION_REPORT.md#non-timer-job"}]'`.
 The gate rejects placeholders such as `not applicable` as evidence.
-When any update affects an active timer or cannot be classified, record a `block` check.
-If manual review finds a call the scan missed, then keep the review blocked.
-An `approved` decision or a passing review cannot bypass this blocker.
+When the project approves message-driven timer rearming, add an `active_timer_update_decision`
+object to `.camunda-migration/validation/validation-evidence.json`. Use the exact converted model,
+timer process, parent process, parent call activity, timer, message name, correlation-key variable,
+and message date variable. Put each caller-to-source mapping in `caller_mappings`:
+
+```json
+{
+  "active_timer_update_decision": {
+    "status": "approved",
+    "strategy": "message_rearm",
+    "reference": "MIGRATION_REPORT.md#active-timer-rearm",
+    "target_version": "8.9.21",
+    "updates": [
+      {
+        "model_path": "models/converted-c8-order.bpmn",
+        "process_id": "order-timer-wait",
+        "rearm_process_id": "order-process",
+        "rearm_call_activity_id": "WaitForTermination",
+        "timer_id": "TerminationTimer",
+        "message_name": "TerminationDateChanged",
+        "correlation_key_variable": "projectId",
+        "date_variable": "terminationDate",
+        "message_date_variable": "updatedTerminationDate",
+        "caller_mappings": [
+          {
+            "module": "examples/web",
+            "source_locations": ["examples/web/LegacyTerminationService.java:42:9"],
+            "migrated_caller_location": "examples/web/TerminationService.java:52:13"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Each `caller_mappings` entry must identify one migrated caller and its module. Every
+`source_locations` entry must match the Step 2 inventory captured by `init`. The
+`migrated_caller_location` must identify current source code in the mapped module. Inspect each
+caller and confirm that it sends the mapped message, correlation key, and date variable. Use a
+separate mapping for each migrated caller, even when several callers rearm the same timer. The gate
+retains all caller mappings under the shared timer decision. The gate accepts a shared source helper
+location for distinct callers of the same timer. It rejects a source location mapped to different
+timers. A C7 due-date call that remains at a mapped source location blocks readiness. If the mapped
+source file retains the same due-date operation, then the gate also blocks readiness after line or
+argument changes.
+When an unrelated non-timer call shares that file and operation, the gate cannot distinguish it.
+Keep readiness blocked until the project separates those calls.
+
+The `message_date_variable` identifies the date field in the message payload. The `date_variable`
+identifies the variable read by the timer.
+
+The `process_id` identifies the executable timer child process. List that process and its parent in
+the model inventory. Mark the timer process as non-standalone and set `covering_test` to the parent
+test. The timer process must use a direct `=<date_variable>` timer expression. The gate does not interpret
+other FEEL expressions. The parent process must call it through the mapped `bpmn:callActivity`.
+The call activity must input-map the date variable into the timer process.
+Attach an interrupting message boundary event to that call activity.
+Map the `message_date_variable` into the parent `date_variable` on the boundary event.
+Route the message branch through an exclusive converging gateway before the call activity is
+entered again. Each call creates a fresh child process instance with the updated date.
+The mapped module and model must appear together in at least one deployment set.
+
+Record the module review with the same approval reference. Include every migrated caller location
+for that module in the review note:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type module --target examples/web --kind active_timer_updates --disposition message_rearm --reference MIGRATION_REPORT.md#active-timer-rearm --note "Inspected examples/web/TerminationService.java:52:13. It sends TerminationDateChanged with projectId and maps updatedTerminationDate to terminationDate."
+```
+
+Run the required `active_instance_reschedule` check after the module review, converted-model lint
+and review, and deployment-set preflight. Use the approved target version and a disposable local
+target:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type timer --target models/converted-c8-order.bpmn#order-timer-wait#TerminationTimer --kind active_instance_reschedule --environment local --target-disposable --target-version 8.9.21 --isolation-plan "Remove the disposable target and all test state." -- <bounded-two-update-test-command>
+```
+
+The command must end with one JSON object. Its `observation.active_timer` object must identify the
+mapped model, timer process, parent process and call activity, timer, strategy, message, correlation
+key, and both date variables. It must record
+that the timer was active before both updates. Each update must contain its old and new deadlines.
+The two updates must move the deadline both earlier and later.
+Each update must set `timer_active_before_update` and `correlated` to `true`. The test must advance
+past both obsolete deadlines. Record `checked_after_old_deadline` and
+`old_deadline_fire_count: 0` in each update. The check time must follow its old deadline and
+precede the final deadline.
+For consecutive publications, use a bounded TTL and a unique message ID, or wait for a rearm
+acknowledgement before publishing the next update.
+When the test confirms the process is still waiting immediately before the final deadline, record
+the current test-clock time as `final_deadline_last_active_at`. Keep this timestamp no more than five
+seconds before the deadline. Advance the test clock to the final deadline after this check. When the
+test observes completion, record the current test-clock time as `final_deadline_fired_at`. This
+timestamp must be at or after the final deadline. The outer object must identify the disposable
+deployment and prove cleanup:
+
+```json
+{
+  "deployment": {
+    "performed": true,
+    "reference": "MIGRATION_REPORT.md#active-timer-deployment",
+    "environment": "local",
+    "target_disposable": true,
+    "target_version": "8.9.21"
+  },
+  "observation": {
+    "active_timer": {
+      "model_path": "models/converted-c8-order.bpmn",
+      "process_id": "order-timer-wait",
+      "rearm_process_id": "order-process",
+      "rearm_call_activity_id": "WaitForTermination",
+      "timer_id": "TerminationTimer",
+      "strategy": "message_rearm",
+      "message_name": "TerminationDateChanged",
+      "correlation_key_variable": "projectId",
+      "date_variable": "terminationDate",
+      "message_date_variable": "updatedTerminationDate",
+      "updates": [
+        {
+          "old_deadline": "2050-11-23T00:00:15Z",
+          "new_deadline": "2050-11-23T00:00:05Z",
+          "timer_active_before_update": true,
+          "correlated": true,
+          "checked_after_old_deadline": "2050-11-23T00:00:16Z",
+          "old_deadline_fire_count": 0
+        },
+        {
+          "old_deadline": "2050-11-23T00:00:05Z",
+          "new_deadline": "2050-11-23T00:00:25Z",
+          "timer_active_before_update": true,
+          "correlated": true,
+          "checked_after_old_deadline": "2050-11-23T00:00:06Z",
+          "old_deadline_fire_count": 0
+        }
+      ],
+      "final_deadline_fire_count": 1,
+      "final_deadline_last_active_at": "2050-11-23T00:00:24Z",
+      "final_deadline_fired_at": "2050-11-23T00:00:26Z"
+    }
+  },
+  "cleanup": {
+    "completed": true,
+    "evidence_reference": "MIGRATION_REPORT.md#active-timer-cleanup"
+  }
+}
+```
+
+For modules that contain both active-timer and non-timer updates, use `mixed`. Supply
+`--non-timer-evidence-json` for every non-timer source location. If the project has no approved
+replacement, a timer link remains unknown, or manual review finds a call the scan missed, then
+record a `block` check. A passing review cannot bypass an active-timer runtime check.
 
 If a check cannot run, record `block` with a reason. Never substitute a review for an executable
 check:
@@ -165,6 +325,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Each converted BPMN/DMN | `lint`, `review`, then `deployment`. The recorder also checks XML parsing and source separation. |
 | Each deployment set | A preflight review with an approved reference. |
 | Each duplicate process ID in a set | An explicit-version or mapped-rename review with an approved reference. |
+| Each approved active timer update | A mapped module review and `active_instance_reschedule` command on a disposable target. |
 | Each standalone executable process | `worker_input_inventory` review and `process_path` for `normal` and each declared scenario. |
 | Each non-standalone executable process | `process_path` with the `covering_test` as its scenario. |
 | Each applicable behavior | A command check named in the assertion table below. |
@@ -223,7 +384,7 @@ command for the disposable test. If no safe target exists, then block the prefli
 Do not deploy or start that model.
 
 Each check stores a fingerprint of the declared modules, source and converted models, root build
-configuration, and deployment-set membership. Source changes make old checks stale.
+configuration, deployment-set membership, and active timer decision. Changes make old checks stale.
 Refresh stale checks before a dependent command or readiness claim. The recorder rejects a
 dependent command before it runs when its review, lint, or timer preflight is stale.
 

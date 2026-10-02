@@ -187,6 +187,8 @@ in `.camunda-migration/validation/step2-inventory.json` before conversion. Where
 model, add its original path before converting it. Run the `init` command in
 `references/validation-evidence.md` after completing the scope. Never create this file for
 assessment-only or analyze-only.
+When rerunning validation, preserve the inventory's source snapshot. Reset it only from a restored
+C7 baseline with the command in `references/validation-evidence.md`.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
@@ -237,8 +239,9 @@ Run `references/deployment-and-timer-preflight.md` after the code and model inve
 findings and decisions in `MIGRATION_REPORT.md`.
 For a full migration, record deployment sets, timer decisions, and module due-date reviews through
 `references/validation-evidence.md`. Never treat the gate's source hints as a complete caller review.
-When an active timer update remains, keep the flow blocked. This gate has no approved C8 replacement
-path.
+The validation gate supports a guarded `message_rearm` path for project-approved active-timer updates.
+When the project approves this path, map each source location to a reviewed migrated caller and run the live check.
+If a mapping is unknown or unapproved, then keep the affected flow blocked.
 
 If the model inventory is empty and the user selected model migration, then record that no local
 model was found and that E1 was offered.

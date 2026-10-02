@@ -11,6 +11,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
@@ -39,6 +40,7 @@ SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     "build", "dist", "node_modules", "target"}
 CODE_SUFFIXES = {".cjs", ".cts", ".groovy", ".http", ".java", ".js", ".jsx",
                  ".kt", ".kts", ".mjs", ".mts", ".scala", ".ts", ".tsx"}
+NESTED_BLOCK_COMMENT_SUFFIXES = {".kt", ".kts", ".scala"}
 DUE_DATE_HINT = re.compile(r"""\bsetJobDuedate\b|/duedate\b|['"`]duedate['"`]""", re.I)
 TARGET_VERSION = re.compile(r"8\.\d+\.\d+\Z")
 
@@ -53,6 +55,9 @@ class ValidationPlan:
     model_sets: dict
     duplicates: dict
     update_hits: dict
+    source_update_locations: dict
+    active_timer_locations: dict
+    active_timer_decisions: dict
     source_digest: str
     issues: list
 
@@ -140,7 +145,7 @@ def file_digest(path):
         raise EvidenceError(f"Cannot read migration input {path}: {exc}") from exc
 
 
-def initialize(root):
+def initialize(root, reset_source_snapshot=False):
     inventory = read_json(root / INVENTORY)
     if inventory.get("schema_version") != 1:
         raise EvidenceError("Unsupported Step 2 inventory version")
@@ -150,6 +155,22 @@ def initialize(root):
         raise EvidenceError("A migration run needs at least one module or model")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
+    if not reset_source_snapshot and "source_updates" in inventory:
+        snapshot = inventory["source_updates"]
+        if not isinstance(snapshot, dict) or set(snapshot) != set(modules):
+            raise EvidenceError(
+                "Pre-migration source snapshot differs from the Step 2 scope; "
+                "restore the C7 baseline before init --reset-source-snapshot"
+            )
+    elif not reset_source_snapshot and "run_id" in inventory:
+        raise EvidenceError(
+            "Pre-migration source snapshot is missing; "
+            "restore the C7 baseline before init --reset-source-snapshot"
+        )
+    else:
+        inventory["source_updates"] = {
+            module: scan_module(root, module, set(modules), {}) for module in modules
+        }
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
     evidence_path = root / EVIDENCE
@@ -225,6 +246,63 @@ def read_model(root, source, converted):
     return source_document, document
 
 
+def source_without_comments(text, suffix):
+    characters = list(text)
+    index = 0
+    block_comment_depth = 0
+    string_delimiter = None
+    while index < len(text):
+        if block_comment_depth:
+            if suffix in NESTED_BLOCK_COMMENT_SUFFIXES and text.startswith("/*", index):
+                characters[index : index + 2] = "  "
+                block_comment_depth += 1
+                index += 2
+            elif text.startswith("*/", index):
+                characters[index : index + 2] = "  "
+                block_comment_depth -= 1
+                index += 2
+            else:
+                if text[index] not in "\r\n":
+                    characters[index] = " "
+                index += 1
+        elif string_delimiter:
+            if text[index] == "\\":
+                index += 2
+            elif text.startswith(string_delimiter, index):
+                index += len(string_delimiter)
+                string_delimiter = None
+            else:
+                index += 1
+        elif text.startswith("//", index) and (
+            (suffix != ".http" and (index == 0 or text[index - 1] != ":"))
+            or (suffix == ".http" and not text[text.rfind("\n", 0, index) + 1:index].strip())
+        ):
+            while index < len(text) and text[index] not in "\r\n":
+                characters[index] = " "
+                index += 1
+        elif suffix != ".http" and text.startswith("/*", index):
+            characters[index : index + 2] = "  "
+            block_comment_depth = 1
+            index += 2
+        elif suffix == ".http" and text[index] == "#":
+            line_start = text.rfind("\n", 0, index) + 1
+            if not text[line_start:index].strip():
+                while index < len(text) and text[index] not in "\r\n":
+                    characters[index] = " "
+                    index += 1
+            else:
+                index += 1
+        elif text.startswith('"""', index) or text.startswith("'''", index):
+            string_delimiter = text[index : index + 3]
+            index += 3
+        elif text[index] in "\"'`":
+            string_delimiter = text[index]
+            index += 1
+        else:
+            index += 1
+    return "".join(characters)
+
+
 def scan_module(root, module, module_paths, hashes):
     path = project_path(root, module, "module", must_exist=True)
     if not path.is_dir():
@@ -234,7 +312,7 @@ def scan_module(root, module, module_paths, hashes):
         for other in module_paths
         if other != module and project_path(root, other, "module").is_relative_to(path)
     }
-    hits = []
+    hits = {}
 
     def walk_error(error):
         raise EvidenceError(f"Cannot scan module {module}: {error}") from error
@@ -262,11 +340,44 @@ def scan_module(root, module, module_paths, hashes):
             if relative == REPORT.as_posix():
                 continue
             hashes[relative] = hashlib.sha256(content).hexdigest()
-            for match in DUE_DATE_HINT.finditer(text):
-                line = text.count("\n", 0, match.start()) + 1
-                column = match.start() - text.rfind("\n", 0, match.start())
-                hits.append(f"{relative}:{line}:{column}")
+            scan_text = source_without_comments(text, file.suffix.lower())
+            for match in DUE_DATE_HINT.finditer(scan_text):
+                line = scan_text.count("\n", 0, match.start()) + 1
+                column = match.start() - scan_text.rfind("\n", 0, match.start())
+                hits[f"{relative}:{line}:{column}"] = match.group(0).casefold().strip("'\"`")
     return hits
+
+
+def valid_migrated_caller_location(root, module, location, hashes):
+    match = re.fullmatch(r"(.+):([1-9]\d*):([1-9]\d*)", location)
+    if match is None:
+        return False
+    source = project_path(root, match.group(1), "migrated caller", must_exist=True)
+    module_path = project_path(root, module, "module", must_exist=True)
+    relative = source.relative_to(root).as_posix()
+    if (
+        not source.is_file()
+        or not source.is_relative_to(module_path)
+        or relative not in hashes
+        or source.suffix.lower() not in CODE_SUFFIXES
+    ):
+        return False
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise EvidenceError(f"Cannot read migrated caller {source}: {exc}") from exc
+    line, column = int(match.group(2)), int(match.group(3))
+    return line <= len(lines) and column <= len(lines[line - 1])
+
+
+def exact_location_is_mentioned(text, location):
+    return (
+        re.search(
+            rf"(?<![\w./\\-]){re.escape(location)}(?![\w/\\-])",
+            text,
+        )
+        is not None
+    )
 
 
 def repeating_starts(document):
@@ -283,6 +394,149 @@ def repeating_starts(document):
                 raise EvidenceError(f"Duplicate repeating timer start: {key}")
             starts[key] = "".join(cycle.itertext()).strip()
     return starts
+
+
+def single_outgoing_flow(node, flows):
+    actual = [flow for flow in flows if flow.get("sourceRef") == node.get("id")]
+    declared = [ref.text for ref in node.findall(f"{BPMN}outgoing")]
+    return actual[0] if len(actual) == 1 and declared == [actual[0].get("id")] else None
+
+
+def supports_message_rearm(
+    document,
+    process,
+    timer_id,
+    message_name,
+    correlation_key,
+    date_variable,
+    message_date_variable,
+    rearm_process_id,
+    rearm_call_activity_id,
+):
+    timer = next(
+        (
+            element
+            for element in process.iter()
+            if element.get("id") == timer_id
+            and element.tag == f"{BPMN}intermediateCatchEvent"
+            and any(child.tag == f"{BPMN}timerEventDefinition" for child in element)
+        ),
+        None,
+    )
+    timer_date = (
+        timer.find(f"{BPMN}timerEventDefinition/{BPMN}timeDate")
+        if timer is not None
+        else None
+    )
+    timer_expression = (
+        "".join(timer_date.itertext()).strip() if timer_date is not None else ""
+    )
+    messages = [
+        message for message in document.findall(f"{BPMN}message")
+        if message.get("name") == message_name
+    ]
+    if (
+        re.fullmatch(rf"=\s*{re.escape(date_variable)}", timer_expression) is None
+        or len(messages) != 1
+        or not messages[0].get("id")
+    ):
+        return False
+    subscription = messages[0].find(f"{BPMN}extensionElements/{ZEEBE}subscription")
+    if subscription is None or subscription.get("correlationKey") != f"={correlation_key}":
+        return False
+    message_id = messages[0].get("id")
+    parent_process = next(
+        (
+            candidate
+            for candidate in document.findall(f"{BPMN}process")
+            if candidate.get("id") == rearm_process_id
+        ),
+        None,
+    )
+    if parent_process is None or parent_process is process:
+        return False
+    call_activity = next(
+        (
+            element
+            for element in parent_process.findall(f"{BPMN}callActivity")
+            if element.get("id") == rearm_call_activity_id
+        ),
+        None,
+    )
+    if call_activity is None:
+        return False
+    called_element = call_activity.find(
+        f"{BPMN}extensionElements/{ZEEBE}calledElement"
+    )
+    input_mappings = call_activity.findall(
+        f"{BPMN}extensionElements/{ZEEBE}ioMapping/{ZEEBE}input"
+    )
+    if (
+        called_element is None
+        or called_element.get("processId") != process.get("id")
+        or not any(
+            mapping.get("source") == f"={date_variable}"
+            and mapping.get("target") == date_variable
+            for mapping in input_mappings
+        )
+    ):
+        return False
+    message_boundaries = [
+        boundary
+        for boundary in parent_process.findall(f"{BPMN}boundaryEvent")
+        if boundary.get("attachedToRef") == rearm_call_activity_id
+        and boundary.get("cancelActivity") not in ("false", "0")
+        and any(
+            definition.tag == f"{BPMN}messageEventDefinition"
+            and definition.get("messageRef") == message_id
+            for definition in boundary
+        )
+    ]
+    if len(message_boundaries) != 1:
+        return False
+    flows = parent_process.findall(f"{BPMN}sequenceFlow")
+    ids = [flow.get("id") for flow in flows]
+    if None in ids or len(ids) != len(set(ids)):
+        return False
+    boundary = message_boundaries[0]
+    date_outputs = boundary.findall(
+        f"{BPMN}extensionElements/{ZEEBE}ioMapping/{ZEEBE}output"
+    )
+    if not any(
+        output.get("source") == f"={message_date_variable}"
+        and output.get("target") == date_variable
+        for output in date_outputs
+    ):
+        return False
+    boundary_flow = single_outgoing_flow(boundary, flows)
+    if boundary_flow is None:
+        return False
+    merge = next(
+        (
+            element
+            for element in parent_process.findall(f"{BPMN}exclusiveGateway")
+            if element.get("id") == boundary_flow.get("targetRef")
+        ),
+        None,
+    )
+    if merge is None:
+        return False
+    incoming = {ref.text for ref in merge.findall(f"{BPMN}incoming")}
+    if (
+        len(incoming) < 2
+        or boundary_flow.get("id") not in incoming
+        or incoming != {flow.get("id") for flow in flows
+                        if flow.get("targetRef") == merge.get("id")}
+    ):
+        return False
+    reentry = single_outgoing_flow(merge, flows)
+    return (
+        reentry is not None
+        and reentry.get("targetRef") == rearm_call_activity_id
+        and reentry.get("id") in {
+            ref.text for ref in call_activity.findall(f"{BPMN}incoming")
+        }
+    )
 
 
 def process_assertions(process):
@@ -309,17 +563,45 @@ def process_assertions(process):
 
 def requirements(root, evidence):
     modules, models = scope(root, evidence)
+    inventory = read_json(root / INVENTORY)
     required = {}
     allowed = set()
     timers = {}
     timer_starts = {}
     issues = []
-    if "active_timer_update_decision" in evidence:
-        issues.append("Active timer update approval is not supported; keep affected flows blocked")
     hashes = {}
     update_hits = {}
+    current_updates = {}
+    source_updates = inventory.get("source_updates")
+    if (
+        not isinstance(source_updates, dict)
+        or set(source_updates) != {module["path"] for module in modules}
+    ):
+        issues.append(
+            "Step 2 inventory lacks the pre-migration due-date source snapshot; run init before conversion"
+        )
+        source_updates = {}
+    source_update_locations = {}
+    for module in modules:
+        path = module["path"]
+        hits = source_updates.get(path)
+        if not isinstance(hits, dict) or any(
+            not isinstance(operation, str)
+            or operation not in {"setjobduedate", "/duedate", "duedate"}
+            for operation in hits.values()
+        ):
+            issues.append(f"{path}: invalid pre-migration due-date source snapshot")
+            hits = {}
+        try:
+            source_update_locations[path] = strings(
+                list(hits), f"{path} pre-migration due-date locations"
+            )
+        except EvidenceError as exc:
+            issues.append(str(exc))
+            source_update_locations[path] = []
     source_ids = {}
     converted_ids = {}
+    converted_documents = {}
     module_paths = {module["path"] for module in modules}
 
     def need(category, target, kind, scenario=None, method="command"):
@@ -333,7 +615,8 @@ def requirements(root, evidence):
     docker_suites = {}
     for module in modules:
         path = module["path"]
-        update_hits[path] = scan_module(root, path, module_paths, hashes)
+        current_updates[path] = scan_module(root, path, module_paths, hashes)
+        update_hits[path] = list(current_updates[path])
         need("module", path, "compile")
         need("module", path, "review", method="review")
         need("module", path, "active_timer_updates", method="review")
@@ -386,6 +669,7 @@ def requirements(root, evidence):
         except EvidenceError as exc:
             issues.append(str(exc))
             continue
+        converted_documents[converted] = document
         for path in (source, converted):
             file = project_path(root, path, "model snapshot", must_exist=True)
             hashes[file.relative_to(root).as_posix()] = file_digest(file)
@@ -465,6 +749,246 @@ def requirements(root, evidence):
     if len(converted_paths) != len(set(converted_paths)):
         issues.append("Converted copies must be distinct")
 
+    active_timer_locations = {}
+    active_timer_decisions = {}
+    decision = evidence.get("active_timer_update_decision")
+    if decision is not None:
+        if (
+            not isinstance(decision, dict)
+            or decision.get("status") != "approved"
+            or decision.get("strategy") != "message_rearm"
+            or not concrete_reference(decision.get("reference"))
+            or not isinstance(decision.get("target_version"), str)
+            or TARGET_VERSION.fullmatch(decision["target_version"]) is None
+            or not isinstance(decision.get("updates"), list)
+            or not decision["updates"]
+        ):
+            issues.append(
+                "Active timer updates need an approved message_rearm decision, "
+                "a concrete reference, target version, and timer mapping"
+            )
+        else:
+            source_targets = {}
+            seen_migrated_caller_locations = set()
+            for entry in decision["updates"]:
+                if not isinstance(entry, dict):
+                    issues.append("Each active timer update needs a timer mapping")
+                    continue
+                caller_mappings = entry.get("caller_mappings")
+                if not isinstance(caller_mappings, list) or not caller_mappings:
+                    issues.append(
+                        "Each active timer update needs at least one caller mapping"
+                    )
+                    continue
+                model_path = entry.get("model_path")
+                process_id = entry.get("process_id")
+                rearm_process_id = entry.get("rearm_process_id")
+                rearm_call_activity_id = entry.get("rearm_call_activity_id")
+                timer_id = entry.get("timer_id")
+                message_name = entry.get("message_name")
+                correlation_key = entry.get("correlation_key_variable")
+                date_variable = entry.get("date_variable")
+                message_date_variable = entry.get("message_date_variable")
+                if (
+                    not isinstance(model_path, str)
+                    or model_path not in converted_documents
+                    or not isinstance(process_id, str)
+                    or process_id not in converted_ids.get(model_path, set())
+                    or not isinstance(rearm_process_id, str)
+                    or rearm_process_id not in converted_ids.get(model_path, set())
+                    or not isinstance(rearm_call_activity_id, str)
+                    or not rearm_call_activity_id
+                    or not isinstance(timer_id, str)
+                    or not timer_id
+                    or not isinstance(message_name, str)
+                    or not message_name
+                    or not isinstance(correlation_key, str)
+                    or not correlation_key
+                    or not isinstance(date_variable, str)
+                    or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", date_variable)
+                    or not isinstance(message_date_variable, str)
+                    or not re.fullmatch(
+                        r"[A-Za-z][A-Za-z0-9_]*", message_date_variable
+                    )
+                ):
+                    issues.append("Active timer update mapping has invalid scope or identifiers")
+                    continue
+                document = converted_documents[model_path]
+                process = next(
+                    (
+                        candidate
+                        for candidate in document.findall(f"{BPMN}process")
+                        if candidate.get("id") == process_id
+                    ),
+                    None,
+                )
+                if process is None or process.get("isExecutable") not in ("true", "1"):
+                    issues.append(
+                        f"{model_path}#{process_id}: message_rearm mapping requires an executable BPMN process"
+                    )
+                    continue
+                rearm_process = next(
+                    (
+                        candidate
+                        for candidate in document.findall(f"{BPMN}process")
+                        if candidate.get("id") == rearm_process_id
+                    ),
+                    None,
+                )
+                if (
+                    rearm_process is None
+                    or rearm_process.get("isExecutable") not in ("true", "1")
+                ):
+                    issues.append(
+                        f"{model_path}#{rearm_process_id}: rearm call activity must belong to an executable BPMN process"
+                    )
+                    continue
+                if not supports_message_rearm(
+                    document,
+                    process,
+                    timer_id,
+                    message_name,
+                    correlation_key,
+                    date_variable,
+                    message_date_variable,
+                    rearm_process_id,
+                    rearm_call_activity_id,
+                ):
+                    issues.append(
+                        f"{model_path}#{process_id}: converted model lacks the mapped message-driven timer rearm path"
+                    )
+                    continue
+                target = f"{model_path}#{process_id}#{timer_id}"
+                details = {
+                    "target": target,
+                    "model_path": model_path,
+                    "process_id": process_id,
+                    "rearm_process_id": rearm_process_id,
+                    "rearm_call_activity_id": rearm_call_activity_id,
+                    "timer_id": timer_id,
+                    "strategy": decision["strategy"],
+                    "message_name": message_name,
+                    "correlation_key_variable": correlation_key,
+                    "date_variable": date_variable,
+                    "message_date_variable": message_date_variable,
+                    "target_version": decision["target_version"],
+                    "reference": decision["reference"],
+                }
+                existing = active_timer_decisions.get(target)
+                if existing is not None and any(
+                    existing[field] != details[field] for field in details
+                ):
+                    issues.append(f"{target}: conflicting active timer update decisions")
+                    continue
+                valid_callers = []
+                for caller in caller_mappings:
+                    if not isinstance(caller, dict):
+                        issues.append(f"{target}: each caller mapping must be an object")
+                        continue
+                    module = caller.get("module")
+                    source_locations = caller.get("source_locations")
+                    migrated_caller_location = caller.get("migrated_caller_location")
+                    if (
+                        not isinstance(module, str)
+                        or module not in module_paths
+                        or not isinstance(source_locations, list)
+                        or not source_locations
+                        or any(
+                            not isinstance(location, str) or not location
+                            for location in source_locations
+                        )
+                        or len(source_locations) != len(set(source_locations))
+                        or not isinstance(migrated_caller_location, str)
+                        or not migrated_caller_location
+                    ):
+                        issues.append(f"{target}: caller mapping has invalid scope or locations")
+                        continue
+                    if any(
+                        location not in source_update_locations.get(module, [])
+                        for location in source_locations
+                    ):
+                        issues.append(
+                            f"{module}: active timer mapping cites an undetected pre-migration due-date location"
+                        )
+                        continue
+                    if any(
+                        location in update_hits.get(module, [])
+                        for location in source_locations
+                    ):
+                        issues.append(
+                            f"{module}: mapped C7 due-date location remains in the migrated source"
+                        )
+                        continue
+                    retained = {
+                        current_location
+                        for location in source_locations
+                        for current_location, operation in current_updates[module].items()
+                        if location.rsplit(":", 2)[0]
+                        == current_location.rsplit(":", 2)[0]
+                        and operation == source_updates[module][location]
+                    }
+                    if retained:
+                        issues.append(
+                            f"{module}: mapped C7 due-date location remains in the migrated source at "
+                            + ", ".join(sorted(retained))
+                        )
+                        continue
+                    try:
+                        caller_is_valid = valid_migrated_caller_location(
+                            root, module, migrated_caller_location, hashes
+                        )
+                    except EvidenceError as exc:
+                        issues.append(str(exc))
+                        continue
+                    if (
+                        not caller_is_valid
+                        or migrated_caller_location in update_hits.get(module, [])
+                    ):
+                        issues.append(
+                            f"{module}: migrated caller location does not identify current module source code"
+                        )
+                        continue
+                    if any(
+                        source_targets.get((module, location), target) != target
+                        for location in source_locations
+                    ):
+                        issues.append(
+                            "A due-date location cannot map to different timers"
+                        )
+                        continue
+                    if migrated_caller_location in seen_migrated_caller_locations:
+                        issues.append(
+                            f"{module}: migrated caller location can map to only one due-date caller"
+                        )
+                        continue
+                    seen_migrated_caller_locations.add(migrated_caller_location)
+                    valid_callers.append(
+                        {
+                            "module": module,
+                            "source_locations": source_locations,
+                            "migrated_caller_location": migrated_caller_location,
+                        }
+                    )
+                if not valid_callers:
+                    continue
+                if existing is None:
+                    details["modules"] = []
+                    details["caller_mappings"] = []
+                    active_timer_decisions[target] = details
+                    need("timer", target, "active_instance_reschedule")
+                active_decision = active_timer_decisions[target]
+                for caller in valid_callers:
+                    if caller["module"] not in active_decision["modules"]:
+                        active_decision["modules"].append(caller["module"])
+                    active_decision["caller_mappings"].append(caller)
+                    for location in caller["source_locations"]:
+                        source_targets[(caller["module"], location)] = target
+                    active_timer_locations.setdefault(caller["module"], set()).update(
+                        caller["source_locations"]
+                    )
+            if not active_timer_decisions:
+                issues.append("Approved active timer decision does not map a detected timer update")
+
     deployment_sets = {}
     model_sets = {}
     duplicates = {}
@@ -488,7 +1012,7 @@ def requirements(root, evidence):
             continue
         if set(set_modules) - module_paths or set(set_models) - set(timers):
             issues.append(f"{name}: deployment set includes unknown modules or models")
-        deployment_sets[name] = entry
+        deployment_sets[name] = {"modules": set_modules, "models": set_models}
         need("deployment_set", name, "preflight", method="review")
         for model_path in set_models:
             if model_path in model_sets:
@@ -510,6 +1034,15 @@ def requirements(root, evidence):
         issues.append("Each converted model must belong to exactly one deployment set")
     if models and module_paths - {path for group in deployment_sets.values() for path in group["modules"]}:
         issues.append("Include each migrated module in its deployment set inventory")
+    for details in active_timer_decisions.values():
+        for module in details["modules"]:
+            if not any(
+                module in group["modules"] and details["model_path"] in group["models"]
+                for group in deployment_sets.values()
+            ):
+                issues.append(
+                    f"{details['target']}: module {module} and its mapped model must share the same deployment set"
+                )
     for name in ("pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
                  "settings.gradle.kts", "gradle.properties"):
         file = root / name
@@ -517,14 +1050,21 @@ def requirements(root, evidence):
             raise EvidenceError(f"Cannot scan symlinked build configuration: {file}")
         if file.is_file():
             hashes[name] = file_digest(file)
-    snapshot = {"modules": modules, "models": models, "deployment_sets": declared_sets,
-                "files": hashes}
+    snapshot = {
+        "modules": modules,
+        "models": models,
+        "deployment_sets": declared_sets,
+        "source_update_locations": source_update_locations,
+        "active_timer_update_decision": decision,
+        "files": hashes,
+    }
     source_digest = hashlib.sha256(
         json.dumps(snapshot, sort_keys=True).encode("utf-8")
     ).hexdigest()
     return ValidationPlan(
         required, allowed, timers, timer_starts, docker_suites, model_sets,
-        duplicates, update_hits, source_digest, issues,
+        duplicates, update_hits, source_update_locations, active_timer_locations,
+        active_timer_decisions, source_digest, issues,
     )
 
 
@@ -537,6 +1077,7 @@ def needs_safe_environment(key):
         key[0] == "process"
         or key[0] == "model" and key[2] == "deployment"
         or key[0] == "module" and key[2] in RUNTIME_CHECKS
+        or key[0] == "timer" and key[2] in ("preflight", "active_instance_reschedule")
     )
 
 
@@ -548,6 +1089,130 @@ def parse_evidence_list(value):
     if not isinstance(parsed, list):
         raise EvidenceError("Non-timer evidence must be a JSON array")
     return parsed
+
+
+def parse_observation_time(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def validate_active_timer_observation(plan, key, check):
+    decision = plan.active_timer_decisions[key[1]]
+    if (
+        check.get("environment") != "local"
+        or check.get("target_disposable") is not True
+        or check.get("target_version") != decision["target_version"]
+        or not isinstance(check.get("isolation_plan"), str)
+        or not check["isolation_plan"].strip()
+    ):
+        raise EvidenceError(
+            f"{key}: active timer rescheduling needs the approved version on an isolated disposable local target"
+        )
+    output = check["output"].strip().splitlines()
+    if not output:
+        raise EvidenceError(f"{key}: live fixture must emit one JSON observation")
+    try:
+        result = json.loads(output[-1])
+    except json.JSONDecodeError as exc:
+        raise EvidenceError(f"{key}: live fixture must end with a JSON observation") from exc
+    if not isinstance(result, dict):
+        raise EvidenceError(f"{key}: live fixture observation must be an object")
+    deployment = result.get("deployment")
+    if not isinstance(deployment, dict) or (
+        deployment.get("performed") is not True
+        or not concrete_reference(deployment.get("reference"))
+        or deployment.get("environment") != check["environment"]
+        or deployment.get("target_disposable") is not True
+        or deployment.get("target_version") != decision["target_version"]
+    ):
+        raise EvidenceError(f"{key}: live fixture lacks a matching disposable deployment")
+    cleanup = result.get("cleanup")
+    if not isinstance(cleanup, dict) or (
+        cleanup.get("completed") is not True
+        or not concrete_reference(cleanup.get("evidence_reference"))
+    ):
+        raise EvidenceError(f"{key}: live fixture must prove disposable-target cleanup")
+    observation = result.get("observation")
+    if not isinstance(observation, dict):
+        raise EvidenceError(f"{key}: live fixture observation is missing")
+
+    active_timer = observation.get("active_timer")
+    if not isinstance(active_timer, dict) or any(
+        active_timer.get(field) != decision[field]
+        for field in (
+            "model_path",
+            "process_id",
+            "rearm_process_id",
+            "rearm_call_activity_id",
+            "timer_id",
+            "strategy",
+            "message_name",
+            "correlation_key_variable",
+            "date_variable",
+            "message_date_variable",
+        )
+    ):
+        raise EvidenceError(f"{key}: live result does not match the approved timer mapping")
+    updates = active_timer.get("updates")
+    if not isinstance(updates, list) or len(updates) != 2 or any(
+        not isinstance(update, dict)
+        or update.get("correlated") is not True
+        or update.get("timer_active_before_update") is not True
+        for update in updates
+    ):
+        raise EvidenceError(
+            f"{key}: live fixture must prove the timer was active before two correlated date updates"
+        )
+    deadlines = [
+        parse_observation_time(updates[0].get("old_deadline")),
+        parse_observation_time(updates[0].get("new_deadline")),
+        parse_observation_time(updates[1].get("new_deadline")),
+    ]
+    if (
+        any(deadline is None for deadline in deadlines)
+        or updates[1].get("old_deadline") != updates[0].get("new_deadline")
+    ):
+        raise EvidenceError(f"{key}: two date updates must record sequential deadlines")
+    first_change = deadlines[1] - deadlines[0]
+    second_change = deadlines[2] - deadlines[1]
+    if (
+        first_change == timedelta(0)
+        or second_change == timedelta(0)
+        or (first_change > timedelta(0)) == (second_change > timedelta(0))
+    ):
+        raise EvidenceError(
+            f"{key}: two date updates must include an earlier and a later deadline"
+        )
+    final_deadline = deadlines[2]
+    if any(
+        type(update.get("old_deadline_fire_count")) is not int
+        or update["old_deadline_fire_count"] != 0
+        or (checked := parse_observation_time(update.get("checked_after_old_deadline"))) is None
+        or not deadlines[index] < checked < final_deadline
+        for index, update in enumerate(updates)
+    ):
+        raise EvidenceError(f"{key}: check zero fires after each obsolete deadline")
+    last_active_at = parse_observation_time(
+        active_timer.get("final_deadline_last_active_at")
+    )
+    fired_at = parse_observation_time(active_timer.get("final_deadline_fired_at"))
+    if (
+        type(active_timer.get("final_deadline_fire_count")) is not int
+        or active_timer["final_deadline_fire_count"] != 1
+        or last_active_at is None
+        or last_active_at >= final_deadline
+        or final_deadline - last_active_at > timedelta(seconds=5)
+        or fired_at is None
+        or fired_at < final_deadline
+    ):
+        raise EvidenceError(
+            f"{key}: final deadline must remain active immediately before firing exactly once"
+        )
 
 
 def validate_risk_check(plan, key, check):
@@ -576,20 +1241,68 @@ def validate_risk_check(plan, key, check):
         if check.get("disposition") != plan.timer_starts[key]["disposition"]:
             raise EvidenceError(f"{key}: timer disposition does not match the source and converted copies")
     if category == "module" and kind == "active_timer_updates":
-        hits = plan.update_hits[target]
+        source_hits = set(plan.source_update_locations[target])
+        current_hits = set(plan.update_hits[target])
         disposition = check.get("disposition")
         evidence = check.get("non_timer_evidence")
-        if disposition == "no_updates" and not hits and not evidence:
+        active_locations = plan.active_timer_locations.get(target, set())
+        if current_hits & active_locations:
+            raise EvidenceError(f"{key}: a mapped C7 due-date call remains in the migrated source")
+        non_timer_locations = (source_hits - active_locations) | (current_hits - source_hits)
+        if disposition == "no_updates" and not source_hits and not current_hits and not evidence:
             return
-        if disposition != "non_timer" or not hits or not isinstance(evidence, list):
+        if active_locations:
+            active_decisions = [
+                decision
+                for decision in plan.active_timer_decisions.values()
+                if target in decision["modules"]
+            ]
+            expected_references = {decision["reference"] for decision in active_decisions}
+            if check.get("reference") not in expected_references:
+                raise EvidenceError(f"{key}: cite the approved active-timer decision")
+            if any(
+                not all(
+                    exact_location_is_mentioned(check["output"], detail)
+                    for detail in (
+                        *(
+                            caller["migrated_caller_location"]
+                            for caller in decision["caller_mappings"]
+                            if caller["module"] == target
+                        ),
+                        decision["message_name"],
+                        decision["correlation_key_variable"],
+                        decision["message_date_variable"],
+                        decision["date_variable"],
+                    )
+                )
+                for decision in active_decisions
+            ):
+                raise EvidenceError(
+                    f"{key}: review note must identify the migrated caller and message mapping"
+                )
+            expected_disposition = "mixed" if non_timer_locations else "message_rearm"
+            if disposition != expected_disposition:
+                raise EvidenceError(f"{key}: active timer updates require approved message_rearm evidence")
+        elif disposition != "non_timer":
             raise EvidenceError(f"{key}: block active or unclassified due-date updates")
-        locations = [item.get("location") for item in evidence if isinstance(item, dict)]
-        if len(locations) != len(evidence) or any(
-            not isinstance(location, str) for location in locations
-        ) or sorted(locations) != sorted(hits) or any(
-            not concrete_reference(item.get("evidence")) for item in evidence
-        ):
-            raise EvidenceError(f"{key}: classify each detected due-date location with concrete evidence")
+        if non_timer_locations:
+            if not isinstance(evidence, list):
+                raise EvidenceError(f"{key}: classify each non-timer due-date location")
+            locations = [
+                item.get("location") for item in evidence if isinstance(item, dict)
+            ]
+            if len(locations) != len(evidence) or len(locations) != len(set(locations)) or any(
+                not isinstance(location, str) for location in locations
+            ) or set(locations) != non_timer_locations or any(
+                not concrete_reference(item.get("evidence")) for item in evidence
+            ):
+                raise EvidenceError(
+                    f"{key}: classify each non-timer due-date location with concrete evidence"
+                )
+        elif evidence:
+            raise EvidenceError(f"{key}: non-timer evidence must not classify an approved active update")
+    if category == "timer" and kind == "active_instance_reschedule":
+        validate_active_timer_observation(plan, key, check)
     if category == "timer" and kind == "preflight":
         if (
             check.get("environment") not in SAFE_ENVIRONMENTS
@@ -638,6 +1351,19 @@ def prerequisites(plan, key):
     dependencies = []
     if category == "timer" and kind == "preflight":
         dependencies.append(("timer", target, "disposition", None))
+    if category == "timer" and kind == "active_instance_reschedule":
+        decision = plan.active_timer_decisions[target]
+        dependencies.extend(
+            ("module", module, "active_timer_updates", None)
+            for module in decision["modules"]
+        )
+        dependencies.extend(
+            (("model", decision["model_path"], "lint", None),
+             ("model", decision["model_path"], "review", None))
+        )
+        deployment_set = plan.model_sets.get(decision["model_path"])
+        if deployment_set is not None:
+            dependencies.append(("deployment_set", deployment_set, "preflight", None))
     if category == "model" and kind == "deployment":
         dependencies.append(("model", target, "lint", None))
     if category == "process" and kind == "process_path":
@@ -873,6 +1599,12 @@ def record(root, args):
             or TARGET_VERSION.fullmatch(args.target_version) is None
         ):
             raise EvidenceError("Timer preflight needs a disposable local or non-production target, version, and cleanup plan")
+        if key[2] == "active_instance_reschedule":
+            decision = plan.active_timer_decisions[key[1]]
+            if args.environment != "local" or args.target_version != decision["target_version"]:
+                raise EvidenceError(
+                    f"{key}: active timer rescheduling needs the approved version on an isolated disposable local target"
+                )
     elif args.action == "run" and needs_safe_environment(key):
         if args.environment not in SAFE_ENVIRONMENTS:
             raise EvidenceError("Runtime and deployment checks require a local or non-production target")
@@ -1012,7 +1744,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     actions = parser.add_subparsers(dest="action", required=True)
-    actions.add_parser("init", help="Bind the Step 2 scope to a new migration validation run")
+    init = actions.add_parser("init", help="Bind the Step 2 scope to a new migration validation run")
+    init.add_argument(
+        "--reset-source-snapshot", action="store_true",
+        help="Replace the due-date snapshot only after restoring the C7 baseline",
+    )
     actions.add_parser("report", help="Audit scope and write the validation gate")
     for name in ("run", "review", "block"):
         action = actions.add_parser(name)
@@ -1050,7 +1786,7 @@ def main():
         if not root.is_dir():
             raise EvidenceError(f"Not a project directory: {root}")
         if args.action == "init":
-            return initialize(root)
+            return initialize(root, args.reset_source_snapshot)
         if args.action == "report":
             return report(root)
         if args.action == "classify":

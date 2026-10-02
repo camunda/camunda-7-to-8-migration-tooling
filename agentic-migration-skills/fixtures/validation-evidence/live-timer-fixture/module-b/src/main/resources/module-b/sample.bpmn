@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_ModuleB" targetNamespace="http://camunda.io/schema/1.0/bpmn" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.21">
+  <bpmn:process id="Sample" isExecutable="true">
+    <bpmn:startEvent id="ManualStart" name="Manual start">
+      <bpmn:outgoing>Flow_Start_HoldB</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Hold_B" name="Hold module B">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="hold-module-b" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_HoldB</bpmn:incoming>
+      <bpmn:outgoing>Flow_HoldB_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_B" name="Module B complete">
+      <bpmn:incoming>Flow_HoldB_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_HoldB" sourceRef="ManualStart" targetRef="Hold_B" />
+    <bpmn:sequenceFlow id="Flow_HoldB_End" sourceRef="Hold_B" targetRef="End_B" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_ModuleB">
+    <bpmndi:BPMNPlane id="Plane_ModuleB" bpmnElement="Sample">
+      <bpmndi:BPMNShape id="ManualStart_di" bpmnElement="ManualStart">
+        <dc:Bounds x="160" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Hold_B_di" bpmnElement="Hold_B">
+        <dc:Bounds x="310" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_B_di" bpmnElement="End_B">
+        <dc:Bounds x="500" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_HoldB_di" bpmnElement="Flow_Start_HoldB">
+        <di:waypoint x="196" y="120" />
+        <di:waypoint x="310" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_HoldB_End_di" bpmnElement="Flow_HoldB_End">
+        <di:waypoint x="410" y="120" />
+        <di:waypoint x="500" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
