@@ -435,6 +435,26 @@ categories:
               </zeebe:ioMapping>
             </bpmn:extensionElements>
           </bpmn:serviceTask>
+      - name: Supplementary Unicode code points are quoted in static input values
+        givenBpmn: |
+          <bpmn:serviceTask id="SupplementaryUnicodeParameter">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="supplementaryStart">𐐀</camunda:inputParameter>
+                <camunda:inputParameter name="supplementaryPart">value𐐀</camunda:inputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="SupplementaryUnicodeParameter" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=&quot;𐐀&quot;" target="supplementaryStart"/>
+                <zeebe:input source="=&quot;value𐐀&quot;" target="supplementaryPart"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
   - category: Listener
     cases:
       - name: Execution Listener on start event

@@ -104,18 +104,14 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     if (value.isEmpty() || FeelReservedWords.isReservedWord(value)) {
       return false;
     }
-    int offset = 0;
-    int codePoint = value.codePointAt(offset);
-    if (!Character.isJavaIdentifierStart(codePoint)) {
+    if (!Character.isJavaIdentifierStart(value.charAt(0))) {
       return false;
     }
-    offset += Character.charCount(codePoint);
-    while (offset < value.length()) {
-      codePoint = value.codePointAt(offset);
-      if (!Character.isJavaIdentifierPart(codePoint) || Character.isWhitespace(codePoint)) {
+    for (int i = 1; i < value.length(); i++) {
+      char character = value.charAt(i);
+      if (!Character.isJavaIdentifierPart(character) || Character.isWhitespace(character)) {
         return false;
       }
-      offset += Character.charCount(codePoint);
     }
     return true;
   }
