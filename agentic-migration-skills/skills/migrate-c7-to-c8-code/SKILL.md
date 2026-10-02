@@ -527,7 +527,10 @@ in `references/model-migration-approaches.md`.
     The validator parses each pair with a namespace-aware XML parser.
     For condition expressions, the validator treats booleans, numbers, `null`, and quoted strings
     as literals.
-    The validator requires a leading `=` for every non-literal `bpmn:conditionExpression` value.
+    The validator requires a leading `=` for every non-literal condition expression with no
+    language attribute (default JUEL) or `language="feel"`.
+    If a source or converted condition declares another language, then the validator reports a
+    blocking redesign finding instead of checking for a FEEL prefix.
     The validator pairs C7 input and output expressions with their Zeebe source attributes.
     The validator fails when the converted copy has no Zeebe mapping with the source parameter's
     name as its target.
@@ -539,7 +542,8 @@ in `references/model-migration-approaches.md`.
     `zeebe:assignmentDefinition`, and `zeebe:formDefinition/@formId` values with their source
     expressions.
     The validator requires a leading `=` on each paired dynamic value.
-    The validator rejects every `language="feel"` and `language="juel"` attribute.
+    The validator rejects every `language="feel"` and `language="juel"` attribute in the converted
+    copy.
     The validator rejects every BPMN `expressionLanguage` attribute.
     The validator does not check DMN `expressionLanguage` attributes.
     The skill preserves valid DMN expression languages.

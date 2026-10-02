@@ -128,9 +128,23 @@ def require_prefix(path, element, field, value, parents, errors, context=None):
         )
 
 
+def check_condition_language(path, element, parents, errors):
+    language = local_attribute(element, "language")
+    normalized_language = language.strip().casefold() if language is not None else ""
+    if not normalized_language or normalized_language in FEEL_LANGUAGES:
+        return True
+    errors.append(
+        f"{path}: {element_context(element, parents)} conditionExpression uses unsupported "
+        f"condition language {language.strip()!r}; an explicit redesign is required"
+    )
+    return False
+
+
 def check_feel_slots(root, path, parents, errors):
     for element in root.iter():
         if element.tag == BPMN + "conditionExpression":
+            if not check_condition_language(path, element, parents, errors):
+                continue
             value = text_content(element)
             if value and not is_feel_literal(value):
                 require_prefix(path, element, "conditionExpression", value, parents, errors)
@@ -229,6 +243,8 @@ def check_source_expressions(source_root, converted_root, path, errors):
     for source_condition in source_root.iter(BPMN + "conditionExpression"):
         value = text_content(source_condition)
         language = local_attribute(source_condition, "language")
+        if not check_condition_language(path, source_condition, source_parents, errors):
+            continue
         dynamic = (
             is_dynamic_source(value)
             or (language is not None and language.strip().casefold() in FEEL_LANGUAGES)

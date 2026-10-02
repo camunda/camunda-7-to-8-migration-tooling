@@ -5,6 +5,11 @@ the required leading `=`. It also covers leftover BPMN expression-language
 attributes. The regression tests use synthetic source and converted XML in a
 temporary directory.
 
+The validator treats a missing condition language as JUEL and checks non-literal
+values for a leading `=`. It treats an explicit FEEL language the same way.
+Other explicit condition languages are blocking redesign findings, even when a
+converted condition has a leading `=`.
+
 The validator pairs source and converted elements by BPMN XML ID for dynamic
 input/output mappings, subscription keys, task types, call targets, assignments,
 and form IDs. It does not treat static values such as

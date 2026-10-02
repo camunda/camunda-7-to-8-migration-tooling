@@ -166,8 +166,9 @@ before claiming parity, separately from compilation, worker registration, and in
 | **Agentic AI** | AI rewrites the BPMN/DMN XML directly. Use it when Java 21 is unavailable, or when you want to review every change |
 | **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/). No local Java needed |
 
-After an M2 rewrite, the skill checks each source/converted pair for dynamic FEEL values without `=`
-and leftover BPMN expression-language attributes.
+After an M2 rewrite, the skill checks each source/converted pair for dynamic FEEL values without `=`.
+It also checks for leftover BPMN expression-language attributes and flags unsupported condition
+languages for manual redesign.
 
 For Camunda 7 Generated Task Forms (`camunda:formData`/`formField` and legacy `formProperty`), the
 Diagram Converter leaves a manual finding on purpose. The skill reads the original BPMN metadata and

@@ -216,10 +216,43 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode, result.stdout)
                 self.assertIn(expected, result.stderr)
 
+    def test_non_feel_source_conditions_require_redesign_even_when_prefixed(self):
+        converted = bpmn(
+            '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression>'
+            "=decision.wait</bpmn:conditionExpression></bpmn:sequenceFlow>"
+        )
+        for language in ("groovy", "javascript"):
+            with self.subTest(language=language):
+                source = bpmn(
+                    '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
+                    f'language="{language}">decision.wait'
+                    "</bpmn:conditionExpression></bpmn:sequenceFlow>"
+                )
+                result = self.run_validator(source, converted)
+                self.assertNotEqual(0, result.returncode, result.stdout)
+                self.assertIn("unsupported condition language", result.stderr)
+                self.assertIn("redesign", result.stderr)
+                self.assertNotIn("without the required leading", result.stderr)
+
+    def test_converted_non_feel_condition_language_is_blocking(self):
+        converted = bpmn(
+            '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
+            'language="javascript">=decision.wait</bpmn:conditionExpression>'
+            "</bpmn:sequenceFlow>"
+        )
+        result = self.run_validator(bpmn(""), converted)
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn("unsupported condition language", result.stderr)
+        self.assertIn("javascript", result.stderr)
+
     def test_prefixed_expressions_and_static_values_pass(self):
         source = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
             'language="feel">decision.wait</bpmn:conditionExpression></bpmn:sequenceFlow>'
+            '<bpmn:sequenceFlow id="juelFlow"><bpmn:conditionExpression>'
+            'decision.approved</bpmn:conditionExpression></bpmn:sequenceFlow>'
+            '<bpmn:sequenceFlow id="explicitJuelFlow"><bpmn:conditionExpression '
+            'language="juel">decision.approved</bpmn:conditionExpression></bpmn:sequenceFlow>'
             '<bpmn:sequenceFlow id="literalFlow"><bpmn:conditionExpression>'
             "true</bpmn:conditionExpression></bpmn:sequenceFlow>"
             '<bpmn:serviceTask id="task" camunda:topic="${jobType}"/>'
@@ -243,6 +276,10 @@ class ModelExpressionPrefixTest(unittest.TestCase):
         converted = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression>'
             "=decision.wait</bpmn:conditionExpression></bpmn:sequenceFlow>"
+            '<bpmn:sequenceFlow id="juelFlow"><bpmn:conditionExpression>'
+            "=decision.approved</bpmn:conditionExpression></bpmn:sequenceFlow>"
+            '<bpmn:sequenceFlow id="explicitJuelFlow"><bpmn:conditionExpression>'
+            "=decision.approved</bpmn:conditionExpression></bpmn:sequenceFlow>"
             '<bpmn:sequenceFlow id="literalFlow"><bpmn:conditionExpression>'
             "true</bpmn:conditionExpression></bpmn:sequenceFlow>"
             '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
