@@ -18,6 +18,9 @@ survive conversion. It pairs source and converted elements by BPMN XML ID for
 dynamic input/output mappings, subscription keys, task types, call targets,
 assignments, and form IDs. It does not treat static values such as
 `candidateGroups="approvers"` as expressions.
+The validator also checks conditional-event `bpmn:condition` expressions. It
+pairs each condition through its owning definition or event ID, not its optional
+condition ID.
 The validator treats input and output parameters with nested
 `camunda:script scriptFormat="feel"` elements as dynamic expressions.
 The validator rejects a dynamic input/output mapping when the converted copy has

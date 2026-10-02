@@ -528,7 +528,8 @@ in `references/model-migration-approaches.md`.
 
     The skill supplies one `--pair` argument for every in-scope BPMN or DMN model.
     The validator parses each pair with a namespace-aware XML parser.
-    The validator applies the first matching row to each condition expression:
+    The validator applies the first matching row to each `bpmn:conditionExpression` and
+    conditional-event `bpmn:condition`:
 
     | Language attribute | Source value | Validator action |
     | --- | --- | --- |
@@ -537,6 +538,9 @@ in `references/model-migration-approaches.md`.
     | Missing or blank (default JUEL) | Starts with `=`, contains `${` or `#{`, or is another non-empty non-literal value | Require a leading `=` on the converted expression. |
     | Missing or blank (default JUEL) | Boolean, number, `null`, or quoted string without those markers | Treat the value as a literal. Do not require a leading `=`. |
     | Missing or blank (default JUEL) | Empty | Do not check the source as a dynamic condition. |
+    The validator pairs `bpmn:conditionExpression` with its sequence flow.
+    The validator pairs conditional-event `bpmn:condition` by its owning definition or event ID,
+    not its optional condition ID.
     The validator pairs C7 input and output expressions with their Zeebe source attributes.
     The validator fails when the converted copy has no Zeebe mapping with the source parameter's
     name as its target.

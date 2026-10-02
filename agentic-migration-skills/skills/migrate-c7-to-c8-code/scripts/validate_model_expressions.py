@@ -14,6 +14,7 @@ ZEEBE_NS = "http://camunda.org/schema/zeebe/1.0"
 BPMN = f"{{{BPMN_NS}}}"
 ZEEBE = f"{{{ZEEBE_NS}}}"
 FEEL_LANGUAGES = {"feel", "juel"}
+CONDITION_TAGS = {BPMN + "conditionExpression", BPMN + "condition"}
 JOB_TYPE_SOURCE_ATTRIBUTES = {"topic"}
 ASSIGNMENT_SOURCE_ATTRIBUTES = {"assignee", "candidateGroups", "candidateUsers"}
 NUMBER_LITERAL = re.compile(
@@ -147,20 +148,29 @@ def check_condition_language(path, element, parents, errors):
     if not normalized_language or normalized_language in FEEL_LANGUAGES:
         return True
     errors.append(
-        f"{path}: {element_context(element, parents)} conditionExpression uses unsupported "
-        f"condition language {language.strip()!r}; an explicit redesign is required"
+        f"{path}: {element_context(element, parents)} {local_name(element.tag)} uses "
+        f"unsupported condition language {language.strip()!r}; "
+        "an explicit redesign is required"
     )
     return False
 
 
 def check_feel_slots(root, path, parents, errors):
     for element in root.iter():
-        if element.tag == BPMN + "conditionExpression":
-            if not check_condition_language(path, element, parents, errors):
-                continue
-            value = text_content(element)
-            if value and not is_feel_literal(value):
-                require_prefix(path, element, "conditionExpression", value, parents, errors)
+        if element.tag not in CONDITION_TAGS:
+            continue
+        if not check_condition_language(path, element, parents, errors):
+            continue
+        value = text_content(element)
+        if value and not is_feel_literal(value):
+            require_prefix(
+                path,
+                element,
+                local_name(element.tag),
+                value,
+                parents,
+                errors,
+            )
 
 
 def check_legacy_attributes(root, path, parents, errors):
@@ -254,49 +264,63 @@ def check_mapped_attribute(
             )
 
 
+def check_source_condition(
+    source_condition,
+    source_owner,
+    source_parents,
+    converted_ids,
+    path,
+    field,
+    errors,
+):
+    value = text_content(source_condition)
+    language = local_attribute(source_condition, "language")
+    if not check_condition_language(path, source_condition, source_parents, errors):
+        return
+    dynamic = (
+        is_dynamic_source(value)
+        or (language is not None and language.strip().casefold() in FEEL_LANGUAGES)
+        or (value and not is_feel_literal(value))
+    )
+    if not dynamic:
+        return
+    owner = converted_owner(
+        source_owner, source_parents, converted_ids, path, field, errors
+    )
+    if owner is None:
+        return
+    targets = list(owner.iter(BPMN + field))
+    if not targets:
+        errors.append(
+            f"{path}: {element_context(owner, {})} is missing its converted {field}"
+        )
+        return
+    for target in targets:
+        require_prefix(
+            path,
+            target,
+            field,
+            text_content(target),
+            {},
+            errors,
+            context=element_context(owner, {}),
+        )
+
+
 def check_source_expressions(source_root, converted_root, path, errors):
     source_parents = parent_index(source_root)
     converted_ids = id_index(converted_root)
 
-    for source_condition in source_root.iter(BPMN + "conditionExpression"):
-        value = text_content(source_condition)
-        language = local_attribute(source_condition, "language")
-        if not check_condition_language(path, source_condition, source_parents, errors):
-            continue
-        dynamic = (
-            is_dynamic_source(value)
-            or (language is not None and language.strip().casefold() in FEEL_LANGUAGES)
-            or (value and not is_feel_literal(value))
-        )
-        if not dynamic:
-            continue
-        source_flow = source_parents.get(source_condition)
-        owner = converted_owner(
-            source_flow,
-            source_parents,
-            converted_ids,
-            path,
-            "conditionExpression",
-            errors,
-        )
-        if owner is None:
-            continue
-        targets = [element for element in owner if element.tag == BPMN + "conditionExpression"]
-        if not targets:
-            errors.append(
-                f"{path}: {element_context(owner, {})} is missing its converted "
-                "conditionExpression"
-            )
-            continue
-        for target in targets:
-            require_prefix(
+    for field in ("conditionExpression", "condition"):
+        for source_condition in source_root.iter(BPMN + field):
+            check_source_condition(
+                source_condition,
+                source_parents.get(source_condition),
+                source_parents,
+                converted_ids,
                 path,
-                target,
-                "conditionExpression",
-                text_content(target),
-                {},
+                field,
                 errors,
-                context=element_context(owner, {}),
             )
 
     for source_parameter in source_root.iter():
