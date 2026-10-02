@@ -343,6 +343,38 @@ categories:
         expectedMessages: |
           <conversion:message severity="REVIEW">in, Parameter: 'input': Please review transformed expression: 'input' -&gt; '=input'.</conversion:message>
           <conversion:message severity="REVIEW">out, Parameter: 'output': Please review transformed expression: 'output' -&gt; '=output'.</conversion:message>
+      - name: Static input/output parameter values are valid FEEL literals
+        givenBpmn: |
+          <bpmn:serviceTask id="StaticParameterValues">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="identifier">myVar</camunda:inputParameter>
+                <camunda:inputParameter name="text">my given value</camunda:inputParameter>
+                <camunda:inputParameter name="numeric">42</camunda:inputParameter>
+                <camunda:inputParameter name="quoted">"already quoted value"</camunda:inputParameter>
+                <camunda:inputParameter name="embeddedQuote">say "hello"</camunda:inputParameter>
+                <camunda:inputParameter name="backslash">C:\work\file</camunda:inputParameter>
+                <camunda:inputParameter name="methodText">legacy.method()</camunda:inputParameter>
+                <camunda:outputParameter name="text">completed successfully</camunda:outputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="StaticParameterValues" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=myVar" target="identifier"/>
+                <zeebe:input source="=&quot;my given value&quot;" target="text"/>
+                <zeebe:input source="=42" target="numeric"/>
+                <zeebe:input source="=&quot;already quoted value&quot;" target="quoted"/>
+                <zeebe:input source="=&quot;say \&quot;hello\&quot;&quot;" target="embeddedQuote"/>
+                <zeebe:input source="=&quot;C:\\work\\file&quot;" target="backslash"/>
+                <zeebe:input source="=&quot;legacy.method()&quot;" target="methodText"/>
+                <zeebe:output source="=&quot;completed successfully&quot;" target="text"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
   - category: Listener
     cases:
       - name: Execution Listener on start event

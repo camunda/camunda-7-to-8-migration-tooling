@@ -18,11 +18,34 @@ import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.visitor.AbstractCamundaElementVisitor;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
 public abstract class InputOutputParameterVisitor extends AbstractCamundaElementVisitor {
   public static final String INPUT_PARAMETER = "inputParameter";
   public static final String OUTPUT_PARAMETER = "outputParameter";
+  private static final Pattern FEEL_NUMBER_PATTERN =
+      Pattern.compile("-?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+  private static final Set<String> FEEL_KEYWORDS =
+      Set.of(
+          "and",
+          "between",
+          "else",
+          "every",
+          "for",
+          "function",
+          "if",
+          "in",
+          "instance",
+          "not",
+          "of",
+          "or",
+          "return",
+          "satisfies",
+          "some",
+          "then");
+  private static final Set<String> FEEL_LITERAL_VALUES = Set.of("false", "null", "true");
 
   @Override
   public boolean canBeTransformed(DomElementVisitorContext context) {
@@ -48,7 +71,12 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     // Zeebe I/O mapping source is normally FEEL (prefixed with '='). For expressions that cannot
     // be converted to FEEL, keep the original JUEL wrapper (${...}/#{...}) for manual follow-up.
     String source = transformationResult.result();
-    if (shouldPrefixFeelMarker(source, transformationResult)) {
+    // The transformer leaves unwrapped static values unchanged, but an I/O mapping requires FEEL.
+    boolean staticValue = isStaticValue(expression, source);
+    if (staticValue && !isValidFeelValue(source.strip())) {
+      source = toFeelStringLiteral(source);
+    }
+    if (shouldPrefixFeelMarker(source, transformationResult, staticValue)) {
       source = "=" + source;
     }
     String finalSource = source;
@@ -56,18 +84,87 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
         AbstractDataMapperConvertible.class,
         abstractTaskConversion ->
             abstractTaskConversion.addZeebeIoMapping(direction, finalSource, name));
+    if (staticValue) {
+      return MessageFactory.noExpressionTransformation();
+    }
     return ExpressionTransformationResultMessageFactory.getMessage(
         transformationResult,
         "https://docs.camunda.io/docs/components/concepts/variables/#inputoutput-variable-mappings");
   }
 
   private boolean shouldPrefixFeelMarker(
-      String source, ExpressionTransformationResult transformationResult) {
+      String source, ExpressionTransformationResult transformationResult, boolean staticValue) {
     if (source == null || source.startsWith("=")) {
       return false;
     }
     // Keep original JUEL wrapper intact for unconvertible expressions to support manual follow-up.
-    return !(transformationResult.hasMethodInvocation() || transformationResult.hasExecutionOnly());
+    return staticValue
+        || !(transformationResult.hasMethodInvocation() || transformationResult.hasExecutionOnly());
+  }
+
+  private boolean isStaticValue(String expression, String source) {
+    return source != null
+        && source.equals(expression)
+        && !expression.contains("${")
+        && !expression.contains("#{");
+  }
+
+  private boolean isValidFeelValue(String source) {
+    return FEEL_LITERAL_VALUES.contains(source)
+        || FEEL_NUMBER_PATTERN.matcher(source).matches()
+        || isFeelStringLiteral(source)
+        || isFeelIdentifier(source);
+  }
+
+  private boolean isFeelIdentifier(String value) {
+    if (value.isEmpty() || FEEL_KEYWORDS.contains(value)) {
+      return false;
+    }
+    int offset = 0;
+    int codePoint = value.codePointAt(offset);
+    if (!Character.isJavaIdentifierStart(codePoint)) {
+      return false;
+    }
+    offset += Character.charCount(codePoint);
+    while (offset < value.length()) {
+      codePoint = value.codePointAt(offset);
+      if (!Character.isJavaIdentifierPart(codePoint) || Character.isWhitespace(codePoint)) {
+        return false;
+      }
+      offset += Character.charCount(codePoint);
+    }
+    return true;
+  }
+
+  private boolean isFeelStringLiteral(String value) {
+    if (value.length() < 2 || value.charAt(0) != '"' || value.charAt(value.length() - 1) != '"') {
+      return false;
+    }
+    boolean escaped = false;
+    for (int i = 1; i < value.length() - 1; i++) {
+      char character = value.charAt(i);
+      if (escaped) {
+        escaped = false;
+      } else if (character == '\\') {
+        escaped = true;
+      } else if (character == '"') {
+        return false;
+      }
+    }
+    return !escaped;
+  }
+
+  private String toFeelStringLiteral(String value) {
+    String escaped =
+        value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+            .replace("\b", "\\b")
+            .replace("\f", "\\f");
+    return "\"" + escaped + "\"";
   }
 
   private boolean isScript(DomElement element) {
