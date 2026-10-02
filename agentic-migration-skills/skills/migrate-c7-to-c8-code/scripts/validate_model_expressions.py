@@ -36,6 +36,19 @@ def text_content(element):
     return "".join(element.itertext()).strip()
 
 
+def has_feel_script(element):
+    for script in element.iter():
+        script_format = local_attribute(script, "scriptFormat")
+        if (
+            namespace(script.tag) == CAMUNDA_NS
+            and local_name(script.tag) == "script"
+            and script_format is not None
+            and script_format.strip().casefold() == "feel"
+        ):
+            return True
+    return False
+
+
 def is_feel_literal(value):
     candidate = value.strip()
     return (
@@ -124,7 +137,7 @@ def require_prefix(path, element, field, value, parents, errors, context=None):
     if not has_feel_prefix(value):
         location = context or element_context(element, parents)
         errors.append(
-            f"{path}: {location} {field} has a non-literal value without the required leading '='"
+            f"{path}: {location} {field} has a value without the required leading '='"
         )
 
 
@@ -167,7 +180,7 @@ def check_legacy_attributes(root, path, parents, errors):
                 )
 
 
-def check_unprefixed_markers(root, path, parents, errors):
+def check_unprefixed_expression_attributes(root, path, parents, errors):
     expression_attributes = {
         ZEEBE + "input": {"source"},
         ZEEBE + "output": {"source"},
@@ -180,9 +193,14 @@ def check_unprefixed_markers(root, path, parents, errors):
     for element in root.iter():
         for attribute in expression_attributes.get(element.tag, set()):
             value = element.get(attribute)
-            if value and not has_feel_prefix(value) and (
-                "${" in value or "#{" in value
-            ):
+            if value is None:
+                continue
+            needs_expression_prefix = (
+                (element.tag == ZEEBE + "subscription" and attribute == "correlationKey")
+                or "${" in value
+                or "#{" in value
+            )
+            if not has_feel_prefix(value) and needs_expression_prefix:
                 require_prefix(
                     path,
                     element,
@@ -293,6 +311,7 @@ def check_source_expressions(source_root, converted_root, path, errors):
         if not (
             is_dynamic_source(source_value)
             or (language is not None and language.strip().casefold() in FEEL_LANGUAGES)
+            or has_feel_script(source_parameter)
         ):
             continue
         owner = converted_owner(
@@ -470,7 +489,7 @@ def validate_pair(source_path, converted_path):
     converted_parents = parent_index(converted_root)
     check_feel_slots(converted_root, str(converted_path), converted_parents, errors)
     check_legacy_attributes(converted_root, str(converted_path), converted_parents, errors)
-    check_unprefixed_markers(
+    check_unprefixed_expression_attributes(
         converted_root, str(converted_path), converted_parents, errors
     )
     check_source_expressions(source_root, converted_root, str(converted_path), errors)

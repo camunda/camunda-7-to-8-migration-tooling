@@ -534,10 +534,13 @@ in `references/model-migration-approaches.md`.
     The validator pairs C7 input and output expressions with their Zeebe source attributes.
     The validator fails when the converted copy has no Zeebe mapping with the source parameter's
     name as its target.
+    The validator treats C7 input and output parameters with nested
+    `camunda:script scriptFormat="feel"` elements as dynamic expressions.
     The validator requires a leading `=` on each paired dynamic input or output source.
     The validator pairs dynamic `zeebe:subscription/@correlationKey` values with their source
     expressions.
-    The validator requires a leading `=` on each paired dynamic subscription key.
+    The validator requires a leading `=` on each converted
+    `zeebe:subscription/@correlationKey`.
     The validator pairs dynamic `zeebe:calledElement/@processId`, `zeebe:taskDefinition/@type`,
     `zeebe:assignmentDefinition`, and `zeebe:formDefinition/@formId` values with their source
     expressions.

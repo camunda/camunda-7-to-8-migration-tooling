@@ -216,6 +216,57 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode, result.stdout)
                 self.assertIn(expected, result.stderr)
 
+    def test_feel_script_input_output_sources_require_prefixes(self):
+        cases = (
+            (
+                "input",
+                bpmn(
+                    '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+                    '<camunda:inputOutput><camunda:inputParameter name="orderId">'
+                    '<camunda:script scriptFormat="feel">order.id</camunda:script>'
+                    "</camunda:inputParameter></camunda:inputOutput>"
+                    "</bpmn:extensionElements></bpmn:serviceTask>"
+                ),
+                bpmn(
+                    '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+                    '<zeebe:ioMapping><zeebe:input source="order.id" target="orderId"/>'
+                    "</zeebe:ioMapping></bpmn:extensionElements></bpmn:serviceTask>"
+                ),
+            ),
+            (
+                "output",
+                bpmn(
+                    '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+                    '<camunda:inputOutput><camunda:outputParameter name="status">'
+                    '<camunda:script scriptFormat="feel">order.status</camunda:script>'
+                    "</camunda:outputParameter></camunda:inputOutput>"
+                    "</bpmn:extensionElements></bpmn:serviceTask>"
+                ),
+                bpmn(
+                    '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+                    '<zeebe:ioMapping><zeebe:output source="order.status" target="status"/>'
+                    "</zeebe:ioMapping></bpmn:extensionElements></bpmn:serviceTask>"
+                ),
+            ),
+        )
+        for name, source, converted in cases:
+            with self.subTest(name=name):
+                result = self.run_validator(source, converted)
+                self.assertNotEqual(0, result.returncode, result.stdout)
+                self.assertIn("@source", result.stderr)
+                self.assertIn("without the required leading", result.stderr)
+
+    def test_unprefixed_converted_subscription_key_fails_without_source_mapping(self):
+        converted = bpmn(
+            '<bpmn:intermediateCatchEvent id="event"><bpmn:extensionElements>'
+            '<zeebe:subscription correlationKey="order.id"/>'
+            "</bpmn:extensionElements></bpmn:intermediateCatchEvent>"
+        )
+        result = self.run_validator(bpmn(""), converted)
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn("@correlationKey", result.stderr)
+        self.assertIn("without the required leading", result.stderr)
+
     def test_non_feel_source_conditions_require_redesign_even_when_prefixed(self):
         converted = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression>'
@@ -306,7 +357,7 @@ class ModelExpressionPrefixTest(unittest.TestCase):
             "</bpmn:extensionElements></bpmn:userTask>"
             '<bpmn:intermediateCatchEvent id="staticEvent">'
             '<bpmn:extensionElements><zeebe:subscription '
-            'correlationKey="literal-key"/></bpmn:extensionElements>'
+            'correlationKey=\'="literal-key"\'/></bpmn:extensionElements>'
             "</bpmn:intermediateCatchEvent>"
             '<bpmn:serviceTask id="staticMapping"><bpmn:extensionElements>'
             '<zeebe:ioMapping><zeebe:input source="approved" target="source"/>'
