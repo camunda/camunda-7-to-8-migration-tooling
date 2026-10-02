@@ -143,6 +143,74 @@ def converted_owner(source_element, source_parents, converted_ids, path, field, 
     return candidates[0]
 
 
+def converted_conditional_event_definition(
+    source_definition,
+    source_parents,
+    source_ids,
+    converted_ids,
+    path,
+    field,
+    errors,
+):
+    identifier = source_definition.get("id")
+    source_matches = source_ids.get(identifier, []) if identifier else []
+    converted_matches = converted_ids.get(identifier, []) if identifier else []
+    if (
+        len(source_matches) == 1
+        and source_matches[0] is source_definition
+        and len(converted_matches) == 1
+        and converted_matches[0].tag == BPMN + "conditionalEventDefinition"
+    ):
+        return converted_matches[0]
+
+    source_event = conditional_event_owner(source_definition, source_parents)
+    if source_event is None:
+        errors.append(
+            f"{path}: cannot pair the dynamic source {field} with its conditional event"
+        )
+        return None
+    converted_event = converted_owner(
+        source_event, source_parents, converted_ids, path, field, errors
+    )
+    if converted_event is None:
+        return None
+
+    source_definitions = [
+        child
+        for child in source_event
+        if child.tag == BPMN + "conditionalEventDefinition"
+    ]
+    converted_definitions = [
+        child
+        for child in converted_event
+        if child.tag == BPMN + "conditionalEventDefinition"
+    ]
+    if len(source_definitions) != len(converted_definitions):
+        errors.append(
+            f"{path}: conditional-event definition count mismatch for "
+            f"{element_context(source_event, source_parents)}: source has "
+            f"{len(source_definitions)} definition(s), converted has "
+            f"{len(converted_definitions)} definition(s)"
+        )
+        return None
+
+    source_index = next(
+        (
+            index
+            for index, candidate in enumerate(source_definitions)
+            if candidate is source_definition
+        ),
+        None,
+    )
+    if source_index is None:
+        errors.append(
+            f"{path}: cannot pair the dynamic source {field} with its conditional-event "
+            "definition"
+        )
+        return None
+    return converted_definitions[source_index]
+
+
 def require_prefix(path, element, field, value, parents, errors, context=None):
     if not has_feel_prefix(value):
         location = context or element_context(element, parents)
@@ -277,6 +345,7 @@ def check_source_condition(
     source_condition,
     source_owner,
     source_parents,
+    source_ids,
     converted_ids,
     path,
     field,
@@ -293,23 +362,24 @@ def check_source_condition(
     )
     if not dynamic:
         return
-    pairing_source = source_owner
     if (
         field == "condition"
         and source_owner is not None
         and source_owner.tag == BPMN + "conditionalEventDefinition"
     ):
-        definition_id = source_owner.get("id")
-        definition_matches = (
-            converted_ids.get(definition_id, []) if definition_id else []
+        owner = converted_conditional_event_definition(
+            source_owner,
+            source_parents,
+            source_ids,
+            converted_ids,
+            path,
+            field,
+            errors,
         )
-        if len(definition_matches) != 1:
-            event_owner = conditional_event_owner(source_owner, source_parents)
-            if event_owner is not None:
-                pairing_source = event_owner
-    owner = converted_owner(
-        pairing_source, source_parents, converted_ids, path, field, errors
-    )
+    else:
+        owner = converted_owner(
+            source_owner, source_parents, converted_ids, path, field, errors
+        )
     if owner is None:
         return
     targets = list(owner.iter(BPMN + field))
@@ -332,6 +402,7 @@ def check_source_condition(
 
 def check_source_expressions(source_root, converted_root, path, errors):
     source_parents = parent_index(source_root)
+    source_ids = id_index(source_root)
     converted_ids = id_index(converted_root)
 
     for field in ("conditionExpression", "condition"):
@@ -340,6 +411,7 @@ def check_source_expressions(source_root, converted_root, path, errors):
                 source_condition,
                 source_parents.get(source_condition),
                 source_parents,
+                source_ids,
                 converted_ids,
                 path,
                 field,
