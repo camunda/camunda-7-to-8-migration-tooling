@@ -24,9 +24,9 @@ Camunda 8 copies all variables by default.
 | Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each selected value. |
 | No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
 | All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
-| Selected child outputs | Keep child propagation enabled and add a `zeebe:output` for each returned value. |
+| Selected child outputs | Set `propagateAllChildVariables="true"` and add a `zeebe:output` for each returned value. |
 | No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
-| All child outputs | Keep all-child propagation only when C7 returns the same scope. |
+| All child outputs | Set `propagateAllChildVariables="true"` only when C7 returns the same scope. |
 | No compatible mapping | Keep the category **needs review**. Ask the user to decide the scope rather than widening selected inputs. |
 
 Record one row per call activity in `MIGRATION_REPORT.md`: its ID, called process, C7 inputs and
@@ -650,6 +650,8 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - Where the converted BPMN uses a `zeebe:` element or attribute, reuse an existing `zeebe` declaration on `bpmn:definitions` or declare `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` there before writing the converted copy.
+- For each call activity, convert its C7 `camunda:in` and `camunda:out` contract by using [Call-Activity Variable Scope](#call-activity-variable-scope).
+- Set `zeebe:calledElement/@propagateAllChildVariables` explicitly to the table's `true` or `false` value.
 - Where the target version is 8.5 or later, convert every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. Ensure that the task has a `bpmn:extensionElements` container. Create the container when it is missing, then add exactly one `<zeebe:userTask />` child.
 - Where the target version is 8.5 or later and the user task is form-free, still add `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
 - Where the target version is 8.5 or later, preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions.

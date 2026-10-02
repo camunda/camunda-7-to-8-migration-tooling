@@ -522,6 +522,10 @@ in `references/model-migration-approaches.md`.
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
 21. For each call activity, compare the converted scope with its original inputs and outputs.
+    Use a namespace-aware XML parser to check every `bpmn:callActivity` in every
+    `converted-c8-*.bpmn` file. Require its `zeebe:calledElement` to set
+    `propagateAllChildVariables` explicitly to `true` or `false`. Confirm each value matches the
+    original C7 `camunda:out` mappings and the rules in `references/model-migration-approaches.md`.
     Test selected inputs with a parent-only variable, and check child identity independently.
     Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
 22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
