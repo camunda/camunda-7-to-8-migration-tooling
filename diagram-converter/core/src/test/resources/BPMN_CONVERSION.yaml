@@ -349,6 +349,8 @@ categories:
             <bpmn:extensionElements>
               <camunda:inputOutput>
                 <camunda:inputParameter name="identifier">myVar</camunda:inputParameter>
+                <camunda:inputParameter name="contextualKeyword">if</camunda:inputParameter>
+                <camunda:inputParameter name="escapedIdentifier">`my variable`</camunda:inputParameter>
                 <camunda:inputParameter name="text">my given value</camunda:inputParameter>
                 <camunda:inputParameter name="numeric">42</camunda:inputParameter>
                 <camunda:inputParameter name="quoted">"already quoted value"</camunda:inputParameter>
@@ -365,6 +367,8 @@ categories:
             <bpmn:extensionElements>
               <zeebe:ioMapping>
                 <zeebe:input source="=myVar" target="identifier"/>
+                <zeebe:input source="=if" target="contextualKeyword"/>
+                <zeebe:input source="=`my variable`" target="escapedIdentifier"/>
                 <zeebe:input source="=&quot;my given value&quot;" target="text"/>
                 <zeebe:input source="=42" target="numeric"/>
                 <zeebe:input source="=&quot;already quoted value&quot;" target="quoted"/>

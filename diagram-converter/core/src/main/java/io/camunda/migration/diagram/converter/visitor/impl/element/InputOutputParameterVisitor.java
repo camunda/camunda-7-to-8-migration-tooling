@@ -27,24 +27,9 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
   public static final String OUTPUT_PARAMETER = "outputParameter";
   private static final Pattern FEEL_NUMBER_PATTERN =
       Pattern.compile("-?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+  private static final Pattern FEEL_ESCAPED_IDENTIFIER_PATTERN = Pattern.compile("`[^`]+`");
   private static final Set<String> FEEL_KEYWORDS =
-      Set.of(
-          "and",
-          "between",
-          "else",
-          "every",
-          "for",
-          "function",
-          "if",
-          "in",
-          "instance",
-          "not",
-          "of",
-          "or",
-          "return",
-          "satisfies",
-          "some",
-          "then");
+      Set.of("and", "else", "function", "in", "or", "return", "satisfies", "then");
   private static final Set<String> FEEL_LITERAL_VALUES = Set.of("false", "null", "true");
 
   @Override
@@ -117,6 +102,9 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
   }
 
   private boolean isFeelIdentifier(String value) {
+    if (FEEL_ESCAPED_IDENTIFIER_PATTERN.matcher(value).matches()) {
+      return true;
+    }
     if (value.isEmpty() || FEEL_KEYWORDS.contains(value)) {
       return false;
     }
