@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -26,6 +27,50 @@ NAMESPACES = {
 def require(condition, message):
     if not condition:
         raise SystemExit(message)
+
+
+def parse_java_major(version_output):
+    match = re.search(r'\bversion\s+"([^"]+)"', version_output, re.IGNORECASE)
+    require(match is not None, "Could not parse the Java major version from `java -version`.")
+    version = match.group(1)
+    major_text = version.split(".", 1)[1] if version.startswith("1.") else version
+    major = re.match(r"\d+", major_text)
+    require(major is not None, f"Could not parse the Java major version from `{version}`.")
+    return int(major.group(0))
+
+
+def read_java_major(java):
+    try:
+        result = subprocess.run(
+            [str(java), "-version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise SystemExit(f"Cannot run Java at {java}: {error}") from error
+    require(
+        result.returncode == 0,
+        f"`java -version` failed for {java} with exit code {result.returncode}.\n"
+        f"{result.stdout}\n{result.stderr}",
+    )
+    return parse_java_major(result.stderr + result.stdout)
+
+
+def require_supported_java(major, java):
+    require(
+        major >= 21,
+        f"The Diagram Converter CLI requires Java 21 or later. Detected Java {major} at {java}. "
+        "Use a Java 21+ runtime, M2 (agentic AI), or M3 (online converter).",
+    )
+
+
+def require_runtime_matrix(majors):
+    require(21 in majors, "The compatibility matrix must include Java 21.")
+    require(
+        any(major >= 26 for major in majors),
+        "The compatibility matrix must include Java 26 or later.",
+    )
 
 
 def verify_findings(report):
@@ -67,18 +112,29 @@ def verify_converted_copy(path):
     require(not invalid, f"The converted copy retains a start listener on a start event: {path}")
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--java", required=True, type=Path)
-    parser.add_argument("--jar", required=True, type=Path)
-    parser.add_argument("--target-version", required=True)
-    args = parser.parse_args()
+def verify_json_option(java, jar, major):
+    command = [str(java), "-jar", str(jar), "local", "--help"]
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    require(
+        result.returncode == 0,
+        f"Could not read CLI help with Java {major} at {java}.\n"
+        f"Command arguments: {command!r}\n"
+        f"Exit code: {result.returncode}\n{result.stdout}\n{result.stderr}",
+    )
+    require(
+        "--json" in result.stdout + result.stderr,
+        f"CLI release {jar.name} does not support `--json`. Use release 0.3.7 or later. "
+        "This is a CLI capability failure, not a Java compatibility failure.",
+    )
 
-    java = args.java.expanduser()
-    jar = args.jar.resolve()
-    require(java.is_absolute() and java.is_file(), "Pass the validated absolute Java executable.")
-    require(jar.is_file(), f"Converter JAR does not exist: {jar}")
 
+def verify_artifact(java, major, jar, target_version):
+    verify_json_option(java, jar, major)
     fixtures = Path(__file__).resolve().parent / "c7-source"
     with tempfile.TemporaryDirectory(prefix="camunda-cli-artifact-check-") as temporary:
         input_directory = Path(temporary) / "input"
@@ -88,24 +144,30 @@ def main():
             destination.parent.mkdir(parents=True)
             shutil.copyfile(fixtures / filename, destination)
 
+        command = [
+            str(java),
+            "-Dfile.encoding=UTF-8",
+            "-jar",
+            str(jar),
+            "local",
+            str(input_directory),
+            "--platform-version",
+            target_version,
+            "--json",
+        ]
         result = subprocess.run(
-            [
-                str(java),
-                "-Dfile.encoding=UTF-8",
-                "-jar",
-                str(jar),
-                "local",
-                str(input_directory),
-                "--platform-version",
-                args.target_version,
-                "--json",
-            ],
+            command,
             cwd=temporary,
             capture_output=True,
             text=True,
             check=False,
         )
-        require(result.returncode == 0, f"Converter failed:\n{result.stdout}\n{result.stderr}")
+        require(
+            result.returncode == 0,
+            f"Converter failed under Java {major} at {java}.\n"
+            f"Command arguments: {command!r}\n"
+            f"Exit code: {result.returncode}\n{result.stdout}\n{result.stderr}",
+        )
         report_path = input_directory / "analysis-results.json"
         require(report_path.is_file(), f"Converter did not create {report_path}")
         verify_findings(json.loads(report_path.read_text(encoding="utf-8")))
@@ -115,7 +177,44 @@ def main():
             require(converted.is_file(), f"Converter did not create {converted}")
             verify_converted_copy(converted)
 
-    print(f"CLI artifact {jar.name} passed for target {args.target_version}.")
+    print(f"CLI artifact {jar.name} passed under Java {major} at {java}.")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--java",
+        action="append",
+        required=True,
+        type=Path,
+        help="Absolute Java executable. Repeat to test multiple runtimes.",
+    )
+    parser.add_argument("--jar", required=True, type=Path)
+    parser.add_argument("--target-version", required=True)
+    parser.add_argument(
+        "--require-runtime-matrix",
+        action="store_true",
+        help="Require Java 21 and Java 26 or later.",
+    )
+    args = parser.parse_args()
+
+    jar = args.jar.resolve()
+    require(jar.is_file(), f"Converter JAR does not exist: {jar}")
+
+    runtimes = []
+    for candidate in args.java:
+        java = candidate.expanduser()
+        require(java.is_absolute() and java.is_file(), "Pass each Java executable as an absolute path.")
+        java = java.resolve()
+        major = read_java_major(java)
+        require_supported_java(major, java)
+        runtimes.append((java, major))
+
+    if args.require_runtime_matrix:
+        require_runtime_matrix([major for _, major in runtimes])
+
+    for java, major in runtimes:
+        verify_artifact(java, major, jar, args.target_version)
 
 
 if __name__ == "__main__":

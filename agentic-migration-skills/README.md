@@ -116,7 +116,12 @@ Assessment-only and analyze-only runs write `MIGRATION_REPORT.md` but do not edi
 Every assessment also inventories project documentation and existing CI workflows.
 Full migrations update only approved in-scope documentation and assess project readiness.
 
-The Diagram Converter CLI needs Java 21 or later. See the
+The Diagram Converter CLI needs Java 21 or later, with no upper bound.
+Issue #2424 records a successful release 0.3.6 conversion under Java 26.
+OpenRewrite uses a separate Java 21-25 range for code recipes.
+M1 and E1 use the CLI range, not OpenRewrite's Java 25 maximum.
+The JSON report option requires CLI release 0.3.7 or later.
+Release 0.3.6 does not support `--json`. See the
 [Diagram Converter guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)
 for its installation and CLI options. Runtime, history, and identity data migration are outside this
 skill's scope.
@@ -127,7 +132,8 @@ Use this workflow to move a Camunda 7 project with Java code and BPMN/DMN models
 
 1. Start the skill in the project directory. Choose **Code + models** and select the target Camunda 8 version.
 2. Review the code and model inventory. Select a code path based on the code shape and model capability.
-3. Select **Diagram Converter CLI + AI** for models when Java 21+ is available. Otherwise, select **Agentic AI** or **Online Converter**.
+3. Select **Diagram Converter CLI + AI** when a Java 21+ runtime is available, regardless of the
+   code-phase runtime. Otherwise, select **Agentic AI** or **Online Converter**.
 4. The selected local model path writes converted copies. The CLI path checks Java and downloads the converter first.
 5. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
 6. After converted model copies are available, the skill applies the selected code path, resolves
@@ -162,7 +168,7 @@ before claiming parity, separately from compilation, worker registration, and in
 
 | Approach | What it does |
 |----------|-------------|
-| **[Diagram Converter CLI](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Deterministic. Produces converted files plus a JSON/XLSX analysis. Needs Java 21+ |
+| **[Diagram Converter CLI](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/)** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Produces converted files plus JSON/XLSX reports. Needs Java 21 or later, including Java 26. |
 | **Agentic AI** | AI rewrites the BPMN/DMN XML directly. Use it when Java 21 is unavailable, or when you want to review every change |
 | **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/). No local Java needed |
 
@@ -240,6 +246,9 @@ directory, and tests command capture, run isolation, process coverage, and timer
 The `fixtures/spring-boot-maven-wiring` walkthrough checks BPMN and DMN deployment patterns
 against the executable JAR. The `fixtures/start-event-listener-artifact` walkthrough checks a
 selected converter JAR against start-listener findings and a no-listener control.
+The `fixtures/java-runtime-compatibility` fixture checks phase-specific Java requirements and CLI
+error attribution. The start-event listener fixture can run the released CLI on Java 21 and a newer
+JDK when both runtimes are available.
 The `fixtures/spring-boot-web-topology` walkthrough checks an application on
 port `8081` while its Camunda 8 cluster uses port `8080`. It tests application
 health, process start through an application endpoint, and the absence of the

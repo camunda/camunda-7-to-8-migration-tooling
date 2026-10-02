@@ -11,14 +11,18 @@ version that the migration run selected:
 ```sh
 python3 -m unittest -v test_verify_cli_artifact.py
 python3 verify_cli_artifact.py \
-  --java /path/to/validated-jdk/bin/java \
+  --java /path/to/jdk-21/bin/java \
+  --java /path/to/jdk-26/bin/java \
+  --require-runtime-matrix \
   --jar /path/to/camunda-7-to-8-diagram-converter-cli-<tag>.jar \
   --target-version 8.9
 ```
 
-Use the Java executable, JAR, and target version selected by the migration run.
-The probe runs both models from one directory. It requires a distinct, blocking
-`TASK` finding for each source implementation and none for the control.
+Use release 0.3.7 or later because it supports `--json`. Release 0.3.6 does not.
+Pass Java 21 and a newer runtime, such as Java 26 or the latest runtime available in CI.
+The probe checks each runtime version and runs the same released JAR under each one.
+The probe runs both models from one directory. It requires a distinct, blocking `TASK`
+finding for each source implementation and none for the control.
 It accepts platform path separators but requires the complete relative path.
 It also rejects a converted copy with a `start` listener on any start event.
 Release 0.3.8 predates the fix in #2841 and fails this check.

@@ -56,9 +56,10 @@ When no local model files found: keep Code only as default recommendation. Offer
 
 Include only if code files present and user selected code migration. Options:
 - A. OpenRewrite (recipe-assisted) + AI - use for repeated, supported, syntactic transformations or a
-  deterministic first diff. Expect scaffolding, TODOs, and cleanup.
+  deterministic first diff. Recipes require Java 21-25. Expect scaffolding, TODOs, and cleanup.
 - B. AI only (AI-first, recommended with a capable coding model) - use for semantic, mixed, or
-  complex code. Use it when OpenRewrite cannot run. Model quality affects the result.
+  complex code. Use it when OpenRewrite cannot run. This path has no skill-level Java requirement.
+  Model quality affects the result.
 - C. Assessment only - scan codebase and produce report, no code changes
 
 ---
@@ -68,13 +69,20 @@ Include only if code files present and user selected code migration. Options:
 Include only if user selected model migration.
 
 ### If local model files found (show M1-M3):
-- M1. Diagram Converter CLI (deterministic) + AI (recommended) - requires Java 21+, produces converted files plus analysis reports
-- M2. Agentic AI - AI rewrites BPMN/DMN XML directly. Use when Java 21 unavailable.
-- M3. Online Diagram Converter (hosted) - upload at https://diagram-converter.camunda.io/
+- M1. Diagram Converter CLI (deterministic) + AI (recommended) - requires Java 21 or later with no
+  upper bound. Produces converted files and analysis reports.
+- M2. Agentic AI - rewrites BPMN/DMN XML directly. No local Java is required.
+- M3. Online Diagram Converter (hosted) - use https://diagram-converter.camunda.io/. No local Java is required.
 
 ### If no local model files found (show E1-E2):
-- E1. Camunda 7 engine (recommended) - fetch definitions from C7 REST API
+- E1. Camunda 7 engine (recommended) - fetch definitions from C7 REST API, then use M1's Java
+  requirement for the local CLI.
 - E2. Provide a model path - wait for user to provide another file/directory
+
+For Code + models, preflight Java separately for each selected phase.
+M1 and E1 use Java 21 or later. OpenRewrite uses Java 21-25.
+Approach B, M2, and M3 do not require Java for their selected paths.
+Preflight a separate M1 or E1 phase on its own.
 
 ## Question 5a - Model Execution Mode
 

@@ -102,6 +102,12 @@ Set `REWRITE_COMMAND` to the matching build command:
 
 ### Java compatibility and Spotless
 
+This Java check applies only to OpenRewrite Approach A.
+It does not limit M1, E1, M2, or M3.
+For Code + models, choose a runtime for each phase separately.
+If no compatible code runtime exists, ask for one or select Approach B.
+Do not block M1 or E1 when its CLI runtime meets the model requirement.
+
 1. Run `java -version` from `PATH`, capture stderr, and record the major version. Show the executable:
    `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java` in Windows
    Command Prompt.
