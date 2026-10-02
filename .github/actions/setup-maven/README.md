@@ -2,7 +2,9 @@
 
 ## Intro
 
-A Maven setup wrapper to setup a specific Maven version + Java version + GitHub Cache + Camunda-Nexus cache
+A Maven setup wrapper that configures a specific Maven and Java version, GitHub Cache, and
+Camunda-Nexus cache. It reuses Maven on the runner when its version matches `maven-version`;
+otherwise, it installs the requested version.
 
 See [setup-java](https://github.com/actions/setup-java) for possible distribution keywords or how to define java versions.
 
