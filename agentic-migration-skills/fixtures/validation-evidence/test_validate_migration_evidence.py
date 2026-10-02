@@ -869,6 +869,43 @@ class ValidationEvidenceTest(unittest.TestCase):
             location.split("/")[-1].split(":")[0] for location in hits
         })
 
+    def test_due_date_scan_finds_live_setters_after_non_nested_block_comments(self):
+        suffixes = (".java", ".js", ".jsx", ".ts", ".tsx", ".cjs", ".mjs",
+                    ".cts", ".mts", ".groovy")
+        for suffix in suffixes:
+            (self.root / "app" / f"Timer{suffix}").write_text(
+                "/* comment with another opener /* */\n"
+                "managementService.setJobDuedate(jobId, dueDate);\n",
+                encoding="utf-8",
+            )
+        hits = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual(
+            {f"Timer{suffix}" for suffix in suffixes},
+            {location.rsplit("/", 1)[1].split(":")[0] for location in hits},
+        )
+
+    def test_due_date_scan_keeps_kotlin_and_scala_nested_comments(self):
+        for suffix in (".kt", ".kts", ".scala"):
+            (self.root / "app" / f"Timer{suffix}").write_text(
+                "/* outer /* nested */ setJobDuedate(commented, date); */\n"
+                "managementService.setJobDuedate(jobId, dueDate);\n",
+                encoding="utf-8",
+            )
+        hits = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual(3, len(hits))
+        self.assertTrue(all(location.rsplit(":", 2)[1] == "2" for location in hits))
+
+    def test_due_date_scan_skips_http_line_comments_without_masking_urls(self):
+        (self.root / "app" / "requests.http").write_text(
+            "# GET http://localhost/job/old/duedate\n"
+            "  // GET http://localhost/job/commented/duedate\n"
+            "GET http://localhost/job/active/duedate\n"
+            "GET http://localhost/job/*/duedate\n",
+            encoding="utf-8",
+        )
+        hits = gate.requirements(self.root, self.plan).update_hits["app"]
+        self.assertEqual([3, 4], [int(location.rsplit(":", 2)[1]) for location in hits])
+
     def test_due_date_scan_accepts_quoted_property_keys(self):
         (self.root / "app" / "Timer.js").write_text(
             "obj['duedate']; obj[\"duedate\"]; obj[`duedate`];\n",

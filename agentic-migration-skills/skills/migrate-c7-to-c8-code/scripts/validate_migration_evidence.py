@@ -40,6 +40,7 @@ SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     "build", "dist", "node_modules", "target"}
 CODE_SUFFIXES = {".cjs", ".cts", ".groovy", ".http", ".java", ".js", ".jsx",
                  ".kt", ".kts", ".mjs", ".mts", ".scala", ".ts", ".tsx"}
+NESTED_BLOCK_COMMENT_SUFFIXES = {".kt", ".kts", ".scala"}
 DUE_DATE_HINT = re.compile(r"""\bsetJobDuedate\b|/duedate\b|['"`]duedate['"`]""", re.I)
 TARGET_VERSION = re.compile(r"8\.\d+\.\d+\Z")
 
@@ -252,7 +253,7 @@ def source_without_comments(text, suffix):
     string_delimiter = None
     while index < len(text):
         if block_comment_depth:
-            if text.startswith("/*", index):
+            if suffix in NESTED_BLOCK_COMMENT_SUFFIXES and text.startswith("/*", index):
                 characters[index : index + 2] = "  "
                 block_comment_depth += 1
                 index += 2
@@ -272,13 +273,14 @@ def source_without_comments(text, suffix):
                 string_delimiter = None
             else:
                 index += 1
-        elif suffix != ".http" and text.startswith("//", index) and not (
-            index > 0 and text[index - 1] == ":"
+        elif text.startswith("//", index) and (
+            (suffix != ".http" and (index == 0 or text[index - 1] != ":"))
+            or (suffix == ".http" and not text[text.rfind("\n", 0, index) + 1:index].strip())
         ):
             while index < len(text) and text[index] not in "\r\n":
                 characters[index] = " "
                 index += 1
-        elif text.startswith("/*", index):
+        elif suffix != ".http" and text.startswith("/*", index):
             characters[index : index + 2] = "  "
             block_comment_depth = 1
             index += 2
