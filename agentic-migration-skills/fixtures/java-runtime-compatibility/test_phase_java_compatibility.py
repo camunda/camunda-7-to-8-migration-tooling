@@ -72,10 +72,6 @@ class PhaseJavaCompatibilityTest(unittest.TestCase):
         model = normalized(MODEL_PATH)
         for guidance in (skill, model):
             self.assertIn(
-                "set `java_home` to the validated jdk home that contains the selected `bin/java` executable",
-                guidance,
-            )
-            self.assertIn(
                 "set `path` to `<java_home>/bin` followed by the existing `path`",
                 guidance,
             )
@@ -98,6 +94,30 @@ class PhaseJavaCompatibilityTest(unittest.TestCase):
         readme = normalized(README_PATH)
         self.assertIn("the json report option requires cli release 0.3.7 or later", readme)
         self.assertIn("release 0.3.6 does not support `--json`", readme)
+
+    def test_java_phase_environment_uses_a_verified_runtime_home(self):
+        for path in (SKILL_PATH, MODEL_PATH, CODE_PATH):
+            with self.subTest(path=path):
+                guidance = normalized(path)
+                self.assertIn(
+                    "read the `java.home` property from the selected executable's "
+                    "`-xshowsettings:properties -version` output",
+                    guidance,
+                )
+                self.assertIn("use that property value as the candidate `java_home`", guidance)
+                self.assertIn("never derive it from the executable path", guidance)
+                self.assertIn(
+                    "before setting the phase environment, run `<java_home>/bin/java -version` "
+                    "and confirm that it reports the same major as the selected executable",
+                    guidance,
+                )
+                self.assertIn(
+                    "if the property is missing or its `bin/java` is missing or reports a "
+                    "different major, ask for another jdk",
+                    guidance,
+                )
+                self.assertIn("set `java_home` to the validated property value", guidance)
+                self.assertIn("on windows, use `<java_home>\\bin\\java.exe`", guidance)
 
 
 if __name__ == "__main__":

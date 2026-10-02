@@ -122,7 +122,12 @@ These rules apply to every later step.
 - Select Java separately for each migration phase.
 - Before each Java-dependent phase, resolve its Java executable to an absolute path.
 - Run `-version` on that executable and record its actual major version.
-- Set `JAVA_HOME` to the validated JDK home that contains the selected `bin/java` executable.
+- Read the `java.home` property from the selected executable's `-XshowSettings:properties -version` output.
+- Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
+- Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it
+  reports the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
+- If the property is missing or its `bin/java` is missing or reports a different major, ask for another JDK.
+- Set `JAVA_HOME` to the validated property value.
 - Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use
   `<JAVA_HOME>\bin`.
 - Apply both values only to that phase's process. Never edit shell profiles or global environment

@@ -89,7 +89,12 @@ If several compatible JDK homes exist, choose the lowest version.
 Prefer Java 21 for reproducible runs. (SHOULD)
 Use the validated absolute executable for every CLI invocation.
 Never replace it with bare `java` or another executable.
-Set `JAVA_HOME` to the validated JDK home that contains the selected `bin/java` executable.
+Read the `java.home` property from the selected executable's `-XshowSettings:properties -version` output.
+Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
+Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it reports
+the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
+If the property is missing or its `bin/java` is missing or reports a different major, ask for another JDK.
+Set `JAVA_HOME` to the validated property value.
 Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use `<JAVA_HOME>\bin`.
 Apply both values only to the M1 or E1 process when needed.
 Never edit the user's shell profile or global Java configuration.
