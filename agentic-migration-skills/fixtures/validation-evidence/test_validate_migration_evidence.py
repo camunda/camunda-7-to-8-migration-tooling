@@ -825,6 +825,19 @@ class ValidationEvidenceTest(unittest.TestCase):
             location.split("/")[-1].split(":")[0] for location in hits
         })
 
+    def test_due_date_scan_accepts_quoted_property_keys(self):
+        (self.root / "app" / "Timer.js").write_text(
+            "obj['duedate']; obj[\"duedate\"]; obj[`duedate`];\n",
+            encoding="utf-8",
+        )
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        snapshot = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        self.assertEqual(
+            ["duedate"] * 3, list(snapshot["source_updates"]["app"].values())
+        )
+        self.assertEqual([], gate.requirements(self.root, self.plan).issues)
+
     def test_active_timer_gate_requires_mapping_and_runtime_evidence(self):
         key = self.install_active_timer_decision()
         plan = gate.requirements(self.root, self.plan)
@@ -861,6 +874,60 @@ class ValidationEvidenceTest(unittest.TestCase):
                 ("module", "app", "active_timer_updates", None),
                 action="review", disposition="mixed",
             )
+
+    def test_active_timer_gate_maps_one_source_helper_to_distinct_callers(self):
+        key = self.install_active_timer_decision()
+        (self.root / "app" / "Timer.java").write_text(
+            "terminationDateUpdater.update(projectId, dueDate);\n" * 2,
+            encoding="utf-8",
+        )
+        callers = self.plan["active_timer_update_decision"]["updates"][0]["caller_mappings"]
+        callers.append({
+            **callers[0], "migrated_caller_location": "app/Timer.java:2:1",
+        })
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        plan = gate.requirements(self.root, self.plan)
+        self.assertEqual([], plan.issues)
+        self.assertEqual(2, len(plan.active_timer_decisions[key[1]]["caller_mappings"]))
+        self.assertEqual(0, self.submit(
+            ("module", "app", "active_timer_updates", None),
+            action="review",
+        ))
+
+    def test_active_timer_gate_cannot_reuse_a_source_helper_for_different_timers(self):
+        self.install_active_timer_decision()
+        second = {
+            **self.plan["models"][0],
+            "source_path": "models/other.bpmn",
+            "path": "models/converted-c8-other.bpmn",
+        }
+        self.plan["models"].append(second)
+        self.plan["deployment_sets"].append({
+            "name": "other", "modules": ["app"], "models": [second["path"]],
+        })
+        for path in (second["source_path"], second["path"]):
+            (self.root / path).write_text(message_rearm_bpmn(), encoding="utf-8")
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["models"].append(second["source_path"])
+        write_json(self.root / gate.INVENTORY, inventory)
+        (self.root / "app" / "Timer.java").write_text(
+            "terminationDateUpdater.update(projectId, dueDate);\n" * 2,
+            encoding="utf-8",
+        )
+        updates = self.plan["active_timer_update_decision"]["updates"]
+        updates.append({
+            **updates[0],
+            "model_path": second["path"],
+            "caller_mappings": [{
+                **updates[0]["caller_mappings"][0],
+                "migrated_caller_location": "app/Timer.java:2:1",
+            }],
+        })
+        write_json(self.root / gate.EVIDENCE, self.plan)
+        self.assertEqual(
+            ["A due-date location cannot map to different timers"],
+            gate.requirements(self.root, self.plan).issues,
+        )
 
     def test_active_timer_gate_rejects_retained_setters_after_moving(self):
         self.install_active_timer_decision()

@@ -329,7 +329,7 @@ def scan_module(root, module, module_paths, hashes):
             for match in DUE_DATE_HINT.finditer(scan_text):
                 line = scan_text.count("\n", 0, match.start()) + 1
                 column = match.start() - scan_text.rfind("\n", 0, match.start())
-                hits[f"{relative}:{line}:{column}"] = match.group(0).casefold().lstrip("'\"`")
+                hits[f"{relative}:{line}:{column}"] = match.group(0).casefold().strip("'\"`")
     return hits
 
 
@@ -753,7 +753,7 @@ def requirements(root, evidence):
                 "a concrete reference, target version, and timer mapping"
             )
         else:
-            seen_locations = set()
+            source_targets = {}
             seen_migrated_caller_locations = set()
             for entry in decision["updates"]:
                 if not isinstance(entry, dict):
@@ -865,7 +865,6 @@ def requirements(root, evidence):
                 ):
                     issues.append(f"{target}: conflicting active timer update decisions")
                     continue
-                used_locations = set(seen_locations)
                 valid_callers = []
                 for caller in caller_mappings:
                     if not isinstance(caller, dict):
@@ -934,9 +933,12 @@ def requirements(root, evidence):
                             f"{module}: migrated caller location does not identify current module source code"
                         )
                         continue
-                    if any(location in used_locations for location in source_locations):
+                    if any(
+                        source_targets.get((module, location), target) != target
+                        for location in source_locations
+                    ):
                         issues.append(
-                            "A due-date location can map to only one migrated caller and timer"
+                            "A due-date location cannot map to different timers"
                         )
                         continue
                     if migrated_caller_location in seen_migrated_caller_locations:
@@ -944,7 +946,6 @@ def requirements(root, evidence):
                             f"{module}: migrated caller location can map to only one due-date caller"
                         )
                         continue
-                    used_locations.update(source_locations)
                     seen_migrated_caller_locations.add(migrated_caller_location)
                     valid_callers.append(
                         {
@@ -965,7 +966,8 @@ def requirements(root, evidence):
                     if caller["module"] not in active_decision["modules"]:
                         active_decision["modules"].append(caller["module"])
                     active_decision["caller_mappings"].append(caller)
-                    seen_locations.update(caller["source_locations"])
+                    for location in caller["source_locations"]:
+                        source_targets[(caller["module"], location)] = target
                     active_timer_locations.setdefault(caller["module"], set()).update(
                         caller["source_locations"]
                     )

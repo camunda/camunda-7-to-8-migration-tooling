@@ -181,9 +181,11 @@ Each `caller_mappings` entry must identify one migrated caller and its module. E
 `migrated_caller_location` must identify current source code in the mapped module. Inspect each
 caller and confirm that it sends the mapped message, correlation key, and date variable. Use a
 separate mapping for each migrated caller, even when several callers rearm the same timer. The gate
-retains all caller mappings under the shared timer decision. A C7 due-date call that remains at a
-mapped source location blocks readiness. If the mapped source file retains the same due-date
-operation, then the gate also blocks readiness after line or argument changes.
+retains all caller mappings under the shared timer decision. The gate accepts a shared source helper
+location for distinct callers of the same timer. It rejects a source location mapped to different
+timers. A C7 due-date call that remains at a mapped source location blocks readiness. If the mapped
+source file retains the same due-date operation, then the gate also blocks readiness after line or
+argument changes.
 When an unrelated non-timer call shares that file and operation, the gate cannot distinguish it.
 Keep readiness blocked until the project separates those calls.
 
