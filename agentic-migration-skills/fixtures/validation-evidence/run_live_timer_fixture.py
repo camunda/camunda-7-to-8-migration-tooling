@@ -97,7 +97,10 @@ def main():
     for artifact in (SESSION_FILE, OBSERVATION):
         if artifact.is_symlink():
             raise RuntimeError(f"Refusing to overwrite symlinked fixture artifact: {artifact}")
-        artifact.unlink(missing_ok=True)
+    if SESSION_FILE.exists():
+        cleanup_session(session_id())
+        SESSION_FILE.unlink()
+    OBSERVATION.unlink(missing_ok=True)
 
     result = None
     failure = None
@@ -125,8 +128,7 @@ def main():
         if result is not None and result.returncode:
             raise RuntimeError(f"Maven exited {result.returncode}; cleanup failed: {exc}") from exc
         raise
-    finally:
-        SESSION_FILE.unlink(missing_ok=True)
+    SESSION_FILE.unlink(missing_ok=True)
     if failure is not None:
         raise failure
     if result.returncode:
@@ -169,5 +171,5 @@ if __name__ == "__main__":
         print(f"Live timer fixture failed: {exc}", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
-        print("Live timer fixture interrupted after scoped cleanup", file=sys.stderr)
+        print("Live timer fixture interrupted; cleanup may need a retry", file=sys.stderr)
         sys.exit(130)

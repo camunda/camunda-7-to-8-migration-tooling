@@ -1595,6 +1595,81 @@ class LiveTimerFixtureRunnerTest(unittest.TestCase):
             self.assertFalse(session_file.exists())
             docker.assert_any_call("container", "rm", "--force", "owned")
 
+    def test_interrupted_or_failed_cleanup_keeps_session_for_retry(self):
+        for operation, error in (
+            ("session_id", KeyboardInterrupt()),
+            ("cleanup_session", KeyboardInterrupt()),
+            ("cleanup_session", RuntimeError("Docker unavailable")),
+        ):
+            with (
+                self.subTest(operation=operation, error=type(error).__name__),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                session_file = Path(directory) / "session"
+                session = str(uuid.uuid4())
+
+                def complete_maven(*args, **kwargs):
+                    session_file.write_text(session, encoding="utf-8")
+                    return subprocess.CompletedProcess(args, 1, "Maven failed\n", "")
+
+                with (
+                    patch.object(runner, "SESSION_FILE", session_file),
+                    patch.object(runner, "OBSERVATION", Path(directory) / "observation"),
+                    patch.object(runner, "require_java_21"),
+                    patch.object(runner, "docker", return_value="Docker ready"),
+                    patch.object(runner.subprocess, "run", side_effect=complete_maven),
+                    patch.object(runner, operation, side_effect=error),
+                    redirect_stdout(StringIO()),
+                    redirect_stderr(StringIO()),
+                ):
+                    with self.assertRaises(type(error)):
+                        runner.main()
+                self.assertEqual(session, session_file.read_text(encoding="utf-8"))
+
+    def test_fixture_reconciles_previous_session_before_new_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session_file = Path(directory) / "session"
+            previous = str(uuid.uuid4())
+            current = str(uuid.uuid4())
+            session_file.write_text(previous, encoding="utf-8")
+
+            def complete_maven(*args, **kwargs):
+                self.assertFalse(session_file.exists())
+                session_file.write_text(current, encoding="utf-8")
+                return subprocess.CompletedProcess(args, 1, "Maven failed\n", "")
+
+            with (
+                patch.object(runner, "SESSION_FILE", session_file),
+                patch.object(runner, "OBSERVATION", Path(directory) / "observation"),
+                patch.object(runner, "require_java_21"),
+                patch.object(runner, "docker", return_value="Docker ready"),
+                patch.object(runner.subprocess, "run", side_effect=complete_maven),
+                patch.object(runner, "cleanup_session") as cleanup,
+                redirect_stdout(StringIO()),
+                redirect_stderr(StringIO()),
+            ):
+                self.assertEqual(1, runner.main())
+            self.assertEqual([call(previous), call(current)], cleanup.call_args_list)
+            self.assertFalse(session_file.exists())
+
+    def test_failed_previous_session_cleanup_blocks_new_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session_file = Path(directory) / "session"
+            session = str(uuid.uuid4())
+            session_file.write_text(session, encoding="utf-8")
+            with (
+                patch.object(runner, "SESSION_FILE", session_file),
+                patch.object(runner, "OBSERVATION", Path(directory) / "observation"),
+                patch.object(runner, "require_java_21"),
+                patch.object(runner, "docker", return_value="Docker ready"),
+                patch.object(runner.subprocess, "run") as maven,
+                patch.object(runner, "cleanup_session", side_effect=RuntimeError("Docker unavailable")),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "Docker unavailable"):
+                    runner.main()
+            self.assertEqual(session, session_file.read_text(encoding="utf-8"))
+            maven.assert_not_called()
+
     def test_successful_fixture_emits_gate_observation_contract(self):
         with tempfile.TemporaryDirectory() as directory:
             session_file = Path(directory) / "session"

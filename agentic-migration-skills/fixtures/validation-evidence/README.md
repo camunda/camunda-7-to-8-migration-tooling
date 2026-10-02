@@ -28,6 +28,8 @@ The runner reads the Testcontainers session ID and removes only matching Camunda
 after Maven exits, including on failure or interruption. It verifies that none remain and does not
 remove containers from other sessions. If it cannot identify the session or confirm cleanup, it
 fails rather than reporting a successful disposable test.
+If cleanup fails or is interrupted, the runner keeps the session ID. On the next run, it retries
+cleanup for that session before starting a new fixture.
 
 Use Java 21, Maven, and a running Docker daemon. From the repository root, run:
 
