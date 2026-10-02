@@ -216,6 +216,53 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode, result.stdout)
                 self.assertIn(expected, result.stderr)
 
+    def test_nested_task_mappings_do_not_satisfy_subprocess_parameters(self):
+        cases = (
+            (
+                "input",
+                bpmn(
+                    '<bpmn:subProcess id="parent"><bpmn:extensionElements>'
+                    '<camunda:inputOutput><camunda:inputParameter name="orderId">'
+                    "${order.id}</camunda:inputParameter></camunda:inputOutput>"
+                    "</bpmn:extensionElements></bpmn:subProcess>"
+                ),
+                bpmn(
+                    '<bpmn:subProcess id="parent"><bpmn:serviceTask id="child">'
+                    "<bpmn:extensionElements><zeebe:ioMapping>"
+                    '<zeebe:input source="=order.id" target="orderId"/>'
+                    "</zeebe:ioMapping></bpmn:extensionElements>"
+                    "</bpmn:serviceTask></bpmn:subProcess>"
+                ),
+                "zeebe:input",
+            ),
+            (
+                "output",
+                bpmn(
+                    '<bpmn:subProcess id="parent"><bpmn:extensionElements>'
+                    '<camunda:inputOutput><camunda:outputParameter name="status">'
+                    "${order.status}</camunda:outputParameter></camunda:inputOutput>"
+                    "</bpmn:extensionElements></bpmn:subProcess>"
+                ),
+                bpmn(
+                    '<bpmn:subProcess id="parent"><bpmn:serviceTask id="child">'
+                    "<bpmn:extensionElements><zeebe:ioMapping>"
+                    '<zeebe:output source="=order.status" target="status"/>'
+                    "</zeebe:ioMapping></bpmn:extensionElements>"
+                    "</bpmn:serviceTask></bpmn:subProcess>"
+                ),
+                "zeebe:output",
+            ),
+        )
+
+        for name, source, converted, expected in cases:
+            with self.subTest(name=name):
+                result = self.run_validator(source, converted)
+                self.assertNotEqual(0, result.returncode, result.stdout)
+                self.assertIn(
+                    f"subProcess#parent is missing the converted {expected}",
+                    result.stderr,
+                )
+
     def test_feel_script_input_output_sources_require_prefixes(self):
         cases = (
             (

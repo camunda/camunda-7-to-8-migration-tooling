@@ -493,8 +493,10 @@ def check_source_expressions(source_root, converted_root, path, errors):
         target_name = source_parameter.get("name")
         targets = [
             element
-            for element in owner.iter()
-            if element.tag == target_tag and element.get("target") == target_name
+            for extension_elements in owner.findall(BPMN + "extensionElements")
+            for io_mapping in extension_elements.findall(ZEEBE + "ioMapping")
+            for element in io_mapping.findall(target_tag)
+            if element.get("target") == target_name
         ]
         if not targets:
             errors.append(
