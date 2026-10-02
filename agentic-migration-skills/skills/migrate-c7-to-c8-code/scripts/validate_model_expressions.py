@@ -298,6 +298,13 @@ def check_source_expressions(source_root, converted_root, path, errors):
             for element in owner.iter()
             if element.tag == target_tag and element.get("target") == target_name
         ]
+        if not targets:
+            errors.append(
+                f"{path}: {element_context(owner, {})} is missing the converted "
+                f"zeebe:{local_name(target_tag)} mapping for {parameter_tag} "
+                f"named {target_name!r}"
+            )
+            continue
         for target in targets:
             value = target.get("source")
             if value is None:

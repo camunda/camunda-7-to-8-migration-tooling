@@ -9,6 +9,8 @@ The validator pairs source and converted elements by BPMN XML ID for dynamic
 input/output mappings, subscription keys, task types, call targets, assignments,
 and form IDs. It does not treat static values such as
 `candidateGroups="approvers"` as expressions.
+The validator rejects a dynamic input/output mapping when the converted copy has
+no target with the source parameter's name.
 
 Run the regression tests from the repository root:
 
