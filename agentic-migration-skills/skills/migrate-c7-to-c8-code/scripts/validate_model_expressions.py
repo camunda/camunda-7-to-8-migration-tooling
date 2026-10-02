@@ -94,6 +94,15 @@ def nearest_bpmn_id(element, parents):
     return None
 
 
+def conditional_event_owner(element, parents):
+    current = element
+    while current is not None:
+        if namespace(current.tag) == BPMN_NS and local_name(current.tag).endswith("Event"):
+            return current
+        current = parents.get(current)
+    return None
+
+
 def element_context(element, parents):
     current = element
     while current is not None:
@@ -284,8 +293,22 @@ def check_source_condition(
     )
     if not dynamic:
         return
+    pairing_source = source_owner
+    if (
+        field == "condition"
+        and source_owner is not None
+        and source_owner.tag == BPMN + "conditionalEventDefinition"
+    ):
+        definition_id = source_owner.get("id")
+        definition_matches = (
+            converted_ids.get(definition_id, []) if definition_id else []
+        )
+        if len(definition_matches) != 1:
+            event_owner = conditional_event_owner(source_owner, source_parents)
+            if event_owner is not None:
+                pairing_source = event_owner
     owner = converted_owner(
-        source_owner, source_parents, converted_ids, path, field, errors
+        pairing_source, source_parents, converted_ids, path, field, errors
     )
     if owner is None:
         return

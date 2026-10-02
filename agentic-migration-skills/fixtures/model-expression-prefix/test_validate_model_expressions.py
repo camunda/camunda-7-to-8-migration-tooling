@@ -400,6 +400,32 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 result = self.run_validator(source, converted)
                 self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_conditional_event_conditions_fall_back_for_duplicate_definition_ids(self):
+        source = bpmn(
+            '<bpmn:boundaryEvent id="firstEvent">'
+            '<bpmn:conditionalEventDefinition id="duplicateDefinition">'
+            '<bpmn:condition language="feel">first.wait</bpmn:condition>'
+            "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+            '<bpmn:boundaryEvent id="secondEvent">'
+            '<bpmn:conditionalEventDefinition id="duplicateDefinition">'
+            '<bpmn:condition language="feel">second.wait</bpmn:condition>'
+            "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+        )
+        converted = bpmn(
+            '<bpmn:boundaryEvent id="firstEvent">'
+            '<bpmn:conditionalEventDefinition id="generatedDefinitionOne">'
+            "<bpmn:condition>=first.wait</bpmn:condition>"
+            "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+            '<bpmn:boundaryEvent id="secondEvent">'
+            '<bpmn:conditionalEventDefinition id="generatedDefinitionTwo">'
+            "<bpmn:condition>=second.wait</bpmn:condition>"
+            "</bpmn:conditionalEventDefinition></bpmn:boundaryEvent>"
+        )
+
+        result = self.run_validator(source, converted)
+
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_prefixed_expressions_and_static_values_pass(self):
         source = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
