@@ -532,6 +532,8 @@ in `references/model-migration-approaches.md`.
     as literals.
     The validator requires a leading `=` for every non-literal `bpmn:conditionExpression` value.
     The validator pairs C7 input and output expressions with their Zeebe source attributes.
+    The validator fails when the converted copy has no Zeebe mapping with the source parameter's
+    name as its target.
     The validator requires a leading `=` on each paired dynamic input or output source.
     The validator pairs dynamic `zeebe:subscription/@correlationKey` values with their source
     expressions.

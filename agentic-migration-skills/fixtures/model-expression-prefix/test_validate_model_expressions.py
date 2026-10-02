@@ -160,6 +160,62 @@ class ModelExpressionPrefixTest(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode, result.stdout)
                 self.assertIn(expected, result.stderr)
 
+    def test_dynamic_input_output_mappings_must_have_matching_targets(self):
+        input_source = bpmn(
+            '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+            '<camunda:inputOutput><camunda:inputParameter name="orderId">'
+            "${order.id}</camunda:inputParameter></camunda:inputOutput>"
+            "</bpmn:extensionElements></bpmn:serviceTask>"
+        )
+        output_source = bpmn(
+            '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+            '<camunda:inputOutput><camunda:outputParameter name="status">'
+            "${order.status}</camunda:outputParameter></camunda:inputOutput>"
+            "</bpmn:extensionElements></bpmn:serviceTask>"
+        )
+        cases = (
+            (
+                "missing input",
+                input_source,
+                bpmn('<bpmn:serviceTask id="task"/>'),
+                "zeebe:input",
+            ),
+            (
+                "renamed input",
+                input_source,
+                bpmn(
+                    '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+                    '<zeebe:ioMapping><zeebe:input source="=order.id" '
+                    'target="renamed"/></zeebe:ioMapping></bpmn:extensionElements>'
+                    "</bpmn:serviceTask>"
+                ),
+                "zeebe:input",
+            ),
+            (
+                "missing output",
+                output_source,
+                bpmn('<bpmn:serviceTask id="task"/>'),
+                "zeebe:output",
+            ),
+            (
+                "renamed output",
+                output_source,
+                bpmn(
+                    '<bpmn:serviceTask id="task"><bpmn:extensionElements>'
+                    '<zeebe:ioMapping><zeebe:output source="=order.status" '
+                    'target="renamed"/></zeebe:ioMapping></bpmn:extensionElements>'
+                    "</bpmn:serviceTask>"
+                ),
+                "zeebe:output",
+            ),
+        )
+
+        for name, source, converted, expected in cases:
+            with self.subTest(name=name):
+                result = self.run_validator(source, converted)
+                self.assertNotEqual(0, result.returncode, result.stdout)
+                self.assertIn(expected, result.stderr)
+
     def test_prefixed_expressions_and_static_values_pass(self):
         source = bpmn(
             '<bpmn:sequenceFlow id="flow"><bpmn:conditionExpression '
