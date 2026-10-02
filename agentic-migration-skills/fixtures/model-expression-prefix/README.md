@@ -13,8 +13,12 @@ The validator pairs source and converted elements by BPMN XML ID for dynamic
 input/output mappings, subscription keys, task types, call targets, assignments,
 and form IDs. It does not treat static values such as
 `candidateGroups="approvers"` as expressions.
+The validator treats input and output parameters with nested
+`camunda:script scriptFormat="feel"` elements as dynamic expressions.
 The validator rejects a dynamic input/output mapping when the converted copy has
 no target with the source parameter's name.
+Every converted `zeebe:subscription/@correlationKey` requires a leading `=`,
+including a key that has no matching source subscription.
 
 Run the regression tests from the repository root:
 
