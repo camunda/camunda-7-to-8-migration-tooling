@@ -531,7 +531,7 @@ in `references/model-migration-approaches.md`.
     For condition expressions, the validator treats booleans, numbers, `null`, and quoted strings
     as literals.
     The validator requires a leading `=` for every non-literal condition expression with no
-    language attribute (default JUEL) or `language="feel"`.
+    language attribute (default JUEL), `language="juel"`, or `language="feel"`.
     If a source or converted condition declares another language, then the validator reports a
     blocking redesign finding instead of checking for a FEEL prefix.
     The validator pairs C7 input and output expressions with their Zeebe source attributes.
