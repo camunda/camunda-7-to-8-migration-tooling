@@ -30,6 +30,8 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
       Pattern.compile("-?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
   private static final Pattern FEEL_ESCAPED_IDENTIFIER_PATTERN = Pattern.compile("`[^`]+`");
   private static final Set<String> FEEL_LITERAL_VALUES = Set.of("false", "null", "true");
+  private static final Set<Character> FEEL_PARSER_WHITESPACE =
+      Set.of('\u0085', '\u180E', '\u200B', '\uFEFF');
 
   @Override
   public boolean canBeTransformed(DomElementVisitorContext context) {
@@ -109,7 +111,9 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     }
     for (int i = 1; i < value.length(); i++) {
       char character = value.charAt(i);
-      if (!Character.isJavaIdentifierPart(character) || Character.isWhitespace(character)) {
+      if (!Character.isJavaIdentifierPart(character)
+          || Character.isWhitespace(character)
+          || FEEL_PARSER_WHITESPACE.contains(character)) {
         return false;
       }
     }

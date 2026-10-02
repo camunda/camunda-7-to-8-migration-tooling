@@ -455,6 +455,30 @@ categories:
               </zeebe:ioMapping>
             </bpmn:extensionElements>
           </bpmn:serviceTask>
+      - name: FEEL-specific Unicode whitespace is quoted in static input values
+        givenBpmn: |
+          <bpmn:serviceTask id="FeelUnicodeWhitespaceParameter">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="nextLine">foo&#x85;bar</camunda:inputParameter>
+                <camunda:inputParameter name="mongolianVowelSeparator">foo&#x180E;bar</camunda:inputParameter>
+                <camunda:inputParameter name="zeroWidthSpace">foo&#x200B;bar</camunda:inputParameter>
+                <camunda:inputParameter name="zeroWidthNoBreakSpace">foo&#xFEFF;bar</camunda:inputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="FeelUnicodeWhitespaceParameter" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=&quot;foo&#x85;bar&quot;" target="nextLine"/>
+                <zeebe:input source="=&quot;foo&#x180E;bar&quot;" target="mongolianVowelSeparator"/>
+                <zeebe:input source="=&quot;foo&#x200B;bar&quot;" target="zeroWidthSpace"/>
+                <zeebe:input source="=&quot;foo&#xFEFF;bar&quot;" target="zeroWidthNoBreakSpace"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
   - category: Listener
     cases:
       - name: Execution Listener on start event
