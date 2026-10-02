@@ -89,7 +89,9 @@ If several compatible JDK homes exist, choose the lowest version.
 Prefer Java 21 for reproducible runs. (SHOULD)
 Use the validated absolute executable for every CLI invocation.
 Never replace it with bare `java` or another executable.
-Set `JAVA_HOME` and `PATH` only for the M1 or E1 process when needed.
+Set `JAVA_HOME` to the validated JDK home that contains the selected `bin/java` executable.
+Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use `<JAVA_HOME>\bin`.
+Apply both values only to the M1 or E1 process when needed.
 Never edit the user's shell profile or global Java configuration.
 
 > The Diagram Converter CLI requires Java 21 or later. Detected: `<major version or "not found">`.

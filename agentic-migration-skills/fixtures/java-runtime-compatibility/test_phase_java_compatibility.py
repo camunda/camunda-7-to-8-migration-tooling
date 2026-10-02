@@ -64,13 +64,25 @@ class PhaseJavaCompatibilityTest(unittest.TestCase):
     def test_m1_records_the_runtime_and_offers_alternatives(self):
         skill = normalized(SKILL_PATH)
         self.assertIn("run `-version` on that executable and record its actual major version", skill)
-        self.assertIn("set `java_home` and prepend `path` only for that phase's process", skill)
         self.assertIn("never edit shell profiles or global environment settings", skill)
         self.assertIn("record the applicable java range, executable, actual major", skill)
         self.assertIn("record its arguments, exit code, stdout, and stderr", skill)
         self.assertIn("unless the java launcher failed", skill)
 
         model = normalized(MODEL_PATH)
+        for guidance in (skill, model):
+            self.assertIn(
+                "set `java_home` to the validated jdk home that contains the selected `bin/java` executable",
+                guidance,
+            )
+            self.assertIn(
+                "set `path` to `<java_home>/bin` followed by the existing `path`",
+                guidance,
+            )
+            self.assertIn("on windows, use `<java_home>\\bin`", guidance)
+
+        self.assertIn("apply both values only to that phase's process", skill)
+        self.assertIn("apply both values only to the m1 or e1 process when needed", model)
         self.assertIn("if the probe fails or the output has no major version", model)
         self.assertIn("do not guess the java version", model)
         self.assertIn("record `java 21+ (no upper bound)`, the executable path, and the actual major", model)

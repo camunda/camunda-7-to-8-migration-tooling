@@ -122,8 +122,11 @@ These rules apply to every later step.
 - Select Java separately for each migration phase.
 - Before each Java-dependent phase, resolve its Java executable to an absolute path.
 - Run `-version` on that executable and record its actual major version.
-- Set `JAVA_HOME` and prepend `PATH` only for that phase's process. Never edit shell profiles or
-  global environment settings.
+- Set `JAVA_HOME` to the validated JDK home that contains the selected `bin/java` executable.
+- Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use
+  `<JAVA_HOME>\bin`.
+- Apply both values only to that phase's process. Never edit shell profiles or global environment
+  settings.
 - Apply a mapping unasked only when it is an unambiguous 1:1 mapping.
 - Ask before changing a high-complexity file or an edge case.
 
