@@ -343,7 +343,7 @@ categories:
         expectedMessages: |
           <conversion:message severity="REVIEW">in, Parameter: 'input': Please review transformed expression: 'input' -&gt; '=input'.</conversion:message>
           <conversion:message severity="REVIEW">out, Parameter: 'output': Please review transformed expression: 'output' -&gt; '=output'.</conversion:message>
-      - name: Static input/output parameters preserve names and quote FEEL keywords
+      - name: Static input/output parameters quote reserved words and preserve contextual names
         givenBpmn: |
           <bpmn:serviceTask id="StaticParameterValues">
             <bpmn:extensionElements>
@@ -386,15 +386,15 @@ categories:
             <bpmn:extensionElements>
               <zeebe:ioMapping>
                 <zeebe:input source="=myVar" target="identifier"/>
-                <zeebe:input source="=&quot;if&quot;" target="reservedIf"/>
-                <zeebe:input source="=&quot;for&quot;" target="reservedFor"/>
-                <zeebe:input source="=&quot;some&quot;" target="reservedSome"/>
-                <zeebe:input source="=&quot;every&quot;" target="reservedEvery"/>
-                <zeebe:input source="=&quot;not&quot;" target="reservedNot"/>
-                <zeebe:input source="=&quot;between&quot;" target="reservedBetween"/>
-                <zeebe:input source="=&quot;instance&quot;" target="reservedInstance"/>
-                <zeebe:input source="=&quot;of&quot;" target="reservedOf"/>
-                <zeebe:input source="=&quot;external&quot;" target="reservedExternal"/>
+                <zeebe:input source="=if" target="reservedIf"/>
+                <zeebe:input source="=for" target="reservedFor"/>
+                <zeebe:input source="=some" target="reservedSome"/>
+                <zeebe:input source="=every" target="reservedEvery"/>
+                <zeebe:input source="=not" target="reservedNot"/>
+                <zeebe:input source="=between" target="reservedBetween"/>
+                <zeebe:input source="=instance" target="reservedInstance"/>
+                <zeebe:input source="=of" target="reservedOf"/>
+                <zeebe:input source="=external" target="reservedExternal"/>
                 <zeebe:input source="=&quot;and&quot;" target="reservedAnd"/>
                 <zeebe:input source="=&quot;else&quot;" target="reservedElse"/>
                 <zeebe:input source="=&quot;function&quot;" target="reservedFunction"/>
@@ -414,6 +414,24 @@ categories:
                 <zeebe:input source="=&quot;C:\\work\\file&quot;" target="backslash"/>
                 <zeebe:input source="=&quot;legacy.method()&quot;" target="methodText"/>
                 <zeebe:output source="=&quot;completed successfully&quot;" target="text"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+      - name: Whitespace-only static input values are preserved
+        givenBpmn: |
+          <bpmn:serviceTask id="WhitespaceOnlyParameter">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="whitespace">   </camunda:inputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="WhitespaceOnlyParameter" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=&quot;   &quot;" target="whitespace"/>
               </zeebe:ioMapping>
             </bpmn:extensionElements>
           </bpmn:serviceTask>

@@ -13,23 +13,14 @@ public final class FeelReservedWords {
   private static final Set<String> RESERVED_WORDS =
       Set.of(
           "and",
-          "between",
           "else",
-          "every",
-          "external",
           "false",
-          "for",
           "function",
-          "if",
           "in",
-          "instance",
-          "not",
           "null",
-          "of",
           "or",
           "return",
           "satisfies",
-          "some",
           "then",
           "true");
 

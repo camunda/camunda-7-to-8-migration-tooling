@@ -56,9 +56,9 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     // be converted to FEEL, keep the original JUEL wrapper (${...}/#{...}) for manual follow-up.
     String source = transformationResult.result();
     // The transformer leaves unwrapped static values unchanged, but an I/O mapping requires FEEL.
-    boolean staticValue = isStaticValue(expression, source);
-    if (staticValue && !isValidFeelValue(source.strip())) {
-      source = toFeelStringLiteral(source);
+    boolean staticValue = isStaticValue(expression);
+    if (staticValue) {
+      source = isValidFeelValue(expression.strip()) ? expression : toFeelStringLiteral(expression);
     }
     if (shouldPrefixFeelMarker(source, transformationResult, staticValue)) {
       source = "=" + source;
@@ -86,11 +86,8 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
         || !(transformationResult.hasMethodInvocation() || transformationResult.hasExecutionOnly());
   }
 
-  private boolean isStaticValue(String expression, String source) {
-    return source != null
-        && source.equals(expression)
-        && !expression.contains("${")
-        && !expression.contains("#{");
+  private boolean isStaticValue(String expression) {
+    return !expression.isEmpty() && !expression.contains("${") && !expression.contains("#{");
   }
 
   private boolean isValidFeelValue(String source) {
