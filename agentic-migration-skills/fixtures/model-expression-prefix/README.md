@@ -5,13 +5,18 @@ the required leading `=`. It also covers leftover BPMN expression-language
 attributes. The regression tests use synthetic source and converted XML in a
 temporary directory.
 
-The validator checks non-literal values for a leading `=` when the condition
-language is missing, JUEL, or FEEL. Other explicit condition languages are
-blocking redesign findings, even when a converted condition has a leading `=`.
+The validator defaults a missing condition language to JUEL. It requires a
+leading `=` on converted conditions for source expressions declared as JUEL or
+FEEL, or for unlabelled dynamic expressions. It treats unlabelled booleans,
+numbers, `null`, and quoted strings without expression markers as static
+literals. Other explicit condition languages are blocking redesign findings,
+even when a converted condition has a leading `=`.
 
-The validator pairs source and converted elements by BPMN XML ID for dynamic
-input/output mappings, subscription keys, task types, call targets, assignments,
-and form IDs. It does not treat static values such as
+The validator pairs dynamic condition expressions by their owning sequence
+flow's BPMN XML ID. It does not require an optional condition-expression ID to
+survive conversion. It pairs source and converted elements by BPMN XML ID for
+dynamic input/output mappings, subscription keys, task types, call targets,
+assignments, and form IDs. It does not treat static values such as
 `candidateGroups="approvers"` as expressions.
 The validator treats input and output parameters with nested
 `camunda:script scriptFormat="feel"` elements as dynamic expressions.

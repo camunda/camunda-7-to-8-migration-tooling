@@ -525,12 +525,15 @@ in `references/model-migration-approaches.md`.
 
     The skill supplies one `--pair` argument for every in-scope BPMN or DMN model.
     The validator parses each pair with a namespace-aware XML parser.
-    For condition expressions, the validator treats booleans, numbers, `null`, and quoted strings
-    as literals.
-    The validator requires a leading `=` for every non-literal condition expression with no
-    language attribute (default JUEL), `language="juel"`, or `language="feel"`.
-    If a source or converted condition declares another language, then the validator reports a
-    blocking redesign finding instead of checking for a FEEL prefix.
+    The validator applies the first matching row to each condition expression:
+
+    | Language attribute | Source value | Validator action |
+    | --- | --- | --- |
+    | Other than `juel` or `feel` on either copy | Any | Report a blocking redesign finding. |
+    | `juel` or `feel` on the source | Any | Require a leading `=` on the converted expression. |
+    | Missing or blank (default JUEL) | Starts with `=`, contains `${` or `#{`, or is another non-empty non-literal value | Require a leading `=` on the converted expression. |
+    | Missing or blank (default JUEL) | Boolean, number, `null`, or quoted string without those markers | Treat the value as a literal. Do not require a leading `=`. |
+    | Missing or blank (default JUEL) | Empty | Do not check the source as a dynamic condition. |
     The validator pairs C7 input and output expressions with their Zeebe source attributes.
     The validator fails when the converted copy has no Zeebe mapping with the source parameter's
     name as its target.

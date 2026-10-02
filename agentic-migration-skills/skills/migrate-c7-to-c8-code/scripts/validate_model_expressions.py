@@ -270,8 +270,9 @@ def check_source_expressions(source_root, converted_root, path, errors):
         )
         if not dynamic:
             continue
+        source_flow = source_parents.get(source_condition)
         owner = converted_owner(
-            source_condition,
+            source_flow,
             source_parents,
             converted_ids,
             path,
