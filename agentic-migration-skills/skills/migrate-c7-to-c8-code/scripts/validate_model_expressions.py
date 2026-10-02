@@ -211,6 +211,34 @@ def converted_conditional_event_definition(
     return converted_definitions[source_index]
 
 
+def converted_condition_owner(
+    source_owner,
+    source_parents,
+    source_ids,
+    converted_ids,
+    path,
+    field,
+    errors,
+):
+    if (
+        field == "condition"
+        and source_owner is not None
+        and source_owner.tag == BPMN + "conditionalEventDefinition"
+    ):
+        return converted_conditional_event_definition(
+            source_owner,
+            source_parents,
+            source_ids,
+            converted_ids,
+            path,
+            field,
+            errors,
+        )
+    return converted_owner(
+        source_owner, source_parents, converted_ids, path, field, errors
+    )
+
+
 def require_prefix(path, element, field, value, parents, errors, context=None):
     if not has_feel_prefix(value):
         location = context or element_context(element, parents)
@@ -219,10 +247,15 @@ def require_prefix(path, element, field, value, parents, errors, context=None):
         )
 
 
-def check_condition_language(path, element, parents, errors):
+def has_supported_condition_language(element):
     language = local_attribute(element, "language")
     normalized_language = language.strip().casefold() if language is not None else ""
-    if not normalized_language or normalized_language in FEEL_LANGUAGES:
+    return not normalized_language or normalized_language in FEEL_LANGUAGES
+
+
+def check_condition_language(path, element, parents, errors):
+    language = local_attribute(element, "language")
+    if has_supported_condition_language(element):
         return True
     errors.append(
         f"{path}: {element_context(element, parents)} {local_name(element.tag)} uses "
@@ -232,11 +265,13 @@ def check_condition_language(path, element, parents, errors):
     return False
 
 
-def check_feel_slots(root, path, parents, errors):
+def check_feel_slots(root, path, parents, errors, paired_conditions):
     for element in root.iter():
         if element.tag not in CONDITION_TAGS:
             continue
         if not check_condition_language(path, element, parents, errors):
+            continue
+        if element in paired_conditions:
             continue
         value = text_content(element)
         if value and not is_feel_literal(value):
@@ -350,24 +385,11 @@ def check_source_condition(
     path,
     field,
     errors,
+    paired_conditions,
 ):
     value = text_content(source_condition)
-    language = local_attribute(source_condition, "language")
     if not check_condition_language(path, source_condition, source_parents, errors):
-        return
-    dynamic = (
-        is_dynamic_source(value)
-        or (language is not None and language.strip().casefold() in FEEL_LANGUAGES)
-        or (value and not is_feel_literal(value))
-    )
-    if not dynamic:
-        return
-    if (
-        field == "condition"
-        and source_owner is not None
-        and source_owner.tag == BPMN + "conditionalEventDefinition"
-    ):
-        owner = converted_conditional_event_definition(
+        owner = converted_condition_owner(
             source_owner,
             source_parents,
             source_ids,
@@ -376,10 +398,26 @@ def check_source_condition(
             field,
             errors,
         )
-    else:
-        owner = converted_owner(
-            source_owner, source_parents, converted_ids, path, field, errors
-        )
+        if owner is not None:
+            paired_conditions.update(owner.iter(BPMN + field))
+        return
+    language = local_attribute(source_condition, "language")
+    dynamic = (
+        is_dynamic_source(value)
+        or (language is not None and language.strip().casefold() in FEEL_LANGUAGES)
+        or (value and not is_feel_literal(value))
+    )
+    if not dynamic:
+        return
+    owner = converted_condition_owner(
+        source_owner,
+        source_parents,
+        source_ids,
+        converted_ids,
+        path,
+        field,
+        errors,
+    )
     if owner is None:
         return
     targets = list(owner.iter(BPMN + field))
@@ -389,6 +427,9 @@ def check_source_condition(
         )
         return
     for target in targets:
+        paired_conditions.add(target)
+        if not has_supported_condition_language(target):
+            continue
         require_prefix(
             path,
             target,
@@ -404,6 +445,7 @@ def check_source_expressions(source_root, converted_root, path, errors):
     source_parents = parent_index(source_root)
     source_ids = id_index(source_root)
     converted_ids = id_index(converted_root)
+    paired_conditions = set()
 
     for field in ("conditionExpression", "condition"):
         for source_condition in source_root.iter(BPMN + field):
@@ -416,6 +458,7 @@ def check_source_expressions(source_root, converted_root, path, errors):
                 path,
                 field,
                 errors,
+                paired_conditions,
             )
 
     for source_parameter in source_root.iter():
@@ -591,6 +634,7 @@ def check_source_expressions(source_root, converted_root, path, errors):
                 "zeebe:formDefinition/@formId",
                 errors,
             )
+    return paired_conditions
 
 
 def validate_pair(source_path, converted_path):
@@ -607,12 +651,20 @@ def validate_pair(source_path, converted_path):
         return [f"{converted_path}: cannot parse converted XML: {error}"]
 
     converted_parents = parent_index(converted_root)
-    check_feel_slots(converted_root, str(converted_path), converted_parents, errors)
+    paired_conditions = check_source_expressions(
+        source_root, converted_root, str(converted_path), errors
+    )
+    check_feel_slots(
+        converted_root,
+        str(converted_path),
+        converted_parents,
+        errors,
+        paired_conditions,
+    )
     check_legacy_attributes(converted_root, str(converted_path), converted_parents, errors)
     check_unprefixed_expression_attributes(
         converted_root, str(converted_path), converted_parents, errors
     )
-    check_source_expressions(source_root, converted_root, str(converted_path), errors)
     return list(dict.fromkeys(errors))
 
 
