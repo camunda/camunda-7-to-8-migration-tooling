@@ -515,16 +515,46 @@ in `references/model-migration-approaches.md`.
     decision-log entry in `MIGRATION_REPORT.md` with the source file and element, original
     implementation, emitted type, and rationale. Treat a mismatch without that entry as a
     validation failure.
-20. Every executable process has a test that starts it directly, with the normal inputs and without
+20. When the model uses M2, the skill runs the expression-prefix validator for every source and
+    converted pair:
+
+    ```sh
+    python3 "<skill-directory>/scripts/validate_model_expressions.py" \
+      --pair "<source.bpmn>" "<converted-c8-source.bpmn>"
+    ```
+
+    The skill supplies one `--pair` argument for every in-scope BPMN or DMN model.
+    The validator parses each pair with a namespace-aware XML parser.
+    For condition expressions, the validator treats booleans, numbers, `null`, and quoted strings
+    as literals.
+    The validator requires a leading `=` for every non-literal `bpmn:conditionExpression` value.
+    The validator pairs C7 input and output expressions with their Zeebe source attributes.
+    The validator requires a leading `=` on each paired dynamic input or output source.
+    The validator pairs dynamic `zeebe:subscription/@correlationKey` values with their source
+    expressions.
+    The validator requires a leading `=` on each paired dynamic subscription key.
+    The validator pairs dynamic `zeebe:calledElement/@processId`, `zeebe:taskDefinition/@type`,
+    `zeebe:assignmentDefinition`, and `zeebe:formDefinition/@formId` values with their source
+    expressions.
+    The validator requires a leading `=` on each paired dynamic value.
+    The validator rejects every `language="feel"` and `language="juel"` attribute.
+    The validator rejects every BPMN `expressionLanguage` attribute.
+    The validator does not check DMN `expressionLanguage` attributes.
+    The skill preserves valid DMN expression languages.
+    The skill records the command, exit code, source and converted paths, and each finding in
+    `MIGRATION_REPORT.md`.
+    If the validator exits nonzero, then the skill fixes each finding and reruns it before marking
+    any model row passed.
+21. Every executable process has a test that starts it directly, with the normal inputs and without
     each input that a worker may not receive. Coverage through a call activity does not count,
     because the parent can supply variables that a direct start lacks. If a process is not a valid
     standalone entry point, then `MIGRATION_REPORT.md` records the process ID, the reason, and the
     covering test. A process with neither fails validation. For each failing scenario, record the
     process ID, inputs, failing element, job type, and incident message.
-21. For each call activity, compare the converted scope with its original inputs and outputs.
+22. For each call activity, compare the converted scope with its original inputs and outputs.
     Test selected inputs with a parent-only variable, and check child identity independently.
     Record each contract in `MIGRATION_REPORT.md`. Keep incompatible or untested calls **needs review**.
-22. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+23. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
     version. Apply step 3b in `references/model-migration-approaches.md` to every source start
     listener and converted copy.
 
@@ -534,7 +564,7 @@ in `references/model-migration-approaches.md`.
     | Missing, downgraded, duplicate, or unmatched finding, or invalid placement | Block automatic compatibility. Add a source-derived `TASK` finding for each uncovered listener. It is not a converter match. Use a patched release or request approval for manual follow-up. |
     | A worker exists but the artifact or follow-up fails | Keep model readiness blocked. A worker does not validate listener placement. |
 
-23. **Target deployment** — when the user authorizes a test target, verify its profile and version
+24. **Target deployment** — when the user authorizes a test target, verify its profile and version
     as described in `references/model-migration-approaches.md`. Deploy explicit converted BPMN and
     DMN paths with accepted `.form` paths and their owning BPMN in the same request. Use
     `c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
