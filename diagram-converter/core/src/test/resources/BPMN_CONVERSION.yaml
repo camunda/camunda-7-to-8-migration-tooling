@@ -343,6 +343,142 @@ categories:
         expectedMessages: |
           <conversion:message severity="REVIEW">in, Parameter: 'input': Please review transformed expression: 'input' -&gt; '=input'.</conversion:message>
           <conversion:message severity="REVIEW">out, Parameter: 'output': Please review transformed expression: 'output' -&gt; '=output'.</conversion:message>
+      - name: Static input/output parameters quote reserved words and preserve contextual names
+        givenBpmn: |
+          <bpmn:serviceTask id="StaticParameterValues">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="identifier">myVar</camunda:inputParameter>
+                <camunda:inputParameter name="reservedIf">if</camunda:inputParameter>
+                <camunda:inputParameter name="reservedFor">for</camunda:inputParameter>
+                <camunda:inputParameter name="reservedSome">some</camunda:inputParameter>
+                <camunda:inputParameter name="reservedEvery">every</camunda:inputParameter>
+                <camunda:inputParameter name="reservedNot">not</camunda:inputParameter>
+                <camunda:inputParameter name="reservedBetween">between</camunda:inputParameter>
+                <camunda:inputParameter name="reservedInstance">instance</camunda:inputParameter>
+                <camunda:inputParameter name="reservedOf">of</camunda:inputParameter>
+                <camunda:inputParameter name="reservedExternal">external</camunda:inputParameter>
+                <camunda:inputParameter name="reservedAnd">and</camunda:inputParameter>
+                <camunda:inputParameter name="reservedElse">else</camunda:inputParameter>
+                <camunda:inputParameter name="reservedFunction">function</camunda:inputParameter>
+                <camunda:inputParameter name="reservedIn">in</camunda:inputParameter>
+                <camunda:inputParameter name="reservedOr">or</camunda:inputParameter>
+                <camunda:inputParameter name="reservedReturn">return</camunda:inputParameter>
+                <camunda:inputParameter name="reservedSatisfies">satisfies</camunda:inputParameter>
+                <camunda:inputParameter name="reservedThen">then</camunda:inputParameter>
+                <camunda:inputParameter name="literalFalse">false</camunda:inputParameter>
+                <camunda:inputParameter name="literalNull">null</camunda:inputParameter>
+                <camunda:inputParameter name="literalTrue">true</camunda:inputParameter>
+                <camunda:inputParameter name="escapedIdentifier">`my variable`</camunda:inputParameter>
+                <camunda:inputParameter name="text">my given value</camunda:inputParameter>
+                <camunda:inputParameter name="numeric">42</camunda:inputParameter>
+                <camunda:inputParameter name="quoted">"already quoted value"</camunda:inputParameter>
+                <camunda:inputParameter name="embeddedQuote">say "hello"</camunda:inputParameter>
+                <camunda:inputParameter name="backslash">C:\work\file</camunda:inputParameter>
+                <camunda:inputParameter name="methodText">legacy.method()</camunda:inputParameter>
+                <camunda:outputParameter name="text">completed successfully</camunda:outputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="StaticParameterValues" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=myVar" target="identifier"/>
+                <zeebe:input source="=if" target="reservedIf"/>
+                <zeebe:input source="=for" target="reservedFor"/>
+                <zeebe:input source="=some" target="reservedSome"/>
+                <zeebe:input source="=every" target="reservedEvery"/>
+                <zeebe:input source="=not" target="reservedNot"/>
+                <zeebe:input source="=between" target="reservedBetween"/>
+                <zeebe:input source="=instance" target="reservedInstance"/>
+                <zeebe:input source="=of" target="reservedOf"/>
+                <zeebe:input source="=external" target="reservedExternal"/>
+                <zeebe:input source="=&quot;and&quot;" target="reservedAnd"/>
+                <zeebe:input source="=&quot;else&quot;" target="reservedElse"/>
+                <zeebe:input source="=&quot;function&quot;" target="reservedFunction"/>
+                <zeebe:input source="=&quot;in&quot;" target="reservedIn"/>
+                <zeebe:input source="=&quot;or&quot;" target="reservedOr"/>
+                <zeebe:input source="=&quot;return&quot;" target="reservedReturn"/>
+                <zeebe:input source="=&quot;satisfies&quot;" target="reservedSatisfies"/>
+                <zeebe:input source="=&quot;then&quot;" target="reservedThen"/>
+                <zeebe:input source="=false" target="literalFalse"/>
+                <zeebe:input source="=null" target="literalNull"/>
+                <zeebe:input source="=true" target="literalTrue"/>
+                <zeebe:input source="=`my variable`" target="escapedIdentifier"/>
+                <zeebe:input source="=&quot;my given value&quot;" target="text"/>
+                <zeebe:input source="=42" target="numeric"/>
+                <zeebe:input source="=&quot;already quoted value&quot;" target="quoted"/>
+                <zeebe:input source="=&quot;say \&quot;hello\&quot;&quot;" target="embeddedQuote"/>
+                <zeebe:input source="=&quot;C:\\work\\file&quot;" target="backslash"/>
+                <zeebe:input source="=&quot;legacy.method()&quot;" target="methodText"/>
+                <zeebe:output source="=&quot;completed successfully&quot;" target="text"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+      - name: Whitespace-only static input values are preserved
+        givenBpmn: |
+          <bpmn:serviceTask id="WhitespaceOnlyParameter">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="whitespace">   </camunda:inputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="WhitespaceOnlyParameter" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=&quot;   &quot;" target="whitespace"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+      - name: Supplementary Unicode code points are quoted in static input values
+        givenBpmn: |
+          <bpmn:serviceTask id="SupplementaryUnicodeParameter">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="supplementaryStart">𐐀</camunda:inputParameter>
+                <camunda:inputParameter name="supplementaryPart">value𐐀</camunda:inputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="SupplementaryUnicodeParameter" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=&quot;𐐀&quot;" target="supplementaryStart"/>
+                <zeebe:input source="=&quot;value𐐀&quot;" target="supplementaryPart"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+      - name: FEEL-specific Unicode whitespace is quoted in static input values
+        givenBpmn: |
+          <bpmn:serviceTask id="FeelUnicodeWhitespaceParameter">
+            <bpmn:extensionElements>
+              <camunda:inputOutput>
+                <camunda:inputParameter name="nextLine">foo&#x85;bar</camunda:inputParameter>
+                <camunda:inputParameter name="mongolianVowelSeparator">foo&#x180E;bar</camunda:inputParameter>
+                <camunda:inputParameter name="zeroWidthSpace">foo&#x200B;bar</camunda:inputParameter>
+                <camunda:inputParameter name="zeroWidthNoBreakSpace">foo&#xFEFF;bar</camunda:inputParameter>
+              </camunda:inputOutput>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: ""
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="FeelUnicodeWhitespaceParameter" implementation="##WebService" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:ioMapping>
+                <zeebe:input source="=&quot;foo&#x85;bar&quot;" target="nextLine"/>
+                <zeebe:input source="=&quot;foo&#x180E;bar&quot;" target="mongolianVowelSeparator"/>
+                <zeebe:input source="=&quot;foo&#x200B;bar&quot;" target="zeroWidthSpace"/>
+                <zeebe:input source="=&quot;foo&#xFEFF;bar&quot;" target="zeroWidthNoBreakSpace"/>
+              </zeebe:ioMapping>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
   - category: Listener
     cases:
       - name: Execution Listener on start event
