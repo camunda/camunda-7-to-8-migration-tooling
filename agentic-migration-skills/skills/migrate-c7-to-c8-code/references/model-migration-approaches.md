@@ -77,19 +77,34 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 ### 1. Java 21+ Prerequisite (fail fast)
 
 Resolve the `java` executable selected from `PATH` to an absolute path.
-Run `-version` on that path.
-Record its absolute path and actual major version.
-The Diagram Converter CLI requires major version `21` or higher.
-Do not apply the OpenRewrite upper bound.
-If `PATH` has no Java executable or its major version is below 21, ask the user for another JDK home.
+Run `-version` on that exact path and capture its exit code and output.
+Record `Java 21+ (no upper bound)`, the executable path, and the actual major in `MIGRATION_REPORT.md`.
+If the probe fails or the output has no major version, ask for another executable.
+Do not guess the Java version.
+The Diagram Converter CLI supports Java 21 or later with no upper bound.
+Issue #2424 records a successful release 0.3.6 conversion under Java 26.
+Do not apply OpenRewrite's Java 21-25 limit to this phase.
+Do not run or require a repository build to preflight M1 or E1.
+Invoke the released CLI directly with the validated Java executable.
+If `PATH` has no Java executable or its major version is below 21, ask the user for another Java home.
 Resolve that home to `bin/java` (Windows: `bin/java.exe`).
-Run `-version` on that exact path.
+Run `-version` on that exact executable and record its actual major version.
 If several compatible JDK homes exist, choose the lowest version.
 Prefer Java 21 for reproducible runs. (SHOULD)
-Use the validated absolute executable for every converter invocation.
-Never replace it with bare `java` or a different executable.
+Use the validated absolute executable for every CLI invocation.
+Never replace it with bare `java` or another executable.
+Read the `java.home` property from the selected executable's `-XshowSettings:properties -version` output.
+Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
+Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it reports
+the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
+If the property is missing or its `bin/java` is missing or reports a different major, ask for another JDK.
+Set `JAVA_HOME` to the validated property value.
+Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use `<JAVA_HOME>\bin`.
+Apply both values only to the M1 or E1 process when needed.
+Never edit the user's shell profile or global Java configuration.
 
-> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
+> The Diagram Converter CLI requires Java 21 or later. Detected: `<major version or "not found">`.
+> Provide a Java 21+ home, choose M2 (agentic AI), or choose M3 (online converter).
 
 Never silently skip model migration.
 
@@ -100,8 +115,9 @@ The CLI is published as a self-contained executable JAR named `camunda-7-to-8-di
 1. Determine the latest release tag.
 2. Ensure `.camunda-migration/` exists in the project root.
 3. Compute the target path: `.camunda-migration/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
-4. If that JAR exists, reuse it.
+4. If that JAR exists and its `local --help` lists `--json`, reuse it.
 5. Otherwise download from `https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
+6. Run `local --help` with the validated Java executable and confirm that the selected JAR lists `--json`.
 
 The JAR is ~30 MB. The skill records its release tag and exact path with the target version in
 `MIGRATION_REPORT.md`. A latest release tag alone does not prove that the selected artifact supports
@@ -109,9 +125,14 @@ each detected model pattern. Where the project is a git repo, the skill recommen
 `.camunda-migration/` to `.gitignore`. (SHOULD) The skill modifies `.gitignore` only after the user
 confirms.
 
+Release 0.3.6 does not support `--json`. Release 0.3.7 introduced this option.
+If the latest release does not list `--json`, stop and report a CLI capability blocker.
+Do not describe an unsupported option as a Java compatibility failure.
+
 ### 3. Run the Converter
 
-The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
+The CLI local subcommand accepts a single file or a directory (recursive by default).
+Always pass `--platform-version` set to the target version from the interview.
 
 ```
 "<java-executable>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
@@ -120,7 +141,10 @@ The CLI local subcommand accepts a single file or a directory (recursive by defa
 On Windows PowerShell, prefix the command with the call operator: `& "<java-executable>" ...`. Set `<java-executable>` to the validated absolute path from step 1.
 
 Recommended flags:
-- `--json` - always pass this. The JSON report is the machine-readable input for step 5. It needs a CLI release with the flag (0.3.6 or later). If the run fails with `Unknown option: '--json'`, the JAR predates it. Re-resolve the latest release (step 2).
+- `--json` - always pass this. Step 5 reads this report as JSON.
+  Releases 0.3.7 and later support the flag.
+  If the selected JAR rejects it, record the release tag and exact error.
+  Classify this as a CLI capability failure, not a Java failure.
 - `--xlsx` - always pass this. The XLSX report is the human-readable report for reviewing and sharing findings with the customer.
 - `-o` / `--override` - overwrite pre-existing outputs in place. Destructive — do not pass by default (see Pre-flight: Leftover Artifacts). Without it, a diagram whose converted target already exists is skipped with a `File already exists` error, and reports are written under ` (n)`-suffixed names.
 - `--check` - analyze-only (no converted copies exported)
@@ -133,6 +157,8 @@ Other options:
 The converter writes a new file next to the source (e.g., `converted-c8-order-process.bpmn`), so originals are never mutated in place.
 
 Capture the exact paths of everything the run produces from the `Created ...` lines in the CLI console output (e.g. `Created analysis-results (1).json`). These paths are authoritative until the report relocation below completes. Never glob for `analysis-results.json` or `converted-c8-*` on disk, which may match stale files from a previous attempt or a different `--platform-version`.
+Record the exact command, exit code, stdout, and stderr in `MIGRATION_REPORT.md`.
+If the Java preflight passed and the CLI exits nonzero, report the CLI error without changing the Java verdict.
 
 ### 3a. Relocate findings reports
 

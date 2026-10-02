@@ -62,8 +62,8 @@ model in `MIGRATION_REPORT.md`.
    BPMN/DMN files with the `camunda:` namespace, or application config with `camunda.*` keys.
 3. The target is Camunda 8 version 8.8, 8.9, or 8.10.
 4. Where the user selects OpenRewrite, require Maven or Gradle.
-5. Where the Diagram Converter CLI is selected, Java 21+ is on `PATH` or in a user-supplied JDK home.
-   Alternatives exist when it is not.
+5. Where the user selects M1 or E1, require Java 21 or later for the Diagram Converter CLI.
+   Do not apply the OpenRewrite upper bound to this phase.
 
 ## Implementation Steps
 
@@ -119,11 +119,37 @@ These rules apply to every later step.
 - Before any edit, load the pattern catalog. See `references/pattern-catalog-sources.md`.
 - Never guess an API mapping or an XML mapping.
 - Never offer a feature from a version above the selected target.
-- Before each Java-dependent phase, run `java -version` on `PATH`. If that major version is missing
-  or incompatible, then ask for an alternate JDK home and check it before continuing.
-- Scope that JDK home to one phase.
+- Select Java separately for each migration phase.
+- Before each Java-dependent phase, resolve its Java executable to an absolute path.
+- Run `-version` on that executable and record its actual major version.
+- Read the `java.home` property from the selected executable's `-XshowSettings:properties -version` output.
+- Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
+- Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it
+  reports the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
+- If the property is missing or its `bin/java` is missing or reports a different major, ask for another JDK.
+- Set `JAVA_HOME` to the validated property value.
+- Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use
+  `<JAVA_HOME>\bin`.
+- Apply both values only to that phase's process. Never edit shell profiles or global environment
+  settings.
 - Apply a mapping unasked only when it is an unambiguous 1:1 mapping.
 - Ask before changing a high-complexity file or an edge case.
+
+#### Java Runtime Selection
+
+| Migration phase | Java requirement | Action |
+|---|---|---|
+| M1 or E1, Diagram Converter CLI | Java 21 or later. No upper bound applies. | Use the validated CLI runtime. |
+| Approach A, OpenRewrite | Java 21-25 (`[21,26)`) or a narrower project range. | Use a separate code-phase runtime. |
+| Approach B, M2, M3, or assessment-only | No Java requirement for that selected path. | Do not block it on Java. Check any separate M1 or E1 phase independently. |
+
+For Code + models, select a runtime for each Java-dependent phase. Do not use one Java decision for
+both phases.
+Do not run or require a full repository build to preflight M1 or E1. Invoke the released CLI directly.
+If a repository or OpenRewrite build fails, record its phase and error separately.
+Do not mark M1 or E1 blocked by that unrelated failure.
+If a validated CLI command exits nonzero, record its arguments, exit code, stdout, and stderr.
+Do not describe a converter execution failure as an incompatible JDK unless the Java launcher failed.
 
 **Minimal, faithful change**
 
@@ -149,6 +175,8 @@ These rules apply to every later step.
 - Keep `MIGRATION_REPORT.md` current.
 - Use `MIGRATION_REPORT.md` as the human-readable source of truth for inventories, decisions, open
   items, phase status, incompatibilities, and validation summaries.
+- Record the applicable Java range, executable, actual major, and preflight result for each
+  Java-dependent phase. Record repository build failures separately from CLI execution results.
 - Store machine-readable check evidence under `.camunda-migration/validation/`.
 - Keep decisions and open items in `MIGRATION_REPORT.md`, not in separate notes.
 - Keep an open-items section in `MIGRATION_REPORT.md` for each design question the migration cannot

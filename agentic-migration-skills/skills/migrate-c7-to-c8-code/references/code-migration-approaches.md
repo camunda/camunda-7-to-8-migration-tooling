@@ -102,6 +102,12 @@ Set `REWRITE_COMMAND` to the matching build command:
 
 ### Java compatibility and Spotless
 
+This Java check applies only to OpenRewrite Approach A.
+It does not limit M1, E1, M2, or M3.
+For Code + models, choose a runtime for each phase separately.
+If no compatible code runtime exists, ask for one or select Approach B.
+Do not block M1 or E1 when its CLI runtime meets the model requirement.
+
 1. Run `java -version` from `PATH`, capture stderr, and record the major version. Show the executable:
    `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java` in Windows
    Command Prompt.
@@ -114,8 +120,16 @@ Set `REWRITE_COMMAND` to the matching build command:
      incompatible version.
    - When several compatible homes exist, use the lowest version. Prefer 21, then 22, 23, 24, or
      25. (SHOULD)
-   - Set `JAVA_HOME` and prepend its `bin` directory to `PATH` for this invocation only. Never use
-     an unvalidated Java executable.
+   - Read the `java.home` property from the selected executable's
+     `-XshowSettings:properties -version` output.
+   - Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
+   - Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it
+     reports the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
+   - If the property is missing or its `bin/java` is missing or reports a different major, ask for
+     another JDK.
+   - Set `JAVA_HOME` to the validated property value.
+   - Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use
+     `<JAVA_HOME>\bin`. Never use an unvalidated Java executable.
 
 2. Check the build files for a Spotless configuration.
 
