@@ -24,7 +24,7 @@ Camunda 8 copies all variables by default.
 | Selected parent inputs | Set `propagateAllParentVariables="false"` and add a `zeebe:input` for each selected value. |
 | No C7 input mappings | Set `propagateAllParentVariables="false"` without input mappings. |
 | All parent inputs | Keep all-parent propagation only when C7 sends the same scope. |
-| Selected child outputs | Set `propagateAllChildVariables="true"` and add a `zeebe:output` for each returned value. |
+| Selected child outputs | Set `propagateAllChildVariables="false"` and add a `zeebe:output` for each returned value. |
 | No C7 output mappings | Set `propagateAllChildVariables="false"` without output mappings. |
 | All child outputs | Set `propagateAllChildVariables="true"` only when C7 returns the same scope. |
 | No compatible mapping | Keep the category **needs review**. Ask the user to decide the scope rather than widening selected inputs. |
