@@ -104,22 +104,16 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertLess(test_inventory, model_inventory)
 
         inventory_section = skill[test_inventory:model_inventory]
-        for required in (
-            "every scope",
-            "Assessment only",
-            "Approach C",
-            "Test ID",
-            "test kind",
-            "modifiers",
-            "models",
-            "MIGRATION_REPORT.md",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(
-                    required.lower(),
-                    inventory_section.lower(),
-                    msg=f"Missing {required!r} from Step 2 inventory",
-                )
+        inventory_lines = [
+            line.strip() for line in inventory_section.splitlines() if line.strip()
+        ]
+        self.assertEqual(
+            inventory_lines,
+            [
+                "#### Test Inventory",
+                "For Step 2, follow `references/test-migration.md` for the Test Inventory procedure.",
+            ],
+        )
 
         summary_start = skill.index("#### Summary")
         summary_end = skill.index("#### Custom incident notifications", summary_start)
@@ -181,7 +175,6 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_inventory_maps_inherited_methods_to_concrete_classes(self):
         reference = " ".join(REFERENCE.read_text().split())
-        skill = " ".join(SKILL.read_text().split())
 
         for required in (
             "The skill inventories every test method declared or inherited by each concrete test class in the scanned test source sets.",
@@ -192,15 +185,6 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         ):
             with self.subTest(reference_rule=required):
                 self.assertIn(required, reference)
-
-        for required in (
-            "Record one row for each test method in each concrete test class in `MIGRATION_REPORT.md`.",
-            "For an inherited method, use the concrete class and method name in Test ID.",
-            "Use the source file that declares the method in File.",
-            "Do not create a Test Inventory row for an abstract class by itself.",
-        ):
-            with self.subTest(skill_rule=required):
-                self.assertIn(required, skill)
 
     def test_inventory_classification_uses_execution_and_special_case_precedence(self):
         reference = REFERENCE.read_text()
@@ -653,6 +637,12 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             process_engine_configuration.get("class"),
             "org.camunda.bpm.engine.spring.SpringProcessEngineConfiguration",
         )
+        runtime_service = source_context.find(
+            ".//spring:bean[@id='runtimeService']", namespace
+        )
+        self.assertIsNotNone(runtime_service)
+        self.assertEqual(runtime_service.get("factory-bean"), "processEngine")
+        self.assertEqual(runtime_service.get("factory-method"), "getRuntimeService")
         deployment = source_context.find(
             ".//spring:property[@name='deploymentResources']", namespace
         )

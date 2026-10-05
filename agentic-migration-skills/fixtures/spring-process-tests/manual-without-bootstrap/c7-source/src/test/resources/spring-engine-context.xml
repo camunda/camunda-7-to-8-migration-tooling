@@ -18,6 +18,9 @@
         class="org.camunda.bpm.engine.spring.ProcessEngineFactoryBean">
     <property name="processEngineConfiguration" ref="processEngineConfiguration" />
   </bean>
+  <bean id="runtimeService"
+        factory-bean="processEngine"
+        factory-method="getRuntimeService" />
   <bean id="dataSource"
         class="org.springframework.jdbc.datasource.DriverManagerDataSource">
     <property name="driverClassName" value="org.h2.Driver" />

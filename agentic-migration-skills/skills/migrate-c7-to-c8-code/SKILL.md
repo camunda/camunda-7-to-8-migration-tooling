@@ -242,19 +242,7 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
-The skill runs the test inventory during every Step 2 assessment, including Assessment only and code approach C.
-The skill scans each module's build-declared test source sets and shared test bases.
-The skill scans test cases, including configured Cucumber scenarios.
-The skill follows `references/test-migration.md` to classify test kinds, modifiers, model links, and handling.
-The skill includes out-of-scope tests.
-Record one row for each test method in each concrete test class in `MIGRATION_REPORT.md`.
-For an inherited method, use the concrete class and method name in Test ID.
-Use the source file that declares the method in File.
-Do not create a Test Inventory row for an abstract class by itself.
-Use the columns Test ID, File, Test kind, Signals, Models, Handling, and Notes.
-The skill links each in-scope test to its deployed models in the Model Inventory.
-The skill records a count for each test kind.
-The skill does not migrate tests or ask a test-migration question during Step 2.
+For Step 2, follow `references/test-migration.md` for the Test Inventory procedure.
 
 #### Model Inventory
 
