@@ -152,6 +152,53 @@ class MigrationGuidanceTest(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "duplicate Test ID"):
             self.assert_unique_rows(duplicate_rows, "Test ID", "test inventory")
 
+    def test_reference_tables_have_matching_header_and_separator_columns(self):
+        lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
+        for index, header_line in enumerate(lines[:-1]):
+            separator = lines[index + 1]
+            if not header_line.startswith("|") or not separator.startswith("|"):
+                continue
+
+            separator_cells = [cell.strip() for cell in separator.strip("|").split("|")]
+            if not all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator_cells):
+                continue
+
+            header_cells = [cell.strip() for cell in header_line.strip("|").split("|")]
+            with self.subTest(line=index + 1):
+                self.assertEqual(
+                    len(header_cells),
+                    len(separator_cells),
+                    "Table header and separator must have matching column counts.",
+                )
+
+    def test_shared_engine_smoke_has_explicit_scope_exception(self):
+        scope_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Signal", "Confirmation required"],
+        )
+        exception_rows = [
+            row for row in scope_rows if "shared engine url" in normalized(row["Signal"])
+        ]
+        self.assertEqual(len(exception_rows), 1)
+        signal = normalized(exception_rows[0]["Signal"])
+        requirement = normalized(exception_rows[0]["Confirmation required"])
+        self.assertIn("does not run a process or decision", signal)
+        self.assertIn("remote-engine test", requirement)
+        self.assertIn("report only", requirement)
+        self.assertIn("shared environment", requirement)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            shared_rows = [
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith("SharedEngineSmokeIT#readsConfiguredSharedEngine")
+            ]
+            self.assertEqual(len(shared_rows), 1)
+            self.assertEqual(shared_rows[0]["Test kind"], "remote-engine test")
+            self.assertEqual(shared_rows[0]["Handling"], "Report only")
+            self.assertIn("shared environment", normalized(shared_rows[0]["Notes"]))
+
     def test_camunda_8_8_inventory_marks_every_in_scope_test_report_only(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
@@ -257,7 +304,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "a test is in scope only when it runs a bpmn process or dmn decision "
+            "a test is eligible for migration only when it runs a bpmn process or dmn "
+            "decision "
             "on a camunda 7 engine.",
             reference,
         )

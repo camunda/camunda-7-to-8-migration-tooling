@@ -2,9 +2,9 @@
 
 ## Scope rule
 
-A test is in scope only when it runs a BPMN process or DMN decision on a Camunda 7 engine.
+A test is eligible for migration only when it runs a BPMN process or DMN decision on a Camunda 7 engine.
 The test must also use a framework or approach that existed for Camunda 7.
-A dependency alone never makes a test in scope.
+A dependency alone never makes a test eligible for migration.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
 The skill inventories every test, including tests that are out of scope.
@@ -36,6 +36,7 @@ The skill still inventories these tests as `manual redesign` with `Report only` 
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
+| A remote-engine test reads a shared engine URL from an environment variable and does not run a process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `shared environment` as the reason. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
 
 When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
@@ -96,7 +97,7 @@ Trace model resources through test setup and shared helpers.
 Record the resolved path for each model resource.
 
 | Model source | Model paths and notes to record | Handling |
-|---|---|
+|---|---|---|
 | Explicit `@Deployment(resources = ...)` | Every declared resource path | Use the test kind's handling |
 | Implicit method-level `@Deployment` | The first matching `<package path>/<TestClass>.<method>.<suffix>` resource | Use the test kind's handling |
 | Implicit class-level `@Deployment` | The first matching `<package path>/<DeclaringClass>.<suffix>` resource, including a superclass that declares the annotation | Use the test kind's handling |
@@ -145,12 +146,6 @@ Record the reason for each `Report only` test in `Notes`.
 When no test is eligible for CPT migration, state that the count is zero.
 Do not ask an additional question about test migration during Step 2.
 Do not migrate tests during Step 2.
-
-## Handling overrides
-
-| Condition | Handling | Reason or note |
-|---|---|---|
-| A remote-engine test reads a shared engine URL from an environment variable and does not start the engine | Report only | `shared environment` |
 
 ## Camunda 8.8 target
 
