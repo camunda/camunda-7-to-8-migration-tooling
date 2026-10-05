@@ -55,7 +55,7 @@ code, not from an input marker or a dependency alone.
 
 | Modifier | Detect by | Used by |
 |---|---|---|
-| `mocks` | A source-level mock operation, such as `Mocks.register(...)`, `CamundaMockito.registerMockInstance(...)`, a C7 `register...Mock` helper, or `autoMock(...)`. A Spring `@MockBean`/`@MockitoBean` collaborator used by the process also qualifies. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+| `mocks` | A source-level mock or test double used by an in-scope test qualifies. Examples include a Mockito mock, a C7 `register...Mock` helper, or `autoMock(...)`. Treat `Mocks.register(...)` and `CamundaMockito.registerMockInstance(...)` as registry bindings, not mock evidence by themselves. Count them only when the registered value is a test double. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
 
 Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone as evidence for the `mocks` modifier.
 
@@ -63,7 +63,8 @@ The skill applies the mock-boundary and mapping rules to every in-scope test met
 mock signal. The skill checks each test method and its class-level mock declarations. The skill checks
 inherited and local setup and teardown methods. The skill checks helper methods called by these
 methods.
-The skill detects `Mocks.register`, `CamundaMockito.registerMockInstance`, C7 `register...Mock` helpers, and `autoMock`.
+For each registry call, the skill traces the registered value to its declaration or factory.
+The fixture's `new OrderAuditListener()` registers a real listener, not a test double.
 
 ### Test kinds
 
@@ -812,7 +813,8 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 | A whole user-task listener, so no project code ran for that listener | `processTestContext.completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` | Read `type` from the matching `zeebe:taskListener/@type` in the converted copy. Do not use a `zeebe:taskDefinition/@type`. |
 | A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
-| With user approval, a business-rule task in a C7 process-flow test | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. |
+| A C7 process-flow test already mocks a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. This existing C7 decision mock is a same-boundary migration and needs no additional approval. |
+| A C7 process-flow test does not mock a business-rule task | No CPT decision mock by default | Ask the user before adding a CPT decision mock. Record an approved addition in `mock_changes`. |
 | No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
 
 Never derive a job type from a C7 bean name. If the converted copy has no matching job type, then do
@@ -829,6 +831,7 @@ If the real worker cannot run, then the skill asks the user before it adds a moc
 | `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read the input variables from the activated job. Keep the invocation verification. |
 | `doAnswer(...)` on a whole delegate with input-dependent outputs | `.withHandler(handler)` | Read the activation variables and complete the job with the matching outputs. |
 | `CamundaMockito.registerMockInstance(...)` | Apply the same-boundary table | Classify the registered object. Do not infer its boundary from the helper name. |
+| `@MockBean` or `@MockitoBean` for a process-used delegate or listener | Apply the matching whole-component row in the [mock boundary](#mock-boundary) table | Preserve the whole-component mock boundary. |
 | `@MockBean` or `@MockitoBean` for a service called by a delegate | `@MockitoBean` or the version-compatible Spring mock for the same service | Keep the real worker enabled. |
 | `registerJavaDelegateMock("delegate")` | `mockJobWorker(type).thenComplete()` | The whole delegate was mocked. |
 | `.onExecutionSetVariables(vars)` or `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | Preserve every output variable. |

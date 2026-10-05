@@ -7,6 +7,8 @@ process test to Camunda Process Test (CPT).
 uses the shared engine configuration but calls no mock API. `expected-c8` keeps the collaborator
 mock, mocks the converted job types, executes the converted DMN, and uses `mockChildProcess` for the
 called process. Its Spring test disables every real worker whose job type it mocks.
+The listener fixture keeps its user task form-free because the C7 source has no form metadata. Its
+local lint configuration disables the missing-form warning and keeps the other Camunda 8.9 checks.
 
 ## Evaluate the fixture
 

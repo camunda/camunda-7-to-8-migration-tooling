@@ -3,6 +3,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -109,6 +110,50 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn("completeJobOfUserTaskListener", c8_test)
         self.assertNotIn('mockJobWorker("review-created-listener")', c8_test)
 
+    def test_task_listener_conversion_does_not_invent_form_metadata(self):
+        c7_model = ET.parse(
+            FIXTURE / "c7-source/src/test/resources/task-listener.bpmn"
+        ).getroot()
+        c8_model = ET.parse(
+            FIXTURE
+            / "expected-c8/src/main/resources/processes/converted-c8-task-listener.bpmn"
+        ).getroot()
+        namespaces = {"bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL"}
+        c7_task = c7_model.find(".//bpmn:userTask[@id='Task_Review']", namespaces)
+        c8_task = c8_model.find(".//bpmn:userTask[@id='Task_Review']", namespaces)
+        self.assertIsNotNone(c7_task)
+        self.assertIsNotNone(c8_task)
+
+        def has_form_metadata(task):
+            form_names = {"formData", "formDefinition", "formKey", "formId", "externalReference"}
+            for element in task.iter():
+                if element.tag.rsplit("}", 1)[-1] in form_names:
+                    return True
+                if any(
+                    name.rsplit("}", 1)[-1] in form_names for name in element.attrib
+                ):
+                    return True
+            return False
+
+        self.assertFalse(has_form_metadata(c7_task))
+        self.assertFalse(has_form_metadata(c8_task))
+
+    def test_form_free_listener_lint_suppresses_only_the_missing_form_rule(self):
+        lint_config = json.loads(
+            (FIXTURE / "expected-c8/.bpmnlintrc").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            [
+                "bpmnlint:recommended",
+                "plugin:camunda-compat/camunda-cloud-8-9",
+            ],
+            lint_config["extends"],
+        )
+        self.assertEqual(
+            {"camunda-compat/user-task-definition": "off"},
+            lint_config["rules"],
+        )
+
     def test_delegate_answer_preserves_inputs_outputs_and_verification(self):
         c7_test = (
             FIXTURE
@@ -183,7 +228,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             "`CamundaMockito.registerMockInstance(...)`",
             "`@MockBean`",
             "`@MockitoBean`",
-            "C7 `register...Mock` helpers",
+            "C7 `register...Mock` helper",
             "`autoMock(...)`",
         ):
             with self.subTest(signal=signal):

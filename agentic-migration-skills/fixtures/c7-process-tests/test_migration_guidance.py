@@ -1671,6 +1671,35 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(inventory=inventory_path):
                 self.assertEqual(expected_mock_tests, recorded_mock_tests)
 
+    def test_inventory_does_not_mark_a_concrete_registered_listener_as_mocked(self):
+        test_id = (
+            "engine-tests:com.camunda.fixture.order.OrderTimerTest#escalatesAfterOneDay"
+        )
+        order_timer_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+        listener = (
+            C7_SOURCE
+            / "engine-tests/src/main/java/com/camunda/fixture/order/OrderAuditListener.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'Mocks.register("orderAuditListener", new OrderAuditListener())',
+            order_timer_test,
+        )
+        self.assertIn('execution.setVariable("auditStarted", true)', listener)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            row = next(row for row in rows if row["Test ID"] == test_id)
+            signals = {
+                normalized(signal.strip().strip("`"))
+                for signal in row["Signals"].split(";")
+            }
+            with self.subTest(inventory=inventory_path):
+                self.assertNotIn("mocks", signals)
+
     def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,

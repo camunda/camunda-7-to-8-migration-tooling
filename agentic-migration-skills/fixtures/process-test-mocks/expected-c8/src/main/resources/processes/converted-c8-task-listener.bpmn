@@ -10,7 +10,6 @@
         <zeebe:taskListeners>
           <zeebe:taskListener eventType="creating" type="review-created-listener" retries="1" />
         </zeebe:taskListeners>
-        <zeebe:formDefinition externalReference="invoice-review-form" />
         <zeebe:userTask />
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_Start_Review</bpmn:incoming>
