@@ -3459,6 +3459,8 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 
 ###### Assertion mapping
 
+In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProcessInstanceKey()`; use `.isCreated()` to match a currently available Camunda 7 task. CPT checks the first matching record, while Camunda 7 fails if more than one current task matches. `byProcessInstanceKey` can also match completed tasks from earlier in the process. Search by process-instance key and `UserTaskState.CREATED`, then assert `.hasSize(1)` when you need C7's current-task and uniqueness semantics.
+
 | Camunda 7 | CPT | Note |
 |---|---|---|
 | `assertThat(pi).isWaitingAt("A")` | `assertThat(pi).hasActiveElements("A")` | |
@@ -3484,14 +3486,21 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `calledProcessInstance()` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey))` | |
 | `calledProcessInstance(String processDefinitionKey)` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey).and(ProcessInstanceSelectors.byProcessId(processDefinitionKey)))` | Combines the parent and called-process definition selectors. |
 | `calledProcessInstance(ProcessInstanceQuery query)` | No counterpart | Search child process instances with the client and apply query filters that have no CPT selector equivalent. |
-| `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A")).hasAssignee("u")` | |
-| `assertThat(task()).hasName("Approve")` | `assertThatUserTask(selector).hasName("Approve")` | |
-| `assertThat(task()).hasCandidateGroup("approvers")` | `assertThatUserTask(selector).hasCandidateGroup("approvers")` | Camunda 7 also requires the task to be unassigned; search for the task and assert that its assignee is null with AssertJ. |
-| `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
-| `assertThat(task()).hasDueDate(date)` | `assertThatUserTask(selector).hasDueDate(isoDate)` | CPT also supports `hasFollowUpDate(...)`. |
-| `assertThat(task()).isNotAssigned()` | No counterpart | Search the user task and assert that its assignee is null with AssertJ. |
-| `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUserAssociated("u")` | No counterpart | Search the user task's candidate users and assert with AssertJ. |
-| `assertThat(task()).hasId(...)`, `hasDefinitionKey(...)`, `hasFormKey(...)`, `hasDescription(...)` | No counterpart | Search the user task and assert the required field with AssertJ. |
+| `assertThat(pi).task()` | No counterpart | Search user tasks by `pi.getProcessInstanceKey()` and `UserTaskState.CREATED`, then assert `.hasSize(1)` and inspect the result. A CPT selector checks the first match, and `byProcessInstanceKey` can include completed tasks. |
+| `assertThat(pi).task("A")` | `assertThatUserTask(UserTaskSelectors.byElementId("A", pi.getProcessInstanceKey())).isCreated()` | `A` is the BPMN user-task element ID. The selector includes the process-instance key. If the element can repeat, filter the search to `CREATED` tasks and assert `.hasSize(1)`. |
+| `assertThat(pi).task(TaskQuery query)` | No counterpart | C7 narrows the query to `pi`. Use a user-task search scoped by `pi.getProcessInstanceKey()` and filtered to `CREATED`, with equivalent query filters; assert `.hasSize(1)` to preserve C7's uniqueness behavior. |
+| `assertThat(pi).job()` | No counterpart | CPT has no chained job assertion. Use `hasActiveElements("A")` when the BPMN element state is enough; query jobs scoped by `pi.getProcessInstanceKey()` and use AssertJ to check job data or uniqueness. `JobSelectors` are for actions such as completing a job, not assertions. |
+| `assertThat(pi).job("A")` | No counterpart | C7 filters by activity ID and scopes the lookup to `pi`. Assert the element state or query jobs by process-instance key and element ID. |
+| `assertThat(pi).job(JobQuery query)` | No counterpart | CPT has no `JobQuery` assertion. Query jobs scoped by `pi.getProcessInstanceKey()` and apply equivalent filters; assert `.hasSize(1)` when C7's uniqueness behavior matters. |
+| `BpmnAwareTests.externalTask()`, `externalTask("A")`, `externalTask(ExternalTaskQuery query)` (also overloads with `ProcessInstance`) | No counterpart | These are `BpmnAwareTests` helpers, not `ProcessInstanceAssert` methods. C7 scopes them to the last asserted or explicitly supplied process instance. Camunda 8 models external tasks as jobs; query jobs by process-instance key and the converted element ID or job type, and assert `.hasSize(1)` when preserving the C7 single-result behavior. `JobSelectors` can select jobs for actions, not assertions. |
+| `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A", pi.getProcessInstanceKey())).isCreated().hasAssignee("u")` | Include the process-instance key to preserve C7's scope. |
+| `assertThat(task()).hasName("Approve")` | `assertThatUserTask(selector).isCreated().hasName("Approve")` | |
+| `assertThat(task()).hasCandidateGroup("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Camunda 7 also requires the task to be unassigned; search for the task and assert that its assignee is null with AssertJ. |
+| `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
+| `assertThat(task()).hasDueDate(date)` | `assertThatUserTask(selector).isCreated().hasDueDate(isoDate)` | CPT also supports `hasFollowUpDate(...)`. |
+| `assertThat(task()).isNotAssigned()` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that its assignee is null with AssertJ. |
+| `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUserAssociated("u")` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert its candidate users with AssertJ. |
+| `assertThat(task()).hasId(...)`, `hasDefinitionKey(...)`, `hasFormKey(...)`, `hasDescription(...)` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert the required field with AssertJ. |
 | `assertThat(job()).hasId(...)`, `hasDueDate(...)`, `hasRetries(...)`, `hasExceptionMessage()`, `hasDeploymentId(...)`, `hasActivityId(...)`, `hasProcessInstanceId(...)`, `hasExecutionId(...)` | No counterpart | Search the job with the client and assert its state or fields with AssertJ. |
 | `assertThat(externalTask()).hasTopicName(...)`, `hasActivityId(...)` | No counterpart | Assert the element state, or complete the job and assert the process result. |
 | `assertThat(processDefinition()).hasActiveInstances(n)` | No counterpart | Search process instances for the definition and assert the count with AssertJ. |
