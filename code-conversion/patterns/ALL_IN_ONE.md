@@ -2979,7 +2979,7 @@ public class ApplicationTest {
       .hasAssignee("demo");
 
     // Using utility method to complete user task found by name
-    processTestContext.completeUserTask("Say hello to demo");
+    processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Say hello to demo"));
 
     // Assert that it completed in the right end event, and that a Spring Bean hooked into the service task has written the expected process variable
     assertThat(processInstance) //
@@ -3188,8 +3188,8 @@ void testUserTaskIsReachedAndCompleted() {
     .hasName("Approve Request")
     .hasAssignee("demo");
 
-  // Retrieve and complete task using custom methods
-  processTestContext.completeUserTask("Approve Request", variables);
+  // Complete the task by its name selector
+  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
@@ -3226,20 +3226,22 @@ void testMessageCorrelation() {
 
 ###### Camunda 8
 
-Camunda 8 uses the client API to publish a message, and assertions are typically based on observing that the process moved forward. Note that the correlation is based on one single String - the correlationKey.
+Camunda 8 uses the client API to correlate a message immediately. The message subscription uses one string correlation key.
 
 ```java
 @Test
 void testMessageCorrelation() {
+  Map<String, Object> variables = Map.of("correlationKey", "some-key");
   ProcessInstanceEvent instance = client.newCreateInstanceCommand()
     .bpmnProcessId("message-process")
     .latestVersion()
+    .variables(variables)
     .send().join();
 
  assertThat(instance)
    .hasActiveElements("MessageCatchEvent");
 
-  client.newPublishMessageCommand()
+  client.newCorrelateMessageCommand()
     .messageName("Message_Continue")
     .correlationKey("some-key")
     .send().join();
@@ -3250,6 +3252,8 @@ void testMessageCorrelation() {
     .isCompleted();
 }
 ```
+
+This example assumes that the converted model's message subscription reads the `correlationKey` process variable. Set that variable to the same value passed to `.correlationKey(...)`. Use `newPublishMessageCommand()` when the test needs publication or buffering semantics instead of immediate correlation.
 
 ---
 
@@ -3459,7 +3463,7 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `isWaitingFor("message")` | `isWaitingForMessage("message")` | |
 | `isNotWaitingFor("message")` | `isNotWaitingForMessage("message")` | If absence matters only after the process reaches a later state, wait for that observation point first. |
 | `hasProcessDefinitionKey("order")` | Assert `ProcessInstanceEvent.getBpmnProcessId()` | Use AssertJ on the returned process instance event. |
-| `hasBusinessKey("key")` | `assertThat(pi.getBusinessId()).isEqualTo("key")` (8.9+) | Use this only when the migration maps the Camunda 7 business key to a Camunda 8 business ID. On 8.8, assert the variable or tag selected by the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md). |
+| `hasBusinessKey("key")` | `org.assertj.core.api.Assertions.assertThat(pi.getBusinessId()).isEqualTo("key")` (8.9+) | Use this only when the migration maps the Camunda 7 business key to a Camunda 8 business ID. On 8.8, assert the variable or tag selected by the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md). |
 | `isSuspended()` | No counterpart | Camunda 8 does not expose a suspended process-instance state. Record the test as manual if suspension behavior matters. |
 | `calledProcessInstance("childId")` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey))` | Add `byProcessId("childId")` when the parent calls more than one process. |
 | `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A")).hasAssignee("u")` | |
@@ -3891,11 +3895,15 @@ class OrderProcessTest {
 
   @Test
   void startsAnOrder() {
-    client.newCreateInstanceCommand()
+    ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
         .bpmnProcessId("order").latestVersion().send().join();
+
+    assertThat(processInstance).isCompleted();
   }
 }
 ```
+
+Wait for the expected terminal or wait state before the test returns. CPT collects coverage in its `afterEach` lifecycle step.
 
 Remove the Camunda 7 `camunda-process-test-coverage` rule, extension, and dependency when no other tests use them. CPT writes its HTML and JSON report to `target/coverage-report`. Do not add a separate coverage dependency.
 

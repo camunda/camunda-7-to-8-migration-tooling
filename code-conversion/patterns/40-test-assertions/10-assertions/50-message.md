@@ -25,20 +25,22 @@ void testMessageCorrelation() {
 
 ## Camunda 8
 
-Camunda 8 uses the client API to publish a message, and assertions are typically based on observing that the process moved forward. Note that the correlation is based on one single String - the correlationKey.
+Camunda 8 uses the client API to correlate a message immediately. The message subscription uses one string correlation key.
 
 ```java
 @Test
 void testMessageCorrelation() {
+  Map<String, Object> variables = Map.of("correlationKey", "some-key");
   ProcessInstanceEvent instance = client.newCreateInstanceCommand()
     .bpmnProcessId("message-process")
     .latestVersion()
+    .variables(variables)
     .send().join();
 
  assertThat(instance)
    .hasActiveElements("MessageCatchEvent");
 
-  client.newPublishMessageCommand()
+  client.newCorrelateMessageCommand()
     .messageName("Message_Continue")
     .correlationKey("some-key")
     .send().join();
@@ -49,3 +51,5 @@ void testMessageCorrelation() {
     .isCompleted();
 }
 ```
+
+This example assumes that the converted model's message subscription reads the `correlationKey` process variable. Set that variable to the same value passed to `.correlationKey(...)`. Use `newPublishMessageCommand()` when the test needs publication or buffering semantics instead of immediate correlation.

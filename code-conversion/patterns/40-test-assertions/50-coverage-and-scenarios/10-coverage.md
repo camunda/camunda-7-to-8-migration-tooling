@@ -30,11 +30,15 @@ class OrderProcessTest {
 
   @Test
   void startsAnOrder() {
-    client.newCreateInstanceCommand()
+    ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
         .bpmnProcessId("order").latestVersion().send().join();
+
+    assertThat(processInstance).isCompleted();
   }
 }
 ```
+
+Wait for the expected terminal or wait state before the test returns. CPT collects coverage in its `afterEach` lifecycle step.
 
 Remove the Camunda 7 `camunda-process-test-coverage` rule, extension, and dependency when no other tests use them. CPT writes its HTML and JSON report to `target/coverage-report`. Do not add a separate coverage dependency.
 

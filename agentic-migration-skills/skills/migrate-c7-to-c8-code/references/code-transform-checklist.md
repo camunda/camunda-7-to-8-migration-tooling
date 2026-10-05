@@ -427,17 +427,12 @@ The catalog covers listener mappings, including the multi-instance collection li
 
 ## 6. Test Code (NOT fully covered by OpenRewrite)
 
-For each module with in-scope tests, fetch `10-general/dependencies.md` and `40-test-assertions/20-test-setup/10-junit-harness.md`, `40-test-assertions/20-test-setup/20-deployment.md`, and `40-test-assertions/20-test-setup/30-spring-boot-test.md`.
-
-Fetch detected assertion patterns from `40-test-assertions/10-assertions/`: `10-complete-test-case.md`, `20-process-instance.md`, `30-process-variable.md`, `40-user-task.md`, `50-message.md`, `60-job.md`, `70-executable-entry-points.md`, and `80-assertion-mapping.md`.
-
-- Where the Test Inventory lists mocks, fetch `40-test-assertions/30-mocks/10-delegate-mocks.md` and `40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md`.
-- Where the Test Inventory lists decision tests, fetch `40-test-assertions/40-decisions/10-decision-tests.md`.
-- Where the Test Inventory lists coverage signals, fetch `40-test-assertions/50-coverage-and-scenarios/10-coverage.md`.
-- Where the Test Inventory lists scenario tests, fetch `40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md`.
+Catalog: `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
+`30-process-variable`, `40-user-task`, `50-message`, `60-job`).
 
 These items are not in the catalog:
 
+- Add per-worker overrides when mocked workers need exceptions.
 - When a large suite on 8.9+ uses one runtime configuration, use CPT shared-runtime mode.
 
 ---
