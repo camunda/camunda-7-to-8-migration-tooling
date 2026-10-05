@@ -261,8 +261,8 @@ Do not migrate tests during Step 2.
 | Default handling | Camunda 8.8 handling | Reason |
 |---|---|---|
 | Migrate | Report only | `test migration needs Camunda 8.9 or later` |
+| Migrate to CPT | Report only | `test migration needs Camunda 8.9 or later` |
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
-| Migrate to CPT only with the `Spring` modifier | Report only | `test migration needs Camunda 8.9 or later` |
 | Report only | Keep `Report only` | For an in-scope test, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. For `manual redesign`, the skill preserves the existing reason. |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |
 

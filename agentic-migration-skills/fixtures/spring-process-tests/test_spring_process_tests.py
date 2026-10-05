@@ -20,7 +20,7 @@ SOURCE_CONTROLLER = (
 )
 EXPECTED_TEST = (
     FIXTURE
-    / "expected-c8/src/test/java/org/camunda/bpm/example/springprocess/test/SpringProcessTest.java"
+    / "expected-c8/src/test/java/org/camunda/bpm/example/springprocess/SpringProcessTest.java"
 )
 EXPECTED_CONTROLLER = (
     FIXTURE
@@ -546,6 +546,23 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertNotEqual(
             EXPECTED_TEST.parent.as_posix(), TEST_APPLICATION.parent.as_posix()
+        )
+
+    def test_migrated_test_preserves_source_package_and_path(self):
+        source_package = next(
+            line
+            for line in SOURCE_TEST.read_text().splitlines()
+            if line.startswith("package ")
+        )
+        expected_package = next(
+            line
+            for line in EXPECTED_TEST.read_text().splitlines()
+            if line.startswith("package ")
+        )
+        self.assertEqual(expected_package, source_package)
+        self.assertEqual(
+            EXPECTED_TEST.relative_to(FIXTURE / "expected-c8"),
+            SOURCE_TEST.relative_to(FIXTURE / "c7-source"),
         )
 
     def test_c8_production_package_matches_source_and_test_app_is_outside_its_root(self):

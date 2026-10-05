@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package org.camunda.bpm.example.springprocess.test;
+package org.camunda.bpm.example.springprocess;
 
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;

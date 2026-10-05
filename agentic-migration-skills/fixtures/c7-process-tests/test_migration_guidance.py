@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 import re
 import tempfile
@@ -40,6 +41,7 @@ TEST_KINDS = (
     "out of scope",
     "out of scope (Camunda 8)",
 )
+MIGRATE_TO_CPT = "Migrate to CPT"
 SPRING_PROCESS_TEST_IDS = {
     "spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription",
     "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp",
@@ -262,6 +264,19 @@ class MigrationGuidanceTest(unittest.TestCase):
             "{} contains duplicate {} values.".format(report_path, identifier_column),
         )
 
+    def assert_test_kind_counts(self, inventory_path, inventory_rows):
+        count_rows = markdown_table(inventory_path, ["Test kind", "Count"])
+        self.assert_unique_rows(count_rows, "Test kind", inventory_path)
+        expected_counts = {row["Test kind"]: int(row["Count"]) for row in count_rows}
+        actual_counts = Counter(row["Test kind"] for row in inventory_rows)
+        for test_kind in expected_counts:
+            actual_counts.setdefault(test_kind, 0)
+        self.assertEqual(
+            actual_counts,
+            expected_counts,
+            "{} must count every test kind exactly.".format(inventory_path),
+        )
+
     def test_inventory_matches_every_camunda_7_test_method(self):
         source_ids = test_method_ids(C7_SOURCE)
         inventory_rows = markdown_table(
@@ -301,6 +316,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         }
         actual_test_classes = {test_id.split("#", 1)[0].rsplit(".", 1)[-1] for test_id in source_ids}
         self.assertEqual(expected_test_classes, actual_test_classes)
+
+    def test_inventory_count_summaries_match_each_test_kind(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            with self.subTest(inventory=inventory_path):
+                inventory = markdown_table(inventory_path, headers)
+                self.assert_test_kind_counts(inventory_path, inventory)
 
     def test_inventory_rejects_duplicate_test_ids(self):
         duplicate_rows = [
@@ -704,6 +726,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                     )
                     continue
 
+                self.assertIn(row["Handling"], ("Migrate", MIGRATE_TO_CPT))
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
 
@@ -724,8 +747,12 @@ class MigrationGuidanceTest(unittest.TestCase):
             test_kind = row["Test kind"]
             if test_kind == "process test":
                 expected_handling = (
-                    "Migrate" if test_id in SPRING_PROCESS_TEST_IDS else "Report only"
+                    MIGRATE_TO_CPT
+                    if test_id in SPRING_PROCESS_TEST_IDS
+                    else "Report only"
                 )
+            elif test_kind == "decision test":
+                expected_handling = "Migrate"
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -774,7 +801,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         for row in inventory:
             test_id = row["Test ID"]
             parity_row = parity_by_id.get(test_id)
-            if row["Handling"].startswith("Migrate"):
+            if row["Handling"] in ("Migrate", MIGRATE_TO_CPT):
                 self.assertIsNotNone(parity_row, "Missing parity row for {}".format(test_id))
                 self.assertEqual(parity_row["Verdict"], "migrated")
                 mapped_ids = TEST_ID_RE.findall(parity_row["CPT Test ID(s)"])
