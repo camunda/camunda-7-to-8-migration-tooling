@@ -3014,7 +3014,7 @@ public class ApplicationTest {
 
 #### Process Instance Assertions
 
-Camunda Process Test (CPT) supports these assertions from Camunda 8.8. Assertions wait for the expected state for up to 10 seconds by default. Set a different timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, `camunda.process-test.assertion.timeout`.
+Camunda Process Test (CPT) supports these assertions from Camunda 8.8. Most assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set a different timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, `camunda.process-test.assertion.timeout`.
 
 ###### Camunda 7
 
@@ -3065,10 +3065,11 @@ Use `hasNoActiveElements("A")` to map `isNotWaitingAt("A")`. It checks the curre
 
 Do not use `hasNotActivatedElements("A")` for this mapping.
 
-`hasNotActivatedElements("A")` is stricter than Camunda 7 `hasNotPassed("A")`. It also fails when element A is active. Use it only when that stricter behavior is intended.
+`hasNotActivatedElements("A")` does not wait, so first use a waiting assertion to establish the observation point. It is stricter than Camunda 7 `hasNotPassed("A")` and also fails when element A is active. Use it only when that stricter behavior is intended.
 
 ```java
 assertThat(processInstance).hasNoActiveElements("A");
+assertThat(processInstance).hasActiveElements("ObservationPoint");
 assertThat(processInstance).hasNotActivatedElements("B");
 ```
 
@@ -3403,7 +3404,7 @@ If a process is not a valid standalone entry point, record why and which test co
 
 `BpmnAwareTests` and `ProcessEngineTests` are the two Camunda 7 assertion entry points. `ProcessEngineTests` extends `CmmnAwareTests`, which extends `BpmnAwareTests`. Both map to `io.camunda.process.test.api.CamundaAssert`. The CPT assertions below are available from Camunda 8.8.
 
-CPT assertions wait for the expected state for up to 10 seconds by default. Set another timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, the `camunda.process-test.assertion.timeout` property.
+Most CPT assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set another timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, the `camunda.process-test.assertion.timeout` property.
 
 Deploy the converted model before starting an instance. See the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md) for Camunda 8.8 and 8.9 setup.
 
@@ -3451,6 +3452,7 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `isStarted()` | `isCreated()` | |
 | `hasNoVariables()` | No counterpart | Search the variables and assert that the result is empty with AssertJ. |
 | `hasVariables("x")` | `hasVariableNames("x")` | CPT `hasVariables(Map)` compares values. |
+| `hasVariables()` | No counterpart | Search variables for the process instance and assert that the result is not empty with AssertJ. `hasVariableNames()` with no names always passes. |
 | `variables().containsEntry("x", value)` | `hasVariable("x", value)` | |
 | `variables().containsKey("x")` | `hasVariableNames("x")` | |
 | Other `variables()` map assertions, such as `hasSize` and `isEmpty` | No counterpart | Search the variables with the client and assert with AssertJ. |
@@ -3476,7 +3478,7 @@ The assertion helper classes for jobs and external tasks do not have direct CPT 
 
 `isNotWaitingAt` checks only the current activity tree. An element that was entered and then left passes.
 
-`hasNotActivatedElements` fails for an element that was entered before. Do not use it to replace `isNotWaitingAt`.
+`hasNotActivatedElements` evaluates immediately, so first assert a process state that establishes the observation point. It fails for an element that was entered before. Do not use it to replace `isNotWaitingAt`.
 
 ---
 
@@ -3714,7 +3716,7 @@ class InvoiceProcessTest {
 | `registerJavaDelegateMock(name)` | `mockJobWorker(type)` | Read `type` from the converted model. |
 | `.onExecutionSetVariables(vars)`, `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | |
 | `.onExecutionSetVariables(first, second)` | `.withHandler(...)` | Complete with the next result on each invocation. |
-| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, vars)` or `.thenThrowBpmnError(code)` | |
+| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, vars)` (8.9+) or `.thenThrowBpmnError(code, vars)` / `.thenThrowBpmnError(code)` (8.8) | The 8.8 builder cannot preserve the error message. Use `.withHandler(...)` and `newThrowErrorCommand(...)` when the message matters. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Camunda 7 throws into the test. Camunda 8 creates an incident. Assert `hasActiveIncidents()` instead. |
 | `DelegateExpressions.autoMock("process.bpmn")` | One `mockJobWorker(type).thenComplete()` per converted job type | Include listener job types. Disable the matching real workers in a Spring test. |
 | `registerExecutionListenerMock(...)`, `registerTaskListenerMock(...)` | `mockJobWorker(type)` | Use the converted listener job type. Record a listener that the converter removed. |
@@ -3728,6 +3730,16 @@ For a failed job, a worker mock can use a custom handler:
 processTestContext.mockJobWorker("validate")
     .withHandler((jobClient, job) -> jobClient.newFailCommand(job)
         .retries(0).errorMessage("Validation failed").send().join());
+```
+
+In CPT 8.8, use a custom handler to preserve a BPMN error message:
+
+```java
+processTestContext.mockJobWorker("validate")
+    .withHandler((jobClient, job) -> jobClient.newThrowErrorCommand(job)
+        .errorCode("VALIDATION_ERROR")
+        .errorMessage("Validation failed")
+        .send().join());
 ```
 
 Do not add a worker mock when the Camunda 7 test ran the real worker. If the current test cannot run that worker, ask the user before changing the mock boundary.

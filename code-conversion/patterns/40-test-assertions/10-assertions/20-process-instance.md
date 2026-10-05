@@ -1,6 +1,6 @@
 # Process Instance Assertions
 
-Camunda Process Test (CPT) supports these assertions from Camunda 8.8. Assertions wait for the expected state for up to 10 seconds by default. Set a different timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, `camunda.process-test.assertion.timeout`.
+Camunda Process Test (CPT) supports these assertions from Camunda 8.8. Most assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set a different timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, `camunda.process-test.assertion.timeout`.
 
 ## Camunda 7
 
@@ -51,9 +51,10 @@ Use `hasNoActiveElements("A")` to map `isNotWaitingAt("A")`. It checks the curre
 
 Do not use `hasNotActivatedElements("A")` for this mapping.
 
-`hasNotActivatedElements("A")` is stricter than Camunda 7 `hasNotPassed("A")`. It also fails when element A is active. Use it only when that stricter behavior is intended.
+`hasNotActivatedElements("A")` does not wait, so first use a waiting assertion to establish the observation point. It is stricter than Camunda 7 `hasNotPassed("A")` and also fails when element A is active. Use it only when that stricter behavior is intended.
 
 ```java
 assertThat(processInstance).hasNoActiveElements("A");
+assertThat(processInstance).hasActiveElements("ObservationPoint");
 assertThat(processInstance).hasNotActivatedElements("B");
 ```

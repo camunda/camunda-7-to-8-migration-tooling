@@ -47,7 +47,7 @@ class InvoiceProcessTest {
 | `registerJavaDelegateMock(name)` | `mockJobWorker(type)` | Read `type` from the converted model. |
 | `.onExecutionSetVariables(vars)`, `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | |
 | `.onExecutionSetVariables(first, second)` | `.withHandler(...)` | Complete with the next result on each invocation. |
-| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, vars)` or `.thenThrowBpmnError(code)` | |
+| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, vars)` (8.9+) or `.thenThrowBpmnError(code, vars)` / `.thenThrowBpmnError(code)` (8.8) | The 8.8 builder cannot preserve the error message. Use `.withHandler(...)` and `newThrowErrorCommand(...)` when the message matters. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Camunda 7 throws into the test. Camunda 8 creates an incident. Assert `hasActiveIncidents()` instead. |
 | `DelegateExpressions.autoMock("process.bpmn")` | One `mockJobWorker(type).thenComplete()` per converted job type | Include listener job types. Disable the matching real workers in a Spring test. |
 | `registerExecutionListenerMock(...)`, `registerTaskListenerMock(...)` | `mockJobWorker(type)` | Use the converted listener job type. Record a listener that the converter removed. |
@@ -61,6 +61,16 @@ For a failed job, a worker mock can use a custom handler:
 processTestContext.mockJobWorker("validate")
     .withHandler((jobClient, job) -> jobClient.newFailCommand(job)
         .retries(0).errorMessage("Validation failed").send().join());
+```
+
+In CPT 8.8, use a custom handler to preserve a BPMN error message:
+
+```java
+processTestContext.mockJobWorker("validate")
+    .withHandler((jobClient, job) -> jobClient.newThrowErrorCommand(job)
+        .errorCode("VALIDATION_ERROR")
+        .errorMessage("Validation failed")
+        .send().join());
 ```
 
 Do not add a worker mock when the Camunda 7 test ran the real worker. If the current test cannot run that worker, ask the user before changing the mock boundary.
