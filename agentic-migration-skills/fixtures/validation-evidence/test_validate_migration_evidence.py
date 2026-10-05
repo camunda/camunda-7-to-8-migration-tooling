@@ -1042,7 +1042,13 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.map_test_to_cpt(mocks_c8=[mock])
         mapping = gate.read_test_mapping(self.root, required=True)
         test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
-        self.assertTrue(gate.test_mock_issues(test, mapping))
+        test_contract = gate.test_contract(
+            self.root, json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        )
+        mapped_c8_ids = gate.mapped_cpt_test_ids(
+            test_contract, gate.test_rows_by_id(mapping)
+        )
+        self.assertTrue(gate.test_mock_issues(test, mapping, mapped_c8_ids))
         with self.assertRaisesRegex(gate.EvidenceError, "unapproved mock"):
             self.submit(
                 ("test", self.c7_test_id, "mock_boundary", None),
@@ -1066,6 +1072,103 @@ class ValidationEvidenceTest(unittest.TestCase):
                 note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
             ),
         )
+
+    def test_mock_boundary_rejects_approval_for_unmapped_cpt_test(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["mock_changes"].append(
+            {
+                "cpt_test_id": "app:com.example.OrderCptTest#misspelled",
+                "mock": 'mockJobWorker("charge")',
+                "reason": "The user approved the additional worker mock.",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        with self.assertRaisesRegex(gate.EvidenceError, "unmapped CPT test"):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
+    def test_mock_boundary_rejects_approval_for_untracked_test_mapping(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        mapping = gate.read_test_mapping(self.root, required=True)
+        untracked_test = {
+            "c7_id": "app:com.example.UntrackedTest#testUntracked",
+            "status": "migrated",
+            "c8_ids": ["app:com.example.UntrackedCptTest#testUntracked"],
+            "mocks": {"c7": [], "c8": []},
+        }
+        mapping["tests"].append(untracked_test)
+        mapping["mock_changes"].append(
+            {
+                "cpt_test_id": untracked_test["c8_ids"][0],
+                "mock": 'mockJobWorker("charge")',
+                "reason": "The user approved the additional worker mock.",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        with self.assertRaisesRegex(gate.EvidenceError, "unmapped CPT test"):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
+    def test_mock_boundary_accepts_approval_for_another_mapped_cpt_test(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        mapping = gate.read_test_mapping(self.root, required=True)
+        other_test = {
+            "c7_id": "app:com.example.OtherTest#testOther",
+            "status": "migrated",
+            "c8_ids": ["app:com.example.OtherCptTest#testOther"],
+            "mocks": {
+                "c7": [],
+                "c8": ['mockJobWorker("charge")'],
+            },
+        }
+        mapping["tests"].append(other_test)
+        mapping["mock_changes"].append(
+            {
+                "cpt_test_id": other_test["c8_ids"][0],
+                "mock": 'mockJobWorker("charge")',
+                "reason": "The user approved the additional worker mock.",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        current_test = next(
+            item for item in mapping["tests"] if item.get("c7_id") == self.c7_test_id
+        )
+        contract = {
+            "tests": [
+                {"id": self.c7_test_id, "handling": "Migrate"},
+                {"id": other_test["c7_id"], "handling": "Migrate"},
+            ]
+        }
+        mapped_c8_ids = gate.mapped_cpt_test_ids(
+            contract, gate.test_rows_by_id(mapping)
+        )
+        self.assertEqual(
+            [], gate.test_mock_issues(current_test, mapping, mapped_c8_ids)
+        )
+        self.assertEqual([], gate.test_mock_issues(other_test, mapping, mapped_c8_ids))
 
     def test_cpt_repeat_detects_flaky_test_results(self):
         self.configure_test_run(
@@ -1190,6 +1293,164 @@ class ValidationEvidenceTest(unittest.TestCase):
             gate.requirements(self.root, self.plan), checks, mapping
         )
         self.assertTrue(any("lost C7-covered elements: TaskA" in issue for issue in issues), issues)
+
+    def test_coverage_parity_fails_when_exact_process_id_is_ambiguous(self):
+        run = {
+            "coverage_available": True,
+            "coverage_by_process": {"p": ["TaskA"]},
+        }
+        plan = Namespace(
+            test_contract={
+                "suites": {
+                    ("app", "unit"): {
+                        "migrate_test_ids": ["app:com.example.OrderTest#testOrder"]
+                    }
+                }
+            },
+            source_ids={},
+            converted_elements={
+                ("models/converted-c8-process.bpmn", "p"): {"TaskA"},
+                ("models/converted-c8-other.bpmn", "p"): {"Start", "End", "Flow"},
+            },
+        )
+        checks = {
+            ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
+        }
+        mapping = {
+            "baseline": {
+                "coverage_available": True,
+                "coverage": {"p": ["TaskA"]},
+            }
+        }
+
+        issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
+
+        self.assertTrue(
+            any("C7 coverage maps to multiple converted processes" in issue for issue in issues),
+            issues,
+        )
+
+    def test_coverage_parity_fails_when_multiple_c7_processes_map_to_one_cpt_process(self):
+        run = {
+            "coverage_available": True,
+            "coverage_by_process": {"converted-p": ["TaskA", "TaskB"]},
+        }
+        plan = Namespace(
+            test_contract={
+                "suites": {
+                    ("app", "unit"): {
+                        "migrate_test_ids": ["app:com.example.OrderTest#testOrder"]
+                    }
+                }
+            },
+            source_ids={},
+            converted_elements={
+                ("models/converted-c8-process.bpmn", "converted-p"): {
+                    "TaskA",
+                    "TaskB",
+                }
+            },
+        )
+        checks = {
+            ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
+        }
+        mapping = {
+            "baseline": {
+                "coverage_available": True,
+                "coverage": {
+                    "source-p1": ["TaskA"],
+                    "source-p2": ["TaskB"],
+                },
+            }
+        }
+
+        issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
+
+        self.assertTrue(
+            any("multiple C7 process IDs map to the same CPT process" in issue for issue in issues),
+            issues,
+        )
+
+    def test_coverage_parity_fails_when_source_process_id_is_aggregated_across_models(self):
+        run = {
+            "coverage_available": True,
+            "coverage_by_process": {
+                "p": ["TaskA"],
+                "renamed-p": ["TaskB"],
+            },
+        }
+        plan = Namespace(
+            test_contract={
+                "suites": {
+                    ("app", "unit"): {
+                        "migrate_test_ids": ["app:com.example.OrderTest#testOrder"]
+                    }
+                }
+            },
+            source_ids={
+                "models/converted-c8-process.bpmn": {"p"},
+                "models/converted-c8-other.bpmn": {"p"},
+            },
+            converted_elements={
+                ("models/converted-c8-process.bpmn", "p"): {"TaskA"},
+                ("models/converted-c8-other.bpmn", "renamed-p"): {"TaskB"},
+            },
+        )
+        checks = {
+            ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
+        }
+        mapping = {
+            "baseline": {
+                "coverage_available": True,
+                "coverage": {"p": ["TaskA", "TaskB"]},
+            }
+        }
+
+        issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
+
+        self.assertTrue(
+            any("C7 coverage is ambiguous across source models" in issue for issue in issues),
+            issues,
+        )
+
+        mapping["baseline"]["coverage"] = {"p": ["RemovedTask"]}
+        issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
+        self.assertEqual([], issues)
+
+    def test_coverage_parity_ignores_removed_c7_elements_when_mapping_another_process(self):
+        run = {
+            "coverage_available": True,
+            "coverage_by_process": {"p": ["TaskA"]},
+        }
+        plan = Namespace(
+            test_contract={
+                "suites": {
+                    ("app", "unit"): {
+                        "migrate_test_ids": ["app:com.example.OrderTest#testOrder"]
+                    }
+                }
+            },
+            source_ids={},
+            converted_elements={
+                ("models/converted-c8-process.bpmn", "p"): {"TaskA"},
+            },
+        )
+        checks = {
+            ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
+        }
+        mapping = {
+            "baseline": {
+                "coverage_available": True,
+                "coverage": {
+                    "p": ["RemovedTask"],
+                    "legacy-p": ["TaskA"],
+                },
+            }
+        }
+
+        issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
+
+        self.assertEqual([], issues)
 
     def test_migrate_only_refuses_test_commands_and_requires_exact_block_reason(self):
         self.write_scope(test_run_mode="migrate_only")

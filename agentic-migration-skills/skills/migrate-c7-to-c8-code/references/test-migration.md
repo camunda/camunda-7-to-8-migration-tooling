@@ -320,7 +320,8 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | C7 runs a component for real. | CPT adds a worker, child-process, decision, or Spring mock. | Requires user approval. |
 
 Record each approved new CPT mock in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and
-`approved_by`. The validator rejects an unapproved new mock.
+`approved_by`. The `cpt_test_id` must identify a CPT test mapped from a migrated C7 test. The
+validator rejects an unapproved new mock.
 
 ## Coverage parity
 
@@ -339,8 +340,11 @@ The CPT 8.9.21 JSON report stores process entries in `coverages[]`. Newer CPT re
 `processCoverages[]`. Both arrays contain `processDefinitionId`, `completedElements`, and
 `takenSequenceFlows`. The validator compares the process IDs with C7-covered IDs. It maps a renamed
 process by shared element IDs when that mapping is unique. It ignores a C7-covered ID when no
-converted process contains it. It checks each retained C7-covered ID against both CPT runs. The gate
-reports an ambiguity when several converted processes contain the same renamed-process IDs.
+converted process contains it. It checks each retained C7-covered ID against both CPT runs.
+The gate reports ambiguity when one C7 process maps to multiple converted processes. It also reports
+ambiguity when multiple C7 process IDs map to the same CPT process ID.
+The gate reports ambiguity when one C7 process ID appears in multiple source models and a covered
+element remains in a converted model.
 
 The validator also lists CPT decision coverage from `decisionCoverages[].decisionDefinitionId` and
 `decisionCoverages[].matchedRuleIds`. Camunda 7 process-test-coverage does not provide a matching

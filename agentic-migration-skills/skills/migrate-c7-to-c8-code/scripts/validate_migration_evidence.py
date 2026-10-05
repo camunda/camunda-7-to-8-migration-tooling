@@ -82,6 +82,7 @@ class ValidationPlan:
     issues: list
     test_contract: dict
     converted_elements: dict
+    source_ids: dict
 
 
 class EvidenceError(ValueError):
@@ -1370,6 +1371,22 @@ def test_rows_by_id(mapping):
     return rows
 
 
+def mapped_cpt_test_ids(contract, rows):
+    mapped_c8_ids = set()
+    for inventory_test in contract["tests"]:
+        if inventory_test["handling"] != "Migrate":
+            continue
+        test = rows.get(inventory_test["id"])
+        if test is None or test.get("status") != "migrated":
+            continue
+        c8_ids = test.get("c8_ids")
+        if isinstance(c8_ids, list):
+            mapped_c8_ids.update(
+                c8_id for c8_id in c8_ids if isinstance(c8_id, str) and c8_id
+            )
+    return mapped_c8_ids
+
+
 def normalized_mock(value):
     if not isinstance(value, str) or not value.strip():
         raise EvidenceError("Each mock entry must be a non-blank string")
@@ -1395,7 +1412,7 @@ def normalized_mock(value):
     return "component", re.sub(r"[^a-z0-9]+", "", token.group(0).casefold())
 
 
-def test_mock_issues(test, mapping):
+def test_mock_issues(test, mapping, mapped_c8_ids):
     issues = []
     test_id = test.get("c7_id")
     c8_ids = test.get("c8_ids")
@@ -1425,14 +1442,18 @@ def test_mock_issues(test, mapping):
             issues.append("mock_changes entries must be objects")
             continue
         cpt_test_id = change.get("cpt_test_id")
+        if not isinstance(cpt_test_id, str) or cpt_test_id not in mapped_c8_ids:
+            issues.append(
+                f"{test_id}: mock_changes references unmapped CPT test {cpt_test_id!r}"
+            )
+            continue
         if cpt_test_id not in c8_ids:
             continue
         mock = change.get("mock")
         reason = change.get("reason")
         approved_by = change.get("approved_by")
         if (
-            cpt_test_id not in c8_ids
-            or not isinstance(mock, str)
+            not isinstance(mock, str)
             or not mock.strip()
             or not concrete_reference(reason)
             or not concrete_reference(approved_by)
@@ -1670,6 +1691,11 @@ def coverage_parity_issues(plan, checks, mapping):
     normalized_source_coverage = {}
     process_mappings = {}
     retained_c7_elements = {}
+    c7_processes_by_cpt_process = {}
+    source_models_by_process = {}
+    for model_path, process_ids in plan.source_ids.items():
+        for process_id in process_ids:
+            source_models_by_process.setdefault(process_id, set()).add(model_path)
     if baseline.get("coverage_available") is not True:
         note = "No Camunda 7 coverage baseline."
     else:
@@ -1689,19 +1715,36 @@ def coverage_parity_issues(plan, checks, mapping):
             ):
                 issues.append(f"{process_id}: C7 coverage element IDs are invalid")
                 continue
-            normalized_source_coverage[process_id] = sorted(set(elements))
+            source_elements = set(elements)
+            normalized_source_coverage[process_id] = sorted(source_elements)
+            if (
+                len(source_models_by_process.get(process_id, set())) > 1
+                and any(
+                    source_elements & model_elements
+                    for model_elements in plan.converted_elements.values()
+                )
+            ):
+                issues.append(
+                    f"{process_id}: C7 coverage is ambiguous across source models"
+                )
+                continue
             matching_processes = [
                 (model, converted_process, model_elements)
                 for (model, converted_process), model_elements
                 in plan.converted_elements.items()
                 if converted_process == process_id
             ]
+            if len(matching_processes) > 1:
+                issues.append(
+                    f"{process_id}: C7 coverage maps to multiple converted processes"
+                )
+                continue
             if not matching_processes:
                 matching_processes = [
                     (model, converted_process, model_elements)
                     for (model, converted_process), model_elements
                     in plan.converted_elements.items()
-                    if set(elements) & model_elements
+                    if source_elements & model_elements
                 ]
                 if len(matching_processes) > 1:
                     issues.append(
@@ -1716,7 +1759,11 @@ def coverage_parity_issues(plan, checks, mapping):
                 retained_c7_elements[process_id] = []
                 continue
             for model, converted_process, model_elements in matching_processes:
-                expected = set(elements) & model_elements
+                expected = source_elements & model_elements
+                if expected:
+                    c7_processes_by_cpt_process.setdefault(converted_process, set()).add(
+                        process_id
+                    )
                 retained.update(expected)
                 for run_index in range(2):
                     missing = expected - cpt_coverage[run_index].get(
@@ -1728,6 +1775,14 @@ def coverage_parity_issues(plan, checks, mapping):
                             "lost C7-covered elements: " + ", ".join(sorted(missing))
                         )
             retained_c7_elements[process_id] = sorted(retained)
+        for converted_process, source_processes in sorted(
+            c7_processes_by_cpt_process.items()
+        ):
+            if len(source_processes) > 1:
+                issues.append(
+                    f"{converted_process}: multiple C7 process IDs map to the same CPT process: "
+                    + ", ".join(sorted(source_processes))
+                )
     output = {
         "baseline_note": note,
         "c7_coverage": normalized_source_coverage,
@@ -2530,6 +2585,7 @@ def requirements(root, evidence):
         required, allowed, timers, timer_starts, docker_suites, model_sets,
         duplicates, update_hits, source_update_locations, active_timer_locations,
         active_timer_decisions, source_digest, issues, tests, converted_elements,
+        source_ids,
     )
 
 
@@ -3811,6 +3867,8 @@ def report(root):
         ):
             try:
                 mapping = read_test_mapping(root, required=True)
+                rows = test_rows_by_id(mapping)
+                mapped_c8_ids = mapped_cpt_test_ids(plan.test_contract, rows)
                 issues.extend(validate_test_freeze(root, plan, mapping))
                 issues.extend(test_parity_issues(plan, checks, mapping))
                 coverage_issues, coverage_output = coverage_parity_issues(
@@ -3819,7 +3877,7 @@ def report(root):
                 issues.extend(coverage_issues)
                 for test in mapping["tests"]:
                     if isinstance(test, dict) and test.get("status") == "migrated":
-                        issues.extend(test_mock_issues(test, mapping))
+                        issues.extend(test_mock_issues(test, mapping, mapped_c8_ids))
             except EvidenceError as exc:
                 issues.append(str(exc))
     except EvidenceError as exc:
@@ -4024,12 +4082,14 @@ def record(root, args):
                 )
             extra["test_mapping_digest"] = test_mapping_digest(mapping, "review")
         elif key[2] == "mock_boundary":
-            test = test_rows_by_id(mapping).get(key[1])
+            rows = test_rows_by_id(mapping)
+            test = rows.get(key[1])
             if test is None:
                 raise EvidenceError(f"{key}: test parity ledger entry is missing")
             if key[1] not in output:
                 raise EvidenceError(f"{key}: review note must name the C7 test ID")
-            mock_issues = test_mock_issues(test, mapping)
+            mapped_c8_ids = mapped_cpt_test_ids(plan.test_contract, rows)
+            mock_issues = test_mock_issues(test, mapping, mapped_c8_ids)
             if mock_issues:
                 raise EvidenceError("; ".join(mock_issues))
             extra["test_mapping_digest"] = test_mapping_digest(mapping, "review")
