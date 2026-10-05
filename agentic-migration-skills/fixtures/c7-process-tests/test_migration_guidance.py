@@ -101,17 +101,16 @@ def markdown_table(path, required_headers):
 def reference_table_separator_errors(lines):
     errors = []
     for index, header_line in enumerate(lines[:-1]):
-        separator = lines[index + 1]
-        if not header_line.startswith("|") or not separator.startswith("|"):
-            continue
-
-        separator_cells = markdown_table_cells(separator)
-        if not any(
-            re.fullmatch(r":?-+:?", cell) or re.match(r":?-{3,}", cell)
-            for cell in separator_cells
+        if not header_line.startswith("|") or (
+            index > 0 and lines[index - 1].startswith("|")
         ):
             continue
 
+        separator = lines[index + 1]
+        if not separator.startswith("|"):
+            continue
+
+        separator_cells = markdown_table_cells(separator)
         invalid_cells = [
             cell
             for cell in separator_cells
@@ -216,11 +215,21 @@ class MigrationGuidanceTest(unittest.TestCase):
             "|--||--|--|",
             "|---|--|---|---|",
             "|---|---x|---|---|",
+            "| value | value |",
         ):
             with self.subTest(separator=separator):
                 errors = reference_table_separator_errors([header, separator])
                 self.assertTrue(errors)
                 self.assertIn("Invalid table separator cell", errors[0])
+
+    def test_reference_table_data_rows_are_not_separators(self):
+        lines = [
+            "| First | Second |",
+            "|---|---|",
+            "| --- | value |",
+        ]
+
+        self.assertEqual([], reference_table_separator_errors(lines))
 
     def test_shared_engine_smoke_has_explicit_scope_exception(self):
         scope_rows = markdown_table(
