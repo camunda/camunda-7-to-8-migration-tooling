@@ -48,7 +48,7 @@ class OrderMockitoTest {
 
   @Test
   void registersWholeDelegateAndExecutionListenerMocks() {
-    processTestContext.mockJobWorker("order-audit").thenComplete();
+    JobWorkerMock audit = processTestContext.mockJobWorker("order-audit").thenComplete();
     JobWorkerMock charge =
         processTestContext
             .mockJobWorker("charge-payment")
@@ -60,6 +60,7 @@ class OrderMockitoTest {
 
     assertThat(instance).isCompleted().hasVariable("paymentCharged", true);
     org.assertj.core.api.Assertions.assertThat(charge.getInvocations()).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThat(audit.getInvocations()).isEqualTo(1);
   }
 
   @Test

@@ -20,4 +20,22 @@ class ChargePaymentHandlerTest {
 
     assertEquals(Map.of("charged", true, "chargedAmount", 42), output);
   }
+
+  @Test
+  void preservesFractionalPaymentAmount() {
+    Object amount = 42.75d;
+
+    Map<String, Object> output = new ChargePaymentWorker().charge(amount);
+
+    assertEquals(Map.of("charged", true, "chargedAmount", amount), output);
+  }
+
+  @Test
+  void preservesPaymentAmountBeyondIntegerRange() {
+    Object amount = 2_147_483_648L;
+
+    Map<String, Object> output = new ChargePaymentWorker().charge(amount);
+
+    assertEquals(Map.of("charged", true, "chargedAmount", amount), output);
+  }
 }

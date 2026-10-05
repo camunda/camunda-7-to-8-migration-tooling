@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class ChargePaymentWorker {
 
   @JobWorker(type = "charge-payment")
-  public Map<String, Object> charge(@Variable(name = "amount") int amount) {
+  public Map<String, Object> charge(@Variable(name = "amount") Object amount) {
     return Map.of("charged", true, "chargedAmount", amount);
   }
 }
