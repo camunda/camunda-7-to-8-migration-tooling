@@ -126,13 +126,44 @@ def read_json(path):
     return value
 
 
+def ensure_directory_path(root, path, label):
+    try:
+        root = root.resolve(strict=True)
+        relative = path.relative_to(root)
+        if ".." in relative.parts:
+            raise ValueError(f"{path} contains a parent traversal")
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise EvidenceError(f"{label} is outside its allowed root: {path}") from exc
+
+    current = root
+    for component in relative.parts:
+        current = current / component
+        if current.is_symlink():
+            raise EvidenceError(f"Refusing symlinked {label}: {current}")
+        try:
+            current.mkdir(exist_ok=True)
+        except OSError as exc:
+            raise EvidenceError(f"Cannot create {label}: {current}") from exc
+        if current.is_symlink():
+            raise EvidenceError(f"Refusing symlinked {label}: {current}")
+        try:
+            resolved = current.resolve(strict=True)
+            resolved.relative_to(root)
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise EvidenceError(f"{label} is outside its allowed root: {current}") from exc
+        if not resolved.is_dir():
+            raise EvidenceError(f"{label} is not a directory: {current}")
+        current = resolved
+    return current
+
+
 def write_file(root, name, content):
+    root = root.resolve(strict=True)
     path = root / name
+    parent = ensure_directory_path(root, path.parent, "output directory")
+    path = parent / path.name
     if path.is_symlink():
         raise EvidenceError(f"Refusing to replace symlink: {path}")
-    if not path.parent.resolve().is_relative_to(root):
-        raise EvidenceError(f"Output directory is outside the project: {path.parent}")
-    path.parent.mkdir(parents=True, exist_ok=True)
     output = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", dir=path.parent, delete=False
     )
@@ -1055,8 +1086,11 @@ def fresh_reports(root, module, patterns, before, label):
 
 
 def copy_reports(root, module, reports, destination):
+    root = root.resolve(strict=True)
     module_root = project_path(root, module, "report module", must_exist=True)
-    destination_root = root / destination
+    destination_root = ensure_directory_path(
+        root, root / destination, "report destination"
+    )
     copied = []
     for source in reports:
         if source.is_symlink():
@@ -1066,13 +1100,21 @@ def copy_reports(root, module, reports, destination):
         except (OSError, ValueError) as exc:
             raise EvidenceError(f"Report is outside its module: {source}") from exc
         target = destination_root / relative
+        target_parent = ensure_directory_path(
+            destination_root, target.parent, "report destination"
+        )
+        try:
+            target_parent.relative_to(destination_root)
+        except ValueError as exc:
+            raise EvidenceError(
+                f"Report destination is outside its destination root: {target_parent}"
+            ) from exc
+        target = target_parent / target.name
         if target.is_symlink():
             raise EvidenceError(f"Refusing to replace symlinked report: {target}")
-        target.parent.mkdir(parents=True, exist_ok=True)
         try:
-            target.parent.resolve(strict=True).relative_to(root)
             shutil.copy2(source, target)
-        except (OSError, ValueError) as exc:
+        except OSError as exc:
             raise EvidenceError(f"Cannot preserve report {source}: {exc}") from exc
         copied.append(target.relative_to(root).as_posix())
     return copied

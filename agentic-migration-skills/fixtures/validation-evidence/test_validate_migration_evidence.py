@@ -2954,6 +2954,56 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.audit()
         self.assertEqual(original, (self.root / gate.EVIDENCE).read_bytes())
 
+    def test_write_file_rejects_symlinked_output_directory(self):
+        redirect_root = self.root / "redirect"
+        redirect_root.mkdir()
+        sentinel = redirect_root / "result.json"
+        sentinel.write_text("original", encoding="utf-8")
+        output_directory = self.root / gate.VALIDATION / "generated"
+        output_directory.symlink_to(redirect_root, target_is_directory=True)
+
+        with self.assertRaises(gate.EvidenceError):
+            gate.write_file(
+                self.root,
+                gate.VALIDATION / "generated" / "result.json",
+                "replacement",
+            )
+
+        self.assertEqual("original", sentinel.read_text(encoding="utf-8"))
+
+    def test_copy_reports_rejects_symlinked_destination_components(self):
+        module_root = self.root / "module"
+        report = module_root / "target" / "surefire-reports" / "TEST-result.xml"
+        report.parent.mkdir(parents=True)
+        report.write_text("<testsuite />", encoding="utf-8")
+        scenarios = (
+            ("destination-root", Path("target/surefire-reports/TEST-result.xml")),
+            ("nested-component", Path("surefire-reports/TEST-result.xml")),
+        )
+
+        for name, redirected_report in scenarios:
+            with self.subTest(component=name):
+                destination = gate.VALIDATION / "cpt" / name / "suite"
+                destination_root = self.root / destination
+                redirect_root = self.root / f"redirect-{name}"
+                sentinel = redirect_root / redirected_report
+                sentinel.parent.mkdir(parents=True)
+                sentinel.write_text("original", encoding="utf-8")
+                if name == "destination-root":
+                    destination_root.parent.mkdir(parents=True)
+                    symlink = destination_root
+                else:
+                    destination_root.mkdir(parents=True)
+                    symlink = destination_root / "target"
+                symlink.symlink_to(redirect_root, target_is_directory=True)
+
+                with self.assertRaises(gate.EvidenceError):
+                    gate.copy_reports(
+                        self.root, "module", [report], destination
+                    )
+
+                self.assertEqual("original", sentinel.read_text(encoding="utf-8"))
+
 
 class LiveTimerFixtureRunnerTest(unittest.TestCase):
     def test_cleanup_is_scoped_to_the_fixture_session_and_version(self):
