@@ -444,6 +444,28 @@ class MigrationGuidanceTest(unittest.TestCase):
                 cpt_id = legacy_id.replace("engine-tests-legacy:", "engine-tests:", 1)
                 self.assertEqual(cpt_id, parity_by_id[legacy_id]["CPT Test ID(s)"])
 
+    def test_fulfillment_parity_note_matches_single_run_time_advances(self):
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        test_id = (
+            "engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#"
+            "shouldCompleteWorkAfterTwoDailyReminders"
+        )
+        notes = {row["Camunda 7 Test ID"]: row for row in parity}[test_id]["Notes"]
+        cpt_source = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "FulfillmentScenarioTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(5, cpt_source.count("increaseTime(Duration.ofHours(12))"))
+        self.assertIn("one scenario test", notes)
+        self.assertIn("five 12-hour steps", notes)
+        self.assertNotIn("repeats the scenario", notes)
+        self.assertNotIn("advances time twice", notes)
+
     def test_inventory_rejects_duplicate_test_ids(self):
         duplicate_rows = [
             {"Test ID": "engine-tests:com.camunda.fixture.order.OrderProcessTest#approves"},
