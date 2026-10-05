@@ -9,9 +9,6 @@ package com.camunda.fixture.order;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.CamundaAssert.assertThatProcessInstance;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byKey;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.CorrelateMessageResponse;
@@ -20,36 +17,13 @@ import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
 import java.util.Map;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.InjectMocks;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
 
 @CamundaProcessTest
 @TestDeployment(resources = "converted-c8-review-edge-cases.bpmn")
 class ScenarioMappingEdgeCasesTest {
 
   private CamundaProcessTestContext processTestContext;
-
-  @Spy private Collaborator collaborator = new Collaborator();
-  @Captor private ArgumentCaptor<String> orderIdCaptor;
-  @InjectMocks private CollaboratorService collaboratorService;
-
-  private AutoCloseable mocks;
-
-  @BeforeEach
-  void openMocks() {
-    mocks = MockitoAnnotations.openMocks(this);
-  }
-
-  @AfterEach
-  void closeMocks() throws Exception {
-    mocks.close();
-  }
 
   @Test
   void shouldStartMessageProcess() {
@@ -89,15 +63,6 @@ class ScenarioMappingEdgeCasesTest {
         .hasTerminatedElement("MixedWork", 1);
   }
 
-  @Test
-  void shouldKeepUnrelatedMockitoAnnotationsInitialized() {
-    when(collaborator.lookup("order-42")).thenReturn("ready");
-
-    assertEquals("ready", collaboratorService.lookup("order-42"));
-    verify(collaborator).lookup(orderIdCaptor.capture());
-    assertEquals("order-42", orderIdCaptor.getValue());
-  }
-
   private ProcessInstanceEvent createMixedFinishInstance() {
     CamundaClient client = processTestContext.createClient();
     return client
@@ -106,19 +71,5 @@ class ScenarioMappingEdgeCasesTest {
         .latestVersion()
         .send()
         .join();
-  }
-
-  static class Collaborator {
-    String lookup(String orderId) {
-      return "not-stubbed";
-    }
-  }
-
-  static class CollaboratorService {
-    private Collaborator collaborator;
-
-    String lookup(String orderId) {
-      return collaborator.lookup(orderId);
-    }
   }
 }

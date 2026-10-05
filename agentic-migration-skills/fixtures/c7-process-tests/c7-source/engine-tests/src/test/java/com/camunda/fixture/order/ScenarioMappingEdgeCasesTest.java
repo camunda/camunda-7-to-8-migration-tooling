@@ -6,7 +6,6 @@
  */
 package com.camunda.fixture.order;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,12 +19,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
 
 @Deployment(resources = "review-edge-cases.bpmn")
 public class ScenarioMappingEdgeCasesTest {
@@ -33,9 +28,6 @@ public class ScenarioMappingEdgeCasesTest {
   @Rule public ProcessEngineRule processEngineRule = new ProcessEngineRule();
 
   @Mock private ProcessScenario process;
-  @Spy private Collaborator collaborator = new Collaborator();
-  @Captor private ArgumentCaptor<String> orderIdCaptor;
-  @InjectMocks private CollaboratorService collaboratorService;
 
   private AutoCloseable mocks;
 
@@ -81,28 +73,5 @@ public class ScenarioMappingEdgeCasesTest {
     verify(process).hasCompleted("MixedWork");
     verify(process).hasCanceled("MixedWork");
     verify(process, times(2)).hasFinished("MixedWork");
-  }
-
-  @Test
-  public void shouldKeepUnrelatedMockitoAnnotationsInitialized() {
-    when(collaborator.lookup("order-42")).thenReturn("ready");
-
-    assertEquals("ready", collaboratorService.lookup("order-42"));
-    verify(collaborator).lookup(orderIdCaptor.capture());
-    assertEquals("order-42", orderIdCaptor.getValue());
-  }
-
-  static class Collaborator {
-    String lookup(String orderId) {
-      return "not-stubbed";
-    }
-  }
-
-  static class CollaboratorService {
-    private Collaborator collaborator;
-
-    String lookup(String orderId) {
-      return collaborator.lookup(orderId);
-    }
   }
 }

@@ -147,6 +147,30 @@ def markdown_table_has_delimiter(line):
     return False
 
 
+def java_method_body(source, method_name):
+    signature = re.compile(
+        r"(?m)^[ \t]*(?:(?:public|protected|private)\s+)?(?:static\s+)?"
+        r"(?:[\w$<>?,.\[\]]+\s+)+"
+        + re.escape(method_name)
+        + r"\s*\([^)]*\)\s*\{"
+    )
+    match = signature.search(source)
+    if match is None:
+        raise AssertionError("Could not find Java method {}.".format(method_name))
+
+    opening_brace = source.find("{", match.start())
+    depth = 0
+    for index in range(opening_brace, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening_brace + 1 : index]
+
+    raise AssertionError("Could not find the end of Java method {}.".format(method_name))
+
+
 def markdown_table(path, required_headers):
     lines = path.read_text(encoding="utf-8").splitlines()
     for index, line in enumerate(lines):
@@ -682,6 +706,23 @@ class MigrationGuidanceTest(unittest.TestCase):
             self.assertEqual(len(timer_rows), 1)
             self.assertEqual("process test", timer_rows[0]["Test kind"])
             self.assertEqual(handling, timer_rows[0]["Handling"])
+
+    def test_scenario_test_classification_is_method_scoped(self):
+        inventory = markdown_table(
+            EXPECTED_ASSESSMENT,
+            ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+        )
+        for row in inventory:
+            if row["Test kind"] != "scenario test":
+                continue
+
+            source = (C7_SOURCE / row["File"]).read_text(encoding="utf-8")
+            method_name = row["Test ID"].rsplit("#", 1)[1]
+            with self.subTest(test_id=row["Test ID"]):
+                self.assertRegex(
+                    java_method_body(source, method_name),
+                    r"\bScenario\.(?:run|use)\s*\(",
+                )
 
     def test_camunda_8_8_inventory_applies_version_gate(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]

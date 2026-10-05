@@ -27,6 +27,7 @@
 | `engine-tests:com.camunda.fixture.order.CheckStockDelegateTest#setsStockFlagForAvailableItem` | `engine-tests/src/test/java/com/camunda/fixture/order/CheckStockDelegateTest.java` | out of scope | JUnit 5; Mockito mock(DelegateExecution.class) | None | Not part of test migration | E11; unit test runs no engine. |
 | `engine-tests:com.camunda.fixture.order.ChargePaymentDelegateFakeTest#writesPaymentReference` | `engine-tests/src/test/java/com/camunda/fixture/order/ChargePaymentDelegateFakeTest.java` | out of scope | JUnit 4; DelegateExecutionFake; camunda-platform-7-mockito | None | Not part of test migration | E12; delegate unit test runs no engine and remains an ordinary code test. |
 | `engine-tests:com.camunda.fixture.order.PriceCalculatorTest#appliesDiscount` | `engine-tests/src/test/java/com/camunda/fixture/order/PriceCalculatorTest.java` | out of scope | JUnit 5; plain Java | None | Not part of test migration | E13; plain unit test. |
+| `engine-tests:com.camunda.fixture.order.MockitoAnnotationTest#initializesMockitoAnnotationsForPlainUnitTest` | `engine-tests/src/test/java/com/camunda/fixture/order/MockitoAnnotationTest.java` | out of scope | JUnit 4; Mockito @Spy, @Captor, @InjectMocks; openMocks | None | Not part of test migration | E14: plain Mockito unit test. It runs no engine. |
 | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription` | `spring-boot-app/src/test/java/com/camunda/fixture/subscription/SubscriptionProcessTest.java` | process test | JUnit 4; @SpringBootTest; @MockBean BillingClient; camunda-bpm-assert | `subscription.bpmn`, `housekeeping.bpmn` (Spring Boot auto-deployment) | Report only | test migration needs Camunda 8.9 or later |
 | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp` | `spring-boot-app/src/test/java/com/camunda/fixture/subscription/SubscriptionEndpointTest.java` | process test | JUnit 4; @SpringBootTest RANDOM_PORT; TestRestTemplate; @MockBean BillingClient | `subscription.bpmn`, `housekeeping.bpmn` (Spring Boot auto-deployment) | Report only | test migration needs Camunda 8.9 or later |
 | `spring-boot-app:com.camunda.fixture.subscription.ActivateDelegateMockTest#mocksDelegateBean` | `spring-boot-app/src/test/java/com/camunda/fixture/subscription/ActivateDelegateMockTest.java` | process test | JUnit 4; @SpringBootTest; @MockBean(name="activateSubscriptionDelegate") JavaDelegate | `subscription.bpmn`, `housekeeping.bpmn` (Spring Boot auto-deployment) | Report only | test migration needs Camunda 8.9 or later |
@@ -46,5 +47,5 @@
 | remote-engine test | 2 |
 | manual migration | 1 |
 | manual redesign | 1 |
-| out of scope | 4 |
+| out of scope | 5 |
 | out of scope (Camunda 8) | 0 |
