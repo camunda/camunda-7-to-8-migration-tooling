@@ -9,15 +9,24 @@ package io.camunda.migration.code.recipes.testing;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import io.camunda.migration.code.recipes.sharedRecipes.AbstractMigrationRecipe;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils.BuilderReplacementSpec;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils.ReturnReplacementSpec;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
+import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.TextComment;
 
 public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
 
@@ -36,6 +45,19 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
           CMMN_AWARE_TESTS,
           BPMN_AWARE_TESTS);
 
+  private static final MethodMatcher VARIABLES_METHOD =
+      new MethodMatcher(
+          "org.camunda.bpm.engine.test.assertions.bpmn.ProcessInstanceAssert variables()");
+  private static final MethodMatcher HAS_VARIABLES_METHOD =
+      new MethodMatcher(
+          "org.camunda.bpm.engine.test.assertions.bpmn.ProcessInstanceAssert hasVariables(..)");
+  private static final String VARIABLE_MAP_TODO =
+      " TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, "
+          + "hasVariables(Map), or hasVariableSatisfies.";
+  private static final String HAS_VARIABLES_TODO =
+      " TODO: CPT has no assertion for 'at least one variable'. Assert the expected names with "
+          + "hasVariableNames(..).";
+
   @Override
   public String getDisplayName() {
     return "Convert test assertions";
@@ -50,10 +72,6 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
   protected TreeVisitor<?, ExecutionContext> preconditions() {
     return new UsesMethod<>(BPMN_AWARE_TESTS + " assertThat(..)", true);
   }
-
-  // Check how to handle variables - can we add MapAssert to C8 assertions?
-  // assertThat(processInstance).variables().containsEntry("theAnswer", 42);
-  // assertThat(processInstance).hasVariable("theAnswer", 42);
 
   @Override
   protected List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations() {
@@ -109,21 +127,131 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
   protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
     return List.of(
         rename("isWaitingAt(..)", "hasActiveElements"),
-        rename("isNotWaitingAt(..)", "hasNotActivatedElements"),
+        rename("isNotWaitingAt(..)", "hasNoActiveElements"),
         rename("isWaitingAtExactly(..)", "hasActiveElementsExactly"),
         rename("isEnded()", "isCompleted"),
         rename("hasPassed(..)", "hasCompletedElements"),
         rename("hasPassedInOrder(..)", "hasCompletedElementsInOrder"),
         rename("isStarted()", "isCreated"),
         rename("isActive()", "isActive"),
-        rename("hasVariables(..)", "hasVariableNames"),
-        rename("variables()", "isCreated"),
-        new ReplacementUtils.RenameReplacementSpec(
-                new MethodMatcher("org.assertj.core.api.AbstractMapAssert containsEntry(..)"),
-                "hasVariable"),
         new ReplacementUtils.RenameReplacementSpec(
             new MethodMatcher("org.camunda.bpm.engine.test.assertions.bpmn.TaskAssert isAssignedTo(..)"),
             "hasAssignee"));
+  }
+
+  @Override
+  public @NonNull TreeVisitor<?, ExecutionContext> getVisitor() {
+    TreeVisitor<?, ExecutionContext> base = ReplaceAssertionsRecipe.super.getVisitor();
+    TreeVisitor<?, ExecutionContext> variableAssertions =
+        Preconditions.check(
+            preconditions(),
+            new JavaIsoVisitor<ExecutionContext>() {
+              @Override
+              public J.MethodInvocation visitMethodInvocation(
+                  J.MethodInvocation invocation, ExecutionContext ctx) {
+                J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
+
+                if (HAS_VARIABLES_METHOD.matches(visited)) {
+                  if (hasArguments(visited)) {
+                    return renamed(visited, "hasVariableNames");
+                  }
+                }
+
+                if (visited.getSelect() instanceof J.MethodInvocation variables
+                    && VARIABLES_METHOD.matches(variables)) {
+                  if (visited.getSimpleName().equals("containsEntry")) {
+                    return renamed(visited, "hasVariable")
+                        .withSelect(renamed(variables, "isCreated"));
+                  }
+                  if (visited.getSimpleName().equals("containsKey")
+                      || visited.getSimpleName().equals("containsKeys")) {
+                    return renamed(visited, "hasVariableNames").withSelect(variables.getSelect());
+                  }
+                }
+
+                if (isOutermostMethodInvocation()) {
+                  if (containsNoArgumentHasVariables(visited)) {
+                    return addCommentIfMissing(visited, HAS_VARIABLES_TODO);
+                  }
+                  if (containsUnsupportedVariableMapAssertion(visited)) {
+                    return addCommentIfMissing(visited, VARIABLE_MAP_TODO);
+                  }
+                }
+                return visited;
+              }
+
+              private boolean isOutermostMethodInvocation() {
+                return !(getCursor().getParentTreeCursor().getValue()
+                    instanceof J.MethodInvocation);
+              }
+            });
+
+    return new TreeVisitor<Tree, ExecutionContext>() {
+      @Override
+      public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+        Tree afterVariableAssertions = (Tree) variableAssertions.visit(tree, ctx);
+        return (Tree) base.visit(afterVariableAssertions, ctx);
+      }
+    };
+  }
+
+  private static boolean hasArguments(J.MethodInvocation invocation) {
+    return invocation.getArguments().stream().anyMatch(argument -> !(argument instanceof J.Empty));
+  }
+
+  private static boolean containsNoArgumentHasVariables(J tree) {
+    AtomicBoolean found = new AtomicBoolean();
+    new JavaIsoVisitor<AtomicBoolean>() {
+      @Override
+      public J.MethodInvocation visitMethodInvocation(
+          J.MethodInvocation invocation, AtomicBoolean result) {
+        if (HAS_VARIABLES_METHOD.matches(invocation) && !hasArguments(invocation)) {
+          result.set(true);
+          return invocation;
+        }
+        return super.visitMethodInvocation(invocation, result);
+      }
+    }.visit(tree, found);
+    return found.get();
+  }
+
+  private static boolean containsUnsupportedVariableMapAssertion(J tree) {
+    AtomicBoolean found = new AtomicBoolean();
+    new JavaIsoVisitor<AtomicBoolean>() {
+      @Override
+      public J.MethodInvocation visitMethodInvocation(
+          J.MethodInvocation invocation, AtomicBoolean result) {
+        if (invocation.getSelect() instanceof J.MethodInvocation variables
+            && VARIABLES_METHOD.matches(variables)
+            && !List.of("containsEntry", "containsKey", "containsKeys")
+                .contains(invocation.getSimpleName())) {
+          result.set(true);
+          return invocation;
+        }
+        return super.visitMethodInvocation(invocation, result);
+      }
+    }.visit(tree, found);
+    return found.get();
+  }
+
+  private static J.MethodInvocation renamed(J.MethodInvocation invocation, String newName) {
+    return invocation.withName(RecipeUtils.createSimpleIdentifier(newName, "java.lang.String"));
+  }
+
+  private static J.MethodInvocation addCommentIfMissing(
+      J.MethodInvocation invocation, String text) {
+    if (invocation.getComments().stream()
+        .anyMatch(
+            comment ->
+                comment instanceof TextComment textComment
+                    && textComment.getText().contains(text.trim()))) {
+      return invocation;
+    }
+    return invocation.withComments(
+        Stream.concat(
+                invocation.getComments().stream(),
+                Stream.of(RecipeUtils.createSimpleComment(invocation, text)))
+            .toList());
   }
 
   private ReplacementUtils.RenameReplacementSpec rename(String methodC7, String methodC8) {

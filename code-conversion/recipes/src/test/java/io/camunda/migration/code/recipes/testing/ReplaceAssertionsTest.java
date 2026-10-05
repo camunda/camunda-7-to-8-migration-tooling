@@ -367,6 +367,183 @@ class OrderTaskTest {
 """));
     }
 
+    @Test
+    void isNotWaitingAtMapsToHasNoActiveElements() {
+        rewrite(
+                processAssertionsSource(
+                        "assertThat(processInstance).isNotWaitingAt(\"Task_Approve\");"),
+                migratedProcessAssertionsSource(
+                        "assertThat(processInstance).hasNoActiveElements(\"Task_Approve\");"));
+    }
+
+    @Test
+    void unrelatedAssertJMapAssertionIsUnchanged() {
+        rewrite(
+                """
+                package org.example;
+
+                import org.camunda.bpm.engine.RuntimeService;
+                import org.camunda.bpm.engine.runtime.ProcessInstance;
+                import io.camunda.client.CamundaClient;
+                import org.springframework.beans.factory.annotation.Autowired;
+                import java.util.Map;
+                import static org.assertj.core.api.Assertions.assertThat;
+                import static org.camunda.bpm.engine.test.assertions.ProcessEngineTests.assertThat;
+
+                class OrderProcessTest {
+
+                    @Autowired
+                    private CamundaClient camundaClient;
+
+                    @Autowired
+                    private RuntimeService runtimeService;
+
+                    void approvalPath() {
+                        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("order");
+                        assertThat(processInstance).isWaitingAt("Task_Approve");
+                        assertThat(Map.of("k", "v")).containsEntry("k", "v");
+                    }
+                }
+                """,
+                """
+                package org.example;
+                import io.camunda.client.api.response.ProcessInstanceEvent;
+                import io.camunda.process.test.api.CamundaAssert;
+                import org.camunda.bpm.engine.RuntimeService;
+                import io.camunda.client.CamundaClient;
+                import org.springframework.beans.factory.annotation.Autowired;
+                import java.util.Map;
+                import static org.assertj.core.api.Assertions.assertThat;
+
+                class OrderProcessTest {
+
+                    @Autowired
+                    private CamundaClient camundaClient;
+
+                    @Autowired
+                    private RuntimeService runtimeService;
+
+                    void approvalPath() {
+                        ProcessInstanceEvent processInstance = camundaClient
+                                .newCreateInstanceCommand()
+                                .bpmnProcessId("order")
+                                .latestVersion()
+                                .send()
+                                .join();
+                        CamundaAssert.assertThat(processInstance).hasActiveElements("Task_Approve");
+                        assertThat(Map.of("k", "v")).containsEntry("k", "v");
+                    }
+                }
+                """);
+    }
+
+    @Test
+    void variablesContainsKeyAndKeysMapToHasVariableNames() {
+        rewrite(
+                processAssertionsSource(
+                        "assertThat(processInstance).variables().containsKey(\"approved\");"
+                                + "\n        assertThat(processInstance).variables().containsKeys(\"approved\", \"created\");"),
+                migratedProcessAssertionsSource(
+                        "assertThat(processInstance).hasVariableNames(\"approved\");"
+                                + "\n        assertThat(processInstance).hasVariableNames(\"approved\", \"created\");"));
+    }
+
+    @Test
+    void hasVariablesWithoutNamesIsNotWeakened() {
+        rewrite(
+                processAssertionsSource("assertThat(processInstance).hasVariables();"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion for 'at least one variable'. Assert the expected names with hasVariableNames(..).\n"
+                                + "        assertThat(processInstance).hasVariables();"));
+    }
+
+    @Test
+    void unsupportedVariablesAssertionIsNotRewrittenToIsCreated() {
+        rewrite(
+                processAssertionsSource(
+                        "assertThat(processInstance).variables().hasSize(1);"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        assertThat(processInstance).variables().hasSize(1);"));
+    }
+
+    @Test
+    void hasVariablesWithNamesStillMapsToHasVariableNames() {
+        rewrite(
+                processAssertionsSource(
+                        "assertThat(processInstance).hasVariables(\"approved\", \"created\");"),
+                migratedProcessAssertionsSource(
+                        "assertThat(processInstance).hasVariableNames(\"approved\", \"created\");"));
+    }
+
+    private void rewrite(String before, String after) {
+        rewriteRun(
+                spec ->
+                        spec.recipeFromResources(
+                                "io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
+                java(before, after));
+    }
+
+    private static String processAssertionsSource(String assertions) {
+        return """
+                package org.example;
+
+                import org.camunda.bpm.engine.RuntimeService;
+                import org.camunda.bpm.engine.runtime.ProcessInstance;
+                import io.camunda.client.CamundaClient;
+                import org.springframework.beans.factory.annotation.Autowired;
+
+                import static org.camunda.bpm.engine.test.assertions.ProcessEngineTests.assertThat;
+
+                class OrderProcessTest {
+
+                    @Autowired
+                    private CamundaClient camundaClient;
+
+                    @Autowired
+                    private RuntimeService runtimeService;
+
+                    void approvalPath() {
+                        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("order");
+                        %s
+                    }
+                }
+                """
+                .formatted(assertions);
+    }
+
+    private static String migratedProcessAssertionsSource(String assertions) {
+        return """
+                package org.example;
+                import io.camunda.client.api.response.ProcessInstanceEvent;
+                import org.camunda.bpm.engine.RuntimeService;
+                import io.camunda.client.CamundaClient;
+                import org.springframework.beans.factory.annotation.Autowired;
+
+                import static io.camunda.process.test.api.CamundaAssert.assertThat;
+
+                class OrderProcessTest {
+
+                    @Autowired
+                    private CamundaClient camundaClient;
+
+                    @Autowired
+                    private RuntimeService runtimeService;
+
+                    void approvalPath() {
+                        ProcessInstanceEvent processInstance = camundaClient
+                                .newCreateInstanceCommand()
+                                .bpmnProcessId("order")
+                                .latestVersion()
+                                .send()
+                                .join();
+                        %s
+                    }
+                }
+                """
+                .formatted(assertions);
+    }
+
     private void rewriteProcessInstanceAssertion(String assertionsImport, String assertion) {
         rewriteRun(
                 spec ->
@@ -503,5 +680,4 @@ class OrderTaskTest {
     }
 }
 """));
-    }
 }
