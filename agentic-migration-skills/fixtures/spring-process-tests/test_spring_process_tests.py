@@ -170,6 +170,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_inventory_classification_uses_execution_and_special_case_precedence(self):
         reference = REFERENCE.read_text()
+        normalized_reference = " ".join(reference.split())
 
         for required in (
             "Apply the table from top to bottom.",
@@ -177,13 +178,18 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The skill classifies tests by executed engine behavior, not assertion type.",
             "A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.",
             "The skill records assertion gaps in the Test Inventory's Notes column for migration review.",
+            "The skill verifies that a direct service call resolves to a real C7 engine in the test or its shared configuration.",
             "`@Deployment` is model-resolution evidence, not a test-kind signal by itself.",
             "mocked `RuntimeService`",
             "`ProcessEnginePlugin`",
             "`DecisionService`",
         ):
             with self.subTest(required=required):
-                self.assertIn(required, reference, msg=f"Missing classification rule {required!r}")
+                self.assertIn(
+                    required,
+                    normalized_reference,
+                    msg=f"Missing classification rule {required!r}",
+                )
 
         table = reference.split(
             "| Priority | Test kind | Detect by | Handling |", 1
@@ -209,7 +215,20 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertIn("CMMN", rows[1][2])
         self.assertIn("ProcessEnginePlugin", rows[1][2])
         self.assertIn("does not execute a real c7 engine", rows[-1][2].lower())
-        self.assertIn("calls an endpoint that starts a process", rows[6][2])
+        self.assertIn("calls a Spring Boot endpoint that starts a process", rows[6][2])
+        self.assertIn("on a real C7 engine", rows[6][2])
+        self.assertIn(
+            "calls a real C7 engine's `RuntimeService` to start a process",
+            rows[6][2],
+        )
+        self.assertIn("`startProcessInstanceByKey(...)`", rows[6][2])
+        self.assertIn("`TaskService` to complete a task", rows[6][2])
+        self.assertIn("mocked `RuntimeService`", rows[-1][2])
+        manual_source = MANUAL_SOURCE_TEST.read_text()
+        spring_context = MANUAL_SOURCE_CONTEXT.read_text()
+        self.assertIn("runtimeService.startProcessInstanceByKey", manual_source)
+        self.assertIn("SpringProcessEngineConfiguration", spring_context)
+        self.assertIn("ProcessEngineFactoryBean", spring_context)
 
     def test_spring_migration_requires_cpt_selected_inventory_rows(self):
         reference = REFERENCE.read_text()
@@ -228,6 +247,41 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertNotIn(
             "When a Spring test slice calls a Camunda 7 API, the skill includes it.",
+            reference,
+        )
+
+    def test_non_boot_spring_migration_replaces_junit4_runner_and_annotations(self):
+        reference = " ".join(REFERENCE.read_text().split())
+
+        self.assertIn(
+            "When the skill migrates a non-Boot Spring test that uses JUnit 4, it replaces its runner with `@ExtendWith(SpringExtension.class)`.",
+            reference,
+        )
+        self.assertIn(
+            "The skill replaces JUnit 4 test and lifecycle annotations and assertions with JUnit 5 equivalents. It updates their imports.",
+            reference,
+        )
+        self.assertIn(
+            "| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` | `@ExtendWith(SpringExtension.class)` without `@RunWith`. |",
+            reference,
+        )
+
+    def test_cpt_dependency_cleanup_preserves_remaining_c7_test_consumers(self):
+        reference = " ".join(REFERENCE.read_text().split())
+
+        self.assertIn(
+            "The skill removes each C7 test dependency that no remaining test or production code uses after migration.",
+            reference,
+        )
+        for artifact in (
+            "`camunda-bpm-spring-boot-starter-test`",
+            "`camunda-bpm-junit5`",
+            "`camunda-bpm-assert`",
+        ):
+            with self.subTest(artifact=artifact):
+                self.assertIn(artifact, reference)
+        self.assertIn(
+            "If any test outside the migrated set or production code still uses a dependency, the skill keeps it.",
             reference,
         )
 
