@@ -1947,7 +1947,13 @@ def requirements(root, evidence):
         tests = test_contract(root, inventory)
     except EvidenceError as exc:
         issues.append(str(exc))
-        tests = {"mode": inventory.get("test_run_mode"), "tests": [], "suites": {}, "test_suites": {}}
+        tests = {
+            "mode": inventory.get("test_run_mode"),
+            "tests": [],
+            "suites": {},
+            "test_suites": {},
+            "modules": inventory.get("modules", []),
+        }
     if (
         "test_run_mode" in inventory
         and source_test_contract(tests)
@@ -1960,6 +1966,18 @@ def requirements(root, evidence):
     test_enabled = tests["mode"] == "run" and any(
         test["handling"] == "Migrate" for test in tests["tests"]
     )
+    migrated_test_ids = set()
+    if test_enabled:
+        try:
+            mapping = read_test_mapping(root)
+            if mapping is not None:
+                migrated_test_ids = {
+                    test_id
+                    for test_id, test in test_rows_by_id(mapping).items()
+                    if test.get("status") == "migrated"
+                }
+        except EvidenceError as exc:
+            issues.append(str(exc))
     source_updates = inventory.get("source_updates")
     if (
         not isinstance(source_updates, dict)
@@ -2066,7 +2084,7 @@ def requirements(root, evidence):
         need("project", ".", "coverage_parity", method="computed")
         reviewed_classes = set()
         for test in tests["tests"]:
-            if test["handling"] != "Migrate":
+            if test["handling"] != "Migrate" or test["id"] not in migrated_test_ids:
                 continue
             class_target = f"{test['module']}:{test['class_name']}"
             if class_target not in reviewed_classes:
