@@ -362,6 +362,20 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()",
             row,
         )
+
+    def test_unavailable_baseline_keeps_shared_engine_verdict_manual(self):
+        baseline_reporting = REFERENCE.read_text().split(
+            "## Baseline and parity reporting", 1
+        )[1].split("\n## ", 1)[0]
+
+        self.assertIn(
+            "| In-scope test whose baseline did not run | `not run` |",
+            baseline_reporting,
+        )
+        self.assertIn(
+            "| Shared-engine test, whether its baseline ran or not | `manual` |",
+            baseline_reporting,
+        )
     def test_shared_engine_case_is_manual_and_does_not_start_an_engine(self):
         shared_test = SHARED_SOURCE.read_text()
         shared_properties = SHARED_PROPERTIES.read_text()

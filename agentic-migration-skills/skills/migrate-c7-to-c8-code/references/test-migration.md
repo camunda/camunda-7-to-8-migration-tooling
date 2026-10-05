@@ -867,11 +867,14 @@ Use the [Camunda 7 to Camunda 8 API mapping](https://camunda.github.io/camunda-7
 ## Baseline and parity reporting
 
 Run the baseline test against its Camunda 7 engine before migration.
-If the test cannot reach or start that engine, then record the baseline as `not run` in `MIGRATION_REPORT.md`.
+If the test cannot reach or start that engine, record the baseline as `not run` in `MIGRATION_REPORT.md`.
 Do not claim parity from an expected result when the baseline did not run.
-Keep the test in the parity ledger as `not run` without requiring an unavailable baseline result.
 
-Record shared-engine tests as `manual` in the parity ledger.
+| Test classification | Parity ledger verdict |
+|---|---|
+| In-scope test whose baseline did not run | `not run` |
+| Shared-engine test, whether its baseline ran or not | `manual` |
+
 Include the exact shared-environment reason above.
 Do not report a shared-engine test as an automated CPT pass.
 
