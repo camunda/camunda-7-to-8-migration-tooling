@@ -1848,11 +1848,17 @@ def coverage_parity_issues(plan, checks, mapping):
     retained_c7_elements = {}
     c7_processes_by_cpt_process = {}
     converted_model_paths_by_source_process = {}
+    converted_model_paths_by_cpt_process = {}
     for converted_path, process_ids in plan.source_ids.items():
         for process_id in process_ids:
             converted_model_paths_by_source_process.setdefault(process_id, set()).add(
                 converted_path
             )
+    for converted_path, process_id in plan.converted_elements:
+        converted_model_paths_by_cpt_process.setdefault(process_id, set()).add(
+            converted_path
+        )
+    ambiguous_cpt_process_ids = set()
     if baseline.get("coverage_available") is not True:
         note = "No Camunda 7 coverage baseline."
     else:
@@ -1920,11 +1926,16 @@ def coverage_parity_issues(plan, checks, mapping):
                 continue
             for model, converted_process, model_elements in matching_processes:
                 expected = source_elements & model_elements
+                retained.update(expected)
+                if expected and len(
+                    converted_model_paths_by_cpt_process.get(converted_process, set())
+                ) > 1:
+                    ambiguous_cpt_process_ids.add(converted_process)
+                    continue
                 if expected:
                     c7_processes_by_cpt_process.setdefault(converted_process, set()).add(
                         process_id
                     )
-                retained.update(expected)
                 for run_index in range(2):
                     missing = expected - cpt_coverage[run_index].get(
                         converted_process, set()
@@ -1935,6 +1946,12 @@ def coverage_parity_issues(plan, checks, mapping):
                             "lost C7-covered elements: " + ", ".join(sorted(missing))
                         )
             retained_c7_elements[process_id] = sorted(retained)
+        for converted_process in sorted(ambiguous_cpt_process_ids):
+            model_paths = sorted(converted_model_paths_by_cpt_process[converted_process])
+            issues.append(
+                f"{converted_process}: CPT coverage process ID appears in multiple converted models: "
+                + ", ".join(model_paths)
+            )
         for converted_process, source_processes in sorted(
             c7_processes_by_cpt_process.items()
         ):

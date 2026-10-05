@@ -1930,6 +1930,61 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.assertEqual([], details["process_mappings"]["p"])
                 self.assertEqual([], details["retained_c7_elements"]["p"])
 
+    def test_coverage_parity_fails_when_other_suite_reuses_converted_process_id(self):
+        source_model = "models/converted-c8-process-a.bpmn"
+        other_model = "models/converted-c8-process-b.bpmn"
+        source_run = {"coverage_available": True, "coverage_by_process": {}}
+        other_run = {
+            "coverage_available": True,
+            "coverage_by_process": {"p": ["TaskA"]},
+        }
+        plan = Namespace(
+            test_contract={
+                "suites": {
+                    ("app", "unit"): {
+                        "migrate_test_ids": ["app:com.example.OrderTest#testOrder"]
+                    },
+                    ("worker", "unit"): {
+                        "migrate_test_ids": ["worker:com.example.OtherTest#testOther"]
+                    },
+                }
+            },
+            source_ids={
+                source_model: {"source-a"},
+                other_model: {"source-b"},
+            },
+            converted_elements={
+                (source_model, "p"): {"TaskA"},
+                (other_model, "p"): {"TaskA"},
+            },
+        )
+        checks = {
+            ("module", "app", "test_repeat", "unit"): (
+                None,
+                {"test_runs": [source_run, source_run]},
+            ),
+            ("module", "worker", "test_repeat", "unit"): (
+                None,
+                {"test_runs": [other_run, other_run]},
+            ),
+        }
+        mapping = {
+            "baseline": {
+                "coverage_available": True,
+                "coverage": {"source-a": ["TaskA"]},
+            }
+        }
+
+        issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
+
+        self.assertTrue(
+            any(
+                "CPT coverage process ID appears in multiple converted models" in issue
+                for issue in issues
+            ),
+            issues,
+        )
+
     def test_coverage_parity_fails_when_multiple_c7_processes_map_to_one_cpt_process(self):
         run = {
             "coverage_available": True,

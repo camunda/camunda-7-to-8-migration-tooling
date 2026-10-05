@@ -360,6 +360,8 @@ The gate reports ambiguity when one C7 process maps to multiple converted proces
 ambiguity when multiple C7 process IDs map to the same CPT process ID.
 The gate reports ambiguity when one C7 process ID appears in multiple source models and a covered
 element remains in a converted model.
+The CPT report identifies processes by ID, not by converted model path. The gate reports ambiguity
+when a covered process ID appears in more than one converted model.
 
 The validator also lists CPT decision coverage from `decisionCoverages[].decisionDefinitionId` and
 `decisionCoverages[].matchedRuleIds`. Camunda 7 process-test-coverage does not provide a matching
