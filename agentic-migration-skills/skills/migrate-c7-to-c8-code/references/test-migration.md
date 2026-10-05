@@ -464,17 +464,25 @@ The scenario runner's Cucumber module, logging, and history fast-forward reports
 
 ### Prepare the test
 
+The skill converts the shared engine-test setup before it applies the scenario-specific mappings.
+
+| Camunda 7 engine-test setup | Camunda Process Test 8.9 or later | Notes |
+|---|---|---|
+| `@Rule ProcessEngineRule processEngineRule = new ProcessEngineRule()` | Add `@CamundaProcessTest` to the class. Remove the `ProcessEngineRule` field. | CPT supplies the engine-test runtime. |
+| `@Deployment(resources = "source.bpmn")` | `@TestDeployment(resources = "converted-c8-source.bpmn")` | Deploy the converted C8 copy. |
+| Test code needs a `CamundaClient` | Inject `CamundaProcessTestContext processTestContext`. Call `processTestContext.createClient()` when needed. | |
+
 1. The skill reads the converted copy before mapping test behavior. It uses that copy to find element
    IDs, external job types, message names and correlation keys, and timer definitions.
 2. When the test completes a user task, the skill checks that the converted copy declares
    `<zeebe:userTask />`. Without the marker, Camunda uses a job-worker implementation, so the User
    Task API has no user-task instance to complete.
 3. The skill moves JUnit 3 and JUnit 4 scenario tests to JUnit 5.
-4. The skill removes `ProcessScenario` mocks, `MockitoAnnotations.openMocks(this)`, and Scenario
-   runner setup.
+4. The skill removes the `ProcessScenario` mock and Scenario runner setup.
 5. The skill removes each Scenario artifact only when no remaining test uses it.
 6. The skill adds `io.camunda:camunda-process-test-java` in test scope.
-7. The skill keeps Mockito when another remaining test uses it.
+7. The skill keeps Mockito and its initialization when a migrated class retains a mock other than
+   `ProcessScenario`.
 
 The Scenario runner completed external tasks itself. The skill uses `mockJobWorker(type)` for those
 tasks.
@@ -505,7 +513,8 @@ assertion fails after its timeout.
 
 | Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
-| `@Mock ProcessScenario process` and `MockitoAnnotations.openMocks(this)` | Remove both | CPT assertions and behaviors replace the Scenario mock. |
+| `@Mock ProcessScenario process` and its Scenario stubs | Remove the mock and Scenario stubs | Map each verification to the CPT assertion rows below. |
+| `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove only when no other `@Mock` fields remain | Keep Mockito initialization and cleanup when the class retains another mock. |
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
 | `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask("X", variables))` | The action completes the task tested by the condition. |
 | `thenReturn(a, b)` for actions on repeated visits | Chain `.then(a).then(b)` | CPT repeats the last action after earlier actions run. |

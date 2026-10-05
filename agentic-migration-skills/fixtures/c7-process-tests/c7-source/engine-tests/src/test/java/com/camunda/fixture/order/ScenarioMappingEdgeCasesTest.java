@@ -6,6 +6,7 @@
  */
 package com.camunda.fixture.order;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +29,7 @@ public class ScenarioMappingEdgeCasesTest {
   @Rule public ProcessEngineRule processEngineRule = new ProcessEngineRule();
 
   @Mock private ProcessScenario process;
+  @Mock private Collaborator collaborator;
 
   private AutoCloseable mocks;
 
@@ -73,5 +75,16 @@ public class ScenarioMappingEdgeCasesTest {
     verify(process).hasCompleted("MixedWork");
     verify(process).hasCanceled("MixedWork");
     verify(process, times(2)).hasFinished("MixedWork");
+  }
+
+  @Test
+  public void shouldKeepUnrelatedMockitoMockInitialized() {
+    when(collaborator.lookup("order-42")).thenReturn("ready");
+
+    assertEquals("ready", collaborator.lookup("order-42"));
+  }
+
+  interface Collaborator {
+    String lookup(String orderId);
   }
 }
