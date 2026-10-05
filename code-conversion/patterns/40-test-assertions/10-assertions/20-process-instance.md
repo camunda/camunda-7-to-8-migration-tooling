@@ -51,10 +51,10 @@ Use `hasNoActiveElements("A")` to map `isNotWaitingAt("A")`. It checks the curre
 
 Do not use `hasNotActivatedElements("A")` for this mapping.
 
-`hasNotActivatedElements("A")` does not wait, so first use a waiting assertion to establish the observation point. It is stricter than Camunda 7 `hasNotPassed("A")` and also fails when element A is active. Use it only when that stricter behavior is intended.
+`hasNoActiveElements("A")` and `hasNotActivatedElements("A")` inspect the current process state. When absence is meaningful only after a later process step, first use a waiting assertion to establish that observation point. `hasNotActivatedElements("A")` is stricter than Camunda 7 `hasNotPassed("A")` and also fails when element A is active. Use it only when that stricter behavior is intended.
 
 ```java
-assertThat(processInstance).hasNoActiveElements("A");
 assertThat(processInstance).hasActiveElements("ObservationPoint");
+assertThat(processInstance).hasNoActiveElements("A");
 assertThat(processInstance).hasNotActivatedElements("B");
 ```

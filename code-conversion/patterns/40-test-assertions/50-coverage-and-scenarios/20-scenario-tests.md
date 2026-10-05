@@ -63,15 +63,16 @@ class InvoiceScenarioTest {
 | `runsCallActivity("C").thenReturn(Scenario.use(child))` | Deploy the converted child and register its behaviors with `byProcessId(childPid)` | |
 | `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | |
 | `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | |
-| `startByMessage(name, vars)` | `newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | |
+| `startByMessage(name, vars)` | `CorrelateMessageResponse response = newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | The response is not a `ProcessInstanceEvent`; use `response.getProcessInstanceKey()` with `ProcessInstanceSelectors.byKey(...)` to select the instance for CPT assertions. |
 | `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | `fromAfter` has no direct counterpart. Start before the next element only when it is unambiguous. |
-| `Scenario.instance(process)` | The `ProcessInstanceEvent` returned by the create command | |
+| `Scenario.instance(process)` after `startByKey` or `fromBefore` | The `ProcessInstanceEvent` returned by the create command | |
+| `Scenario.instance(process)` after `startByMessage` | `assertThatProcessInstance(ProcessInstanceSelectors.byKey(response.getProcessInstanceKey()))` | `response` is the `CorrelateMessageResponse` returned by the message-correlation command. |
 | `verify(process).hasCompleted("E")` | `assertThat(pi).hasCompletedElements("E")` | |
 | `verify(process).hasFinished("E")` | `hasCompletedElements("E")` or `hasTerminatedElements("E")` | `hasFinished` includes completed and cancelled activities. |
 | `verify(process, times(n)).hasFinished("E")` | `hasCompletedElement("E", n)` | Waits for the exact count. |
 | `verify(process).hasCanceled("E")` | `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
-| `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion | This check does not wait. |
+| `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion at the intended observation point | This check does not wait. A preceding `hasNoActiveElements("A")` can pass before A is reached. |
 
 The scenario runner fails as soon as the process reaches an unstubbed wait state. CPT leaves the process waiting, so a final assertion fails after its timeout. Keep the existing stubs. Do not add behavior for a wait state that the Camunda 7 test left undefined.
 

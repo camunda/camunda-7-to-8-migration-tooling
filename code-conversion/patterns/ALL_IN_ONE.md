@@ -3065,11 +3065,11 @@ Use `hasNoActiveElements("A")` to map `isNotWaitingAt("A")`. It checks the curre
 
 Do not use `hasNotActivatedElements("A")` for this mapping.
 
-`hasNotActivatedElements("A")` does not wait, so first use a waiting assertion to establish the observation point. It is stricter than Camunda 7 `hasNotPassed("A")` and also fails when element A is active. Use it only when that stricter behavior is intended.
+`hasNoActiveElements("A")` and `hasNotActivatedElements("A")` inspect the current process state. When absence is meaningful only after a later process step, first use a waiting assertion to establish that observation point. `hasNotActivatedElements("A")` is stricter than Camunda 7 `hasNotPassed("A")` and also fails when element A is active. Use it only when that stricter behavior is intended.
 
 ```java
-assertThat(processInstance).hasNoActiveElements("A");
 assertThat(processInstance).hasActiveElements("ObservationPoint");
+assertThat(processInstance).hasNoActiveElements("A");
 assertThat(processInstance).hasNotActivatedElements("B");
 ```
 
@@ -3444,7 +3444,7 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `assertThat(pi).isWaitingAt("A")` | `assertThat(pi).hasActiveElements("A")` | |
 | `isWaitingAt(findId("Name"))` | `hasActiveElements(ElementSelectors.byName("Name"))` | |
 | `isWaitingAtExactly("A")` | `hasActiveElementsExactly("A")` | |
-| `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Camunda 7 checks only the current activity tree. See the explanation below. |
+| `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Both inspect the current state. If absence is meaningful only after a later point, assert that observation point first. See below. |
 | `hasPassed("A")`, `hasPassedInOrder("A", "B")` | `hasCompletedElements("A")`, `hasCompletedElementsInOrder("A", "B")` | Camunda 7 counts finished activity instances, including cancelled ones. Use `hasTerminatedElements("A")` when a boundary event interrupted the element. |
 | `hasNotPassed("A")` | `hasNotActivatedElements("A")` | This is stricter. It also fails when the element is active, so confirm that behavior is intended. |
 | `isEnded()` | `isCompleted()` or `isTerminated()` | Camunda 7 `isEnded()` passes for both completed and cancelled instances. |
@@ -3457,14 +3457,15 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `variables().containsKey("x")` | `hasVariableNames("x")` | |
 | Other `variables()` map assertions, such as `hasSize` and `isEmpty` | No counterpart | Search the variables with the client and assert with AssertJ. |
 | `isWaitingFor("message")` | `isWaitingForMessage("message")` | |
-| `isNotWaitingFor("message")` | `isNotWaitingForMessage("message")` | |
+| `isNotWaitingFor("message")` | `isNotWaitingForMessage("message")` | If absence matters only after the process reaches a later state, wait for that observation point first. |
 | `hasProcessDefinitionKey("order")` | Assert `ProcessInstanceEvent.getBpmnProcessId()` | Use AssertJ on the returned process instance event. |
 | `hasBusinessKey("key")` | `assertThat(pi.getBusinessId()).isEqualTo("key")` (8.9+) | Use this only when the migration maps the Camunda 7 business key to a Camunda 8 business ID. On 8.8, assert the variable or tag selected by the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md). |
 | `isSuspended()` | No counterpart | Camunda 8 does not expose a suspended process-instance state. Record the test as manual if suspension behavior matters. |
 | `calledProcessInstance("childId")` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey))` | Add `byProcessId("childId")` when the parent calls more than one process. |
 | `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A")).hasAssignee("u")` | |
 | `assertThat(task()).hasName("Approve")` | `assertThatUserTask(selector).hasName("Approve")` | |
-| `assertThat(task()).hasCandidateGroup("approvers")`, `hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).hasCandidateGroup("approvers")` | Check candidate-group behavior when the Camunda 7 task is already assigned. |
+| `assertThat(task()).hasCandidateGroup("approvers")` | `assertThatUserTask(selector).hasCandidateGroup("approvers")` | Camunda 7 also requires the task to be unassigned; search for the task and assert that its assignee is null with AssertJ. |
+| `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
 | `assertThat(task()).hasDueDate(date)` | `assertThatUserTask(selector).hasDueDate(isoDate)` | CPT also supports `hasFollowUpDate(...)`. |
 | `assertThat(task()).isNotAssigned()` | No counterpart | Search the user task and assert that its assignee is null with AssertJ. |
 | `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUserAssociated("u")` | No counterpart | Search the user task's candidate users and assert with AssertJ. |
@@ -3477,6 +3478,8 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 The assertion helper classes for jobs and external tasks do not have direct CPT counterparts. Assert the process state or query the relevant runtime records with the client.
 
 `isNotWaitingAt` checks only the current activity tree. An element that was entered and then left passes.
+
+`hasNoActiveElements` and `isNotWaitingForMessage` inspect the current state. If absence matters only after an asynchronous process reaches a later point, first use a positive waiting or terminal assertion that establishes that observation point; the negative check can pass before the process reaches it.
 
 `hasNotActivatedElements` evaluates immediately, so first assert a process state that establishes the observation point. It fails for an element that was entered before. Do not use it to replace `isNotWaitingAt`.
 
@@ -3965,15 +3968,16 @@ class InvoiceScenarioTest {
 | `runsCallActivity("C").thenReturn(Scenario.use(child))` | Deploy the converted child and register its behaviors with `byProcessId(childPid)` | |
 | `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | |
 | `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | |
-| `startByMessage(name, vars)` | `newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | |
+| `startByMessage(name, vars)` | `CorrelateMessageResponse response = newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | The response is not a `ProcessInstanceEvent`; use `response.getProcessInstanceKey()` with `ProcessInstanceSelectors.byKey(...)` to select the instance for CPT assertions. |
 | `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | `fromAfter` has no direct counterpart. Start before the next element only when it is unambiguous. |
-| `Scenario.instance(process)` | The `ProcessInstanceEvent` returned by the create command | |
+| `Scenario.instance(process)` after `startByKey` or `fromBefore` | The `ProcessInstanceEvent` returned by the create command | |
+| `Scenario.instance(process)` after `startByMessage` | `assertThatProcessInstance(ProcessInstanceSelectors.byKey(response.getProcessInstanceKey()))` | `response` is the `CorrelateMessageResponse` returned by the message-correlation command. |
 | `verify(process).hasCompleted("E")` | `assertThat(pi).hasCompletedElements("E")` | |
 | `verify(process).hasFinished("E")` | `hasCompletedElements("E")` or `hasTerminatedElements("E")` | `hasFinished` includes completed and cancelled activities. |
 | `verify(process, times(n)).hasFinished("E")` | `hasCompletedElement("E", n)` | Waits for the exact count. |
 | `verify(process).hasCanceled("E")` | `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
-| `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion | This check does not wait. |
+| `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion at the intended observation point | This check does not wait. A preceding `hasNoActiveElements("A")` can pass before A is reached. |
 
 The scenario runner fails as soon as the process reaches an unstubbed wait state. CPT leaves the process waiting, so a final assertion fails after its timeout. Keep the existing stubs. Do not add behavior for a wait state that the Camunda 7 test left undefined.
 
