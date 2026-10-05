@@ -71,7 +71,7 @@ The skill also scans each additional test source set declared by the build, such
 The skill follows each Cucumber runner or build configuration to locate executed `.feature` files in test resources.
 The skill inventories each Cucumber `Scenario` as one test.
 The skill inventories each data row in a Cucumber `Scenario Outline` `Examples` table as a separate test.
-The skill reads methods annotated with `@Given`, `@When`, or `@Then` as step definitions.
+The skill reads methods annotated with `@Given`, `@When`, `@Then`, `@And`, or `@But` as step definitions.
 The skill reads constructor-registered lambda steps, such as `io.cucumber.java8.En`.
 The skill does not inventory step-definition methods, lambda registrations, a Cucumber runner class, or hook methods as separate tests.
 The skill follows both forms when it checks for Camunda 7 process or decision calls.
@@ -102,7 +102,7 @@ Record the resolved path for each model resource.
 | Implicit class-level `@Deployment` | The first matching `<package path>/<DeclaringClass>.<suffix>` resource, including a superclass that declares the annotation | Use the test kind's handling |
 | Programmatic deployment | Every resource added through `repositoryService.createDeployment().addClasspathResource(...)` | Use the test kind's handling |
 | Spring Boot auto-deployment | Models deployed by `@EnableProcessApplication` with `META-INF/processes.xml`, or by the starter's auto-deployment of `src/main/resources` | Use the test kind's handling |
-| Standalone DMN parsing | A test or shared helper calls `DmnEngine.parseDecision(...)` on a resource | Record the resource path and link the DMN model to each affected test | Use the test kind's handling |
+| Standalone DMN parsing | A test or shared helper calls `DmnEngine.parseDecision(...)` on a resource. The skill records its path and links the DMN model to each affected test. | Use the test kind's handling |
 | CMMN model deployed by a test | Record the CMMN path and note manual redesign | Report only |
 | BPMN model built with the Camunda fluent model API | Record the model as programmatically built and note manual migration | Report only |
 
@@ -158,5 +158,5 @@ Do not migrate tests during Step 2.
 |---|---|---|
 | Migrate | Report only | `test migration needs Camunda 8.9 or later` |
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
-| Report only | Keep `Report only` | The skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later` |
+| Report only | Keep `Report only` | For an in-scope test, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. For `manual redesign`, the skill preserves the existing reason. |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |

@@ -77,8 +77,13 @@ def markdown_table(path, required_headers):
             if not row.startswith("|"):
                 break
             values = [cell.strip().strip("`") for cell in row.strip("|").split("|")]
-            if len(values) == len(required_headers):
-                rows.append(dict(zip(required_headers, values)))
+            if len(values) != len(required_headers):
+                raise AssertionError(
+                    "Expected {} columns but found {} in {}: {}".format(
+                        len(required_headers), len(values), path, row
+                    )
+                )
+            rows.append(dict(zip(required_headers, values)))
         return rows
     raise AssertionError(
         "Could not find table with headers {} in {}".format(required_headers, path)
@@ -161,6 +166,11 @@ class MigrationGuidanceTest(unittest.TestCase):
         for test_id, row in rows_89.items():
             with self.subTest(test_id=test_id):
                 other = rows_88[test_id]
+                if row["Test kind"] == "manual redesign":
+                    self.assertEqual(other["Handling"], "Report only")
+                    self.assertEqual(other["Notes"], row["Notes"])
+                    continue
+
                 if row["Handling"] == "Not part of test migration":
                     self.assertEqual(other["Handling"], row["Handling"])
                     self.assertEqual(other["Notes"], row["Notes"])
@@ -284,6 +294,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "@given",
             "@when",
             "@then",
+            "@and",
+            "@but",
             "the skill reads constructor-registered lambda steps",
             "`io.cucumber.java8.en`",
             "the skill follows both forms when it checks for camunda 7 process or decision calls.",
@@ -353,6 +365,25 @@ class MigrationGuidanceTest(unittest.TestCase):
             ]
             self.assertTrue(discount_rows)
             self.assertTrue(all("discount.dmn" in row["Models"] for row in discount_rows))
+
+    def test_model_source_table_includes_standalone_dmn_parsing(self):
+        rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Model source", "Model paths and notes to record", "Handling"],
+        )
+        self.assertEqual(
+            {
+                "Explicit @Deployment(resources = ...)",
+                "Implicit method-level @Deployment",
+                "Implicit class-level @Deployment",
+                "Programmatic deployment",
+                "Spring Boot auto-deployment",
+                "Standalone DMN parsing",
+                "CMMN model deployed by a test",
+                "BPMN model built with the Camunda fluent model API",
+            },
+            {row["Model source"].replace("`", "") for row in rows},
+        )
 
     def test_expected_inventories_include_complete_test_kind_counts(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
