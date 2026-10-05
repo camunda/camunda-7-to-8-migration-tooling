@@ -483,16 +483,19 @@ Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployment dependen
 | No retained method needs C7 Scenario setup. | Convert the shared setup to CPT or remove it. |
 | A retained manual method needs C7 Scenario setup. | Move migrated methods to a separate CPT class, or retain the Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployments until no retained method needs them. |
 
-The skill checks every Maven module's test-source roots and include patterns before it changes the
-target reactor.
+Before it changes the target build, the skill checks test-source roots and test filters in every
+Maven module or Gradle source set. For Maven, the skill checks each module's `testSourceDirectory`
+and compiler include patterns. For Gradle, the skill checks each test source set and test-task
+include and exclude patterns.
 
 | Source-set condition | Migration action |
 |---|---|
 | Multiple C7 modules compile the same physical test source. | Migrate that source only once to the CPT suite. Keep each module-qualified C7 test ID in the inventory. Map duplicate module executions to one CPT test ID. |
-| A redundant target module has no test sources outside the shared set. | Remove that module. |
-| A redundant target module has unrelated test sources. | Preserve those tests in a reconfigured module that excludes shared sources, or move them to the primary module before removing the redundant module. |
+| A target module has no test sources outside the shared set and no unique resources, main outputs, generated outputs, or build responsibilities. | Remove the module. |
+| A target module has test sources outside the shared set or unique resources, main outputs, generated outputs, or build responsibilities. | Preserve every unique test, resource, output, and build responsibility in a reconfigured module that excludes shared sources or in the primary module. Retain the target module if the skill cannot preserve all unique content. |
 
-The skill preserves unrelated tests before it removes or reconfigures a redundant target module.
+The skill preserves every unique resource, output, and build responsibility before it removes or
+reconfigures a target module.
 
 | Camunda 7 engine-test setup | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|

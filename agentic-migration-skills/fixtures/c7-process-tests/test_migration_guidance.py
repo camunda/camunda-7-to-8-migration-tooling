@@ -15,6 +15,9 @@ EXPECTED_ASSESSMENT = FIXTURE / "expected-assessment" / "test-inventory.md"
 EXPECTED_ASSESSMENT_88 = FIXTURE / "expected-assessment-8.8" / "test-inventory.md"
 EXPECTED_PARITY = FIXTURE / "expected-run" / "test-parity.md"
 EXPECTED_TESTS_ONLY = FIXTURE / "expected-tests-only" / "MIGRATION_REPORT.md"
+MIGRATION_SKILL = (
+    REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
+)
 TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
@@ -478,13 +481,44 @@ class MigrationGuidanceTest(unittest.TestCase):
                 cpt_id = legacy_id.replace("engine-tests-legacy:", "engine-tests:", 1)
                 self.assertEqual(cpt_id, parity_by_id[legacy_id]["CPT Test ID(s)"])
 
+    def test_tests_only_report_keeps_legacy_executions_blocked(self):
+        rows = markdown_table(
+            EXPECTED_TESTS_ONLY,
+            ["Test ID", "Expected CPT test", "Status", "Reason"],
+        )
+        self.assert_unique_rows(rows, "Test ID", EXPECTED_TESTS_ONLY)
+        rows_by_id = {row["Test ID"]: row for row in rows}
+
+        for legacy_id in sorted(LEGACY_TEST_IDS):
+            cpt_id = legacy_id.split(":", 1)[1].rsplit(".", 1)[-1]
+            with self.subTest(test_id=legacy_id):
+                self.assertIn(legacy_id, rows_by_id)
+                self.assertEqual(rows_by_id[legacy_id]["Expected CPT test"], cpt_id)
+                self.assertEqual(rows_by_id[legacy_id]["Status"], "blocked")
+                self.assertEqual(
+                    rows_by_id[legacy_id]["Reason"],
+                    "declined by user (Question 8)",
+                )
+
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "the skill checks every maven module's test-source roots and include "
-            "patterns before it changes the target reactor.",
+            "before it changes the target build, the skill checks test-source roots "
+            "and test filters in every maven module or gradle source set.",
             reference,
         )
+        self.assertIn(
+            "for maven, the skill checks each module's `testsourcedirectory` and "
+            "compiler include patterns.",
+            reference,
+        )
+        self.assertIn(
+            "for gradle, the skill checks each test source set and test-task include "
+            "and exclude patterns.",
+            reference,
+        )
+        self.assertNotIn("target reactor", reference)
+
         source_set_actions = markdown_table(
             TEST_MIGRATION_REFERENCE,
             ["Source-set condition", "Migration action"],
@@ -507,21 +541,39 @@ class MigrationGuidanceTest(unittest.TestCase):
         redundant_module_actions = [
             row
             for row in source_set_actions
-            if "redundant target module" in row["Source-set condition"].lower()
+            if "target module" in row["Source-set condition"].lower()
         ]
         self.assertEqual(2, len(redundant_module_actions))
-        self.assertTrue(
-            any(
-                "remove that module" in row["Migration action"].lower()
-                for row in redundant_module_actions
-            )
+        remove_action = next(
+            row
+            for row in redundant_module_actions
+            if "remove the module" in row["Migration action"].lower()
         )
-        self.assertTrue(
-            any(
-                "preserve those tests" in row["Migration action"].lower()
-                and "reconfigured module" in row["Migration action"].lower()
-                for row in redundant_module_actions
-            )
+        for requirement in (
+            "no test sources outside the shared set",
+            "unique resources",
+            "main outputs",
+            "generated outputs",
+            "build responsibilities",
+        ):
+            self.assertIn(requirement, remove_action["Source-set condition"].lower())
+
+        preserve_action = next(
+            row
+            for row in redundant_module_actions
+            if "preserve every unique" in row["Migration action"].lower()
+        )
+        self.assertIn(
+            "resource",
+            preserve_action["Migration action"].lower(),
+        )
+        self.assertIn(
+            "output",
+            preserve_action["Migration action"].lower(),
+        )
+        self.assertIn(
+            "retain the target module",
+            preserve_action["Migration action"].lower(),
         )
 
         target_project = ET.parse(EXPECTED_C8 / "pom.xml").getroot()
@@ -530,6 +582,15 @@ class MigrationGuidanceTest(unittest.TestCase):
             for module in target_project.findall("m:modules/m:module", MAVEN_NAMESPACE)
         }
         self.assertNotIn("engine-tests-legacy", target_modules)
+
+    def test_scenario_test_guidance_is_loaded_during_step_two(self):
+        skill = normalized(MIGRATION_SKILL.read_text(encoding="utf-8"))
+        step_two_start = skill.index("### step 2: assessment (always runs)")
+        step_three_start = skill.index("### step 3: execute migration", step_two_start)
+        step_two = skill[step_two_start:step_three_start]
+
+        self.assertIn("scenario test inventory", step_two)
+        self.assertIn("references/test-migration.md", step_two)
 
     def test_fulfillment_parity_note_matches_single_run_time_advances(self):
         parity = markdown_table(

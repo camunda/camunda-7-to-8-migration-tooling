@@ -233,6 +233,12 @@ class by its fully qualified class name, including its package and class name. I
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
 
+#### Scenario Test Inventory
+
+When code scope includes Camunda Platform Scenario tests, follow
+`references/test-migration.md` during Step 2. Record each method's classification and target-version
+handling in the Test Inventory.
+
 When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
 Engine REST call, inventory its HTTP topology. Follow
 `references/http-topology-migration.md`. Ask Question 7 from
