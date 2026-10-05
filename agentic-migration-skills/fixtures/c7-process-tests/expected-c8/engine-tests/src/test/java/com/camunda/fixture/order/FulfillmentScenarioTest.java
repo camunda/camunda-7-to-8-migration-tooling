@@ -78,6 +78,7 @@ class FulfillmentScenarioTest {
     processTestContext.increaseTime(Duration.ofHours(12));
     assertThat(processInstance).hasCompletedElement("ColleagueReminded", 2);
     processTestContext.increaseTime(Duration.ofHours(12));
+    assertThat(processInstance).hasCompletedElement("ColleagueReminded", 2);
     processTestContext.completeUserTask(byElementId("CompleteWork"));
 
     assertThat(processInstance).isCompleted().hasCompletedElements("WorkFinished");
