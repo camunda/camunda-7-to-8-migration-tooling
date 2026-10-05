@@ -1291,6 +1291,7 @@ def test_mapping_digest(mapping, kind):
     elif kind == "review":
         value = {
             "tests": mapping.get("tests", []),
+            "freeze": mapping.get("freeze", {}),
             "mock_changes": mapping.get("mock_changes", []),
         }
         test_changes = mapping.get("test_changes", [])

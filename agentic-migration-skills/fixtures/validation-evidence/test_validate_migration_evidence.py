@@ -1383,6 +1383,58 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertIn(key, plan.required)
             self.assertFalse(key in checks, f"{key} remained current after test changes")
 
+    def test_replacing_frozen_hashes_invalidates_assertion_and_mock_reviews(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(),
+            ),
+        )
+        class_target = "app:com.example.OrderTest"
+        review_keys = (
+            ("test", class_target, "assertion_strength", None),
+            ("test", self.c7_test_id, "mock_boundary", None),
+        )
+        for key, note in (
+            (review_keys[0], f"Reviewed assertions for {class_target}."),
+            (review_keys[1], f"Reviewed C7 test {self.c7_test_id} and its CPT mocks."),
+        ):
+            self.assertEqual(0, self.submit(key, action="review", note=note))
+
+        test_path = "app/src/test/java/com/example/OrderCptTest.java"
+        test_file = self.root / test_path
+        test_file.write_text("class OrderCptTest { void weakened() {} }\n", encoding="utf-8")
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["freeze"]["files"][test_path] = f"sha256:{gate.file_digest(test_file)}"
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        plan = gate.requirements(
+            self.root, json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        )
+        self.assertEqual([], gate.validate_test_freeze(self.root, plan, mapping))
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        check_issues = []
+        checks = gate.load_checks(self.root, evidence, plan, check_issues)
+        self.assertEqual([], check_issues)
+        for key in review_keys:
+            self.assertIn(key, plan.required)
+            self.assertNotIn(key, checks, f"{key} remained current after replacing frozen hashes")
+
     def test_test_freeze_requires_approval_for_changed_files(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
