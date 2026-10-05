@@ -63,12 +63,20 @@ def test_method_ids(project_root):
     return ids
 
 
+def markdown_table_cells(line):
+    if line.startswith("|"):
+        line = line[1:]
+    if line.endswith("|"):
+        line = line[:-1]
+    return [cell.strip() for cell in line.split("|")]
+
+
 def markdown_table(path, required_headers):
     lines = path.read_text(encoding="utf-8").splitlines()
     for index, line in enumerate(lines):
         if not line.startswith("|"):
             continue
-        headers = [cell.strip().strip("`") for cell in line.strip("|").split("|")]
+        headers = [cell.strip("`") for cell in markdown_table_cells(line)]
         if headers != required_headers:
             continue
 
@@ -76,7 +84,7 @@ def markdown_table(path, required_headers):
         for row in lines[index + 2 :]:
             if not row.startswith("|"):
                 break
-            values = [cell.strip().strip("`") for cell in row.strip("|").split("|")]
+            values = [cell.strip("`") for cell in markdown_table_cells(row)]
             if len(values) != len(required_headers):
                 raise AssertionError(
                     "Expected {} columns but found {} in {}: {}".format(
@@ -88,6 +96,43 @@ def markdown_table(path, required_headers):
     raise AssertionError(
         "Could not find table with headers {} in {}".format(required_headers, path)
     )
+
+
+def reference_table_separator_errors(lines):
+    errors = []
+    for index, header_line in enumerate(lines[:-1]):
+        separator = lines[index + 1]
+        if not header_line.startswith("|") or not separator.startswith("|"):
+            continue
+
+        separator_cells = markdown_table_cells(separator)
+        if not any(
+            re.fullmatch(r":?-+:?", cell) or re.match(r":?-{3,}", cell)
+            for cell in separator_cells
+        ):
+            continue
+
+        invalid_cells = [
+            cell
+            for cell in separator_cells
+            if not re.fullmatch(r":?-{3,}:?", cell)
+        ]
+        if invalid_cells:
+            errors.append(
+                "Invalid table separator cell on line {}: {}".format(
+                    index + 2, separator
+                )
+            )
+            continue
+
+        header_cells = markdown_table_cells(header_line)
+        if len(header_cells) != len(separator_cells):
+            errors.append(
+                "Table header and separator must have matching column counts on line {}: {}".format(
+                    index + 1, separator
+                )
+            )
+    return errors
 
 
 def normalized(value):
@@ -154,22 +199,28 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_reference_tables_have_matching_header_and_separator_columns(self):
         lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
-        for index, header_line in enumerate(lines[:-1]):
-            separator = lines[index + 1]
-            if not header_line.startswith("|") or not separator.startswith("|"):
-                continue
+        errors = reference_table_separator_errors(lines)
+        self.assertEqual(
+            [],
+            errors,
+            "{}:\n{}".format(TEST_MIGRATION_REFERENCE, "\n".join(errors)),
+        )
 
-            separator_cells = [cell.strip() for cell in separator.strip("|").split("|")]
-            if not all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator_cells):
-                continue
-
-            header_cells = [cell.strip() for cell in header_line.strip("|").split("|")]
-            with self.subTest(line=index + 1):
-                self.assertEqual(
-                    len(header_cells),
-                    len(separator_cells),
-                    "Table header and separator must have matching column counts.",
-                )
+    def test_reference_table_rejects_malformed_separator_cells(self):
+        header = "| First | Second | Third | Fourth |"
+        for separator in (
+            "|---||---|---|",
+            "||---|---|---|",
+            "|---|---|---||",
+            "|--|--|--|--|",
+            "|--||--|--|",
+            "|---|--|---|---|",
+            "|---|---x|---|---|",
+        ):
+            with self.subTest(separator=separator):
+                errors = reference_table_separator_errors([header, separator])
+                self.assertTrue(errors)
+                self.assertIn("Invalid table separator cell", errors[0])
 
     def test_shared_engine_smoke_has_explicit_scope_exception(self):
         scope_rows = markdown_table(
