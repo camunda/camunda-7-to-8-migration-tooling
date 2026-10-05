@@ -747,5 +747,5 @@ class OrderTaskTest {
     }
 }
 """));
-}
+    }
 }
