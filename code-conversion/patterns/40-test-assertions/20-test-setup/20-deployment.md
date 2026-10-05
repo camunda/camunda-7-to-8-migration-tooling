@@ -22,6 +22,8 @@ public class OrderProcessTest {
 @CamundaProcessTest
 @TestDeployment(resources = {"converted-c8-order.bpmn", "converted-c8-order.dmn"})
 class OrderProcessTest {
+  private CamundaClient client;
+
   @Test
   void startsAnOrder() {
     client.newCreateInstanceCommand()

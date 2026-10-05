@@ -27,6 +27,13 @@ class OrderProcessTest {
   private CamundaClient client;
   private CamundaProcessTestContext processTestContext;
 
+  @BeforeEach
+  void deployConvertedModel() {
+    client.newDeployResourceCommand()
+        .addResourceFromClasspath("converted-c8-order.bpmn")
+        .send().join();
+  }
+
   @Test
   void startsAnOrder() {
     ProcessInstanceEvent instance = client.newCreateInstanceCommand()

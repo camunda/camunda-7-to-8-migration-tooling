@@ -1,4 +1,4 @@
-# Decision Tests
+# DMN Decision Test Migration
 
 Migrate each Camunda 7 decision test to evaluate the converted DMN copy with CPT. Camunda 8 evaluates required decisions in a deployed DRD when the test evaluates the parent decision.
 
@@ -40,7 +40,7 @@ class DishDecisionTest {
 }
 ```
 
-`@TestDeployment` requires Camunda 8.9. On 8.8, deploy the converted DMN copy in `@BeforeEach` with `client.newDeployResourceCommand().addResourceFromClasspath(...)`, as described in [test deployment](../20-test-setup/20-deployment.md).
+`@TestDeployment` requires Camunda 8.9. On 8.8, deploy the converted DMN copy in `@BeforeEach` with `client.newDeployResourceCommand().addResourceFromClasspath(...)`, as described in the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md).
 
 | Camunda 7 | CPT | Note |
 |---|---|---|

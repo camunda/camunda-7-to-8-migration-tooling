@@ -19,6 +19,15 @@ public class OrderProcessTest {
 ```java
 @CamundaProcessTest
 class OrderProcessTest {
+  private CamundaClient client;
+
+  @BeforeEach
+  void deployConvertedModel() {
+    client.newDeployResourceCommand()
+        .addResourceFromClasspath("converted-c8-order.bpmn")
+        .send().join();
+  }
+
   @Test
   void startsAnOrder() {
     client.newCreateInstanceCommand()

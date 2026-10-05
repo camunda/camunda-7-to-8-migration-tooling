@@ -16,14 +16,24 @@ verifyJavaDelegateMock("notifyDelegate").executed();
 ```java
 @CamundaProcessTest
 class InvoiceProcessTest {
+  private CamundaClient client;
   private CamundaProcessTestContext processTestContext;
+
+  @BeforeEach
+  void deployConvertedModel() {
+    client.newDeployResourceCommand()
+        .addResourceFromClasspath("converted-c8-invoice.bpmn")
+        .send().join();
+  }
 
   @Test
   void runsWithTheSameMockBoundary() {
     JobWorkerMock notify = processTestContext.mockJobWorker("notify")
         .thenComplete(Map.of("notified", true));
 
-    // Start the process and wait for the mocked task to complete.
+    client.newCreateInstanceCommand()
+        .bpmnProcessId("invoice").latestVersion().send().join();
+
     assertThatProcessInstance(byProcessId("invoice")).hasCompletedElements("Task_Notify");
     assertThat(notify.getInvocations()).isEqualTo(1);
   }

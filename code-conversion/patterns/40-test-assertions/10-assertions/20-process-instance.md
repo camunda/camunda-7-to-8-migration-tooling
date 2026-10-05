@@ -24,6 +24,8 @@ Camunda 8 uses [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-to
 
 In test cases you typically want blocking behavior for the client API, so use `send().join()`:
 
+Deploy the converted model before starting an instance. See the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md) for Camunda 8.8 and 8.9 setup.
+
 ```java
 @Autowired
 CamundaClient client;

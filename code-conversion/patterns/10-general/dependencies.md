@@ -87,9 +87,11 @@ never proves that the classpath is compatible.
 </dependency>
 ```
 
-For Spring Boot applications, use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with `camunda-spring-boot-3-starter`. The former `spring-boot-starter-camunda-test` and `spring-boot-starter-camunda-test-testcontainer` artifacts are replaced by these CPT Spring modules.
+For Camunda 8.9 or later, use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with `camunda-spring-boot-3-starter`. Replace `spring-boot-starter-camunda-test` and `spring-boot-starter-camunda-test-testcontainer` with these CPT Spring modules for those targets.
 
-If the project uses the temporary `camunda-process-test-spring-4` or `camunda-process-test-spring-boot-4` artifact names from Camunda 8.8, replace them with `camunda-process-test-spring`.
+For Camunda 8.8 with Spring Boot 4, use the version-specific artifact names shown in the table below.
+
+For Camunda 8.9 or later, replace the temporary `camunda-process-test-spring-4` or `camunda-process-test-spring-boot-4` artifact names from Camunda 8.8 with `camunda-process-test-spring`.
 
 **Camunda 7 test artifacts and replacements**: CPT Java and Spring test APIs are available from Camunda 8.8. Conditional behavior requires 8.9. Inventory the test dependencies before removing them. Keep dependencies that still support in-scope tests.
 

@@ -32,6 +32,8 @@ For an asynchronous continuation, Camunda 7 tests often call `execute(job())` to
 
 Camunda 8 handles timers and async jobs differently, but you also have control in test cases.
 
+Deploy the converted model before starting an instance. See the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md) for Camunda 8.8 and 8.9 setup.
+
 You can [manipulate the clock](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#manipulate-the-clock) to trigger a BPMN timer event that would be due in the future.
 
 ```java
