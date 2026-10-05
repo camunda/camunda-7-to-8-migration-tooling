@@ -43,7 +43,10 @@ class OrderTimerTest {
   @Test
   void escalatesAfterOneDay() {
     ProcessInstanceEvent instance = startOrderAndAdvanceTimer();
-    assertThat(instance).hasActiveElements("Task_Escalate").hasNoActiveElements("Task_Approve");
+    assertThat(instance)
+        .hasActiveElements("Task_Escalate")
+        .hasNoActiveElements("Task_Approve")
+        .hasVariable("auditStarted", true);
   }
 
   @Test

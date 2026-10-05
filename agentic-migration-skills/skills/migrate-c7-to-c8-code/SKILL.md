@@ -222,6 +222,15 @@ C7 baseline with the command in `references/validation-evidence.md`.
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
 
+#### Test Inventory
+
+Build the Test Inventory from the original C7 test source before Step 3 changes that source.
+Inventory every test method and assign its test kind.
+For each in-scope process or decision test, detect mock signals from the original C7 test source
+using `references/test-migration.md`.
+Record the source-derived `mocks` modifier in the Test Inventory's `Signals` column.
+Users do not add it.
+
 #### Code Inventory
 
 Classify every Camunda 7 related Java file and config file into a table with the columns File, Type,
@@ -374,7 +383,6 @@ When code migration includes Camunda Platform Scenario tests, follow
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
 The skill follows `references/test-migration.md` to map every Test Inventory row whose `Handling` value instructs migration, including process-test mocks.
-The skill detects supported C7 mock APIs in every in-scope test and records the `mocks` modifier in the Test Inventory's `Signals` column. Users do not add it.
 
 When the user selects Approach A, the skill runs this gate for every C7 JavaDelegate before
 `REWRITE_COMMAND`.

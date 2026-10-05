@@ -3,6 +3,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 
@@ -14,6 +15,13 @@ VALIDATOR_PATH = (
 )
 sys.path.insert(0, str(VALIDATOR_PATH.parent))
 import validate_migration_evidence as gate
+
+
+def call_mock_boundary_validator(test, mapping):
+    validator = getattr(gate, "test_mock_issues", None)
+    if validator is None:
+        raise unittest.SkipTest("The mock-boundary validator is supplied by PR #3228.")
+    return validator(test, mapping, test["c8_ids"])
 
 
 class ProcessTestMocksFixtureTest(unittest.TestCase):
@@ -250,11 +258,17 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             "| C7 mock library | No remaining test uses the library. | Remove the dependency. |",
             guidance,
         )
+        step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
+        self.assertIn("detect mock signals from the original C7 test source", step_two)
         self.assertIn(
-            "It derives the `mocks` modifier from source and",
-            skill,
+            "Record the source-derived `mocks` modifier in the Test Inventory's `Signals` column.",
+            step_two,
         )
-        self.assertIn("records it in the Test Inventory's `Signals` column.", skill)
+        self.assertIn("uses the source-derived modifier recorded in Step 2.", step_three)
+        self.assertIn(
+            "does not derive the modifier again after source transformations.",
+            step_three,
+        )
         self.assertIn("Users do not add it.", skill)
 
     def test_mock_modifier_ignores_shared_engine_configuration_and_dependencies(self):
@@ -448,12 +462,28 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn("MockExpressionManager", c7_config)
         self.assertFalse((FIXTURE / "expected-c8/src/test/resources/camunda.cfg.xml").exists())
 
+    def test_mock_boundary_validator_receives_mapped_c8_ids(self):
+        mapping = json.loads(
+            (FIXTURE / "negative/unapproved-worker-mock.json").read_text(encoding="utf-8")
+        )
+        test = mapping["tests"][0]
+        received = []
+
+        def validator(test_argument, mapping_argument, mapped_c8_ids):
+            received.append((test_argument, mapping_argument, mapped_c8_ids))
+            return []
+
+        with patch.object(gate, "test_mock_issues", validator, create=True):
+            self.assertEqual([], call_mock_boundary_validator(test, mapping))
+
+        self.assertEqual([(test, mapping, test["c8_ids"])], received)
+
     def test_unapproved_worker_mock_fails_mock_boundary_check(self):
         mapping = json.loads(
             (FIXTURE / "negative/unapproved-worker-mock.json").read_text(encoding="utf-8")
         )
         test = mapping["tests"][0]
-        issues = gate.test_mock_issues(test, mapping)
+        issues = call_mock_boundary_validator(test, mapping)
         self.assertTrue(
             any("unapproved mock" in issue for issue in issues),
             f"Expected the mock-boundary check to reject the new worker mock, got: {issues}",

@@ -1700,6 +1700,36 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(inventory=inventory_path):
                 self.assertNotIn("mocks", signals)
 
+    def test_concrete_listener_side_effect_is_preserved_in_cpt_fixture(self):
+        c7_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'assertThat(instance).variables().containsEntry("auditStarted", true)',
+            c7_test,
+        )
+        self.assertIn('.hasVariable("auditStarted", true)', c8_test)
+
+    def test_mock_modifier_detection_is_completed_during_step_two(self):
+        skill = (
+            REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
+        ).read_text(encoding="utf-8")
+        step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
+
+        self.assertIn("detect mock signals from the original C7 test source", step_two)
+        self.assertIn("Record the source-derived `mocks` modifier", step_two)
+        self.assertIn(
+            "whose Step 2 Test Inventory `Signals` column contains `mocks`",
+            step_three,
+        )
+        self.assertNotIn("derives the `mocks` modifier from source", step_three)
+
     def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
