@@ -780,6 +780,9 @@ The shared-engine row overrides every client-shape row below it.
 | Unit test of an external-task handler that starts no engine | Out of scope | Migrate it as ordinary code. |
 | WireMock or another Engine REST stub | Out of scope | Do not migrate it as a remote-engine test. |
 | Test calls an engine that it does not start, and the engine is neither local nor a test-owned container | Report only | Record `manual` in the parity ledger with the shared-environment reason below. |
+| Test is already classified as manual migration | Report only | Preserve the existing manual migration verdict. |
+| Test is already classified as manual redesign | Report only | Preserve the existing manual redesign verdict. |
+| Target is Camunda 8.8 and the test would otherwise be in scope | Report only | Record `test migration needs Camunda 8.9 or later` in `MIGRATION_REPORT.md`. |
 | Engine REST calls through RestAssured, RestTemplate, TestRestTemplate, WebClient, HTTP clients, or generated OpenAPI clients | In scope | Replace Engine REST calls with the matching CPT command or assertion. |
 | Java clients that call Engine REST through a Camunda 7 service API, including `camunda-platform-7-rest-client-spring-boot` | In scope | Replace the client calls with Camunda 8 commands and assertions. |
 | `org.camunda.bpm.client.ExternalTaskClient` or `@ExternalTaskSubscription` from `org.camunda.bpm.springboot:camunda-bpm-spring-boot-starter-external-task-client` | In scope | Migrate the worker and keep its process behavior in the CPT test. |

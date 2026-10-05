@@ -165,6 +165,10 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         first_client_shape = classification.index("| Engine REST calls through")
         for boundary in (
+            "| Test is already classified as manual migration | Report only | "
+            "Preserve the existing manual migration verdict. |",
+            "| Test is already classified as manual redesign | Report only | "
+            "Preserve the existing manual redesign verdict. |",
             "| Test calls an engine that it does not start",
             "| Unit test of an external-task handler that starts no engine",
             "| WireMock or another Engine REST stub",
@@ -172,6 +176,35 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         ):
             with self.subTest(boundary=boundary):
                 self.assertLess(classification.index(boundary), first_client_shape)
+
+    def test_camunda_8_8_gate_precedes_in_scope_client_shapes(self):
+        classification = REFERENCE.read_text().split("## Scope and classification", 1)[1].split(
+            "## Runtime and build changes", 1
+        )[0]
+        version_gate = (
+            "| Target is Camunda 8.8 and the test would otherwise be in scope | "
+            "Report only | Record `test migration needs Camunda 8.9 or later` in "
+            "`MIGRATION_REPORT.md`. |"
+        )
+        self.assertIn(version_gate, classification)
+        for boundary in (
+            "| Load, performance, or end-to-end UI test against Camunda 7",
+            "| Unit test of an external-task handler that starts no engine",
+            "| WireMock or another Engine REST stub",
+            "| Test calls an engine that it does not start",
+            "| Test is already classified as manual migration | Report only | "
+            "Preserve the existing manual migration verdict. |",
+            "| Test is already classified as manual redesign | Report only | "
+            "Preserve the existing manual redesign verdict. |",
+        ):
+            with self.subTest(boundary=boundary):
+                self.assertLess(
+                    classification.index(boundary), classification.index(version_gate)
+                )
+        self.assertLess(
+            classification.index(version_gate),
+            classification.index("| Engine REST calls through"),
+        )
 
     def test_shared_engine_definition_matches_report_only_boundary(self):
         reference = REFERENCE.read_text()
