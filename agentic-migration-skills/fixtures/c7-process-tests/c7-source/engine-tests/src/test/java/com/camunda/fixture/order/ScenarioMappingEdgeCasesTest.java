@@ -6,6 +6,7 @@
  */
 package com.camunda.fixture.order;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,8 +20,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
 @Deployment(resources = "review-edge-cases.bpmn")
 public class ScenarioMappingEdgeCasesTest {
@@ -28,6 +33,14 @@ public class ScenarioMappingEdgeCasesTest {
   @Rule public ProcessEngineRule processEngineRule = new ProcessEngineRule();
 
   @Mock private ProcessScenario process;
+
+  @Mock private Collaborator collaborator;
+
+  @Spy private AuditLog auditLog = new AuditLog();
+
+  @Captor private ArgumentCaptor<String> orderIdCaptor;
+
+  @InjectMocks private CollaboratorService collaboratorService;
 
   private AutoCloseable mocks;
 
@@ -50,6 +63,7 @@ public class ScenarioMappingEdgeCasesTest {
 
   @Test
   public void shouldCountCompletedVisitsSeparately() {
+    when(collaborator.lookup("order-42")).thenReturn("ready");
     when(process.waitsAtServiceTask("MixedWork"))
         .thenReturn(
             task -> task.complete(Map.of("visitCount", 1)),
@@ -57,6 +71,10 @@ public class ScenarioMappingEdgeCasesTest {
 
     Scenario.run(process).startByKey("MixedFinishReview", Map.of()).execute();
 
+    assertEquals("ready", collaboratorService.lookup("order-42"));
+    verify(collaborator).lookup(orderIdCaptor.capture());
+    assertEquals("order-42", orderIdCaptor.getValue());
+    verify(auditLog).record("order-42");
     verify(process, times(2)).hasCompleted("MixedWork");
     verify(process, times(2)).hasFinished("MixedWork");
   }
@@ -73,5 +91,25 @@ public class ScenarioMappingEdgeCasesTest {
     verify(process).hasCompleted("MixedWork");
     verify(process).hasCanceled("MixedWork");
     verify(process, times(2)).hasFinished("MixedWork");
+  }
+
+  private static class Collaborator {
+    String lookup(String orderId) {
+      return "not-stubbed";
+    }
+  }
+
+  private static class AuditLog {
+    void record(String orderId) {}
+  }
+
+  private static class CollaboratorService {
+    private Collaborator collaborator;
+    private AuditLog auditLog;
+
+    String lookup(String orderId) {
+      auditLog.record(orderId);
+      return collaborator.lookup(orderId);
+    }
   }
 }

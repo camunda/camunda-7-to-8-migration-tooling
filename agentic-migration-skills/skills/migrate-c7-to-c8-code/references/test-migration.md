@@ -43,7 +43,7 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 
 | Priority | Test kind | Detect by | Handling |
 |---|---|---|---|
-| 1 | out of scope (Camunda 8) | Uses Zeebe or CPT APIs without running a C7 engine. | Not part of test migration |
+| 1 | out of scope (Camunda 8) | Uses Zeebe Process Test (`io.camunda.zeebe.process.test.*`) or CPT (`io.camunda.process.test.*`) without running a C7 engine. | Not part of test migration |
 | 2 | manual redesign | A C7 engine test covers CMMN APIs or models, or unsupported engine internals such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. `ClockUtil` timer control does not trigger this signal by itself. | Report only |
 | 3 | manual migration | JGiven (`io.holunda.testing:camunda-bpm-jgiven`) tests require manual migration. Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
 | 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate (lower priority) |
@@ -553,6 +553,7 @@ parity-ledger entry.
 | `Scenario.instance(process)` after `startByKey` | The skill asserts against the `ProcessInstanceEvent` returned by the create-instance command | |
 | `Scenario.instance(process)` after `startByMessage` | The skill selects the instance with `assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey()))` | The correlate command returns a `CorrelateMessageResponse`, not a `ProcessInstanceEvent`. |
 | `verify(process).hasCompleted("E")` | Assert `hasCompletedElements("E")` | |
+| `verify(process, times(n)).hasCompleted("E")` | Assert `hasCompletedElement("E", n)`. | The skill preserves the exact completed-element count. |
 | `verify(process).hasFinished("E")` | The skill asserts `hasCompletedElements("E")`, `hasTerminatedElements("E")`, or both | The skill asserts each outcome present on the path. `hasFinished` includes completed and canceled elements. |
 | `verify(process, times(n)).hasFinished("E")` | When the completed-versus-terminated split is known, assert the completed count with `hasCompletedElement("E", completedCount)`, the terminated count with `hasTerminatedElement("E", terminatedCount)`, or both. | The skill uses one assertion when all visits share an outcome. The skill uses both assertions when the path has known mixed counts. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason. The skill does not assert exact counts or their sum in that case. |
 | `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |

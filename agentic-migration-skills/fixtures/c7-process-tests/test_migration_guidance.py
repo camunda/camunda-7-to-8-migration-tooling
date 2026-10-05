@@ -1,9 +1,10 @@
 from collections import Counter
-from pathlib import Path
+import fnmatch
 import re
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 FIXTURE = Path(__file__).resolve().parent
@@ -25,12 +26,13 @@ CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)\b")
 TEST_ANNOTATION_RE = re.compile(
     r"@\s*(?:org\.junit(?:\.jupiter\.api)?\.)?(?:Test|ParameterizedTest|RepeatedTest)\b"
 )
+MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
 METHOD_RE = re.compile(
     r"(?m)^\s*(?:(?:public|protected|private)\s+)?(?:static\s+)?"
     r"(?:[\w$<>?,.\[\]]+\s+)+([A-Za-z_$][\w$]*)\s*\("
 )
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
-TEST_ID_RE = re.compile(r"(?:engine-tests|spring-boot-app|remote-engine):[\w.]+#[A-Za-z_$][\w$]*")
+TEST_ID_RE = re.compile(r"[\w.-]+:[\w.]+#[A-Za-z_$][\w$]*")
 TEST_KINDS = (
     "process test",
     "decision test",
@@ -53,27 +55,98 @@ REPORT_ONLY_REASONS = {
     "scenario test": "scenario-test migration procedure is defined",
     "remote-engine test": "remote-engine migration procedure is defined",
 }
+LEGACY_TEST_IDS = {
+    "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
+    "shouldCompleteWorkAfterTwoDailyReminders",
+    "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+    "shouldStartMessageProcess",
+    "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+    "shouldCountCompletedVisitsSeparately",
+    "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+    "shouldCountMixedFinishedVisitsByOutcome",
+}
 
 
 def test_method_ids(project_root):
     ids = set()
-    for source_file in sorted(project_root.glob("*/src/test/java/**/*.java")):
-        source = source_file.read_text(encoding="utf-8")
-        package_match = PACKAGE_RE.search(source)
-        class_match = CLASS_RE.search(source)
-        if package_match is None or class_match is None:
+    root = ET.parse(project_root / "pom.xml").getroot()
+    modules = root.findall("m:modules/m:module", MAVEN_NAMESPACE)
+
+    for module_element in modules:
+        module_name = (module_element.text or "").strip()
+        module_root = (project_root / module_name).resolve()
+        module_pom = ET.parse(module_root / "pom.xml").getroot()
+        build = module_pom.find("m:build", MAVEN_NAMESPACE)
+        test_source_directory = (
+            build.findtext("m:testSourceDirectory", namespaces=MAVEN_NAMESPACE)
+            if build is not None
+            else None
+        )
+        test_source_directory = (
+            test_source_directory.strip()
+            if test_source_directory and test_source_directory.strip()
+            else "${project.basedir}/src/test/java"
+        )
+        test_source_directory = test_source_directory.replace(
+            "${project.basedir}", str(module_root)
+        )
+        if "${" in test_source_directory:
+            raise AssertionError(
+                "Unsupported testSourceDirectory expression in {}".format(module_root)
+            )
+        source_root = Path(test_source_directory)
+        if not source_root.is_absolute():
+            source_root = module_root / source_root
+        source_root = source_root.resolve()
+        if not source_root.is_dir():
             continue
 
-        module = source_file.relative_to(project_root).parts[0]
-        class_name = "{}.{}".format(package_match.group(1), class_match.group(1))
-        for annotation in TEST_ANNOTATION_RE.finditer(source):
-            method = METHOD_RE.search(source[annotation.end() :])
-            if method is not None:
-                ids.add("{}:{}#{}".format(module, class_name, method.group(1)))
+        compiler_plugin = None
+        if build is not None:
+            compiler_plugin = next(
+                (
+                    plugin
+                    for plugin in build.findall("m:plugins/m:plugin", MAVEN_NAMESPACE)
+                    if plugin.findtext("m:artifactId", namespaces=MAVEN_NAMESPACE)
+                    == "maven-compiler-plugin"
+                ),
+                None,
+            )
+        include_patterns = (
+            [
+                (include.text or "").strip()
+                for include in compiler_plugin.findall(
+                    "m:configuration/m:testIncludes/m:testInclude", MAVEN_NAMESPACE
+                )
+                if include.text and include.text.strip()
+            ]
+            if compiler_plugin is not None
+            else []
+        )
 
-        if "extends ProcessEngineTestCase" in source:
-            for method in JUNIT3_METHOD_RE.finditer(source):
-                ids.add("{}:{}#{}".format(module, class_name, method.group(1)))
+        for source_file in sorted(source_root.rglob("*.java")):
+            relative_source_file = source_file.relative_to(source_root).as_posix()
+            if include_patterns and not any(
+                fnmatch.fnmatchcase(relative_source_file, pattern)
+                for pattern in include_patterns
+            ):
+                continue
+
+            source = source_file.read_text(encoding="utf-8")
+            package_match = PACKAGE_RE.search(source)
+            class_match = CLASS_RE.search(source)
+            if package_match is None or class_match is None:
+                continue
+
+            class_name = "{}.{}".format(package_match.group(1), class_match.group(1))
+            for annotation in TEST_ANNOTATION_RE.finditer(source):
+                method = METHOD_RE.search(source[annotation.end() :])
+                if method is not None:
+                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
+
+            if "extends ProcessEngineTestCase" in source:
+                for method in JUNIT3_METHOD_RE.finditer(source):
+                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
     return ids
 
 
@@ -176,7 +249,7 @@ def markdown_table(path, required_headers):
     for index, line in enumerate(lines):
         if "|" not in line:
             continue
-        headers = [cell.strip("`") for cell in markdown_table_cells(line)]
+        headers = [cell.replace("`", "") for cell in markdown_table_cells(line)]
         if headers != required_headers:
             continue
 
@@ -330,6 +403,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "CheckStockDelegateTest",
             "ChargePaymentDelegateFakeTest",
             "PriceCalculatorTest",
+            "MockitoAnnotationTest",
             "SubscriptionProcessTest",
             "SubscriptionEndpointTest",
             "ActivateDelegateMockTest",
@@ -348,6 +422,27 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(inventory=inventory_path):
                 inventory = markdown_table(inventory_path, headers)
                 self.assert_test_kind_counts(inventory_path, inventory)
+
+    def test_inventory_includes_legacy_module_test_source_set(self):
+        actual_legacy_ids = {
+            test_id
+            for test_id in test_method_ids(C7_SOURCE)
+            if test_id.startswith("engine-tests-legacy:")
+        }
+
+        self.assertEqual(LEGACY_TEST_IDS, actual_legacy_ids)
+
+    def test_legacy_module_tests_map_to_primary_cpt_suite(self):
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        parity_by_id = {row["Camunda 7 Test ID"]: row for row in parity}
+
+        for legacy_id in sorted(LEGACY_TEST_IDS):
+            with self.subTest(test_id=legacy_id):
+                cpt_id = legacy_id.replace("engine-tests-legacy:", "engine-tests:", 1)
+                self.assertEqual(cpt_id, parity_by_id[legacy_id]["CPT Test ID(s)"])
 
     def test_inventory_rejects_duplicate_test_ids(self):
         duplicate_rows = [
@@ -768,7 +863,10 @@ class MigrationGuidanceTest(unittest.TestCase):
                     )
                     continue
 
-                self.assertIn(row["Handling"], ("Migrate", MIGRATE_TO_CPT))
+                self.assertIn(
+                    row["Handling"],
+                    ("Migrate", MIGRATE_TO_CPT, "Migrate (lower priority)"),
+                )
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
 
@@ -795,6 +893,8 @@ class MigrationGuidanceTest(unittest.TestCase):
                 )
             elif test_kind == "decision test":
                 expected_handling = "Migrate"
+            elif test_kind == "scenario test":
+                expected_handling = "Migrate (lower priority)"
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -915,7 +1015,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill keeps scenario and remote-engine test rows at report only until "
+            "the skill keeps remote-engine test rows at report only until "
             "their migration procedures are defined.",
             reference,
         )
@@ -1180,6 +1280,48 @@ class MigrationGuidanceTest(unittest.TestCase):
             out_of_scope_row,
         )
 
+    def test_scenario_fixture_covers_retained_mockito_annotations(self):
+        source_path = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ScenarioMappingEdgeCasesTest.java"
+        )
+        migrated_path = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ScenarioMappingEdgeCasesTest.java"
+        )
+        required_annotations = ("@Spy", "@Captor", "@InjectMocks")
+
+        for path in (source_path, migrated_path):
+            source = path.read_text(encoding="utf-8")
+            with self.subTest(path=path):
+                for annotation in required_annotations:
+                    self.assertIn(annotation, source)
+                self.assertIn("MockitoAnnotations.openMocks(this)", source)
+                method = java_method_body(source, "shouldCountCompletedVisitsSeparately")
+                self.assertIn("collaboratorService.lookup", method)
+                self.assertIn("orderIdCaptor.capture()", method)
+
+    def test_cpt_detection_signal_uses_balanced_inline_code(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertIn("CPT (`io.camunda.process.test.*`)", reference)
+
+    def test_counted_completion_mapping_preserves_exact_count(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertIn(
+            '| `verify(process, times(n)).hasCompleted("E")` | '
+            'Assert `hasCompletedElement("E", n)`. | '
+            'The skill preserves the exact completed-element count. |',
+            reference,
+        )
+        migrated = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ScenarioMappingEdgeCasesTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn('.hasCompletedElement("MixedWork", 2)', migrated)
+
     def test_scenario_gate_accepts_inventory_handling(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
@@ -1190,10 +1332,10 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         gate = markdown_table(
             TEST_MIGRATION_REFERENCE,
-            ["Selected code approach", "Step 2 Test Inventory `Handling", "Action"],
+            ["Selected code approach", "Step 2 Test Inventory Handling", "Action"],
         )
         enabled_handling = {
-            row["Step 2 Test Inventory `Handling"]
+            row["Step 2 Test Inventory Handling"]
             for row in gate
             if row["Selected code approach"] == "Approach A or B"
             and row["Action"].startswith("Apply the preparation")
