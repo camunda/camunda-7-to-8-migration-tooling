@@ -867,7 +867,7 @@ Use the [Camunda 7 to Camunda 8 API mapping](https://camunda.github.io/camunda-7
 ## Baseline and parity reporting
 
 Run the baseline test against its Camunda 7 engine before migration.
-If the test cannot reach or start that engine, record the baseline as `not run` in `MIGRATION_REPORT.md`.
+If the test cannot reach or start that engine, then record the baseline as `not run` in `MIGRATION_REPORT.md`.
 Do not claim parity from an expected result when the baseline did not run.
 
 | Test classification | Parity ledger verdict |
