@@ -801,7 +801,7 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 | A whole user-task listener, so no project code ran for that listener | `processTestContext.completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` | Read `type` from the matching `zeebe:taskListener/@type` in the converted copy. Do not use a `zeebe:taskDefinition/@type`. |
 | A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
-| A business-rule task in a C7 process-flow test | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. |
+| With user approval, a business-rule task in a C7 process-flow test | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. |
 | No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
 
 Never derive a job type from a C7 bean name. If the converted copy has no matching job type, do not
@@ -899,8 +899,8 @@ Without approval, the mock-boundary review fails.
 
 | Asset | Remaining use | Action |
 |---|---|---|
-| C7 mock library | A remaining C7 test uses the library. | Keep the dependency. |
-| C7 mock library | No remaining C7 test uses the library. | Remove the dependency. |
+| C7 mock library | A remaining test uses the library. | Keep the dependency. |
+| C7 mock library | No remaining test uses the library. | Remove the dependency. |
 | `camunda.cfg.xml` | A remaining C7 test uses the file. | Keep the file and its required `MockExpressionManager` settings. |
 | `camunda.cfg.xml` | No remaining C7 test uses the file. | Delete the file and its `MockExpressionManager` settings. Do not retain it for CPT tests. |
 

@@ -170,6 +170,10 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
 
         self.assertIn("C7 `register...Mock` helpers", guidance)
         self.assertIn("`CamundaMockito.registerMockInstance`", guidance)
+        self.assertIn(
+            "| C7 mock library | No remaining test uses the library. | Remove the dependency. |",
+            guidance,
+        )
         self.assertIn("The skill does not require a Test Inventory modifier.", guidance)
         self.assertIn("The skill does not require a Test Inventory modifier.", skill)
 
