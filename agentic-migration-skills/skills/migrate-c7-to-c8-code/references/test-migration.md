@@ -62,7 +62,8 @@ Keep modifiers separate from the test kind.
 
 ## Test sources and methods
 
-The skill scans every module's `src/test/java` source set.
+The skill scans every configured test source directory in each module.
+This includes `src/test/java`, `src/test/kotlin`, and `src/test/groovy` when present.
 The skill also scans each additional test source set declared by the build, such as `src/it/java` or Gradle `integrationTest`.
 The skill reads shared test bases, abstract test classes, test configuration classes, and `camunda.cfg.xml` under test resources.
 When a shared base or configuration supplies an engine signal, apply it to each affected test method.

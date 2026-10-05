@@ -261,6 +261,14 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertTrue(EXPECTED_PARITY.is_file())
         self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
 
+        for source_directory in (
+            "src/test/java",
+            "src/test/kotlin",
+            "src/test/groovy",
+        ):
+            with self.subTest(source_directory=source_directory):
+                self.assertIn(f"`{source_directory}`", reference)
+
 
 if __name__ == "__main__":
     unittest.main()
