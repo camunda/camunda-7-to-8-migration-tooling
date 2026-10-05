@@ -2934,7 +2934,7 @@ public class ApplicationTest {
 
 ###### Camunda 8
 
-Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
+Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case. The CPT assertions, timer controls, and selector-based user-task completion APIs shown here are available from Camunda 8.8.
 
 ```java
 import org.junit.jupiter.api.Test;
@@ -3139,6 +3139,9 @@ assertThat(processInstance)
 You can assert that the process is waiting at a user task, and complete it using built-in helpers:
 
 ```java
+import java.util.HashMap;
+import java.util.Map;
+
 @Test
 void testUserTaskIsReachedAndCompleted() {
   ProcessInstance processInstance = runtimeService()
@@ -3152,22 +3155,28 @@ void testUserTaskIsReachedAndCompleted() {
     .hasName("Approve Request")
     .isAssignedTo("demo");
 
-  complete(task());
+  Map<String, Object> variables = new HashMap<>();
+  variables.put("approved", true);
+  complete(task(), variables);
 
   assertThat(processInstance)
     .hasPassed("UserTask_Approve")
     .isEnded();
+  assertThat(processInstance).variables().containsEntry("approved", true);
 }
 ```
 
 
 ###### Camunda 8
 
-With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete jobs](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#complete-user-tasks).
+The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete jobs](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#complete-user-tasks).
 
 Note that you typically address elements by ID and not by name, which we do for illustration purposes here:
 
 ```java
+import java.util.HashMap;
+import java.util.Map;
+
 @Autowired
 private CamundaClient client;
 @Autowired
@@ -3189,11 +3198,14 @@ void testUserTaskIsReachedAndCompleted() {
     .hasAssignee("demo");
 
   // Complete the task by its name selector
-  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"));
+  Map<String, Object> variables = new HashMap<>();
+  variables.put("approved", true);
+  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
-    .isCompleted();
+    .isCompleted()
+    .hasVariable("approved", true);
 }
 ```
 
@@ -3226,7 +3238,7 @@ void testMessageCorrelation() {
 
 ###### Camunda 8
 
-Camunda 8 uses the client API to correlate a message immediately. The message subscription uses one string correlation key.
+Camunda 8 uses the client API to correlate a message immediately. The `newCorrelateMessageCommand()` and CPT assertion APIs shown here are available from Camunda 8.8. The message subscription uses one string correlation key.
 
 ```java
 @Test
@@ -3838,7 +3850,7 @@ class DishDecisionTest {
 }
 ```
 
-`@TestDeployment` requires Camunda 8.9. On 8.8, deploy the converted DMN copy in `@BeforeEach` with `client.newDeployResourceCommand().addResourceFromClasspath(...)`, as described in the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md).
+CPT's DMN evaluation and assertion APIs shown here are available from Camunda 8.8. `@TestDeployment` requires Camunda 8.9. On 8.8, deploy the converted DMN copy in `@BeforeEach` with `client.newDeployResourceCommand().addResourceFromClasspath(...)`, as described in the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md).
 
 | Camunda 7 | CPT | Note |
 |---|---|---|

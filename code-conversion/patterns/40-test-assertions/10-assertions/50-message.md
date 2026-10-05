@@ -25,7 +25,7 @@ void testMessageCorrelation() {
 
 ## Camunda 8
 
-Camunda 8 uses the client API to correlate a message immediately. The message subscription uses one string correlation key.
+Camunda 8 uses the client API to correlate a message immediately. The `newCorrelateMessageCommand()` and CPT assertion APIs shown here are available from Camunda 8.8. The message subscription uses one string correlation key.
 
 ```java
 @Test

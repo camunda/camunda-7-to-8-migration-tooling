@@ -75,7 +75,7 @@ public class ApplicationTest {
 
 ## Camunda 8
 
-Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
+Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case. The CPT assertions, timer controls, and selector-based user-task completion APIs shown here are available from Camunda 8.8.
 
 ```java
 import org.junit.jupiter.api.Test;
