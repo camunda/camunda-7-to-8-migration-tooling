@@ -187,7 +187,8 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                         .withSelect(renamed(variables, "isCreated"));
                   }
                   if (visited.getSimpleName().equals("containsKey")
-                      || visited.getSimpleName().equals("containsKeys")) {
+                      || (visited.getSimpleName().equals("containsKeys")
+                          && hasStringArguments(visited))) {
                     return renamed(visited, "hasVariableNames").withSelect(variables.getSelect());
                   }
                 }
@@ -297,8 +298,7 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
         if (select != null
             && unwrapParentheses(select) instanceof J.MethodInvocation variables
             && VARIABLES_METHOD.matches(variables)
-            && !List.of("containsEntry", "containsKey", "containsKeys")
-                .contains(invocation.getSimpleName())) {
+            && !isSupportedVariableMapAssertion(invocation)) {
           result.set(true);
           return invocation;
         }
@@ -306,6 +306,14 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
       }
     }.visit(tree, found);
     return found.get();
+  }
+
+  private static boolean isSupportedVariableMapAssertion(J.MethodInvocation invocation) {
+    return switch (invocation.getSimpleName()) {
+      case "containsEntry", "containsKey" -> true;
+      case "containsKeys" -> hasStringArguments(invocation);
+      default -> false;
+    };
   }
 
   private static boolean containsStandaloneVariableMapValue(

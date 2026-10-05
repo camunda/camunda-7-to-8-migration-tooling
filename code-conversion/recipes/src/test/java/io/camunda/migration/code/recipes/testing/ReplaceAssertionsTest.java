@@ -449,6 +449,28 @@ class OrderTaskTest {
     }
 
     @Test
+    void containsKeysWithoutNamesIsNotWeakened() {
+        rewrite(
+                processAssertionsSource(
+                        "assertThat(processInstance).variables().containsKeys();"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        assertThat(processInstance).variables().containsKeys();"));
+    }
+
+    @Test
+    void containsKeysWithPossiblyEmptyArrayIsNotWeakened() {
+        rewrite(
+                processAssertionsSource(
+                        "String[] names = new String[0];\n"
+                                + "        assertThat(processInstance).variables().containsKeys(names);"),
+                migratedProcessAssertionsSource(
+                        "String[] names = new String[0];\n"
+                                + "        // TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        assertThat(processInstance).variables().containsKeys(names);"));
+    }
+
+    @Test
     void parenthesizedVariablesReceiverStillMapsToHasVariableNames() {
         rewrite(
                 processAssertionsSource(
