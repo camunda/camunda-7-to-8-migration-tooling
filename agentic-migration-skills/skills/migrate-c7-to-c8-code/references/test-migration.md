@@ -456,9 +456,9 @@ The skill migrates scenario tests to Java tests with Camunda Process Test (CPT) 
 `io.camunda:camunda-process-test-java`. The target is Camunda 8.9 or later. The skill does not
 create CPT instruction-based JSON tests.
 
-When the target is Camunda 8.8, the skill sets scenario-test handling to `Report only`. It records
-the exact reason `test migration needs Camunda 8.9 or later`. The parity ledger records the test as
-`manual`.
+When the target is Camunda 8.8, the skill sets scenario-test handling to `Report only`. The skill
+records the test as `manual` in the parity ledger with the exact reason `test migration needs
+Camunda 8.9 or later`.
 
 The scenario runner's Cucumber module, logging, and history fast-forward reports stay out of scope.
 
@@ -511,6 +511,9 @@ assertion fails after its timeout.
 
 ### Scenario-to-CPT mapping
 
+When the skill records a scenario test as `manual`, it stores the specific reason in that test's
+parity-ledger entry.
+
 | Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
 | `@Mock ProcessScenario process` and its Scenario stubs | Remove the mock and Scenario runner setup. Convert each existing Scenario stub with the matching CPT behavior below. | Map each verification to the CPT assertion rows below. |
@@ -518,7 +521,7 @@ assertion fails after its timeout.
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
 | `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask("X", variables))` | The action completes the task tested by the condition. |
 | `thenReturn(a, b)` for actions on repeated visits | Chain `.then(a).then(b)` | CPT repeats the last action after earlier actions run. |
-| `task.handleBpmnError(...)` or `task.handleEscalation(...)` on a user task | Record `manual` in the parity ledger | CPT has no direct user-task BPMN error or escalation action. |
+| `task.handleBpmnError(...)` or `task.handleEscalation(...)` on a user task | Record `manual` in the parity ledger with the unsupported operation as the reason | CPT has no direct user-task BPMN error or escalation action. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtBusinessRuleTask`, `waitsAtMessageIntermediateThrowEvent`, or `waitsAtMessageEndEvent` completing an external task | `processTestContext.mockJobWorker(type).thenComplete(variables)` | Read `type` from the converted copy. |
 | The same external-task stubs handling a BPMN error | `processTestContext.mockJobWorker(type).thenThrowBpmnError(code, variables)` | Read `type` from the converted copy. |
 | `waitsAtTimerIntermediateEvent("T")` with an empty action | Assert `hasActiveElements("T")`, then call `processTestContext.increaseTime(duration)` | Read the duration from the converted timer definition. |
@@ -532,13 +535,13 @@ assertion fails after its timeout.
 | `Scenario.run(process).startByKey(key, variables).execute()` | The skill creates an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` and retains the returned `ProcessInstanceEvent` | Apply the confirmed business-key mapping when the source test sets a business key. |
 | `startByMessage(name, variables)` | The skill correlates a message start with `.messageName(name).withoutCorrelationKey().variables(variables).send().join()` and retains the returned `CorrelateMessageResponse` | |
 | `.fromBefore("A")` | Call `.startBeforeElement("A")` on the create command | |
-| `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger | CPT has no direct `fromAfter` counterpart. Start before the next element only when it is unambiguous. |
-| `startBy(customProcessStarter)` | Record `manual` in the parity ledger | A custom `ProcessStarter` needs a manual migration. |
+| `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger with the reason that CPT has no direct counterpart and the next element is ambiguous | Start before the next element only when it is unambiguous. |
+| `startBy(customProcessStarter)` | Record `manual` in the parity ledger with the reason that CPT has no direct mapping for the custom starter | A custom `ProcessStarter` needs a manual migration. |
 | `Scenario.instance(process)` after `startByKey` | The skill asserts against the `ProcessInstanceEvent` returned by the create-instance command | |
 | `Scenario.instance(process)` after `startByMessage` | The skill selects the instance with `assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey()))` | The correlate command returns a `CorrelateMessageResponse`, not a `ProcessInstanceEvent`. |
 | `verify(process).hasCompleted("E")` | Assert `hasCompletedElements("E")` | |
 | `verify(process).hasFinished("E")` | The skill asserts `hasCompletedElements("E")`, `hasTerminatedElements("E")`, or both | The skill asserts each outcome present on the path. `hasFinished` includes completed and canceled elements. |
-| `verify(process, times(n)).hasFinished("E")` | The skill asserts exact counts with `hasCompletedElement("E", completedCount)` and `hasTerminatedElement("E", terminatedCount)` | The skill uses one assertion when all visits share an outcome. The skill uses both assertions when the path has known mixed counts. The skill records `manual` when the split is unknown. The skill verifies that the completed and terminated counts sum to `n`. |
+| `verify(process, times(n)).hasFinished("E")` | The skill asserts exact counts with `hasCompletedElement("E", completedCount)` and `hasTerminatedElement("E", terminatedCount)` | The skill uses one assertion when all visits share an outcome. The skill uses both assertions when the path has known mixed counts. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason. The skill verifies that the completed and terminated counts sum to `n`. |
 | `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
 | `verify(process, never()).hasStarted("E")` | Assert `hasNotActivatedElements("E")` after a waiting assertion | This assertion does not wait. |

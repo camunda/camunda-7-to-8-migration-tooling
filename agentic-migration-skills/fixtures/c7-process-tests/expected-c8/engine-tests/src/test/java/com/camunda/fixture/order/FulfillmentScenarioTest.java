@@ -19,7 +19,7 @@ import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
 import java.time.Duration;
 import java.util.Map;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 @CamundaProcessTest
 @TestDeployment(resources = {"converted-c8-fulfillment.bpmn", "fulfillment-task.form"})
@@ -27,7 +27,7 @@ class FulfillmentScenarioTest {
 
   private CamundaProcessTestContext processTestContext;
 
-  @RepeatedTest(2)
+  @Test
   void shouldCompleteWorkAfterTwoDailyReminders() {
     String orderId = "order-42";
     Map<String, Object> variables = Map.of("orderId", orderId);
