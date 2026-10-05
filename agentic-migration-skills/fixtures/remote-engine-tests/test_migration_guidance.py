@@ -457,6 +457,16 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| `SharedEnginePaymentTest` | `manual` | CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime. |",
         )
 
+    def test_shared_engine_worker_is_scoped_to_its_unique_business_key(self):
+        shared_test = SHARED_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("UUID.randomUUID().toString()", shared_test)
+        self.assertRegex(
+            shared_test,
+            r'subscribe\("charge-payment"\)\s*\.businessKey\(businessKey\)',
+        )
+        self.assertRegex(shared_test, r'Map\.of\(\s*"businessKey",\s*businessKey')
+
     def test_expected_project_does_not_configure_remote_runtime(self):
         for path in EXPECTED.rglob("*"):
             if not path.is_file():

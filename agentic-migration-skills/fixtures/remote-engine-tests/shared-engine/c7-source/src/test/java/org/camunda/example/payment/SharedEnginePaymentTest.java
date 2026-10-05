@@ -13,6 +13,7 @@ import static org.awaitility.Awaitility.await;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 import org.camunda.bpm.client.ExternalTaskClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,11 +36,13 @@ class SharedEnginePaymentTest {
 
   @Test
   void startsAndCompletesThePaymentProcessOnTheConfiguredSharedEngine() {
+    String businessKey = UUID.randomUUID().toString();
     ExternalTaskClient externalTaskClient =
         ExternalTaskClient.create().baseUrl(engineRestUrl).build();
     try {
       externalTaskClient
           .subscribe("charge-payment")
+          .businessKey(businessKey)
           .handler(
               (externalTask, externalTaskService) -> {
                 int amount = externalTask.getVariable("amount");
@@ -51,7 +54,11 @@ class SharedEnginePaymentTest {
       ResponseEntity<JsonNode> started =
           restTemplate.postForEntity(
               engineRestUrl + "/process-definition/key/payment/start",
-              Map.of("variables", Map.of("amount", Map.of("value", 42, "type", "Integer"))),
+              Map.of(
+                  "businessKey",
+                  businessKey,
+                  "variables",
+                  Map.of("amount", Map.of("value", 42, "type", "Integer"))),
               JsonNode.class);
 
       assertThat(started.getStatusCode()).isEqualTo(HttpStatus.OK);
