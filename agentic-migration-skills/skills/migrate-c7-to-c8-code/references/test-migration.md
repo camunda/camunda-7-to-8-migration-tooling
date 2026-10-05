@@ -21,7 +21,9 @@ For example, `camunda-platform-7-mockito` provides engine-backed helpers and `De
 The skill inventories every test method in the scanned test source sets.
 It records each test's test kind and handling, including tests marked out of scope.
 Apply the table from top to bottom. The first matching row assigns one test kind and handling.
-A test method or its setup must execute and assert behavior against a real C7 process or decision engine.
+The skill classifies tests by executed engine behavior, not assertion type.
+A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.
+The skill records assertion gaps in the Test Inventory's Notes column for migration review.
 Class-level annotations, dependency presence, and API references alone do not prove engine execution.
 Calls to mocks, fakes, or stubs do not count as engine execution.
 The `camunda-platform-7-mockito` dependency can provide engine-backed helpers or `DelegateExecutionFake`.
@@ -37,13 +39,13 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 | Priority | Test kind | Detect by | Handling |
 |---|---|---|---|
 | 1 | out of scope (Camunda 8) | Uses Zeebe or CPT APIs without running a C7 engine. | Not part of test migration |
-| 2 | out of scope | Does not assert process or decision behavior from a real C7 engine. This includes plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. | Not part of test migration |
-| 3 | manual redesign | A C7 engine test covers CMMN, `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. | Report only |
-| 4 | manual migration | A test drives a C7 engine through BDD or Cucumber layers, Arquillian, `camunda-bpm-needle`, the C7 Quarkus extension, or Kotlin or Groovy tests that use C7 test APIs. | Report only |
-| 5 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate to CPT after process and decision tests |
-| 6 | remote-engine test | Asserts real C7 engine behavior through Engine REST at `/engine-rest`, `org.camunda.bpm.client.*`, or Testcontainers for C7. | Migrate to CPT after process and decision tests |
-| 7 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate to CPT |
-| 8 | process test | Asserts BPMN process execution on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, `StandaloneInMemoryTestConfiguration`, or a Spring Boot test that starts a process, completes a task, correlates a message, or calls an endpoint that does. | Migrate to CPT |
+| 2 | manual redesign | A C7 engine test covers CMMN, `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. | Report only |
+| 3 | manual migration | A test drives a C7 engine through BDD or Cucumber layers, Arquillian, `camunda-bpm-needle`, the C7 Quarkus extension, or Kotlin or Groovy tests that use C7 test APIs. | Report only |
+| 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate to CPT after process and decision tests |
+| 5 | remote-engine test | Runs a real C7 engine through Engine REST at `/engine-rest`, `org.camunda.bpm.client.*`, or Testcontainers for C7. | Migrate to CPT after process and decision tests |
+| 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate to CPT |
+| 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, `StandaloneInMemoryTestConfiguration`, or a Spring Boot test that calls an endpoint that starts a process, completes a task, or correlates a message. | Migrate to CPT |
+| 8 | out of scope | Does not execute a real C7 engine. This includes plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. | Not part of test migration |
 
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
 
@@ -265,7 +267,7 @@ The skill applies Spring test migration only to process or decision test rows wi
 | `@ContextConfiguration` loads Spring XML or Java configuration with `SpringProcessEngineConfiguration` or `ProcessEngineFactoryBean` | Record the `Spring` modifier. |
 | `@Autowired @Rule ProcessEngineRule`, `@Autowired RuntimeService`, or `BpmnAwareTests.init(processEngine)` | Record the `Spring` modifier. |
 | `AbstractProcessEngineRuleTest` or `StandaloneInMemoryTestConfiguration` without a Spring context | Record the test kind without the `Spring` modifier. |
-| `@WebMvcTest`, `@DataJpaTest`, or another Spring test slice without asserted execution against a real C7 engine | Out of scope. |
+| `@WebMvcTest`, `@DataJpaTest`, or another Spring test slice without execution against a real C7 engine | Out of scope. |
 | A shared engine in a WAR or `processes.xml` application-server deployment | Manual migration. |
 
 The skill does not classify every `@SpringBootTest` as a process test. The skill uses the Test

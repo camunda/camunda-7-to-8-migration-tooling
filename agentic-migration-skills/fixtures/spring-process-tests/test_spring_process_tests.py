@@ -168,13 +168,15 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                     msg=f"Missing inventory rule {required!r}",
                 )
 
-    def test_inventory_classification_is_exclusive_and_requires_real_execution(self):
+    def test_inventory_classification_uses_execution_and_special_case_precedence(self):
         reference = REFERENCE.read_text()
 
         for required in (
             "Apply the table from top to bottom.",
             "The first matching row assigns one test kind and handling.",
-            "A test method or its setup must execute and assert behavior against a real C7 process or decision engine.",
+            "The skill classifies tests by executed engine behavior, not assertion type.",
+            "A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.",
+            "The skill records assertion gaps in the Test Inventory's Notes column for migration review.",
             "`@Deployment` is model-resolution evidence, not a test-kind signal by itself.",
             "mocked `RuntimeService`",
             "`ProcessEnginePlugin`",
@@ -186,24 +188,28 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         table = reference.split(
             "| Priority | Test kind | Detect by | Handling |", 1
         )[1].split("\n\n", 1)[0]
-        classifications = [
-            (line.split("|")[1].strip(), line.split("|")[2].strip().lower())
+        rows = [
+            [cell.strip() for cell in line.split("|")[1:-1]]
             for line in table.splitlines()
-            if line.startswith("| ")
+            if line.startswith("| ") and line.split("|")[1].strip().isdigit()
         ]
         self.assertEqual(
-            classifications,
+            [(row[0], row[1].lower()) for row in rows],
             [
                 ("1", "out of scope (camunda 8)"),
-                ("2", "out of scope"),
-                ("3", "manual redesign"),
-                ("4", "manual migration"),
-                ("5", "scenario test"),
-                ("6", "remote-engine test"),
-                ("7", "decision test"),
-                ("8", "process test"),
+                ("2", "manual redesign"),
+                ("3", "manual migration"),
+                ("4", "scenario test"),
+                ("5", "remote-engine test"),
+                ("6", "decision test"),
+                ("7", "process test"),
+                ("8", "out of scope"),
             ],
         )
+        self.assertIn("CMMN", rows[1][2])
+        self.assertIn("ProcessEnginePlugin", rows[1][2])
+        self.assertIn("does not execute a real c7 engine", rows[-1][2].lower())
+        self.assertIn("calls an endpoint that starts a process", rows[6][2])
 
     def test_spring_migration_requires_cpt_selected_inventory_rows(self):
         reference = REFERENCE.read_text()
@@ -214,6 +220,10 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertIn(
             "A Spring test slice that uses only mocked C7 APIs is out of scope.",
+            reference,
+        )
+        self.assertIn(
+            "| `@WebMvcTest`, `@DataJpaTest`, or another Spring test slice without execution against a real C7 engine | Out of scope. |",
             reference,
         )
         self.assertNotIn(
