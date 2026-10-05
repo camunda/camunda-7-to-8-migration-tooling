@@ -47,6 +47,14 @@ CMMN tests and tests that use unsupported Camunda engine internals do not meet t
 The skill does not assign `manual redesign` based on `ClockUtil` alone.
 The skill inventories CMMN tests and tests that use unsupported engine internals as `manual redesign` with `Report only` handling.
 
+### Mock detection
+
+The skill applies mock-boundary and mapping rules to every in-scope test method that uses a supported C7 mock API.
+The skill checks the test method, its setup and teardown methods, and helper methods they call.
+The skill detects `Mocks.register`, `CamundaMockito.registerMockInstance`, C7 `register...Mock` helpers, and `autoMock`.
+The skill also detects `@MockBean` and `@MockitoBean` collaborators used by a process test.
+The skill does not require a Test Inventory modifier.
+
 ### Test kinds
 
 | Priority | Test kind | Detect by | Handling |
@@ -778,7 +786,7 @@ One valid schedule uses five 12-hour increments for a daily timer and `defer("P2
 
 ## Mock boundary
 
-Migrate every in-scope test that the Test Inventory marks with the `mocks` modifier.
+Migrate every in-scope test that uses a supported C7 mock API.
 Recognize `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`, and `camunda-bpm-mockito`
 (`org.camunda.bpm.extension.mockito`) as equivalent C7 mock APIs when their operations match.
 Where a C7 test uses `org.camunda.bpm.engine.test.mock.Mocks`, configure `MockExpressionManager`
@@ -790,10 +798,10 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 |---|---|---|
 | A whole delegate or expression bean, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition/@type` in the converted copy. |
 | A whole execution listener, so no project code ran for that listener | `processTestContext.mockJobWorker(type)` | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
-| A whole task listener, so no project code ran for that listener | `processTestContext.mockJobWorker(type)` | Read `type` from the listener's own declaration in the converted copy. Do not use the attached task's `zeebe:taskDefinition/@type`. |
+| A whole user-task listener, so no project code ran for that listener | `processTestContext.completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` | Read `type` from the matching `zeebe:taskListener/@type` in the converted copy. Do not use a `zeebe:taskDefinition/@type`. |
 | A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
-| A decision that the C7 test mocked through a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and output shape. |
+| A business-rule task in a C7 process-flow test | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. |
 | No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
 
 Never derive a job type from a C7 bean name. If the converted copy has no matching job type, do not
@@ -807,6 +815,8 @@ If the real worker cannot run, the skill asks the user before it adds a mock.
 |---|---|---|
 | `Mocks.register("svc", mock)` for a `camunda:expression` collaborator | Keep the real worker and provide the same Mockito mock to it | Preserve the collaborator boundary. |
 | `Mocks.register("delegate", mock)` for a whole `camunda:delegateExpression` | `mockJobWorker(type)` | Use the converted task's job type. |
+| `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read the input variables from the activated job. Keep the invocation verification. |
+| `doAnswer(...)` on a whole delegate with input-dependent outputs | `.withHandler(handler)` | Read the activation variables and complete the job with the matching outputs. |
 | `CamundaMockito.registerMockInstance(...)` | Apply the same-boundary table | Classify the registered object. Do not infer its boundary from the helper name. |
 | `@MockBean` or `@MockitoBean` for a service called by a delegate | `@MockitoBean` or the version-compatible Spring mock for the same service | Keep the real worker enabled. |
 | `registerJavaDelegateMock("delegate")` | `mockJobWorker(type).thenComplete()` | The whole delegate was mocked. |
@@ -814,9 +824,9 @@ If the real worker cannot run, the skill asks the user before it adds a mock.
 | `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
 | `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | Preserve the BPMN error code and message when the test checks them. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
-| `autoMock("process.bpmn")` | One `mockJobWorker(type)` for each task and listener job type in the converted copy | Read task types from `zeebe:taskDefinition/@type` and listener types from their own declarations. |
+| `autoMock("process.bpmn")` | Use `mockJobWorker(type)` for every converted service-task and execution-listener type. Use `completeJobOfUserTaskListener(...)` for each retained user-task listener. | Read each `type` from its own extension declaration in the converted copy. |
 | `registerExecutionListenerMock("listener")` | `mockJobWorker(type)` for the listener's job type | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
-| `registerTaskListenerMock("listener")` | `mockJobWorker(type)` when the converted copy retains a listener job | Read `type` from the listener's own declaration. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
+| `registerTaskListenerMock("listener")` | `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` when the converted copy retains a listener job | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
 | `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | Use the function overload when outputs depend on parent variables. |
 | A call-activity mock using `onExecutionWaitForMessage`, `onExecutionWaitForTimerWithDuration`, `onExecutionSendMessage`, `onExecutionRunIntoError`, or `onExecutionDo` | No direct counterpart | Deploy the real converted child or ask the user to approve a test-only child model. |
 | `verifyJavaDelegateMock("name").executed()` | `assertThat(mock.getInvocations()).isEqualTo(1)` | Read the count only after a waiting CPT assertion on the related element. |
@@ -887,8 +897,14 @@ Without approval, the mock-boundary review fails.
 
 ## Build cleanup
 
-Remove `camunda-platform-7-mockito`, `c7-mockito`, or `camunda-bpm-mockito` only when no remaining
-test uses that artifact. Keep Mockito when migrated tests still use Mockito.
+| Asset | Remaining use | Action |
+|---|---|---|
+| C7 mock library | A remaining C7 test uses the library. | Keep the dependency. |
+| C7 mock library | No remaining C7 test uses the library. | Remove the dependency. |
+| `camunda.cfg.xml` | A remaining C7 test uses the file. | Keep the file and its required `MockExpressionManager` settings. |
+| `camunda.cfg.xml` | No remaining C7 test uses the file. | Delete the file and its `MockExpressionManager` settings. Do not retain it for CPT tests. |
+
+Keep Mockito when migrated tests still use Mockito.
 
 Remove `MockExpressionManager` settings from a test `camunda.cfg.xml` file when the migration deletes
 that file. Do not retain a C7 test-engine configuration only to support migrated CPT tests.

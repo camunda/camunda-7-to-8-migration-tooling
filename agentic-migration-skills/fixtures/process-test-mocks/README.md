@@ -10,7 +10,7 @@ worker whose job type it mocks.
 
 ## Evaluate the fixture
 
-1. Copy `c7-source` to a temporary project and run the migration skill with the `mocks` modifier.
+1. Copy `c7-source` to a temporary project and run the migration skill on its mock-containing process tests.
 2. Compare the migrated tests and build with `expected-c8`.
 3. Run the fixture checks from the repository root:
 
@@ -30,8 +30,11 @@ worker whose job type it mocks.
    mvn -f agentic-migration-skills/fixtures/process-test-mocks/expected-c8/pom.xml test
    ```
 
-The CPT tests verify the collaborator call, mocked delegate outputs, execution-listener invocation,
-called-process output, BPMN-error route, and active incident. CPT tests need Docker.
+The C7 process test evaluates a deployed DMN table that returns a two-field result map.
+The CPT process test mocks the same decision with the same result map.
+The CPT tests also verify the collaborator call, mocked delegate outputs, execution-listener and
+user-task-listener job types, called-process output, BPMN-error route, and active incident.
+CPT tests need Docker.
 The unit test verifies that the real `notify-invoice` worker returns the delegate's
 `notified=true` output.
 

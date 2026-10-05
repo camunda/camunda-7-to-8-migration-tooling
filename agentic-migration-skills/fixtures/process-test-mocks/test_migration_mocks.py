@@ -29,9 +29,11 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             "onExecutionThrowException",
             "autoMock",
             "registerExecutionListenerMock",
+            "registerTaskListenerMock",
             "registerCallActivityMock",
             "verifyJavaDelegateMock",
             "verifyExecutionListenerMock",
+            "verifyTaskListenerMock",
         ):
             with self.subTest(api=api):
                 self.assertIn(api, source)
@@ -56,14 +58,120 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
                 models,
             )
         )
+        auto_mock_model = (
+            FIXTURE
+            / "expected-c8/src/main/resources/processes/converted-c8-auto-mock-invoice.bpmn"
+        ).read_text(encoding="utf-8")
+        auto_mock_types = set(
+            re.findall(
+                r'<zeebe:(?:taskDefinition|executionListener)\b[^>]*type="([^"]+)"',
+                auto_mock_model,
+            )
+        )
         self.assertTrue(job_types)
         self.assertTrue(job_types.issubset(declared_types))
+        self.assertTrue(auto_mock_types)
+        self.assertTrue(auto_mock_types.issubset(job_types))
         for job_type in job_types:
             with self.subTest(job_type=job_type):
                 self.assertIn(
                     f"camunda.client.worker.override.{job_type}.enabled=false",
                     properties,
                 )
+
+    def test_task_listener_mapping_uses_its_declared_job_type(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_model = (
+            FIXTURE / "c7-source/src/test/resources/task-listener.bpmn"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_model = (
+            FIXTURE
+            / "expected-c8/src/main/resources/processes/converted-c8-task-listener.bpmn"
+        ).read_text(encoding="utf-8")
+
+        listener_types = set(
+            re.findall(r'<zeebe:taskListener\b[^>]*\btype="([^"]+)"', c8_model)
+        )
+        self.assertEqual({"review-created-listener"}, listener_types)
+        self.assertIn('registerTaskListenerMock("reviewTaskListener")', c7_test)
+        self.assertIn('delegateExpression="${reviewTaskListener}"', c7_model)
+        self.assertIn(
+            'JobSelectors.byJobType("review-created-listener")',
+            c8_test,
+        )
+        self.assertIn("completeJobOfUserTaskListener", c8_test)
+        self.assertNotIn('mockJobWorker("review-created-listener")', c8_test)
+
+    def test_delegate_answer_preserves_inputs_outputs_and_verification(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("doAnswer(", c7_test)
+        self.assertIn('execution.getVariable("invoiceId")', c7_test)
+        self.assertIn('execution.setVariable("notified", true)', c7_test)
+        self.assertIn('.thenComplete(Map.of("notified", true))', c8_test)
+        self.assertIn('.containsEntry("invoiceId", "I-1")', c8_test)
+        self.assertIn('verify(notifyDelegate).execute(any(DelegateExecution.class))', c7_test)
+        self.assertIn("assertThat(notify.getInvocations()).isEqualTo(1)", c8_test)
+
+    def test_dmn_mock_preserves_the_c7_result_map_shape(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_model = (
+            FIXTURE / "c7-source/src/test/resources/decision-output.bpmn"
+        ).read_text(encoding="utf-8")
+        c7_dmn = (
+            FIXTURE / "c7-source/src/test/resources/invoice-risk.dmn"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_model = (
+            FIXTURE
+            / "expected-c8/src/main/resources/processes/converted-c8-decision-output.bpmn"
+        ).read_text(encoding="utf-8")
+        result_map = 'Map.of("approved", true, "discount", "10%")'
+
+        self.assertIn('camunda:decisionRef="invoice_risk"', c7_model)
+        self.assertIn('camunda:mapDecisionResult="singleResult"', c7_model)
+        self.assertIn('name="approved"', c7_dmn)
+        self.assertIn('name="discount"', c7_dmn)
+        self.assertIn(result_map, c7_test)
+        self.assertIn('decisionId="invoice_risk" resultVariable="riskOutcome"', c8_model)
+        self.assertIn("mockDmnDecision(", c8_test)
+        self.assertIn('"invoice_risk", Map.of', c8_test)
+        self.assertIn(result_map, c8_test)
+
+    def test_mock_rules_trigger_from_apis_without_an_inventory_modifier(self):
+        guidance = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+        ).read_text(encoding="utf-8")
+        skill = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("C7 `register...Mock` helpers", guidance)
+        self.assertIn("`CamundaMockito.registerMockInstance`", guidance)
+        self.assertIn("The skill does not require a Test Inventory modifier.", guidance)
+        self.assertIn("The skill does not require a Test Inventory modifier.", skill)
 
     def test_listener_mappings_use_the_listener_job_type(self):
         guidance = (

@@ -15,6 +15,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @Deployment(
     resources = {
       "classpath:processes/converted-c8-invoice.bpmn",
-      "classpath:processes/converted-c8-auto-mock-invoice.bpmn"
+      "classpath:processes/converted-c8-auto-mock-invoice.bpmn",
+      "classpath:processes/converted-c8-task-listener.bpmn",
+      "classpath:processes/converted-c8-decision-output.bpmn",
+      "classpath:processes/converted-c8-invoice-risk.dmn"
     })
 public class TestProcessApplication {}

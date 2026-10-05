@@ -10,8 +10,10 @@ package org.camunda.example.processmock;
 import static org.camunda.community.mockito.DelegateExpressions.autoMock;
 import static org.camunda.community.mockito.DelegateExpressions.registerExecutionListenerMock;
 import static org.camunda.community.mockito.DelegateExpressions.registerJavaDelegateMock;
+import static org.camunda.community.mockito.DelegateExpressions.registerTaskListenerMock;
 import static org.camunda.community.mockito.DelegateExpressions.verifyExecutionListenerMock;
 import static org.camunda.community.mockito.DelegateExpressions.verifyJavaDelegateMock;
+import static org.camunda.community.mockito.DelegateExpressions.verifyTaskListenerMock;
 import static org.camunda.community.mockito.ProcessExpressions.registerCallActivityMock;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -23,11 +25,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.test.Deployment;
 import org.camunda.bpm.engine.test.ProcessEngineRule;
 import org.camunda.bpm.engine.test.mock.Mocks;
@@ -129,6 +133,36 @@ public class InvoiceProcessTest {
     verifyJavaDelegateMock("autoValidateDelegate").executed();
     verifyJavaDelegateMock("autoNotifyDelegate").executed();
     verifyExecutionListenerMock("autoStartListener").executed();
+  }
+
+  @Test
+  @Deployment(resources = "task-listener.bpmn")
+  public void registersAndVerifiesTaskListenerMock() {
+    registerTaskListenerMock("reviewTaskListener");
+
+    ProcessInstance instance = rule.getRuntimeService().startProcessInstanceByKey("task-listener");
+    Task task =
+        rule.getTaskService()
+            .createTaskQuery()
+            .processInstanceId(instance.getId())
+            .singleResult();
+
+    assertNotNull(task);
+    rule.getTaskService().complete(task.getId());
+    assertInvoiceFinished(instance);
+    verifyTaskListenerMock("reviewTaskListener").executed();
+  }
+
+  @Test
+  @Deployment(resources = {"decision-output.bpmn", "invoice-risk.dmn"})
+  public void preservesBusinessRuleResultShape() {
+    ProcessInstance instance =
+        rule.getRuntimeService()
+            .startProcessInstanceByKey("decision-output", Variables.putValue("invoiceId", "I-1"));
+
+    assertInvoiceFinished(instance);
+    assertHistoricVariable(
+        instance, "riskOutcome", Map.of("approved", true, "discount", "10%"));
   }
 
   private InvoiceService registerInvoiceService() {

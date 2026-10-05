@@ -16,6 +16,7 @@ import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.process.test.api.CamundaAssert;
 import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.process.test.api.assertions.JobSelectors;
 import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
 import java.util.Map;
 import org.camunda.example.processmock.service.InvoiceService;
@@ -125,6 +126,29 @@ class InvoiceProcessTest {
     assertThat(autoStart.getInvocations()).isEqualTo(1);
     assertThat(autoValidate.getInvocations()).isEqualTo(1);
     assertThat(autoNotify.getInvocations()).isEqualTo(1);
+  }
+
+  @Test
+  void usesTheDeclaredUserTaskListenerJobType() {
+    ProcessInstanceEvent instance = start("task-listener", Map.of());
+
+    processTestContext.completeJobOfUserTaskListener(
+        JobSelectors.byJobType("review-created-listener"), result -> {});
+    processTestContext.completeUserTask("Task_Review");
+
+    CamundaAssert.assertThat(instance).isCompleted();
+  }
+
+  @Test
+  void preservesBusinessRuleResultShapeWhenMockingTheDecision() {
+    processTestContext.mockDmnDecision(
+        "invoice_risk", Map.of("approved", true, "discount", "10%"));
+
+    ProcessInstanceEvent instance = start("decision-output", Map.of("invoiceId", "I-1"));
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasVariable("riskOutcome", Map.of("approved", true, "discount", "10%"));
   }
 
   private ProcessInstanceEvent start(String processId, Map<String, Object> variables) {
