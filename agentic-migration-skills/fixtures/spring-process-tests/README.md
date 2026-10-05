@@ -21,7 +21,10 @@ because CPT deletes runtime data after each test.
 
 The `manual-without-bootstrap` case deploys a process that reaches `ManualProcessWorker` and asserts
 its execution. The application has no reusable C8 worker bootstrap, so the expected report marks
-the test as manual migration and gives the reason.
+the test as `Report only` and records the manual migration reason.
+
+The `standalone-task-only` case creates and completes a task without a BPMN process instance.
+The expected report marks it out of scope because task completion alone does not prove process execution.
 
 Run the static fixture checks from the repository root:
 

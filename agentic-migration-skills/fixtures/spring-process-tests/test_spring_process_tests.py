@@ -51,6 +51,13 @@ MANUAL_WORKER = (
     FIXTURE
     / "manual-without-bootstrap/c7-source/src/main/java/org/camunda/bpm/example/manual/ManualProcessWorker.java"
 )
+STANDALONE_TASK_TEST = (
+    FIXTURE
+    / "standalone-task-only/c7-source/src/test/java/org/camunda/bpm/example/standalone/StandaloneTaskTest.java"
+)
+STANDALONE_TASK_REPORT = (
+    FIXTURE / "standalone-task-only/expected-c8/MIGRATION_REPORT.md"
+)
 EXPECTED_MODELS = FIXTURE / "expected-c8/src/main/resources/processes"
 SOURCE_APPLICATION = (
     FIXTURE
@@ -176,9 +183,13 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "Apply the table from top to bottom.",
             "The first matching row assigns one test kind and handling.",
             "The skill classifies tests by executed engine behavior, not assertion type.",
+            "Test rules, extensions, dependencies, and API references alone do not prove that a test executed a BPMN process or DMN decision.",
             "A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.",
             "The skill records assertion gaps in the Test Inventory's Notes column for migration review.",
             "The skill verifies that a direct service call resolves to a real C7 engine in the test or its shared configuration.",
+            "The skill requires a completed task's `processInstanceId` to identify an executed BPMN process before `TaskService.complete(...)` is a process-test signal.",
+            "`TaskService.newTask()` without a process instance is not a process-test signal.",
+            "| A model built with `Bpmn.createExecutableProcess()` | Set handling to `Report only`. Record the manual migration reason in Notes. |",
             "`@Deployment` is model-resolution evidence, not a test-kind signal by itself.",
             "mocked `RuntimeService`",
             "`ProcessEnginePlugin`",
@@ -214,16 +225,31 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertIn("CMMN", rows[1][2])
         self.assertIn("ProcessEnginePlugin", rows[1][2])
-        self.assertIn("does not execute a real c7 engine", rows[-1][2].lower())
-        self.assertIn("calls a Spring Boot endpoint that starts a process", rows[6][2])
+        self.assertIn(
+            "does not execute a real c7 bpmn process or dmn decision",
+            rows[-1][2].lower(),
+        )
+        self.assertIn("standalone tasks created with `TaskService.newTask()`", rows[-1][2])
+        self.assertIn("It may call a Spring Boot endpoint that starts a process", rows[6][2])
         self.assertIn("on a real C7 engine", rows[6][2])
         self.assertIn(
-            "calls a real C7 engine's `RuntimeService` to start a process",
+            "It may call a real C7 engine's `RuntimeService` to start a process",
             rows[6][2],
         )
         self.assertIn("`startProcessInstanceByKey(...)`", rows[6][2])
-        self.assertIn("`TaskService` to complete a task", rows[6][2])
+        self.assertIn(
+            "`TaskService` to complete a task with a non-null `processInstanceId`",
+            rows[6][2],
+        )
         self.assertIn("mocked `RuntimeService`", rows[-1][2])
+        self.assertEqual(rows[3][3], "Report only")
+        self.assertEqual(rows[4][3], "Report only")
+        for row in rows[5:7]:
+            with self.subTest(row=row[1]):
+                self.assertEqual(
+                    row[3],
+                    "Migrate to CPT only with the `Spring` modifier; otherwise Report only",
+                )
         manual_source = MANUAL_SOURCE_TEST.read_text()
         spring_context = MANUAL_SOURCE_CONTEXT.read_text()
         self.assertIn("runtimeService.startProcessInstanceByKey", manual_source)
@@ -286,12 +312,53 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
 
     def test_cpt_dependency_requires_inventory_selected_migrations(self):
-        checklist = CODE_CHECKLIST.read_text()
+        checklist = " ".join(CODE_CHECKLIST.read_text().split())
 
         self.assertIn(
-            "When at least one Test Inventory row has handling `Migrate to CPT`, the skill selects the CPT dependency",
+            "When at least one Test Inventory row has the `Spring` modifier and handling `Migrate to CPT`, the skill selects the CPT dependency",
             checklist,
         )
+
+    def test_endpoint_migration_preserves_start_complete_and_correlation_operations(self):
+        reference = " ".join(REFERENCE.read_text().split())
+
+        self.assertIn(
+            "The skill preserves the endpoint operation that the test exercises.",
+            reference,
+        )
+        self.assertIn(
+            "The skill maps the original C7 operation to the equivalent `CamundaClient` operation.",
+            reference,
+        )
+        self.assertNotIn(
+            "The endpoint starts the process through `CamundaClient`.",
+            reference,
+        )
+        for operation in (
+            "| Starts a BPMN process | Starts the same process through `CamundaClient`. |",
+            "| Completes a process-backed task | Completes the same task through `CamundaClient`. |",
+            "| Correlates a message | Correlates the same message through `CamundaClient`. |",
+        ):
+            with self.subTest(operation=operation):
+                self.assertIn(operation, reference)
+
+    def test_standalone_task_completion_is_not_a_process_test(self):
+        reference = " ".join(REFERENCE.read_text().split())
+        source = STANDALONE_TASK_TEST.read_text()
+        report = " ".join(STANDALONE_TASK_REPORT.read_text().split()).lower()
+        inventory = report.split("## test inventory", 1)[1]
+
+        self.assertIn("taskService.newTask()", source)
+        self.assertIn("assertNull(task.getProcessInstanceId());", source)
+        self.assertIn("taskService.complete(task.getId());", source)
+        self.assertNotIn("startProcessInstanceByKey", source)
+        self.assertIn(
+            "`TaskService.newTask()` without a process instance is not a process-test signal.",
+            reference,
+        )
+        self.assertIn("| out of scope |", inventory)
+        self.assertIn("not part of test migration", inventory)
+        self.assertIn("without executing a bpmn process", inventory)
 
     def test_target_89_converted_models_use_zeebe_user_task_extensions(self):
         namespace = {
@@ -478,7 +545,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             reference,
         )
 
-    def test_missing_non_bootstrap_has_manual_reason(self):
+    def test_missing_non_bootstrap_is_report_only_with_manual_reason(self):
         reference = REFERENCE.read_text().lower()
         source_test = MANUAL_SOURCE_TEST.read_text()
         source_context = MANUAL_SOURCE_CONTEXT.read_text()
@@ -497,10 +564,21 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "process test",
             "spring modifier",
             "manual-process.bpmn",
-            "manual migration",
+            "report only",
+            "manual migration:",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, inventory)
+        self.assertIn(
+            "| a shared engine in a war or `processes.xml` application-server deployment | report only. record the manual migration reason in notes. |",
+            reference,
+        )
+        manual_row = next(
+            line for line in inventory.splitlines() if "manualspringprocesstest#" in line
+        )
+        manual_cells = [cell.strip() for cell in manual_row.split("|")[1:-1]]
+        self.assertEqual(manual_cells[5].lower(), "report only")
+        self.assertIn("manual migration", manual_cells[6].lower())
         self.assertIn("counts by test kind: process test 1", inventory)
         self.assertTrue(MANUAL_PROCESS.is_file())
         self.assertTrue(MANUAL_WORKER.is_file())
@@ -544,6 +622,18 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertIn("manualprocessworker", expected_report)
         self.assertIn("reusable `camundaclient` worker bootstrap", expected_report)
+
+    def test_manual_migration_cases_use_report_only_handling(self):
+        reference = " ".join(REFERENCE.read_text().split())
+
+        self.assertIn(
+            "If the application has no usable worker bootstrap, the skill sets the test's handling to `Report only`.",
+            reference,
+        )
+        self.assertIn(
+            "The skill records the manual migration reason in the Notes column of `MIGRATION_REPORT.md`.",
+            reference,
+        )
 
 
 if __name__ == "__main__":
