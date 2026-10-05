@@ -1618,6 +1618,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             out_of_scope_row,
         )
 
+    def test_reference_declares_instruction_convention_below_title(self):
+        lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual("# Test Migration", lines[0])
+        self.assertEqual(
+            normalized(
+                'Every instruction in this reference is mandatory. "Never" means MUST NOT. '
+                "A preference is marked (SHOULD) and an option is marked (MAY)."
+            ),
+            normalized(" ".join(lines[2:4])),
+        )
+
+    def test_readme_documents_c7_process_test_fixture_once(self):
+        readme = (
+            REPO_ROOT / "agentic-migration-skills/README.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(1, readme.count("fixtures/c7-process-tests"))
+        self.assertIn("inventories JUnit 3/4/5", readme)
+
     def test_scenario_fixture_covers_retained_mockito_annotations(self):
         source_path = (
             C7_SOURCE

@@ -440,8 +440,6 @@ The skill does not invent a new worker bootstrap.
 
 ## Camunda Platform Scenario Test Migration
 
-Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
-
 ### Migration gate
 
 The Step 2 Test Inventory controls whether the skill migrates each scenario test. The gate covers
