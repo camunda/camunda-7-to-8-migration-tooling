@@ -18,6 +18,7 @@ import io.camunda.migration.code.recipes.utils.ReplacementUtils.BuilderReplaceme
 import io.camunda.migration.code.recipes.utils.ReplacementUtils.ReturnReplacementSpec;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Tree;
@@ -165,7 +166,9 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                   }
                 }
 
-                if (visited.getSelect() instanceof J.MethodInvocation variables
+                Expression select = visited.getSelect();
+                if (select != null
+                    && unwrapParentheses(select) instanceof J.MethodInvocation variables
                     && VARIABLES_METHOD.matches(variables)) {
                   if (visited.getSimpleName().equals("containsEntry")) {
                     return renamed(visited, "hasVariable")
@@ -189,8 +192,14 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
               }
 
               private boolean isOutermostMethodInvocation() {
-                return !(getCursor().getParentTreeCursor().getValue()
-                    instanceof J.MethodInvocation);
+                Cursor current = getCursor();
+                Cursor parent = getCursor().getParentTreeCursor();
+                while (parent.getValue() instanceof J.Parentheses<?>) {
+                  current = parent;
+                  parent = parent.getParentTreeCursor();
+                }
+                return !(parent.getValue() instanceof J.MethodInvocation methodInvocation
+                    && methodInvocation.getSelect() == current.getValue());
               }
             });
 
@@ -238,9 +247,17 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
         return callsAfterVariables > 1;
       }
       callsAfterVariables++;
-      current = methodInvocation.getSelect();
+      current = unwrapParentheses(methodInvocation.getSelect());
     }
     return false;
+  }
+
+  private static Expression unwrapParentheses(Expression expression) {
+    while (expression instanceof J.Parentheses<?> parentheses
+        && parentheses.getTree() instanceof Expression nested) {
+      expression = nested;
+    }
+    return expression;
   }
 
   private static boolean containsUnsupportedVariableMapAssertion(J tree) {
@@ -249,7 +266,9 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
       @Override
       public J.MethodInvocation visitMethodInvocation(
           J.MethodInvocation invocation, AtomicBoolean result) {
-        if (invocation.getSelect() instanceof J.MethodInvocation variables
+        Expression select = invocation.getSelect();
+        if (select != null
+            && unwrapParentheses(select) instanceof J.MethodInvocation variables
             && VARIABLES_METHOD.matches(variables)
             && !List.of("containsEntry", "containsKey", "containsKeys")
                 .contains(invocation.getSimpleName())) {

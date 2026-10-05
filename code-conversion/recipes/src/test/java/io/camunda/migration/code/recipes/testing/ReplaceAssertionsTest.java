@@ -449,6 +449,15 @@ class OrderTaskTest {
     }
 
     @Test
+    void parenthesizedVariablesReceiverStillMapsToHasVariableNames() {
+        rewrite(
+                processAssertionsSource(
+                        "(assertThat(processInstance).variables()).containsKey(\"approved\");"),
+                migratedProcessAssertionsSource(
+                        "assertThat(processInstance).hasVariableNames(\"approved\");"));
+    }
+
+    @Test
     void hasVariablesWithoutNamesIsNotWeakened() {
         rewrite(
                 processAssertionsSource("assertThat(processInstance).hasVariables();"),
@@ -502,6 +511,26 @@ class OrderTaskTest {
                                 + "        assertThat(processInstance).variables().containsKeys(\"approved\", \"created\").hasSize(2);\n"
                                 + "        // TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
                                 + "        assertThat(processInstance).variables().containsEntry(\"approved\", true).hasSize(1);"));
+    }
+
+    @Test
+    void parenthesizedMultiOperationVariableMapAssertionIsNotPartiallyRewritten() {
+        rewrite(
+                processAssertionsSource(
+                        "(assertThat(processInstance).variables().containsKey(\"approved\")).hasSize(1);"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        (assertThat(processInstance).variables().containsKey(\"approved\")).hasSize(1);"));
+    }
+
+    @Test
+    void parenthesizedUnsupportedVariableMapAssertionGetsTodo() {
+        rewrite(
+                processAssertionsSource(
+                        "(assertThat(processInstance).variables()).hasSize(1);"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        (assertThat(processInstance).variables()).hasSize(1);"));
     }
 
     private void rewrite(String before, String after) {
