@@ -1125,6 +1125,47 @@ class MigrationGuidanceTest(unittest.TestCase):
             normalized(manual_actions[0]["Class setup action"]),
         )
 
+    def test_prepare_step_removes_shared_scenario_setup_only_when_unused(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "4. the skill removes the `processscenario` mock and scenario runner setup "
+            "only when no retained method needs them.",
+            reference,
+        )
+
+    def test_scenario_mapping_removes_shared_setup_only_when_unused(self):
+        scenario_mappings = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Camunda Platform Scenario", "Camunda Process Test 8.9 or later", "Notes"],
+        )
+        mock_mapping = [
+            row
+            for row in scenario_mappings
+            if "@mock processscenario" in row["Camunda Platform Scenario"].lower()
+        ]
+        self.assertEqual(1, len(mock_mapping))
+        self.assertIn(
+            "the skill removes the mock and scenario runner setup only when no retained "
+            "method needs c7 scenario setup",
+            normalized(mock_mapping[0]["Camunda Process Test 8.9 or later"]),
+        )
+
+    def test_linear_paths_may_replace_cpt_conditionals_with_sequential_calls(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "the skill uses a cpt conditional behavior for each user-task, message, "
+            "signal, event-gateway, or conditional-event stub unless the skill uses "
+            "sequential cpt calls on a linear path.",
+            reference,
+        )
+        self.assertIn(
+            "the skill uses sequential cpt calls instead of conditional behaviors "
+            "when the process path is linear. (may)",
+            reference,
+        )
+
     def test_java_method_body_ignores_braces_in_non_code(self):
         snippets = (
             ("string opening brace", 'String value = "{";'),

@@ -511,7 +511,8 @@ paths, or generation tasks.
    `<zeebe:userTask />`. Without the marker, Camunda uses a job-worker implementation, so the User
    Task API has no user-task instance to complete.
 3. The skill moves JUnit 3 and JUnit 4 scenario tests to JUnit 5.
-4. The skill removes the `ProcessScenario` mock and Scenario runner setup.
+4. The skill removes the `ProcessScenario` mock and Scenario runner setup only when no retained
+   method needs them.
 5. The skill removes each Scenario artifact only when no remaining test uses it.
 6. The skill adds `io.camunda:camunda-process-test-java` in test scope.
 7. The skill keeps Mockito initialization and cleanup for retained annotations that rely on
@@ -524,8 +525,9 @@ keeps the migrated worker real unless the Camunda 7 test mocked that delegate.
 ### Wait-state behavior
 
 The skill uses a CPT conditional behavior for each user-task, message, signal, event-gateway, or
-conditional-event stub. Each condition waits for the corresponding process state. The action
-resolves that state so CPT can detect it again.
+conditional-event stub unless the skill uses sequential CPT calls on a linear path. Each condition
+waits for the corresponding process state. The action resolves that state so CPT can detect it
+again.
 
 The skill scopes a condition or action to the Scenario instance only when the corresponding CPT API
 accepts a process-instance selector. The user-task condition and completion action use the
@@ -535,8 +537,8 @@ The message action targets a message name and evaluated correlation key, not the
 result's process-instance key. The signal action broadcasts by signal name and can also advance
 another process instance waiting for that signal.
 
-The skill uses sequential CPT calls when the process path is linear. (MAY) The skill advances time
-explicitly for timer stubs.
+The skill uses sequential CPT calls instead of conditional behaviors when the process path is
+linear. (MAY) The skill advances time explicitly for timer stubs.
 
 ```java
 long processInstanceKey = processInstance.getProcessInstanceKey();
@@ -563,7 +565,7 @@ parity-ledger entry.
 
 | Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
-| `@Mock ProcessScenario process` and its Scenario stubs | Remove the mock and Scenario runner setup. Convert each existing Scenario stub with the matching CPT behavior below. | Map each verification to the CPT assertion rows below. |
+| `@Mock ProcessScenario process` and its Scenario stubs | The skill converts each migrated Scenario stub with the matching CPT behavior below. The skill removes the mock and Scenario runner setup only when no retained method needs C7 Scenario setup. | Map each verification to the CPT assertion rows below. |
 | `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove only when no retained Mockito annotations require it | Keep initialization and cleanup for `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields that rely on it. |
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
 | `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byKey(processInstanceKey)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask(byElementId("X", processInstanceKey), variables))` | The action completes the task tested by the condition. |
