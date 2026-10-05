@@ -37,7 +37,6 @@
     </decisionTable>
   </decision>
   <decision id="promotions" name="Promotions">
-    <variable id="Variable_Promotion" name="promotion" typeRef="string"/>
     <informationRequirement id="InformationRequirement_CustomerTier">
       <requiredDecision href="#customerTier"/>
     </informationRequirement>
@@ -48,12 +47,16 @@
         </inputExpression>
       </input>
       <output id="Output_Promotion" name="promotion" typeRef="string"/>
+      <output id="Output_Bonus" name="bonus" typeRef="string"/>
       <rule id="Rule_Gold_Travel">
         <inputEntry id="InputEntry_Gold_Travel">
           <text>"gold"</text>
         </inputEntry>
         <outputEntry id="OutputEntry_Gold_Travel">
           <text>"travel"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Gold_Travel_Bonus">
+          <text>null</text>
         </outputEntry>
       </rule>
       <rule id="Rule_Gold_Lounge">
@@ -63,6 +66,9 @@
         <outputEntry id="OutputEntry_Gold_Lounge">
           <text>"lounge"</text>
         </outputEntry>
+        <outputEntry id="OutputEntry_Gold_Lounge_Bonus">
+          <text>"premium"</text>
+        </outputEntry>
       </rule>
       <rule id="Rule_Silver_Newsletter">
         <inputEntry id="InputEntry_Silver_Newsletter">
@@ -70,6 +76,9 @@
         </inputEntry>
         <outputEntry id="OutputEntry_Silver_Newsletter">
           <text>"newsletter"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Silver_Newsletter_Bonus">
+          <text>"basic"</text>
         </outputEntry>
       </rule>
     </decisionTable>

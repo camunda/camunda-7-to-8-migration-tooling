@@ -13,9 +13,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.EvaluateDecisionResponse;
-import io.camunda.process.test.api.CamundaAssert;
 import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.TestDeployment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -37,12 +37,19 @@ class PromotionsDecisionTest {
             .send()
             .join();
 
-    CamundaAssert.assertThat(response).isEvaluated();
-    List<String> promotions =
+    List<Map<String, Object>> outputs =
         OBJECT_MAPPER.readValue(
-            response.getDecisionOutput(), new TypeReference<List<String>>() {});
+            response.getDecisionOutput(), new TypeReference<List<Map<String, Object>>>() {});
+    List<String> promotions = new ArrayList<>();
+    List<Object> bonuses = new ArrayList<>();
+    for (Map<String, Object> output : outputs) {
+      assertThat(output).containsKeys("promotion", "bonus");
+      promotions.add((String) output.get("promotion"));
+      bonuses.add(output.get("bonus"));
+    }
 
     assertThat(promotions).containsExactlyInAnyOrder("travel", "lounge");
+    assertThat(bonuses).containsExactlyInAnyOrder(null, "premium");
     assertThat(response.getEvaluatedDecisions()).hasSize(2);
   }
 

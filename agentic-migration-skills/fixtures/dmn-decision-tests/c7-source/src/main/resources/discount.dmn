@@ -4,7 +4,6 @@
              name="Discount"
              namespace="http://camunda.org/examples">
   <decision id="discount" name="Discount">
-    <variable id="Variable_Discount" name="discount" typeRef="string"/>
     <decisionTable id="DecisionTable_Discount" hitPolicy="UNIQUE">
       <input id="Input_CustomerType" label="Customer type">
         <inputExpression id="InputExpression_CustomerType" typeRef="string">
@@ -33,6 +32,51 @@
         </outputEntry>
         <outputEntry id="OutputEntry_Silver_Segment">
           <text>"standard"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_Trial">
+        <inputEntry id="InputEntry_Trial">
+          <text>"trial"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Trial_Discount">
+          <text>null</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Trial_Segment">
+          <text>"basic"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="ruleOrder" name="Rule order">
+    <decisionTable id="DecisionTable_RuleOrder" hitPolicy="RULE ORDER">
+      <input id="Input_RuleOrder_CustomerType">
+        <inputExpression id="InputExpression_RuleOrder_CustomerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <output id="Output_RuleOrder_Value" name="value" typeRef="string"/>
+      <rule id="Rule_RuleOrder_First">
+        <inputEntry id="InputEntry_RuleOrder_First">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_RuleOrder_First">
+          <text>"first"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_RuleOrder_Null">
+        <inputEntry id="InputEntry_RuleOrder_Null">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_RuleOrder_Null">
+          <text>null</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_RuleOrder_Last">
+        <inputEntry id="InputEntry_RuleOrder_Last">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_RuleOrder_Last">
+          <text>"last"</text>
         </outputEntry>
       </rule>
     </decisionTable>

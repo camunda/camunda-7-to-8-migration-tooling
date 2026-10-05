@@ -35,6 +35,8 @@ public class PromotionsDecisionTest {
 
     assertThat(result.collectEntries("promotion"))
         .containsExactlyInAnyOrder("travel", "lounge");
+    assertThat(result.collectEntries("bonus"))
+        .containsExactlyInAnyOrder(null, "premium");
   }
 
   @Test

@@ -27,11 +27,13 @@ public class DiscountDecisionTest {
   @Rule public DmnEngineRule dmnEngineRule = new DmnEngineRule();
 
   private DmnDecision discountDecision;
+  private DmnDecision ruleOrderDecision;
   private DmnDecision uniqueViolationDecision;
 
   @Before
   public void parseDiscountDecision() throws IOException {
     discountDecision = parseDecision("discount");
+    ruleOrderDecision = parseDecision("ruleOrder");
     uniqueViolationDecision = parseDecision("uniqueViolation");
   }
 
@@ -48,6 +50,20 @@ public class DiscountDecisionTest {
   }
 
   @Test
+  public void handlesNullOutputColumn() {
+    VariableMap variables = Variables.createVariables().putValue("customerType", "trial");
+
+    DmnDecisionTableResult result =
+        dmnEngineRule.getDmnEngine().evaluateDecisionTable(discountDecision, variables);
+
+    Object discountRate = result.getSingleResult().getEntry("discountRate");
+    Object segment = result.getSingleResult().getEntry("segment");
+
+    assertThat(discountRate).isNull();
+    assertThat(segment).isEqualTo("basic");
+  }
+
+  @Test
   public void returnsNoMatch() {
     VariableMap variables = Variables.createVariables().putValue("customerType", "bronze");
 
@@ -56,6 +72,16 @@ public class DiscountDecisionTest {
 
     assertThat(result).isEmpty();
     assertThat(result.getSingleResult()).isNull();
+  }
+
+  @Test
+  public void preservesNullInRuleOrderResults() {
+    VariableMap variables = Variables.createVariables().putValue("customerType", "gold");
+
+    DmnDecisionTableResult result =
+        dmnEngineRule.getDmnEngine().evaluateDecisionTable(ruleOrderDecision, variables);
+
+    assertThat(result.collectEntries("value")).containsExactly("first", null, "last");
   }
 
   @Test

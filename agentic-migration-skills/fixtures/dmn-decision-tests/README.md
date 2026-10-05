@@ -3,9 +3,10 @@
 This fixture pairs standalone Camunda 7 DMN tests and an engine-backed `DecisionService` test with
 their Camunda Process Test (CPT) equivalents. The models and test data are synthetic.
 
-The standalone test covers a multi-output decision, a no-match result, and an explicit `null` input.
-The `DecisionService` test covers a DRD with a required decision, a `COLLECT` table, and a `UNIQUE`
-hit-policy violation. Both CPT tests deploy converted DMN copies.
+The standalone test covers a multi-output decision, a no-match result, an explicit `null` input, a
+nullable output column, and a `RULE ORDER` result with a `null` output. The `DecisionService` test
+covers a DRD with a required decision, a multi-output `COLLECT` table with a `null` output, and a
+`UNIQUE` hit-policy violation. Both CPT tests deploy converted DMN copies.
 
 Run the Camunda 7 baseline:
 

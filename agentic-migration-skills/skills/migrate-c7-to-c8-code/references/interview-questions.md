@@ -125,6 +125,7 @@ Do not offer a proxy or recreation of the C7 `/engine-rest` API. See
 
 ## Question 8 runtime notice for decision tests
 
-When the Test Inventory includes a standalone DMN decision test, include this notice in Question 8:
+When the skill asks Question 8 and the Test Inventory includes a standalone DMN decision test,
+the skill includes this notice:
 
 > Camunda 7 evaluated DMN with an in-process engine. The CPT test needs a Camunda 8 runtime. CPT uses Docker by default. You can configure a remote runtime instead.

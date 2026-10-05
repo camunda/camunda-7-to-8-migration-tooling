@@ -106,21 +106,193 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("newEvaluateDecisionCommand()", migrated_standalone)
         self.assertIn("getFailureMessage()", migrated_standalone)
+        self.assertIn("DecisionSelectors.byResponse(response)", migrated_standalone)
         self.assertIn(
             '@TestDeployment(resources = "converted-c8-promotions.dmn")',
             migrated_service,
         )
         self.assertIn("@CamundaSpringProcessTest", reference)
+        self.assertIn("DecisionSelectors.byResponse(response)", reference)
 
     def test_collect_results_are_parsed_and_order_insensitive(self):
+        source = (
+            C7
+            / "src/test/java/org/camunda/fixture/dmn/PromotionsDecisionTest.java"
+        ).read_text()
         migrated = (
             EXPECTED_C8
             / "src/test/java/org/camunda/fixture/dmn/PromotionsDecisionTest.java"
         ).read_text()
 
+        self.assertIn('result.collectEntries("promotion")', source)
+        self.assertIn('result.collectEntries("bonus")', source)
         self.assertIn("response.getDecisionOutput()", migrated)
+        self.assertIn(
+            "new TypeReference<List<Map<String, Object>>>()", migrated
+        )
+        self.assertIn('containsKeys("promotion", "bonus")', migrated)
+        self.assertIn('output.get("promotion")', migrated)
+        self.assertIn('output.get("bonus")', migrated)
+        self.assertIn('containsExactlyInAnyOrder(null, "premium")', migrated)
         self.assertIn("containsExactlyInAnyOrder", migrated)
         self.assertNotIn("hasOutput(List", migrated)
+
+    def test_collect_models_cover_multiple_outputs_and_null_values(self):
+        for base, filename in (
+            (C7 / "src/main/resources", "promotions.dmn"),
+            (EXPECTED_C8 / "src/main/resources", "converted-c8-promotions.dmn"),
+        ):
+            root = ET.parse(base / filename).getroot()
+            table = root.find(
+                "dmn:decision[@id='promotions']/dmn:decisionTable", DMN_NS
+            )
+            outputs = table.findall("dmn:output", DMN_NS)
+
+            self.assertEqual(
+                [output.get("name") for output in outputs],
+                ["promotion", "bonus"],
+            )
+            self.assertTrue(
+                any(
+                    (entry.find("dmn:text", DMN_NS).text or "").strip() == "null"
+                    for entry in table.findall(
+                        "dmn:rule/dmn:outputEntry", DMN_NS
+                    )
+                )
+            )
+
+    def test_non_scalar_decisions_do_not_declare_scalar_variables(self):
+        for base, filename in (
+            (C7 / "src/main/resources", "discount.dmn"),
+            (EXPECTED_C8 / "src/main/resources", "converted-c8-discount.dmn"),
+        ):
+            root = ET.parse(base / filename).getroot()
+            for decision_id in ("discount", "ruleOrder"):
+                with self.subTest(decision_id=decision_id, filename=filename):
+                    decision = root.find(
+                        f"dmn:decision[@id='{decision_id}']", DMN_NS
+                    )
+                    self.assertIsNone(decision.find("dmn:variable", DMN_NS))
+
+        for base, filename in (
+            (C7 / "src/main/resources", "promotions.dmn"),
+            (EXPECTED_C8 / "src/main/resources", "converted-c8-promotions.dmn"),
+        ):
+            root = ET.parse(base / filename).getroot()
+            promotions = root.find("dmn:decision[@id='promotions']", DMN_NS)
+            self.assertIsNone(promotions.find("dmn:variable", DMN_NS))
+
+    def test_ordered_results_preserve_null_output_values(self):
+        source = (
+            C7
+            / "src/test/java/org/camunda/fixture/dmn/DiscountDecisionTest.java"
+        ).read_text()
+        migrated = (
+            EXPECTED_C8
+            / "src/test/java/org/camunda/fixture/dmn/DiscountDecisionTest.java"
+        ).read_text()
+
+        self.assertIn('result.collectEntries("value")', source)
+        self.assertIn("new TypeReference<List<String>>()", migrated)
+        self.assertIn("response.getDecisionOutput()", migrated)
+        self.assertIn('containsExactly("first", null, "last")', migrated)
+
+        for base, filename in (
+            (C7 / "src/main/resources", "discount.dmn"),
+            (EXPECTED_C8 / "src/main/resources", "converted-c8-discount.dmn"),
+        ):
+            root = ET.parse(base / filename).getroot()
+            decision = root.find("dmn:decision[@id='ruleOrder']", DMN_NS)
+            self.assertIsNotNone(decision)
+            table = decision.find("dmn:decisionTable", DMN_NS)
+            self.assertEqual(table.get("hitPolicy"), "RULE ORDER")
+            self.assertEqual(len(table.findall("dmn:rule", DMN_NS)), 3)
+            self.assertTrue(
+                any(
+                    (entry.find("dmn:text", DMN_NS).text or "").strip() == "null"
+                    for entry in table.findall(
+                        "dmn:rule/dmn:outputEntry", DMN_NS
+                    )
+                )
+            )
+
+    def test_single_result_null_output_is_parsed_into_a_map(self):
+        source = (
+            C7
+            / "src/test/java/org/camunda/fixture/dmn/DiscountDecisionTest.java"
+        ).read_text()
+        migrated = (
+            EXPECTED_C8
+            / "src/test/java/org/camunda/fixture/dmn/DiscountDecisionTest.java"
+        ).read_text()
+
+        self.assertIn('getEntry("discountRate")', source)
+        self.assertIn("new TypeReference<Map<String, Object>>()", migrated)
+        self.assertIn('containsKeys("discountRate", "segment")', migrated)
+        self.assertIn('outputs.get("discountRate")', migrated)
+
+        for base, filename in (
+            (C7 / "src/main/resources", "discount.dmn"),
+            (EXPECTED_C8 / "src/main/resources", "converted-c8-discount.dmn"),
+        ):
+            root = ET.parse(base / filename).getroot()
+            table = root.find(
+                "dmn:decision[@id='discount']/dmn:decisionTable", DMN_NS
+            )
+            trial = table.find("dmn:rule[@id='Rule_Trial']", DMN_NS)
+            self.assertEqual(
+                [
+                    (entry.find("dmn:text", DMN_NS).text or "").strip()
+                    for entry in trial.findall("dmn:outputEntry", DMN_NS)
+                ],
+                ["null", '"basic"'],
+            )
+
+    def test_nullable_output_expectations_use_null_tolerant_containers(self):
+        reference = " ".join(REFERENCE.read_text().lower().split())
+
+        self.assertIn(
+            "the skill never uses `map.of` or `list.of` to build an expected output that contains `null`",
+            reference,
+        )
+        self.assertIn("null-tolerant map or list", reference)
+
+    def test_unsupported_hit_policies_require_manual_redesign(self):
+        reference = " ".join(REFERENCE.read_text().lower().split())
+
+        self.assertIn("camunda 8.9 does not support `priority`", reference)
+        self.assertIn("camunda 8.9 does not support `output order`", reference)
+        self.assertNotIn("with hit policy `rule order` or `output order`", reference)
+
+    def test_json_input_type_is_checked_against_the_converted_dmn(self):
+        reference = " ".join(REFERENCE.read_text().lower().split())
+
+        self.assertIn("a camunda 7 `date` or typed value", reference)
+        self.assertIn("json representation", reference)
+        self.assertIn(
+            "the skill does not assume the java type survives serialization",
+            reference,
+        )
+
+    def test_decision_service_failure_maps_to_cpt_response_fields(self):
+        source = (
+            C7
+            / "src/test/java/org/camunda/fixture/dmn/PromotionsDecisionTest.java"
+        ).read_text()
+        migrated = (
+            EXPECTED_C8
+            / "src/test/java/org/camunda/fixture/dmn/PromotionsDecisionTest.java"
+        ).read_text()
+        reference = " ".join(REFERENCE.read_text().lower().split())
+
+        self.assertIn("ProcessEngineException.class", source)
+        self.assertIn("getFailureMessage()", migrated)
+        self.assertIn("getFailedDecisionId()", migrated)
+        self.assertNotIn("assertThrows(", migrated)
+        self.assertIn(
+            "including one wrapped by `decisionservice` in `processengineexception`",
+            reference,
+        )
 
     def test_c7_and_cpt_tests_keep_the_same_cases(self):
         for class_name in ("DiscountDecisionTest", "PromotionsDecisionTest"):
