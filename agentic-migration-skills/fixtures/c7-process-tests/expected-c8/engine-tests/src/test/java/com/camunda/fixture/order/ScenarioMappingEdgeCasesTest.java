@@ -52,7 +52,7 @@ class ScenarioMappingEdgeCasesTest {
   }
 
   @Test
-  void shouldSelectMessageStartedInstanceByReturnedKey() {
+  void shouldStartMessageProcess() {
     CorrelateMessageResponse correlationResponse =
         processTestContext
             .createClient()
@@ -68,7 +68,7 @@ class ScenarioMappingEdgeCasesTest {
   }
 
   @Test
-  void shouldCountFullyCompletedVisits() {
+  void shouldCountCompletedVisitsSeparately() {
     ProcessInstanceEvent processInstance = createMixedFinishInstance();
     processTestContext.completeJob("mixed-work", Map.of("visitCount", 1));
     processTestContext.completeJob("mixed-work", Map.of("visitCount", 2));
