@@ -475,7 +475,24 @@ The scenario runner's Cucumber module, logging, and history fast-forward reports
 
 ### Prepare the test
 
-The skill converts the shared engine-test setup before it applies the scenario-specific mappings.
+Before changing class-level setup, the skill inspects every test method and its shared setup and
+deployment dependencies.
+
+| Retained method condition | Class setup action |
+|---|---|
+| No retained method needs the C7 engine or deployment. | Convert the shared setup to CPT or remove it. |
+| A manual method still needs the C7 engine or deployment. | Move migrated methods to a separate CPT class, or preserve the C7 setup until no retained method needs it. |
+
+The skill checks every Maven module's test-source roots and include patterns before it changes the
+target reactor.
+
+| Source-set condition | Migration action |
+|---|---|
+| Multiple C7 modules compile the same physical test source. | Migrate that source only once to the CPT suite. Keep each module-qualified C7 test ID in the inventory. Map duplicate module executions to one CPT test ID. |
+| A redundant target module has no test sources outside the shared set. | Remove that module. |
+| A redundant target module has unrelated test sources. | Preserve those tests in a reconfigured module that excludes shared sources, or move them to the primary module before removing the redundant module. |
+
+The skill preserves unrelated tests before it removes or reconfigures a redundant target module.
 
 | Camunda 7 engine-test setup | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|

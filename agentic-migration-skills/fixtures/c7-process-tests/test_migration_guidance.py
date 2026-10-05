@@ -478,6 +478,53 @@ class MigrationGuidanceTest(unittest.TestCase):
                 cpt_id = legacy_id.replace("engine-tests-legacy:", "engine-tests:", 1)
                 self.assertEqual(cpt_id, parity_by_id[legacy_id]["CPT Test ID(s)"])
 
+    def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
+        source_set_actions = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Source-set condition", "Migration action"],
+        )
+        duplicate_source_actions = [
+            row
+            for row in source_set_actions
+            if "multiple c7 modules" in row["Source-set condition"].lower()
+        ]
+        self.assertEqual(1, len(duplicate_source_actions))
+        self.assertIn(
+            "migrate that source only once",
+            duplicate_source_actions[0]["Migration action"].lower(),
+        )
+        self.assertIn(
+            "map duplicate module executions to one cpt test id",
+            duplicate_source_actions[0]["Migration action"].lower(),
+        )
+
+        redundant_module_actions = [
+            row
+            for row in source_set_actions
+            if "redundant target module" in row["Source-set condition"].lower()
+        ]
+        self.assertEqual(2, len(redundant_module_actions))
+        self.assertTrue(
+            any(
+                "remove that module" in row["Migration action"].lower()
+                for row in redundant_module_actions
+            )
+        )
+        self.assertTrue(
+            any(
+                "preserve those tests" in row["Migration action"].lower()
+                and "reconfigured module" in row["Migration action"].lower()
+                for row in redundant_module_actions
+            )
+        )
+
+        target_project = ET.parse(EXPECTED_C8 / "pom.xml").getroot()
+        target_modules = {
+            (module.text or "").strip()
+            for module in target_project.findall("m:modules/m:module", MAVEN_NAMESPACE)
+        }
+        self.assertNotIn("engine-tests-legacy", target_modules)
+
     def test_fulfillment_parity_note_matches_single_run_time_advances(self):
         parity = markdown_table(
             EXPECTED_PARITY,
@@ -874,6 +921,32 @@ class MigrationGuidanceTest(unittest.TestCase):
                     java_method_body(source, method_name),
                     r"\bScenario\.(?:run|use)\s*\(",
                 )
+
+    def test_mixed_manual_methods_preserve_required_class_setup(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "before changing class-level setup, the skill inspects every test method "
+            "and its shared setup and deployment dependencies.",
+            reference,
+        )
+        setup_actions = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Retained method condition", "Class setup action"],
+        )
+        manual_actions = [
+            row
+            for row in setup_actions
+            if "manual method" in row["Retained method condition"].lower()
+        ]
+        self.assertEqual(1, len(manual_actions))
+        self.assertIn(
+            "move migrated methods to a separate cpt class",
+            normalized(manual_actions[0]["Class setup action"]),
+        )
+        self.assertIn(
+            "preserve the c7 setup until no retained method needs it",
+            normalized(manual_actions[0]["Class setup action"]),
+        )
 
     def test_java_method_body_ignores_braces_in_non_code(self):
         snippets = (
