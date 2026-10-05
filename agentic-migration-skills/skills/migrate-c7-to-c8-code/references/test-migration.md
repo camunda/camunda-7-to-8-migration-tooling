@@ -51,7 +51,7 @@ When one test matches multiple test kinds, the skill assigns the first matching 
 | 2 | The test uses CMMN or unsupported engine internals. `ClockUtil` timer control does not trigger this signal by itself. | manual redesign |
 | 3 | JGiven or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle, or the Camunda 7 Quarkus extension. The test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | manual migration |
 | 4 | The test uses camunda-platform-scenario | scenario test |
-| 5 | The test reads a shared Camunda 7 engine URL and runs no process or decision | remote-engine test |
+| 5 | The test reads a shared Camunda 7 engine URL from an environment variable and runs no process or decision | remote-engine test |
 | 6 | The test runs a BPMN process or DMN decision against a running Camunda 7 engine remotely | remote-engine test |
 | 7 | The test directly evaluates a DMN decision | decision test |
 | 8 | The test runs a BPMN process | process test |

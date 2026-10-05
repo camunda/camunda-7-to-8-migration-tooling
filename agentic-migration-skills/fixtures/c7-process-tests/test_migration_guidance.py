@@ -233,6 +233,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual(len(exception_rows), 1)
         signal = normalized(exception_rows[0]["Signal"])
         requirement = normalized(exception_rows[0]["Confirmation required"])
+        self.assertIn("from an environment variable", signal)
         self.assertIn("does not run a process or decision", signal)
         self.assertIn("remote-engine test", requirement)
         self.assertIn("report only", requirement)
@@ -303,6 +304,11 @@ class MigrationGuidanceTest(unittest.TestCase):
                 "engine remotely"
             )
             in normalized(row["Matching signal"])
+        )
+        self.assertIn(
+            "reads a shared camunda 7 engine url from an environment variable and "
+            "runs no process or decision",
+            normalized(shared_engine["Matching signal"]),
         )
         self.assertEqual("remote-engine test", shared_engine["Test kind"])
         self.assertEqual("remote-engine test", remote_process["Test kind"])
