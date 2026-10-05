@@ -1076,7 +1076,57 @@ class ValidationEvidenceTest(unittest.TestCase):
         issues = gate.test_parity_issues(plan, checks, mapping)
 
         self.assertTrue(
-            any("mapped from multiple migrated C7 tests" in issue for issue in issues),
+            any("mapped from multiple test parity entries" in issue for issue in issues),
+            issues,
+        )
+
+    def test_test_parity_rejects_cpt_ids_shared_with_added_tests(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        added_cpt_id = "app:com.example.OrderCptTest#testAdded"
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["tests"].extend(
+            [
+                {"status": "added", "c8_ids": [self.c8_test_id]},
+                {"status": "added", "c8_ids": [added_cpt_id]},
+                {"status": "added", "c8_ids": [added_cpt_id]},
+                {"status": "added", "c8_ids": [added_cpt_id, added_cpt_id]},
+            ]
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderCptTest" name="testOrder" />'
+            '<testcase classname="com.example.OrderCptTest" name="testAdded" /></testsuite>'
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(first_junit=junit),
+            ),
+        )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        check_issues = []
+        checks = gate.load_checks(self.root, evidence, plan, check_issues)
+        self.assertEqual([], check_issues)
+
+        issues = gate.test_parity_issues(plan, checks, mapping)
+
+        ownership_issues = [
+            issue for issue in issues
+            if "mapped from multiple test parity entries" in issue
+        ]
+        self.assertEqual(3, len(ownership_issues), issues)
+        self.assertTrue(
+            any("Added CPT tests need distinct c8_ids" in issue for issue in issues),
             issues,
         )
 
@@ -1252,6 +1302,86 @@ class ValidationEvidenceTest(unittest.TestCase):
             "passed",
             checks[("module", "app", "test_repeat", "unit")][1]["result"],
         )
+
+    def test_approved_test_changes_invalidate_assertion_and_mock_reviews(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(),
+            ),
+        )
+        class_target = "app:com.example.OrderTest"
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", class_target, "assertion_strength", None),
+                action="review",
+                note=f"Reviewed assertions for {class_target}.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        check_issues = []
+        checks = gate.load_checks(self.root, evidence, plan, check_issues)
+        self.assertEqual([], check_issues)
+        review_keys = (
+            ("test", class_target, "assertion_strength", None),
+            ("test", self.c7_test_id, "mock_boundary", None),
+        )
+        for key in review_keys:
+            self.assertIn(key, checks)
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping_without_test_changes = {
+            key: value for key, value in mapping.items() if key != "test_changes"
+        }
+        self.assertEqual(
+            gate.test_mapping_digest(mapping_without_test_changes, "review"),
+            gate.test_mapping_digest(mapping, "review"),
+        )
+        test_path = "app/src/test/java/com/example/OrderCptTest.java"
+        test_file = self.root / test_path
+        old_hash = mapping["freeze"]["files"][test_path]
+        test_file.write_text("class OrderCptTest { void weakened() {} }\n", encoding="utf-8")
+        mapping["test_changes"].append(
+            {
+                "file": test_path,
+                "reason": "The operator approved a test assertion update.",
+                "old_hash": old_hash,
+                "new_hash": f"sha256:{gate.file_digest(test_file)}",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.assertEqual([], gate.validate_test_freeze(self.root, plan, mapping))
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        check_issues = []
+        checks = gate.load_checks(self.root, evidence, plan, check_issues)
+        self.assertEqual([], check_issues)
+        for key in review_keys:
+            self.assertIn(key, plan.required)
+            self.assertFalse(key in checks, f"{key} remained current after test changes")
 
     def test_test_freeze_requires_approval_for_changed_files(self):
         self.configure_test_run(

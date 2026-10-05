@@ -243,11 +243,15 @@ When a `Report only` test passed in the C7 baseline, its `manual` status does no
 Migrate it or record an approved retirement before claiming `READY`.
 
 When a ledger edit changes a test check's digest, the validator ignores that stale record. Record each still-required check again.
+The validator includes approved `test_changes` in assertion-strength and mock-boundary review
+digests. Record each required review again after an approved test-file change.
 
 For a retired test, set `retirement.reason` and `retirement.approved_by`. The validator rejects a
 retired test without both values.
 
 For an added test, set `c8_ids`. The validator requires each added CPT test to pass in both runs.
+Keep `c8_ids` distinct within each ledger row. Never assign one CPT ID to multiple migrated or
+added test rows.
 
 ## Freeze migrated tests
 

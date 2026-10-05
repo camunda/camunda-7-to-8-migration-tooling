@@ -1293,6 +1293,9 @@ def test_mapping_digest(mapping, kind):
             "tests": mapping.get("tests", []),
             "mock_changes": mapping.get("mock_changes", []),
         }
+        test_changes = mapping.get("test_changes", [])
+        if test_changes:
+            value["test_changes"] = test_changes
     else:
         value = {
             "baseline": mapping.get("baseline", {}),
@@ -1628,6 +1631,17 @@ def test_parity_issues(plan, checks, mapping):
     rows = test_rows_by_id(mapping)
     repeat_runs = test_repeat_checks(plan, checks)
     cpt_id_owners = {}
+
+    def claim_cpt_id(c8_id, owner):
+        previous_owner = cpt_id_owners.get(c8_id)
+        if previous_owner is None:
+            cpt_id_owners[c8_id] = owner
+        else:
+            issues.append(
+                f"{c8_id}: mapped from multiple test parity entries "
+                f"({previous_owner} and {owner})"
+            )
+
     for inventory_test in contract["tests"]:
         test_id = inventory_test["id"]
         test = rows.get(test_id)
@@ -1670,14 +1684,7 @@ def test_parity_issues(plan, checks, mapping):
             issues.append(f"{test_id}: migrated test needs distinct c8_ids")
             continue
         for c8_id in c8_ids:
-            owner = cpt_id_owners.get(c8_id)
-            if owner is None:
-                cpt_id_owners[c8_id] = test_id
-            else:
-                issues.append(
-                    f"{c8_id}: mapped from multiple migrated C7 tests "
-                    f"({owner} and {test_id})"
-                )
+            claim_cpt_id(c8_id, f"migrated C7 test {test_id}")
             try:
                 cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
             except EvidenceError as exc:
@@ -1692,26 +1699,32 @@ def test_parity_issues(plan, checks, mapping):
                     f"received {cpt_results[0]} and {cpt_results[1]}"
                 )
 
+    added_test_index = 0
     for test in mapping["tests"]:
-        if isinstance(test, dict) and test.get("status") == "added":
-            c8_ids = test.get("c8_ids")
-            if (
-                not isinstance(c8_ids, list)
-                or not c8_ids
-                or any(not isinstance(c8_id, str) or not c8_id for c8_id in c8_ids)
-            ):
-                issues.append("Added CPT tests need one or more c8_ids")
+        if test.get("status") != "added":
+            continue
+        added_test_index += 1
+        c8_ids = test.get("c8_ids")
+        if (
+            not isinstance(c8_ids, list)
+            or not c8_ids
+            or any(not isinstance(c8_id, str) or not c8_id for c8_id in c8_ids)
+        ):
+            issues.append("Added CPT tests need one or more c8_ids")
+            continue
+        if len(c8_ids) != len(set(c8_ids)):
+            issues.append("Added CPT tests need distinct c8_ids")
+        for c8_id in dict.fromkeys(c8_ids):
+            claim_cpt_id(c8_id, f"added CPT test {added_test_index}")
+            try:
+                cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
+            except EvidenceError as exc:
+                issues.append(str(exc))
                 continue
-            for c8_id in c8_ids:
-                try:
-                    cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
-                except EvidenceError as exc:
-                    issues.append(str(exc))
-                    continue
-                if cpt_results != ["passed", "passed"]:
-                    issues.append(
-                        f"Added CPT test {c8_id} must pass in both runs"
-                    )
+            if cpt_results != ["passed", "passed"]:
+                issues.append(
+                    f"Added CPT test {c8_id} must pass in both runs"
+                )
     return issues
 
 
