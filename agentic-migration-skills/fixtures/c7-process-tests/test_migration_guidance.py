@@ -231,15 +231,49 @@ def java_method_body(source, method_name):
     if match is None:
         raise AssertionError("Could not find Java method {}.".format(method_name))
 
-    opening_brace = source.find("{", match.start())
+    opening_brace = match.end() - 1
+
+    def skip_quoted_literal(start, delimiter):
+        index = start + len(delimiter)
+        while index < len(source):
+            if source[index] == "\\":
+                index += 2
+            elif source.startswith(delimiter, index):
+                return index + len(delimiter)
+            else:
+                index += 1
+        return len(source)
+
     depth = 0
-    for index in range(opening_brace, len(source)):
+    index = opening_brace
+    while index < len(source):
+        if source.startswith("//", index):
+            index += 2
+            while index < len(source) and source[index] not in "\r\n":
+                index += 1
+            continue
+        if source.startswith("/*", index):
+            comment_end = source.find("*/", index + 2)
+            if comment_end == -1:
+                break
+            index = comment_end + 2
+            continue
+        if source.startswith('"""', index):
+            index = skip_quoted_literal(index, '"""')
+            continue
+        if source[index] == '"':
+            index = skip_quoted_literal(index, '"')
+            continue
+        if source[index] == "'":
+            index = skip_quoted_literal(index, "'")
+            continue
         if source[index] == "{":
             depth += 1
         elif source[index] == "}":
             depth -= 1
             if depth == 0:
                 return source[opening_brace + 1 : index]
+        index += 1
 
     raise AssertionError("Could not find the end of Java method {}.".format(method_name))
 
@@ -840,6 +874,38 @@ class MigrationGuidanceTest(unittest.TestCase):
                     java_method_body(source, method_name),
                     r"\bScenario\.(?:run|use)\s*\(",
                 )
+
+    def test_java_method_body_ignores_braces_in_non_code(self):
+        snippets = (
+            ("string opening brace", 'String value = "{";'),
+            ("string closing brace", 'String value = "}";'),
+            ("escaped quote in string", r'String value = "\"}";'),
+            ("character opening brace", "char value = '{';"),
+            ("character closing brace", "char value = '}';"),
+            ("line comment opening brace", "// {"),
+            ("line comment closing brace", "// }"),
+            ("block comment opening brace", "/* { */"),
+            ("block comment closing brace", "/* } */"),
+            ("text block opening brace", 'String value = """\n{\n""";'),
+            ("text block closing brace", 'String value = """\n}\n""";'),
+        )
+
+        for context, snippet in snippets:
+            source = "\n".join(
+                (
+                    "class Sample {",
+                    "  void target() {",
+                    "    " + snippet,
+                    "    bodyMarker();",
+                    "  }",
+                    "  void afterTarget() {}",
+                    "}",
+                )
+            )
+            with self.subTest(context=context):
+                method = java_method_body(source, "target")
+                self.assertIn("bodyMarker();", method)
+                self.assertNotIn("afterTarget", method)
 
     def test_camunda_8_8_inventory_applies_version_gate(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
