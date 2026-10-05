@@ -45,6 +45,7 @@ class FinishedActivityCountAssertionsTest {
     void shouldCountCanceledOccurrences() {
         ProcessInstanceEvent processInstance = start();
 
+        CamundaAssert.assertThat(processInstance).hasActiveElements("RepeatedTask");
         processTestContext.increaseTime(Duration.ofMinutes(2));
 
         CamundaAssert.assertThat(processInstance)
