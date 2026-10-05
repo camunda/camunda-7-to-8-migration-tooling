@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_Order"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="order" name="Order" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Order" />
+    <bpmn:sequenceFlow id="Flow_Start_Charge" sourceRef="StartEvent_Order" targetRef="Task_Charge" />
+    <bpmn:serviceTask id="Task_Charge" name="Charge payment">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="charge-payment" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_Charge_Ship" sourceRef="Task_Charge" targetRef="Task_Ship" />
+    <bpmn:serviceTask id="Task_Ship" name="Ship order">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="ship-order" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_Ship_Review" sourceRef="Task_Ship" targetRef="Task_Review" />
+    <bpmn:userTask id="Task_Review" name="Review order" />
+    <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="Task_Review" targetRef="EndEvent_Order" />
+    <bpmn:endEvent id="EndEvent_Order" />
+  </bpmn:process>
+</bpmn:definitions>

@@ -1,6 +1,11 @@
-# Camunda 7 Test Inventory
+# Test Migration
 
-Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD), and an option is marked (MAY).
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked
+(SHOULD) and an option is marked (MAY).
+
+This reference uses C7 for Camunda 7, C8 for Camunda 8, and CPT for Camunda Process Test.
+
+## Camunda 7 Test Inventory
 
 ## Scope rule
 
@@ -247,3 +252,142 @@ Do not migrate tests during Step 2.
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
 | Report only | Keep `Report only` | For an in-scope test, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. For `manual redesign`, the skill preserves the existing reason. |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |
+
+## Spring Test Migration
+
+## Scope
+
+The skill applies this reference to each process test or decision test with the `Spring` modifier in
+the Test Inventory.
+
+| Source evidence | Classification |
+|---|---|
+| `@SpringBootTest` with a process or decision test | Spring test |
+| `@RunWith(SpringRunner.class)`, `@RunWith(SpringJUnit4ClassRunner.class)`, or `@ExtendWith(SpringExtension.class)` with a process or decision test | Spring test |
+| `@ContextConfiguration` loads Spring XML or Java configuration with `SpringProcessEngineConfiguration` or `ProcessEngineFactoryBean` | Spring test |
+| `@Autowired @Rule ProcessEngineRule`, `@Autowired RuntimeService`, or `BpmnAwareTests.init(processEngine)` | Spring test |
+| `AbstractProcessEngineRuleTest` or `StandaloneInMemoryTestConfiguration` without a Spring context | Engine test without Spring |
+| `@WebMvcTest` or `@DataJpaTest` without Camunda 7 API calls | Out of scope |
+| A shared engine in a WAR or `processes.xml` application-server deployment | Manual migration |
+
+The skill does not classify every `@SpringBootTest` as a process test. The skill uses the Test
+Inventory kind and modifier.
+
+The engine-test migration covers tests without a Spring context, even when they use
+`camunda-bpm-spring-boot-starter-test`.
+
+If a Spring test slice does not call a Camunda 7 API, then the skill marks it out of scope.
+When a Spring test slice calls a Camunda 7 API, the skill includes it.
+
+## Harness and dependencies
+
+The skill keeps the Spring Boot version and production starter selected in Step 3. The skill selects
+the matching CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
+
+| Target application | CPT dependency in test scope | Test annotation |
+|---|---|---|
+| Spring Boot 4 with `camunda-spring-boot-starter` | `camunda-process-test-spring` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring Boot 3 with `camunda-spring-boot-3-starter` | `camunda-process-test-spring-boot-3` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring without Spring Boot | `camunda-process-test-java` | `@CamundaProcessTest` |
+
+The CPT Spring dependencies include the CPT Java API. The skill does not add
+`camunda-process-test-java` with either Spring dependency.
+
+The skill uses the dependency catalog for artifact versions and dependency removal. The skill does
+not choose a different starter for tests than the production starter.
+
+The skill migrates each Spring Boot test to JUnit 5. The skill keeps `@SpringBootTest` and adds
+`@CamundaSpringProcessTest`. The skill injects `CamundaClient` and `CamundaProcessTestContext` with
+`@Autowired`.
+
+| C7 Spring test | C8 CPT test |
+|---|---|
+| `@RunWith(SpringRunner.class) @SpringBootTest` | `@SpringBootTest @CamundaSpringProcessTest` |
+| `@Autowired RuntimeService`, `TaskService`, `HistoryService`, or `ProcessEngine` | `@Autowired CamundaClient` and `CamundaProcessTestContext` |
+| `@Autowired @Rule ProcessEngineRule` or `BpmnAwareTests.init(processEngine)` | The skill removes the engine rule and initialization |
+| `camunda.bpm.*` test-engine properties | The skill removes them. The skill adds `camunda.process-test.*` properties only when needed |
+| H2 used only by the embedded engine | The skill removes H2. The skill keeps a data source used by the application |
+| The C7 test transaction reverts engine and application state | The skill keeps `@Transactional` only for application database state |
+
+The skill uses `@MockitoBean` with Spring Boot 4. The skill uses a supported Mockito test
+annotation with the selected Spring Boot 3 version. When Step 3 changes Spring Boot 3 to 4, the
+skill migrates `@MockBean` annotations to `@MockitoBean`.
+
+The skill keeps each test's class and method names when practical. (SHOULD)
+
+## Deployment
+
+The application's `@Deployment` annotation SHOULD name the converted copies. This also exercises
+Step 4 check 13.
+
+When a test needs a resource set that differs from the application's deployment, the skill adds
+`@TestDeployment`. This rule applies to CPT 8.9 or later. The skill uses converted copies in every
+`@TestDeployment`. A method-level annotation takes precedence over a class-level annotation.
+
+## Workers and mocks
+
+The skill keeps each C7 test's mock boundary. The Test Parity record owns approved test and mock
+changes.
+
+When a C7 test mocks a service called by a delegate, the skill mocks the same service in the CPT
+test. The skill runs the real C8 worker.
+
+When a C7 test mocks a delegate bean, the skill disables the matching C8 worker. The skill mocks
+its job type through `CamundaProcessTestContext`.
+
+The skill sets `camunda.client.worker.override.<job-type-or-worker-name>.enabled=false` to disable
+the real worker. The skill uses the job type with `processTestContext.mockJobWorker("<job-type>")`.
+
+The skill registers the mocked job worker before the test starts a process. The skill gives it the
+same completion variables, BPMN error, or failure outcome as the C7 mock.
+
+If the C7 test ran a delegate for real, then the skill keeps the C8 worker real. The skill asks
+the user before it changes this boundary. The skill records each approved boundary change in the
+Test Parity record.
+
+```java
+processTestContext.mockJobWorker("ship-order").thenComplete();
+```
+
+## Endpoint-driven tests
+
+The skill keeps a test's `MockMvc`, `TestRestTemplate`, or `WebTestClient` call to the application
+endpoint. The endpoint starts the process through `CamundaClient`.
+
+C8 workers run asynchronously after the endpoint returns. The skill uses waiting CPT assertions
+after the endpoint response. The skill wraps asynchronous Mockito `verify` calls with a timeout.
+
+## Startup hooks and transaction state
+
+CPT runs `@PostConstruct` methods and `CommandLineRunner` callbacks once per Spring context. CPT
+deletes runtime data after each test.
+
+When an application hook starts a process, deploys resources, or sends a message, the skill adds a
+minimal `TestProcessApplication`. The test app uses a package separate from the production
+application. The test app sets `scanBasePackages` to the required controllers, services, and workers.
+The test app adds `@Deployment` with the converted copies.
+
+The skill keeps the production startup callback out of the minimal test application's scan. The
+skill calls the same process-starting method from `@BeforeEach`, after CPT starts the test runtime.
+
+The skill keeps `@Transactional` for the application's database only. The skill does not expect it
+to restore C8 process state.
+
+## Spring without Spring Boot
+
+The skill uses `@CamundaProcessTest` for a Spring application that does not use Spring Boot. The
+skill starts its workers with the injected `CamundaClient` through the application's bootstrap code.
+
+When the test needs Spring-managed beans, the skill keeps `@ContextConfiguration` and adds
+`@ExtendWith(SpringExtension.class)` alongside `@CamundaProcessTest`.
+
+If the application has no usable worker bootstrap, then the skill reports the test as **manual
+migration** in `MIGRATION_REPORT.md`. The skill states which bootstrap is missing and why it cannot
+start the workers. The skill does not invent a new worker bootstrap.
+
+## References
+
+- [CPT Spring test setup and lifecycle](https://docs.camunda.io/docs/apis-tools/testing/getting-started/)
+- [CPT mock job workers](https://docs.camunda.io/docs/apis-tools/testing/utilities/#mock-job-workers)
+- [Camunda Spring Boot Starter worker configuration](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#disable-a-job-worker)
+- `code-conversion/patterns/10-general/dependencies.md`
