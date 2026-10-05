@@ -126,7 +126,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
 
     def test_inventory_reference_defines_kinds_modifiers_models_and_report(self):
-        reference = REFERENCE.read_text()
+        reference = " ".join(REFERENCE.read_text().split())
 
         for required in (
             "| Priority | Test kind | Detect by | Handling |",
@@ -391,6 +391,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         source_application = SOURCE_APPLICATION.read_text()
         expected_application = EXPECTED_APPLICATION.read_text()
         test_application = TEST_APPLICATION.read_text()
+        reference = " ".join(REFERENCE.read_text().split())
 
         source_package = next(
             line for line in source_application.splitlines() if line.startswith("package ")
@@ -407,6 +408,10 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             test_package.removeprefix("package ")
             .removesuffix(";")
             .startswith("org.camunda.bpm.example.springprocess.")
+        )
+        self.assertIn(
+            "The test app uses a package outside the production application's component-scan root.",
+            reference,
         )
 
     def test_missing_non_bootstrap_has_manual_reason(self):

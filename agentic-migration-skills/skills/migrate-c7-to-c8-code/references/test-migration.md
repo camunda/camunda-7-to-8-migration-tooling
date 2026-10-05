@@ -360,8 +360,8 @@ CPT runs `@PostConstruct` methods and `CommandLineRunner` callbacks once per Spr
 deletes runtime data after each test.
 
 When an application hook starts a process, deploys resources, or sends a message, the skill adds a
-minimal `TestProcessApplication`. The test app uses a package separate from the production
-application. The test app sets `scanBasePackages` to the required controllers, services, and workers.
+minimal `TestProcessApplication`. The test app uses a package outside the production application's
+component-scan root. The test app sets `scanBasePackages` to the required controllers, services, and workers.
 The test app adds `@Deployment` with the converted copies.
 
 The skill keeps the production startup callback out of the minimal test application's scan.
