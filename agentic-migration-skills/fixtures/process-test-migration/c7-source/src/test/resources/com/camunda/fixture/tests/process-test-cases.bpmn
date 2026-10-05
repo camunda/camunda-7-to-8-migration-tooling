@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_ProcessTests"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:message id="Message_Continue" name="ContinueMessage" />
+
+  <bpmn:process id="order-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Order" name="Start order" />
+    <bpmn:userTask id="Task_Approve" name="Approve order" camunda:assignee="demo" />
+    <bpmn:boundaryEvent id="Boundary_Timer" name="Timer expires" attachedToRef="Task_Approve" cancelActivity="true">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>P1D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="Task_Escalate" name="Escalate order" />
+    <bpmn:endEvent id="End_Approved" name="Order approved" />
+    <bpmn:endEvent id="End_Timeout" name="Order timed out" />
+    <bpmn:sequenceFlow id="Flow_Order_Start" sourceRef="Start_Order" targetRef="Task_Approve" />
+    <bpmn:sequenceFlow id="Flow_Order_Approved" sourceRef="Task_Approve" targetRef="End_Approved" />
+    <bpmn:sequenceFlow id="Flow_Order_Timer" sourceRef="Boundary_Timer" targetRef="Task_Escalate" />
+    <bpmn:sequenceFlow id="Flow_Order_Timeout" sourceRef="Task_Escalate" targetRef="End_Timeout" />
+  </bpmn:process>
+
+  <bpmn:process id="async-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Async" name="Start async process" />
+    <bpmn:serviceTask id="Task_Async" name="Run continuation"
+                      camunda:class="com.camunda.fixture.tests.NoopDelegate"
+                      camunda:asyncBefore="true" />
+    <bpmn:userTask id="Task_AfterAsync" name="Continue after async" />
+    <bpmn:endEvent id="End_Async" name="Async process complete" />
+    <bpmn:sequenceFlow id="Flow_Async_Start" sourceRef="Start_Async" targetRef="Task_Async" />
+    <bpmn:sequenceFlow id="Flow_Async_Continue" sourceRef="Task_Async" targetRef="Task_AfterAsync" />
+    <bpmn:sequenceFlow id="Flow_Async_End" sourceRef="Task_AfterAsync" targetRef="End_Async" />
+  </bpmn:process>
+
+  <bpmn:process id="message-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Message" name="Start message process" />
+    <bpmn:intermediateCatchEvent id="Message_Catch" name="Wait for continuation">
+      <bpmn:messageEventDefinition messageRef="Message_Continue" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="End_Message" name="Message process complete" />
+    <bpmn:sequenceFlow id="Flow_Message_Start" sourceRef="Start_Message" targetRef="Message_Catch" />
+    <bpmn:sequenceFlow id="Flow_Message_End" sourceRef="Message_Catch" targetRef="End_Message" />
+  </bpmn:process>
+
+  <bpmn:process id="failing-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Failure" name="Start failing process" />
+    <bpmn:serviceTask id="Task_Fail" name="Fail process" camunda:class="com.camunda.fixture.tests.FailingDelegate" />
+    <bpmn:endEvent id="End_Failure" name="Failure process complete" />
+    <bpmn:sequenceFlow id="Flow_Failure_Start" sourceRef="Start_Failure" targetRef="Task_Fail" />
+    <bpmn:sequenceFlow id="Flow_Failure_End" sourceRef="Task_Fail" targetRef="End_Failure" />
+  </bpmn:process>
+</bpmn:definitions>

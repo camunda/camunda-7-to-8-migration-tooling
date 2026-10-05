@@ -427,8 +427,14 @@ The catalog covers listener mappings, including the multi-instance collection li
 
 ## 6. Test Code (NOT fully covered by OpenRewrite)
 
-Catalog: `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
-`30-process-variable`, `40-user-task`, `50-message`, `60-job`).
+Follow `references/test-migration.md` for every Camunda 7 process test that uses engine test support
+without Spring. It defines the JUnit 5 and CPT 8.9+ migration, deployment rules, semantic changes,
+dependency changes, and parity checks.
+
+The code-conversion pattern catalog remains the source of truth for exact API mappings. Fetch the
+catalog files that match the detected assertions:
+`40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
+`30-process-variable`, `40-user-task`, `50-message`, `60-job`, `70-executable-entry-points`).
 
 These items are not in the catalog:
 
@@ -522,7 +528,7 @@ Use these to classify files during assessment:
 | `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
-| Camunda 7 tests | Classify the test kind in [test-migration.md](test-migration.md) |
+| `@Test` + Camunda 7 test rules | Test code |
 | `application.properties`/`.yaml` with `camunda.*` keys | Config |
 | `ProcessEnginePlugin`, BPMN parse listeners | Flag: global behavior |
 

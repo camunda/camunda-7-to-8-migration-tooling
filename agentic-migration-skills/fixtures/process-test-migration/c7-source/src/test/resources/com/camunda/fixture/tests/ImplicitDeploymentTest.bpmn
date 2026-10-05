@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="Definitions_Implicit"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="implicit-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Implicit" name="Start implicit process" />
+    <bpmn:endEvent id="End_Implicit" name="Complete implicit process" />
+    <bpmn:sequenceFlow id="Flow_Implicit" sourceRef="Start_Implicit" targetRef="End_Implicit" />
+  </bpmn:process>
+</bpmn:definitions>

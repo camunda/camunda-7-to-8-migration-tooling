@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_ProcessTests" targetNamespace="http://camunda.org/examples" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:message id="Message_Continue" name="ContinueMessage">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="= orderId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:process id="order-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Order" name="Start order">
+      <bpmn:outgoing>Flow_Order_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Approve" name="Approve order">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:assignmentDefinition assignee="demo" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Order_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Order_Approved</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="Boundary_Timer" name="Timer expires" attachedToRef="Task_Approve">
+      <bpmn:outgoing>Flow_Order_Timer</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>="P1D"</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="Task_Escalate" name="Escalate order">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Order_Timer</bpmn:incoming>
+      <bpmn:outgoing>Flow_Order_Timeout</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Approved" name="Order approved">
+      <bpmn:incoming>Flow_Order_Approved</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Timeout" name="Order timed out">
+      <bpmn:incoming>Flow_Order_Timeout</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Order_Start" sourceRef="Start_Order" targetRef="Task_Approve" />
+    <bpmn:sequenceFlow id="Flow_Order_Approved" sourceRef="Task_Approve" targetRef="End_Approved" />
+    <bpmn:sequenceFlow id="Flow_Order_Timer" sourceRef="Boundary_Timer" targetRef="Task_Escalate" />
+    <bpmn:sequenceFlow id="Flow_Order_Timeout" sourceRef="Task_Escalate" targetRef="End_Timeout" />
+  </bpmn:process>
+  <bpmn:process id="async-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Async" name="Start async process">
+      <bpmn:outgoing>Flow_Async_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Async" name="Run continuation">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="async-continuation" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Async_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Async_Continue</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_AfterAsync" name="Continue after async">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Async_Continue</bpmn:incoming>
+      <bpmn:outgoing>Flow_Async_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Async" name="Async process complete">
+      <bpmn:incoming>Flow_Async_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Async_Start" sourceRef="Start_Async" targetRef="Task_Async" />
+    <bpmn:sequenceFlow id="Flow_Async_Continue" sourceRef="Task_Async" targetRef="Task_AfterAsync" />
+    <bpmn:sequenceFlow id="Flow_Async_End" sourceRef="Task_AfterAsync" targetRef="End_Async" />
+  </bpmn:process>
+  <bpmn:process id="message-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Message" name="Start message process">
+      <bpmn:outgoing>Flow_Message_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:intermediateCatchEvent id="Message_Catch" name="Wait for continuation">
+      <bpmn:incoming>Flow_Message_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Message_End</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_Continue" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="End_Message" name="Message process complete">
+      <bpmn:incoming>Flow_Message_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Message_Start" sourceRef="Start_Message" targetRef="Message_Catch" />
+    <bpmn:sequenceFlow id="Flow_Message_End" sourceRef="Message_Catch" targetRef="End_Message" />
+  </bpmn:process>
+  <bpmn:process id="failing-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Failure" name="Start failing process">
+      <bpmn:outgoing>Flow_Failure_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Fail" name="Fail process">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="fail" retries="1" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Failure_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Failure_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Failure" name="Failure process complete">
+      <bpmn:incoming>Flow_Failure_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Failure_Start" sourceRef="Start_Failure" targetRef="Task_Fail" />
+    <bpmn:sequenceFlow id="Flow_Failure_End" sourceRef="Task_Fail" targetRef="End_Failure" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Order">
+    <bpmndi:BPMNPlane id="BPMNPlane_Order" bpmnElement="order-process">
+      <bpmndi:BPMNShape id="Start_Order_di" bpmnElement="Start_Order">
+        <dc:Bounds x="160" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Approve_di" bpmnElement="Task_Approve">
+        <dc:Bounds x="260" y="100" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_Timer_di" bpmnElement="Boundary_Timer">
+        <dc:Bounds x="292" y="162" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Escalate_di" bpmnElement="Task_Escalate">
+        <dc:Bounds x="460" y="240" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Approved_di" bpmnElement="End_Approved">
+        <dc:Bounds x="460" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Timeout_di" bpmnElement="End_Timeout">
+        <dc:Bounds x="660" y="262" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Order_Start_di" bpmnElement="Flow_Order_Start">
+        <di:waypoint x="196" y="140" />
+        <di:waypoint x="260" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Order_Approved_di" bpmnElement="Flow_Order_Approved">
+        <di:waypoint x="360" y="140" />
+        <di:waypoint x="460" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Order_Timer_di" bpmnElement="Flow_Order_Timer">
+        <di:waypoint x="328" y="180" />
+        <di:waypoint x="400" y="180" />
+        <di:waypoint x="400" y="280" />
+        <di:waypoint x="460" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Order_Timeout_di" bpmnElement="Flow_Order_Timeout">
+        <di:waypoint x="560" y="280" />
+        <di:waypoint x="660" y="280" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Async">
+    <bpmndi:BPMNPlane id="BPMNPlane_Async" bpmnElement="async-process">
+      <bpmndi:BPMNShape id="Start_Async_di" bpmnElement="Start_Async">
+        <dc:Bounds x="160" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Async_di" bpmnElement="Task_Async">
+        <dc:Bounds x="260" y="100" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AfterAsync_di" bpmnElement="Task_AfterAsync">
+        <dc:Bounds x="430" y="100" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Async_di" bpmnElement="End_Async">
+        <dc:Bounds x="600" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Async_Start_di" bpmnElement="Flow_Async_Start">
+        <di:waypoint x="196" y="140" />
+        <di:waypoint x="260" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Async_Continue_di" bpmnElement="Flow_Async_Continue">
+        <di:waypoint x="360" y="140" />
+        <di:waypoint x="430" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Async_End_di" bpmnElement="Flow_Async_End">
+        <di:waypoint x="530" y="140" />
+        <di:waypoint x="600" y="140" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Message">
+    <bpmndi:BPMNPlane id="BPMNPlane_Message" bpmnElement="message-process">
+      <bpmndi:BPMNShape id="Start_Message_di" bpmnElement="Start_Message">
+        <dc:Bounds x="160" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Message_Catch_di" bpmnElement="Message_Catch">
+        <dc:Bounds x="330" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Message_di" bpmnElement="End_Message">
+        <dc:Bounds x="500" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Message_Start_di" bpmnElement="Flow_Message_Start">
+        <di:waypoint x="196" y="140" />
+        <di:waypoint x="330" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Message_End_di" bpmnElement="Flow_Message_End">
+        <di:waypoint x="366" y="140" />
+        <di:waypoint x="500" y="140" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Failure">
+    <bpmndi:BPMNPlane id="BPMNPlane_Failure" bpmnElement="failing-process">
+      <bpmndi:BPMNShape id="Start_Failure_di" bpmnElement="Start_Failure">
+        <dc:Bounds x="160" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Fail_di" bpmnElement="Task_Fail">
+        <dc:Bounds x="290" y="100" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Failure_di" bpmnElement="End_Failure">
+        <dc:Bounds x="460" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Failure_Start_di" bpmnElement="Flow_Failure_Start">
+        <di:waypoint x="196" y="140" />
+        <di:waypoint x="290" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Failure_End_di" bpmnElement="Flow_Failure_End">
+        <di:waypoint x="390" y="140" />
+        <di:waypoint x="460" y="140" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
