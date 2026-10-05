@@ -25,7 +25,8 @@ The skill inventories every test method declared or inherited by each concrete t
 It records each test's test kind and handling, including tests marked out of scope.
 Apply the table from top to bottom. The first matching row assigns one test kind and handling.
 The skill classifies tests by executed engine behavior, not assertion type.
-When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps the test in scope.
+The skill classifies an embedded Engine REST call from a `@SpringBootTest` as a remote-engine test, not a process test.
+A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.
 The skill records assertion gaps in the Test Inventory's Notes column for migration review.
 The skill verifies that a direct service call resolves to a real C7 engine in the test or its
 shared configuration.
@@ -850,7 +851,7 @@ Keep raw HTTP only when the test checks the Orchestration Cluster REST API contr
 | `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. |
 | `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and key from the converted copy's `zeebe:subscription`. |
 | `POST /signal` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | Keep the converted signal name. |
-| `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(elementId, vars)` or `client.newCompleteUserTaskCommand(userTaskKey)` | Use the C8 user-task key when calling the client directly. |
+| `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(elementId, vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Pass completion variables. Use the C8 user-task key when calling the client directly. |
 | `POST /task/{id}/claim` or `/task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).send().join()` | Preserve the assignee. |
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type)` when the test needs a mock worker boundary. |
 | `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. |

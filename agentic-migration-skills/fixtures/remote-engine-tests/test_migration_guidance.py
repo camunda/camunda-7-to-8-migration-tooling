@@ -34,7 +34,8 @@ JAVA_PROPERTIES_REMOTE_RUNTIME = re.compile(
     r"[ \t\f]*(?:[=:][ \t\f]*|[ \t\f]+)remote[ \t\f]*\r?$"
 )
 YAML_REMOTE_RUNTIME = re.compile(
-    r"""(?m)^[ \t]*runtime-mode[ \t]*:[ \t]*(?:(['"])remote\1|remote)[ \t]*(?:#.*)?\r?$"""
+    r"""(?m)^[ \t]*(?:runtime-mode|camunda\.process-test\.runtime-mode)[ \t]*:[ \t]*"""
+    r"""(?:(['"])remote\1|remote)[ \t]*(?:#.*)?\r?$"""
 )
 
 
@@ -96,6 +97,14 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         ):
             with self.subTest(term=term):
                 self.assertIn(term, reference)
+
+    def test_remote_engine_kind_excludes_embedded_engine_rest_from_process_test(self):
+        reference = " ".join(REFERENCE.read_text().split())
+        self.assertIn(
+            "The skill classifies an embedded Engine REST call from a "
+            "`@SpringBootTest` as a remote-engine test, not a process test.",
+            reference,
+        )
 
     def test_scope_boundaries_precede_client_shape_rules(self):
         classification = REFERENCE.read_text().split("## Scope and classification", 1)[1].split(
@@ -332,6 +341,27 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertNotIn("camunda-bpm-spring-boot-starter-external-task-client", c8_pom)
         self.assertNotIn("<groupId>org.testcontainers</groupId>", c8_pom)
 
+    def test_mock_worker_guidance_configures_job_completion(self):
+        reference = REFERENCE.read_text()
+        self.assertIn(
+            "processTestContext.mockJobWorker(type).thenComplete(variables)",
+            reference,
+        )
+        self.assertIn("mockJobWorker(type).thenComplete(vars)", reference)
+
+    def test_direct_user_task_completion_sends_variables(self):
+        row = next(
+            line
+            for line in REFERENCE.read_text().splitlines()
+            if line.startswith(
+                "| `GET /task?processInstanceId=...` then `POST /task/{id}/complete`"
+            )
+        )
+
+        self.assertIn(
+            "client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()",
+            row,
+        )
     def test_shared_engine_case_is_manual_and_does_not_start_an_engine(self):
         shared_test = SHARED_SOURCE.read_text()
         shared_properties = SHARED_PROPERTIES.read_text()
@@ -396,6 +426,9 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             'runtime-mode: "remote"',
             "runtime-mode: 'remote'",
             "runtime-mode: remote # YAML comment",
+            "camunda.process-test.runtime-mode: remote",
+            'camunda.process-test.runtime-mode: "remote"',
+            "  camunda.process-test.runtime-mode : 'remote' # Spring YAML comment",
         ):
             with self.subTest(setting=setting):
                 self.assertTrue(_contains_remote_runtime_configuration(setting))
@@ -408,6 +441,10 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "runtimeMode=remote # trailing text is part of a Java property value",
             "# runtime-mode: remote",
             'runtime-mode: "remote\'',
+            "camunda.process-test.runtime-mode: local",
+            "camunda.process-test.runtime-mode: remote-ish",
+            "# camunda.process-test.runtime-mode: \"remote\"",
+            "camunda.process-test.runtime-mode: \"remote'",
         ):
             with self.subTest(setting=setting):
                 self.assertFalse(_contains_remote_runtime_configuration(setting))
