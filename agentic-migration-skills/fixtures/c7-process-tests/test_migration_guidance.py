@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -64,6 +65,7 @@ def test_method_ids(project_root):
 
 
 def markdown_table_cells(line):
+    line = line.strip()
     if line.startswith("|"):
         line = line[1:]
     if line.endswith("|"):
@@ -74,7 +76,7 @@ def markdown_table_cells(line):
 def markdown_table(path, required_headers):
     lines = path.read_text(encoding="utf-8").splitlines()
     for index, line in enumerate(lines):
-        if not line.startswith("|"):
+        if "|" not in line:
             continue
         headers = [cell.strip("`") for cell in markdown_table_cells(line)]
         if headers != required_headers:
@@ -82,7 +84,7 @@ def markdown_table(path, required_headers):
 
         rows = []
         for row in lines[index + 2 :]:
-            if not row.startswith("|"):
+            if "|" not in row:
                 break
             values = [cell.strip("`") for cell in markdown_table_cells(row)]
             if len(values) != len(required_headers):
@@ -101,13 +103,13 @@ def markdown_table(path, required_headers):
 def reference_table_separator_errors(lines):
     errors = []
     for index, header_line in enumerate(lines[:-1]):
-        if not header_line.startswith("|") or (
-            index > 0 and lines[index - 1].startswith("|")
+        if "|" not in header_line or (
+            index > 0 and "|" in lines[index - 1]
         ):
             continue
 
         separator = lines[index + 1]
-        if not separator.startswith("|"):
+        if "|" not in separator:
             continue
 
         separator_cells = markdown_table_cells(separator)
@@ -196,6 +198,28 @@ class MigrationGuidanceTest(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "duplicate Test ID"):
             self.assert_unique_rows(duplicate_rows, "Test ID", "test inventory")
 
+    def test_markdown_table_supports_optional_outer_pipes(self):
+        tables = (
+            ("| First | Second |", "|---|---|", "| one | two |"),
+            ("| First | Second", "|---|---", "| one | two"),
+            ("First | Second |", "---|---|", "one | two |"),
+            ("First | Second", "---|---", "one | two"),
+            ("  | First | Second |  ", "  | --- | --- |  ", "  | one | two |  "),
+            ("  First | Second  ", "  --- | ---  ", "  one | two  "),
+        )
+        for header, separator, data in tables:
+            with self.subTest(header=header, separator=separator):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "table.md"
+                    path.write_text(
+                        "\n".join((header, separator, data)),
+                        encoding="utf-8",
+                    )
+                    self.assertEqual(
+                        [{"First": "one", "Second": "two"}],
+                        markdown_table(path, ["First", "Second"]),
+                    )
+
     def test_reference_tables_have_matching_header_and_separator_columns(self):
         lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
         errors = reference_table_separator_errors(lines)
@@ -221,6 +245,38 @@ class MigrationGuidanceTest(unittest.TestCase):
                 errors = reference_table_separator_errors([header, separator])
                 self.assertTrue(errors)
                 self.assertIn("Invalid table separator cell", errors[0])
+
+    def test_reference_table_separator_cells_support_optional_outer_pipes(self):
+        headers = (
+            "| First | Second |",
+            "| First | Second",
+            "First | Second |",
+            "First | Second",
+            "  | First | Second |  ",
+            "  First | Second  ",
+        )
+        separators = (
+            ("|---|---|", True),
+            ("|---|---", True),
+            ("---|---|", True),
+            ("---|---", True),
+            ("  | --- | --- |  ", True),
+            ("  --- | ---  ", True),
+            ("|---|value|", False),
+            ("|---|value", False),
+            ("---|value|", False),
+            ("--- | value", False),
+            ("  --- | value  ", False),
+        )
+        for header in headers:
+            for separator, valid in separators:
+                with self.subTest(header=header, separator=separator):
+                    errors = reference_table_separator_errors([header, separator])
+                    if valid:
+                        self.assertEqual([], errors)
+                    else:
+                        self.assertTrue(errors)
+                        self.assertIn("Invalid table separator cell", errors[0])
 
     def test_reference_table_data_rows_are_not_separators(self):
         lines = [
