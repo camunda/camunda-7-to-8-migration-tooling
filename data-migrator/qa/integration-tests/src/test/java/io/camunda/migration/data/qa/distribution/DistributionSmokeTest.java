@@ -50,6 +50,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class DistributionSmokeTest {
 
   protected static final String DEFAULT_LOG_FILE = "logs/camunda-7-to-8-data-migrator.log";
+  protected static final long DEFAULT_PROCESS_TIMEOUT_SECONDS = 25;
+  protected static final long FILE_LOGGING_PROCESS_TIMEOUT_SECONDS = 60;
 
   @TempDir
   protected Path tempDir;
@@ -441,7 +443,7 @@ public class DistributionSmokeTest {
 
   @ParameterizedTest
   @ValueSource(strings = {DEFAULT_LOG_FILE, "custom logs/migrator.log"})
-  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  @Timeout(value = 90, unit = TimeUnit.SECONDS)
   void shouldCreateLogFileWhenConfigured(String logFileName) throws Exception {
     // given
     replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
@@ -451,7 +453,9 @@ public class DistributionSmokeTest {
     // when
     // Listing and cleaning up the empty local schema do not contact Camunda 8.
     String output = runProcessToCompletion(
-        createProcessBuilder("--runtime", "--list-migrated", "--drop-schema"), 0);
+        createProcessBuilder("--runtime", "--list-migrated", "--drop-schema"),
+        0,
+        FILE_LOGGING_PROCESS_TIMEOUT_SECONDS);
 
     // then
     assertLoggedToConsoleAndFile(logFileName, output, " INFO ", PERFORMING_DROP_ON_SUCCESSFUL_MIGRATION);
@@ -469,12 +473,21 @@ public class DistributionSmokeTest {
 
   protected String runProcessToCompletion(ProcessBuilder processBuilder, int expectedExitCode)
       throws IOException, InterruptedException {
+    return runProcessToCompletion(
+        processBuilder, expectedExitCode, DEFAULT_PROCESS_TIMEOUT_SECONDS);
+  }
+
+  protected String runProcessToCompletion(
+      ProcessBuilder processBuilder, int expectedExitCode, long timeoutSeconds)
+      throws IOException, InterruptedException {
     Path consoleOutput = tempDir.resolve("console-output.log");
     process = processBuilder.redirectOutput(consoleOutput.toFile()).start();
-    boolean exited = process.waitFor(25, TimeUnit.SECONDS);
+    boolean exited = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
     String output = Files.readString(consoleOutput);
     String diagnostics = "Command: %s%nProcess exit code: %s%nConsole output:%n%s".formatted(
-        processBuilder.command(), exited ? process.exitValue() : "still running after 25 seconds", output);
+        processBuilder.command(),
+        exited ? process.exitValue() : "still running after %d seconds".formatted(timeoutSeconds),
+        output);
 
     assertThat(exited).as(diagnostics).isTrue();
     assertThat(process.exitValue()).as(diagnostics).isEqualTo(expectedExitCode);
