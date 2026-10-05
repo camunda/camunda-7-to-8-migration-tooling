@@ -21,7 +21,8 @@ If the baseline is missing or unreadable, or its status lists a path other than
 
 Present this table in the final response and record it in `MIGRATION_REPORT.md`. Total changed lines
 are the line additions plus the line deletions. Beside the table, state whether the migration is
-complete and give the validation results.
+complete and give the validation results. State test verification as `verified`, `not verified
+(Migrate tests only)`, or `blocked` with the reason.
 
 | Asset type | Includes | Files changed | Line additions | Line deletions | Total changed lines |
 |---|---|---:|---:|---:|---:|
