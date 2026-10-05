@@ -101,9 +101,9 @@ Patterns:
 Code written to test your solution, e.g. using JUnit.
 
 
-### Camunda Platform Assert &#8594; Camunda Process Test (CPT)
+### Camunda Platform Assert to Camunda Process Test (CPT)
 
-Most tests for Camunda 7 use [Camunda Platform Assert](https://github.com/camunda/camunda-bpm-platform/tree/master/test-utils/assert) combined with JUnit for automated unit tests, whereas in Camunda 8 you will use [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) (starting from version 8.8).
+Most Camunda 7 tests use [Camunda Platform Assert](https://github.com/camunda/camunda-bpm-platform/tree/master/test-utils/assert) with JUnit. Camunda 8.8 and later use [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/). See [the complete assertion mapping](./80-assertion-mapping.md) for the public Camunda 7 assertions.
 
 Patterns:
 
@@ -114,5 +114,42 @@ Patterns:
 - [Message Correlation](40-test-assertions/10-assertions/50-message.md)
 - [Job Execution in Test Cases](40-test-assertions/10-assertions/60-job.md)
 - [Executable Entry-Point Coverage](40-test-assertions/10-assertions/70-executable-entry-points.md)
+- [Camunda 7 Assertion Mapping](40-test-assertions/10-assertions/80-assertion-mapping.md)
+
+### Test Setup
+
+These patterns map Camunda 7 process-test harnesses, deployments, and Spring Boot tests to Camunda Process Test (CPT). The harness and Spring APIs are available from Camunda 8.8. `@TestDeployment` requires 8.9.
+
+Patterns:
+
+- [JUnit Harness](40-test-assertions/20-test-setup/10-junit-harness.md)
+- [Test Deployment](40-test-assertions/20-test-setup/20-deployment.md)
+- [Spring Boot Test Setup](40-test-assertions/20-test-setup/30-spring-boot-test.md)
+
+### Mocks
+
+These patterns preserve the mock boundary of Camunda 7 process tests. CPT's mock-worker, child-process, and DMN utilities are available from Camunda 8.8.
+
+Patterns:
+
+- [Delegate and Worker Mocks](40-test-assertions/30-mocks/10-delegate-mocks.md)
+- [Call Activity and Decision Mocks](40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md)
+
+### Decision Tests
+
+These patterns map Camunda 7 DMN engine and decision-service tests to Camunda Process Test. The DMN evaluation and assertion APIs are available from Camunda 8.8. `@TestDeployment` requires 8.9.
+
+Patterns:
+
+- [Decision Tests](40-test-assertions/40-decisions/10-decision-tests.md)
+
+### Coverage and Scenario Tests
+
+Camunda 8.8 and later generate CPT coverage reports. CPT conditional behavior for scenario tests requires Camunda 8.9.
+
+Patterns:
+
+- [Process Test Coverage](40-test-assertions/50-coverage-and-scenarios/10-coverage.md)
+- [Camunda Platform Scenario Tests](40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md)
 
 <!-- END-CATALOG -->

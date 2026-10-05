@@ -1,5 +1,7 @@
 # Job Execution in Test Cases
 
+The CPT clock and job utilities in this pattern are available from Camunda 8.8.
+
 ## Camunda 7
 
 Camunda 7 provides control over job execution through the `managementService`, which is useful for timers, asynchronous continuations, or retries.
@@ -24,6 +26,8 @@ void testTimerFires() {
 
 ```
 
+For an asynchronous continuation, Camunda 7 tests often call `execute(job())` to advance the process. CPT does not require manual execution for asynchronous continuations.
+
 ## Camunda 8
 
 Camunda 8 handles timers and async jobs differently, but you also have control in test cases.
@@ -47,6 +51,14 @@ void testTimerTriggered() {
     .hasCompletedElements("TimerEvent")
     .isCompleted();
 }
+```
+
+Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. CPT resets the clock after each test.
+
+For an asynchronous continuation, omit `execute(job())` and assert the next process state with a waiting assertion:
+
+```java
+assertThat(instance).hasActiveElements("NextWaitState");
 ```
 
 You might not want to execute any JobWorkers automatically, then you can disable those for your test case:
@@ -88,3 +100,5 @@ processTestContext.mockJobWorker("serviceTask3")
                 jobClient.newCompleteCommand(job).variable("discount", discount).send().join();
             });
 ```
+
+Complete an external-task job with `processTestContext.completeJob(type, variables)`. Throw a BPMN error from that job with `processTestContext.throwBpmnErrorFromJob(type, errorCode, variables)`. Use the job type from the converted model.
