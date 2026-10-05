@@ -272,6 +272,9 @@ The `fixtures/delegate-transaction-boundaries` path test checks C7
 `camunda:asyncAfter` boundaries before a JavaDelegate.
 The `fixtures/worker-input-bindings` fixture tests explicit single-variable
 bindings and complete-map access without retained Java parameter names.
+The `fixtures/c7-process-tests` fixture inventories JUnit 3/4/5, Spring Boot,
+DMN, scenario, and remote-engine tests, then checks their CPT migration and
+walkthrough reports.
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture

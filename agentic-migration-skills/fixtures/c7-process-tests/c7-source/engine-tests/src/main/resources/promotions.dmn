@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101/dmn.xsd"
+             xmlns:camunda="http://camunda.org/schema/1.0/dmn"
+             id="Definitions_Promotions"
+             name="Promotions"
+             namespace="http://camunda.com/fixture/promotions">
+  <decision id="customer-tier" name="Customer tier" camunda:historyTimeToLive="180">
+    <decisionTable id="DecisionTable_CustomerTier" hitPolicy="FIRST">
+      <input id="Input_Amount" label="Amount">
+        <inputExpression id="Expression_Amount" typeRef="number">
+          <text>amount</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Tier" name="tier" typeRef="string" />
+      <rule id="Rule_GoldTier">
+        <inputEntry id="GoldTier_Input">
+          <text>&gt;= 100</text>
+        </inputEntry>
+        <outputEntry id="GoldTier_Output">
+          <text>"gold"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_StandardTier">
+        <inputEntry id="StandardTier_Input">
+          <text>&lt; 100</text>
+        </inputEntry>
+        <outputEntry id="StandardTier_Output">
+          <text>"standard"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="promotions" name="Promotions" camunda:historyTimeToLive="180">
+    <informationRequirement>
+      <requiredDecision href="#customer-tier" />
+    </informationRequirement>
+    <decisionTable id="DecisionTable_Promotions" hitPolicy="COLLECT">
+      <input id="Input_Tier" label="Tier">
+        <inputExpression id="Expression_Tier" typeRef="string">
+          <text>tier</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Promotion" name="promotion" typeRef="string" />
+      <rule id="Rule_GoldPromotion">
+        <inputEntry id="GoldPromotion_Input">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="GoldPromotion_Output">
+          <text>"free-shipping"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_VipPromotion">
+        <inputEntry id="VipPromotion_Input">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="VipPromotion_Output">
+          <text>"priority-support"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="promotionUniqueViolation" name="Promotion unique violation" camunda:historyTimeToLive="180">
+    <decisionTable id="DecisionTable_PromotionUnique" hitPolicy="UNIQUE">
+      <input id="Input_UniqueTier" label="Tier">
+        <inputExpression id="Expression_UniqueTier" typeRef="string">
+          <text>tier</text>
+        </inputExpression>
+      </input>
+      <output id="Output_UniquePromotion" name="promotion" typeRef="string" />
+      <rule id="Rule_UniquePromotionOne">
+        <inputEntry id="UniquePromotion_Input_One">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="UniquePromotion_Output_One">
+          <text>"one"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_UniquePromotionTwo">
+        <inputEntry id="UniquePromotion_Input_Two">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="UniquePromotion_Output_Two">
+          <text>"two"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_Subscription"
+                  targetNamespace="http://camunda.com/fixture/subscription"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.32.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="subscription" name="Activate subscription" isExecutable="true">
+    <bpmn:startEvent id="Start_Subscription" name="Start subscription">
+      <bpmn:outgoing>Flow_Start_Activate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Activate" name="Activate subscription">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="activate-subscription" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Activate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Activate_Welcome</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_WelcomeCall" name="Schedule welcome call">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="subscription-task" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Activate_Welcome</bpmn:incoming>
+      <bpmn:outgoing>Flow_Welcome_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Subscription" name="Subscription ready">
+      <bpmn:incoming>Flow_Welcome_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Activate" sourceRef="Start_Subscription" targetRef="Task_Activate" />
+    <bpmn:sequenceFlow id="Flow_Activate_Welcome" sourceRef="Task_Activate" targetRef="Task_WelcomeCall" />
+    <bpmn:sequenceFlow id="Flow_Welcome_End" sourceRef="Task_WelcomeCall" targetRef="End_Subscription" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_Subscription">
+    <bpmndi:BPMNPlane id="Plane_Subscription" bpmnElement="subscription">
+      <bpmndi:BPMNShape id="Start_Subscription_di" bpmnElement="Start_Subscription">
+        <dc:Bounds x="100" y="110" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Activate_di" bpmnElement="Task_Activate">
+        <dc:Bounds x="180" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WelcomeCall_di" bpmnElement="Task_WelcomeCall">
+        <dc:Bounds x="340" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Subscription_di" bpmnElement="End_Subscription">
+        <dc:Bounds x="500" y="110" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Activate_di" bpmnElement="Flow_Start_Activate">
+        <di:waypoint x="136" y="128" />
+        <di:waypoint x="180" y="128" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Activate_Welcome_di" bpmnElement="Flow_Activate_Welcome">
+        <di:waypoint x="280" y="128" />
+        <di:waypoint x="340" y="128" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Welcome_End_di" bpmnElement="Flow_Welcome_End">
+        <di:waypoint x="440" y="128" />
+        <di:waypoint x="500" y="128" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
