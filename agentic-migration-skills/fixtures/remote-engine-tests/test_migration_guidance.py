@@ -78,6 +78,55 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             skill,
         )
 
+    def test_reference_declares_obligations_immediately_after_title(self):
+        reference = REFERENCE.read_text()
+        declaration = (
+            'Every instruction is mandatory. "Never" means MUST NOT. '
+            "A preference is marked (SHOULD) and an option is marked (MAY)."
+        )
+        self.assertTrue(
+            reference.startswith(f"# Camunda 7 Test Inventory\n\n{declaration}\n\n")
+        )
+        self.assertEqual(1, reference.count(declaration))
+
+    def test_test_kind_table_excludes_engine_rest_stubs(self):
+        reference = REFERENCE.read_text(encoding="utf-8")
+        test_kinds = reference.split("## Test kinds", 1)[1].split(
+            "## Remote-engine test migration", 1
+        )[0]
+        out_of_scope_row = next(
+            line
+            for line in test_kinds.splitlines()
+            if line.startswith("| out of scope |")
+        )
+
+        self.assertIn("WireMock or another Engine REST stub", out_of_scope_row)
+
+    def test_camunda_8_package_patterns_use_closed_code_spans(self):
+        reference = REFERENCE.read_text(encoding="utf-8")
+        test_kinds = reference.split("## Test kinds", 1)[1].split(
+            "## Remote-engine test migration", 1
+        )[0]
+        camunda_8_row = next(
+            line
+            for line in test_kinds.splitlines()
+            if line.startswith("| out of scope (Camunda 8) |")
+        )
+
+        self.assertIn("CPT (`io.camunda.process.test.*`)", camunda_8_row)
+
+    def test_shared_engine_test_requires_explicit_opt_in(self):
+        shared_test = SHARED_SOURCE.read_text(encoding="utf-8")
+        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn(
+            '@EnabledIfSystemProperty(named = "shared-engine.test.enabled", matches = "true")',
+            shared_test,
+        )
+        self.assertIn("`-Dshared-engine.test.enabled=true`", readme)
+        self.assertIn("starts the deployed `payment` process", readme)
+        self.assertIn("completion with `charged=true`", readme)
+        self.assertIn("override `test.engine-rest-url`", readme.lower())
     def test_reference_classifies_remote_engine_tests_and_boundaries(self):
         reference = " ".join(REFERENCE.read_text().lower().split())
         for term in (
@@ -198,7 +247,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_reference_maps_engine_rest_and_cpt_behaviors(self):
-        reference = " ".join(REFERENCE.read_text().lower().split())
+        reference = REFERENCE.read_text(encoding="utf-8")
+        normalized_reference = " ".join(reference.lower().split())
+        mapping = reference.split("## Engine REST mapping", 1)[1].split("\n## ", 1)[0]
+        mapping_rows = [
+            row.lower() for row in mapping.splitlines() if row.startswith("| `")
+        ]
         for source, target in (
             ("/deployment/create", "@testdeployment"),
             ("/process-definition/key/{key}/start", "newcreateinstancecommand"),
@@ -214,11 +268,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             ("/incident?processinstanceid", "hasactiveincidents"),
         ):
             with self.subTest(source=source):
-                self.assertIn(source, reference)
-                self.assertIn(target, reference)
+                matching_rows = [row for row in mapping_rows if source.lower() in row]
+                self.assertEqual(1, len(matching_rows), f"Expected one mapping row for {source}")
+                self.assertIn(target, matching_rows[0])
         self.assertIn(
             "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
-            reference,
+            normalized_reference,
         )
 
     def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
@@ -376,9 +431,9 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| Shared-engine test, whether its baseline ran or not | `manual` |",
             baseline_reporting,
         )
-    def test_shared_engine_case_is_manual_and_does_not_start_an_engine(self):
-        shared_test = SHARED_SOURCE.read_text()
-        shared_properties = SHARED_PROPERTIES.read_text()
+    def test_shared_engine_case_is_manual_and_runs_a_process_without_starting_an_engine(self):
+        shared_test = SHARED_SOURCE.read_text(encoding="utf-8")
+        shared_properties = SHARED_PROPERTIES.read_text(encoding="utf-8")
         report_row = next(
             line
             for line in SHARED_REPORT.read_text().splitlines()
@@ -386,7 +441,13 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
         self.assertIn('@Value("${test.engine-rest-url}")', shared_test)
-        self.assertIn("getForEntity", shared_test)
+        self.assertIn("/process-definition/key/payment/start", shared_test)
+        self.assertIn("ExternalTaskClient.create()", shared_test)
+        self.assertIn('subscribe("charge-payment")', shared_test)
+        self.assertIn("/history/process-instance/", shared_test)
+        self.assertIn('isEqualTo("COMPLETED")', shared_test)
+        self.assertIn('"charged"', shared_test)
+        self.assertIn("externalTaskClient.stop()", shared_test)
         self.assertIn("shared-c7.example.invalid/engine-rest", shared_properties)
         self.assertNotIn("@Testcontainers", shared_test)
         self.assertNotIn("GenericContainer", shared_test)
