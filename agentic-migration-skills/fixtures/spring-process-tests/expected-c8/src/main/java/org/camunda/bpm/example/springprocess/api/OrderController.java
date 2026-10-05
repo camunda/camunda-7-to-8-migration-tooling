@@ -8,7 +8,6 @@
 package org.camunda.bpm.example.springprocess.api;
 
 import io.camunda.client.CamundaClient;
-import io.camunda.client.api.response.ProcessInstanceEvent;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,19 +26,16 @@ public class OrderController {
   }
 
   @PostMapping
-  public ResponseEntity<StartedOrder> createOrder(@RequestBody OrderRequest request) {
-    ProcessInstanceEvent processInstance =
-        camundaClient
-            .newCreateInstanceCommand()
-            .bpmnProcessId("order")
-            .latestVersion()
-            .variables(Map.of("amount", request.amount()))
-            .send()
-            .join();
-    return ResponseEntity.accepted().body(new StartedOrder(processInstance.getProcessInstanceKey()));
+  public ResponseEntity<Void> createOrder(@RequestBody OrderRequest request) {
+    camundaClient
+        .newCreateInstanceCommand()
+        .bpmnProcessId("order")
+        .latestVersion()
+        .variables(Map.of("amount", request.amount()))
+        .send()
+        .join();
+    return ResponseEntity.accepted().build();
   }
 
   public record OrderRequest(int amount) {}
-
-  public record StartedOrder(long processInstanceKey) {}
 }

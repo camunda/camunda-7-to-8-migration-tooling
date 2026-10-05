@@ -8,6 +8,11 @@
     <property name="transactionManager" ref="transactionManager" />
     <property name="databaseSchemaUpdate" value="true" />
     <property name="history" value="none" />
+    <property name="deploymentResources">
+      <list>
+        <value>classpath:manual-process.bpmn</value>
+      </list>
+    </property>
   </bean>
   <bean id="processEngine"
         class="org.camunda.bpm.engine.spring.ProcessEngineFactoryBean">

@@ -7,7 +7,10 @@
  */
 package org.camunda.bpm.example.manual;
 
+import static org.junit.Assert.assertEquals;
+
 import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,10 @@ public class ManualSpringProcessTest {
 
   @Test
   public void startsAProcessWithTheSpringEngine() {
-    runtimeService.startProcessInstanceByKey("manual-process");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("manual-process");
+
+    assertEquals(
+        Boolean.TRUE,
+        runtimeService.getVariable(processInstance.getId(), "manualWorkerExecuted"));
   }
 }

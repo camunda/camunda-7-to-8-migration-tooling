@@ -5,9 +5,13 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 
 This reference uses C7 for Camunda 7, C8 for Camunda 8, and CPT for Camunda Process Test.
 
-## Camunda 7 Test Inventory
+## Test Inventory
 
-## Scope rule
+The skill detects C7 tests during Step 2 for every migration scope, including Assessment only and code approach C.
+During assessment, the skill edits no project file other than `MIGRATION_REPORT.md`.
+The skill scans each module's build-declared test source sets.
+The skill scans abstract test classes, shared test bases, test configuration classes, and `camunda.cfg.xml` in test resources.
+The skill scans `src/test/java` and additional source sets such as `src/it/java` or Gradle `integrationTest`.
 
 A test is eligible for migration only when it runs a BPMN process or DMN decision on a Camunda 7 engine.
 The test must also use a framework or approach that existed for Camunda 7.
@@ -144,6 +148,8 @@ When one test matches multiple test kinds, the skill assigns the first matching 
 
 ## Modifiers
 
+The skill records modifiers only for process tests and decision tests.
+
 | Modifier | Detect by | Used by |
 |---|---|---|
 | mocks | `org.camunda.bpm.engine.test.mock.Mocks`, `MockExpressionManager`, `org.camunda.community.mockito.*`, `org.camunda.bpm.extension.mockito.*`, holunda `c7-mockito`, or Mockito mocks registered as Spring beans called by the process | Mock migration subtask |
@@ -257,18 +263,18 @@ Do not migrate tests during Step 2.
 
 ## Scope
 
-The skill applies this reference to each process test or decision test with the `Spring` modifier in
-the Test Inventory.
+The skill applies the Spring rules to each process test or decision test with the `Spring` modifier
+in the Test Inventory.
 
-| Source evidence | Classification |
+| Spring evidence | Test Inventory treatment |
 |---|---|
-| `@SpringBootTest` with a process or decision test | Spring test |
-| `@RunWith(SpringRunner.class)`, `@RunWith(SpringJUnit4ClassRunner.class)`, or `@ExtendWith(SpringExtension.class)` with a process or decision test | Spring test |
-| `@ContextConfiguration` loads Spring XML or Java configuration with `SpringProcessEngineConfiguration` or `ProcessEngineFactoryBean` | Spring test |
-| `@Autowired @Rule ProcessEngineRule`, `@Autowired RuntimeService`, or `BpmnAwareTests.init(processEngine)` | Spring test |
-| `AbstractProcessEngineRuleTest` or `StandaloneInMemoryTestConfiguration` without a Spring context | Engine test without Spring |
-| `@WebMvcTest` or `@DataJpaTest` without Camunda 7 API calls | Out of scope |
-| A shared engine in a WAR or `processes.xml` application-server deployment | Manual migration |
+| `@SpringBootTest` with a process or decision test | Record the `Spring` modifier. |
+| `@RunWith(SpringRunner.class)`, `@RunWith(SpringJUnit4ClassRunner.class)`, or `@ExtendWith(SpringExtension.class)` with a process or decision test | Record the `Spring` modifier. |
+| `@ContextConfiguration` loads Spring XML or Java configuration with `SpringProcessEngineConfiguration` or `ProcessEngineFactoryBean` | Record the `Spring` modifier. |
+| `@Autowired @Rule ProcessEngineRule`, `@Autowired RuntimeService`, or `BpmnAwareTests.init(processEngine)` | Record the `Spring` modifier. |
+| `AbstractProcessEngineRuleTest` or `StandaloneInMemoryTestConfiguration` without a Spring context | Record the test kind without the `Spring` modifier. |
+| `@WebMvcTest` or `@DataJpaTest` without Camunda 7 API calls | Out of scope. |
+| A shared engine in a WAR or `processes.xml` application-server deployment | Manual migration. |
 
 The skill does not classify every `@SpringBootTest` as a process test. The skill uses the Test
 Inventory kind and modifier.
@@ -317,8 +323,8 @@ The skill keeps each test's class and method names when practical. (SHOULD)
 
 ## Deployment
 
-The application's `@Deployment` annotation SHOULD name the converted copies. This also exercises
-Step 4 check 13.
+The skill uses the converted copies in the application's `@Deployment` annotation. (SHOULD)
+This also exercises Step 4 check 13.
 
 When a test needs a resource set that differs from the application's deployment, the skill adds
 `@TestDeployment`. This rule applies to CPT 8.9 or later. The skill uses converted copies in every
@@ -367,11 +373,28 @@ minimal `TestProcessApplication`. The test app uses a package separate from the 
 application. The test app sets `scanBasePackages` to the required controllers, services, and workers.
 The test app adds `@Deployment` with the converted copies.
 
-The skill keeps the production startup callback out of the minimal test application's scan. The
-skill calls the same process-starting method from `@BeforeEach`, after CPT starts the test runtime.
+The skill keeps the production startup callback out of the minimal test application's scan.
+The skill replays each startup-hook action after CPT starts the test runtime.
+
+| C7 hook action | CPT test action |
+|---|---|
+| Deploys resources | The test app adds the converted copies to `@Deployment`. |
+| Starts a process | The test calls the startup method in `@BeforeEach` with `CamundaClient`. |
+| Sends a message | The test sends the equivalent message in `@BeforeEach`. |
 
 The skill keeps `@Transactional` for the application's database only. The skill does not expect it
 to restore C8 process state.
+
+## Test Parity record
+
+When the user approves a test or mock boundary change, the skill records it before changing the
+boundary in `MIGRATION_REPORT.md` at the project root.
+Create `MIGRATION_REPORT.md` when it does not exist.
+Add the Test Parity record when the file exists, and preserve its existing content.
+Record one row per approved change with these columns:
+
+| Test ID | C7 boundary | Approved C8 boundary | Approver | Reason |
+|---|---|---|---|---|
 
 ## Spring without Spring Boot
 

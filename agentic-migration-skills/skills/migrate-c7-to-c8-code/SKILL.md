@@ -242,11 +242,16 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
-Run the test inventory during every Step 2 assessment, including Assessment only and code approach C.
-Follow `references/test-migration.md`. Scan declared test source sets, shared test support, and test
-cases, including configured Cucumber scenarios. Include out-of-scope tests. Link each in-scope test
-to its deployed models and record its modifiers. Do not migrate tests or ask a test-migration
-question during Step 2.
+The skill runs the test inventory during every Step 2 assessment, including Assessment only and code approach C.
+The skill scans each module's build-declared test source sets and shared test bases.
+The skill scans test cases, including configured Cucumber scenarios.
+The skill follows `references/test-migration.md` to classify test kinds, modifiers, model links, and handling.
+The skill includes out-of-scope tests.
+The skill records one row per test in `MIGRATION_REPORT.md`.
+Each row includes Test ID, File, Test kind, Signals, Models, Handling, and Notes.
+The skill links each in-scope test to its deployed models in the Model Inventory.
+The skill records a count for each test kind.
+The skill does not migrate tests or ask a test-migration question during Step 2.
 
 #### Model Inventory
 
@@ -300,9 +305,11 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
+Present test counts by kind and the number eligible for CPT migration.
+Present the number selected for CPT migration.
+List every `Report only` Test ID and its reason.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
-Present test counts by test kind. State how many tests are eligible for CPT migration. List every
-`Report only` Test ID and its reason. Follow `references/test-migration.md` for Camunda 8.8 handling.
+Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
 
 #### Custom incident notifications

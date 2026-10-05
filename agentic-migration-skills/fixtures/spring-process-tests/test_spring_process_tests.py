@@ -5,16 +5,26 @@ import xml.etree.ElementTree as ET
 
 FIXTURE = Path(__file__).resolve().parent
 SKILL_ROOT = FIXTURE.parents[1] / "skills/migrate-c7-to-c8-code"
+SKILL = SKILL_ROOT / "SKILL.md"
 REFERENCE = SKILL_ROOT / "references/test-migration.md"
+CODE_CHECKLIST = SKILL_ROOT / "references/code-transform-checklist.md"
 PACKAGE_README = SKILL_ROOT.parents[1] / "README.md"
 EXPECTED_POM = FIXTURE / "expected-c8/pom.xml"
 SOURCE_TEST = (
     FIXTURE
     / "c7-source/src/test/java/org/camunda/bpm/example/springprocess/SpringProcessTest.java"
 )
+SOURCE_CONTROLLER = (
+    FIXTURE
+    / "c7-source/src/main/java/org/camunda/bpm/example/springprocess/api/OrderController.java"
+)
 EXPECTED_TEST = (
     FIXTURE
     / "expected-c8/src/test/java/org/camunda/bpm/example/springprocess/test/SpringProcessTest.java"
+)
+EXPECTED_CONTROLLER = (
+    FIXTURE
+    / "expected-c8/src/main/java/org/camunda/bpm/example/springprocess/api/OrderController.java"
 )
 EXPECTED_WORKERS = (
     FIXTURE
@@ -26,6 +36,20 @@ TEST_APPLICATION = (
 )
 EXPECTED_MANUAL_REPORT = (
     FIXTURE / "manual-without-bootstrap/expected-c8/MIGRATION_REPORT.md"
+)
+MANUAL_SOURCE_TEST = (
+    FIXTURE
+    / "manual-without-bootstrap/c7-source/src/test/java/org/camunda/bpm/example/manual/ManualSpringProcessTest.java"
+)
+MANUAL_SOURCE_CONTEXT = (
+    FIXTURE / "manual-without-bootstrap/c7-source/src/test/resources/spring-engine-context.xml"
+)
+MANUAL_PROCESS = (
+    FIXTURE / "manual-without-bootstrap/c7-source/src/test/resources/manual-process.bpmn"
+)
+MANUAL_WORKER = (
+    FIXTURE
+    / "manual-without-bootstrap/c7-source/src/main/java/org/camunda/bpm/example/manual/ManualProcessWorker.java"
 )
 
 
@@ -48,10 +72,125 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "manual migration",
         ):
             with self.subTest(required=required):
-                self.assertIn(required, reference)
+                self.assertIn(required, reference, msg=f"Missing {required!r}")
         self.assertIn(
             "process-test migration to Camunda Process Test (CPT)", package_readme
         )
+
+    def test_step_two_builds_test_inventory_before_model_inventory(self):
+        skill = SKILL.read_text()
+        checklist = CODE_CHECKLIST.read_text()
+
+        code_inventory = skill.index("#### Code Inventory")
+        test_inventory = skill.index("#### Test Inventory")
+        model_inventory = skill.index("#### Model Inventory")
+        self.assertLess(code_inventory, test_inventory)
+        self.assertLess(test_inventory, model_inventory)
+
+        inventory_section = skill[test_inventory:model_inventory]
+        for required in (
+            "every scope",
+            "Assessment only",
+            "Approach C",
+            "Test ID",
+            "test kind",
+            "modifiers",
+            "models",
+            "MIGRATION_REPORT.md",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(
+                    required.lower(),
+                    inventory_section.lower(),
+                    msg=f"Missing {required!r} from Step 2 inventory",
+                )
+
+        summary_start = skill.index("#### Summary")
+        summary_end = skill.index("#### Custom incident notifications", summary_start)
+        summary = skill[summary_start:summary_end].lower()
+        self.assertIn("test counts", summary)
+        self.assertIn("report only", summary)
+        self.assertIn("`references/test-migration.md`", checklist)
+        self.assertNotIn(
+            "| `@Test` + Camunda 7 test rules | Test code |",
+            checklist,
+        )
+
+    def test_inventory_reference_defines_kinds_modifiers_models_and_report(self):
+        reference = REFERENCE.read_text()
+
+        for required in (
+            "| Test kind | Detect by | Handling |",
+            "every test method",
+            "including tests marked out of scope",
+            "process test",
+            "decision test",
+            "scenario test",
+            "remote-engine test",
+            "manual migration",
+            "manual redesign",
+            "out of scope (Camunda 8)",
+            "Kotlin or Groovy tests that use C7 test APIs",
+            "plain Java tests",
+            "camunda.cfg.xml",
+            "org.camunda.bpm.extension:camunda-bpm-junit5",
+            "| Modifier | Detect by | Used by |",
+            "mocks",
+            "org.camunda.community.mockito.*",
+            "coverage",
+            "time",
+            "Spring",
+            "`@Deployment(resources = ...)`",
+            "`src/test/resources`",
+            "programmatic deployment",
+            "@EnableProcessApplication",
+            "Test ID",
+            "<module path>:<fully qualified class name>#<method>",
+            "| Test ID | File | Test kind | Signals | Models | Handling | Notes |",
+            "Camunda 8.9 or later",
+            "test migration needs Camunda 8.9 or later",
+            "When the target version is 8.8, the skill still detects every test.",
+            "It sets each in-scope test's handling to Report only",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(
+                    required.lower(),
+                    reference.lower(),
+                    msg=f"Missing inventory rule {required!r}",
+                )
+
+    def test_test_parity_record_has_a_location_format_and_creation_rule(self):
+        reference = " ".join(REFERENCE.read_text().split())
+
+        for required in (
+            "## Test Parity record",
+            "`MIGRATION_REPORT.md` at the project root",
+            "Create `MIGRATION_REPORT.md` when it does not exist",
+            "before changing the boundary",
+            "| Test ID | C7 boundary | Approved C8 boundary | Approver | Reason |",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, reference, msg=f"Missing {required!r}")
+
+    def test_startup_hook_rules_preserve_each_original_action(self):
+        reference = REFERENCE.read_text()
+
+        self.assertIn(
+            "The skill replays each startup-hook action after CPT starts the test runtime.",
+            reference,
+        )
+        for action in (
+            "| Deploys resources | The test app adds the converted copies to `@Deployment`. |",
+            "| Starts a process | The test calls the startup method in `@BeforeEach` with `CamundaClient`. |",
+            "| Sends a message | The test sends the equivalent message in `@BeforeEach`. |",
+        ):
+            with self.subTest(action=action):
+                self.assertIn(action, reference)
+
+    def test_rfc_preference_markers_are_explicit(self):
+        for line in REFERENCE.read_text().splitlines():
+            if "SHOULD" in line:
+                self.assertIn("(SHOULD)", line)
 
     def test_boot_starter_matches_cpt_dependency(self):
         namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -104,6 +243,8 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
     def test_cpt_fixture_preserves_endpoint_and_worker_mock_boundaries(self):
         source_test = SOURCE_TEST.read_text()
         expected_test = EXPECTED_TEST.read_text()
+        source_controller = SOURCE_CONTROLLER.read_text()
+        expected_controller = EXPECTED_CONTROLLER.read_text()
         expected_workers = EXPECTED_WORKERS.read_text()
         application = TEST_APPLICATION.read_text()
         application_startup_resources = (
@@ -134,6 +275,12 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                 self.assertIn(required, expected_test)
         self.assertIn("createsAnOrderThroughTheApplicationEndpoint", source_test)
         self.assertIn("startsAnOrderFromTheStartupHook", source_test)
+        for controller in (source_controller, expected_controller):
+            self.assertIn("ResponseEntity<Void> createOrder", controller)
+            self.assertIn("return ResponseEntity.accepted().build();", controller)
+        self.assertNotIn("StartedOrder", expected_controller)
+        for test_source in (source_test, expected_test):
+            self.assertIn('.andExpect(content().string(""))', test_source)
         self.assertIn('@JobWorker(type = "charge-payment")', expected_workers)
         self.assertIn("paymentService.charge(amount)", expected_workers)
         self.assertIn("@Deployment", application)
@@ -150,20 +297,60 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_missing_non_bootstrap_has_manual_reason(self):
         reference = REFERENCE.read_text().lower()
-        source_test = (
-            FIXTURE
-            / "manual-without-bootstrap/c7-source/src/test/java/org/camunda/bpm/example/manual/ManualSpringProcessTest.java"
-        ).read_text()
-        source_context = (
-            FIXTURE
-            / "manual-without-bootstrap/c7-source/src/test/resources/spring-engine-context.xml"
-        ).read_text()
+        source_test = MANUAL_SOURCE_TEST.read_text()
+        source_context = MANUAL_SOURCE_CONTEXT.read_text()
         expected_report = EXPECTED_MANUAL_REPORT.read_text().lower()
 
         self.assertIn("@ContextConfiguration", source_test)
         self.assertIn("SpringProcessEngineConfiguration", source_context)
         self.assertIn("@camundaprocesstest", reference)
         self.assertIn("manual migration", reference)
+        inventory = expected_report.split("## test inventory", 1)[1].split(
+            "## test migration", 1
+        )[0]
+        for required in (
+            "manual-without-bootstrap:org.camunda.bpm.example.manual.manualspringprocesstest#startsaprocesswiththespringengine",
+            "| test id | file | test kind | signals | models | handling | notes |",
+            "process test",
+            "spring modifier",
+            "manual-process.bpmn",
+            "manual migration",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, inventory)
+        self.assertIn("counts by test kind: process test 1", inventory)
+        self.assertTrue(MANUAL_PROCESS.is_file())
+        self.assertTrue(MANUAL_WORKER.is_file())
+        namespace = {
+            "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+            "spring": "http://www.springframework.org/schema/beans",
+        }
+        process = ET.parse(MANUAL_PROCESS).getroot().find(
+            ".//bpmn:process[@id='manual-process']", namespace
+        )
+        self.assertIsNotNone(process)
+        worker_task = process.find(
+            ".//bpmn:serviceTask[@id='manual-worker']", namespace
+        )
+        self.assertIsNotNone(worker_task)
+        self.assertEqual(
+            worker_task.get("{http://camunda.org/schema/1.0/bpmn}class"),
+            "org.camunda.bpm.example.manual.ManualProcessWorker",
+        )
+        deployment = ET.parse(MANUAL_SOURCE_CONTEXT).getroot().find(
+            ".//spring:property[@name='deploymentResources']", namespace
+        )
+        self.assertIsNotNone(deployment)
+        self.assertIn("manual-process.bpmn", "".join(deployment.itertext()))
+        self.assertIn("manualWorkerExecuted", source_test)
+        self.assertIn("assertEquals(", source_test)
+        self.assertIn("Boolean.TRUE", source_test)
+        manual_worker = MANUAL_WORKER.read_text()
+        self.assertIn("implements JavaDelegate", manual_worker)
+        self.assertIn(
+            'execution.setVariable("manualWorkerExecuted", true);', manual_worker
+        )
+        self.assertIn("manualprocessworker", expected_report)
         self.assertIn("reusable `camundaclient` worker bootstrap", expected_report)
 
 

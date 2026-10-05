@@ -10,6 +10,7 @@ package org.camunda.bpm.example.springprocess.test;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.camunda.client.CamundaClient;
@@ -53,7 +54,8 @@ class SpringProcessTest {
             post("/api/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\":100}"))
-        .andExpect(status().isAccepted());
+        .andExpect(status().isAccepted())
+        .andExpect(content().string(""));
 
     CamundaAssert.assertThatProcessInstance(ProcessInstanceSelectors.byProcessId("order"))
         .hasCompletedElements("Task_Charge", "Task_Ship")

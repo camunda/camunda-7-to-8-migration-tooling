@@ -11,6 +11,7 @@ import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.assertT
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.camunda.bpm.engine.ProcessEngine;
@@ -54,7 +55,8 @@ public class SpringProcessTest {
             post("/api/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\":100}"))
-        .andExpect(status().isAccepted());
+        .andExpect(status().isAccepted())
+        .andExpect(content().string(""));
 
     ProcessInstance processInstance =
         runtimeService
