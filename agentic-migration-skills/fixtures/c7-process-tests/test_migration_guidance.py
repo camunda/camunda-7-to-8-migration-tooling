@@ -79,12 +79,21 @@ def normalized(value):
 
 
 class MigrationGuidanceTest(unittest.TestCase):
+    def assert_unique_rows(self, rows, identifier_column, report_path):
+        identifiers = [row[identifier_column] for row in rows]
+        self.assertEqual(
+            len(identifiers),
+            len(set(identifiers)),
+            "{} contains duplicate {} values.".format(report_path, identifier_column),
+        )
+
     def test_inventory_matches_every_camunda_7_test_method(self):
         source_ids = test_method_ids(C7_SOURCE)
         inventory_rows = markdown_table(
             EXPECTED_ASSESSMENT,
             ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
         )
+        self.assert_unique_rows(inventory_rows, "Test ID", EXPECTED_ASSESSMENT)
         inventory_ids = {row["Test ID"] for row in inventory_rows}
 
         self.assertEqual(
@@ -118,10 +127,21 @@ class MigrationGuidanceTest(unittest.TestCase):
         actual_test_classes = {test_id.split("#", 1)[0].rsplit(".", 1)[-1] for test_id in source_ids}
         self.assertEqual(expected_test_classes, actual_test_classes)
 
+    def test_inventory_rejects_duplicate_test_ids(self):
+        duplicate_rows = [
+            {"Test ID": "engine-tests:com.camunda.fixture.order.OrderProcessTest#approves"},
+            {"Test ID": "engine-tests:com.camunda.fixture.order.OrderProcessTest#approves"},
+        ]
+
+        with self.assertRaisesRegex(AssertionError, "duplicate Test ID"):
+            self.assert_unique_rows(duplicate_rows, "Test ID", "test inventory")
+
     def test_camunda_8_8_inventory_changes_only_migrated_handling(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
         inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
+        self.assert_unique_rows(inventory, "Test ID", EXPECTED_ASSESSMENT)
+        self.assert_unique_rows(inventory_88, "Test ID", EXPECTED_ASSESSMENT_88)
         rows_89 = {row["Test ID"]: row for row in inventory}
         rows_88 = {row["Test ID"]: row for row in inventory_88}
 
@@ -148,6 +168,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             EXPECTED_PARITY,
             ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
         )
+        self.assert_unique_rows(parity, "Camunda 7 Test ID", EXPECTED_PARITY)
         parity_by_id = {row["Camunda 7 Test ID"]: row for row in parity}
         cpt_test_ids = test_method_ids(EXPECTED_C8)
 

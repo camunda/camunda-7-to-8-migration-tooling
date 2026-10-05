@@ -35,6 +35,10 @@ class PromotionsDecisionTest {
 
     CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated();
     assertThat(response.getEvaluatedDecisions()).hasSize(2);
+    List<String> promotions =
+        OBJECT_MAPPER.readValue(
+            response.getDecisionOutput(), new TypeReference<List<String>>() {});
+    assertThat(promotions).hasSize(2);
   }
 
   @Test

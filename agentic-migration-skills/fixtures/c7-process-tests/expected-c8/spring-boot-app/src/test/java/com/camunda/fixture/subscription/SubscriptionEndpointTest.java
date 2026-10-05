@@ -27,7 +27,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @SpringBootTest(
     classes = TestSubscriptionApplication.class,
     webEnvironment = WebEnvironment.RANDOM_PORT,
-    properties = "fixture.housekeeping.auto-start=false")
+    properties = {
+      "fixture.housekeeping.auto-start=false",
+      "fixture.process-model-deployment=false"
+    })
 @TestDeployment(resources = {"converted-c8-subscription.bpmn", "subscription-task.form"})
 class SubscriptionEndpointTest {
 

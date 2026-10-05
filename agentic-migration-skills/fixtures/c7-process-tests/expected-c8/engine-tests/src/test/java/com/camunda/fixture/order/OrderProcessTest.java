@@ -19,6 +19,7 @@ import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
 import java.util.List;
 import java.util.Map;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ class OrderProcessTest {
 
   @BeforeEach
   void openWorkers() {
-    workers = OrderJobHandlers.open(client, false);
+    workers = OrderJobHandlers.open(client);
   }
 
   @AfterEach
@@ -69,6 +70,36 @@ class OrderProcessTest {
         .hasVariable("paymentCharged", true)
         .hasVariable("shipped", true)
         .hasVariable("auditStarted", true);
+  }
+
+  @Test
+  void failsWhenStockIsMissing() {
+    ProcessInstanceEvent instance =
+        client.newCreateInstanceCommand()
+            .bpmnProcessId("order")
+            .latestVersion()
+            .variables(
+                Map.of(
+                    "orderId", "order-missing",
+                    "sku", "missing",
+                    "customerType", "gold"))
+            .send()
+            .join();
+
+    assertThat(instance).hasActiveIncidents();
+    var incidents =
+        client.newIncidentSearchRequest()
+            .filter(filter -> filter.processInstanceKey(instance.getProcessInstanceKey()))
+            .send()
+            .join()
+            .items();
+    Assertions.assertThat(incidents)
+        .singleElement()
+        .satisfies(
+            incident -> {
+              Assertions.assertThat(incident.getElementId()).isEqualTo("Task_CheckStock");
+              Assertions.assertThat(incident.getErrorMessage()).contains("Stock is unavailable");
+            });
   }
 
   private ProcessInstanceEvent startOrder(String orderId) {

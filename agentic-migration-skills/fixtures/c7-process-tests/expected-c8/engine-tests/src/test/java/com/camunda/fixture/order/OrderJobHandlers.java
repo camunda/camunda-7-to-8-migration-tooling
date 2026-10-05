@@ -17,7 +17,7 @@ final class OrderJobHandlers {
 
   private OrderJobHandlers() {}
 
-  static List<JobWorker> open(CamundaClient client, boolean failWhenStockIsMissing) {
+  static List<JobWorker> open(CamundaClient client) {
     List<JobWorker> workers = new ArrayList<>();
     workers.add(
         client.newWorker()
@@ -30,7 +30,7 @@ final class OrderJobHandlers {
                         .send()
                         .join())
             .open());
-    workers.add(openStockWorker(client, failWhenStockIsMissing));
+    workers.add(openStockWorker(client));
     workers.add(
         client.newWorker()
             .jobType("charge-payment")
@@ -72,7 +72,7 @@ final class OrderJobHandlers {
 
   static List<JobWorker> openWithoutCharge(CamundaClient client) {
     List<JobWorker> workers = new ArrayList<>();
-    workers.add(openStockWorker(client, false));
+    workers.add(openStockWorker(client));
     workers.add(
         client.newWorker()
             .jobType("notify-customer")
@@ -87,14 +87,12 @@ final class OrderJobHandlers {
     return workers;
   }
 
-  static JobWorker openStockWorker(
-      CamundaClient client, boolean failWhenStockIsMissing) {
+  static JobWorker openStockWorker(CamundaClient client) {
     return client.newWorker()
         .jobType("check-stock")
         .handler(
             (jobClient, job) -> {
-              if (failWhenStockIsMissing
-                  && "missing".equals(job.getVariablesAsMap().get("sku"))) {
+              if ("missing".equals(job.getVariablesAsMap().get("sku"))) {
                 jobClient
                     .newFailCommand(job)
                     .retries(0)

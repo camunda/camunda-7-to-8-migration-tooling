@@ -29,7 +29,7 @@ class OrderAutoMockTest {
 
   @BeforeEach
   void openWorkers() {
-    workers = OrderJobHandlers.open(client, false);
+    workers = OrderJobHandlers.open(client);
   }
 
   @AfterEach

@@ -16,6 +16,7 @@ import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.TestDeployment;
 import java.util.List;
 import java.util.Map;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class LegacyOrderTest {
             .jobType("order-audit")
             .handler((jobClient, job) -> jobClient.newCompleteCommand(job).send().join())
             .open(),
-        OrderJobHandlers.openStockWorker(client, true));
+        OrderJobHandlers.openStockWorker(client));
   }
 
   @AfterEach
@@ -53,6 +54,20 @@ class LegacyOrderTest {
             .join();
 
     assertThat(instance).hasActiveIncidents();
+    var incidents =
+        client.newIncidentSearchRequest()
+            .filter(filter -> filter.processInstanceKey(instance.getProcessInstanceKey()))
+            .send()
+            .join()
+            .items();
+    Assertions.assertThat(incidents)
+        .singleElement()
+        .satisfies(
+            incident -> {
+              Assertions.assertThat(incident.getElementId()).isEqualTo("Task_LegacyCheckStock");
+              Assertions.assertThat(incident.getErrorMessage())
+                  .contains("Stock is unavailable");
+            });
   }
 
   @Test

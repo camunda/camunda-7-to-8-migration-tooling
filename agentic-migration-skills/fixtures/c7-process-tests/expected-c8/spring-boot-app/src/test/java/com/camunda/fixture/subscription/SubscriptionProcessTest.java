@@ -24,7 +24,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @CamundaSpringProcessTest
 @SpringBootTest(
     classes = TestSubscriptionApplication.class,
-    properties = "fixture.housekeeping.auto-start=false")
+    properties = {
+      "fixture.housekeeping.auto-start=false",
+      "fixture.process-model-deployment=false"
+    })
 @TestDeployment(resources = {"converted-c8-subscription.bpmn", "subscription-task.form"})
 class SubscriptionProcessTest {
 

@@ -11,36 +11,44 @@ import static io.camunda.process.test.api.CamundaAssert.assertThatProcessInstanc
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
-import io.camunda.process.test.api.CamundaSpringProcessTest;
-import io.camunda.process.test.api.TestDeployment;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-@CamundaSpringProcessTest
-@SpringBootTest(
-    classes = TestSubscriptionApplication.class,
-    properties = "fixture.housekeeping.auto-start=false")
-@TestDeployment(resources = {"converted-c8-housekeeping.bpmn", "housekeeping-task.form"})
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@CamundaProcessTest
 class HousekeepingStartupTest {
 
-  @Autowired private CamundaClient client;
-  @Autowired private CamundaProcessTestContext processTestContext;
-  @Autowired private HousekeepingStarter housekeepingStarter;
+  private CamundaClient client;
+  private CamundaProcessTestContext processTestContext;
 
   @Test
-  void startsHousekeepingOnDeployment() {
-    housekeepingStarter.startHousekeeping(client);
+  void startsHousekeepingOnDeployment() throws Exception {
+    new SubscriptionApplication()
+        .deployProcessModels(client)
+        .run(new DefaultApplicationArguments());
+    publishApplicationReadyEvent();
+
     assertThatProcessInstance(byProcessId("housekeeping")).hasActiveElements("Task_Review");
-  }
-
-  @Test
-  void completesHousekeepingAfterReview() {
-    housekeepingStarter.startHousekeeping(client);
     processTestContext.completeUserTask("Task_Review");
     assertThatProcessInstance(byProcessId("housekeeping")).isCompleted();
+  }
+
+  private void publishApplicationReadyEvent() {
+    try (var applicationContext = new AnnotationConfigApplicationContext()) {
+      applicationContext.registerBean(CamundaClient.class, () -> client);
+      applicationContext.registerBean(HousekeepingStarter.class);
+      applicationContext.refresh();
+      applicationContext.publishEvent(
+          new ApplicationReadyEvent(
+              new SpringApplication(SubscriptionApplication.class),
+              new String[0],
+              applicationContext,
+              Duration.ZERO));
+    }
   }
 }

@@ -24,7 +24,8 @@ import org.springframework.boot.test.context.SpringBootTest;
     classes = TestSubscriptionApplication.class,
     properties = {
       "fixture.activate-worker.enabled=false",
-      "fixture.housekeeping.auto-start=false"
+      "fixture.housekeeping.auto-start=false",
+      "fixture.process-model-deployment=false"
     })
 @TestDeployment(resources = {"converted-c8-subscription.bpmn", "subscription-task.form"})
 class ActivateDelegateMockTest {
