@@ -1161,7 +1161,11 @@ def parse_cpt_coverage_report(path):
             report = json.load(report_file)
     except (OSError, json.JSONDecodeError) as exc:
         raise EvidenceError(f"Cannot parse CPT coverage report {path}: {exc}") from exc
-    processes = report.get("processCoverages") if isinstance(report, dict) else None
+    processes = (
+        report.get("processCoverages", report.get("coverages"))
+        if isinstance(report, dict)
+        else None
+    )
     decisions = report.get("decisionCoverages", []) if isinstance(report, dict) else None
     if not isinstance(processes, list) or not isinstance(decisions, list):
         raise EvidenceError(f"Unsupported CPT coverage report: {path}")

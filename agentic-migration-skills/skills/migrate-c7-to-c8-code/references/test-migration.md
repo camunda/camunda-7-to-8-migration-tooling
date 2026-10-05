@@ -60,7 +60,7 @@ in `validation-evidence.md`.
 Keep the Test Inventory in `MIGRATION_REPORT.md`. Keep the machine-readable test mode and suite
 commands in `.camunda-migration/validation/step2-inventory.json`:
 
-For a **Migrate tests only** run, the inventory can omit `test_suites`:
+For a **Run tests** run, include `test_suites`:
 
 ```json
 {
@@ -78,6 +78,8 @@ For a **Migrate tests only** run, the inventory can omit `test_suites`:
   ]
 }
 ```
+
+For a **Migrate tests only** run, the inventory can omit `test_suites`:
 
 ```json
 {
@@ -331,12 +333,12 @@ CPT process coverage from `target/process-test-coverage/report.json` by default.
 `coverage_reports` in the corresponding suite entry when a project uses another path.
 See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).
 
-The CPT JSON report records `processCoverages[].processDefinitionId`,
-`processCoverages[].completedElements`, and `processCoverages[].takenSequenceFlows`. The validator
-compares these IDs with C7-covered IDs. It maps a renamed process by shared element IDs when that
-mapping is unique. It ignores a C7-covered ID when no converted process contains it. It checks each
-retained C7-covered ID against both CPT runs. The gate reports an ambiguity when several converted
-processes contain the same renamed-process IDs.
+The CPT 8.9.21 JSON report stores process entries in `coverages[]`. Newer CPT report schemas use
+`processCoverages[]`. Both arrays contain `processDefinitionId`, `completedElements`, and
+`takenSequenceFlows`. The validator compares the process IDs with C7-covered IDs. It maps a renamed
+process by shared element IDs when that mapping is unique. It ignores a C7-covered ID when no
+converted process contains it. It checks each retained C7-covered ID against both CPT runs. The gate
+reports an ambiguity when several converted processes contain the same renamed-process IDs.
 
 The validator also lists CPT decision coverage from `decisionCoverages[].decisionDefinitionId` and
 `decisionCoverages[].matchedRuleIds`. Camunda 7 process-test-coverage does not provide a matching

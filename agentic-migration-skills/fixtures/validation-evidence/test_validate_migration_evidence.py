@@ -924,6 +924,30 @@ class ValidationEvidenceTest(unittest.TestCase):
         check = checks[("module", "app", "test_repeat", "unit")][1]
         self.assertIn("repeat results differ", check["reason"])
 
+    def test_cpt_repeat_accepts_8_9_21_coverage_report(self):
+        coverage_report = (
+            FIXTURE / "cpt-8.9.21-coverage-report.json"
+        ).read_text(encoding="utf-8")
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(
+                    first_coverage=coverage_report,
+                    second_coverage=coverage_report,
+                ),
+            ),
+        )
+
     def test_coverage_parity_fails_when_cpt_drops_a_covered_element(self):
         for name in ("models/process.bpmn", "models/converted-c8-process.bpmn"):
             path = self.root / name

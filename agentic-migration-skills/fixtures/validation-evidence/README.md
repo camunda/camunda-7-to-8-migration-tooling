@@ -1,7 +1,8 @@
 # Validation evidence regression fixture
 
 This test preserves the contradiction in #2926. It creates a nine-module, ten-model project and
-synthetic evidence in a temporary directory. The fixture stores no logs, manifests, or reports.
+synthetic evidence in a temporary directory. The checked-in CPT 8.9.21 report fixture covers the
+legacy `coverages[]` field.
 The report claims `READY`, but configuration, tests, lint, deployment, and JAR launches fail.
 Other model checks, a message assertion, and a timer preflight are absent.
 
@@ -11,8 +12,8 @@ The other tests cover a complete passing scope, independent failures, missing re
 modules, process assertions, Docker classification, path safety, and report replacement.
 They also cover two-module `Sample` collisions, recurring starts, model-bound timer observations,
 due-date blockers, stale prerequisite checks, JUnit baselines, test parity, frozen files, repeated
-CPT runs, mock approvals, and coverage drops. The Python tests use synthetic evidence and do not
-access a Camunda cluster.
+CPT runs, CPT 8.9.21 report compatibility, mock approvals, and coverage drops. The Python tests use
+synthetic evidence and do not access a Camunda cluster.
 
 The `live-timer-fixture/` Maven reactor runs both deployment-set and active-timer acceptance
 scenarios against a disposable Camunda 8.9.21 container. One Process Test deploys both `Sample`

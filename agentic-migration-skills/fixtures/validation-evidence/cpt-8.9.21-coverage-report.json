@@ -1,0 +1,31 @@
+{
+  "suites": [
+    {
+      "id": "unit",
+      "name": "Unit",
+      "coverages": [
+        {
+          "processDefinitionId": "p",
+          "completedElements": ["Start", "TaskA", "End"],
+          "takenSequenceFlows": ["Flow"],
+          "coverage": 0.75
+        }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "processDefinitionId": "p",
+      "totalElementCount": 4,
+      "version": "1"
+    }
+  ],
+  "coverages": [
+    {
+      "processDefinitionId": "p",
+      "completedElements": ["Start", "TaskA", "End"],
+      "takenSequenceFlows": ["Flow"],
+      "coverage": 0.75
+    }
+  ]
+}
