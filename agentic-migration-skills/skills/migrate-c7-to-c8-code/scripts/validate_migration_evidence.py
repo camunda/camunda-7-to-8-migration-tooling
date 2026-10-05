@@ -256,8 +256,9 @@ def test_contract_snapshot(test_contract, *, include_modules):
     }
     if include_modules:
         snapshot["modules"] = test_contract["modules"]
-    snapshot["suites"] = [
-        {
+    snapshot["suites"] = []
+    for suite in test_contract["suites"].values():
+        suite_snapshot = {
             "module": suite["module"],
             "name": suite["name"],
             "command": suite["command"],
@@ -265,8 +266,11 @@ def test_contract_snapshot(test_contract, *, include_modules):
             "reports": suite["reports"],
             "coverage_reports": suite["coverage_reports"],
         }
-        for suite in test_contract["suites"].values()
-    ]
+        for root_type in ("test_source_roots", "test_resource_roots"):
+            roots = suite.get(root_type, [])
+            if roots:
+                suite_snapshot[root_type] = roots
+        snapshot["suites"].append(suite_snapshot)
     return snapshot
 
 
@@ -894,6 +898,34 @@ def report_patterns(value, default, label):
     return patterns
 
 
+def test_directory_roots(root, module, module_paths, values, label):
+    roots = strings(values, label)
+    module_path = project_path(root, module, "Step 2 test suite module", must_exist=True)
+    if not module_path.is_dir():
+        raise EvidenceError(f"Step 2 test suite module is not a directory: {module}")
+    nested_modules = []
+    for other in module_paths:
+        if other == module:
+            continue
+        other_path = project_path(root, other, "Step 2 module")
+        if other_path != module_path and other_path.is_relative_to(module_path):
+            nested_modules.append(other_path)
+
+    normalized = []
+    for value in roots:
+        path = project_path(root, value, label)
+        if path == module_path or not path.is_relative_to(module_path):
+            raise EvidenceError(
+                f"{label} must be inside a subdirectory of suite module {module!r}"
+            )
+        if any(path.is_relative_to(nested) for nested in nested_modules):
+            raise EvidenceError(f"{label} must not include another Step 2 module: {value!r}")
+        if path.exists() and not path.is_dir():
+            raise EvidenceError(f"{label} is not a directory: {value!r}")
+        normalized.append(path.relative_to(root).as_posix())
+    return normalized
+
+
 def test_contract(root, inventory):
     mode = read_test_run_mode(inventory)
     if mode is None:
@@ -975,6 +1007,20 @@ def test_contract(root, inventory):
                 entry.get("coverage_reports"),
                 DEFAULT_C7_COVERAGE_REPORTS,
                 f"{module} {name} coverage_reports",
+            ),
+            "test_source_roots": test_directory_roots(
+                root,
+                module,
+                module_paths,
+                entry.get("test_source_roots", []),
+                f"{module} {name} test_source_roots",
+            ),
+            "test_resource_roots": test_directory_roots(
+                root,
+                module,
+                module_paths,
+                entry.get("test_resource_roots", []),
+                f"{module} {name} test_resource_roots",
             ),
             "migrate_test_ids": [test_id for test_id in test_ids if test_id in migrate_ids],
         }
@@ -1266,20 +1312,44 @@ def coverage_json(coverage):
 
 
 def current_test_files(root, plan):
-    modules = sorted(
-        {
-            test["module"]
-            for test in plan.test_contract["tests"]
-            if test["handling"] == "Migrate"
-        }
-    )
+    migrated_tests = [
+        test for test in plan.test_contract["tests"] if test["handling"] == "Migrate"
+    ]
+    modules = sorted({test["module"] for test in migrated_tests})
     files = {}
     module_paths = set(plan.test_contract.get("modules", modules))
+    inventory_files = {Path(test["file"]).as_posix() for test in migrated_tests}
+    roots_by_module = {module: set() for module in modules}
+    for suite in plan.test_contract["suites"].values():
+        module = suite["module"]
+        if module not in roots_by_module or not suite["migrate_test_ids"]:
+            continue
+        for root_type in ("test_source_roots", "test_resource_roots"):
+            for value in suite[root_type]:
+                path = project_path(
+                    root,
+                    value,
+                    f"{module} {suite['name']} {root_type}",
+                    must_exist=True,
+                )
+                if not path.is_dir():
+                    raise EvidenceError(
+                        f"{module} {suite['name']} {root_type} is not a directory: {value}"
+                    )
+                roots_by_module[module].add(path.relative_to(root))
     for module in modules:
         hashes = {}
         scan_module(root, module, module_paths, hashes)
         for path, digest in hashes.items():
-            if "/src/test/" in f"/{path}":
+            relative_path = Path(path)
+            if (
+                path in inventory_files
+                or "/src/test/" in f"/{path}"
+                or any(
+                    relative_path.is_relative_to(test_root)
+                    for test_root in roots_by_module[module]
+                )
+            ):
                 files[path] = f"sha256:{digest}"
     return dict(sorted(files.items()))
 

@@ -188,10 +188,19 @@ class ValidationEvidenceTest(unittest.TestCase):
         payload = {"files": files, "counter": counter}
         return [sys.executable, "-c", script, json.dumps(payload)]
 
-    def configure_test_run(self, c7_junit, c7_coverage=None):
+    def configure_test_run(
+        self,
+        c7_junit,
+        c7_coverage=None,
+        *,
+        test_file_path="app/src/test/java/com/example/OrderTest.java",
+        test_source_roots=None,
+        test_resource_roots=None,
+    ):
         self.c7_test_id = "app:com.example.OrderTest#testOrder"
         self.c8_test_id = "app:com.example.OrderCptTest#testOrder"
-        c7_file = self.root / "app/src/test/java/com/example/OrderTest.java"
+        self.c7_test_file_path = test_file_path
+        c7_file = self.root / test_file_path
         c7_file.parent.mkdir(parents=True, exist_ok=True)
         c7_file.write_text("class OrderTest {}\n", encoding="utf-8")
         resource = self.root / "app/src/test/resources/order.bpmn"
@@ -208,22 +217,25 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
         inventory["test_run_mode"] = "run"
-        inventory["test_suites"] = [
-            {
-                "module": "app",
-                "name": "unit",
-                "command": self.c7_command,
-                "test_ids": [self.c7_test_id],
-                "reports": ["target/surefire-reports/TEST-*.xml"],
-            }
-        ]
+        suite = {
+            "module": "app",
+            "name": "unit",
+            "command": self.c7_command,
+            "test_ids": [self.c7_test_id],
+            "reports": ["target/surefire-reports/TEST-*.xml"],
+        }
+        if test_source_roots is not None:
+            suite["test_source_roots"] = test_source_roots
+        if test_resource_roots is not None:
+            suite["test_resource_roots"] = test_resource_roots
+        inventory["test_suites"] = [suite]
         write_json(self.root / gate.INVENTORY, inventory)
         (self.root / gate.REPORT).write_text(
             "# Migration report\n\n"
             "## Test Inventory\n\n"
             "| Test ID | File | Test kind | Signals | Models | Handling | Notes |\n"
             "|---|---|---|---|---|---|---|\n"
-            f"| `{self.c7_test_id}` | `app/src/test/java/com/example/OrderTest.java` "
+            f"| `{self.c7_test_id}` | `{test_file_path}` "
             "| process test | ProcessEngineRule | order.bpmn | Migrate | — |\n",
             encoding="utf-8",
         )
@@ -236,7 +248,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             command=self.c7_command,
         )
 
-    def map_test_to_cpt(self, mocks_c7=None, mocks_c8=None):
+    def map_test_to_cpt(self, mocks_c7=None, mocks_c8=None, *, cpt_file_path=None):
         mapping = gate.read_test_mapping(self.root, required=True)
         test = next(
             item for item in mapping["tests"] if item.get("c7_id") == self.c7_test_id
@@ -250,9 +262,11 @@ class ValidationEvidenceTest(unittest.TestCase):
             },
         )
         write_json(self.root / gate.TEST_MAPPING, mapping)
-        old_file = self.root / "app/src/test/java/com/example/OrderTest.java"
+        old_file = self.root / self.c7_test_file_path
         old_file.unlink()
-        c8_file = self.root / "app/src/test/java/com/example/OrderCptTest.java"
+        c8_file = self.root / (
+            cpt_file_path or "app/src/test/java/com/example/OrderCptTest.java"
+        )
         c8_file.parent.mkdir(parents=True, exist_ok=True)
         c8_file.write_text("class OrderCptTest {}\n", encoding="utf-8")
 
@@ -1512,6 +1526,109 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.root, gate.requirements(self.root, self.plan), mapping
             ),
         )
+
+    def test_test_freeze_tracks_inventory_files_and_custom_suite_roots(self):
+        inventory_file = "app/legacy-tests/com/example/OrderTest.java"
+        cpt_file = "app/custom-tests/java/com/example/OrderCptTest.java"
+        resource_root = "app/custom-test-resources"
+        for root_path in ("app/custom-tests", resource_root):
+            (self.root / root_path).mkdir(parents=True, exist_ok=True)
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_file_path=inventory_file,
+            test_source_roots=["app/custom-tests"],
+            test_resource_roots=[resource_root],
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+        current = gate.current_test_files(self.root, plan)
+        self.assertIn(inventory_file, current)
+
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt(cpt_file_path=cpt_file)
+        cpt_resource = self.root / resource_root / "order.json"
+        cpt_resource.parent.mkdir(parents=True, exist_ok=True)
+        cpt_resource.write_text("{}\n", encoding="utf-8")
+        unrelated_source = self.root / "app/src/main/java/com/example/Production.java"
+        unrelated_source.parent.mkdir(parents=True, exist_ok=True)
+        unrelated_source.write_text("class Production {}\n", encoding="utf-8")
+
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        frozen = mapping["freeze"]["files"]
+        self.assertIn(cpt_file, frozen)
+        self.assertIn(cpt_resource.relative_to(self.root).as_posix(), frozen)
+        self.assertIn("app/src/test/resources/order.bpmn", frozen)
+        self.assertNotIn(unrelated_source.relative_to(self.root).as_posix(), frozen)
+
+        cpt_path = self.root / cpt_file
+        cpt_path.write_text("class OrderCptTest { void weakened() {} }\n", encoding="utf-8")
+        issues = gate.validate_test_freeze(self.root, plan, mapping)
+        self.assertTrue(
+            any(
+                f"{cpt_file}: frozen test file changed without an approved" in issue
+                for issue in issues
+            ),
+            issues,
+        )
+
+    def test_test_suite_roots_are_locked_by_source_snapshot(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_source_roots=["app/custom-tests"],
+            test_resource_roots=["app/custom-resources"],
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        for root_type in ("test_source_roots", "test_resource_roots"):
+            changed = json.loads(json.dumps(inventory))
+            changed["test_suites"][0][root_type] = [f"app/changed-{root_type}"]
+            with self.subTest(root_type=root_type):
+                with self.assertRaisesRegex(
+                    gate.EvidenceError, "Test Inventory or C7 suite commands changed"
+                ):
+                    gate.verify_unchanged_source(self.root, changed)
+
+    def test_test_suite_roots_reject_paths_outside_the_module(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        cases = (
+            ("test_source_roots", "../outside"),
+            ("test_resource_roots", "models"),
+            ("test_source_roots", "app/src/test/resources/order.bpmn"),
+        )
+        for root_type, path in cases:
+            changed = json.loads(json.dumps(inventory))
+            changed["test_suites"][0][root_type] = [path]
+            with self.subTest(root_type=root_type, path=path):
+                with self.assertRaises(gate.EvidenceError):
+                    gate.test_contract(self.root, changed)
+
+    def test_test_suite_roots_cannot_include_a_nested_module(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["modules"].append("app/nested")
+        inventory["test_suites"][0]["test_source_roots"] = ["app/nested/src/test"]
+
+        with self.assertRaisesRegex(gate.EvidenceError, "another Step 2 module"):
+            gate.test_contract(self.root, inventory)
+
+    def test_test_freeze_rejects_a_missing_configured_root(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_source_roots=["app/custom-tests"],
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+
+        with self.assertRaisesRegex(gate.EvidenceError, "custom-tests"):
+            self.submit(("project", ".", "test_freeze", None), command=[])
 
     def test_mock_boundary_requires_approval_for_new_worker_mock(self):
         self.configure_test_run(

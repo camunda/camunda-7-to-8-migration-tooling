@@ -103,6 +103,9 @@ In the Step 2 inventory, set `coverage_reports` on the matching `test_suites[]` 
 project-relative globs when Camunda 7 coverage reports use another path.
 The default Camunda 7 coverage paths are `target/process-test-coverage/**/report.json` and
 `target/process_test_coverage/**/*.json`.
+Where a suite uses custom test source or resource directories, list each project-relative path in
+`test_source_roots` or `test_resource_roots`. Each path must remain inside that suite's module.
+Each configured root must exist as a directory when the freeze check runs.
 
 ## Camunda 7 baseline
 
@@ -262,8 +265,11 @@ After test migration, run the freeze check:
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
 ```
 
-The validator hashes every file under `src/test/` in each module with an in-scope `Migrate` test.
-This includes test source files and test resources.
+The validator hashes each existing file named by a `Migrate` Test Inventory row. It also hashes
+every file under `src/test/` in each module with an in-scope `Migrate` test.
+For suites with migrated tests, it hashes every file under configured `test_source_roots` and
+`test_resource_roots`.
+The source snapshot locks these root settings before migration starts.
 The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
 unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
 rejects it.

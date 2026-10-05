@@ -135,6 +135,12 @@ After the test migration and before production-code migration, freeze test files
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
 ```
 
+The validator freezes existing Test Inventory files marked `Migrate`, files under each in-scope
+module's `src/test/`, and files under configured test roots for suites with migrated tests.
+Set custom `test_source_roots` and `test_resource_roots` in the Step 2 inventory before `init`.
+Each root must be project-relative and inside its suite module. Each root must exist when the
+freeze check runs.
+
 The validator stores SHA-256 hashes in `test-mapping.json`. During production-code migration, do not
 edit a frozen test file. Ask the user before a test change. Record an approved `test_changes` entry
 with the file, reason, old hash, new hash, and approver. The gate rejects an unapproved change.

@@ -11,9 +11,10 @@ The gate changes that claim to `NOT READY`.
 The other tests cover a complete passing scope, independent failures, missing records, runtime
 modules, process assertions, Docker classification, path safety, and report replacement.
 They also cover two-module `Sample` collisions, recurring starts, model-bound timer observations,
-due-date blockers, stale prerequisite checks, JUnit baselines, test parity, frozen files, repeated
-CPT runs, CPT 8.9.21 report compatibility, mock approvals, and coverage drops. The Python tests use
-synthetic evidence and do not access a Camunda cluster.
+due-date blockers, stale prerequisite checks, JUnit baselines, test parity, frozen files from
+inventory paths and custom suite roots, repeated CPT runs, CPT 8.9.21 report compatibility, mock
+approvals, and coverage drops. The Python tests use synthetic evidence and do not access a Camunda
+cluster.
 New regressions also reject duplicate C7-to-CPT mappings and source changes during baseline capture.
 They reject tampered freeze snapshots and worker mocks outside auto-mocked models. They also reject
 coverage parity when a covered process ID appears in multiple converted models.
