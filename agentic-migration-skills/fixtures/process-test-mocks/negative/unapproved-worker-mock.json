@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "c7_id": "c7-source:org.camunda.example.processmock.InvoiceProcessTest#realWorkerRuns",
+      "test_kind": "process test",
+      "c7_result": "passed",
+      "c8_ids": [
+        "expected-c8:org.camunda.example.processmock.InvoiceProcessTest#realWorkerRuns"
+      ],
+      "mocks": {
+        "c7": [],
+        "c8": [
+          "processTestContext.mockJobWorker(\"validate-invoice\")"
+        ]
+      },
+      "status": "migrated"
+    }
+  ],
+  "mock_changes": []
+}

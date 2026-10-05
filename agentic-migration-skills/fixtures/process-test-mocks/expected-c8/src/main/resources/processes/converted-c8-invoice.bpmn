@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_Invoice" targetNamespace="http://camunda.org/examples/process-test-mocks" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:error id="Error_InvoiceRejected" errorCode="INVOICE_REJECTED" />
+  <bpmn:process id="invoice" name="Invoice" isExecutable="true">
+    <bpmn:startEvent id="Start_Invoice" name="Start invoice">
+      <bpmn:outgoing>Flow_Start_Validate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Validate" sourceRef="Start_Invoice" targetRef="Task_Validate" />
+    <bpmn:serviceTask id="Task_Validate" name="Validate invoice">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="validate-invoice" retries="1" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Validate_Notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_Validate_Notify" sourceRef="Task_Validate" targetRef="Task_Notify" />
+    <bpmn:serviceTask id="Task_Notify" name="Notify customer">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="notify-invoice" retries="1" />
+        <zeebe:executionListeners>
+          <zeebe:executionListener eventType="start" type="notify-start" retries="1" />
+        </zeebe:executionListeners>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Validate_Notify</bpmn:incoming>
+      <bpmn:outgoing>Flow_Notify_Archive</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="Boundary_NotifyRejected" name="Invoice rejected" attachedToRef="Task_Notify">
+      <bpmn:outgoing>Flow_NotifyRejected_End</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_InvoiceRejected" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_Notify_Archive" sourceRef="Task_Notify" targetRef="Call_Archive" />
+    <bpmn:callActivity id="Call_Archive" name="Archive invoice">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="archive-invoice" propagateAllChildVariables="false" propagateAllParentVariables="true" />
+        <zeebe:ioMapping>
+          <zeebe:output source="=archived" target="archived" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Notify_Archive</bpmn:incoming>
+      <bpmn:outgoing>Flow_Archive_End</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:sequenceFlow id="Flow_Archive_End" sourceRef="Call_Archive" targetRef="End_Invoice" />
+    <bpmn:endEvent id="End_Invoice" name="Invoice archived">
+      <bpmn:incoming>Flow_Archive_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_NotifyRejected_End" sourceRef="Boundary_NotifyRejected" targetRef="End_InvoiceRejected" />
+    <bpmn:endEvent id="End_InvoiceRejected" name="Invoice rejected">
+      <bpmn:incoming>Flow_NotifyRejected_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Invoice">
+    <bpmndi:BPMNPlane id="BPMNPlane_Invoice" bpmnElement="invoice">
+      <bpmndi:BPMNShape id="Start_Invoice_di" bpmnElement="Start_Invoice">
+        <dc:Bounds x="80" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Validate_di" bpmnElement="Task_Validate">
+        <dc:Bounds x="160" y="98" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Notify_di" bpmnElement="Task_Notify">
+        <dc:Bounds x="310" y="98" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_NotifyRejected_di" bpmnElement="Boundary_NotifyRejected">
+        <dc:Bounds x="342" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Call_Archive_di" bpmnElement="Call_Archive">
+        <dc:Bounds x="500" y="98" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Invoice_di" bpmnElement="End_Invoice">
+        <dc:Bounds x="660" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_InvoiceRejected_di" bpmnElement="End_InvoiceRejected">
+        <dc:Bounds x="460" y="250" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Validate_di" bpmnElement="Flow_Start_Validate">
+        <di:waypoint x="116" y="138" />
+        <di:waypoint x="160" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Validate_Notify_di" bpmnElement="Flow_Validate_Notify">
+        <di:waypoint x="260" y="138" />
+        <di:waypoint x="310" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Notify_Archive_di" bpmnElement="Flow_Notify_Archive">
+        <di:waypoint x="410" y="138" />
+        <di:waypoint x="500" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Archive_End_di" bpmnElement="Flow_Archive_End">
+        <di:waypoint x="600" y="138" />
+        <di:waypoint x="660" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_NotifyRejected_End_di" bpmnElement="Flow_NotifyRejected_End">
+        <di:waypoint x="360" y="196" />
+        <di:waypoint x="360" y="268" />
+        <di:waypoint x="460" y="268" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

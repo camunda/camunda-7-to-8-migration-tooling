@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_Invoice"
+                  targetNamespace="http://camunda.org/examples/process-test-mocks">
+  <bpmn:error id="Error_InvoiceRejected" errorCode="INVOICE_REJECTED" />
+  <bpmn:process id="invoice" name="Invoice" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_Invoice">
+      <bpmn:outgoing>Flow_Start_Validate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Validate" sourceRef="Start_Invoice" targetRef="Task_Validate" />
+    <bpmn:serviceTask id="Task_Validate" name="Validate invoice" camunda:expression="${invoiceService.isValid(invoiceId)}">
+      <bpmn:incoming>Flow_Start_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Validate_Notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_Validate_Notify" sourceRef="Task_Validate" targetRef="Task_Notify" />
+    <bpmn:serviceTask id="Task_Notify" name="Notify customer" camunda:delegateExpression="${notifyDelegate}">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="start" delegateExpression="${notifyStart}" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Validate_Notify</bpmn:incoming>
+      <bpmn:outgoing>Flow_Notify_Archive</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="Boundary_NotifyRejected" attachedToRef="Task_Notify">
+      <bpmn:outgoing>Flow_NotifyRejected_End</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_InvoiceRejected" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_Notify_Archive" sourceRef="Task_Notify" targetRef="Call_Archive" />
+    <bpmn:callActivity id="Call_Archive" name="Archive invoice" calledElement="archive-invoice">
+      <bpmn:extensionElements>
+        <camunda:out source="archived" target="archived" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Notify_Archive</bpmn:incoming>
+      <bpmn:outgoing>Flow_Archive_End</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:sequenceFlow id="Flow_Archive_End" sourceRef="Call_Archive" targetRef="End_Invoice" />
+    <bpmn:endEvent id="End_Invoice">
+      <bpmn:incoming>Flow_Archive_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_NotifyRejected_End" sourceRef="Boundary_NotifyRejected" targetRef="End_InvoiceRejected" />
+    <bpmn:endEvent id="End_InvoiceRejected">
+      <bpmn:incoming>Flow_NotifyRejected_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>

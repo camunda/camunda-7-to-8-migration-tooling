@@ -3,6 +3,9 @@
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked
 (SHOULD) and an option is marked (MAY).
 
+Camunda 7 (C7) process-test mocks replace code at a specific boundary. Camunda Process Test (CPT)
+can mock workers, child processes, and decisions.
+
 This reference uses C7 for Camunda 7, C8 for Camunda 8, and CPT for Camunda Process Test.
 
 ## Test Inventory
@@ -44,7 +47,7 @@ CMMN tests and tests that use unsupported Camunda engine internals do not meet t
 The skill does not assign `manual redesign` based on `ClockUtil` alone.
 The skill inventories CMMN tests and tests that use unsupported engine internals as `manual redesign` with `Report only` handling.
 
-## Test kinds
+### Test kinds
 
 | Priority | Test kind | Detect by | Handling |
 |---|---|---|---|
@@ -772,6 +775,114 @@ When a Scenario stub uses `defer(period, action)` and the total time increase re
 skill runs the deferred action.
 
 One valid schedule uses five 12-hour increments for a daily timer and `defer("P2DT12H", action)`.
+
+## Mock boundary
+
+Migrate every in-scope test that the Test Inventory marks with the `mocks` modifier.
+Recognize `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`, and `camunda-bpm-mockito`
+(`org.camunda.bpm.extension.mockito`) as equivalent C7 mock APIs when their operations match.
+Where a C7 test uses `org.camunda.bpm.engine.test.mock.Mocks`, configure `MockExpressionManager`
+in its test engine.
+
+The skill identifies what each C7 mock replaced before it chooses a CPT mock:
+
+| C7 mock replaced | CPT replacement | Boundary rule |
+|---|---|---|
+| A whole delegate, listener, or expression bean, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition` in the converted copy. |
+| A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
+| A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
+| A decision that the C7 test mocked through a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and output shape. |
+| No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
+
+Never derive a job type from a C7 bean name. If the converted copy has no matching job type, do not
+invent one. If the converter did not keep a listener, there is no listener job to mock.
+If the real worker cannot run, the skill asks the user before it adds a mock.
+
+## C7 mock API mapping
+
+| C7 test code | CPT test code | Required behavior |
+|---|---|---|
+| `Mocks.register("svc", mock)` for a `camunda:expression` collaborator | Keep the real worker and provide the same Mockito mock to it | Preserve the collaborator boundary. |
+| `Mocks.register("delegate", mock)` for a whole `camunda:delegateExpression` | `mockJobWorker(type)` | Use the converted task's job type. |
+| `CamundaMockito.registerMockInstance(...)` | Apply the same-boundary table | Classify the registered object. Do not infer its boundary from the helper name. |
+| `@MockBean` or `@MockitoBean` for a service called by a delegate | `@MockitoBean` or the version-compatible Spring mock for the same service | Keep the real worker enabled. |
+| `registerJavaDelegateMock("delegate")` | `mockJobWorker(type).thenComplete()` | The whole delegate was mocked. |
+| `.onExecutionSetVariables(vars)` or `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | Preserve every output variable. |
+| `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
+| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | Preserve the BPMN error code and message when the test checks them. |
+| `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
+| `autoMock("process.bpmn")` | One `mockJobWorker(type)` for each delegated job type in the converted copy | Include listener job types. |
+| `registerExecutionListenerMock("listener")` or `registerTaskListenerMock("listener")` | `mockJobWorker(type)` for the listener type in the converted copy | Omit the mock when the converted copy has no listener job. |
+| `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | Use the function overload when outputs depend on parent variables. |
+| A call-activity mock using `onExecutionWaitForMessage`, `onExecutionWaitForTimerWithDuration`, `onExecutionSendMessage`, `onExecutionRunIntoError`, or `onExecutionDo` | No direct counterpart | Deploy the real converted child or ask the user to approve a test-only child model. |
+| `verifyJavaDelegateMock("delegate").executed(times(n))` | `mock.getInvocations()` | Read the count only after a waiting CPT assertion. |
+| `ArgumentCaptor<DelegateExecution>` on a delegate mock | `mock.getActivatedJobs()` and `job.getVariablesAsMap()` | Read the activated job after a waiting CPT assertion. |
+| `Mocks.reset()` or `@After` engine-mock cleanup | Remove the engine-mock cleanup | CPT resets runtime data after each test. |
+
+`withHandler` can complete a job with a selected output map. It can also fail a job:
+
+```java
+processTestContext.mockJobWorker("notify").withHandler((jobClient, job) ->
+    jobClient.newFailCommand(job).retries(0).errorMessage("notify failed").send().join());
+```
+
+The CPT mock reports invocations and activated jobs without waiting. Mockito `verify` also does not
+wait. Place a waiting CPT assertion on the related element before reading either mock. Use
+`verify(mock, timeout(...))` only when no suitable waiting CPT assertion exists.
+
+## Real workers and Spring
+
+Where migrated workers are Spring beans, the skill uses `@SpringBootTest` with
+`@CamundaSpringProcessTest` and `@MockitoBean` for a mocked collaborator. (SHOULD) This also applies
+when the C7 test had no Spring context. Use a minimal `TestProcessApplication` in another package.
+Scan only the worker packages.
+
+Where a Spring test mocks a job type, the test disables its real worker:
+
+```properties
+camunda.client.worker.override.<job type>.enabled=false
+```
+
+Add one override for every mocked job type. Otherwise, the real worker and mock can handle the same
+job.
+
+Where the migrated worker is not a Spring bean, the test opens the real worker in `@BeforeEach`.
+The test uses the injected CPT client:
+
+```java
+client.newWorker().jobType(type).handler(handler).open();
+```
+
+CPT closes its injected client after each test. Closing the client also closes workers that the test
+opened through it.
+
+## Parity ledger
+
+Record the C7 mocks and CPT mocks for each mapped test in the parity ledger's `mocks` field. Keep
+both `c7` and `c8` arrays, including an empty array when that side has no mocks:
+
+```json
+{
+  "mocks": {
+    "c7": ["Mocks.register(\"invoiceService\", mock)"],
+    "c8": ["@MockitoBean InvoiceService"]
+  }
+}
+```
+
+The mock-boundary review reads these arrays. Do not write a passing review result by hand.
+
+If the CPT test adds a mock that the C7 test did not use, ask the user for approval. Record each
+approved addition in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and `approved_by`.
+Without approval, the mock-boundary review fails.
+
+## Build cleanup
+
+Remove `camunda-platform-7-mockito`, `c7-mockito`, or `camunda-bpm-mockito` only when no remaining
+test uses that artifact. Keep Mockito when migrated tests still use Mockito.
+
+Remove `MockExpressionManager` settings from a test `camunda.cfg.xml` file when the migration deletes
+that file. Do not retain a C7 test-engine configuration only to support migrated CPT tests.
 
 ## References
 
