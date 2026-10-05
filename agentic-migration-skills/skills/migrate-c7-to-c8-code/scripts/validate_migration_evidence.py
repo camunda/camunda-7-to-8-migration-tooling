@@ -61,6 +61,14 @@ DEFAULT_C7_COVERAGE_REPORTS = (
 )
 DEFAULT_CPT_COVERAGE_REPORTS = ("target/process-test-coverage/report.json",)
 TEST_EXECUTION_KINDS = {"tests", "process_path"}
+TEST_LEDGER_CHECK_KINDS = {
+    "test_freeze",
+    "test_repeat",
+    "test_parity",
+    "coverage_parity",
+    "assertion_strength",
+    "mock_boundary",
+}
 TEST_RUN_MODES = {"run", "migrate_only"}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 
@@ -204,24 +212,30 @@ def collect_source_files(root, modules, models):
 
 
 def source_test_contract(test_contract):
+    return test_contract_snapshot(test_contract, include_modules=True)
+
+
+def test_contract_snapshot(test_contract, *, include_modules):
     if test_contract is None:
         return None
-    return {
+    snapshot = {
         "mode": test_contract["mode"],
         "tests": test_contract["tests"],
-        "modules": test_contract["modules"],
-        "suites": [
-            {
-                "module": suite["module"],
-                "name": suite["name"],
-                "command": suite["command"],
-                "test_ids": suite["test_ids"],
-                "reports": suite["reports"],
-                "coverage_reports": suite["coverage_reports"],
-            }
-            for suite in test_contract["suites"].values()
-        ],
     }
+    if include_modules:
+        snapshot["modules"] = test_contract["modules"]
+    snapshot["suites"] = [
+        {
+            "module": suite["module"],
+            "name": suite["name"],
+            "command": suite["command"],
+            "test_ids": suite["test_ids"],
+            "reports": suite["reports"],
+            "coverage_reports": suite["coverage_reports"],
+        }
+        for suite in test_contract["suites"].values()
+    ]
+    return snapshot
 
 
 def source_snapshot_digest(modules, models, files, test_contract=None):
@@ -2564,21 +2578,7 @@ def requirements(root, evidence):
         "deployment_sets": declared_sets,
         "source_update_locations": source_update_locations,
         "active_timer_update_decision": decision,
-        "test_contract": {
-            "mode": tests["mode"],
-            "tests": tests["tests"],
-            "suites": [
-                {
-                    "module": suite["module"],
-                    "name": suite["name"],
-                    "command": suite["command"],
-                    "test_ids": suite["test_ids"],
-                    "reports": suite["reports"],
-                    "coverage_reports": suite["coverage_reports"],
-                }
-                for suite in tests["suites"].values()
-            ],
-        },
+        "test_contract": test_contract_snapshot(tests, include_modules=False),
         "files": hashes,
     }
     source_digest = hashlib.sha256(
@@ -3366,14 +3366,7 @@ def load_checks(root, evidence, plan, issues):
                 and check.get("source_digest") == inventory.get("source_snapshot_sha256")
             ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
-            if mapping is not None and key[2] in (
-                "test_freeze",
-                "test_repeat",
-                "test_parity",
-                "coverage_parity",
-                "assertion_strength",
-                "mock_boundary",
-            ):
+            if mapping is not None and key[2] in TEST_LEDGER_CHECK_KINDS:
                 digest_kind = (
                     "freeze"
                     if key[2] == "test_freeze"
@@ -3451,11 +3444,11 @@ def load_checks(root, evidence, plan, issues):
                     raise EvidenceError(f"{key}: passing review lacks evidence")
             elif method in ("snapshot", "computed"):
                 if command is not None or exit_code is not None:
-                    raise EvidenceError(f"{key}: computed evidence cannot have a command result")
+                    raise EvidenceError(f"{key}: {method} evidence cannot have a command result")
                 if result not in ("passed", "failed", "blocked"):
-                    raise EvidenceError(f"{key}: invalid computed result")
+                    raise EvidenceError(f"{key}: invalid {method} result")
                 if result == "passed" and not str(check.get("output", "")).strip():
-                    raise EvidenceError(f"{key}: passing computed evidence lacks output")
+                    raise EvidenceError(f"{key}: passing {method} evidence lacks output")
             else:
                 raise EvidenceError(f"{key}: unsupported evidence method")
             if result not in ("passed", "failed", "blocked", "unknown", "not_run"):
@@ -3992,14 +3985,7 @@ def record(root, args):
     extra = {}
     check_method = "command" if args.action == "run" else "review"
     mapping = None
-    if plan.test_contract["mode"] == "run" and key[2] in (
-        "test_freeze",
-        "test_repeat",
-        "test_parity",
-        "coverage_parity",
-        "assertion_strength",
-        "mock_boundary",
-    ):
+    if plan.test_contract["mode"] == "run" and key[2] in TEST_LEDGER_CHECK_KINDS:
         mapping = read_test_mapping(root, required=True)
     if args.action == "run" and method == "snapshot":
         command = list(args.command or [])

@@ -476,14 +476,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     expected_digest is None
                     or check.get("source_digest") == expected_digest
                 )
-                if key[2] in (
-                    "test_freeze",
-                    "test_repeat",
-                    "test_parity",
-                    "coverage_parity",
-                    "assertion_strength",
-                    "mock_boundary",
-                ):
+                if key[2] in gate.TEST_LEDGER_CHECK_KINDS:
                     mapping = gate.read_test_mapping(self.root)
                     digest_kind = (
                         "freeze"
@@ -599,6 +592,58 @@ class ValidationEvidenceTest(unittest.TestCase):
         baseline = mapping["baseline"]["suites"][0]
         self.assertEqual("failed", baseline["result"])
         self.assertIn("C7 baseline must run before source changes", baseline["reason"])
+
+    def test_snapshot_and_computed_evidence_errors_name_their_method(self):
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        key = ("project", ".", "test_freeze", None)
+        plan = Namespace(
+            allowed={key},
+            test_contract={"mode": None},
+            source_digest="plan-source",
+        )
+        cases = (
+            (
+                {"command": ["test"]},
+                "{method} evidence cannot have a command result",
+            ),
+            ({"result": "invalid"}, "invalid {method} result"),
+            (
+                {"result": "passed", "output": ""},
+                "passing {method} evidence lacks output",
+            ),
+        )
+
+        for method in ("snapshot", "computed"):
+            for changes, message in cases:
+                with self.subTest(method=method, message=message):
+                    check = {
+                        "run_id": inventory["run_id"],
+                        "type": key[0],
+                        "target": key[1],
+                        "kind": key[2],
+                        "scenario": key[3],
+                        "method": method,
+                        "result": "failed",
+                        "command": None,
+                        "exit_code": None,
+                        "output": "Failure details",
+                        "reason": "The check did not pass.",
+                    }
+                    check.update(changes)
+                    reference = gate.write_check_log(self.root, key, check)
+                    issues = []
+
+                    gate.load_checks(
+                        self.root,
+                        {"checks": [reference]},
+                        plan,
+                        issues,
+                    )
+
+                    self.assertEqual(
+                        [f"{key}: {message.format(method=method)}"],
+                        issues,
+                    )
 
     def test_passing_unlisted_report_only_test_requires_disposition(self):
         test_id = "app:com.example.LegacyTest#testLegacy"
