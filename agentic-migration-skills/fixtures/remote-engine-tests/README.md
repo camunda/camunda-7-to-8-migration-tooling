@@ -51,7 +51,7 @@ example URL with that engine's Engine REST URL:
 ```sh
 mvn -f agentic-migration-skills/fixtures/remote-engine-tests/shared-engine/c7-source/pom.xml test \
   -Dshared-engine.test.enabled=true \
-  -Dtest.engine-rest-url=http://localhost:8080/engine-rest
+  -Dtest.engine-rest-url=http://shared-engine.example.invalid/engine-rest
 ```
 
 `expected-shared-engine/MIGRATION_REPORT.md` records this test as `manual` in the parity ledger.

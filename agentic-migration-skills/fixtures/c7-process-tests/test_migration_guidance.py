@@ -18,6 +18,9 @@ EXPECTED_TESTS_ONLY = FIXTURE / "expected-tests-only" / "MIGRATION_REPORT.md"
 MIGRATION_SKILL = (
     REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 )
+SHARED_ENGINE_REASON = (
+    "CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime."
+)
 TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
@@ -1603,6 +1606,15 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertEqual(parity_by_id[test_id]["Verdict"], verdict)
                 self.assertIn(note.lower(), normalized(parity_by_id[test_id]["Notes"]))
 
+        shared_engine_test_id = (
+            "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine"
+        )
+        self.assertEqual(parity_by_id[shared_engine_test_id]["Verdict"], "manual")
+        self.assertEqual(
+            parity_by_id[shared_engine_test_id]["Notes"],
+            SHARED_ENGINE_REASON,
+        )
+
     def test_lower_priority_scenarios_require_valid_primary_parity_rows(self):
         test_id = (
             "engine-tests:com.camunda.fixture.order."
@@ -1655,6 +1667,27 @@ class MigrationGuidanceTest(unittest.TestCase):
                     migrated_test_parity_errors(
                         inventory, parity_by_id, {test_id}
                     ),
+                )
+
+    def test_shared_engine_reason_is_reported_in_both_assessments(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        shared_engine_test_id = (
+            "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine"
+        )
+
+        for assessment_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = {
+                row["Test ID"]: row for row in markdown_table(assessment_path, headers)
+            }
+            with self.subTest(assessment=assessment_path):
+                self.assertIn(shared_engine_test_id, rows)
+                self.assertEqual(rows[shared_engine_test_id]["Handling"], "Report only")
+                expected_notes = "R2; {}".format(SHARED_ENGINE_REASON)
+                if assessment_path == EXPECTED_ASSESSMENT_88:
+                    expected_notes += " test migration needs Camunda 8.9 or later"
+                self.assertEqual(
+                    rows[shared_engine_test_id]["Notes"],
+                    expected_notes,
                 )
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):

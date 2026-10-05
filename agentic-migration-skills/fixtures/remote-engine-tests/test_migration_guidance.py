@@ -154,7 +154,10 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn(("org.springframework.boot", "spring-boot-starter-web", "test"), dependencies)
         self.assertIn("shared-engine/c7-source/pom.xml test", readme)
         self.assertIn("-Dshared-engine.test.enabled=true", readme)
-        self.assertIn("-Dtest.engine-rest-url=http://localhost:8080/engine-rest", readme)
+        self.assertIn(
+            "-Dtest.engine-rest-url=http://shared-engine.example.invalid/engine-rest",
+            readme,
+        )
 
     def test_reference_classifies_remote_engine_tests_and_boundaries(self):
         reference = " ".join(REFERENCE.read_text().lower().split())
