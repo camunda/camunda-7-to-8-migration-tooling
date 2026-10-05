@@ -20,8 +20,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
 @Deployment(resources = "review-edge-cases.bpmn")
 public class ScenarioMappingEdgeCasesTest {
@@ -29,7 +33,9 @@ public class ScenarioMappingEdgeCasesTest {
   @Rule public ProcessEngineRule processEngineRule = new ProcessEngineRule();
 
   @Mock private ProcessScenario process;
-  @Mock private Collaborator collaborator;
+  @Spy private Collaborator collaborator = new Collaborator();
+  @Captor private ArgumentCaptor<String> orderIdCaptor;
+  @InjectMocks private CollaboratorService collaboratorService;
 
   private AutoCloseable mocks;
 
@@ -78,13 +84,25 @@ public class ScenarioMappingEdgeCasesTest {
   }
 
   @Test
-  public void shouldKeepUnrelatedMockitoMockInitialized() {
+  public void shouldKeepUnrelatedMockitoAnnotationsInitialized() {
     when(collaborator.lookup("order-42")).thenReturn("ready");
 
-    assertEquals("ready", collaborator.lookup("order-42"));
+    assertEquals("ready", collaboratorService.lookup("order-42"));
+    verify(collaborator).lookup(orderIdCaptor.capture());
+    assertEquals("order-42", orderIdCaptor.getValue());
   }
 
-  interface Collaborator {
-    String lookup(String orderId);
+  static class Collaborator {
+    String lookup(String orderId) {
+      return "not-stubbed";
+    }
+  }
+
+  static class CollaboratorService {
+    private Collaborator collaborator;
+
+    String lookup(String orderId) {
+      return collaborator.lookup(orderId);
+    }
   }
 }

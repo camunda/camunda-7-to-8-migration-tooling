@@ -481,8 +481,8 @@ The skill converts the shared engine-test setup before it applies the scenario-s
 4. The skill removes the `ProcessScenario` mock and Scenario runner setup.
 5. The skill removes each Scenario artifact only when no remaining test uses it.
 6. The skill adds `io.camunda:camunda-process-test-java` in test scope.
-7. The skill keeps Mockito and its initialization when a migrated class retains a mock other than
-   `ProcessScenario`.
+7. The skill keeps Mockito initialization and cleanup for retained annotations that rely on
+   `MockitoAnnotations.openMocks(this)`.
 
 The Scenario runner completed external tasks itself. The skill uses `mockJobWorker(type)` for those
 tasks.
@@ -514,7 +514,7 @@ assertion fails after its timeout.
 | Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
 | `@Mock ProcessScenario process` and its Scenario stubs | Remove the mock and Scenario stubs | Map each verification to the CPT assertion rows below. |
-| `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove only when no other `@Mock` fields remain | Keep Mockito initialization and cleanup when the class retains another mock. |
+| `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove only when no retained Mockito annotations require it | Keep initialization and cleanup for `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields that rely on it. |
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
 | `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask("X", variables))` | The action completes the task tested by the condition. |
 | `thenReturn(a, b)` for actions on repeated visits | Chain `.then(a).then(b)` | CPT repeats the last action after earlier actions run. |

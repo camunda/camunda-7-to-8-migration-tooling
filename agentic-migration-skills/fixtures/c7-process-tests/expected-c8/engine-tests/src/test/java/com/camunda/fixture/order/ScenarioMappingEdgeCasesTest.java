@@ -10,6 +10,7 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.CamundaAssert.assertThatProcessInstance;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.camunda.client.CamundaClient;
@@ -22,8 +23,11 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
 @CamundaProcessTest
 @TestDeployment(resources = "converted-c8-review-edge-cases.bpmn")
@@ -31,7 +35,9 @@ class ScenarioMappingEdgeCasesTest {
 
   private CamundaProcessTestContext processTestContext;
 
-  @Mock private Collaborator collaborator;
+  @Spy private Collaborator collaborator = new Collaborator();
+  @Captor private ArgumentCaptor<String> orderIdCaptor;
+  @InjectMocks private CollaboratorService collaboratorService;
 
   private AutoCloseable mocks;
 
@@ -82,10 +88,12 @@ class ScenarioMappingEdgeCasesTest {
   }
 
   @Test
-  void shouldKeepUnrelatedMockitoMockInitialized() {
+  void shouldKeepUnrelatedMockitoAnnotationsInitialized() {
     when(collaborator.lookup("order-42")).thenReturn("ready");
 
-    assertEquals("ready", collaborator.lookup("order-42"));
+    assertEquals("ready", collaboratorService.lookup("order-42"));
+    verify(collaborator).lookup(orderIdCaptor.capture());
+    assertEquals("order-42", orderIdCaptor.getValue());
   }
 
   private ProcessInstanceEvent createMixedFinishInstance() {
@@ -98,7 +106,17 @@ class ScenarioMappingEdgeCasesTest {
         .join();
   }
 
-  interface Collaborator {
-    String lookup(String orderId);
+  static class Collaborator {
+    String lookup(String orderId) {
+      return "not-stubbed";
+    }
+  }
+
+  static class CollaboratorService {
+    private Collaborator collaborator;
+
+    String lookup(String orderId) {
+      return collaborator.lookup(orderId);
+    }
   }
 }
