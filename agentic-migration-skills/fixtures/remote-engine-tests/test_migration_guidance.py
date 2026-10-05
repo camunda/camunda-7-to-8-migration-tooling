@@ -162,7 +162,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn("Do not advance time", non_timer_row)
         self.assertIn("job type", non_timer_row)
 
-    def test_spring_cpt_artifact_matches_target_boot_major(self):
+    def test_cpt_artifacts_and_remote_runtime_configuration_match_target(self):
         reference = REFERENCE.read_text()
         self.assertIn(
             "| Spring Boot 3.5.x | `io.camunda:camunda-process-test-spring-boot-3` |",
@@ -171,6 +171,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn(
             "| Spring Boot 4.x | `io.camunda:camunda-process-test-spring` |",
             reference,
+        )
+        runtime_configuration = " ".join(reference.split())
+        self.assertIn(
+            "| No explicit request for remote mode | Spring or plain Java test | Use the CPT-managed Testcontainers runtime. Never configure remote mode. |",
+            runtime_configuration,
+        )
+        self.assertIn(
+            "| Explicit request for remote mode and a dedicated local Camunda 8 runtime | Spring test | Set Spring property `camunda.process-test.runtime-mode` to `remote` in `application.properties` or `application.yml` (MAY). |",
+            runtime_configuration,
+        )
+        self.assertIn(
+            "| Explicit request for remote mode and a dedicated local Camunda 8 runtime | Plain Java test | Add `src/test/resources/camunda-container-runtime.properties` with `runtimeMode=remote` (MAY). |",
+            runtime_configuration,
         )
         checklist = CHECKLIST.read_text()
         self.assertIn(
@@ -252,6 +265,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             content = path.read_text()
             self.assertNotIn("camunda.process-test.runtime-mode=remote", content)
             self.assertNotIn("runtime-mode: remote", content)
+            self.assertNotIn("runtimeMode=remote", content)
             self.assertNotIn("camunda.bpm.client.base-url", content)
             self.assertNotIn("camunda/camunda-bpm-platform", content)
             self.assertNotIn("/engine-rest", content)
