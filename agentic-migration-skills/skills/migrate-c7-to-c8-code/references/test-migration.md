@@ -485,7 +485,7 @@ The skill uses a CPT conditional behavior for each user-task, message, signal, e
 conditional-event stub. Each condition waits for the corresponding process state. The action
 resolves that state so CPT can detect it again.
 
-The skill may use sequential CPT calls when the process path is linear. The skill uses
+The skill uses sequential CPT calls when the process path is linear. (MAY) The skill uses
 `mockJobWorker(type)` for external-task stubs. The skill advances time explicitly for timer stubs.
 
 ```java
