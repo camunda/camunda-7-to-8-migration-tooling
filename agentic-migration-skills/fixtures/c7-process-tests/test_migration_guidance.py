@@ -73,6 +73,56 @@ def markdown_table_cells(line):
     return [cell.strip() for cell in line.split("|")]
 
 
+def markdown_character_is_escaped(line, index):
+    backslash_count = 0
+    previous = index - 1
+    while previous >= 0 and line[previous] == "\\":
+        backslash_count += 1
+        previous -= 1
+    return backslash_count % 2 == 1
+
+
+def markdown_table_has_delimiter(line):
+    code_delimiter_length = 0
+    index = 0
+    while index < len(line):
+        if line[index] == "`":
+            delimiter_end = index + 1
+            while delimiter_end < len(line) and line[delimiter_end] == "`":
+                delimiter_end += 1
+            delimiter_length = delimiter_end - index
+            if code_delimiter_length == 0:
+                if not markdown_character_is_escaped(line, index):
+                    closing_index = delimiter_end
+                    while closing_index < len(line):
+                        if line[closing_index] == "`":
+                            closing_end = closing_index + 1
+                            while (
+                                closing_end < len(line)
+                                and line[closing_end] == "`"
+                            ):
+                                closing_end += 1
+                            if closing_end - closing_index == delimiter_length:
+                                code_delimiter_length = delimiter_length
+                                break
+                            closing_index = closing_end
+                        else:
+                            closing_index += 1
+            elif delimiter_length == code_delimiter_length:
+                code_delimiter_length = 0
+            index = delimiter_end
+            continue
+
+        if (
+            line[index] == "|"
+            and code_delimiter_length == 0
+            and not markdown_character_is_escaped(line, index)
+        ):
+            return True
+        index += 1
+    return False
+
+
 def markdown_table(path, required_headers):
     lines = path.read_text(encoding="utf-8").splitlines()
     for index, line in enumerate(lines):
@@ -103,8 +153,8 @@ def markdown_table(path, required_headers):
 def reference_table_separator_errors(lines):
     errors = []
     for index, header_line in enumerate(lines[:-1]):
-        if "|" not in header_line or (
-            index > 0 and "|" in lines[index - 1]
+        if not markdown_table_has_delimiter(header_line) or (
+            index > 0 and markdown_table_has_delimiter(lines[index - 1])
         ):
             continue
 
@@ -123,11 +173,6 @@ def reference_table_separator_errors(lines):
                 header_line.strip().startswith("|")
                 or header_line.strip().endswith("|")
             )
-            if (
-                not header_has_outer_pipes
-                and len(separator_cells) != len(header_cells)
-            ):
-                continue
         else:
             separator_cells = markdown_table_cells(separator)
 
@@ -145,6 +190,16 @@ def reference_table_separator_errors(lines):
             continue
 
         if missing_pipes:
+            if (
+                not header_has_outer_pipes
+                and len(header_cells) != len(separator_cells)
+            ):
+                errors.append(
+                    "Table header and separator must have matching column counts on line {}: {}".format(
+                        index + 1, header_line
+                    )
+                )
+                continue
             errors.append(
                 "Table separator must contain pipe delimiters on line {}: {}".format(
                     index + 2, separator
@@ -316,6 +371,19 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertTrue(errors)
                 self.assertIn(expected_error, errors[0])
 
+    def test_reference_table_rejects_pipe_less_separator_column_mismatches(self):
+        cases = (
+            ("First | Second", "---"),
+            ("First | Second", "---", "one | two"),
+            ("First | Second", "--- --- ---", "one | two"),
+            ("First ` | Second", "---"),
+        )
+        for lines in cases:
+            with self.subTest(lines=lines):
+                errors = reference_table_separator_errors(lines)
+                self.assertTrue(errors)
+                self.assertIn("matching column counts", errors[0])
+
     def test_reference_table_separator_validator_ignores_prose_with_pipes(self):
         lines = [
             "Use `first | second` for the choice.",
@@ -325,6 +393,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         ]
 
         self.assertEqual([], reference_table_separator_errors(lines))
+        self.assertEqual(
+            [],
+            reference_table_separator_errors(
+                ["Use left \\| right for the choice.", "---", "Keep reading."]
+            ),
+        )
 
     def test_reference_table_data_rows_are_not_separators(self):
         lines = [
