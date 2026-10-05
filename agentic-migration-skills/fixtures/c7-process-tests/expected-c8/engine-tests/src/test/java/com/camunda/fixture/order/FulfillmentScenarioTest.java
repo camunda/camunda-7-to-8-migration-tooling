@@ -29,6 +29,8 @@ class FulfillmentScenarioTest {
 
   @RepeatedTest(2)
   void shouldCompleteWorkAfterTwoDailyReminders() {
+    String orderId = "order-42";
+    Map<String, Object> variables = Map.of("orderId", orderId);
     CamundaClient client = processTestContext.createClient();
 
     processTestContext
@@ -42,14 +44,14 @@ class FulfillmentScenarioTest {
         .when(
             () ->
                 assertThatProcessInstance(byProcessId("fulfillment"))
-                    .isWaitingForMessage("CarrierConfirmed", "order-42"))
+                    .isWaitingForMessage("CarrierConfirmed", orderId))
         .as("CarrierConfirmed")
         .then(
             () ->
                 client
                     .newCorrelateMessageCommand()
                     .messageName("CarrierConfirmed")
-                    .correlationKey("order-42")
+                    .correlationKey(orderId)
                     .variables(Map.of("carrierConfirmed", true))
                     .send()
                     .join());
@@ -61,7 +63,7 @@ class FulfillmentScenarioTest {
             .newCreateInstanceCommand()
             .bpmnProcessId("fulfillment")
             .latestVersion()
-            .variables(Map.of("orderId", "order-42"))
+            .variables(variables)
             .send()
             .join();
 

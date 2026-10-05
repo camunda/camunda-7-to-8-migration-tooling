@@ -62,7 +62,9 @@ class ScenarioMappingEdgeCasesTest {
             .send()
             .join();
 
-    assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey())).isCompleted();
+    assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey()))
+        .isCompleted()
+        .hasCompletedElements("MessageStarted");
   }
 
   @Test
