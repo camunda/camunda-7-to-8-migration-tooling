@@ -39,9 +39,20 @@ python3 -m unittest discover \
 runs its `charge-payment` worker against the configured shared engine, and checks process
 completion with `charged=true`.
 By default, JUnit skips this test. The configured URL uses the reserved `.invalid` domain.
-Run the test only when a shared engine with the `payment` process is available.
-Set `-Dshared-engine.test.enabled=true` to enable the test.
-Override `test.engine-rest-url` with that engine's Engine REST URL.
+Compile the test without connecting to an engine:
+
+```sh
+mvn -f agentic-migration-skills/fixtures/remote-engine-tests/shared-engine/c7-source/pom.xml test
+```
+
+Run the test only when a shared engine with the `payment` process is available. Replace the
+example URL with that engine's Engine REST URL:
+
+```sh
+mvn -f agentic-migration-skills/fixtures/remote-engine-tests/shared-engine/c7-source/pom.xml test \
+  -Dshared-engine.test.enabled=true \
+  -Dtest.engine-rest-url=http://localhost:8080/engine-rest
+```
 
 `expected-shared-engine/MIGRATION_REPORT.md` records this test as `manual` in the parity ledger.
 The report-only reason is: "CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime."

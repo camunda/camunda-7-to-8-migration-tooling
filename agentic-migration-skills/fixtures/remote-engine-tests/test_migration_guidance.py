@@ -123,10 +123,39 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             '@EnabledIfSystemProperty(named = "shared-engine.test.enabled", matches = "true")',
             shared_test,
         )
-        self.assertIn("`-Dshared-engine.test.enabled=true`", readme)
+        self.assertIn("-Dshared-engine.test.enabled=true", readme)
         self.assertIn("starts the deployed `payment` process", readme)
         self.assertIn("completion with `charged=true`", readme)
         self.assertIn("override `test.engine-rest-url`", readme.lower())
+        self.assertIn("-Dtest.engine-rest-url=", readme)
+
+    def test_shared_engine_fixture_has_build_and_runnable_command(self):
+        shared_pom = ET.parse(FIXTURE / "shared-engine/c7-source/pom.xml").getroot()
+        namespace = "{http://maven.apache.org/POM/4.0.0}"
+        dependencies = {
+            (
+                dependency.findtext(f"{namespace}groupId"),
+                dependency.findtext(f"{namespace}artifactId"),
+                dependency.findtext(f"{namespace}scope") or "compile",
+            )
+            for dependency in shared_pom.findall(f".//{namespace}dependency")
+        }
+        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn(
+            (
+                "org.camunda.bpm.springboot",
+                "camunda-bpm-spring-boot-starter-external-task-client",
+                "test",
+            ),
+            dependencies,
+        )
+        self.assertIn(("org.springframework.boot", "spring-boot-starter-test", "test"), dependencies)
+        self.assertIn(("org.springframework.boot", "spring-boot-starter-web", "test"), dependencies)
+        self.assertIn("shared-engine/c7-source/pom.xml test", readme)
+        self.assertIn("-Dshared-engine.test.enabled=true", readme)
+        self.assertIn("-Dtest.engine-rest-url=http://localhost:8080/engine-rest", readme)
+
     def test_reference_classifies_remote_engine_tests_and_boundaries(self):
         reference = " ".join(REFERENCE.read_text().lower().split())
         for term in (
