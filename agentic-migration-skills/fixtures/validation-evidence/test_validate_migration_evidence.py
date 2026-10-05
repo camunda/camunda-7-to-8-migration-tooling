@@ -1,5 +1,6 @@
 """Category-scoped regressions for recorded migration evidence."""
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -1751,7 +1752,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         stale = [issue for issue in self.summary()["issues"] if "another migration run" in issue]
         self.assertEqual(len(checks), len(stale))
 
-    def test_source_snapshot_digest_matches_canonical_json_digest(self):
+    def test_source_snapshot_digest_preserves_schema_v1_json_encoding(self):
         modules = ["app"]
         models = ["models/process.bpmn"]
         files = {"app/pom.xml": "8bff"}
@@ -1762,11 +1763,36 @@ class ValidationEvidenceTest(unittest.TestCase):
             "files": files,
             "test_contract": test_contract,
         }
+        expected = hashlib.sha256(
+            json.dumps(snapshot, sort_keys=True).encode("utf-8")
+        ).hexdigest()
 
         self.assertEqual(
-            gate.json_digest(snapshot),
+            expected,
             gate.source_snapshot_digest(modules, models, files, test_contract),
         )
+
+    def test_schema_v1_persisted_snapshot_and_ledger_digests_remain_valid(self):
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        snapshot = {
+            "modules": inventory["modules"],
+            "models": inventory["models"],
+            "files": inventory["source_files"],
+            "test_contract": inventory.get("source_snapshot_test_contract"),
+        }
+        legacy_digest = hashlib.sha256(
+            json.dumps(snapshot, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        inventory["source_snapshot_sha256"] = legacy_digest
+        write_json(self.root / gate.INVENTORY, inventory)
+        write_json(
+            self.root / gate.TEST_MAPPING,
+            gate.empty_test_mapping(inventory),
+        )
+
+        gate.verify_unchanged_source(self.root, inventory)
+        mapping = gate.ensure_test_mapping(self.root, inventory)
+        self.assertEqual(legacy_digest, mapping["baseline"]["source_digest"])
 
     def test_repeated_init_preserves_source_updates_after_conversion(self):
         self.install_active_timer_decision()

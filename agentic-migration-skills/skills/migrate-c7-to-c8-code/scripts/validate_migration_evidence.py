@@ -231,7 +231,10 @@ def source_snapshot_digest(modules, models, files, test_contract=None):
         "files": files,
         "test_contract": test_contract,
     }
-    return json_digest(snapshot)
+    # Keep the schema-v1 persisted digest encoding while pinning its default spacing.
+    return hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True, separators=(", ", ": ")).encode("utf-8")
+    ).hexdigest()
 
 
 def git_head(root):
