@@ -250,6 +250,145 @@ class MigrationGuidanceTest(unittest.TestCase):
             self.assertEqual(shared_rows[0]["Handling"], "Report only")
             self.assertIn("shared environment", normalized(shared_rows[0]["Notes"]))
 
+    def test_remote_engine_tests_require_process_or_decision_execution(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        remote_engine_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| remote-engine test |")
+        )
+        out_of_scope_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| out of scope |")
+        )
+        self.assertIn("runs a bpmn process or dmn decision", remote_engine_row)
+        self.assertIn(
+            "remote health or metadata probes that run no process or decision are "
+            "also out of scope",
+            out_of_scope_row,
+        )
+        self.assertIn(
+            "unless the shared-engine exception in scope confirmation applies",
+            out_of_scope_row,
+        )
+        confirmation_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Signal", "Confirmation required"],
+        )
+        remote_probe = next(
+            row
+            for row in confirmation_rows
+            if "only health or metadata calls" in normalized(row["Signal"])
+        )
+        self.assertIn(
+            "the skill classifies the test as out of scope",
+            normalized(remote_probe["Confirmation required"]),
+        )
+
+        precedence_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Order", "Matching signal", "Test kind"],
+        )
+        shared_engine = next(
+            row
+            for row in precedence_rows
+            if "shared camunda 7 engine url" in normalized(row["Matching signal"])
+        )
+        remote_process = next(
+            row
+            for row in precedence_rows
+            if (
+                "runs a bpmn process or dmn decision against a running camunda 7 "
+                "engine remotely"
+            )
+            in normalized(row["Matching signal"])
+        )
+        self.assertEqual("remote-engine test", shared_engine["Test kind"])
+        self.assertEqual("remote-engine test", remote_process["Test kind"])
+        self.assertLess(int(shared_engine["Order"]), int(remote_process["Order"]))
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path, handling in (
+            (EXPECTED_ASSESSMENT, "Migrate (lower priority)"),
+            (EXPECTED_ASSESSMENT_88, "Report only"),
+        ):
+            payment_test = next(
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith(
+                    "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+                )
+            )
+            self.assertEqual("remote-engine test", payment_test["Test kind"])
+            self.assertEqual(handling, payment_test["Handling"])
+
+    def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        self.assertIn(
+            "clockutil` used to control timers is a supported test utility.",
+            reference,
+        )
+        self.assertIn(
+            "the skill does not assign `manual redesign` based on `clockutil` alone.",
+            reference,
+        )
+
+        manual_redesign_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| manual redesign |")
+        )
+        self.assertIn("unsupported engine internals", manual_redesign_row)
+        self.assertIn("clockutil", manual_redesign_row)
+        self.assertIn("does not trigger this signal by itself", manual_redesign_row)
+
+        confirmation_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Signal", "Confirmation required"],
+        )
+        clockutil_row = next(
+            row
+            for row in confirmation_rows
+            if "clockutil" in normalized(row["Signal"])
+        )
+        self.assertIn(
+            "supported test utility",
+            normalized(clockutil_row["Confirmation required"]),
+        )
+
+        precedence_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Order", "Matching signal", "Test kind"],
+        )
+        engine_internal_row = next(
+            row for row in precedence_rows if row["Order"] == "2"
+        )
+        internal_signal = normalized(engine_internal_row["Matching signal"])
+        self.assertIn("unsupported engine internals", internal_signal)
+        self.assertIn("clockutil", internal_signal)
+        self.assertIn("does not trigger this signal by itself", internal_signal)
+
+        timer_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("org.camunda.bpm.engine.impl.util.ClockUtil", timer_source)
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path, handling in (
+            (EXPECTED_ASSESSMENT, "Migrate"),
+            (EXPECTED_ASSESSMENT_88, "Report only"),
+        ):
+            timer_rows = [
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith("OrderTimerTest#escalatesAfterOneDay")
+            ]
+            self.assertEqual(len(timer_rows), 1)
+            self.assertEqual("process test", timer_rows[0]["Test kind"])
+            self.assertEqual(handling, timer_rows[0]["Handling"])
+
     def test_camunda_8_8_inventory_marks_every_in_scope_test_report_only(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
@@ -414,11 +553,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         reference = normalized(reference_text)
         self.assertIn(
-            "cmmn tests and tests that use camunda engine internals do not meet this scope rule.",
+            "cmmn tests and tests that use unsupported camunda engine internals do not meet this scope rule.",
             reference,
         )
         self.assertIn(
-            "the skill still inventories these tests as `manual redesign` with "
+            "the skill inventories cmmn tests and tests that use unsupported engine internals as "
+            "`manual redesign` with "
             "`report only` handling.",
             reference,
         )
@@ -427,6 +567,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             for line in reference_text.splitlines()
             if line.startswith("| A test uses CMMN")
         )
+        self.assertIn("unsupported camunda engine internals", scope_confirmation_row)
         self.assertIn("manual redesign", scope_confirmation_row)
         self.assertIn("report only", scope_confirmation_row)
         self.assertIn(
