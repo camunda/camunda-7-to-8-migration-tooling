@@ -18,7 +18,7 @@ The test must also use a framework or approach that existed for Camunda 7.
 A dependency alone never makes a test eligible for migration.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
-The skill inventories every test method in the scanned test source sets.
+The skill inventories every test method declared or inherited by each concrete test class in the scanned test source sets.
 It records each test's test kind and handling, including tests marked out of scope.
 Apply the table from top to bottom. The first matching row assigns one test kind and handling.
 The skill classifies tests by executed engine behavior, not assertion type.
@@ -220,7 +220,11 @@ For implicit deployment, the skill tries suffixes in this order:
 
 ## Test IDs and report
 
-The skill uses `<module path>:<fully qualified class name>#<method>` as the stable Test ID for method-based tests.
+The skill uses `<module path>:<fully qualified concrete test class name>#<method>` as the stable Test ID for method-based tests.
+For each inherited method, the skill creates one row for every concrete test class that executes it.
+The Test ID uses the concrete class and method name.
+The File column names the source file that declares the method.
+The skill does not create a row for an abstract class by itself.
 The skill uses this method-based Test ID for each Spock feature method.
 The skill uses `<module path>:<feature path>#<scenario name>@L<line>` as the stable Test ID for a Cucumber `Scenario`.
 The skill resolves the feature path relative to its module.

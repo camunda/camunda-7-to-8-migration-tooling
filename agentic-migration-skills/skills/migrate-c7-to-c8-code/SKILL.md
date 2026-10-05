@@ -247,8 +247,11 @@ The skill scans each module's build-declared test source sets and shared test ba
 The skill scans test cases, including configured Cucumber scenarios.
 The skill follows `references/test-migration.md` to classify test kinds, modifiers, model links, and handling.
 The skill includes out-of-scope tests.
-The skill records one row per test in `MIGRATION_REPORT.md`.
-Each row includes Test ID, File, Test kind, Signals, Models, Handling, and Notes.
+Record one row for each test method in each concrete test class in `MIGRATION_REPORT.md`.
+For an inherited method, use the concrete class and method name in Test ID.
+Use the source file that declares the method in File.
+Do not create a Test Inventory row for an abstract class by itself.
+Use the columns Test ID, File, Test kind, Signals, Models, Handling, and Notes.
 The skill links each in-scope test to its deployed models in the Model Inventory.
 The skill records a count for each test kind.
 The skill does not migrate tests or ask a test-migration question during Step 2.

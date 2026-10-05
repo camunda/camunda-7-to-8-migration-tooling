@@ -165,7 +165,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "programmatic deployment",
             "@EnableProcessApplication",
             "Test ID",
-            "<module path>:<fully qualified class name>#<method>",
+            "<module path>:<fully qualified concrete test class name>#<method>",
             "| Test ID | File | Test kind | Signals | Models | Handling | Notes |",
             "Camunda 8.9 or later",
             "test migration needs Camunda 8.9 or later",
@@ -178,6 +178,29 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                     reference.lower(),
                     msg=f"Missing inventory rule {required!r}",
                 )
+
+    def test_inventory_maps_inherited_methods_to_concrete_classes(self):
+        reference = " ".join(REFERENCE.read_text().split())
+        skill = " ".join(SKILL.read_text().split())
+
+        for required in (
+            "The skill inventories every test method declared or inherited by each concrete test class in the scanned test source sets.",
+            "For each inherited method, the skill creates one row for every concrete test class that executes it.",
+            "The Test ID uses the concrete class and method name.",
+            "The File column names the source file that declares the method.",
+            "The skill does not create a row for an abstract class by itself.",
+        ):
+            with self.subTest(reference_rule=required):
+                self.assertIn(required, reference)
+
+        for required in (
+            "Record one row for each test method in each concrete test class in `MIGRATION_REPORT.md`.",
+            "For an inherited method, use the concrete class and method name in Test ID.",
+            "Use the source file that declares the method in File.",
+            "Do not create a Test Inventory row for an abstract class by itself.",
+        ):
+            with self.subTest(skill_rule=required):
+                self.assertIn(required, skill)
 
     def test_inventory_classification_uses_execution_and_special_case_precedence(self):
         reference = REFERENCE.read_text()
