@@ -138,6 +138,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 The validator stores SHA-256 hashes in `test-mapping.json`. During production-code migration, do not
 edit a frozen test file. Ask the user before a test change. Record an approved `test_changes` entry
 with the file, reason, old hash, new hash, and approver. The gate rejects an unapproved change.
+The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
+unchanged after the first freeze. If those hashes differ from the logged digest, then validation
+fails.
 
 For each migrated suite, run the CPT command twice with `test_repeat`:
 
@@ -159,6 +162,10 @@ Record one `mock_boundary` review per migrated C7 test:
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest#testOrder --kind mock_boundary --note "Reviewed C7 test examples/web:com.example.OrderTest#testOrder and its CPT mocks."
 ```
+
+The validator resolves each C7 `autoMock` resource to one source model. It allows only job types
+declared in that model's converted copy. If the resource resolves to zero or multiple models, then
+each CPT job-worker mock requires approval.
 
 After both runs and reviews, record the computed parity check:
 

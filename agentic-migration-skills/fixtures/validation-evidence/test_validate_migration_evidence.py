@@ -61,6 +61,18 @@ def bpmn(process_id, timer=False, extra=""):
     )
 
 
+def bpmn_with_job_types(process_id, *job_types):
+    tasks = "".join(
+        (
+            f'<bpmn:serviceTask id="Worker{index}"><bpmn:extensionElements>'
+            f'<zeebe:taskDefinition type="{job_type}" />'
+            "</bpmn:extensionElements></bpmn:serviceTask>"
+        )
+        for index, job_type in enumerate(job_types, start=1)
+    )
+    return bpmn(process_id, extra=tasks)
+
+
 def message_rearm_bpmn():
     return """<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
       xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions">
@@ -1420,20 +1432,37 @@ class ValidationEvidenceTest(unittest.TestCase):
         plan = gate.requirements(
             self.root, json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
         )
-        self.assertEqual([], gate.validate_test_freeze(self.root, plan, mapping))
-        self.assertEqual(
-            0,
-            self.submit(("project", ".", "test_freeze", None), command=[]),
+        issues = gate.validate_test_freeze(self.root, plan, mapping)
+        self.assertTrue(
+            any("validator-owned" in issue for issue in issues),
+            issues,
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "validator-owned"):
+            self.submit(("project", ".", "test_freeze", None), command=[])
+        for key, note in (
+            (review_keys[0], f"Reviewed assertions for {class_target}."),
+            (review_keys[1], f"Reviewed C7 test {self.c7_test_id} and its CPT mocks."),
+        ):
+            self.assertEqual(0, self.submit(key, action="review", note=note))
+        self.assertEqual(1, self.audit())
+        self.assertTrue(
+            any("validator-owned" in issue for issue in self.summary()["issues"])
         )
 
-        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
-        plan = gate.requirements(self.root, evidence)
-        check_issues = []
-        checks = gate.load_checks(self.root, evidence, plan, check_issues)
-        self.assertEqual([], check_issues)
-        for key in review_keys:
-            self.assertIn(key, plan.required)
-            self.assertNotIn(key, checks, f"{key} remained current after replacing frozen hashes")
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["freeze"]["files"] = {}
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        issues = gate.validate_test_freeze(self.root, plan, mapping)
+        self.assertTrue(
+            any("validator-owned" in issue for issue in issues),
+            issues,
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "validator-owned"):
+            self.submit(("project", ".", "test_freeze", None), command=[])
+        self.assertEqual(1, self.audit())
+        self.assertTrue(
+            any("validator-owned" in issue for issue in self.summary()["issues"])
+        )
 
     def test_test_freeze_requires_approval_for_changed_files(self):
         self.configure_test_run(
@@ -1621,6 +1650,72 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual([], gate.test_mock_issues(other_test, mapping, mapped_c8_ids))
 
+    def test_mock_boundary_allows_only_workers_from_auto_mocked_models(self):
+        self.plan["models"] = [
+            {
+                "source_path": "models/process.bpmn",
+                "path": "models/converted-c8-process.bpmn",
+                "processes": [{"id": "p", "standalone": True, "scenarios": ["normal"]}],
+            },
+            {
+                "source_path": "models/other.bpmn",
+                "path": "models/converted-c8-other.bpmn",
+                "processes": [{"id": "q", "standalone": True, "scenarios": ["normal"]}],
+            },
+        ]
+        self.plan["deployment_sets"][0]["models"] = [
+            model["path"] for model in self.plan["models"]
+        ]
+        self.write_scope()
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        for path, process_id, job_type in (
+            ("models/converted-c8-process.bpmn", "p", "charge"),
+            ("models/converted-c8-other.bpmn", "q", "invoice"),
+        ):
+            (self.root / path).write_text(
+                bpmn_with_job_types(process_id, job_type),
+                encoding="utf-8",
+            )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt(
+            mocks_c7=['autoMock("process.bpmn")'],
+            mocks_c8=['mockJobWorker("charge")', 'mockJobWorker("invoice")'],
+        )
+
+        with self.assertRaisesRegex(gate.EvidenceError, "unapproved mock"):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        test["mocks"]["c7"] = ['autoMock("models/missing.bpmn")']
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        with self.assertRaisesRegex(gate.EvidenceError, "unapproved mock"):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
+        test["mocks"]["c7"] = [
+            'autoMock("process.bpmn")',
+            'autoMock("models/other.bpmn")',
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+
     def test_cpt_repeat_detects_flaky_test_results(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
@@ -1758,7 +1853,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                     }
                 }
             },
-            source_ids={},
+            source_ids={
+                "models/converted-c8-process.bpmn": {"p"},
+                "models/converted-c8-other.bpmn": {"p"},
+            },
             converted_elements={
                 ("models/converted-c8-process.bpmn", "p"): {"TaskA"},
                 ("models/converted-c8-other.bpmn", "p"): {"Start", "End", "Flow"},
@@ -1777,9 +1875,60 @@ class ValidationEvidenceTest(unittest.TestCase):
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
 
         self.assertTrue(
-            any("C7 coverage maps to multiple converted processes" in issue for issue in issues),
+            any(
+                "C7 coverage maps to multiple converted processes" in issue
+                or "C7 coverage is ambiguous across source models" in issue
+                for issue in issues
+            ),
             issues,
         )
+
+    def test_coverage_parity_does_not_match_processes_from_other_models(self):
+        source_model = "models/converted-c8-process.bpmn"
+        other_model = "models/converted-c8-other.bpmn"
+        for label, other_process in (
+            ("same process ID", "p"),
+            ("same element ID in renamed process", "renamed-p"),
+        ):
+            with self.subTest(label=label):
+                run = {
+                    "coverage_available": True,
+                    "coverage_by_process": {other_process: ["TaskA"]},
+                }
+                plan = Namespace(
+                    test_contract={
+                        "suites": {
+                            ("app", "unit"): {
+                                "migrate_test_ids": [
+                                    "app:com.example.OrderTest#testOrder"
+                                ]
+                            }
+                        }
+                    },
+                    source_ids={source_model: {"p"}},
+                    converted_elements={
+                        (source_model, "converted-p"): {"Start", "End", "Flow"},
+                        (other_model, other_process): {"TaskA"},
+                    },
+                )
+                checks = {
+                    ("module", "app", "test_repeat", "unit"): (
+                        None,
+                        {"test_runs": [run, run]},
+                    )
+                }
+                mapping = {
+                    "baseline": {
+                        "coverage_available": True,
+                        "coverage": {"p": ["TaskA"]},
+                    }
+                }
+
+                issues, details = gate.coverage_parity_issues(plan, checks, mapping)
+
+                self.assertEqual([], issues)
+                self.assertEqual([], details["process_mappings"]["p"])
+                self.assertEqual([], details["retained_c7_elements"]["p"])
 
     def test_coverage_parity_fails_when_multiple_c7_processes_map_to_one_cpt_process(self):
         run = {
@@ -1794,7 +1943,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                     }
                 }
             },
-            source_ids={},
+            source_ids={
+                "models/converted-c8-process.bpmn": {"source-p1", "source-p2"}
+            },
             converted_elements={
                 ("models/converted-c8-process.bpmn", "converted-p"): {
                     "TaskA",
@@ -1881,7 +2032,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     }
                 }
             },
-            source_ids={},
+            source_ids={"models/converted-c8-process.bpmn": {"p", "legacy-p"}},
             converted_elements={
                 ("models/converted-c8-process.bpmn", "p"): {"TaskA"},
             },

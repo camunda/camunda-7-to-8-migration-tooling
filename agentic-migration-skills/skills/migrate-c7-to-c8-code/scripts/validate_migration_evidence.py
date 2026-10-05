@@ -91,6 +91,7 @@ class ValidationPlan:
     test_contract: dict
     converted_elements: dict
     source_ids: dict
+    source_job_types_by_model: dict
 
 
 class EvidenceError(ValueError):
@@ -1308,12 +1309,57 @@ def test_mapping_digest(mapping, kind):
     return json_digest(value)
 
 
+def recorded_test_freeze_digest(root, mapping):
+    key = ("project", ".", "test_freeze", None)
+    reference = check_reference(key)
+    log_path = root / reference
+    if log_path.is_symlink():
+        raise EvidenceError(f"{key}: validator-owned test freeze evidence cannot be a symlink")
+    if not log_path.exists():
+        return None
+    path = project_path(root, reference, "validator-owned test freeze evidence", must_exist=True)
+    if not path.is_file() or path.is_symlink() or not path.is_relative_to(root / LOGS):
+        raise EvidenceError(f"{key}: invalid validator-owned test freeze evidence")
+    check = read_json(path)
+    digest = check.get("test_mapping_digest")
+    run_id = check.get("run_id")
+    if (
+        check_key(check) != key
+        or check.get("method") != "snapshot"
+        or check.get("result") != "passed"
+        or not isinstance(run_id, str)
+        or not run_id
+        or not isinstance(digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+    ):
+        raise EvidenceError(f"{key}: invalid validator-owned test freeze evidence")
+    if not mapping["freeze"]["files"] and run_id != read_json(
+        root / INVENTORY
+    ).get("run_id"):
+        return None
+    return digest
+
+
 def validate_test_freeze(root, plan, mapping):
     issues = []
     current = current_test_files(root, plan)
     frozen = mapping["freeze"]["files"]
     if not current and not frozen:
         issues.append("test_freeze: no migrated test files or resources were found")
+    try:
+        recorded_digest = recorded_test_freeze_digest(root, mapping)
+    except EvidenceError as exc:
+        issues.append(str(exc))
+    else:
+        if recorded_digest is None:
+            if frozen:
+                issues.append(
+                    "test_freeze: frozen test hashes have no validator-owned snapshot"
+                )
+        elif recorded_digest != test_mapping_digest(mapping, "freeze"):
+            issues.append(
+                "test_freeze: frozen test hashes differ from the validator-owned snapshot"
+            )
     for path, digest in frozen.items():
         try:
             project_path(root, path, "frozen test file")
@@ -1402,6 +1448,10 @@ def record_test_freeze(root, plan, mapping):
             ),
             "test_mapping_digest": test_mapping_digest(mapping, "freeze"),
         }
+    if recorded_test_freeze_digest(root, mapping) is not None:
+        raise EvidenceError(
+            "test_freeze: a validator-owned snapshot cannot be replaced by a new freeze"
+        )
     current = current_test_files(root, plan)
     if not current:
         raise EvidenceError("test_freeze: no migrated test files or resources were found")
@@ -1473,7 +1523,27 @@ def normalized_mock(value):
     return "component", re.sub(r"[^a-z0-9]+", "", token.group(0).casefold())
 
 
-def test_mock_issues(test, mapping, mapped_c8_ids):
+def auto_mocked_job_types(c7_mocks, source_job_types_by_model):
+    job_types = set()
+    for value in c7_mocks:
+        for match in re.finditer(r"\bautoMock\s*\(\s*(['\"])([^'\"]+)\1", value):
+            resource = match.group(2)
+            matching_models = [
+                source_path
+                for source_path in source_job_types_by_model
+                if source_path == resource or source_path.endswith(f"/{resource}")
+            ]
+            if len(matching_models) == 1:
+                job_types.update(source_job_types_by_model[matching_models[0]])
+    return job_types
+
+
+def mock_job_worker_type(value):
+    match = re.search(r"\bmockJobWorker\s*\(\s*(['\"])([^'\"]+)\1", value)
+    return match.group(2) if match else None
+
+
+def test_mock_issues(test, mapping, mapped_c8_ids, source_job_types_by_model=None):
     issues = []
     test_id = test.get("c7_id")
     c8_ids = test.get("c8_ids")
@@ -1496,7 +1566,9 @@ def test_mock_issues(test, mapping, mapped_c8_ids):
         return [f"{test_id}: mocks.c7 and mocks.c8 must be arrays of non-blank strings"]
 
     c7_normalized = {normalized_mock(value) for value in c7_mocks}
-    auto_mocked = any(kind == "auto-mock" for kind, _ in c7_normalized)
+    allowed_job_types = auto_mocked_job_types(
+        c7_mocks, source_job_types_by_model or {}
+    )
     approvals = {}
     for change in mapping["mock_changes"]:
         if not isinstance(change, dict):
@@ -1533,7 +1605,10 @@ def test_mock_issues(test, mapping, mapped_c8_ids):
     for c8_id in c8_ids:
         for c8_mock in c8_mocks:
             normalized = normalized_mock(c8_mock)
-            if normalized in c7_normalized or (auto_mocked and normalized[0] == "job-worker"):
+            if normalized in c7_normalized or (
+                normalized[0] == "job-worker"
+                and mock_job_worker_type(c8_mock) in allowed_job_types
+            ):
                 continue
             approval_key = (c8_id, c8_mock)
             if approval_key not in approvals:
@@ -1772,10 +1847,12 @@ def coverage_parity_issues(plan, checks, mapping):
     process_mappings = {}
     retained_c7_elements = {}
     c7_processes_by_cpt_process = {}
-    source_models_by_process = {}
-    for model_path, process_ids in plan.source_ids.items():
+    converted_model_paths_by_source_process = {}
+    for converted_path, process_ids in plan.source_ids.items():
         for process_id in process_ids:
-            source_models_by_process.setdefault(process_id, set()).add(model_path)
+            converted_model_paths_by_source_process.setdefault(process_id, set()).add(
+                converted_path
+            )
     if baseline.get("coverage_available") is not True:
         note = "No Camunda 7 coverage baseline."
     else:
@@ -1797,11 +1874,14 @@ def coverage_parity_issues(plan, checks, mapping):
                 continue
             source_elements = set(elements)
             normalized_source_coverage[process_id] = sorted(source_elements)
+            converted_paths = converted_model_paths_by_source_process.get(process_id, set())
             if (
-                len(source_models_by_process.get(process_id, set())) > 1
+                len(converted_paths) > 1
                 and any(
                     source_elements & model_elements
-                    for model_elements in plan.converted_elements.values()
+                    for (converted_path, _), model_elements
+                    in plan.converted_elements.items()
+                    if converted_path in converted_paths
                 )
             ):
                 issues.append(
@@ -1812,7 +1892,7 @@ def coverage_parity_issues(plan, checks, mapping):
                 (model, converted_process, model_elements)
                 for (model, converted_process), model_elements
                 in plan.converted_elements.items()
-                if converted_process == process_id
+                if model in converted_paths and converted_process == process_id
             ]
             if len(matching_processes) > 1:
                 issues.append(
@@ -1824,7 +1904,7 @@ def coverage_parity_issues(plan, checks, mapping):
                     (model, converted_process, model_elements)
                     for (model, converted_process), model_elements
                     in plan.converted_elements.items()
-                    if source_elements & model_elements
+                    if model in converted_paths and source_elements & model_elements
                 ]
                 if len(matching_processes) > 1:
                     issues.append(
@@ -2144,6 +2224,7 @@ def requirements(root, evidence):
     converted_ids = {}
     converted_documents = {}
     converted_elements = {}
+    source_job_types_by_model = {}
     module_paths = {module["path"] for module in modules}
 
     def need(category, target, kind, scenario=None, method="command"):
@@ -2247,6 +2328,18 @@ def requirements(root, evidence):
             issues.append(str(exc))
             continue
         converted_documents[converted] = document
+        if model_type(source) == "bpmn":
+            job_types = set()
+            for definition in document.findall(f".//{ZEEBE}taskDefinition"):
+                job_type = definition.get("type")
+                if (
+                    isinstance(job_type, str)
+                    and job_type.strip()
+                    and job_type == job_type.strip()
+                    and not job_type.startswith("=")
+                ):
+                    job_types.add(job_type)
+            source_job_types_by_model[source] = job_types
         for process in document.findall(f"{BPMN}process"):
             process_id = process.get("id")
             if process_id:
@@ -2651,7 +2744,7 @@ def requirements(root, evidence):
         required, allowed, timers, timer_starts, docker_suites, model_sets,
         duplicates, update_hits, source_update_locations, active_timer_locations,
         active_timer_decisions, source_digest, issues, tests, converted_elements,
-        source_ids,
+        source_ids, source_job_types_by_model,
     )
 
 
@@ -3937,7 +4030,14 @@ def report(root):
                 issues.extend(coverage_issues)
                 for test in mapping["tests"]:
                     if isinstance(test, dict) and test.get("status") == "migrated":
-                        issues.extend(test_mock_issues(test, mapping, mapped_c8_ids))
+                        issues.extend(
+                            test_mock_issues(
+                                test,
+                                mapping,
+                                mapped_c8_ids,
+                                plan.source_job_types_by_model,
+                            )
+                        )
             except EvidenceError as exc:
                 issues.append(str(exc))
     except EvidenceError as exc:
@@ -4142,7 +4242,12 @@ def record(root, args):
             if key[1] not in output:
                 raise EvidenceError(f"{key}: review note must name the C7 test ID")
             mapped_c8_ids = mapped_cpt_test_ids(plan.test_contract, rows)
-            mock_issues = test_mock_issues(test, mapping, mapped_c8_ids)
+            mock_issues = test_mock_issues(
+                test,
+                mapping,
+                mapped_c8_ids,
+                plan.source_job_types_by_model,
+            )
             if mock_issues:
                 raise EvidenceError("; ".join(mock_issues))
             extra["test_mapping_digest"] = test_mapping_digest(mapping, "review")

@@ -264,6 +264,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 The validator hashes every file under `src/test/` in each module with an in-scope `Migrate` test.
 This includes test source files and test resources.
+The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
+unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
+rejects it.
 
 Do not edit a frozen test file while migrating production code. Ask the user before a test file must
 change. Record each approved change with its path, reason, old hash, new hash, and approver:
@@ -322,8 +325,12 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | C7 mock boundary | CPT mock boundary | Verdict |
 |---|---|---|
 | C7 registers a domain-service mock. | CPT uses `@MockitoBean` for the same service. | Allowed. |
-| C7 uses `autoMock` for the model. | CPT mocks each job worker. | Allowed. |
+| C7 uses `autoMock("bpmn/sample.bpmn")`. | CPT mocks a job type declared in that model's converted copy. | Allowed. |
 | C7 runs a component for real. | CPT adds a worker, child-process, decision, or Spring mock. | Requires user approval. |
+
+The validator resolves each `autoMock` resource to one source model. It allows only job types
+declared in that model's converted copy. If the resource resolves to zero or multiple models, then
+each CPT job-worker mock requires approval.
 
 Record each approved new CPT mock in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and
 `approved_by`. The `cpt_test_id` must identify a CPT test mapped from a migrated C7 test. The
