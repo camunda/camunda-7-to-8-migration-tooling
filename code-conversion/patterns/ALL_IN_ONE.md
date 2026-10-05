@@ -3189,7 +3189,7 @@ void testUserTaskIsReachedAndCompleted() {
     .hasAssignee("demo");
 
   // Complete the task by its name selector
-  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
+  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"));
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
@@ -3465,7 +3465,9 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `hasProcessDefinitionKey("order")` | Assert `ProcessInstanceEvent.getBpmnProcessId()` | Use AssertJ on the returned process instance event. |
 | `hasBusinessKey("key")` | `org.assertj.core.api.Assertions.assertThat(pi.getBusinessId()).isEqualTo("key")` (8.9+) | Use this only when the migration maps the Camunda 7 business key to a Camunda 8 business ID. On 8.8, assert the variable or tag selected by the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md). |
 | `isSuspended()` | No counterpart | Camunda 8 does not expose a suspended process-instance state. Record the test as manual if suspension behavior matters. |
-| `calledProcessInstance("childId")` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey))` | Add `byProcessId("childId")` when the parent calls more than one process. |
+| `calledProcessInstance()` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey))` | |
+| `calledProcessInstance(String processDefinitionKey)` | `assertThat(ProcessInstanceSelectors.byParentProcessInstanceKey(parentKey).and(ProcessInstanceSelectors.byProcessId(processDefinitionKey)))` | Combines the parent and called-process definition selectors. |
+| `calledProcessInstance(ProcessInstanceQuery query)` | No counterpart | Search child process instances with the client and apply query filters that have no CPT selector equivalent. |
 | `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A")).hasAssignee("u")` | |
 | `assertThat(task()).hasName("Approve")` | `assertThatUserTask(selector).hasName("Approve")` | |
 | `assertThat(task()).hasCandidateGroup("approvers")` | `assertThatUserTask(selector).hasCandidateGroup("approvers")` | Camunda 7 also requires the task to be unassigned; search for the task and assert that its assignee is null with AssertJ. |
@@ -3478,6 +3480,8 @@ assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("appro
 | `assertThat(externalTask()).hasTopicName(...)`, `hasActivityId(...)` | No counterpart | Assert the element state, or complete the job and assert the process result. |
 | `assertThat(processDefinition()).hasActiveInstances(n)` | No counterpart | Search process instances for the definition and assert the count with AssertJ. |
 | CMMN assertions from `CmmnAwareTests` | No counterpart | Record the test as manual migration. CPT has no CMMN assertion API. |
+
+Camunda 7's `calledProcessInstance` overloads use `singleResult()`. CPT selector assertions use the first matching instance instead. When uniqueness is required, search with the client and assert that exactly one child matches.
 
 The assertion helper classes for jobs and external tasks do not have direct CPT counterparts. Assert the process state or query the relevant runtime records with the client.
 

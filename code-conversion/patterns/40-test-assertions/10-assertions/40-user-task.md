@@ -55,7 +55,7 @@ void testUserTaskIsReachedAndCompleted() {
     .hasAssignee("demo");
 
   // Complete the task by its name selector
-  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
+  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"));
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
