@@ -506,8 +506,13 @@ The skill uses a CPT conditional behavior for each user-task, message, signal, e
 conditional-event stub. Each condition waits for the corresponding process state. The action
 resolves that state so CPT can detect it again.
 
-The skill scopes the condition and action to the same process instance key from the Scenario start
-result.
+The skill scopes a condition or action to the Scenario instance only when the corresponding CPT API
+accepts a process-instance selector. The user-task condition and completion action use the
+process-instance key from the Scenario start result.
+
+The message action targets a message name and evaluated correlation key, not the Scenario start
+result's process-instance key. The signal action broadcasts by signal name and can also advance
+another process instance waiting for that signal.
 
 The skill uses sequential CPT calls when the process path is linear. (MAY) The skill uses
 `mockJobWorker(type)` for external-task stubs. The skill advances time explicitly for timer stubs.

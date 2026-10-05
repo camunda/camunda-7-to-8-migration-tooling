@@ -1439,6 +1439,32 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("byKey(processInstanceKey)", conversion)
         self.assertIn('byElementId("X", processInstanceKey)', conversion)
 
+    def test_wait_state_targets_explain_instance_scope(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        wait_state_behavior = reference.split("### Wait-state behavior", 1)[1].split(
+            "### Scenario-to-CPT mapping", 1
+        )[0]
+        normalized_behavior = normalized(wait_state_behavior)
+        self.assertNotIn(
+            "The skill scopes the condition and action to the same process instance key",
+            wait_state_behavior,
+        )
+        self.assertIn(
+            "the skill scopes a condition or action to the scenario instance only when "
+            "the corresponding cpt api accepts a process-instance selector",
+            normalized_behavior,
+        )
+        self.assertIn(
+            "the message action targets a message name and evaluated correlation key, "
+            "not the scenario start result's process-instance key",
+            normalized_behavior,
+        )
+        self.assertIn(
+            "the signal action broadcasts by signal name and can also advance another "
+            "process instance waiting for that signal",
+            normalized_behavior,
+        )
+
     def test_scenario_gate_accepts_inventory_handling(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
