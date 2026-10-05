@@ -1570,6 +1570,7 @@ def test_parity_issues(plan, checks, mapping):
     )
     rows = test_rows_by_id(mapping)
     repeat_runs = test_repeat_checks(plan, checks)
+    cpt_id_owners = {}
     for inventory_test in contract["tests"]:
         test_id = inventory_test["id"]
         test = rows.get(test_id)
@@ -1612,6 +1613,14 @@ def test_parity_issues(plan, checks, mapping):
             issues.append(f"{test_id}: migrated test needs distinct c8_ids")
             continue
         for c8_id in c8_ids:
+            owner = cpt_id_owners.get(c8_id)
+            if owner is None:
+                cpt_id_owners[c8_id] = test_id
+            else:
+                issues.append(
+                    f"{c8_id}: mapped from multiple migrated C7 tests "
+                    f"({owner} and {test_id})"
+                )
             try:
                 cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
             except EvidenceError as exc:
@@ -2861,6 +2870,7 @@ def record_c7_baseline(root, args):
                 for path in coverage_paths:
                     for process_id, elements in parse_c7_coverage_report(path).items():
                         coverage.setdefault(process_id, set()).update(elements)
+                verify_unchanged_source(root, inventory)
                 result = "passed"
             except EvidenceError as exc:
                 result = "failed"

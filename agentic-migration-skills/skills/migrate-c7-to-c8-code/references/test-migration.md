@@ -99,7 +99,8 @@ Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-map
 
 Set `reports` to a list of project-relative globs when the build uses custom JUnit report paths.
 The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
-Set `coverage_reports` to project-relative globs when Camunda 7 coverage reports use another path.
+In the Step 2 inventory, set `coverage_reports` on the matching `test_suites[]` entry to
+project-relative globs when Camunda 7 coverage reports use another path.
 The default Camunda 7 coverage paths are `target/process-test-coverage/**/report.json` and
 `target/process_test_coverage/**/*.json`.
 
@@ -296,7 +297,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 The validator does not treat a skipped CPT test as a pass for parity. Each C7 test with
 `c7_result: passed` must map to passing CPT tests in both runs. An approved retired test is the only
 other passing disposition. A failed or skipped C7 baseline test is listed but is not required to
-pass parity.
+pass parity. The validator rejects a CPT test ID mapped from multiple migrated C7 tests.
 
 Record assertion-strength reviews once per migrated test class:
 
@@ -333,7 +334,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 The validator reads C7 process coverage from `target/process-test-coverage/**/report.json`. It reads
 CPT process coverage from `target/process-test-coverage/report.json` by default. Set
-`coverage_reports` in the corresponding suite entry when a project uses another path.
+`coverage_reports` on the matching module's `test_suites[]` entry in `validation-evidence.json`
+when a suite writes CPT coverage to another path. The Step 2 inventory's
+`test_suites[].coverage_reports` configures Camunda 7 coverage reports only.
 See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).
 
 The CPT 8.9.21 JSON report stores process entries in `coverages[]`. Newer CPT report schemas use

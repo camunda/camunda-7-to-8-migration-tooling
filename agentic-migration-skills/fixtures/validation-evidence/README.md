@@ -14,6 +14,7 @@ They also cover two-module `Sample` collisions, recurring starts, model-bound ti
 due-date blockers, stale prerequisite checks, JUnit baselines, test parity, frozen files, repeated
 CPT runs, CPT 8.9.21 report compatibility, mock approvals, and coverage drops. The Python tests use
 synthetic evidence and do not access a Camunda cluster.
+New regressions also reject duplicate C7-to-CPT mappings and source changes during baseline capture.
 
 The `live-timer-fixture/` Maven reactor runs both deployment-set and active-timer acceptance
 scenarios against a disposable Camunda 8.9.21 container. One Process Test deploys both `Sample`

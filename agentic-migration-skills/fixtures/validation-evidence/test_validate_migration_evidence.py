@@ -573,6 +573,32 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertTrue(check["reports"])
         self.assertTrue((self.root / check["reports"][0]).is_file())
 
+    def test_c7_baseline_rechecks_source_snapshot_after_the_command(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit)
+        self.c7_command = self.write_reports_command(
+            {
+                "app/target/surefire-reports/TEST-com.example.OrderTest.xml": junit,
+                "app/src/test/java/com/example/OrderTest.java": (
+                    "class OrderTest { int changed; }\n"
+                ),
+            }
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_suites"][0]["command"] = self.c7_command
+        write_json(self.root / gate.INVENTORY, inventory)
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+
+        self.assertEqual(1, self.record_c7_baseline())
+        mapping = gate.read_test_mapping(self.root, required=True)
+        baseline = mapping["baseline"]["suites"][0]
+        self.assertEqual("failed", baseline["result"])
+        self.assertIn("C7 baseline must run before source changes", baseline["reason"])
+
     def test_passing_unlisted_report_only_test_requires_disposition(self):
         test_id = "app:com.example.LegacyTest#testLegacy"
         test = {
@@ -809,6 +835,84 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual(1, self.audit())
         self.assertTrue(
             any(self.c8_test_id in issue for issue in self.summary()["issues"])
+        )
+
+    def test_test_parity_rejects_a_cpt_test_shared_by_migrated_c7_tests(self):
+        first_c7_id = "app:com.example.OrderTest#testFirst"
+        second_c7_id = "app:com.example.OrderTest#testSecond"
+        cpt_id = "app:com.example.OrderCptTest#testShared"
+        suite_key = ("app", "unit")
+        test_results = {
+            test_id: {
+                "result": "passed",
+                "invocations": ["passed"],
+                "invocation_count": 1,
+            }
+            for test_id in (first_c7_id, second_c7_id)
+        }
+        baseline = {
+            "module": "app",
+            "suite": "unit",
+            "result": "passed",
+            "test_results": test_results,
+            "coverage_by_process": {},
+        }
+        plan = Namespace(
+            test_contract={
+                "tests": [
+                    {
+                        "id": test_id,
+                        "module": "app",
+                        "test_kind": "process test",
+                        "handling": "Migrate",
+                    }
+                    for test_id in (first_c7_id, second_c7_id)
+                ],
+                "suites": {
+                    suite_key: {
+                        "module": "app",
+                        "name": "unit",
+                        "migrate_test_ids": [first_c7_id, second_c7_id],
+                    }
+                },
+                "test_suites": {
+                    first_c7_id: [suite_key],
+                    second_c7_id: [suite_key],
+                },
+            }
+        )
+        checks = {
+            ("module", "app", "c7_baseline", "unit"): (None, baseline),
+            ("module", "app", "test_repeat", "unit"): (
+                None,
+                {
+                    "test_runs": [
+                        {"test_results": {cpt_id: {"result": "passed"}}},
+                        {"test_results": {cpt_id: {"result": "passed"}}},
+                    ]
+                },
+            ),
+        }
+        mapping = {
+            "baseline": {"suites": [baseline]},
+            "tests": [
+                {
+                    "c7_id": test_id,
+                    "test_kind": "process test",
+                    "handling": "Migrate",
+                    "c7_result": "passed",
+                    "status": "migrated",
+                    "c8_ids": [cpt_id],
+                }
+                for test_id in (first_c7_id, second_c7_id)
+            ],
+        }
+
+        issues = gate.test_parity_issues(plan, checks, mapping)
+
+        self.assertTrue(
+            any("mapped from multiple migrated C7 tests" in issue for issue in issues),
+            issues,
         )
 
     def test_retired_test_needs_approval(self):
