@@ -25,8 +25,11 @@ import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TextComment;
+import org.openrewrite.java.tree.TypeUtils;
 
 public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
 
@@ -149,10 +152,15 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
               @Override
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation invocation, ExecutionContext ctx) {
+                if (isOutermostMethodInvocation()
+                    && hasMultiOperationVariableMapAssertion(invocation)) {
+                  return addCommentIfMissing(invocation, VARIABLE_MAP_TODO);
+                }
+
                 J.MethodInvocation visited = super.visitMethodInvocation(invocation, ctx);
 
                 if (HAS_VARIABLES_METHOD.matches(visited)) {
-                  if (hasArguments(visited)) {
+                  if (hasStringArguments(visited)) {
                     return renamed(visited, "hasVariableNames");
                   }
                 }
@@ -170,7 +178,7 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                 }
 
                 if (isOutermostMethodInvocation()) {
-                  if (containsNoArgumentHasVariables(visited)) {
+                  if (containsUnsupportedHasVariables(visited)) {
                     return addCommentIfMissing(visited, HAS_VARIABLES_TODO);
                   }
                   if (containsUnsupportedVariableMapAssertion(visited)) {
@@ -195,17 +203,24 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
     };
   }
 
-  private static boolean hasArguments(J.MethodInvocation invocation) {
-    return invocation.getArguments().stream().anyMatch(argument -> !(argument instanceof J.Empty));
+  private static boolean hasStringArguments(J.MethodInvocation invocation) {
+    return !invocation.getArguments().isEmpty()
+        && invocation.getArguments().stream()
+            .allMatch(
+                argument ->
+                    !(argument.getType() instanceof JavaType.Array)
+                        && (argument.getType() == JavaType.Primitive.String
+                            || TypeUtils.isOfClassType(
+                                argument.getType(), "java.lang.String")));
   }
 
-  private static boolean containsNoArgumentHasVariables(J tree) {
+  private static boolean containsUnsupportedHasVariables(J tree) {
     AtomicBoolean found = new AtomicBoolean();
     new JavaIsoVisitor<AtomicBoolean>() {
       @Override
       public J.MethodInvocation visitMethodInvocation(
           J.MethodInvocation invocation, AtomicBoolean result) {
-        if (HAS_VARIABLES_METHOD.matches(invocation) && !hasArguments(invocation)) {
+        if (HAS_VARIABLES_METHOD.matches(invocation) && !hasStringArguments(invocation)) {
           result.set(true);
           return invocation;
         }
@@ -213,6 +228,19 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
       }
     }.visit(tree, found);
     return found.get();
+  }
+
+  private static boolean hasMultiOperationVariableMapAssertion(J.MethodInvocation invocation) {
+    int callsAfterVariables = 0;
+    Expression current = invocation;
+    while (current instanceof J.MethodInvocation methodInvocation) {
+      if (VARIABLES_METHOD.matches(methodInvocation)) {
+        return callsAfterVariables > 1;
+      }
+      callsAfterVariables++;
+      current = methodInvocation.getSelect();
+    }
+    return false;
   }
 
   private static boolean containsUnsupportedVariableMapAssertion(J tree) {

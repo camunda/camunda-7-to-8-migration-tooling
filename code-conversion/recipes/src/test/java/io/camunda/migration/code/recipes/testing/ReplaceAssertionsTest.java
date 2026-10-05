@@ -476,6 +476,34 @@ class OrderTaskTest {
                         "assertThat(processInstance).hasVariableNames(\"approved\", \"created\");"));
     }
 
+    @Test
+    void hasVariablesWithPossiblyEmptyArrayIsNotWeakened() {
+        rewrite(
+                processAssertionsSource(
+                        "String[] names = new String[0];\n"
+                                + "        assertThat(processInstance).hasVariables(names);"),
+                migratedProcessAssertionsSource(
+                        "String[] names = new String[0];\n"
+                                + "        // TODO: CPT has no assertion for 'at least one variable'. Assert the expected names with hasVariableNames(..).\n"
+                                + "        assertThat(processInstance).hasVariables(names);"));
+    }
+
+    @Test
+    void multiOperationVariableMapAssertionIsNotPartiallyRewritten() {
+        rewrite(
+                processAssertionsSource(
+                        "assertThat(processInstance).variables().containsKey(\"approved\").hasSize(1);\n"
+                                + "        assertThat(processInstance).variables().containsKeys(\"approved\", \"created\").hasSize(2);\n"
+                                + "        assertThat(processInstance).variables().containsEntry(\"approved\", true).hasSize(1);"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        assertThat(processInstance).variables().containsKey(\"approved\").hasSize(1);\n"
+                                + "        // TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        assertThat(processInstance).variables().containsKeys(\"approved\", \"created\").hasSize(2);\n"
+                                + "        // TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        assertThat(processInstance).variables().containsEntry(\"approved\", true).hasSize(1);"));
+    }
+
     private void rewrite(String before, String after) {
         rewriteRun(
                 spec ->
