@@ -815,10 +815,10 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 | With user approval, a business-rule task in a C7 process-flow test | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. |
 | No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
 
-Never derive a job type from a C7 bean name. If the converted copy has no matching job type, do not
-invent one. If the converted copy omits a C7 listener, the skill records that mock in `mocks.c7`.
+Never derive a job type from a C7 bean name. If the converted copy has no matching job type, then do
+not invent one. If the converted copy omits a C7 listener, then the skill records that mock in `mocks.c7`.
 The skill leaves `mocks.c8` without a corresponding mock.
-If the real worker cannot run, the skill asks the user before it adds a mock.
+If the real worker cannot run, then the skill asks the user before it adds a mock.
 
 ## C7 mock API mapping
 
@@ -905,8 +905,9 @@ both `c7` and `c8` arrays, including an empty array when that side has no mocks:
 
 The mock-boundary review reads these arrays. Do not write a passing review result by hand.
 
-If the CPT test adds a mock that the C7 test did not use, ask the user for approval. Record each
-approved addition in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and `approved_by`.
+If the CPT test adds a mock that the C7 test did not use, then the skill asks the user for approval.
+The skill records each approved addition in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and
+`approved_by`.
 Without approval, the mock-boundary review fails.
 
 ## Build cleanup

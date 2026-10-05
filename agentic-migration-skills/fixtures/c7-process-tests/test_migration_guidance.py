@@ -2408,6 +2408,22 @@ class MigrationGuidanceTest(unittest.TestCase):
         }
         self.assertIn(MIGRATE_LOWER_PRIORITY, enabled_handling)
 
+    def test_reference_uses_ears_form_for_conditional_requirements(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        conditional_sentences = re.findall(
+            r"\bif\b[^.]*\.",
+            reference,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        self.assertTrue(conditional_sentences, "Expected conditional requirements in the reference.")
+        for sentence in conditional_sentences:
+            with self.subTest(sentence=sentence.strip()):
+                self.assertRegex(
+                    sentence,
+                    r"\bthen\b",
+                    "Conditional requirements must use the EARS 'If ..., then ...' form.",
+                )
+
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())
         self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())
