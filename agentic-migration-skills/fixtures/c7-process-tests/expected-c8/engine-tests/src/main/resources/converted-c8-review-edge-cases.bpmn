@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_ReviewEdgeCases" targetNamespace="http://camunda.com/fixture" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_ReviewEdgeCases" targetNamespace="http://camunda.com/fixture" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
   <bpmn:message id="Message_FulfillmentRequested" name="FulfillmentRequested" />
   <bpmn:error id="Error_MixedWork" name="Mixed work error" errorCode="MIXED_WORK_ERROR" />
   <bpmn:process id="MessageStartReview" name="Message start review" isExecutable="true">
@@ -46,71 +46,4 @@
     <bpmn:sequenceFlow id="Flow_MoreVisits_Completed" sourceRef="MoreVisits" targetRef="MixedWorkCompleted" />
     <bpmn:sequenceFlow id="Flow_MixedWorkError_Failed" sourceRef="Boundary_MixedWorkError" targetRef="MixedWorkFailed" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="MessageStartReviewDiagram">
-    <bpmndi:BPMNPlane id="MessageStartReviewPlane" bpmnElement="MessageStartReview">
-      <bpmndi:BPMNShape id="StartByMessage_di" bpmnElement="StartByMessage">
-        <dc:Bounds x="160" y="120" width="36" height="36" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MessageStarted_di" bpmnElement="MessageStarted">
-        <dc:Bounds x="360" y="120" width="36" height="36" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_MessageStart_MessageStarted_di" bpmnElement="Flow_MessageStart_MessageStarted">
-        <di:waypoint x="196" y="138" />
-        <di:waypoint x="360" y="138" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="MixedFinishReviewDiagram">
-    <bpmndi:BPMNPlane id="MixedFinishReviewPlane" bpmnElement="MixedFinishReview">
-      <bpmndi:BPMNShape id="Start_MixedWork_di" bpmnElement="Start_MixedWork">
-        <dc:Bounds x="160" y="300" width="36" height="36" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MixedWork_di" bpmnElement="MixedWork">
-        <dc:Bounds x="280" y="278" width="100" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Boundary_MixedWorkError_di" bpmnElement="Boundary_MixedWorkError">
-        <dc:Bounds x="312" y="340" width="36" height="36" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MoreVisits_di" bpmnElement="MoreVisits">
-        <dc:Bounds x="450" y="293" width="50" height="50" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MixedWorkCompleted_di" bpmnElement="MixedWorkCompleted">
-        <dc:Bounds x="520" y="300" width="36" height="36" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MixedWorkFailed_di" bpmnElement="MixedWorkFailed">
-        <dc:Bounds x="520" y="410" width="36" height="36" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_MixedStart_MixedWork_di" bpmnElement="Flow_MixedStart_MixedWork">
-        <di:waypoint x="196" y="318" />
-        <di:waypoint x="280" y="318" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_MixedWork_MoreVisits_di" bpmnElement="Flow_MixedWork_MoreVisits">
-        <di:waypoint x="380" y="318" />
-        <di:waypoint x="450" y="318" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_MoreVisits_MixedWork_di" bpmnElement="Flow_MoreVisits_MixedWork">
-        <di:waypoint x="475" y="293" />
-        <di:waypoint x="475" y="240" />
-        <di:waypoint x="330" y="240" />
-        <di:waypoint x="330" y="278" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_MoreVisits_Completed_di" bpmnElement="Flow_MoreVisits_Completed">
-        <di:waypoint x="500" y="318" />
-        <di:waypoint x="620" y="318" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_MixedWorkError_Failed_di" bpmnElement="Flow_MixedWorkError_Failed">
-        <di:waypoint x="330" y="376" />
-        <di:waypoint x="330" y="428" />
-        <di:waypoint x="520" y="428" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
 </bpmn:definitions>

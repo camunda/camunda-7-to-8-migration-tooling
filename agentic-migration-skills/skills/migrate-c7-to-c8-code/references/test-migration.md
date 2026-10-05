@@ -483,19 +483,23 @@ Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployment dependen
 | No retained method needs C7 Scenario setup. | Convert the shared setup to CPT or remove it. |
 | A retained manual method needs C7 Scenario setup. | Move migrated methods to a separate CPT class, or retain the Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployments until no retained method needs them. |
 
-Before it changes the target build, the skill checks test-source roots and test filters in every
-Maven module or Gradle source set. For Maven, the skill checks each module's `testSourceDirectory`
-and compiler include patterns. For Gradle, the skill checks each test source set and test-task
-include and exclude patterns.
+Before changing the target build, the skill checks test-source roots, test filters, and resource
+processing in every Maven module or Gradle source set. For Maven, the skill checks each module's
+`testSourceDirectory`, compiler include patterns, `resources`, and `testResources` declarations. The
+skill checks resource filters, includes, excludes, and `targetPath` settings. For Gradle, the skill
+checks each test source set, test-task include and exclude patterns, source-set resource directories,
+and matching resource-processing tasks such as `processResources` and `processTestResources`. The
+skill checks their filters and output paths. The skill checks plugins or tasks that copy or generate
+resources.
 
 | Source-set condition | Migration action |
 |---|---|
 | Multiple C7 modules compile the same physical test source. | Migrate that source only once to the CPT suite. Keep each module-qualified C7 test ID in the inventory. Map duplicate module executions to one CPT test ID. |
-| A target module has no test sources outside the shared set and no unique resources, main outputs, generated outputs, or build responsibilities. | Remove the module. |
-| A target module has test sources outside the shared set or unique resources, main outputs, generated outputs, or build responsibilities. | Preserve every unique test, resource, output, and build responsibility in a reconfigured module that excludes shared sources or in the primary module. Retain the target module if the skill cannot preserve all unique content. |
+| A target module has no test sources outside the shared set and no unique resources, resource-processing behavior, main outputs, generated outputs, or build responsibilities. | Remove the module. |
+| A target module has test sources outside the shared set or unique resources, resource-processing behavior, main outputs, generated outputs, or build responsibilities. | Preserve every unique test, resource, resource-processing rule, output, and build responsibility in a reconfigured module that excludes shared sources or in the primary module. Retain the target module if the skill cannot preserve all unique content. |
 
-The skill preserves every unique resource, output, and build responsibility before it removes or
-reconfigures a target module.
+A shared resource root can produce unique output when the module applies different filters, target
+paths, or generation tasks.
 
 | Camunda 7 engine-test setup | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
@@ -515,8 +519,7 @@ reconfigures a target module.
 7. The skill keeps Mockito initialization and cleanup for retained annotations that rely on
    `MockitoAnnotations.openMocks(this)`.
 
-The Scenario runner completed external tasks itself. The skill uses `mockJobWorker(type)` for those
-tasks.
+The Scenario runner completed external tasks itself.
 The skill does not add a mock for a Java delegate that the Camunda 7 test ran for real. The skill
 keeps the migrated worker real unless the Camunda 7 test mocked that delegate.
 
@@ -534,8 +537,8 @@ The message action targets a message name and evaluated correlation key, not the
 result's process-instance key. The signal action broadcasts by signal name and can also advance
 another process instance waiting for that signal.
 
-The skill uses sequential CPT calls when the process path is linear. (MAY) The skill uses
-`mockJobWorker(type)` for external-task stubs. The skill advances time explicitly for timer stubs.
+The skill uses sequential CPT calls when the process path is linear. (MAY) The skill advances time
+explicitly for timer stubs.
 
 ```java
 long processInstanceKey = processInstance.getProcessInstanceKey();
@@ -570,7 +573,7 @@ parity-ledger entry.
 | `task.handleBpmnError(...)` or `task.handleEscalation(...)` on a user task | Record `manual` in the parity ledger with the unsupported operation as the reason | CPT has no direct user-task BPMN error or escalation action. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtBusinessRuleTask`, `waitsAtMessageIntermediateThrowEvent`, or `waitsAtMessageEndEvent` completing an external task | `processTestContext.mockJobWorker(type).thenComplete(variables)` | Read `type` from the converted copy. |
 | The same external-task stubs handling a BPMN error | `processTestContext.mockJobWorker(type).thenThrowBpmnError(code, variables)` | Read `type` from the converted copy. |
-| Repeated external-task actions on a linear path | Call `completeJob(...)` or `throwBpmnErrorFromJob(...)` once per activation in the tested order. | The skill does not chain `thenComplete(...)` or `thenThrowBpmnError(...)`. Their builder methods return `JobWorkerMock`. |
+| Repeated external-task actions on a linear path | Call `completeJob(...)` or `throwBpmnErrorFromJob(...)` once per activation in the tested order. | The skill does not register a worker mock for these repeated actions. The skill does not chain `thenComplete(...)` or `thenThrowBpmnError(...)` because their builder methods return `JobWorkerMock`. |
 | Repeated external-task actions on a non-linear path | Configure `mockJobWorker(type).withHandler(...)` to select the response for each activated job. | |
 | `waitsAtTimerIntermediateEvent("T")` with an empty action | Assert `hasActiveElements("T")`, then call `processTestContext.increaseTime(duration)` | Read the duration from the converted timer definition. |
 | `action.defer(period, action)` | Increase time in bounded steps, then run the deferred action | Follow the time rule below. |

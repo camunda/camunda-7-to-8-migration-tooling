@@ -503,18 +503,23 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "before it changes the target build, the skill checks test-source roots "
-            "and test filters in every maven module or gradle source set.",
+            "before changing the target build, the skill checks test-source roots, "
+            "test filters, and resource processing in every maven module or gradle source set.",
             reference,
         )
         self.assertIn(
-            "for maven, the skill checks each module's `testsourcedirectory` and "
-            "compiler include patterns.",
+            "for maven, the skill checks each module's `testsourcedirectory`, compiler "
+            "include patterns, `resources`, and `testresources` declarations.",
             reference,
         )
         self.assertIn(
-            "for gradle, the skill checks each test source set and test-task include "
-            "and exclude patterns.",
+            "for gradle, the skill checks each test source set, test-task include and exclude "
+            "patterns, source-set resource directories, and matching resource-processing tasks such "
+            "as `processresources` and `processtestresources`.",
+            reference,
+        )
+        self.assertIn(
+            "the skill checks their filters and output paths.",
             reference,
         )
         self.assertNotIn("target reactor", reference)
@@ -552,6 +557,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         for requirement in (
             "no test sources outside the shared set",
             "unique resources",
+            "resource-processing behavior",
             "main outputs",
             "generated outputs",
             "build responsibilities",
@@ -565,6 +571,10 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn(
             "resource",
+            preserve_action["Migration action"].lower(),
+        )
+        self.assertIn(
+            "resource-processing rule",
             preserve_action["Migration action"].lower(),
         )
         self.assertIn(
@@ -582,6 +592,104 @@ class MigrationGuidanceTest(unittest.TestCase):
             for module in target_project.findall("m:modules/m:module", MAVEN_NAMESPACE)
         }
         self.assertNotIn("engine-tests-legacy", target_modules)
+
+    def test_module_removal_inspects_configured_resource_processing(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        for requirement in (
+            "compiler include patterns, `resources`, and `testresources` declarations",
+            "resource filters, includes, excludes, and `targetpath` settings",
+            "plugins or tasks that copy or generate resources",
+            "matching resource-processing tasks such as `processresources` and `processtestresources`",
+            "the skill checks their filters and output paths",
+            "shared resource root can produce unique output",
+        ):
+            self.assertIn(requirement, reference)
+
+        legacy_pom = ET.parse(C7_SOURCE / "engine-tests-legacy/pom.xml").getroot()
+        legacy_build = legacy_pom.find("m:build", MAVEN_NAMESPACE)
+        self.assertIsNotNone(legacy_build)
+        self.assertEqual(
+            "${project.basedir}/../engine-tests/src/main/resources",
+            legacy_build.findtext(
+                "m:resources/m:resource/m:directory", namespaces=MAVEN_NAMESPACE
+            ),
+        )
+        self.assertEqual(
+            "${project.basedir}/../engine-tests/src/test/resources",
+            legacy_build.findtext(
+                "m:testResources/m:testResource/m:directory",
+                namespaces=MAVEN_NAMESPACE,
+            ),
+        )
+        self.assertTrue(
+            (C7_SOURCE / "engine-tests/src/main/resources/order.bpmn").is_file()
+        )
+        self.assertTrue(
+            (
+                C7_SOURCE
+                / "engine-tests/src/test/resources/com/camunda/fixture/order/"
+                "LegacyOrderTest.testStockMissing.bpmn"
+            ).is_file()
+        )
+
+        target_resources = EXPECTED_C8 / "engine-tests/src/main/resources"
+        self.assertTrue((target_resources / "converted-c8-order.bpmn").is_file())
+        self.assertTrue(
+            (
+                target_resources
+                / "converted-c8-LegacyOrderTest.testStockMissing.bpmn"
+            ).is_file()
+        )
+
+    def test_converted_bpmn_copies_do_not_add_di_to_sources_without_di(self):
+        namespace = {"bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI"}
+        converted_files = sorted(EXPECTED_C8.rglob("converted-c8-*.bpmn"))
+        no_di_sources = 0
+
+        for converted_file in converted_files:
+            source_name = converted_file.name.removeprefix("converted-c8-")
+            source_files = list(C7_SOURCE.rglob(source_name))
+            self.assertEqual(
+                1,
+                len(source_files),
+                "Expected one C7 source for {}.".format(converted_file),
+            )
+            source_root = ET.parse(source_files[0]).getroot()
+            if source_root.findall(".//bpmndi:BPMNDiagram", namespace):
+                continue
+
+            no_di_sources += 1
+            converted_root = ET.parse(converted_file).getroot()
+            with self.subTest(source=source_files[0], converted=converted_file):
+                self.assertEqual(
+                    [],
+                    converted_root.findall(".//bpmndi:BPMNDiagram", namespace),
+                    "A converted copy must not manufacture DI absent from its source.",
+                )
+
+        self.assertGreater(no_di_sources, 0)
+
+    def test_linear_repeated_external_task_mapping_does_not_register_worker_mock(self):
+        mappings = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        linear_actions = [
+            row
+            for row in mappings
+            if "repeated external-task actions on a linear path"
+            in row["Camunda Platform Scenario"].lower()
+        ]
+
+        self.assertEqual(1, len(linear_actions))
+        self.assertIn(
+            "does not register a worker mock",
+            linear_actions[0]["Notes"].lower(),
+        )
 
     def test_scenario_test_guidance_is_loaded_during_step_two(self):
         skill = normalized(MIGRATION_SKILL.read_text(encoding="utf-8"))
