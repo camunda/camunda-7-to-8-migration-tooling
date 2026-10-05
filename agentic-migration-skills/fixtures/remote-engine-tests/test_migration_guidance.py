@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -28,6 +29,20 @@ SHARED_SOURCE = (
 )
 SHARED_PROPERTIES = FIXTURE / "shared-engine/c7-source/src/test/resources/application-test.properties"
 SHARED_REPORT = FIXTURE / "expected-shared-engine/MIGRATION_REPORT.md"
+JAVA_PROPERTIES_REMOTE_RUNTIME = re.compile(
+    r"(?m)^[ \t\f]*(?:camunda\.process-test\.runtime-mode|runtimeMode)"
+    r"[ \t\f]*(?:[=:][ \t\f]*|[ \t\f]+)remote[ \t\f]*\r?$"
+)
+YAML_REMOTE_RUNTIME = re.compile(
+    r"""(?m)^[ \t]*runtime-mode[ \t]*:[ \t]*(?:(['"])remote\1|remote)[ \t]*(?:#.*)?\r?$"""
+)
+
+
+def _contains_remote_runtime_configuration(content):
+    return (
+        JAVA_PROPERTIES_REMOTE_RUNTIME.search(content) is not None
+        or YAML_REMOTE_RUNTIME.search(content) is not None
+    )
 
 
 class RemoteEngineTestMigrationTest(unittest.TestCase):
@@ -263,12 +278,43 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             if not path.is_file():
                 continue
             content = path.read_text()
-            self.assertNotIn("camunda.process-test.runtime-mode=remote", content)
-            self.assertNotIn("runtime-mode: remote", content)
-            self.assertNotIn("runtimeMode=remote", content)
+            self.assertFalse(_contains_remote_runtime_configuration(content), path)
             self.assertNotIn("camunda.bpm.client.base-url", content)
             self.assertNotIn("camunda/camunda-bpm-platform", content)
             self.assertNotIn("/engine-rest", content)
+
+    def test_remote_runtime_guard_detects_java_properties_separators(self):
+        for key in ("runtimeMode", "camunda.process-test.runtime-mode"):
+            for separator in ("=", " = ", ":", " : ", " ", "\t=\t", "\f:\f", "\t", "\f"):
+                with self.subTest(key=key, separator=separator):
+                    self.assertTrue(
+                        _contains_remote_runtime_configuration(
+                            f"{key}{separator}remote"
+                        )
+                    )
+
+    def test_remote_runtime_guard_detects_yaml_values_and_ignores_non_config(self):
+        for setting in (
+            "runtime-mode: remote",
+            "runtime-mode:   remote",
+            'runtime-mode: "remote"',
+            "runtime-mode: 'remote'",
+            "runtime-mode: remote # YAML comment",
+        ):
+            with self.subTest(setting=setting):
+                self.assertTrue(_contains_remote_runtime_configuration(setting))
+
+        for setting in (
+            "# runtimeMode=remote",
+            "! runtimeMode=remote",
+            "runtimeMode=local",
+            "runtimeMode=remote-ish",
+            "runtimeMode=remote # trailing text is part of a Java property value",
+            "# runtime-mode: remote",
+            'runtime-mode: "remote\'',
+        ):
+            with self.subTest(setting=setting):
+                self.assertFalse(_contains_remote_runtime_configuration(setting))
 
     def test_readme_documents_baseline_and_cpt_test_commands(self):
         readme = (FIXTURE / "README.md").read_text()
