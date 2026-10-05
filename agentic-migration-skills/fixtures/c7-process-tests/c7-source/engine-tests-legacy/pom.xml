@@ -53,6 +53,18 @@
 
   <build>
     <testSourceDirectory>${project.basedir}/../engine-tests/src/test/java</testSourceDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <testIncludes>
+            <testInclude>**/FulfillmentScenarioTest.java</testInclude>
+            <testInclude>**/ScenarioMappingEdgeCasesTest.java</testInclude>
+          </testIncludes>
+        </configuration>
+      </plugin>
+    </plugins>
     <resources>
       <resource>
         <directory>${project.basedir}/../engine-tests/src/main/resources</directory>

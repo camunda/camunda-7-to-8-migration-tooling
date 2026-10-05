@@ -449,8 +449,8 @@ test dependencies, test edits, and timer handling in every instruction below.
 
 | Selected code approach | Step 2 Test Inventory `Handling` | Action |
 |---|---|---|
-| Approach A or B | `Migrate to CPT` | Apply the preparation, dependency, wait-state, mapping, and time steps below. |
-| Approach A or B | Any value other than `Migrate to CPT`, including missing | Follow any recorded disposition. Do not add CPT dependencies or modify tests or their build configuration. |
+| Approach A or B | `Migrate (lower priority)` | Apply the preparation, dependency, wait-state, mapping, and time steps below. |
+| Approach A or B | Any value other than `Migrate (lower priority)`, including missing | Follow any recorded disposition. Do not add CPT dependencies or modify tests or their build configuration. |
 | Approach C | Any value, including missing | Assess only. Do not add CPT dependencies or modify tests or their build configuration. |
 
 ### Scope and target
@@ -463,9 +463,9 @@ overlapping classes in `org.camunda.bpm.scenario`. The skill keeps only one of t
 each test classpath. When remaining tests require both artifacts, the skill separates their
 test classpaths. The skill inspects the test calls before classifying the method.
 
-For a scenario test marked `Migrate to CPT`, the target is a Java test with Camunda Process Test
-(CPT) and `io.camunda:camunda-process-test-java`. The target is Camunda 8.9 or later. The skill
-does not create CPT instruction-based JSON tests.
+For a scenario test marked `Migrate (lower priority)`, the target is a Java test with Camunda
+Process Test (CPT) and `io.camunda:camunda-process-test-java`. The target is Camunda 8.9 or later.
+The skill does not create CPT instruction-based JSON tests.
 
 When the target is Camunda 8.8, the skill sets scenario-test handling to `Report only`. The skill
 records the test as `manual` in the parity ledger with the exact reason `test migration needs

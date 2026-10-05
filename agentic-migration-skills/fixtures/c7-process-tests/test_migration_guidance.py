@@ -300,6 +300,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "DiscountDecisionTest",
             "PromotionsDecisionTest",
             "FulfillmentScenarioTest",
+            "ScenarioMappingEdgeCasesTest",
             "SupportCaseTest",
             "FluentModelTest",
             "CheckStockDelegateTest",
@@ -1137,6 +1138,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             "or decision",
             out_of_scope_row,
         )
+
+    def test_scenario_gate_accepts_inventory_handling(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
+        scenario_handling = {
+            row["Handling"] for row in inventory if row["Test kind"] == "scenario test"
+        }
+        self.assertIn("Migrate (lower priority)", scenario_handling)
+
+        gate = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Selected code approach", "Step 2 Test Inventory `Handling", "Action"],
+        )
+        enabled_handling = {
+            row["Step 2 Test Inventory `Handling"]
+            for row in gate
+            if row["Selected code approach"] == "Approach A or B"
+            and row["Action"].startswith("Apply the preparation")
+        }
+        self.assertIn("Migrate (lower priority)", enabled_handling)
 
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())

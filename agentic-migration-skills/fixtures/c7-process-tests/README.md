@@ -54,6 +54,8 @@ those contracts.
 
 - `c7-source/` is the migration input. Its modules are independent of
   `expected-c8/`, but keep the same Maven coordinates.
+- `c7-source/engine-tests-legacy/` runs only the shared Scenario tests against
+  `camunda-bpm-assert-scenario` 1.1.1, isolated from the 2.x runner.
 - `expected-c8/` contains the expected migrated project. It uses converted
   copies named `converted-c8-*` and minimal `.form` files for converted user
   tasks.
