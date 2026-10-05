@@ -38,9 +38,33 @@ YAML_REMOTE_RUNTIME = re.compile(
 )
 
 
+def _java_properties_logical_lines(content):
+    logical_line = ""
+    continuing = False
+    for physical_line in re.split(r"\r\n|\n|\r", content):
+        if continuing:
+            physical_line = physical_line.lstrip(" \t\f")
+
+        trailing_backslashes = len(physical_line) - len(physical_line.rstrip("\\"))
+        continuing = trailing_backslashes % 2 == 1
+        if continuing:
+            physical_line = physical_line[:-1]
+
+        logical_line += physical_line
+        if not continuing:
+            yield logical_line
+            logical_line = ""
+
+    if logical_line:
+        yield logical_line
+
+
 def _contains_remote_runtime_configuration(content):
     return (
-        JAVA_PROPERTIES_REMOTE_RUNTIME.search(content) is not None
+        any(
+            JAVA_PROPERTIES_REMOTE_RUNTIME.search(line) is not None
+            for line in _java_properties_logical_lines(content)
+        )
         or YAML_REMOTE_RUNTIME.search(content) is not None
     )
 
@@ -292,6 +316,23 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                             f"{key}{separator}remote"
                         )
                     )
+
+    def test_remote_runtime_guard_detects_java_properties_continuations(self):
+        for setting in (
+            "runtimeMode=\\\n    remote",
+            "runtimeMode=re\\\n  mote",
+            "camunda.process-test.runtime-mode:\\\r\n  remote",
+            "runtimeMode=\\\n  \\\n  remote",
+        ):
+            with self.subTest(setting=setting):
+                self.assertTrue(_contains_remote_runtime_configuration(setting))
+
+        for setting in (
+            "runtimeMode=\\\\\n  remote",
+            "runtimeMode=\\ \n  remote",
+        ):
+            with self.subTest(setting=setting):
+                self.assertFalse(_contains_remote_runtime_configuration(setting))
 
     def test_remote_runtime_guard_detects_yaml_values_and_ignores_non_config(self):
         for setting in (
