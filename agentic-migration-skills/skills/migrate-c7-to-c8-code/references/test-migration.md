@@ -447,8 +447,10 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 The test inventory classifies an in-scope test method as a `scenario test` when it uses
 `Scenario.run(...)` or `Scenario.use(...)` with a `ProcessScenario`.
 The artifacts `org.camunda.bpm.extension.scenario:camunda-platform-scenario-runner` and
-`org.camunda.bpm.extension:camunda-bpm-assert-scenario` are detection signals. Both use
-`org.camunda.bpm.scenario`. Inspect the test calls before classifying the method.
+`org.camunda.bpm.extension:camunda-bpm-assert-scenario` are detection signals. Their JARs contain
+overlapping classes in `org.camunda.bpm.scenario`. The skill keeps only one of these artifacts on
+each test classpath. When remaining tests require both artifacts, the skill separates their
+test classpaths. The skill inspects the test calls before classifying the method.
 
 The skill migrates scenario tests to Java tests with Camunda Process Test (CPT) and
 `io.camunda:camunda-process-test-java`. The target is Camunda 8.9 or later. The skill does not
@@ -518,15 +520,16 @@ assertion fails after its timeout.
 | `waitsAtConditionalIntermediateEvent("C")` | Call `processTestContext.updateVariables(byKey(processInstanceKey), variables)` | Converted conditional events need Camunda 8.9 or later. |
 | `runsCallActivity("C")` returning `Scenario.use(child)` | Deploy the converted child process and register its behaviors with `byProcessId(childProcessId)` | Keep the child process behavior real unless the Camunda 7 test mocked it. |
 | `withMockedProcess("child")` and `waitsAtMockedCallActivity("C")` | Call `processTestContext.mockChildProcess("child", variables)` | This preserves the existing mocked-child boundary. |
-| `Scenario.run(process).startByKey(key, variables).execute()` | Create an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` | Apply the confirmed business-key mapping when the source test sets a business key. |
-| `startByMessage(name, variables)` | Correlate a message start with `.messageName(name).withoutCorrelationKey().variables(variables).send().join()` | |
+| `Scenario.run(process).startByKey(key, variables).execute()` | The skill creates an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` and retains the returned `ProcessInstanceEvent` | Apply the confirmed business-key mapping when the source test sets a business key. |
+| `startByMessage(name, variables)` | The skill correlates a message start with `.messageName(name).withoutCorrelationKey().variables(variables).send().join()` and retains the returned `CorrelateMessageResponse` | |
 | `.fromBefore("A")` | Call `.startBeforeElement("A")` on the create command | |
 | `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger | CPT has no direct `fromAfter` counterpart. Start before the next element only when it is unambiguous. |
 | `startBy(customProcessStarter)` | Record `manual` in the parity ledger | A custom `ProcessStarter` needs a manual migration. |
-| `Scenario.instance(process)` | Use the `ProcessInstanceEvent` returned by the create-instance command | |
+| `Scenario.instance(process)` after `startByKey` | The skill asserts against the `ProcessInstanceEvent` returned by the create-instance command | |
+| `Scenario.instance(process)` after `startByMessage` | The skill selects the instance with `assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey()))` | The correlate command returns a `CorrelateMessageResponse`, not a `ProcessInstanceEvent`. |
 | `verify(process).hasCompleted("E")` | Assert `hasCompletedElements("E")` | |
-| `verify(process).hasFinished("E")` | Assert `hasCompletedElements("E")` or `hasTerminatedElements("E")` | Choose the assertion that matches the path. `hasFinished` includes completed and canceled elements. |
-| `verify(process, times(n)).hasFinished("E")` | Assert `hasCompletedElement("E", n)` or `hasTerminatedElement("E", n)` | Choose the assertion that matches the path. The count is exact. |
+| `verify(process).hasFinished("E")` | The skill asserts `hasCompletedElements("E")`, `hasTerminatedElements("E")`, or both | The skill asserts each outcome present on the path. `hasFinished` includes completed and canceled elements. |
+| `verify(process, times(n)).hasFinished("E")` | The skill asserts exact counts with `hasCompletedElement("E", completedCount)` and `hasTerminatedElement("E", terminatedCount)` | The skill uses one assertion when all visits share an outcome. The skill uses both assertions when the path has known mixed counts. The skill records `manual` when the split is unknown. The skill verifies that the completed and terminated counts sum to `n`. |
 | `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
 | `verify(process, never()).hasStarted("E")` | Assert `hasNotActivatedElements("E")` after a waiting assertion | This assertion does not wait. |
