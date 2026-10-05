@@ -11,6 +11,9 @@ The skill inventories every test, including tests that are out of scope.
 The skill assigns one test kind to each test.
 When test methods in one class differ, the skill assigns one test kind to each method.
 
+CMMN tests and tests that use Camunda engine internals do not meet this scope rule.
+The skill still inventories these tests as `manual redesign` with `Report only` handling.
+
 ## Test kinds
 
 | Test kind | Detect by | Handling |
@@ -28,6 +31,7 @@ When test methods in one class differ, the skill assigns one test kind to each m
 
 | Signal | Confirmation required |
 |---|---|
+| A test uses CMMN APIs or models, or Camunda engine internals | Keep the test as `manual redesign` and use `Report only` handling, even when it does not run a BPMN process or DMN decision |
 | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, or a JUnit 3 test method | The method runs a BPMN process or DMN decision on a Camunda 7 engine |
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
@@ -68,8 +72,9 @@ The skill follows each Cucumber runner or build configuration to locate executed
 The skill inventories each Cucumber `Scenario` as one test.
 The skill inventories each data row in a Cucumber `Scenario Outline` `Examples` table as a separate test.
 The skill reads methods annotated with `@Given`, `@When`, or `@Then` as step definitions.
-The skill does not inventory these methods, a Cucumber runner class, or hook methods as separate tests.
-The skill reads the referenced step definitions to confirm whether a scenario runs a BPMN process or DMN decision on a Camunda 7 engine.
+The skill reads constructor-registered lambda steps, such as `io.cucumber.java8.En`.
+The skill does not inventory step-definition methods, lambda registrations, a Cucumber runner class, or hook methods as separate tests.
+The skill follows both forms when it checks for Camunda 7 process or decision calls.
 The skill reads applicable Cucumber hooks.
 The skill uses them to check whether scenarios run BPMN processes or DMN decisions on a Camunda 7 engine.
 The skill reads shared test bases, abstract test classes, test configuration classes, and `camunda.cfg.xml` under test resources.
@@ -85,17 +90,19 @@ The skill records their source language in the `Notes` cell.
 
 ## Test models
 
-Every model deployed by a test appears in the Model Inventory, including CMMN and models under `src/test/resources`.
-Link each test ID to every model it deploys in the `Models` cell.
-Record the path resolved for every implicit deployment.
+Every BPMN, DMN, or CMMN model that a test deploys or parses appears in the Model Inventory.
+Link each test ID to every model it deploys or parses in the `Models` cell.
+Trace model resources through test setup and shared helpers.
+Record the resolved path for each model resource.
 
-| Deployment form | Model paths and notes to record | Handling |
+| Model source | Model paths and notes to record | Handling |
 |---|---|
 | Explicit `@Deployment(resources = ...)` | Every declared resource path | Use the test kind's handling |
 | Implicit method-level `@Deployment` | The first matching `<package path>/<TestClass>.<method>.<suffix>` resource | Use the test kind's handling |
 | Implicit class-level `@Deployment` | The first matching `<package path>/<DeclaringClass>.<suffix>` resource, including a superclass that declares the annotation | Use the test kind's handling |
 | Programmatic deployment | Every resource added through `repositoryService.createDeployment().addClasspathResource(...)` | Use the test kind's handling |
 | Spring Boot auto-deployment | Models deployed by `@EnableProcessApplication` with `META-INF/processes.xml`, or by the starter's auto-deployment of `src/main/resources` | Use the test kind's handling |
+| Standalone DMN parsing | A test or shared helper calls `DmnEngine.parseDecision(...)` on a resource | Record the resource path and link the DMN model to each affected test | Use the test kind's handling |
 | CMMN model deployed by a test | Record the CMMN path and note manual redesign | Report only |
 | BPMN model built with the Camunda fluent model API | Record the model as programmatically built and note manual migration | Report only |
 

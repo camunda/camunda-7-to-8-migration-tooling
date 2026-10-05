@@ -29,6 +29,16 @@ METHOD_RE = re.compile(
 )
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
 TEST_ID_RE = re.compile(r"(?:engine-tests|spring-boot-app|remote-engine):[\w.]+#[A-Za-z_$][\w$]*")
+TEST_KINDS = (
+    "process test",
+    "decision test",
+    "scenario test",
+    "remote-engine test",
+    "manual migration",
+    "manual redesign",
+    "out of scope",
+    "out of scope (Camunda 8)",
+)
 
 
 def test_method_ids(project_root):
@@ -247,18 +257,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn("| test kind | detect by | handling |", reference)
-        for test_kind in (
-            "process test",
-            "decision test",
-            "scenario test",
-            "remote-engine test",
-            "manual migration",
-            "manual redesign",
-            "out of scope",
-            "out of scope (camunda 8)",
-        ):
+        for test_kind in TEST_KINDS:
             with self.subTest(test_kind=test_kind):
-                self.assertIn("| {} |".format(test_kind), reference)
+                self.assertIn("| {} |".format(normalized(test_kind)), reference)
 
         for source_directory in (
             "src/test/java",
@@ -278,11 +279,14 @@ class MigrationGuidanceTest(unittest.TestCase):
             "each cucumber `scenario` as one test",
             "each data row in a cucumber `scenario outline` `examples` table "
             "as a separate test",
-            "the skill does not inventory these methods, a cucumber runner class, or "
-            "hook methods as separate tests",
+            "the skill does not inventory step-definition methods, lambda registrations, "
+            "a cucumber runner class, or hook methods as separate tests",
             "@given",
             "@when",
             "@then",
+            "the skill reads constructor-registered lambda steps",
+            "`io.cucumber.java8.en`",
+            "the skill follows both forms when it checks for camunda 7 process or decision calls.",
             "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn process "
             "or dmn decision",
             "the cucumber classification includes applicable hooks, not only steps",
@@ -294,6 +298,81 @@ class MigrationGuidanceTest(unittest.TestCase):
         ):
             with self.subTest(requirement=requirement):
                 self.assertIn(requirement, reference)
+
+    def test_manual_redesign_is_an_explicit_scope_exception(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        self.assertIn(
+            "cmmn tests and tests that use camunda engine internals do not meet this scope rule.",
+            reference,
+        )
+        self.assertIn(
+            "the skill still inventories these tests as `manual redesign` with "
+            "`report only` handling.",
+            reference,
+        )
+        scope_confirmation_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| A test uses CMMN")
+        )
+        self.assertIn("manual redesign", scope_confirmation_row)
+        self.assertIn("report only", scope_confirmation_row)
+        self.assertIn(
+            "even when it does not run a bpmn process or dmn decision",
+            scope_confirmation_row,
+        )
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            support_case = next(
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith("SupportCaseTest#startsSupportCase")
+            )
+            self.assertEqual("manual redesign", support_case["Test kind"])
+            self.assertEqual("Report only", support_case["Handling"])
+
+    def test_parsed_dmn_models_are_inventoried(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        for requirement in (
+            "every bpmn, dmn, or cmmn model that a test deploys or parses appears in the model inventory.",
+            "link each test id to every model it deploys or parses in the `models` cell.",
+            "trace model resources through test setup and shared helpers.",
+            "`dmnengine.parsedecision(...)`",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, reference)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            discount_rows = [
+                row
+                for row in markdown_table(inventory_path, headers)
+                if "DiscountDecisionTest#" in row["Test ID"]
+            ]
+            self.assertTrue(discount_rows)
+            self.assertTrue(all("discount.dmn" in row["Models"] for row in discount_rows))
+
+    def test_expected_inventories_include_complete_test_kind_counts(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            with self.subTest(inventory=inventory_path):
+                inventory_rows = markdown_table(inventory_path, headers)
+                count_rows = markdown_table(inventory_path, ["Test kind", "Count"])
+                self.assert_unique_rows(count_rows, "Test kind", inventory_path)
+                self.assertEqual(len(TEST_KINDS), len(count_rows))
+
+                expected_counts = {
+                    test_kind: sum(row["Test kind"] == test_kind for row in inventory_rows)
+                    for test_kind in TEST_KINDS
+                }
+                reported_counts = {
+                    row["Test kind"]: int(row["Count"])
+                    for row in count_rows
+                }
+                self.assertEqual(set(TEST_KINDS), set(reported_counts))
+                self.assertEqual(expected_counts, reported_counts)
 
     def test_cucumber_hooks_participate_in_scope_confirmation(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
