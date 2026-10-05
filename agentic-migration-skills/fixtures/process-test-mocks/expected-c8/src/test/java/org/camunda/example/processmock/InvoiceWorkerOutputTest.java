@@ -1,0 +1,24 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package org.camunda.example.processmock;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.camunda.example.processmock.service.InvoiceService;
+import org.camunda.example.processmock.worker.InvoiceWorkers;
+import org.junit.jupiter.api.Test;
+
+class InvoiceWorkerOutputTest {
+
+  @Test
+  void returnsTheDelegateOutputVariable() {
+    var worker = new InvoiceWorkers(new InvoiceService());
+
+    assertThat(worker.notifyInvoice()).containsEntry("notified", true);
+  }
+}

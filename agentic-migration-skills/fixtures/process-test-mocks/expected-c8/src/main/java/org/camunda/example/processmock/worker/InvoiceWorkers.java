@@ -9,6 +9,7 @@ package org.camunda.example.processmock.worker;
 
 import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.annotation.Variable;
+import java.util.Map;
 import org.camunda.example.processmock.service.InvoiceService;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +28,9 @@ public class InvoiceWorkers {
   }
 
   @JobWorker(type = "notify-invoice")
-  public void notifyInvoice() {}
+  public Map<String, Object> notifyInvoice() {
+    return Map.of("notified", true);
+  }
 
   @JobWorker(type = "notify-start")
   public void notifyStart() {}

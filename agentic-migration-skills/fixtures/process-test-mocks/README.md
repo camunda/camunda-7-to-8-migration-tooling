@@ -30,8 +30,10 @@ worker whose job type it mocks.
    mvn -f agentic-migration-skills/fixtures/process-test-mocks/expected-c8/pom.xml test
    ```
 
-The CPT tests verify the collaborator call, delegate outputs, execution-listener invocation,
+The CPT tests verify the collaborator call, mocked delegate outputs, execution-listener invocation,
 called-process output, BPMN-error route, and active incident. CPT tests need Docker.
+The unit test verifies that the real `notify-invoice` worker returns the delegate's
+`notified=true` output.
 
 ## Negative case
 
