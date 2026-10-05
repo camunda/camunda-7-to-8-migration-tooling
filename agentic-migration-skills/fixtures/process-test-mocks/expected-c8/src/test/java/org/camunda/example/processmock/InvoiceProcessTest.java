@@ -78,6 +78,28 @@ class InvoiceProcessTest {
   }
 
   @Test
+  void preservesRepeatedDelegateOutputs() {
+    AtomicInteger output = new AtomicInteger();
+    JobWorkerMock notify =
+        processTestContext
+            .mockJobWorker("notify-invoice")
+            .withHandler(
+                (jobClient, job) ->
+                    jobClient
+                        .newCompleteCommand(job)
+                        .variables(Map.of("notificationCount", output.incrementAndGet()))
+                        .send()
+                        .join());
+
+    ProcessInstanceEvent instance = start("repeated-notify", Map.of());
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasVariable("notificationCount", 2);
+    assertThat(notify.getInvocations()).isEqualTo(2);
+  }
+
+  @Test
   void routesADelegateBpmnError() {
     processTestContext.mockJobWorker("notify-start").thenComplete();
     JobWorkerMock notify =

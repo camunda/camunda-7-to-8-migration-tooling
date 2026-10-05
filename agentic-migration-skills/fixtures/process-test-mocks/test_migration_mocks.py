@@ -32,6 +32,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for api in (
             "Mocks.register",
+            "CamundaMockito.registerMockInstance",
             "registerJavaDelegateMock",
             "onExecutionSetVariables",
             "onExecutionThrowBpmnError",
@@ -70,6 +71,74 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             return names
 
         self.assertCountEqual(test_method_names(c7_test), test_method_names(c8_test))
+
+    def test_camunda_mockito_registered_collaborator_maps_to_cpt(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_method = c7_test.split(
+            "public void registersCollaboratorAndWholeDelegateMocks()", 1
+        )[1].split("\n  @Test", 1)[0]
+        c8_method = c8_test.split(
+            "void registersCollaboratorAndWholeDelegateMocks()", 1
+        )[1].split("\n  @Test", 1)[0]
+
+        self.assertIn(
+            'CamundaMockito.registerMockInstance("invoiceService", InvoiceService.class)',
+            c7_method,
+        )
+        self.assertIn('when(invoiceService.isValid("I-1")).thenReturn(true);', c7_method)
+        self.assertIn('verify(invoiceService).isValid("I-1");', c7_method)
+        self.assertIn("@MockitoBean private InvoiceService invoiceService;", c8_test)
+        self.assertIn('when(invoiceService.isValid("I-1")).thenReturn(true);', c8_method)
+        self.assertIn('verify(invoiceService).isValid("I-1");', c8_method)
+
+    def test_repeated_delegate_outputs_map_to_per_activation_cpt_results(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_model = (FIXTURE / "c7-source/src/test/resources/repeated-notify.bpmn").read_text(
+            encoding="utf-8"
+        )
+        c8_model = (
+            FIXTURE / "expected-c8/src/main/resources/processes/converted-c8-repeated-notify.bpmn"
+        ).read_text(encoding="utf-8")
+        c7_signature = "public void preservesRepeatedDelegateOutputs()"
+        c8_signature = "void preservesRepeatedDelegateOutputs()"
+        self.assertIn(c7_signature, c7_test)
+        self.assertIn(c8_signature, c8_test)
+        c7_method = c7_test.split(c7_signature, 1)[1].split("\n  @Test", 1)[0]
+        c8_method = c8_test.split(c8_signature, 1)[1].split("\n  @Test", 1)[0]
+
+        self.assertEqual(2, c7_model.count('camunda:delegateExpression="${notifyDelegate}"'))
+        self.assertEqual(2, c8_model.count('type="notify-invoice"'))
+        self.assertRegex(
+            c7_method,
+            re.compile(
+                r'onExecutionSetVariables\(\s*Variables\.putValue\("notificationCount", 1\),'
+                r'\s*Variables\.putValue\("notificationCount", 2\)\s*\)',
+                re.DOTALL,
+            ),
+        )
+        self.assertIn(
+            'verifyJavaDelegateMock("notifyDelegate").executed(times(2));',
+            c7_method,
+        )
+        self.assertIn('mockJobWorker("notify-invoice")', c8_method)
+        self.assertIn("newCompleteCommand(job)", c8_method)
+        self.assertIn("output.incrementAndGet()", c8_method)
+        self.assertIn('.hasVariable("notificationCount", 2)', c8_method)
+        self.assertIn("assertThat(notify.getInvocations()).isEqualTo(2)", c8_method)
 
     def test_spring_harness_disables_each_mocked_job_type(self):
         test_source = (

@@ -3,10 +3,13 @@
 This fixture checks that the skill preserves each Camunda 7 mock boundary when it migrates a
 process test to Camunda Process Test (CPT).
 
-`c7-source` uses the Camunda 7 engine, `MockExpressionManager`, and `c7-mockito`. Its real-DMN test
-uses the shared engine configuration but calls no mock API. `expected-c8` keeps the collaborator
-mock, mocks the converted job types, executes the converted DMN, and uses `mockChildProcess` for the
-called process. Its Spring test disables every real worker whose job type it mocks.
+`c7-source` uses the Camunda 7 engine, `MockExpressionManager`, and `c7-mockito`. Its collaborator
+test registers `InvoiceService` with `CamundaMockito.registerMockInstance`. `expected-c8` maps that
+collaborator to `@MockitoBean` while keeping its real worker enabled. It also mocks the converted
+job types, executes the converted DMN, and uses `mockChildProcess` for the called process. Its Spring
+test disables every real worker whose job type it mocks. The real-DMN test uses the shared engine
+configuration but calls no mock API. The repeated-delegate test uses a CPT handler to preserve the
+output order across both activations.
 The listener fixture keeps its user task form-free because the C7 source has no form metadata. Its
 local lint configuration disables the missing-form warning and keeps the other Camunda 8.9 checks.
 

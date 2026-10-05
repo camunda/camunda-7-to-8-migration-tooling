@@ -36,6 +36,7 @@ import org.camunda.bpm.engine.test.Deployment;
 import org.camunda.bpm.engine.test.ProcessEngineRule;
 import org.camunda.bpm.engine.test.mock.Mocks;
 import org.camunda.bpm.engine.variable.Variables;
+import org.camunda.community.mockito.CamundaMockito;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
@@ -52,7 +53,9 @@ public class InvoiceProcessTest {
   @Test
   @Deployment(resources = "invoice.bpmn")
   public void registersCollaboratorAndWholeDelegateMocks() {
-    InvoiceService invoiceService = registerInvoiceService();
+    InvoiceService invoiceService =
+        CamundaMockito.registerMockInstance("invoiceService", InvoiceService.class);
+    when(invoiceService.isValid("I-1")).thenReturn(true);
     NotifyDelegate notifyDelegate = mock(NotifyDelegate.class);
     AtomicReference<String> invoiceIdSeenByDelegate = new AtomicReference<>();
     doAnswer(
@@ -94,6 +97,22 @@ public class InvoiceProcessTest {
     assertHistoricVariable(instance, "notified", true);
     assertHistoricVariable(instance, "archived", true);
     verifyJavaDelegateMock("notifyDelegate").executed(times(1));
+  }
+
+  @Test
+  @Deployment(resources = "repeated-notify.bpmn")
+  public void preservesRepeatedDelegateOutputs() {
+    registerJavaDelegateMock("notifyDelegate")
+        .onExecutionSetVariables(
+            Variables.putValue("notificationCount", 1),
+            Variables.putValue("notificationCount", 2));
+
+    ProcessInstance instance =
+        rule.getRuntimeService().startProcessInstanceByKey("repeated-notify");
+
+    assertInvoiceFinished(instance);
+    assertHistoricVariable(instance, "notificationCount", 2);
+    verifyJavaDelegateMock("notifyDelegate").executed(times(2));
   }
 
   @Test

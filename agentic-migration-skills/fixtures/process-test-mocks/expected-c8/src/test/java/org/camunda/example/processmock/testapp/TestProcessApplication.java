@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @Deployment(
     resources = {
       "classpath:processes/converted-c8-invoice.bpmn",
+      "classpath:processes/converted-c8-repeated-notify.bpmn",
       "classpath:processes/converted-c8-auto-mock-invoice.bpmn",
       "classpath:processes/converted-c8-task-listener.bpmn",
       "classpath:processes/converted-c8-task-listener-twice.bpmn",
