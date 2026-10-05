@@ -122,3 +122,9 @@ For every application endpoint or Engine REST call, ask the user to select a tar
 
 Do not offer a proxy or recreation of the C7 `/engine-rest` API. See
 `http-topology-migration.md` for the inventory, decision record, and validation.
+
+## Question 8 runtime notice for decision tests
+
+When the Test Inventory includes a standalone DMN decision test, include this notice in Question 8:
+
+> Camunda 7 evaluated DMN with an in-process engine. The CPT test needs a Camunda 8 runtime. CPT uses Docker by default. You can configure a remote runtime instead.
