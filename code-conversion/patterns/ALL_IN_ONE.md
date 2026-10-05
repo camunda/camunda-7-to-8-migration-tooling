@@ -4025,7 +4025,7 @@ class InvoiceScenarioTest {
 | `Scenario.instance(process)` after `startByMessage` | `assertThatProcessInstance(ProcessInstanceSelectors.byKey(response.getProcessInstanceKey()))` | `response` is the `CorrelateMessageResponse` returned by the message-correlation command. |
 | `verify(process).hasCompleted("E")` | `assertThat(pi).hasCompletedElements("E")` | |
 | `verify(process).hasFinished("E")` | `hasCompletedElements("E")` or `hasTerminatedElements("E")` | `hasFinished` includes completed and cancelled activities. |
-| `verify(process, times(n)).hasFinished("E")` | `hasCompletedElement("E", n)` | Waits for the exact count. |
+| `verify(process, times(n)).hasFinished("E")` | All complete: `hasCompletedElement("E", n)`; all canceled: `hasTerminatedElement("E", n)`; mixed: assert both with their respective counts. | `hasFinished` includes completed and canceled activities. For mixed outcomes, assert after the scenario's final observation point; the completed and terminated counts must sum to `n`. Each exact-count assertion waits. |
 | `verify(process).hasCanceled("E")` | `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
 | `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion at the intended observation point | This check does not wait. A preceding `hasNoActiveElements("A")` can pass before A is reached. |
