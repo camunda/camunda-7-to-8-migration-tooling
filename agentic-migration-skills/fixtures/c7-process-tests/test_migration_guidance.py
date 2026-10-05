@@ -206,12 +206,22 @@ class MigrationGuidanceTest(unittest.TestCase):
         for model in EXPECTED_C8.rglob("converted-c8-*.bpmn"):
             root = ET.parse(model).getroot()
             for element in root.iter():
-                if element.tag.rsplit("}", 1)[-1] == "taskDefinition":
+                if element.tag.rsplit("}", 1)[-1] in {"taskDefinition", "executionListener"}:
                     job_type = element.get("type")
                     if job_type:
                         job_types.add(job_type)
 
         self.assertTrue(job_types, "Expected at least one converted service-task job type.")
+        self.assertIn(
+            "check-stock",
+            job_types,
+            "Service-task job types must be included in coverage checks.",
+        )
+        self.assertIn(
+            "order-audit",
+            job_types,
+            "Execution-listener job types must be included in coverage checks.",
+        )
         missing = sorted(job_type for job_type in job_types if '"{}"'.format(job_type) not in java_source)
         self.assertEqual([], missing, "No Java worker or mock covers these job types.")
 

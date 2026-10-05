@@ -20,7 +20,7 @@
 | `engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders` | `engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders` | migrated | CPT repeats the scenario, advances time twice, completes the external task, correlates the message, and mocks the child process. |
 | `engine-tests:com.camunda.fixture.order.SupportCaseTest#startsSupportCase` | — | retired | CMMN has no Camunda 8 equivalent |
 | `engine-tests:com.camunda.fixture.order.FluentModelTest#buildsAndStartsModel` | — | retired | model built in Java, migrated by hand later |
-| `engine-tests:com.camunda.fixture.order.CheckStockDelegateTest#setsStockFlagForAvailableItem` | — | not-in-scope | Unit test; no engine-backed process or decision. |
+| `engine-tests:com.camunda.fixture.order.CheckStockDelegateTest#setsStockFlagForAvailableItem` | — | not-in-scope | The C7 test is a unit test with no engine-backed process or decision; the C8-only `OrderStockWorkerTest` checks the migrated worker output. |
 | `engine-tests:com.camunda.fixture.order.ChargePaymentDelegateFakeTest#writesPaymentReference` | — | not-in-scope | Delegate unit test; no engine-backed process or decision. |
 | `engine-tests:com.camunda.fixture.order.PriceCalculatorTest#appliesDiscount` | — | not-in-scope | Plain Java unit test. |
 | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription` | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription` | migrated | The Spring worker calls the mocked BillingClient service. A separate C8-only test completes the welcome task. |
