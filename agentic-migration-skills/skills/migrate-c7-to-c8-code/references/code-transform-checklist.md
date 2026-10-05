@@ -126,7 +126,7 @@ These items are not in the catalog:
 - If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
   affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
   an affected flow as migrated.
-- If the project has tests, then the skill selects the CPT dependency from
+- When at least one Test Inventory row has handling `Migrate to CPT`, the skill selects the CPT dependency from
   `code-conversion/patterns/10-general/dependencies.md`.
   For Spring test migration, the skill follows `references/test-migration.md`.
 - Add the Camunda public repository only when the selected artifact or version is not on Maven

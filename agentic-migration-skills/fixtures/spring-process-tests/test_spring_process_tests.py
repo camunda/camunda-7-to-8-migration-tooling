@@ -32,7 +32,7 @@ EXPECTED_WORKERS = (
 )
 TEST_APPLICATION = (
     FIXTURE
-    / "expected-c8/src/test/java/org/camunda/bpm/example/springprocess/testapp/TestProcessApplication.java"
+    / "expected-c8/src/test/java/org/camunda/bpm/example/springprocesstest/TestProcessApplication.java"
 )
 EXPECTED_MANUAL_REPORT = (
     FIXTURE / "manual-without-bootstrap/expected-c8/MIGRATION_REPORT.md"
@@ -50,6 +50,15 @@ MANUAL_PROCESS = (
 MANUAL_WORKER = (
     FIXTURE
     / "manual-without-bootstrap/c7-source/src/main/java/org/camunda/bpm/example/manual/ManualProcessWorker.java"
+)
+EXPECTED_MODELS = FIXTURE / "expected-c8/src/main/resources/processes"
+SOURCE_APPLICATION = (
+    FIXTURE
+    / "c7-source/src/main/java/org/camunda/bpm/example/springprocess/SpringProcessApplication.java"
+)
+EXPECTED_APPLICATION = (
+    FIXTURE
+    / "expected-c8/src/main/java/org/camunda/bpm/example/springprocess/SpringProcessApplication.java"
 )
 
 
@@ -120,7 +129,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         reference = REFERENCE.read_text()
 
         for required in (
-            "| Test kind | Detect by | Handling |",
+            "| Priority | Test kind | Detect by | Handling |",
             "every test method",
             "including tests marked out of scope",
             "process test",
@@ -158,6 +167,89 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                     reference.lower(),
                     msg=f"Missing inventory rule {required!r}",
                 )
+
+    def test_inventory_classification_is_exclusive_and_requires_real_execution(self):
+        reference = REFERENCE.read_text()
+
+        for required in (
+            "Apply the table from top to bottom.",
+            "The first matching row assigns one test kind and handling.",
+            "A test method or its setup must execute and assert behavior against a real C7 process or decision engine.",
+            "`@Deployment` is model-resolution evidence, not a test-kind signal by itself.",
+            "mocked `RuntimeService`",
+            "`ProcessEnginePlugin`",
+            "`DecisionService`",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, reference, msg=f"Missing classification rule {required!r}")
+
+        table = reference.split(
+            "| Priority | Test kind | Detect by | Handling |", 1
+        )[1].split("\n\n", 1)[0]
+        classifications = [
+            (line.split("|")[1].strip(), line.split("|")[2].strip().lower())
+            for line in table.splitlines()
+            if line.startswith("| ")
+        ]
+        self.assertEqual(
+            classifications,
+            [
+                ("1", "out of scope (camunda 8)"),
+                ("2", "out of scope"),
+                ("3", "manual redesign"),
+                ("4", "manual migration"),
+                ("5", "scenario test"),
+                ("6", "remote-engine test"),
+                ("7", "decision test"),
+                ("8", "process test"),
+            ],
+        )
+
+    def test_spring_migration_requires_cpt_selected_inventory_rows(self):
+        reference = REFERENCE.read_text()
+
+        self.assertIn(
+            "The skill applies Spring test migration only to process or decision test rows with the `Spring` modifier and handling `Migrate to CPT`.",
+            reference,
+        )
+        self.assertIn(
+            "A Spring test slice that uses only mocked C7 APIs is out of scope.",
+            reference,
+        )
+        self.assertNotIn(
+            "When a Spring test slice calls a Camunda 7 API, the skill includes it.",
+            reference,
+        )
+
+    def test_cpt_dependency_requires_inventory_selected_migrations(self):
+        checklist = CODE_CHECKLIST.read_text()
+
+        self.assertIn(
+            "When at least one Test Inventory row has handling `Migrate to CPT`, the skill selects the CPT dependency",
+            checklist,
+        )
+
+    def test_target_89_converted_models_use_zeebe_user_task_extensions(self):
+        namespace = {
+            "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+            "zeebe": "http://camunda.org/schema/zeebe/1.0",
+        }
+        models = sorted(EXPECTED_MODELS.glob("converted-c8-*.bpmn"))
+
+        self.assertTrue(models, "Expected at least one converted Camunda 8 BPMN model")
+        for model in models:
+            with self.subTest(model=model.name):
+                root = ET.parse(model).getroot()
+                user_tasks = root.findall(".//bpmn:userTask", namespace)
+                self.assertTrue(user_tasks, "Expected a converted user task")
+                for user_task in user_tasks:
+                    extensions = user_task.find("bpmn:extensionElements", namespace)
+                    self.assertIsNotNone(extensions, user_task.get("id"))
+                    self.assertEqual(
+                        len(extensions.findall("zeebe:userTask", namespace)),
+                        1,
+                        user_task.get("id"),
+                    )
 
     def test_test_parity_record_has_a_location_format_and_creation_rule(self):
         reference = " ".join(REFERENCE.read_text().split())
@@ -249,7 +341,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         application = TEST_APPLICATION.read_text()
         application_startup_resources = (
             FIXTURE
-            / "expected-c8/src/main/java/org/camunda/bpm/example/springprocess/application/SpringProcessApplication.java"
+            / "expected-c8/src/main/java/org/camunda/bpm/example/springprocess/SpringProcessApplication.java"
         ).read_text()
         worker_override = (
             FIXTURE / "expected-c8/src/test/resources/application.properties"
@@ -295,6 +387,28 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             EXPECTED_TEST.parent.as_posix(), TEST_APPLICATION.parent.as_posix()
         )
 
+    def test_c8_production_package_matches_source_and_test_app_is_outside_its_root(self):
+        source_application = SOURCE_APPLICATION.read_text()
+        expected_application = EXPECTED_APPLICATION.read_text()
+        test_application = TEST_APPLICATION.read_text()
+
+        source_package = next(
+            line for line in source_application.splitlines() if line.startswith("package ")
+        )
+        expected_package = next(
+            line for line in expected_application.splitlines() if line.startswith("package ")
+        )
+        test_package = next(
+            line for line in test_application.splitlines() if line.startswith("package ")
+        )
+        self.assertEqual(expected_package, source_package)
+        self.assertNotEqual(test_package, expected_package)
+        self.assertFalse(
+            test_package.removeprefix("package ")
+            .removesuffix(";")
+            .startswith("org.camunda.bpm.example.springprocess.")
+        )
+
     def test_missing_non_bootstrap_has_manual_reason(self):
         reference = REFERENCE.read_text().lower()
         source_test = MANUAL_SOURCE_TEST.read_text()
@@ -337,7 +451,16 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             worker_task.get("{http://camunda.org/schema/1.0/bpmn}class"),
             "org.camunda.bpm.example.manual.ManualProcessWorker",
         )
-        deployment = ET.parse(MANUAL_SOURCE_CONTEXT).getroot().find(
+        source_context = ET.parse(MANUAL_SOURCE_CONTEXT).getroot()
+        process_engine_configuration = source_context.find(
+            ".//spring:bean[@id='processEngineConfiguration']", namespace
+        )
+        self.assertIsNotNone(process_engine_configuration)
+        self.assertEqual(
+            process_engine_configuration.get("class"),
+            "org.camunda.bpm.engine.spring.SpringProcessEngineConfiguration",
+        )
+        deployment = source_context.find(
             ".//spring:property[@name='deploymentResources']", namespace
         )
         self.assertIsNotNone(deployment)

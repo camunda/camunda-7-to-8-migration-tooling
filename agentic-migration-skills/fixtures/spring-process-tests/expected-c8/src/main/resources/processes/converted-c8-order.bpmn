@@ -18,7 +18,11 @@
       </bpmn:extensionElements>
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_Ship_Review" sourceRef="Task_Ship" targetRef="Task_Review" />
-    <bpmn:userTask id="Task_Review" name="Review order" />
+    <bpmn:userTask id="Task_Review" name="Review order">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+    </bpmn:userTask>
     <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="Task_Review" targetRef="EndEvent_Order" />
     <bpmn:endEvent id="EndEvent_Order" />
   </bpmn:process>

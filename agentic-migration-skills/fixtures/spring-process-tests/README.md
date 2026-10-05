@@ -14,9 +14,10 @@ assertions. It mocks the payment service and the `ship-order` job type. The test
 `ship-order` worker to prevent two handlers from racing for the same job.
 The migrated endpoint preserves the C7 `202 Accepted` response with an empty body.
 
-The test application is in a separate package. Its `@Deployment` annotation names the converted
-copies. Its `@BeforeEach` method starts the process from the application hook again because CPT
-deletes runtime data after each test.
+The test application is in a sibling package outside the production component-scan root. It scans
+only the required controllers, services, and workers. Its `@Deployment` annotation names the
+converted copies. Its `@BeforeEach` method starts the process from the application hook again
+because CPT deletes runtime data after each test.
 
 The `manual-without-bootstrap` case deploys a process that reaches `ManualProcessWorker` and asserts
 its execution. The application has no reusable C8 worker bootstrap, so the expected report marks

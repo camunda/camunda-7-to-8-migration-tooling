@@ -18,9 +18,14 @@ The test must also use a framework or approach that existed for Camunda 7.
 A dependency alone never makes a test eligible for migration.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
-The skill inventories every test method, including tests that are out of scope.
-The skill assigns one test kind to each test method.
-When methods in one class differ, assign the test kind per method.
+The skill inventories every test method in the scanned test source sets.
+It records each test's test kind and handling, including tests marked out of scope.
+Apply the table from top to bottom. The first matching row assigns one test kind and handling.
+A test method or its setup must execute and assert behavior against a real C7 process or decision engine.
+Class-level annotations, dependency presence, and API references alone do not prove engine execution.
+Calls to mocks, fakes, or stubs do not count as engine execution.
+The `camunda-platform-7-mockito` dependency can provide engine-backed helpers or `DelegateExecutionFake`.
+When methods in one class differ, the skill classifies each method separately.
 
 CMMN tests and tests that use unsupported Camunda engine internals do not meet this scope rule.
 `ClockUtil` used to control timers is a supported test utility.
@@ -29,16 +34,18 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 
 ## Test kinds
 
-| Test kind | Detect by | Handling |
-|---|---|---|
-| process test | `ProcessEngineRule` (JUnit 4), `ProcessEngineExtension` (JUnit 5, including `org.camunda.bpm.extension:camunda-bpm-junit5`), `ProcessEngineTestCase` (JUnit 3), `@org.camunda.bpm.engine.test.Deployment`, `BpmnAwareTests` or `ProcessEngineTests` from camunda-bpm-assert, `AbstractProcessEngineRuleTest`, `StandaloneInMemoryTestConfiguration`, or an embedded engine used by a `@SpringBootTest` | Migrate |
-| decision test | `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService` used by a test | Migrate |
-| scenario test | `org.camunda.bpm.scenario.*` from camunda-platform-scenario | Migrate (lower priority) |
-| remote-engine test | A test runs a BPMN process or DMN decision on a running Camunda 7 engine through Engine REST (`/engine-rest`), `org.camunda.bpm.client.*`, or a Camunda 7 Testcontainers image | Migrate (lower priority) |
-| manual migration | JGiven (`io.holunda.testing:camunda-bpm-jgiven`) or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
-| manual redesign | CMMN APIs or models, such as `CmmnAwareTests` or `CaseService`, or unsupported engine internals, such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. `ClockUtil` timer control does not trigger this signal by itself. | Report only |
-| out of scope | Tests that run no engine are out of scope. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision. It also includes delegate, listener, external task worker, and service tests that run no engine. Examples include `DelegateExecutionFake`, `mock(DelegateExecution.class)`, and Mockito `RuntimeService` mocks. WireMock stubs of Engine REST and plain Java tests are also out of scope. Remote health or metadata probes that run no process or decision are also out of scope, unless the shared-engine exception in Scope confirmation applies. | Not part of test migration |
-| out of scope (Camunda 8) | Zeebe Process Test (`io.camunda.zeebe.process.test.*`) or CPT (`io.camunda.process.test.*`) | Not part of test migration |
+| Priority | Test kind | Detect by | Handling |
+|---|---|---|---|
+| 1 | out of scope (Camunda 8) | Uses Zeebe or CPT APIs without running a C7 engine. | Not part of test migration |
+| 2 | out of scope | Does not assert process or decision behavior from a real C7 engine. This includes plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. | Not part of test migration |
+| 3 | manual redesign | A C7 engine test covers CMMN, `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. | Report only |
+| 4 | manual migration | A test drives a C7 engine through BDD or Cucumber layers, Arquillian, `camunda-bpm-needle`, the C7 Quarkus extension, or Kotlin or Groovy tests that use C7 test APIs. | Report only |
+| 5 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate to CPT after process and decision tests |
+| 6 | remote-engine test | Asserts real C7 engine behavior through Engine REST at `/engine-rest`, `org.camunda.bpm.client.*`, or Testcontainers for C7. | Migrate to CPT after process and decision tests |
+| 7 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate to CPT |
+| 8 | process test | Asserts BPMN process execution on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, `StandaloneInMemoryTestConfiguration`, or a Spring Boot test that starts a process, completes a task, correlates a message, or calls an endpoint that does. | Migrate to CPT |
+
+`@Deployment` is model-resolution evidence, not a test-kind signal by itself.
 
 ## Decision-test migration
 
@@ -131,20 +138,6 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 | A remote-engine test reads a shared engine URL from an environment variable and does not run a process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `shared environment` as the reason. |
 | A remote test makes only health or metadata calls and does not run a process or decision, without the shared-engine exception | The skill classifies the test as out of scope. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
-
-When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
-
-| Order | Matching signal | Test kind |
-|---|---|---|
-| 1 | The test uses a Camunda 8 test API | out of scope (Camunda 8) |
-| 2 | The test uses CMMN or unsupported engine internals. `ClockUtil` timer control does not trigger this signal by itself. | manual redesign |
-| 3 | JGiven or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle, or the Camunda 7 Quarkus extension. The test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | manual migration |
-| 4 | The test uses camunda-platform-scenario | scenario test |
-| 5 | The test reads a shared Camunda 7 engine URL from an environment variable and runs no process or decision | remote-engine test |
-| 6 | The test runs a BPMN process or DMN decision against a running Camunda 7 engine remotely | remote-engine test |
-| 7 | The test directly evaluates a DMN decision | decision test |
-| 8 | The test runs a BPMN process | process test |
-| 9 | The test runs no engine-backed process or decision | out of scope |
 
 ## Modifiers
 
@@ -263,8 +256,7 @@ Do not migrate tests during Step 2.
 
 ## Scope
 
-The skill applies the Spring rules to each process test or decision test with the `Spring` modifier
-in the Test Inventory.
+The skill applies Spring test migration only to process or decision test rows with the `Spring` modifier and handling `Migrate to CPT`.
 
 | Spring evidence | Test Inventory treatment |
 |---|---|
@@ -273,7 +265,7 @@ in the Test Inventory.
 | `@ContextConfiguration` loads Spring XML or Java configuration with `SpringProcessEngineConfiguration` or `ProcessEngineFactoryBean` | Record the `Spring` modifier. |
 | `@Autowired @Rule ProcessEngineRule`, `@Autowired RuntimeService`, or `BpmnAwareTests.init(processEngine)` | Record the `Spring` modifier. |
 | `AbstractProcessEngineRuleTest` or `StandaloneInMemoryTestConfiguration` without a Spring context | Record the test kind without the `Spring` modifier. |
-| `@WebMvcTest` or `@DataJpaTest` without Camunda 7 API calls | Out of scope. |
+| `@WebMvcTest`, `@DataJpaTest`, or another Spring test slice without asserted execution against a real C7 engine | Out of scope. |
 | A shared engine in a WAR or `processes.xml` application-server deployment | Manual migration. |
 
 The skill does not classify every `@SpringBootTest` as a process test. The skill uses the Test
@@ -282,8 +274,7 @@ Inventory kind and modifier.
 The engine-test migration covers tests without a Spring context, even when they use
 `camunda-bpm-spring-boot-starter-test`.
 
-If a Spring test slice does not call a Camunda 7 API, then the skill marks it out of scope.
-When a Spring test slice calls a Camunda 7 API, the skill includes it.
+A Spring test slice that uses only mocked C7 APIs is out of scope.
 
 ## Harness and dependencies
 

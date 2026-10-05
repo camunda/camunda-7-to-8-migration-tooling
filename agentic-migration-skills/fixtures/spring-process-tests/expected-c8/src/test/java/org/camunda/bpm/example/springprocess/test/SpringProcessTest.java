@@ -20,7 +20,7 @@ import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.camunda.process.test.api.assertions.ProcessInstanceSelectors;
 import org.camunda.bpm.example.springprocess.service.PaymentService;
 import org.camunda.bpm.example.springprocess.service.StartupProcessStarter;
-import org.camunda.bpm.example.springprocess.testapp.TestProcessApplication;
+import org.camunda.bpm.example.springprocesstest.TestProcessApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
