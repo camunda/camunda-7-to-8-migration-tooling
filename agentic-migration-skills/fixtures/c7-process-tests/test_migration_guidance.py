@@ -108,11 +108,29 @@ def reference_table_separator_errors(lines):
         ):
             continue
 
-        separator = lines[index + 1]
-        if "|" not in separator:
+        header_cells = markdown_table_cells(header_line)
+        if len(header_cells) < 2:
             continue
 
-        separator_cells = markdown_table_cells(separator)
+        separator = lines[index + 1]
+        missing_pipes = "|" not in separator
+        if missing_pipes:
+            if not re.fullmatch(r"[\s:-]*-[\s:-]*", separator):
+                continue
+
+            separator_cells = separator.split()
+            header_has_outer_pipes = (
+                header_line.strip().startswith("|")
+                or header_line.strip().endswith("|")
+            )
+            if (
+                not header_has_outer_pipes
+                and len(separator_cells) != len(header_cells)
+            ):
+                continue
+        else:
+            separator_cells = markdown_table_cells(separator)
+
         invalid_cells = [
             cell
             for cell in separator_cells
@@ -126,7 +144,14 @@ def reference_table_separator_errors(lines):
             )
             continue
 
-        header_cells = markdown_table_cells(header_line)
+        if missing_pipes:
+            errors.append(
+                "Table separator must contain pipe delimiters on line {}: {}".format(
+                    index + 2, separator
+                )
+            )
+            continue
+
         if len(header_cells) != len(separator_cells):
             errors.append(
                 "Table header and separator must have matching column counts on line {}: {}".format(
@@ -277,6 +302,29 @@ class MigrationGuidanceTest(unittest.TestCase):
                     else:
                         self.assertTrue(errors)
                         self.assertIn("Invalid table separator cell", errors[0])
+
+    def test_reference_table_rejects_pipe_less_separators(self):
+        cases = (
+            ("| First | Second |", "--- ---", "pipe delimiters"),
+            ("First | Second", ":--- :---", "pipe delimiters"),
+            ("| First | Second |", "------", "pipe delimiters"),
+            ("| First | Second |", "-- ---", "Invalid table separator cell"),
+        )
+        for header, separator, expected_error in cases:
+            with self.subTest(header=header, separator=separator):
+                errors = reference_table_separator_errors([header, separator])
+                self.assertTrue(errors)
+                self.assertIn(expected_error, errors[0])
+
+    def test_reference_table_separator_validator_ignores_prose_with_pipes(self):
+        lines = [
+            "Use `first | second` for the choice.",
+            "---",
+            "The `left | right` text belongs to this example.",
+            "Keep this prose line after another prose line.",
+        ]
+
+        self.assertEqual([], reference_table_separator_errors(lines))
 
     def test_reference_table_data_rows_are_not_separators(self):
         lines = [
