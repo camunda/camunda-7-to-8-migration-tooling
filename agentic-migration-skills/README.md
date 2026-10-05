@@ -244,6 +244,9 @@ fixtures/                                  ← sample projects and executable re
 
 The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
+The `fixtures/c7-process-tests` fixture compares a Camunda Platform Scenario
+test with its Java CPT migration, including deferred timer behavior and repeat
+execution.
 The `fixtures/validation-evidence` tests preserve a nine-module, ten-model report that claimed
 readiness despite failed and missing checks. They generate synthetic logs in a temporary directory
 and test command capture, run isolation, process coverage, and timer safety. Its

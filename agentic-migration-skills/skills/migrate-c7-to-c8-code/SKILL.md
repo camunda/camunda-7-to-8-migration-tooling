@@ -352,6 +352,8 @@ For Code + models, see `references/composing-code-and-models.md`.
 
 #### Part A - Code Migration
 
+For Camunda Platform Scenario tests, follow `references/test-migration.md`.
+
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
 The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.

@@ -46,14 +46,14 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 | 1 | out of scope (Camunda 8) | Uses Zeebe or CPT APIs without running a C7 engine. | Not part of test migration |
 | 2 | manual redesign | A C7 engine test covers CMMN APIs or models, or unsupported engine internals such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. `ClockUtil` timer control does not trigger this signal by itself. | Report only |
 | 3 | manual migration | JGiven (`io.holunda.testing:camunda-bpm-jgiven`) tests require manual migration. Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
-| 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Report only |
+| 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate (lower priority) |
 | 5 | remote-engine test | A test runs a BPMN process or DMN decision on a running Camunda 7 engine through Engine REST at `/engine-rest`, `org.camunda.bpm.client.*`, or Testcontainers for C7. | Report only |
 | 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate |
 | 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, or `StandaloneInMemoryTestConfiguration`. It may call a real C7 engine's `RuntimeService` to start a process (for example, `startProcessInstanceByKey(...)`), `TaskService` to complete a task with a non-null `processInstanceId`, or `RuntimeService` to correlate a message. It may call a Spring Boot endpoint that starts a process, completes a process-backed task, or correlates a message on a real C7 engine. | Migrate to CPT only with the `Spring` modifier; otherwise Report only |
 | 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. Remote health or metadata probes that run no process or decision are also out of scope, unless the shared-engine exception in Scope confirmation applies. | Not part of test migration |
 
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
-The skill keeps scenario and remote-engine test rows at Report only until their migration procedures are defined.
+The skill keeps remote-engine test rows at Report only until their migration procedures are defined.
 The skill keeps process test rows without the `Spring` modifier at Report only until their engine-test migration procedure is defined.
 
 ## Decision-test migration
@@ -437,6 +437,109 @@ If the application has no usable worker bootstrap, the skill sets the test's han
 `MIGRATION_REPORT.md`.
 The skill states which bootstrap is missing and why it cannot start the workers.
 The skill does not invent a new worker bootstrap.
+
+## Camunda Platform Scenario Test Migration
+
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
+### Scope and target
+
+The test inventory classifies an in-scope test method as a `scenario test` when it uses
+`Scenario.run(...)` or `Scenario.use(...)` with a `ProcessScenario`.
+The artifacts `org.camunda.bpm.extension.scenario:camunda-platform-scenario-runner` and
+`org.camunda.bpm.extension:camunda-bpm-assert-scenario` are detection signals. Both use
+`org.camunda.bpm.scenario`. Inspect the test calls before classifying the method.
+
+The skill migrates scenario tests to Java tests with Camunda Process Test (CPT) and
+`io.camunda:camunda-process-test-java`. The target is Camunda 8.9 or later. The skill does not
+create CPT instruction-based JSON tests.
+
+When the target is Camunda 8.8, the skill sets scenario-test handling to `Report only`. It records
+the exact reason `test migration needs Camunda 8.9 or later`. The parity ledger records the test as
+`manual`.
+
+The scenario runner's Cucumber module, logging, and history fast-forward reports stay out of scope.
+
+### Prepare the test
+
+1. The skill reads the converted copy before mapping test behavior. It uses that copy to find element
+   IDs, external job types, message names and correlation keys, and timer definitions.
+2. The skill moves JUnit 3 and JUnit 4 scenario tests to JUnit 5.
+3. The skill removes `ProcessScenario` mocks, `MockitoAnnotations.openMocks(this)`, and Scenario
+   runner setup.
+4. The skill removes each Scenario artifact only when no remaining test uses it.
+5. The skill adds `io.camunda:camunda-process-test-java` in test scope.
+6. The skill keeps Mockito when another remaining test uses it.
+
+The Scenario runner completed external tasks itself. The skill uses `mockJobWorker(type)` for those
+tasks.
+The skill does not add a mock for a Java delegate that the Camunda 7 test ran for real. The skill
+keeps the migrated worker real unless the Camunda 7 test mocked that delegate.
+
+### Wait-state behavior
+
+The skill uses a CPT conditional behavior for each user-task, message, signal, event-gateway, or
+conditional-event stub. The condition waits for the corresponding process state. The action resolves
+that state and makes the condition false so CPT can detect the state again.
+
+The skill may use sequential CPT calls when the process path is linear. The skill uses
+`mockJobWorker(type)` for external-task stubs. The skill advances time explicitly for timer stubs.
+
+```java
+processTestContext
+    .when(() -> assertThatProcessInstance(byProcessId(processId)).hasActiveElements("Review"))
+    .as("Review")
+    .then(() -> processTestContext.completeUserTask("Review", variables));
+```
+
+The skill preserves every existing stub. The skill does not add behavior for an unstubbed wait
+state. When a process reaches an unstubbed wait state, CPT leaves it waiting. The final process
+assertion fails after its timeout.
+
+### Scenario-to-CPT mapping
+
+| Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
+|---|---|---|
+| `@Mock ProcessScenario process` and `MockitoAnnotations.openMocks(this)` | Remove both | CPT assertions and behaviors replace the Scenario mock. |
+| JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
+| `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask("X", variables))` | The action completes the task tested by the condition. |
+| `thenReturn(a, b)` for actions on repeated visits | Chain `.then(a).then(b)` | CPT repeats the last action after earlier actions run. |
+| `task.handleBpmnError(...)` or `task.handleEscalation(...)` on a user task | Record `manual` in the parity ledger | CPT has no direct user-task BPMN error or escalation action. |
+| `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtBusinessRuleTask`, `waitsAtMessageIntermediateThrowEvent`, or `waitsAtMessageEndEvent` completing an external task | `processTestContext.mockJobWorker(type).thenComplete(variables)` | Read `type` from the converted copy. |
+| The same external-task stubs handling a BPMN error | `processTestContext.mockJobWorker(type).thenThrowBpmnError(code, variables)` | Read `type` from the converted copy. |
+| `waitsAtTimerIntermediateEvent("T")` with an empty action | Assert `hasActiveElements("T")`, then call `processTestContext.increaseTime(duration)` | Read the duration from the converted timer definition. |
+| `action.defer(period, action)` | Increase time in bounded steps, then run the deferred action | Follow the time rule below. |
+| `waitsAtMessageIntermediateCatchEvent` or `waitsAtReceiveTask` with `receive(variables)` | Correlate the message with `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(variables).send().join()` | Read `name` and `key` from the converted copy's `zeebe:subscription`. The condition uses `isWaitingForMessage(name, key)`. |
+| `waitsAtSignalIntermediateCatchEvent` with `receive()` | Broadcast `client.newBroadcastSignalCommand().signalName(name).send().join()` | Read `name` from the converted copy. |
+| `waitsAtEventBasedGateway("G")` receiving event `"E"` | Use the corresponding message, signal, or timer action for `"E"` | Read the event type and subscription from the converted copy. |
+| `waitsAtConditionalIntermediateEvent("C")` | Call `processTestContext.updateVariables(byKey(processInstanceKey), variables)` | Converted conditional events need Camunda 8.9 or later. |
+| `runsCallActivity("C")` returning `Scenario.use(child)` | Deploy the converted child process and register its behaviors with `byProcessId(childProcessId)` | Keep the child process behavior real unless the Camunda 7 test mocked it. |
+| `withMockedProcess("child")` and `waitsAtMockedCallActivity("C")` | Call `processTestContext.mockChildProcess("child", variables)` | This preserves the existing mocked-child boundary. |
+| `Scenario.run(process).startByKey(key, variables).execute()` | Create an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` | Apply the confirmed business-key mapping when the source test sets a business key. |
+| `startByMessage(name, variables)` | Correlate a message start with `.messageName(name).withoutCorrelationKey().variables(variables).send().join()` | |
+| `.fromBefore("A")` | Call `.startBeforeElement("A")` on the create command | |
+| `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger | CPT has no direct `fromAfter` counterpart. Start before the next element only when it is unambiguous. |
+| `startBy(customProcessStarter)` | Record `manual` in the parity ledger | A custom `ProcessStarter` needs a manual migration. |
+| `Scenario.instance(process)` | Use the `ProcessInstanceEvent` returned by the create-instance command | |
+| `verify(process).hasCompleted("E")` | Assert `hasCompletedElements("E")` | |
+| `verify(process).hasFinished("E")` | Assert `hasCompletedElements("E")` or `hasTerminatedElements("E")` | Choose the assertion that matches the path. `hasFinished` includes completed and canceled elements. |
+| `verify(process, times(n)).hasFinished("E")` | Assert `hasCompletedElement("E", n)` or `hasTerminatedElement("E", n)` | Choose the assertion that matches the path. The count is exact. |
+| `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
+| `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
+| `verify(process, never()).hasStarted("E")` | Assert `hasNotActivatedElements("E")` after a waiting assertion | This assertion does not wait. |
+
+### Time rule
+
+The Scenario runner moves the clock to each due timer, one timer at a time. CPT's
+`increaseTime(duration)` moves the clock once for the full duration. The skill preserves the
+intermediate timer effects by increasing time in steps no longer than the shortest timer period on
+the active path. After every step, the skill asserts the expected timer effect.
+
+The skill runs a deferred action when the total time increase reaches its `defer(period, action)`
+period. It does not run the action before that period.
+
+For a daily timer and `defer("P2DT12H", action)`, the skill increases time by one day twice and
+asserts each daily effect. It then increases time by twelve hours and runs the deferred action.
 
 ## References
 
