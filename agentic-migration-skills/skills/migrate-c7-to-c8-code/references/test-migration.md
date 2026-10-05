@@ -49,9 +49,9 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 
 ### Mock detection
 
-The Test Inventory records the `mocks` modifier in its `Signals` column for each process test or
-decision test method that matches the detector below. The skill derives this modifier from source
-code, not from an input marker or a dependency alone.
+The Test Inventory records `mocks` in its `Signals` column for every in-scope test method that
+matches this detector. The skill derives this modifier from source code, not from an input marker or
+a dependency alone.
 
 | Modifier | Detect by | Used by |
 |---|---|---|

@@ -226,8 +226,8 @@ Where the confirmed root is a Git repository, record `git rev-parse HEAD` and th
 
 Build the Test Inventory from the original C7 test source before Step 3 changes that source.
 Inventory every test method and assign its test kind.
-For each in-scope process or decision test, detect mock signals from the original C7 test source
-using `references/test-migration.md`.
+For every in-scope test method, detect mock signals from the original C7 test source using
+`references/test-migration.md`.
 Record the source-derived `mocks` modifier in the Test Inventory's `Signals` column.
 Users do not add it.
 

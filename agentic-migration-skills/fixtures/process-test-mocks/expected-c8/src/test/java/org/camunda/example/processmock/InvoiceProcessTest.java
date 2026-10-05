@@ -36,7 +36,7 @@ class InvoiceProcessTest {
   @MockitoBean private InvoiceService invoiceService;
 
   @Test
-  void keepsCollaboratorAndWholeDelegateAtTheirOriginalBoundaries() {
+  void registersCollaboratorAndWholeDelegateMocks() {
     when(invoiceService.isValid("I-1")).thenReturn(true);
     JobWorkerMock notify =
         processTestContext.mockJobWorker("notify-invoice").thenComplete(Map.of("notified", true));
@@ -58,7 +58,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void mapsDelegateVariablesAndInvocationVerification() {
+  void registersDelegateOutputAndVerifiesItsInvocation() {
     JobWorkerMock notify =
         processTestContext.mockJobWorker("notify-invoice").thenComplete(Map.of("notified", true));
     JobWorkerMock notifyStart = processTestContext.mockJobWorker("notify-start").thenComplete();
@@ -78,7 +78,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void routesTheMockedBpmnError() {
+  void routesADelegateBpmnError() {
     processTestContext.mockJobWorker("notify-start").thenComplete();
     JobWorkerMock notify =
         processTestContext
@@ -94,7 +94,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void reportsAnIncidentForAWorkerException() {
+  void throwsWhenTheSynchronousDelegateFails() {
     processTestContext.mockJobWorker("notify-start").thenComplete();
     JobWorkerMock notify =
         processTestContext
@@ -115,7 +115,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void mocksEveryAutoMockedJobTypeIncludingTheExecutionListener() {
+  void autoMocksDelegatesAndExecutionListeners() {
     JobWorkerMock autoStart =
         processTestContext.mockJobWorker("auto-start-listener").thenComplete();
     JobWorkerMock autoValidate = processTestContext.mockJobWorker("auto-validate").thenComplete();
@@ -130,7 +130,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void usesTheDeclaredUserTaskListenerJobType() {
+  void registersAndVerifiesTaskListenerMock() {
     AtomicInteger listenerInvocations = new AtomicInteger();
     ProcessInstanceEvent instance = start("task-listener", Map.of());
 
@@ -144,7 +144,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void verifiesTaskListenerMockInvokedTwice() {
+  void registersAndVerifiesTaskListenerMockTwice() {
     AtomicInteger listenerInvocations = new AtomicInteger();
     ProcessInstanceEvent instance = start("task-listener-twice", Map.of());
 
@@ -162,7 +162,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void preservesNeverExecutedTaskListenerAssertion() {
+  void registersAndVerifiesTaskListenerMockNeverExecuted() {
     ProcessInstanceEvent instance = start("task-listener-never", Map.of());
 
     processTestContext.completeUserTask("Task_Review");
@@ -171,7 +171,7 @@ class InvoiceProcessTest {
   }
 
   @Test
-  void executesDeployedDecisionAndPreservesResultShape() {
+  void preservesBusinessRuleResultShape() {
     ProcessInstanceEvent instance = start("decision-output", Map.of("invoiceId", "I-1"));
 
     CamundaAssert.assertThat(instance)

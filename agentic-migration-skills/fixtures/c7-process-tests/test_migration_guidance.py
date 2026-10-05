@@ -1655,6 +1655,12 @@ class MigrationGuidanceTest(unittest.TestCase):
             "spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#"
             "startsSubscriptionWithoutSpring",
         }
+        scenario_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/FulfillmentScenarioTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("@Mock private ProcessScenario process;", scenario_test)
+        self.assertIn('.withMockedProcess("shipping")', scenario_test)
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
 
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
@@ -1722,6 +1728,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
 
+        self.assertIn("For every in-scope test method, detect mock signals", step_two)
         self.assertIn("detect mock signals from the original C7 test source", step_two)
         self.assertIn("Record the source-derived `mocks` modifier", step_two)
         self.assertIn(
@@ -2015,7 +2022,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("| `mocks` |", reference)
         self.assertIn("cpt (`io.camunda.process.test.*`)", reference)
         self.assertIn(
-            "the test inventory records the `mocks` modifier in its `signals` column",
+            "the test inventory records `mocks` in its `signals` column for every in-scope test method",
             reference,
         )
         for test_kind in TEST_KINDS:

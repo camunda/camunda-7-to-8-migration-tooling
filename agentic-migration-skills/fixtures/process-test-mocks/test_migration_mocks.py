@@ -47,6 +47,30 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             with self.subTest(api=api):
                 self.assertIn(api, source)
 
+    def test_expected_cpt_fixture_preserves_c7_test_method_names(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+
+        def test_method_names(source):
+            names = []
+            method_pattern = re.compile(
+                r"(?m)^\s*(?:(?:public|protected|private)\s+)?"
+                r"void\s+([A-Za-z_$][\w$]*)\s*\("
+            )
+            for annotation in re.finditer(r"@Test\b", source):
+                method = method_pattern.search(source[annotation.end() :])
+                self.assertIsNotNone(method)
+                names.append(method.group(1))
+            return names
+
+        self.assertCountEqual(test_method_names(c7_test), test_method_names(c8_test))
+
     def test_spring_harness_disables_each_mocked_job_type(self):
         test_source = (
             FIXTURE
@@ -243,7 +267,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
                 self.assertIn(signal, guidance)
         self.assertIn("| `mocks` |", guidance)
         self.assertIn(
-            "The Test Inventory records the `mocks` modifier in its `Signals` column",
+            "The Test Inventory records `mocks` in its `Signals` column for every in-scope test method",
             guidance,
         )
         self.assertIn(
@@ -444,7 +468,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('type="review-assigned-listener"', c8_never)
 
         never_test = c8_test.split(
-            "void preservesNeverExecutedTaskListenerAssertion()", 1
+            "void registersAndVerifiesTaskListenerMockNeverExecuted()", 1
         )[1].split("\n  private ProcessInstanceEvent start", 1)[0]
         self.assertIn("CamundaAssert.assertThat(instance).isCompleted()", never_test)
         self.assertNotIn("completeJobOfUserTaskListener", never_test)
