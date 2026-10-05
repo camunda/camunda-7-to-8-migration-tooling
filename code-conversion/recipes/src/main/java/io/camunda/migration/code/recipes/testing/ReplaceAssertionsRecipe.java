@@ -21,6 +21,21 @@ import org.openrewrite.java.search.UsesMethod;
 
 public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
 
+  private static final String BPMN_AWARE_TESTS =
+      "org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests";
+  private static final String CMMN_AWARE_TESTS =
+      "org.camunda.bpm.engine.test.assertions.cmmn.CmmnAwareTests";
+  private static final String PROCESS_ENGINE_TESTS =
+      "org.camunda.bpm.engine.test.assertions.ProcessEngineTests";
+  private static final List<String> ASSERTION_IMPORTS_TO_REMOVE =
+      List.of(
+          PROCESS_ENGINE_TESTS + ".assertThat",
+          CMMN_AWARE_TESTS + ".assertThat",
+          BPMN_AWARE_TESTS + ".assertThat",
+          PROCESS_ENGINE_TESTS,
+          CMMN_AWARE_TESTS,
+          BPMN_AWARE_TESTS);
+
   @Override
   public String getDisplayName() {
     return "Convert test assertions";
@@ -33,7 +48,7 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
 
   @Override
   protected TreeVisitor<?, ExecutionContext> preconditions() {
-    return new UsesMethod<>("org.camunda.bpm.engine.test.assertions.ProcessEngineTests assertThat(..)", true);
+    return new UsesMethod<>(BPMN_AWARE_TESTS + " assertThat(..)", true);
   }
 
   // Check how to handle variables - can we add MapAssert to C8 assertions?
@@ -45,7 +60,9 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
     return List.of(
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
-                "org.camunda.bpm.engine.test.assertions.ProcessEngineTests assertThat(org.camunda.bpm.engine.runtime.ProcessInstance)"),
+                BPMN_AWARE_TESTS
+                    + " assertThat(org.camunda.bpm.engine.runtime.ProcessInstance)",
+                true),
             RecipeUtils.createSimpleJavaTemplate(
                 "CamundaAssert.assertThat(#{processInstance:any(io.camunda.client.api.response.ProcessInstanceEvent)})",
                 "io.camunda.process.test.api.CamundaAssert"),
@@ -56,11 +73,11 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                     "processInstance", 0, "io.camunda.client.api.response.ProcessInstanceEvent")),
             Collections.emptyList(),
-            List.of("org.camunda.bpm.engine.test.assertions.ProcessEngineTests.assertThat"),
+            ASSERTION_IMPORTS_TO_REMOVE,
             List.of("io.camunda.process.test.api.CamundaAssert")),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
-                "org.camunda.bpm.engine.test.assertions.ProcessEngineTests assertThat(org.camunda.bpm.engine.task.Task)"),
+                BPMN_AWARE_TESTS + " assertThat(org.camunda.bpm.engine.task.Task)", true),
             RecipeUtils.createSimpleJavaTemplate(
                 "CamundaAssert.assertThat(io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName(#{task:any(io.camunda.client.api.search.response.UserTask)}.getName()))",
                 "io.camunda.process.test.api.CamundaAssert",
@@ -72,7 +89,7 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                     "task", 0, "io.camunda.client.api.search.response.UserTask")),
             Collections.emptyList(),
-            List.of("org.camunda.bpm.engine.test.assertions.ProcessEngineTests.assertThat"),
+            ASSERTION_IMPORTS_TO_REMOVE,
             List.of(
                 "io.camunda.process.test.api.CamundaAssert",
                 "io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName")));
