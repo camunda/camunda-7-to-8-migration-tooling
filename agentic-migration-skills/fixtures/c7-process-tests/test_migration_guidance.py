@@ -175,17 +175,28 @@ def reference_table_separator_errors(lines):
 
         separator = lines[index + 1]
         missing_pipes = "|" not in separator
+        header_has_outer_pipes = (
+            header_line.strip().startswith("|")
+            or header_line.strip().endswith("|")
+        )
         if missing_pipes:
-            if not re.fullmatch(r"[\s:-]*-[\s:-]*", separator):
+            if (
+                not header_has_outer_pipes
+                and not re.fullmatch(r"[\s:-]*-[\s:-]*", separator)
+            ):
                 continue
 
             separator_cells = separator.split()
-            header_has_outer_pipes = (
-                header_line.strip().startswith("|")
-                or header_line.strip().endswith("|")
-            )
         else:
             separator_cells = markdown_table_cells(separator)
+
+        if not separator_cells:
+            errors.append(
+                "Invalid table separator on line {}: {}".format(
+                    index + 2, separator
+                )
+            )
+            continue
 
         invalid_cells = [
             cell
@@ -407,6 +418,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             ("First | Second", ":--- :---", "pipe delimiters"),
             ("| First | Second |", "------", "pipe delimiters"),
             ("| First | Second |", "-- ---", "Invalid table separator cell"),
+            ("| First | Second |", ": :", "Invalid table separator cell"),
+            ("| First | Second |", "", "Invalid table separator"),
+            ("| First | Second |", "  ", "Invalid table separator"),
         )
         for header, separator, expected_error in cases:
             with self.subTest(header=header, separator=separator):
@@ -440,6 +454,12 @@ class MigrationGuidanceTest(unittest.TestCase):
             [],
             reference_table_separator_errors(
                 ["Use left \\| right for the choice.", "---", "Keep reading."]
+            ),
+        )
+        self.assertEqual(
+            [],
+            reference_table_separator_errors(
+                ["Use input | output mapping for the task.", ": :", "Keep reading."]
             ),
         )
 
