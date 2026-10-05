@@ -1,0 +1,267 @@
+from pathlib import Path
+import unittest
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+FIXTURE = REPO_ROOT / "agentic-migration-skills/fixtures/remote-engine-tests"
+SKILL = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
+REFERENCE = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+)
+CHECKLIST = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/code-transform-checklist.md"
+)
+INTERVIEW_QUESTIONS = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
+)
+HTTP_TOPOLOGY = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/http-topology-migration.md"
+)
+EXPECTED = FIXTURE / "expected-c8"
+SHARED_SOURCE = (
+    FIXTURE
+    / "shared-engine/c7-source/src/test/java/org/camunda/example/payment/SharedEnginePaymentTest.java"
+)
+SHARED_PROPERTIES = FIXTURE / "shared-engine/c7-source/src/test/resources/application-test.properties"
+SHARED_REPORT = FIXTURE / "expected-shared-engine/MIGRATION_REPORT.md"
+
+
+class RemoteEngineTestMigrationTest(unittest.TestCase):
+    def test_skill_points_to_the_reference(self):
+        skill = SKILL.read_text()
+        self.assertIn(
+            "For tests that drive a running Camunda 7 engine, follow `references/test-migration.md`.",
+            skill,
+        )
+
+    def test_reference_classifies_remote_engine_tests_and_boundaries(self):
+        reference = " ".join(REFERENCE.read_text().lower().split())
+        for term in (
+            "restassured",
+            "resttemplate",
+            "testresttemplate",
+            "webclient",
+            "generated openapi clients",
+            "externaltaskclient",
+            "@externaltasksubscription",
+            "camunda/camunda-bpm-platform",
+            "docker compose",
+            "random_port",
+            "report only",
+            "wiremock",
+            "load, performance, or end-to-end ui test",
+        ):
+            with self.subTest(term=term):
+                self.assertIn(term, reference)
+
+    def test_scope_boundaries_precede_client_shape_rules(self):
+        classification = REFERENCE.read_text().split("## Scope and classification", 1)[1].split(
+            "## Runtime and build changes", 1
+        )[0]
+        self.assertIn(
+            "Apply the rows from top to bottom. Stop at the first matching row.",
+            classification,
+        )
+        first_client_shape = classification.index("| Engine REST calls through")
+        for boundary in (
+            "| Test calls an engine that it does not start",
+            "| Unit test of an external-task handler that starts no engine",
+            "| WireMock or another Engine REST stub",
+            "| Load, performance, or end-to-end UI test against Camunda 7",
+        ):
+            with self.subTest(boundary=boundary):
+                self.assertLess(classification.index(boundary), first_client_shape)
+
+    def test_skill_classifies_test_engine_calls_before_http_topology(self):
+        code_inventory = " ".join(
+            SKILL.read_text().split("#### Code Inventory", 1)[1].split(
+                "#### Model Inventory", 1
+            )[0].split()
+        )
+        self.assertLess(
+            code_inventory.index("Classify each Camunda 7 test that drives a running engine"),
+            code_inventory.index("When production code contains a Spring web server"),
+        )
+        self.assertIn(
+            "Exclude test-only Engine REST calls and test-owned servers from the HTTP topology inventory and Question 7.",
+            code_inventory,
+        )
+
+        question_7 = INTERVIEW_QUESTIONS.read_text().split("## Question 7", 1)[1]
+        self.assertIn("only when production code has", question_7)
+        self.assertIn(
+            "Do not ask for decisions about test-only Engine REST calls.",
+            question_7,
+        )
+
+        http_topology = " ".join(HTTP_TOPOLOGY.read_text().split())
+        self.assertIn(
+            "Classify tests that drive a Camunda 7 engine with `test-migration.md` before building this inventory.",
+            http_topology,
+        )
+        self.assertIn(
+            "Exclude test-only Engine REST clients and test-owned servers from the production topology.",
+            http_topology,
+        )
+
+    def test_step_3_http_topology_gate_uses_production_code(self):
+        step_3_topology = SKILL.read_text().split("15. **HTTP topology**", 1)[1].split(
+            "16. **SLF4J providers**", 1
+        )[0]
+        self.assertIn("when production code contains", step_3_topology)
+
+    def test_code_checklist_http_topology_gate_uses_production_code(self):
+        self.assertIn(
+            "When production code contains a Spring web server",
+            CHECKLIST.read_text(),
+        )
+
+    def test_reference_maps_engine_rest_and_cpt_behaviors(self):
+        reference = " ".join(REFERENCE.read_text().lower().split())
+        for source, target in (
+            ("/deployment/create", "@testdeployment"),
+            ("/process-definition/key/{key}/start", "newcreateinstancecommand"),
+            ("/message", "newcorrelatemessagecommand"),
+            ("/signal", "newbroadcastsignalcommand"),
+            ("/task/{id}/complete", "completeusertask"),
+            ("/task/{id}/claim", "newassignusertaskcommand"),
+            ("/external-task/fetchandlock", "completejob"),
+            ("/external-task/{id}/bpmnerror", "throwbpmnerrorfromjob"),
+            ("/history/process-instance/{id}", "iscompleted"),
+            ("/history/activity-instance", "hascompletedelements"),
+            ("/history/variable-instance", "hasvariable"),
+            ("/incident?processinstanceid", "hasactiveincidents"),
+        ):
+            with self.subTest(source=source):
+                self.assertIn(source, reference)
+                self.assertIn(target, reference)
+        self.assertIn(
+            "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
+            reference,
+        )
+
+    def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
+        rows = REFERENCE.read_text().splitlines()
+        timer_row = next(
+            row
+            for row in rows
+            if row.startswith("| `POST /job/{id}/execute` for a timer job")
+        )
+        non_timer_row = next(
+            row
+            for row in rows
+            if row.startswith("| `POST /job/{id}/execute` for a non-timer job")
+        )
+
+        self.assertIn("processTestContext.increaseTime(duration)", timer_row)
+        self.assertIn("timer element is active", timer_row)
+        self.assertIn("Do not advance time", non_timer_row)
+        self.assertIn("job type", non_timer_row)
+
+    def test_spring_cpt_artifact_matches_target_boot_major(self):
+        reference = REFERENCE.read_text()
+        self.assertIn(
+            "| Spring Boot 3.5.x | `io.camunda:camunda-process-test-spring-boot-3` |",
+            reference,
+        )
+        self.assertIn(
+            "| Spring Boot 4.x | `io.camunda:camunda-process-test-spring` |",
+            reference,
+        )
+        checklist = CHECKLIST.read_text()
+        self.assertIn(
+            "[Spring Process Test artifact selection](test-migration.md#runtime-and-build-changes)",
+            checklist,
+        )
+
+    def test_c7_baseline_uses_engine_rest_and_a_real_external_task_worker(self):
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/payment/PaymentWorkerTest.java"
+        ).read_text()
+        c7_worker = (
+            FIXTURE
+            / "c7-source/src/main/java/org/camunda/example/payment/PaymentWorker.java"
+        ).read_text()
+        c7_pom = (FIXTURE / "c7-source/pom.xml").read_text()
+
+        for term in (
+            "@Container",
+            "camunda/camunda-bpm-platform:run-7.24.0",
+            "/deployment/create",
+            "/process-definition/key/payment/start",
+            "/history/process-instance/",
+            "await().atMost",
+        ):
+            with self.subTest(term=term):
+                self.assertIn(term, c7_test)
+        self.assertIn('@ExternalTaskSubscription("charge-payment")', c7_worker)
+        self.assertIn("camunda-bpm-spring-boot-starter-external-task-client", c7_pom)
+        self.assertIn("<artifactId>junit-jupiter</artifactId>", c7_pom)
+
+    def test_cpt_test_runs_the_migrated_worker_and_preserves_parity(self):
+        c8_test = (
+            EXPECTED
+            / "src/test/java/org/camunda/example/payment/PaymentWorkerTest.java"
+        ).read_text()
+        c8_worker = (
+            EXPECTED
+            / "src/main/java/org/camunda/example/payment/PaymentWorker.java"
+        ).read_text()
+        c8_bpmn = (EXPECTED / "src/test/resources/converted-c8-payment.bpmn").read_text()
+        c8_pom = (EXPECTED / "pom.xml").read_text()
+
+        self.assertIn("@CamundaSpringProcessTest", c8_test)
+        self.assertIn('@TestDeployment(resources = "converted-c8-payment.bpmn")', c8_test)
+        self.assertIn("newCreateInstanceCommand()", c8_test)
+        self.assertIn('hasVariable("charged", true)', c8_test)
+        self.assertIn('@JobWorker(type = "charge-payment")', c8_worker)
+        self.assertIn('type="charge-payment"', c8_bpmn)
+        self.assertIn("<artifactId>camunda-process-test-spring</artifactId>", c8_pom)
+        self.assertNotIn("camunda-bpm-spring-boot-starter-external-task-client", c8_pom)
+        self.assertNotIn("<groupId>org.testcontainers</groupId>", c8_pom)
+
+    def test_shared_engine_case_is_manual_and_does_not_start_an_engine(self):
+        shared_test = SHARED_SOURCE.read_text()
+        shared_properties = SHARED_PROPERTIES.read_text()
+        report_row = next(
+            line
+            for line in SHARED_REPORT.read_text().splitlines()
+            if line.startswith("| `SharedEnginePaymentTest`")
+        )
+
+        self.assertIn('@Value("${test.engine-rest-url}")', shared_test)
+        self.assertIn("getForEntity", shared_test)
+        self.assertIn("shared-c7.example.invalid/engine-rest", shared_properties)
+        self.assertNotIn("@Testcontainers", shared_test)
+        self.assertNotIn("GenericContainer", shared_test)
+        self.assertIn('@ActiveProfiles("test")', shared_test)
+        self.assertEqual(
+            report_row,
+            "| `SharedEnginePaymentTest` | `manual` | CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime. |",
+        )
+
+    def test_expected_project_does_not_configure_remote_runtime(self):
+        for path in EXPECTED.rglob("*"):
+            if not path.is_file():
+                continue
+            content = path.read_text()
+            self.assertNotIn("camunda.process-test.runtime-mode=remote", content)
+            self.assertNotIn("runtime-mode: remote", content)
+            self.assertNotIn("camunda.bpm.client.base-url", content)
+            self.assertNotIn("camunda/camunda-bpm-platform", content)
+            self.assertNotIn("/engine-rest", content)
+
+    def test_readme_documents_baseline_and_cpt_test_commands(self):
+        readme = (FIXTURE / "README.md").read_text()
+        self.assertIn("c7-source/pom.xml test", readme)
+        self.assertIn("expected-c8/pom.xml test", readme)
+        self.assertIn("record the baseline as `not run`", readme)
+
+
+if __name__ == "__main__":
+    unittest.main()
