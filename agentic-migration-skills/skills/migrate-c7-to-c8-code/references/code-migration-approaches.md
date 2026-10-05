@@ -20,6 +20,19 @@ One class does not predict the rest of the project.
 | Pair with AI review | Semantic or mixed delegate/client code needs API and business-behavior context. |
 | Still needs a team decision | Domain behavior, eventual consistency, transaction boundaries, architectural separation, and validation. |
 
+## Test migration order
+
+When the Test Inventory has a test marked `Migrate` and `test_run_mode` is `run`, use this order:
+
+1. Record the C7 baseline before any Step 3 edit.
+2. Convert models that are in scope.
+3. Migrate the in-scope tests.
+4. Freeze test files and resources.
+5. Migrate production code.
+
+Follow `references/test-migration.md` for these phases. Do not change frozen tests during production
+code migration without user approval.
+
 ## Approach A - OpenRewrite + AI
 
 Use this approach for repeated, supported, primarily syntactic transformations or a deterministic

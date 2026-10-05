@@ -10,8 +10,9 @@ The gate changes that claim to `NOT READY`.
 The other tests cover a complete passing scope, independent failures, missing records, runtime
 modules, process assertions, Docker classification, path safety, and report replacement.
 They also cover two-module `Sample` collisions, recurring starts, model-bound timer observations,
-due-date blockers, and stale prerequisite checks. The Python tests use synthetic evidence and do
-not access a Camunda cluster.
+due-date blockers, stale prerequisite checks, JUnit baselines, test parity, frozen files, repeated
+CPT runs, mock approvals, and coverage drops. The Python tests use synthetic evidence and do not
+access a Camunda cluster.
 
 The `live-timer-fixture/` Maven reactor runs both deployment-set and active-timer acceptance
 scenarios against a disposable Camunda 8.9.21 container. One Process Test deploys both `Sample`

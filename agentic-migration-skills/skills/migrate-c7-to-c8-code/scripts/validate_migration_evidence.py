@@ -3,9 +3,11 @@
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,6 +23,7 @@ INVENTORY = VALIDATION / "step2-inventory.json"
 EVIDENCE = VALIDATION / "validation-evidence.json"
 LOGS = VALIDATION / "logs"
 SUMMARY = VALIDATION / "validation-summary.json"
+TEST_MAPPING = VALIDATION / "test-mapping.json"
 REPORT = Path("MIGRATION_REPORT.md")
 BPMN = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
 ZEEBE = "{http://camunda.org/schema/zeebe/1.0}"
@@ -33,6 +36,8 @@ ASSERTIONS = (
     "form_resolution",
 )
 GATE_HEADING = "## Aggregate validation gate"
+TEST_PARITY_HEADING = "## Test Parity"
+TEST_COVERAGE_HEADING = "## Test Coverage"
 RUNTIME_CHECKS = ("spring_boot_run", "executable_jar", "external_launcher")
 SAFE_ENVIRONMENTS = ("local", "non-production")
 SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
@@ -43,6 +48,18 @@ CODE_SUFFIXES = {".cjs", ".cts", ".groovy", ".http", ".java", ".js", ".jsx",
 NESTED_BLOCK_COMMENT_SUFFIXES = {".kt", ".kts", ".scala"}
 DUE_DATE_HINT = re.compile(r"""\bsetJobDuedate\b|/duedate\b|['"`]duedate['"`]""", re.I)
 TARGET_VERSION = re.compile(r"8\.\d+\.\d+\Z")
+TEST_RESULTS = {"passed", "failed", "skipped", "error"}
+TEST_STATUSES = {"migrated", "retired", "manual", "added"}
+DEFAULT_JUNIT_REPORTS = (
+    "target/surefire-reports/TEST-*.xml",
+    "target/failsafe-reports/TEST-*.xml",
+    "build/test-results/**/*.xml",
+)
+DEFAULT_C7_COVERAGE_REPORTS = (
+    "target/process-test-coverage/**/report.json",
+    "target/process_test_coverage/**/*.json",
+)
+DEFAULT_CPT_COVERAGE_REPORTS = ("target/process-test-coverage/report.json",)
 
 
 @dataclass
@@ -60,6 +77,8 @@ class ValidationPlan:
     active_timer_decisions: dict
     source_digest: str
     issues: list
+    test_contract: dict
+    converted_elements: dict
 
 
 class EvidenceError(ValueError):
@@ -145,6 +164,82 @@ def file_digest(path):
         raise EvidenceError(f"Cannot read migration input {path}: {exc}") from exc
 
 
+def collect_source_files(root, modules, models):
+    hashes = {}
+    module_paths = set(modules)
+    for module in modules:
+        scan_module(root, module, module_paths, hashes)
+    for model in models:
+        path = project_path(root, model, "source model", must_exist=True)
+        if path.is_symlink() or not path.is_file():
+            raise EvidenceError(f"Source model is not a regular file: {model}")
+        hashes[Path(model).as_posix()] = file_digest(path)
+    for name in (
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "settings.gradle",
+        "settings.gradle.kts",
+        "gradle.properties",
+    ):
+        path = root / name
+        if path.is_symlink():
+            raise EvidenceError(f"Cannot scan symlinked build configuration: {path}")
+        if path.is_file():
+            hashes[name] = file_digest(path)
+    return hashes
+
+
+def source_test_contract(test_contract):
+    if test_contract is None:
+        return None
+    return {
+        "mode": test_contract["mode"],
+        "tests": test_contract["tests"],
+        "modules": test_contract["modules"],
+        "suites": [
+            {
+                "module": suite["module"],
+                "name": suite["name"],
+                "command": suite["command"],
+                "test_ids": suite["test_ids"],
+                "reports": suite["reports"],
+                "coverage_reports": suite["coverage_reports"],
+            }
+            for suite in test_contract["suites"].values()
+        ],
+    }
+
+
+def source_snapshot_digest(modules, models, files, test_contract=None):
+    snapshot = {
+        "modules": modules,
+        "models": models,
+        "files": files,
+        "test_contract": test_contract,
+    }
+    return hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
+def git_head(root):
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        if exc.errno == 2:
+            return None
+        raise EvidenceError(f"Cannot read the source commit: {exc}") from exc
+    return completed.stdout.strip() if completed.returncode == 0 else None
+
+
 def initialize(root, reset_source_snapshot=False):
     inventory = read_json(root / INVENTORY)
     if inventory.get("schema_version") != 1:
@@ -153,6 +248,11 @@ def initialize(root, reset_source_snapshot=False):
     models = strings(inventory.get("models"), "Step 2 models")
     if not (modules or models):
         raise EvidenceError("A migration run needs at least one module or model")
+    if "test_run_mode" in inventory and inventory["test_run_mode"] not in (
+        "run",
+        "migrate_only",
+    ):
+        raise EvidenceError("Step 2 test_run_mode must be run or migrate_only")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
     if not reset_source_snapshot and "source_updates" in inventory:
@@ -171,8 +271,57 @@ def initialize(root, reset_source_snapshot=False):
         inventory["source_updates"] = {
             module: scan_module(root, module, set(modules), {}) for module in modules
         }
+    if reset_source_snapshot or "source_files" not in inventory:
+        if (
+            not reset_source_snapshot
+            and "run_id" in inventory
+            and inventory.get("test_run_mode") == "run"
+        ):
+            raise EvidenceError(
+                "The C7 test baseline cannot be captured after this migration run started; "
+                "restore the C7 baseline before init --reset-source-snapshot"
+            )
+        source_files = collect_source_files(root, modules, models)
+        test_contract_snapshot = (
+            source_test_contract(test_contract(root, inventory))
+            if "test_run_mode" in inventory
+            else None
+        )
+        inventory["source_files"] = source_files
+        inventory["source_snapshot_test_contract"] = test_contract_snapshot
+        inventory["source_snapshot_sha256"] = source_snapshot_digest(
+            modules, models, source_files, test_contract_snapshot
+        )
+        inventory["source_snapshot_commit"] = git_head(root)
+    elif (
+        not isinstance(inventory["source_files"], dict)
+        or not isinstance(inventory.get("source_snapshot_sha256"), str)
+        or not inventory["source_snapshot_sha256"]
+    ):
+        raise EvidenceError("Step 2 inventory has an invalid source file snapshot")
+    elif (
+        inventory.get("test_run_mode") == "run"
+        and "source_snapshot_test_contract" not in inventory
+    ):
+        raise EvidenceError(
+            "Step 2 inventory lacks the test contract source snapshot; "
+            "restore the C7 baseline before init --reset-source-snapshot"
+        )
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
+    if reset_source_snapshot and (root / TEST_MAPPING).exists():
+        write_json(
+            root,
+            TEST_MAPPING,
+            {
+                "schema_version": 1,
+                "baseline": {},
+                "tests": [],
+                "freeze": {"files": {}},
+                "test_changes": [],
+                "mock_changes": [],
+            },
+        )
     evidence_path = root / EVIDENCE
     if evidence_path.exists():
         evidence = read_json(evidence_path)
@@ -561,6 +710,1210 @@ def process_assertions(process):
     return found
 
 
+def markdown_cells(line):
+    text = line.strip()
+    if not text.startswith("|"):
+        return []
+    if text.endswith("|"):
+        text = text[1:-1]
+    else:
+        text = text[1:]
+    return [cell.strip() for cell in text.split("|")]
+
+
+def plain_markdown_cell(value):
+    value = re.sub(r"<br\s*/?>", " ", value, flags=re.I)
+    return value.replace("**", "").replace("__", "").strip().strip("`").strip()
+
+
+def test_id_parts(test_id):
+    if not isinstance(test_id, str) or ":" not in test_id or "#" not in test_id:
+        raise EvidenceError(f"Invalid Test Inventory ID: {test_id!r}")
+    module, qualified_method = test_id.split(":", 1)
+    class_name, method = qualified_method.rsplit("#", 1)
+    if (
+        not module
+        or not class_name
+        or not method
+        or re.fullmatch(r"[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*", class_name) is None
+        or re.fullmatch(r"[A-Za-z_$][\w$]*", method) is None
+    ):
+        raise EvidenceError(f"Invalid Test Inventory ID: {test_id!r}")
+    return module, class_name, method
+
+
+def test_report_inventory(root):
+    path = root / REPORT
+    if not path.is_file():
+        raise EvidenceError("test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    columns = None
+    rows = []
+    for index, line in enumerate(lines):
+        cells = markdown_cells(line)
+        if not cells:
+            continue
+        names = [plain_markdown_cell(cell).casefold() for cell in cells]
+        if not {"test id", "file", "test kind", "handling"}.issubset(names):
+            continue
+        if columns is not None:
+            raise EvidenceError("MIGRATION_REPORT.md has more than one Test Inventory table")
+        columns = {name: position for position, name in enumerate(names)}
+        for candidate in lines[index + 1:]:
+            row = markdown_cells(candidate)
+            if not row:
+                break
+            if all(re.fullmatch(r":?-{3,}:?", cell) for cell in row):
+                continue
+            if len(row) != len(names):
+                raise EvidenceError("Test Inventory row does not match its table header")
+            values = [plain_markdown_cell(cell) for cell in row]
+            test_id = values[columns["test id"]]
+            file_path = values[columns["file"]]
+            test_kind = values[columns["test kind"]]
+            handling_text = re.sub(
+                r"[\s_-]+", " ", values[columns["handling"]].casefold()
+            ).strip()
+            if handling_text.startswith("migrate"):
+                handling = "Migrate"
+            elif handling_text.startswith("report only"):
+                handling = "Report only"
+            else:
+                raise EvidenceError(
+                    f"{test_id}: unsupported Test Inventory handling "
+                    f"{values[columns['handling']]!r}"
+                )
+            module, class_name, method = test_id_parts(test_id)
+            if not test_kind:
+                raise EvidenceError(f"{test_id}: Test Inventory kind is empty")
+            if not file_path:
+                raise EvidenceError(f"{test_id}: Test Inventory file path is empty")
+            source_file = project_path(root, file_path, "Test Inventory file")
+            module_root = project_path(root, module, "Test Inventory module")
+            try:
+                source_file.relative_to(module_root)
+            except ValueError as exc:
+                raise EvidenceError(
+                    f"{test_id}: Test Inventory file is outside its module"
+                ) from exc
+            rows.append(
+                {
+                    "id": test_id,
+                    "module": module,
+                    "file": Path(file_path).as_posix(),
+                    "class_name": class_name,
+                    "method": method,
+                    "test_kind": test_kind,
+                    "handling": handling,
+                    "models": values[columns["models"]]
+                    if "models" in columns
+                    else "",
+                }
+            )
+    if columns is None:
+        raise EvidenceError("test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory")
+    ids = [row["id"] for row in rows]
+    if len(ids) != len(set(ids)):
+        raise EvidenceError("Test Inventory IDs must be unique")
+    return rows
+
+
+def report_patterns(value, default, label):
+    if value is None:
+        return list(default)
+    try:
+        patterns = strings(value, label)
+    except EvidenceError:
+        raise
+    for pattern in patterns:
+        if (
+            "\\" in pattern
+            or "\0" in pattern
+            or Path(pattern).is_absolute()
+            or PureWindowsPath(pattern).drive
+            or ".." in Path(pattern).parts
+        ):
+            raise EvidenceError(f"{label} must use project-relative patterns")
+    return patterns
+
+
+def test_contract(root, inventory):
+    if "test_run_mode" not in inventory:
+        return {
+            "mode": None,
+            "tests": [],
+            "suites": {},
+            "test_suites": {},
+            "modules": inventory.get("modules", []),
+        }
+    mode = inventory["test_run_mode"]
+    if mode not in ("run", "migrate_only"):
+        raise EvidenceError("Step 2 test_run_mode must be run or migrate_only")
+    if mode != "run":
+        return {
+            "mode": mode,
+            "tests": [],
+            "suites": {},
+            "test_suites": {},
+            "modules": inventory.get("modules", []),
+        }
+
+    tests = test_report_inventory(root)
+    module_paths = set(strings(inventory.get("modules"), "Step 2 modules"))
+    test_by_id = {test["id"]: test for test in tests}
+    for test in tests:
+        if test["module"] not in module_paths:
+            raise EvidenceError(
+                f"{test['id']}: Test Inventory module is outside the Step 2 scope"
+            )
+
+    migrate_ids = {
+        test["id"] for test in tests if test["handling"] == "Migrate"
+    }
+    suite_entries = inventory.get("test_suites", [])
+    if not isinstance(suite_entries, list):
+        raise EvidenceError("Step 2 test_suites must be an array")
+    suites = {}
+    test_suites = {}
+    for entry in suite_entries:
+        if not isinstance(entry, dict):
+            raise EvidenceError("Every Step 2 test suite must be an object")
+        module = entry.get("module")
+        name = entry.get("name")
+        command = entry.get("command")
+        test_ids = entry.get("test_ids")
+        if (
+            not isinstance(module, str)
+            or module not in module_paths
+            or not isinstance(name, str)
+            or not name
+            or not isinstance(command, list)
+            or not command
+            or any(not isinstance(part, str) or not part for part in command)
+        ):
+            raise EvidenceError("Step 2 test suite needs a module, name, and command")
+        key = (module, name)
+        if key in suites:
+            raise EvidenceError(f"{module}: duplicate Step 2 test suite {name}")
+        test_ids = strings(test_ids, f"{module} {name} Test IDs")
+        if not test_ids:
+            raise EvidenceError(f"{module} {name}: list the Test Inventory IDs in this suite")
+        for test_id in test_ids:
+            if test_id not in test_by_id:
+                raise EvidenceError(
+                    f"{module} {name}: {test_id} is missing from the Test Inventory"
+                )
+            if test_by_id[test_id]["module"] != module:
+                raise EvidenceError(
+                    f"{test_id}: test suite module differs from the Test Inventory"
+                )
+            test_suites.setdefault(test_id, []).append(key)
+        suites[key] = {
+            "module": module,
+            "name": name,
+            "command": command,
+            "test_ids": test_ids,
+            "reports": report_patterns(
+                entry.get("reports"), DEFAULT_JUNIT_REPORTS, f"{module} {name} reports"
+            ),
+            "coverage_reports": report_patterns(
+                entry.get("coverage_reports"),
+                DEFAULT_C7_COVERAGE_REPORTS,
+                f"{module} {name} coverage_reports",
+            ),
+            "migrate_test_ids": [test_id for test_id in test_ids if test_id in migrate_ids],
+        }
+
+    for test_id in migrate_ids:
+        if not test_suites.get(test_id):
+            raise EvidenceError(f"{test_id}: no Step 2 test suite records this migrated test")
+    return {
+        "mode": mode,
+        "tests": tests,
+        "suites": suites,
+        "test_suites": test_suites,
+        "modules": sorted(module_paths),
+    }
+
+
+def read_test_mapping(root, required=False):
+    path = root / TEST_MAPPING
+    if not path.exists():
+        if required:
+            raise EvidenceError(f"Missing test parity ledger: {path}")
+        return None
+    if path.is_symlink():
+        raise EvidenceError(f"Refusing to read symlinked test parity ledger: {path}")
+    try:
+        path.resolve(strict=True).relative_to(root)
+    except (OSError, ValueError) as exc:
+        raise EvidenceError(f"Test parity ledger is outside the project: {path}") from exc
+    mapping = read_json(path)
+    if mapping.get("schema_version") != 1:
+        raise EvidenceError("Unsupported test parity ledger version")
+    if (
+        not isinstance(mapping.get("baseline"), dict)
+        or not isinstance(mapping.get("tests"), list)
+        or not isinstance(mapping.get("freeze"), dict)
+        or not isinstance(mapping["freeze"].get("files"), dict)
+        or not isinstance(mapping.get("test_changes"), list)
+        or not isinstance(mapping.get("mock_changes"), list)
+    ):
+        raise EvidenceError("Test parity ledger has an invalid shape")
+    baseline = mapping["baseline"]
+    if (
+        "suites" not in baseline and baseline
+    ):
+        raise EvidenceError("Test parity ledger baseline lacks its suite records")
+    if "suites" not in baseline:
+        baseline["suites"] = []
+    if (
+        not isinstance(baseline["suites"], list)
+        or any(not isinstance(suite, dict) for suite in baseline["suites"])
+    ) or (
+        "coverage" in baseline and not isinstance(baseline["coverage"], dict)
+    ) or (
+        "coverage_available" in baseline
+        and type(baseline["coverage_available"]) is not bool
+    ):
+        raise EvidenceError("Test parity ledger baseline has an invalid shape")
+    return mapping
+
+
+def json_digest(value):
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def module_suite_digest(module, suite):
+    return hashlib.sha256(f"{module}\0{suite}".encode("utf-8")).hexdigest()[:20]
+
+
+def discover_reports(root, module, patterns, label):
+    module_root = project_path(root, module, f"{label} module", must_exist=True)
+    found = set()
+    for pattern in patterns:
+        try:
+            candidates = module_root.glob(pattern)
+            for path in candidates:
+                if not path.is_file():
+                    continue
+                if path.is_symlink():
+                    raise EvidenceError(f"Refusing symlinked {label}: {path}")
+                try:
+                    path.resolve(strict=True).relative_to(module_root.resolve(strict=True))
+                except (OSError, ValueError) as exc:
+                    raise EvidenceError(f"{label} is outside its module: {path}") from exc
+                found.add(path)
+        except OSError as exc:
+            raise EvidenceError(f"Cannot scan {label} in {module}: {exc}") from exc
+    return sorted(found)
+
+
+def report_signatures(paths):
+    signatures = {}
+    for path in paths:
+        try:
+            stat = path.stat()
+        except OSError as exc:
+            raise EvidenceError(f"Cannot inspect report {path}: {exc}") from exc
+        signatures[path] = (file_digest(path), stat.st_mtime_ns)
+    return signatures
+
+
+def fresh_reports(root, module, patterns, before, label):
+    after = discover_reports(root, module, patterns, label)
+    signatures = report_signatures(after)
+    return [
+        path for path in after
+        if path not in before or signatures[path] != before[path]
+    ]
+
+
+def copy_reports(root, module, reports, destination):
+    module_root = project_path(root, module, "report module", must_exist=True)
+    destination_root = root / destination
+    copied = []
+    for source in reports:
+        if source.is_symlink():
+            raise EvidenceError(f"Refusing symlinked report: {source}")
+        try:
+            relative = source.resolve(strict=True).relative_to(module_root.resolve(strict=True))
+        except (OSError, ValueError) as exc:
+            raise EvidenceError(f"Report is outside its module: {source}") from exc
+        target = destination_root / relative
+        if target.is_symlink():
+            raise EvidenceError(f"Refusing to replace symlinked report: {target}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            target.parent.resolve(strict=True).relative_to(root)
+            shutil.copy2(source, target)
+        except (OSError, ValueError) as exc:
+            raise EvidenceError(f"Cannot preserve report {source}: {exc}") from exc
+        copied.append(target.relative_to(root).as_posix())
+    return copied
+
+
+def junit_status(testcase):
+    statuses = {
+        element.tag.rsplit("}", 1)[-1]
+        for element in testcase
+    }
+    if "error" in statuses:
+        return "error"
+    if "failure" in statuses:
+        return "failed"
+    if "skipped" in statuses:
+        return "skipped"
+    return "passed"
+
+
+def aggregate_test_status(statuses):
+    for status in ("error", "failed", "skipped"):
+        if status in statuses:
+            return status
+    return "passed"
+
+
+def junit_method_name(name):
+    return re.sub(r"(?:\([^()]*\)|\[[^\]]*\])+$", "", name).strip()
+
+
+def parse_junit_report(path, module):
+    try:
+        document = ET.parse(path)
+    except (OSError, ET.ParseError) as exc:
+        raise EvidenceError(f"Cannot parse JUnit report {path}: {exc}") from exc
+    cases = {}
+    for testcase in document.getroot().iter():
+        if testcase.tag.rsplit("}", 1)[-1] != "testcase":
+            continue
+        class_name = testcase.get("classname")
+        method = junit_method_name(testcase.get("name", ""))
+        if not class_name or not method:
+            raise EvidenceError(f"JUnit report has a test without a class or method: {path}")
+        test_id = f"{module}:{class_name}#{method}"
+        cases.setdefault(test_id, []).append(junit_status(testcase))
+    return cases
+
+
+def parse_junit_reports(paths, module):
+    invocations = {}
+    for path in paths:
+        for test_id, statuses in parse_junit_report(path, module).items():
+            invocations.setdefault(test_id, []).extend(statuses)
+    return {
+        test_id: {
+            "result": aggregate_test_status(statuses),
+            "invocations": statuses,
+            "invocation_count": len(statuses),
+        }
+        for test_id, statuses in sorted(invocations.items())
+    }
+
+
+def parse_c7_coverage_report(path):
+    try:
+        with path.open(encoding="utf-8") as report_file:
+            report = json.load(report_file)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise EvidenceError(f"Cannot parse Camunda 7 coverage report {path}: {exc}") from exc
+    if not isinstance(report, dict) or not isinstance(report.get("suites"), list):
+        raise EvidenceError(f"Unsupported Camunda 7 coverage report: {path}")
+    coverage = {}
+
+    def visit(value):
+        if isinstance(value, dict):
+            source = value.get("source")
+            process_id = value.get("modelKey")
+            element_id = value.get("definitionKey")
+            if source in ("FLOW_NODE", "SEQUENCE_FLOW"):
+                if isinstance(process_id, str) and process_id and isinstance(element_id, str) and element_id:
+                    coverage.setdefault(process_id, set()).add(element_id)
+            for nested in value.values():
+                visit(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                visit(nested)
+
+    visit(report["suites"])
+    return coverage
+
+
+def parse_cpt_coverage_report(path):
+    try:
+        with path.open(encoding="utf-8") as report_file:
+            report = json.load(report_file)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise EvidenceError(f"Cannot parse CPT coverage report {path}: {exc}") from exc
+    processes = report.get("processCoverages") if isinstance(report, dict) else None
+    decisions = report.get("decisionCoverages", []) if isinstance(report, dict) else None
+    if not isinstance(processes, list) or not isinstance(decisions, list):
+        raise EvidenceError(f"Unsupported CPT coverage report: {path}")
+    coverage = {}
+    for process in processes:
+        if not isinstance(process, dict):
+            raise EvidenceError(f"CPT coverage report has an invalid process entry: {path}")
+        process_id = process.get("processDefinitionId")
+        elements = process.get("completedElements")
+        flows = process.get("takenSequenceFlows")
+        if (
+            not isinstance(process_id, str)
+            or not process_id
+            or not isinstance(elements, list)
+            or not isinstance(flows, list)
+            or any(not isinstance(item, str) or not item for item in elements + flows)
+        ):
+            raise EvidenceError(f"CPT coverage report has invalid element IDs: {path}")
+        coverage.setdefault(process_id, set()).update(elements + flows)
+    decision_coverage = {}
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            raise EvidenceError(f"CPT coverage report has an invalid decision entry: {path}")
+        decision_id = decision.get("decisionDefinitionId")
+        rule_ids = decision.get("matchedRuleIds", [])
+        if (
+            not isinstance(decision_id, str)
+            or not decision_id
+            or not isinstance(rule_ids, list)
+            or any(not isinstance(item, str) or not item for item in rule_ids)
+        ):
+            raise EvidenceError(f"CPT coverage report has invalid decision IDs: {path}")
+        decision_coverage.setdefault(decision_id, set()).update(rule_ids)
+    return coverage, decision_coverage
+
+
+def coverage_json(coverage):
+    return {process_id: sorted(element_ids) for process_id, element_ids in sorted(coverage.items())}
+
+
+def current_test_files(root, plan):
+    modules = sorted(
+        {
+            test["module"]
+            for test in plan.test_contract["tests"]
+            if test["handling"] == "Migrate"
+        }
+    )
+    files = {}
+    module_paths = set(plan.test_contract.get("modules", modules))
+    for module in modules:
+        hashes = {}
+        scan_module(root, module, module_paths, hashes)
+        for path, digest in hashes.items():
+            if "/src/test/" in f"/{path}":
+                files[path] = f"sha256:{digest}"
+    return dict(sorted(files.items()))
+
+
+def test_mapping_digest(mapping, kind):
+    if kind == "baseline":
+        value = mapping.get("baseline", {})
+    elif kind == "freeze":
+        value = mapping.get("freeze", {})
+    elif kind == "review":
+        value = {
+            "tests": mapping.get("tests", []),
+            "mock_changes": mapping.get("mock_changes", []),
+        }
+    else:
+        value = {
+            "baseline": mapping.get("baseline", {}),
+            "tests": mapping.get("tests", []),
+            "freeze": mapping.get("freeze", {}),
+            "test_changes": mapping.get("test_changes", []),
+            "mock_changes": mapping.get("mock_changes", []),
+        }
+    return json_digest(value)
+
+
+def validate_test_freeze(root, plan, mapping):
+    issues = []
+    current = current_test_files(root, plan)
+    frozen = mapping["freeze"]["files"]
+    if not current and not frozen:
+        issues.append("test_freeze: no migrated test files or resources were found")
+    for path, digest in frozen.items():
+        try:
+            project_path(root, path, "frozen test file")
+        except EvidenceError as exc:
+            issues.append(str(exc))
+        if not isinstance(digest, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
+            issues.append(f"test_freeze: invalid frozen hash for {path}")
+
+    changes = mapping["test_changes"]
+    approvals = {}
+    for change in changes:
+        if not isinstance(change, dict):
+            issues.append("test_changes entries must be objects")
+            continue
+        path = change.get("file")
+        old_hash = change.get("old_hash")
+        new_hash = change.get("new_hash")
+        reason = change.get("reason")
+        approved_by = change.get("approved_by")
+        try:
+            project_path(root, path, "approved test change")
+        except EvidenceError as exc:
+            issues.append(str(exc))
+            continue
+        if (
+            old_hash is not None
+            and (
+                not isinstance(old_hash, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", old_hash) is None
+            )
+        ) or (
+            new_hash is not None
+            and (
+                not isinstance(new_hash, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", new_hash) is None
+            )
+        ):
+            issues.append(f"{path}: test_changes has an invalid old_hash or new_hash")
+            continue
+        if not concrete_reference(reason) or not concrete_reference(approved_by):
+            issues.append(f"{path}: test_changes needs a reason and approver")
+            continue
+        if path in approvals:
+            issues.append(f"{path}: duplicate test_changes approval")
+            continue
+        approvals[path] = (old_hash, new_hash)
+
+    used_approvals = set()
+    for path in sorted(set(frozen) | set(current)):
+        old_hash = frozen.get(path)
+        new_hash = current.get(path)
+        if old_hash == new_hash:
+            continue
+        if approvals.get(path) != (old_hash, new_hash):
+            issues.append(f"{path}: frozen test file changed without an approved test_changes entry")
+        else:
+            used_approvals.add(path)
+    for path in sorted(set(approvals) - used_approvals):
+        issues.append(f"{path}: test_changes approval does not match a current file change")
+    return issues
+
+
+def record_test_freeze(root, plan, mapping):
+    rows = test_rows_by_id(mapping)
+    for test in plan.test_contract["tests"]:
+        if test["handling"] != "Migrate":
+            continue
+        ledger = rows.get(test["id"])
+        if ledger is None or ledger.get("status") not in ("migrated", "retired"):
+            raise EvidenceError(
+                f"{test['id']}: record a migrated or approved retired status before freezing tests"
+            )
+        if ledger.get("status") == "retired" and not approved_retirement(ledger):
+            raise EvidenceError(f"{test['id']}: retired test needs an approved reason before freeze")
+    if mapping["freeze"]["files"]:
+        issues = validate_test_freeze(root, plan, mapping)
+        if issues:
+            raise EvidenceError("; ".join(issues))
+        return {
+            "method": "snapshot",
+            "result": "passed",
+            "reason": None,
+            "output": (
+                f"Verified the existing hashes for "
+                f"{len(mapping['freeze']['files'])} test files and resources."
+            ),
+            "test_mapping_digest": test_mapping_digest(mapping, "freeze"),
+        }
+    current = current_test_files(root, plan)
+    if not current:
+        raise EvidenceError("test_freeze: no migrated test files or resources were found")
+    mapping["freeze"]["files"] = current
+    write_json(root, TEST_MAPPING, mapping)
+    return {
+        "method": "snapshot",
+        "result": "passed",
+        "reason": None,
+        "output": f"Recorded SHA-256 hashes for {len(current)} test files and resources.",
+        "test_mapping_digest": test_mapping_digest(mapping, "freeze"),
+    }
+
+
+def test_rows_by_id(mapping):
+    rows = {}
+    for test in mapping["tests"]:
+        if not isinstance(test, dict):
+            raise EvidenceError("Every test parity ledger entry must be an object")
+        test_id = test.get("c7_id")
+        if test_id is None and test.get("status") == "added":
+            continue
+        if not isinstance(test_id, str) or not test_id:
+            raise EvidenceError("Test parity ledger entry needs a C7 test ID")
+        if test_id in rows:
+            raise EvidenceError(f"Duplicate test parity ledger entry: {test_id}")
+        rows[test_id] = test
+    return rows
+
+
+def normalized_mock(value):
+    if not isinstance(value, str) or not value.strip():
+        raise EvidenceError("Each mock entry must be a non-blank string")
+    text = value.strip()
+    patterns = (
+        ("auto-mock", r"\bautoMock\s*\(\s*['\"]([^'\"]+)['\"]"),
+        ("job-worker", r"\bmockJobWorker\s*\(\s*['\"]([^'\"]+)['\"]"),
+        ("child-process", r"\bmockChildProcess\s*\(\s*['\"]([^'\"]+)['\"]"),
+        ("dmn-decision", r"\bmockDmnDecision\s*\(\s*['\"]([^'\"]+)['\"]"),
+        ("component", r"\bMocks\.register\s*\(\s*['\"]([^'\"]+)['\"]"),
+        ("component", r"\bMocks\.register\s*\(\s*([A-Za-z_$][\w$]*)"),
+    )
+    for kind, pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            return kind, re.sub(r"[^a-z0-9]+", "", match.group(1).casefold())
+    annotation = re.search(r"@(?:MockitoBean|MockBean)\s+([\w.$]+)", text)
+    if annotation:
+        return "component", re.sub(r"[^a-z0-9]+", "", annotation.group(1).casefold())
+    token = re.search(r"[A-Za-z_$][\w$.-]*", text)
+    if token is None:
+        raise EvidenceError(f"Cannot identify the mocked component in {value!r}")
+    return "component", re.sub(r"[^a-z0-9]+", "", token.group(0).casefold())
+
+
+def test_mock_issues(test, mapping):
+    issues = []
+    test_id = test.get("c7_id")
+    c8_ids = test.get("c8_ids")
+    mocks = test.get("mocks")
+    if (
+        not isinstance(c8_ids, list)
+        or not c8_ids
+        or any(not isinstance(test_id, str) or not test_id for test_id in c8_ids)
+        or not isinstance(mocks, dict)
+    ):
+        return [f"{test_id}: migrated test needs c8_ids and a mocks object"]
+    c7_mocks = mocks.get("c7")
+    c8_mocks = mocks.get("c8")
+    if (
+        not isinstance(c7_mocks, list)
+        or any(not isinstance(value, str) or not value.strip() for value in c7_mocks)
+        or not isinstance(c8_mocks, list)
+        or any(not isinstance(value, str) or not value.strip() for value in c8_mocks)
+    ):
+        return [f"{test_id}: mocks.c7 and mocks.c8 must be arrays of non-blank strings"]
+
+    c7_normalized = {normalized_mock(value) for value in c7_mocks}
+    auto_mocked = any(kind == "auto-mock" for kind, _ in c7_normalized)
+    approvals = {}
+    for change in mapping["mock_changes"]:
+        if not isinstance(change, dict):
+            issues.append("mock_changes entries must be objects")
+            continue
+        cpt_test_id = change.get("cpt_test_id")
+        if cpt_test_id not in c8_ids:
+            continue
+        mock = change.get("mock")
+        reason = change.get("reason")
+        approved_by = change.get("approved_by")
+        if (
+            cpt_test_id not in c8_ids
+            or not isinstance(mock, str)
+            or not mock.strip()
+            or not concrete_reference(reason)
+            or not concrete_reference(approved_by)
+        ):
+            issues.append(
+                f"{test_id}: mock_changes needs a mapped CPT test, mock, reason, and approver"
+            )
+            continue
+        approval_key = (cpt_test_id, mock)
+        if approval_key in approvals:
+            issues.append(f"{test_id}: duplicate mock_changes approval for {mock}")
+            continue
+        approvals[approval_key] = change
+
+    used_approvals = set()
+    for c8_id in c8_ids:
+        for c8_mock in c8_mocks:
+            normalized = normalized_mock(c8_mock)
+            if normalized in c7_normalized or (auto_mocked and normalized[0] == "job-worker"):
+                continue
+            approval_key = (c8_id, c8_mock)
+            if approval_key not in approvals:
+                issues.append(
+                    f"{test_id}: CPT test {c8_id} adds unapproved mock {c8_mock}"
+                )
+            else:
+                used_approvals.add(approval_key)
+    for cpt_test_id, mock in sorted(set(approvals) - used_approvals):
+        issues.append(f"{test_id}: mock_changes approval is not used by {cpt_test_id}: {mock}")
+    return issues
+
+
+def test_repeat_checks(plan, checks):
+    results = {}
+    for key, entry in checks.items():
+        if key[0] != "module" or key[2] != "test_repeat":
+            continue
+        test_runs = entry[1].get("test_runs")
+        if not isinstance(test_runs, list) or len(test_runs) != 2:
+            continue
+        results[(key[1], key[3])] = test_runs
+    return results
+
+
+def cpt_test_results(test_id, repeat_runs, contract):
+    module, _, _ = test_id_parts(test_id)
+    matched = [[], []]
+    found = False
+    for suite_key, suite in contract["suites"].items():
+        if suite["module"] != module:
+            continue
+        runs = repeat_runs.get(suite_key)
+        if runs is None:
+            continue
+        for index, run in enumerate(runs):
+            results = run.get("test_results", {})
+            if test_id in results:
+                found = True
+                matched[index].append(results[test_id].get("result"))
+    if not found:
+        return None
+    return [aggregate_test_status(statuses) if statuses else None for statuses in matched]
+
+
+def approved_retirement(test):
+    retirement = test.get("retirement")
+    return (
+        isinstance(retirement, dict)
+        and concrete_reference(retirement.get("reason"))
+        and concrete_reference(retirement.get("approved_by"))
+    )
+
+
+def test_parity_issues(plan, checks, mapping):
+    issues = []
+    contract = plan.test_contract
+    expected_suites = {
+        suite_key
+        for suite_key, suite in contract["suites"].items()
+        if suite["migrate_test_ids"]
+    }
+    baseline_entries = {}
+    for suite in mapping["baseline"].get("suites", []):
+        if not isinstance(suite, dict):
+            issues.append("C7 baseline suite entries must be objects")
+            continue
+        suite_key = (suite.get("module"), suite.get("suite"))
+        if suite_key in baseline_entries:
+            issues.append(f"{suite_key}: duplicate C7 baseline suite entry")
+        baseline_entries[suite_key] = suite
+    for suite_key in sorted(expected_suites):
+        key = ("module", suite_key[0], "c7_baseline", suite_key[1])
+        entry = checks.get(key)
+        baseline = baseline_entries.get(suite_key)
+        if entry is None:
+            issues.append(f"{suite_key}: C7 baseline has not run")
+            continue
+        check = entry[1]
+        if check.get("result") != "passed":
+            issues.append(
+                f"{suite_key}: C7 baseline is {check.get('result')}: "
+                f"{check.get('reason') or 'not verified'}"
+            )
+        if baseline is None:
+            issues.append(f"{suite_key}: test parity ledger has no C7 baseline record")
+        elif (
+            baseline.get("test_results") != check.get("test_results")
+            or baseline.get("coverage_by_process") != check.get("coverage_by_process")
+        ):
+            issues.append(f"{suite_key}: test parity ledger differs from its baseline log")
+
+    actual_baseline = aggregate_baseline_results(
+        contract, mapping["baseline"].get("suites", [])
+    )
+    rows = test_rows_by_id(mapping)
+    repeat_runs = test_repeat_checks(plan, checks)
+    for inventory_test in contract["tests"]:
+        test_id = inventory_test["id"]
+        test = rows.get(test_id)
+        if test is None:
+            if inventory_test["handling"] == "Migrate":
+                issues.append(f"{test_id}: test parity ledger entry is missing")
+            continue
+        if (
+            test.get("test_kind") != inventory_test["test_kind"]
+            or test.get("handling") != inventory_test["handling"]
+        ):
+            issues.append(f"{test_id}: ledger kind or handling differs from the Test Inventory")
+        expected_result = actual_baseline.get(test_id, {}).get("c7_result")
+        if test.get("c7_result") != expected_result:
+            issues.append(f"{test_id}: C7 result differs from the captured baseline reports")
+        status = test.get("status")
+        if status not in TEST_STATUSES:
+            issues.append(f"{test_id}: ledger status must be migrated, retired, manual, or added")
+            continue
+        if status == "manual":
+            if test.get("handling") == "Migrate" or expected_result == "passed":
+                issues.append(f"{test_id}: manual test is not verified")
+            continue
+        if status == "retired":
+            if not approved_retirement(test):
+                issues.append(f"{test_id}: retired test needs an approved reason")
+            if test.get("c8_ids"):
+                issues.append(f"{test_id}: retired test cannot map to CPT tests")
+            continue
+        if status != "migrated":
+            issues.append(f"{test_id}: a C7 test cannot use status added")
+            continue
+        c8_ids = test.get("c8_ids")
+        if (
+            not isinstance(c8_ids, list)
+            or not c8_ids
+            or any(not isinstance(c8_id, str) or not c8_id for c8_id in c8_ids)
+            or len(c8_ids) != len(set(c8_ids))
+        ):
+            issues.append(f"{test_id}: migrated test needs distinct c8_ids")
+            continue
+        for c8_id in c8_ids:
+            try:
+                cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
+            except EvidenceError as exc:
+                issues.append(str(exc))
+                continue
+            if cpt_results is None:
+                issues.append(f"{test_id}: mapped CPT test {c8_id} is missing from both runs")
+                continue
+            if expected_result == "passed" and cpt_results != ["passed", "passed"]:
+                issues.append(
+                    f"{test_id}: mapped CPT test {c8_id} must pass in both runs, "
+                    f"received {cpt_results[0]} and {cpt_results[1]}"
+                )
+
+    for test in mapping["tests"]:
+        if isinstance(test, dict) and test.get("status") == "added":
+            c8_ids = test.get("c8_ids")
+            if (
+                not isinstance(c8_ids, list)
+                or not c8_ids
+                or any(not isinstance(c8_id, str) or not c8_id for c8_id in c8_ids)
+            ):
+                issues.append("Added CPT tests need one or more c8_ids")
+                continue
+            for c8_id in c8_ids:
+                try:
+                    cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
+                except EvidenceError as exc:
+                    issues.append(str(exc))
+                    continue
+                if cpt_results != ["passed", "passed"]:
+                    issues.append(
+                        f"Added CPT test {c8_id} must pass in both runs"
+                    )
+    return issues
+
+
+def coverage_parity_issues(plan, checks, mapping):
+    issues = []
+    contract = plan.test_contract
+    repeat_runs = test_repeat_checks(plan, checks)
+    cpt_coverage = [{}, {}]
+    cpt_decisions = [{}, {}]
+    for suite_key, suite in contract["suites"].items():
+        if not suite["migrate_test_ids"]:
+            continue
+        runs = repeat_runs.get(suite_key)
+        if runs is None:
+            issues.append(f"{suite_key}: CPT coverage needs two recorded test runs")
+            continue
+        for index, run in enumerate(runs):
+            if run.get("coverage_available") is not True:
+                issues.append(f"{suite_key}: CPT coverage report is missing from run {index + 1}")
+                continue
+            for process_id, elements in run.get("coverage_by_process", {}).items():
+                if (
+                    not isinstance(process_id, str)
+                    or not process_id
+                    or not isinstance(elements, list)
+                    or any(not isinstance(item, str) or not item for item in elements)
+                ):
+                    issues.append(f"{suite_key}: CPT run {index + 1} has invalid process coverage")
+                    continue
+                cpt_coverage[index].setdefault(process_id, set()).update(elements)
+            for decision_id, rule_ids in run.get("decision_coverage_by_id", {}).items():
+                if (
+                    not isinstance(decision_id, str)
+                    or not decision_id
+                    or not isinstance(rule_ids, list)
+                    or any(not isinstance(item, str) or not item for item in rule_ids)
+                ):
+                    issues.append(f"{suite_key}: CPT run {index + 1} has invalid decision coverage")
+                    continue
+                cpt_decisions[index].setdefault(decision_id, set()).update(rule_ids)
+
+    baseline = mapping["baseline"]
+    normalized_source_coverage = {}
+    process_mappings = {}
+    retained_c7_elements = {}
+    if baseline.get("coverage_available") is not True:
+        note = "No Camunda 7 coverage baseline."
+    else:
+        note = "Camunda 7 coverage baseline captured."
+        source_coverage = baseline.get("coverage")
+        if not isinstance(source_coverage, dict):
+            issues.append("C7 coverage baseline is not an object")
+            source_coverage = {}
+        for process_id, elements in source_coverage.items():
+            if (
+                not isinstance(process_id, str)
+                or not process_id
+                or not isinstance(elements, list)
+                or any(
+                not isinstance(element_id, str) or not element_id for element_id in elements
+                )
+            ):
+                issues.append(f"{process_id}: C7 coverage element IDs are invalid")
+                continue
+            normalized_source_coverage[process_id] = sorted(set(elements))
+            matching_processes = [
+                (model, converted_process, model_elements)
+                for (model, converted_process), model_elements
+                in plan.converted_elements.items()
+                if converted_process == process_id
+            ]
+            if not matching_processes:
+                matching_processes = [
+                    (model, converted_process, model_elements)
+                    for (model, converted_process), model_elements
+                    in plan.converted_elements.items()
+                    if set(elements) & model_elements
+                ]
+                if len(matching_processes) > 1:
+                    issues.append(
+                        f"{process_id}: C7 coverage maps to multiple renamed CPT processes"
+                    )
+                    continue
+            process_mappings[process_id] = [
+                converted_process for _, converted_process, _ in matching_processes
+            ]
+            retained = set()
+            if not matching_processes:
+                retained_c7_elements[process_id] = []
+                continue
+            for model, converted_process, model_elements in matching_processes:
+                expected = set(elements) & model_elements
+                retained.update(expected)
+                for run_index in range(2):
+                    missing = expected - cpt_coverage[run_index].get(
+                        converted_process, set()
+                    )
+                    if missing:
+                        issues.append(
+                            f"{model}#{converted_process}: CPT run {run_index + 1} "
+                            "lost C7-covered elements: " + ", ".join(sorted(missing))
+                        )
+            retained_c7_elements[process_id] = sorted(retained)
+    output = {
+        "baseline_note": note,
+        "c7_coverage": normalized_source_coverage,
+        "process_mappings": process_mappings,
+        "retained_c7_elements": retained_c7_elements,
+        "cpt_run_1": coverage_json(cpt_coverage[0]),
+        "cpt_run_2": coverage_json(cpt_coverage[1]),
+        "cpt_decisions_run_1": coverage_json(cpt_decisions[0]),
+        "cpt_decisions_run_2": coverage_json(cpt_decisions[1]),
+    }
+    return issues, output
+
+
+def run_cpt_test_suite(root, module, suite_name, command, timeout, run_number, suite_config):
+    reports = report_patterns(
+        suite_config.get("reports"), DEFAULT_JUNIT_REPORTS, f"{module} {suite_name} JUnit reports"
+    )
+    coverage_reports = report_patterns(
+        suite_config.get("coverage_reports"),
+        DEFAULT_CPT_COVERAGE_REPORTS,
+        f"{module} {suite_name} CPT coverage reports",
+    )
+    before_junit = report_signatures(
+        discover_reports(root, module, reports, "JUnit report")
+    )
+    before_coverage = report_signatures(
+        discover_reports(root, module, coverage_reports, "CPT coverage report")
+    )
+    run_output = ""
+    exit_code = None
+    reason = None
+    run_result = "blocked"
+    test_results = {}
+    coverage = {}
+    decision_coverage = {}
+    junit_copies = []
+    coverage_copies = []
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+            check=False,
+        )
+        exit_code = completed.returncode
+        run_output = completed.stdout
+        run_result = "failed" if exit_code != 0 else "passed"
+    except subprocess.TimeoutExpired as exc:
+        reason = f"Command timed out after {timeout} seconds"
+        run_output = (
+            exc.stdout.decode("utf-8", errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else exc.stdout or ""
+        )
+    except OSError as exc:
+        reason = str(exc)
+        run_output = reason
+
+    if reason is None:
+        try:
+            junit_paths = fresh_reports(
+                root, module, reports, before_junit, "JUnit report"
+            )
+            if not junit_paths:
+                raise EvidenceError("The CPT command produced no fresh JUnit XML reports")
+            test_results = parse_junit_reports(junit_paths, module)
+            coverage_paths = fresh_reports(
+                root,
+                module,
+                coverage_reports,
+                before_coverage,
+                "CPT coverage report",
+            )
+            for path in coverage_paths:
+                process_coverage, report_decisions = parse_cpt_coverage_report(path)
+                for process_id, elements in process_coverage.items():
+                    coverage.setdefault(process_id, set()).update(elements)
+                for decision_id, rule_ids in report_decisions.items():
+                    decision_coverage.setdefault(decision_id, set()).update(rule_ids)
+            digest = module_suite_digest(module, suite_name)
+            junit_copies = copy_reports(
+                root,
+                module,
+                junit_paths,
+                VALIDATION / "cpt" / digest / f"run-{run_number}" / "junit",
+            )
+            coverage_copies = copy_reports(
+                root,
+                module,
+                coverage_paths,
+                VALIDATION / "cpt" / digest / f"run-{run_number}" / "coverage",
+            )
+        except EvidenceError as exc:
+            run_result = "failed"
+            reason = str(exc)
+    if exit_code != 0 and reason is None:
+        run_result = "failed"
+    return {
+        "exit_code": exit_code,
+        "result": run_result,
+        "reason": reason,
+        "reports": junit_copies,
+        "test_results": test_results,
+        "coverage_reports": coverage_copies,
+        "coverage_by_process": coverage_json(coverage),
+        "decision_coverage_by_id": coverage_json(decision_coverage),
+        "coverage_available": bool(coverage_copies),
+        "output": run_output,
+    }
+
+
+def test_runs_match(first, second):
+    if set(first) != set(second):
+        return False
+    return all(
+        first[test_id].get("result") == second[test_id].get("result")
+        and sorted(first[test_id].get("invocations", []))
+        == sorted(second[test_id].get("invocations", []))
+        for test_id in first
+    )
+
+
+def record_test_repeat(root, plan, args, mapping):
+    suite_key = (args.target, args.scenario)
+    suite_config = plan.test_contract["cpt_suites"].get(suite_key)
+    if suite_config is None:
+        raise EvidenceError(f"{suite_key}: CPT test suite is not in validation-evidence.json")
+    command = list(args.command or [])
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command or not command[0]:
+        raise EvidenceError("Supply the CPT test command after --")
+
+    runs = [
+        run_cpt_test_suite(
+            root,
+            args.target,
+            args.scenario,
+            command,
+            args.timeout,
+            run_number,
+            suite_config,
+        )
+        for run_number in (1, 2)
+    ]
+    reason = None
+    if any(run["result"] == "blocked" for run in runs):
+        reason = next(run["reason"] for run in runs if run["result"] == "blocked")
+        result = "blocked"
+    elif not test_runs_match(runs[0]["test_results"], runs[1]["test_results"]):
+        changed = sorted(
+            set(runs[0]["test_results"]) | set(runs[1]["test_results"])
+        )
+        changed = [
+            test_id for test_id in changed
+            if runs[0]["test_results"].get(test_id) != runs[1]["test_results"].get(test_id)
+        ]
+        reason = "CPT repeat results differ for: " + ", ".join(changed)
+        result = "failed"
+    elif any(run["result"] == "failed" for run in runs):
+        reason = next(run["reason"] for run in runs if run["reason"]) if any(
+            run["reason"] for run in runs
+        ) else "A CPT test run failed"
+        result = "failed"
+    else:
+        result = "passed"
+
+    exit_codes = [run["exit_code"] for run in runs]
+    exit_code = None if result == "blocked" else next(
+        (code for code in exit_codes if code not in (None, 0)), 0
+    )
+    output = "\n".join(
+        f"--- CPT run {index} ---\n{run['output']}"
+        for index, run in enumerate(runs, start=1)
+    )
+    return {
+        "command": command,
+        "exit_code": exit_code,
+        "result": result,
+        "reason": reason,
+        "test_runs": [
+            {
+                "run": index,
+                "exit_code": run["exit_code"],
+                "result": run["result"],
+                "reason": run["reason"],
+                "reports": run["reports"],
+                "test_results": run["test_results"],
+                "coverage_reports": run["coverage_reports"],
+                "coverage_by_process": run["coverage_by_process"],
+                "decision_coverage_by_id": run["decision_coverage_by_id"],
+                "coverage_available": run["coverage_available"],
+            }
+            for index, run in enumerate(runs, start=1)
+        ],
+        "test_mapping_digest": test_mapping_digest(mapping, "all"),
+        "output": output,
+    }
+
+
 def requirements(root, evidence):
     modules, models = scope(root, evidence)
     inventory = read_json(root / INVENTORY)
@@ -572,6 +1925,23 @@ def requirements(root, evidence):
     hashes = {}
     update_hits = {}
     current_updates = {}
+    try:
+        tests = test_contract(root, inventory)
+    except EvidenceError as exc:
+        issues.append(str(exc))
+        tests = {"mode": inventory.get("test_run_mode"), "tests": [], "suites": {}, "test_suites": {}}
+    if (
+        "test_run_mode" in inventory
+        and source_test_contract(tests)
+        != inventory.get("source_snapshot_test_contract")
+    ):
+        issues.append(
+            "Test Inventory or C7 suite commands changed after the Step 2 snapshot; "
+            "restore the C7 baseline before resetting the source snapshot"
+        )
+    test_enabled = tests["mode"] == "run" and any(
+        test["handling"] == "Migrate" for test in tests["tests"]
+    )
     source_updates = inventory.get("source_updates")
     if (
         not isinstance(source_updates, dict)
@@ -602,6 +1972,7 @@ def requirements(root, evidence):
     source_ids = {}
     converted_ids = {}
     converted_documents = {}
+    converted_elements = {}
     module_paths = {module["path"] for module in modules}
 
     def need(category, target, kind, scenario=None, method="command"):
@@ -613,6 +1984,8 @@ def requirements(root, evidence):
         return key
 
     docker_suites = {}
+    cpt_suites = {}
+    module_suite_keys = set()
     for module in modules:
         path = module["path"]
         current_updates[path] = scan_module(root, path, module_paths, hashes)
@@ -634,8 +2007,17 @@ def requirements(root, evidence):
                 issues.append(f"{path}: invalid test suite name or Docker requirement")
                 continue
             names.append(name)
-            need("module", path, "tests", name)
-            docker_suites[("module", path, "tests", name)] = suite["requires_docker"]
+            suite_key = (path, name)
+            module_suite_keys.add(suite_key)
+            cpt_suites[suite_key] = suite
+            step2_suite = tests["suites"].get(suite_key)
+            if test_enabled and step2_suite and step2_suite["migrate_test_ids"]:
+                check_kind = "test_repeat"
+            else:
+                check_kind = "tests"
+            check_key = ("module", path, check_kind, name)
+            need("module", path, check_kind, name)
+            docker_suites[check_key] = suite["requires_docker"]
         if len(names) != len(set(names)):
             issues.append(f"{path}: duplicate test suite")
         runtime = module.get("runtime_mode")
@@ -650,6 +2032,30 @@ def requirements(root, evidence):
             issues.append(f"{path}: invalid runtime mode")
     if any(docker_suites.values()):
         need("project", ".", "docker_info")
+    if test_enabled:
+        for suite_key, suite in tests["suites"].items():
+            if not suite["migrate_test_ids"]:
+                continue
+            module, name = suite_key
+            if suite_key not in module_suite_keys:
+                issues.append(
+                    f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
+                )
+                need("module", module, "test_repeat", name)
+            need("module", module, "c7_baseline", name)
+        need("project", ".", "test_freeze", method="snapshot")
+        need("project", ".", "test_parity", method="computed")
+        need("project", ".", "coverage_parity", method="computed")
+        reviewed_classes = set()
+        for test in tests["tests"]:
+            if test["handling"] != "Migrate":
+                continue
+            class_target = f"{test['module']}:{test['class_name']}"
+            if class_target not in reviewed_classes:
+                need("test", class_target, "assertion_strength", method="review")
+                reviewed_classes.add(class_target)
+            need("test", test["id"], "mock_boundary", method="review")
+    tests["cpt_suites"] = cpt_suites
 
     converted_paths = []
     for model in models:
@@ -670,6 +2076,14 @@ def requirements(root, evidence):
             issues.append(str(exc))
             continue
         converted_documents[converted] = document
+        for process in document.findall(f"{BPMN}process"):
+            process_id = process.get("id")
+            if process_id:
+                converted_elements[(converted, process_id)] = {
+                    element.get("id")
+                    for element in process.iter()
+                    if element.get("id")
+                }
         for path in (source, converted):
             file = project_path(root, path, "model snapshot", must_exist=True)
             hashes[file.relative_to(root).as_posix()] = file_digest(file)
@@ -1056,6 +2470,21 @@ def requirements(root, evidence):
         "deployment_sets": declared_sets,
         "source_update_locations": source_update_locations,
         "active_timer_update_decision": decision,
+        "test_contract": {
+            "mode": tests["mode"],
+            "tests": tests["tests"],
+            "suites": [
+                {
+                    "module": suite["module"],
+                    "name": suite["name"],
+                    "command": suite["command"],
+                    "test_ids": suite["test_ids"],
+                    "reports": suite["reports"],
+                    "coverage_reports": suite["coverage_reports"],
+                }
+                for suite in tests["suites"].values()
+            ],
+        },
         "files": hashes,
     }
     source_digest = hashlib.sha256(
@@ -1064,8 +2493,343 @@ def requirements(root, evidence):
     return ValidationPlan(
         required, allowed, timers, timer_starts, docker_suites, model_sets,
         duplicates, update_hits, source_update_locations, active_timer_locations,
-        active_timer_decisions, source_digest, issues,
+        active_timer_decisions, source_digest, issues, tests, converted_elements,
     )
+
+
+def check_reference(key):
+    digest = hashlib.sha256(json.dumps(key).encode("utf-8")).hexdigest()[:20]
+    return (LOGS / f"{digest}.json").as_posix()
+
+
+def write_check_log(root, key, check):
+    reference = check_reference(key)
+    write_json(root, Path(reference), check)
+    return reference
+
+
+def empty_test_mapping(inventory):
+    return {
+        "schema_version": 1,
+        "baseline": {
+            "commit": inventory.get("source_snapshot_commit"),
+            "source_digest": inventory.get("source_snapshot_sha256"),
+            "suites": [],
+            "coverage_available": False,
+            "coverage": {},
+            "continue_without_baseline": None,
+        },
+        "tests": [],
+        "freeze": {"files": {}},
+        "test_changes": [],
+        "mock_changes": [],
+    }
+
+
+def ensure_test_mapping(root, inventory):
+    mapping = read_test_mapping(root)
+    if mapping is None:
+        mapping = empty_test_mapping(inventory)
+    baseline = mapping["baseline"]
+    if not baseline.get("source_digest"):
+        mapping["baseline"] = empty_test_mapping(inventory)["baseline"]
+        baseline = mapping["baseline"]
+    if baseline.get("source_digest") != inventory.get("source_snapshot_sha256"):
+        raise EvidenceError(
+            "Test parity ledger belongs to a different C7 source snapshot; "
+            "restore that baseline before resetting the source snapshot"
+        )
+    if baseline.get("commit") != inventory.get("source_snapshot_commit"):
+        raise EvidenceError("Test parity ledger C7 commit differs from the Step 2 snapshot")
+    return mapping
+
+
+def verify_unchanged_source(root, inventory):
+    expected = inventory.get("source_files")
+    if not isinstance(expected, dict):
+        raise EvidenceError("Step 2 inventory lacks the C7 source file snapshot")
+    current = collect_source_files(
+        root,
+        strings(inventory.get("modules"), "Step 2 modules"),
+        strings(inventory.get("models"), "Step 2 models"),
+    )
+    changed = sorted(
+        path
+        for path in set(expected) | set(current)
+        if expected.get(path) != current.get(path)
+    )
+    if changed:
+        raise EvidenceError(
+            "C7 baseline must run before source changes: " + ", ".join(changed[:10])
+        )
+    current_test_contract = (
+        source_test_contract(test_contract(root, inventory))
+        if "test_run_mode" in inventory
+        else None
+    )
+    if current_test_contract != inventory.get("source_snapshot_test_contract"):
+        raise EvidenceError("Test Inventory or C7 suite commands changed after the Step 2 snapshot")
+    digest = source_snapshot_digest(
+        inventory["modules"],
+        inventory["models"],
+        expected,
+        inventory.get("source_snapshot_test_contract"),
+    )
+    if digest != inventory.get("source_snapshot_sha256"):
+        raise EvidenceError("Step 2 C7 source snapshot digest is invalid")
+
+
+def aggregate_baseline_results(contract, baseline_suites):
+    suite_results = {
+        (suite.get("module"), suite.get("suite")): suite
+        for suite in baseline_suites
+        if isinstance(suite, dict)
+    }
+    results = {}
+    for test in contract["tests"]:
+        memberships = contract["test_suites"].get(test["id"], [])
+        if not memberships:
+            continue
+        suite_statuses = []
+        invocation_statuses = []
+        all_captured = True
+        for suite_key in memberships:
+            suite = suite_results.get(suite_key)
+            if suite is None or suite.get("result") != "passed":
+                all_captured = False
+                continue
+            test_result = suite.get("test_results", {}).get(test["id"])
+            if not isinstance(test_result, dict):
+                all_captured = False
+                continue
+            suite_statuses.append(test_result.get("result"))
+            invocation_statuses.extend(test_result.get("invocations", []))
+        if all_captured and suite_statuses:
+            results[test["id"]] = {
+                "test_kind": test["test_kind"],
+                "handling": test["handling"],
+                "c7_result": aggregate_test_status(suite_statuses),
+                "c7_invocations": invocation_statuses,
+            }
+        else:
+            results[test["id"]] = {
+                "test_kind": test["test_kind"],
+                "handling": test["handling"],
+                "c7_result": None,
+                "c7_invocations": invocation_statuses,
+            }
+    return results
+
+
+def update_baseline_ledger(mapping, contract):
+    previous = {test.get("c7_id"): test for test in mapping["tests"] if isinstance(test, dict)}
+    results = aggregate_baseline_results(contract, mapping["baseline"]["suites"])
+    updated = []
+    for test in contract["tests"]:
+        current = dict(previous.get(test["id"], {}))
+        current.update(
+            c7_id=test["id"],
+            test_kind=test["test_kind"],
+            handling=test["handling"],
+            c7_result=results.get(test["id"], {}).get("c7_result"),
+        )
+        if test["handling"] == "Report only" and current.get("status") is None:
+            current["status"] = "manual"
+        updated.append(current)
+    added = [
+        test for test in mapping["tests"]
+        if isinstance(test, dict) and test.get("status") == "added"
+    ]
+    mapping["tests"] = updated + added
+    coverage = {}
+    available = False
+    for suite in mapping["baseline"]["suites"]:
+        if suite.get("result") != "passed":
+            continue
+        if suite.get("coverage_available") is True:
+            available = True
+        for process_id, elements in suite.get("coverage_by_process", {}).items():
+            coverage.setdefault(process_id, set()).update(elements)
+    mapping["baseline"]["coverage_available"] = available
+    mapping["baseline"]["coverage"] = coverage_json(coverage)
+
+
+def record_c7_baseline(root, args):
+    if args.action not in ("run", "block"):
+        raise EvidenceError("C7 baseline accepts only run or block")
+    inventory = read_json(root / INVENTORY)
+    contract = test_contract(root, inventory)
+    if contract["mode"] != "run":
+        raise EvidenceError("C7 baseline checks require test_run_mode run")
+    key = (args.type, args.target, args.kind, args.scenario)
+    suite_key = (args.target, args.scenario)
+    suite = contract["suites"].get(suite_key)
+    if key[0] != "module" or key[2] != "c7_baseline" or suite is None:
+        raise EvidenceError(f"Unexpected C7 baseline check: {key}")
+    if not suite["migrate_test_ids"]:
+        raise EvidenceError(f"{key}: the suite has no Test Inventory tests marked Migrate")
+
+    mapping = ensure_test_mapping(root, inventory)
+    command = list(getattr(args, "command", []) or [])
+    if command and command[0] == "--":
+        command = command[1:]
+    if args.action == "run":
+        if command != suite["command"]:
+            raise EvidenceError(
+                f"{key}: run the exact command recorded in the Step 2 test inventory"
+            )
+        if args.timeout is not None and args.timeout <= 0:
+            raise EvidenceError("Command timeout must be positive")
+        verify_unchanged_source(root, inventory)
+
+    suite_digest = module_suite_digest(args.target, args.scenario)
+    suite_root = VALIDATION / "baseline" / suite_digest
+    previous_junit = {}
+    previous_coverage = {}
+    if args.action == "run":
+        previous_junit = report_signatures(
+            discover_reports(root, args.target, suite["reports"], "JUnit report")
+        )
+        previous_coverage = report_signatures(
+            discover_reports(root, args.target, suite["coverage_reports"], "C7 coverage report")
+        )
+    output = ""
+    exit_code = None
+    reason = None
+    result = "blocked"
+    method = "blocked"
+    junit_results = {}
+    coverage = {}
+    junit_paths = []
+    coverage_paths = []
+    junit_copies = []
+    coverage_copies = []
+    if args.action == "block":
+        reason = args.reason
+        output = reason
+    elif args.action == "run":
+        method = "command"
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                timeout=args.timeout,
+                check=False,
+            )
+            exit_code = completed.returncode
+            output = completed.stdout
+        except subprocess.TimeoutExpired as exc:
+            reason = f"Command timed out after {args.timeout} seconds"
+            output = (
+                exc.stdout.decode("utf-8", errors="replace")
+                if isinstance(exc.stdout, bytes)
+                else exc.stdout or ""
+            )
+        except OSError as exc:
+            reason = str(exc)
+            output = reason
+        if reason is None:
+            try:
+                junit_paths = fresh_reports(
+                    root, args.target, suite["reports"], previous_junit, "JUnit report"
+                )
+                if not junit_paths:
+                    raise EvidenceError("The baseline command produced no fresh JUnit XML reports")
+                junit_copies = copy_reports(
+                    root, args.target, junit_paths, suite_root / "junit"
+                )
+                junit_results = parse_junit_reports(junit_paths, args.target)
+                missing = sorted(set(suite["test_ids"]) - set(junit_results))
+                if missing:
+                    raise EvidenceError(
+                        "JUnit reports omit Test Inventory IDs: " + ", ".join(missing)
+                    )
+                coverage_paths = fresh_reports(
+                    root,
+                    args.target,
+                    suite["coverage_reports"],
+                    previous_coverage,
+                    "C7 coverage report",
+                )
+                coverage_copies = copy_reports(
+                    root, args.target, coverage_paths, suite_root / "coverage"
+                )
+                for path in coverage_paths:
+                    for process_id, elements in parse_c7_coverage_report(path).items():
+                        coverage.setdefault(process_id, set()).update(elements)
+                result = "passed"
+            except EvidenceError as exc:
+                result = "failed"
+                reason = str(exc)
+
+    reference = check_reference(key)
+    suite_record = {
+        "module": args.target,
+        "suite": args.scenario,
+        "command": command if args.action == "run" else None,
+        "result": result,
+        "reason": reason,
+        "reports": (suite_root / "junit").as_posix() if junit_copies else None,
+        "report_files": junit_copies,
+        "coverage_reports": (suite_root / "coverage").as_posix() if coverage_copies else None,
+        "coverage_report_files": coverage_copies,
+        "coverage_available": bool(coverage_paths),
+        "coverage_by_process": coverage_json(coverage),
+        "test_results": junit_results,
+        "evidence_path": reference,
+    }
+    baseline_suites = mapping["baseline"]["suites"]
+    baseline_suites[:] = [
+        item
+        for item in baseline_suites
+        if (item.get("module"), item.get("suite")) != suite_key
+    ]
+    baseline_suites.append(suite_record)
+    update_baseline_ledger(mapping, contract)
+    write_json(root, TEST_MAPPING, mapping)
+
+    check = {
+        "run_id": inventory.get("run_id"),
+        "type": args.type,
+        "target": args.target,
+        "kind": args.kind,
+        "scenario": args.scenario,
+        "method": method,
+        "command": command if args.action == "run" else None,
+        "exit_code": exit_code,
+        "result": result,
+        "reason": reason,
+        "source_digest": inventory.get("source_snapshot_sha256"),
+        "baseline_commit": inventory.get("source_snapshot_commit"),
+        "reports": junit_copies,
+        "test_results": junit_results,
+        "coverage_reports": coverage_copies,
+        "coverage_by_process": coverage_json(coverage),
+        "coverage_available": bool(coverage_paths),
+        "output": output,
+    }
+    write_check_log(root, key, check)
+    if args.action == "run" and result == "passed":
+        status_counts = {
+            status: sum(
+                test_result["result"] == status
+                for test_result in junit_results.values()
+            )
+            for status in ("passed", "failed", "skipped", "error")
+        }
+        print(
+            f"RECORDED C7 baseline {args.target}/{args.scenario}: "
+            + ", ".join(f"{count} {status}" for status, count in status_counts.items())
+        )
+    else:
+        print(f"{result.upper()} {args.type} {args.target} {args.kind} {args.scenario or ''}")
+    if output and args.action == "run":
+        print(output, end="" if output.endswith("\n") else "\n")
+    return 0 if result == "passed" else 1
 
 
 def check_key(check):
@@ -1347,7 +3111,7 @@ def validate_risk_check(plan, key, check):
 
 
 def prerequisites(plan, key):
-    category, target, kind, _ = key
+    category, target, kind, scenario = key
     dependencies = []
     if category == "timer" and kind == "preflight":
         dependencies.append(("timer", target, "disposition", None))
@@ -1383,16 +3147,77 @@ def prerequisites(plan, key):
             )
         for timer in plan.timers.get(model, []):
             dependencies.extend((("timer", timer[1], "disposition", None), timer))
+    if category == "project" and kind == "test_freeze":
+        dependencies.extend(
+            check for check in plan.required if check[2] == "c7_baseline"
+        )
+    if category == "module" and kind == "test_repeat":
+        dependencies.extend(
+            (
+                ("project", ".", "test_freeze", None),
+                ("module", target, "c7_baseline", scenario),
+            )
+        )
+    if category == "project" and kind in ("test_parity", "coverage_parity"):
+        dependencies.append(("project", ".", "test_freeze", None))
+        dependencies.extend(
+            check for check in plan.required if check[2] in ("c7_baseline", "test_repeat")
+        )
+        if kind == "test_parity":
+            dependencies.extend(
+                check
+                for check in plan.required
+                if check[2] in ("assertion_strength", "mock_boundary")
+            )
     return dependencies
 
 
-def require_prerequisites(plan, checks, key, before=None):
+def approved_test_continuation(root):
+    mapping = read_test_mapping(root)
+    if mapping is None:
+        return False
+    decision = mapping["baseline"].get("continue_without_baseline")
+    return (
+        isinstance(decision, dict)
+        and decision.get("decision") == "continue"
+        and concrete_reference(decision.get("approved_by"))
+        and concrete_reference(decision.get("reason"))
+    )
+
+
+def expected_check_digest(root, plan, key):
+    if key[2] == "c7_baseline":
+        inventory = read_json(root / INVENTORY)
+        return inventory.get("source_snapshot_sha256")
+    if key[2] == "test_freeze":
+        return None
+    return plan.source_digest
+
+
+def require_prerequisites(root, plan, checks, key, before=None):
     for dependency in prerequisites(plan, key):
         previous = checks.get(dependency)
+        approved_blocked_baseline = (
+            dependency[2] == "c7_baseline"
+            and previous is not None
+            and previous[1]["result"] != "passed"
+            and approved_test_continuation(root)
+        )
+        diagnostic_after_failed_suite = (
+            key[2] in ("test_parity", "coverage_parity")
+            and dependency[2] == "test_repeat"
+            and previous is not None
+            and previous[1]["result"] in ("failed", "blocked")
+        )
+        expected_digest = expected_check_digest(root, plan, dependency)
         if (
-            previous is None or previous[1]["result"] != "passed"
-            or previous[1]["method"] != plan.required.get(dependency, "command")
-            or previous[1].get("source_digest") != plan.source_digest
+            previous is None
+            or previous[1]["result"] != "passed"
+            and not approved_blocked_baseline
+            and not diagnostic_after_failed_suite
+            or previous[1]["method"] not in (plan.required.get(dependency, "command"), "blocked")
+            or expected_digest is not None
+            and previous[1].get("source_digest") != expected_digest
             or before is not None and previous[0] >= before
         ):
             raise EvidenceError(f"{key}: {dependency[2]} must pass before execution")
@@ -1404,7 +3229,23 @@ def load_checks(root, evidence, plan, issues):
     if not isinstance(references, list):
         issues.append("Evidence checks must be an array")
         return checks
-    run_id = read_json(root / INVENTORY)["run_id"]
+    inventory = read_json(root / INVENTORY)
+    run_id = inventory["run_id"]
+    mapping = None
+    if plan.test_contract["mode"] == "run":
+        try:
+            mapping = read_test_mapping(root)
+        except EvidenceError as exc:
+            issues.append(str(exc))
+        if mapping is not None:
+            baseline_references = [
+                suite.get("evidence_path")
+                for suite in mapping["baseline"].get("suites", [])
+                if isinstance(suite, dict) and isinstance(suite.get("evidence_path"), str)
+            ]
+            references = baseline_references + [
+                reference for reference in references if reference not in baseline_references
+            ]
     for index, reference in enumerate(references):
         try:
             path = project_path(root, reference, "check evidence", must_exist=True)
@@ -1418,7 +3259,10 @@ def load_checks(root, evidence, plan, issues):
                 raise EvidenceError(f"Malformed check in {reference}")
             if key not in plan.allowed or key in checks:
                 raise EvidenceError(f"Unexpected or duplicate check: {key}")
-            if check.get("run_id") != run_id:
+            if check.get("run_id") != run_id and not (
+                key[2] == "c7_baseline"
+                and check.get("source_digest") == inventory.get("source_snapshot_sha256")
+            ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
             method = check.get("method")
             result = check.get("result")
@@ -1432,10 +3276,28 @@ def load_checks(root, evidence, plan, issues):
                     or any(not isinstance(part, str) for part in command)
                 ):
                     raise EvidenceError(f"{key}: missing command")
-                if result == "passed" and (type(exit_code) is not int or exit_code != 0):
+                c7_baseline_captured = (
+                    key[2] == "c7_baseline"
+                    and isinstance(check.get("reports"), list)
+                    and bool(check["reports"])
+                    and isinstance(check.get("test_results"), dict)
+                    and bool(check["test_results"])
+                )
+                if result == "passed" and (
+                    type(exit_code) is not int
+                    or exit_code != 0 and not c7_baseline_captured
+                ):
                     raise EvidenceError(f"{key}: passed without exit code 0")
                 if result == "failed" and (
-                    type(exit_code) is not int or exit_code == 0 and key[0] != "timer"
+                    type(exit_code) is not int
+                    or exit_code == 0
+                    and key[0] != "timer"
+                    and key[2] != "c7_baseline"
+                    and not (
+                        key[2] == "test_repeat"
+                        and isinstance(check.get("test_runs"), list)
+                        and len(check["test_runs"]) == 2
+                    )
                 ):
                     raise EvidenceError(f"{key}: failed without a nonzero exit code or invalid timer evidence")
                 if result == "blocked" and exit_code is not None:
@@ -1449,17 +3311,54 @@ def load_checks(root, evidence, plan, issues):
                     raise EvidenceError(f"{key}: invalid review result")
                 if result == "passed" and not str(check.get("output", "")).strip():
                     raise EvidenceError(f"{key}: passing review lacks evidence")
+            elif method in ("snapshot", "computed"):
+                if command is not None or exit_code is not None:
+                    raise EvidenceError(f"{key}: computed evidence cannot have a command result")
+                if result not in ("passed", "failed", "blocked"):
+                    raise EvidenceError(f"{key}: invalid computed result")
+                if result == "passed" and not str(check.get("output", "")).strip():
+                    raise EvidenceError(f"{key}: passing computed evidence lacks output")
             else:
                 raise EvidenceError(f"{key}: unsupported evidence method")
             if result not in ("passed", "failed", "blocked", "unknown", "not_run"):
                 raise EvidenceError(f"{key}: unsupported result")
             if not isinstance(check.get("output"), str):
                 raise EvidenceError(f"{key}: evidence output must be text")
+            if key[2] == "test_repeat":
+                test_runs = check.get("test_runs")
+                if not isinstance(test_runs, list) or len(test_runs) != 2:
+                    raise EvidenceError(f"{key}: repeat evidence must contain two test runs")
+                for run in test_runs:
+                    if (
+                        not isinstance(run, dict)
+                        or not isinstance(run.get("test_results"), dict)
+                        or not isinstance(run.get("coverage_by_process"), dict)
+                        or not isinstance(run.get("decision_coverage_by_id"), dict)
+                        or type(run.get("coverage_available")) is not bool
+                    ):
+                        raise EvidenceError(f"{key}: repeat evidence has an invalid run")
             if result != "passed" and (not isinstance(reason, str) or not reason.strip()):
                 raise EvidenceError(f"{key}: non-passing check needs a reason")
             if needs_safe_environment(key) and result == "passed":
                 if check.get("environment") not in SAFE_ENVIRONMENTS:
                     raise EvidenceError(f"{key}: production or unknown runtime target")
+            if mapping is not None and key[2] in (
+                "test_freeze",
+                "test_repeat",
+                "test_parity",
+                "coverage_parity",
+                "assertion_strength",
+                "mock_boundary",
+            ):
+                digest_kind = (
+                    "freeze"
+                    if key[2] == "test_freeze"
+                    else "review"
+                    if key[2] in ("assertion_strength", "mock_boundary")
+                    else "all"
+                )
+                if check.get("test_mapping_digest") != test_mapping_digest(mapping, digest_kind):
+                    raise EvidenceError(f"{key}: test parity ledger changed after this check")
             if check.get("source_digest") == plan.source_digest:
                 validate_risk_check(plan, key, check)
             checks[key] = (index, check, reference)
@@ -1509,10 +3408,245 @@ def report_text(existing, gate, issues):
     return "".join(kept), unmarked
 
 
+def markdown_cell(value):
+    return (
+        html.escape(str(value), quote=False)
+        .replace("\\", "\\\\")
+        .replace("|", "\\|")
+        .replace("\n", " ")
+    )
+
+
+def replace_machine_section(existing, heading, content):
+    lines = existing.splitlines(keepends=True)
+    kept = []
+    removing = False
+    for line in lines:
+        if line.rstrip() == heading:
+            removing = True
+            continue
+        if removing and line.startswith("## "):
+            removing = False
+        if not removing:
+            kept.append(line)
+    if content is None:
+        return "".join(kept)
+    while kept and not kept[-1].strip():
+        kept.pop()
+    if kept:
+        kept.append("\n")
+    kept.extend([f"{heading}\n", "\n", content.rstrip() + "\n"])
+    return "".join(kept)
+
+
+def render_test_parity(plan, checks, mapping):
+    lines = [
+        "<!-- migration-test-parity:start -->",
+        "| Camunda 7 test | Camunda 7 result | CPT tests | CPT result (run 1 and run 2) | Status | Notes |",
+        "|---|---|---|---|---|---|",
+    ]
+    repeat_runs = test_repeat_checks(plan, checks)
+    tests = mapping.get("tests", [])
+    if not tests:
+        lines.append("| — | not recorded | — | not recorded | not verified | Test mapping is missing. |")
+    for test in tests:
+        if not isinstance(test, dict):
+            continue
+        c7_id = test.get("c7_id") or "Added CPT test"
+        c8_ids = test.get("c8_ids")
+        if not isinstance(c8_ids, list):
+            c8_ids = []
+        else:
+            c8_ids = [c8_id for c8_id in c8_ids if isinstance(c8_id, str)]
+        run_values = [[], []]
+        for c8_id in c8_ids:
+            try:
+                results = cpt_test_results(c8_id, repeat_runs, plan.test_contract)
+            except EvidenceError:
+                results = None
+            if results is None:
+                run_values[0].append("missing")
+                run_values[1].append("missing")
+            else:
+                for index, result in enumerate(results):
+                    run_values[index].append(result or "missing")
+        cpt_result = (
+            f"run 1: {', '.join(sorted(set(run_values[0])))}, "
+            f"run 2: {', '.join(sorted(set(run_values[1])))}"
+            if c8_ids
+            else "—"
+        )
+        status = test.get("status") or "not mapped"
+        notes = []
+        retirement = test.get("retirement")
+        if isinstance(retirement, dict) and retirement.get("reason"):
+            notes.append(
+                f"Retired: {retirement['reason']} "
+                f"(approved by {retirement.get('approved_by') or 'not recorded'})"
+            )
+        if test.get("handling") == "Report only":
+            notes.append("Report only; not verified.")
+        lines.append(
+            "| "
+            + " | ".join(
+                markdown_cell(value)
+                for value in (
+                    c7_id,
+                    test.get("c7_result") or "not recorded",
+                    ", ".join(c8_ids) or "—",
+                    cpt_result,
+                    status,
+                    " ".join(notes) or "—",
+                )
+            )
+            + " |"
+        )
+    test_changes = [
+        change for change in mapping.get("test_changes", [])
+        if isinstance(change, dict)
+    ]
+    if test_changes:
+        lines.extend(["", "**Approved test changes:**"])
+        for change in test_changes:
+            lines.append(
+                f"- `{markdown_cell(change.get('file', ''))}`: "
+                f"{markdown_cell(change.get('reason', ''))}. "
+                f"Changed from `{markdown_cell(change.get('old_hash') or 'absent')}` "
+                f"to `{markdown_cell(change.get('new_hash') or 'absent')}`. "
+                f"(approved by {markdown_cell(change.get('approved_by', ''))})"
+            )
+    mock_changes = [
+        change for change in mapping.get("mock_changes", [])
+        if isinstance(change, dict)
+    ]
+    if mock_changes:
+        lines.extend(["", "**Approved mock changes:**"])
+        for change in mock_changes:
+            lines.append(
+                f"- `{markdown_cell(change.get('cpt_test_id', ''))}`: "
+                f"`{markdown_cell(change.get('mock', ''))}`. "
+                f"{markdown_cell(change.get('reason', ''))} "
+                f"(approved by {markdown_cell(change.get('approved_by', ''))})"
+            )
+    lines.append("<!-- migration-test-parity:end -->")
+    return "\n".join(lines)
+
+
+def render_test_coverage(plan, coverage_output):
+    c7 = coverage_output.get("c7_coverage", {})
+    run1 = coverage_output.get("cpt_run_1", {})
+    run2 = coverage_output.get("cpt_run_2", {})
+    decisions1 = coverage_output.get("cpt_decisions_run_1", {})
+    decisions2 = coverage_output.get("cpt_decisions_run_2", {})
+    process_ids = sorted(set(c7) | set(run1) | set(run2))
+    decision_ids = sorted(set(decisions1) | set(decisions2))
+    lines = [
+        "<!-- migration-test-coverage:start -->",
+        "| Process or decision | Camunda 7 covered elements | CPT run 1 | CPT run 2 | Status | Notes |",
+        "|---|---|---|---|---|---|",
+    ]
+    if not process_ids and not decision_ids:
+        c7_summary = (
+            "No Camunda 7 coverage baseline"
+            if coverage_output.get("baseline_note", "").startswith("No Camunda 7")
+            else "No covered process elements"
+        )
+        lines.append(
+            f"| — | {c7_summary} | — | — | not comparable | "
+            f"{coverage_output.get('baseline_note', '')} |"
+        )
+    for process_id in process_ids:
+        c7_elements = c7.get(process_id, [])
+        converted_processes = coverage_output.get("process_mappings", {}).get(
+            process_id,
+            [process_id]
+            if any(process == process_id for _, process in plan.converted_elements)
+            else [],
+        )
+        run1_elements = sorted(
+            {
+                element
+                for converted_process in converted_processes
+                for element in run1.get(converted_process, [])
+            }
+        )
+        run2_elements = sorted(
+            {
+                element
+                for converted_process in converted_processes
+                for element in run2.get(converted_process, [])
+            }
+        )
+        retained = set(
+            coverage_output.get("retained_c7_elements", {}).get(
+                process_id, c7_elements
+            )
+        )
+        removed = sorted(set(c7_elements) - retained)
+        exists = bool(converted_processes)
+        if not coverage_output.get("baseline_note", "").startswith("Camunda 7"):
+            status = "not comparable"
+        elif not exists:
+            status = "converted process absent"
+        else:
+            status = (
+                "passed"
+                if retained.issubset(set(run1_elements))
+                and retained.issubset(set(run2_elements))
+                else "coverage gap"
+            )
+        notes = [coverage_output.get("baseline_note", "")]
+        if converted_processes and converted_processes != [process_id]:
+            notes.append("Converted process IDs: " + ", ".join(converted_processes))
+        if removed:
+            notes.append("C7 IDs absent from converted copies: " + ", ".join(removed))
+        lines.append(
+            "| "
+            + " | ".join(
+                markdown_cell(value)
+                for value in (
+                    process_id,
+                    ", ".join(c7_elements) or "—",
+                    ", ".join(run1_elements) or "—",
+                    ", ".join(run2_elements) or "—",
+                    status,
+                    " ".join(note for note in notes if note),
+                )
+            )
+            + " |"
+        )
+    for decision_id in decision_ids:
+        lines.append(
+            "| "
+            + " | ".join(
+                markdown_cell(value)
+                for value in (
+                    f"DMN {decision_id}",
+                    "No C7 decision coverage",
+                    ", ".join(decisions1.get(decision_id, [])) or "—",
+                    ", ".join(decisions2.get(decision_id, [])) or "—",
+                    "CPT coverage",
+                    coverage_output.get("baseline_note", "")
+                    + " Camunda 8 decision coverage only.",
+                )
+            )
+            + " |"
+        )
+    lines.append("<!-- migration-test-coverage:end -->")
+    return "\n".join(lines)
+
+
 def report(root):
     issues = []
     checks = {}
     plan = None
+    mapping = None
+    coverage_output = {
+        "baseline_note": "No Camunda 7 coverage baseline.",
+        "c7_coverage": {},
+        "cpt_run_1": {},
+        "cpt_run_2": {},
+    }
     try:
         evidence = read_json(root / EVIDENCE)
         plan = requirements(root, evidence)
@@ -1526,10 +3660,18 @@ def report(root):
                 issues.append(f"{key}: expected {method} evidence")
             if check["result"] != "passed":
                 issues.append(f"{key}: {check['result']}: {check['reason']}")
-            if check.get("source_digest") != plan.source_digest:
+            expected_digest = expected_check_digest(root, plan, key)
+            if (
+                expected_digest is not None
+                and check.get("source_digest") != expected_digest
+            ):
                 issues.append(f"{key}: stale source or deployment-set evidence")
+            if key[2] == "c7_baseline" and check.get("baseline_commit") != read_json(
+                root / INVENTORY
+            ).get("source_snapshot_commit"):
+                issues.append(f"{key}: C7 baseline commit differs from the Step 2 snapshot")
             try:
-                require_prerequisites(plan, checks, key, before=index)
+                require_prerequisites(root, plan, checks, key, before=index)
             except EvidenceError as exc:
                 issues.append(str(exc))
             if key in plan.docker_suites and plan.docker_suites[key]:
@@ -1541,17 +3683,53 @@ def report(root):
                 ):
                     issues.append(f"{key}: Docker was not shown to be unavailable")
         if any(
-            key[0] == "module" and key[2] == "tests" and check[1].get("failure_class") == "docker_unavailable"
+            key[0] == "module" and key[2] in ("tests", "test_repeat")
+            and check[1].get("failure_class") == "docker_unavailable"
             and not plan.docker_suites.get(key, False)
             for key, check in checks.items()
         ):
             issues.append("A non-Docker test was classified as Docker unavailable")
+        if plan.test_contract["mode"] == "run" and any(
+            test["handling"] == "Migrate" for test in plan.test_contract["tests"]
+        ):
+            try:
+                mapping = read_test_mapping(root, required=True)
+                issues.extend(validate_test_freeze(root, plan, mapping))
+                issues.extend(test_parity_issues(plan, checks, mapping))
+                coverage_issues, coverage_output = coverage_parity_issues(
+                    plan, checks, mapping
+                )
+                issues.extend(coverage_issues)
+                for test in mapping["tests"]:
+                    if isinstance(test, dict) and test.get("status") == "migrated":
+                        issues.extend(test_mock_issues(test, mapping))
+            except EvidenceError as exc:
+                issues.append(str(exc))
     except EvidenceError as exc:
         issues.append(str(exc))
     path = root / REPORT
     if path.is_symlink():
         raise EvidenceError("Refusing to replace a symlinked MIGRATION_REPORT.md")
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    if plan is not None and plan.test_contract["mode"] == "run" and any(
+        test["handling"] == "Migrate" for test in plan.test_contract["tests"]
+    ):
+        report_mapping = mapping or {
+            "tests": [],
+            "test_changes": [],
+            "mock_changes": [],
+            "baseline": {"coverage_available": False, "coverage": {}},
+        }
+        existing = replace_machine_section(
+            existing, TEST_PARITY_HEADING, render_test_parity(plan, checks, report_mapping)
+        )
+        existing = replace_machine_section(
+            existing, TEST_COVERAGE_HEADING, render_test_coverage(plan, coverage_output)
+        )
+    else:
+        existing = replace_machine_section(existing, TEST_PARITY_HEADING, None)
+        existing = replace_machine_section(existing, TEST_COVERAGE_HEADING, None)
+    issues = list(dict.fromkeys(issues))
     _, unmarked = report_text(existing, "NOT READY", issues)
     if unmarked:
         issues.append("Found an unmarked validation gate in MIGRATION_REPORT.md")
@@ -1574,6 +3752,8 @@ def report(root):
 
 
 def record(root, args):
+    if args.kind == "c7_baseline":
+        return record_c7_baseline(root, args)
     evidence = read_json(root / EVIDENCE)
     plan = requirements(root, evidence)
     if plan.issues:
@@ -1584,8 +3764,10 @@ def record(root, args):
     method = plan.required.get(key, "command")
     if args.action == "review" and method != "review":
         raise EvidenceError(f"{key} requires an executable command")
-    if args.action == "run" and method != "command":
+    if args.action == "run" and method not in ("command", "snapshot", "computed"):
         raise EvidenceError(f"{key} requires a review")
+    if args.action == "block" and method in ("snapshot", "computed"):
+        raise EvidenceError(f"{key} is generated by the validator and cannot be blocked")
     if args.non_timer_evidence_json is not None and (
         args.action != "review" or key[2] != "active_timer_updates"
     ):
@@ -1613,16 +3795,70 @@ def record(root, args):
     if previous_issues:
         raise EvidenceError("; ".join(previous_issues))
     if args.action == "run":
-        require_prerequisites(plan, previous, key)
+        require_prerequisites(root, plan, previous, key)
     command = None
     exit_code = None
     output = ""
     reason = None
     result = "passed"
-    if args.action == "run":
+    extra = {}
+    check_method = "command" if args.action == "run" else "review"
+    mapping = None
+    if plan.test_contract["mode"] == "run" and key[2] in (
+        "test_freeze",
+        "test_repeat",
+        "test_parity",
+        "coverage_parity",
+        "assertion_strength",
+        "mock_boundary",
+    ):
+        mapping = read_test_mapping(root, required=True)
+    if args.action == "run" and method == "snapshot":
+        command = list(args.command or [])
+        if command and command[0] == "--":
+            command = command[1:]
+        if command:
+            raise EvidenceError(f"{key}: test_freeze does not run a command")
+        command = None
+        snapshot = record_test_freeze(root, plan, mapping)
+        check_method = snapshot["method"]
+        result = snapshot["result"]
+        reason = snapshot["reason"]
+        output = snapshot["output"]
+        extra["test_mapping_digest"] = snapshot["test_mapping_digest"]
+    elif args.action == "run" and method == "computed":
+        command = list(args.command or [])
+        if command and command[0] == "--":
+            command = command[1:]
+        if command:
+            raise EvidenceError(f"{key}: computed checks do not run a command")
+        command = None
+        if key[2] == "test_parity":
+            computed_issues = test_parity_issues(plan, previous, mapping)
+            details = {"issues": computed_issues}
+        else:
+            computed_issues, details = coverage_parity_issues(plan, previous, mapping)
+            details["issues"] = computed_issues
+        check_method = "computed"
+        result = "failed" if computed_issues else "passed"
+        reason = "; ".join(computed_issues) if computed_issues else None
+        output = json.dumps(details, indent=2, ensure_ascii=False)
+        extra["test_mapping_digest"] = test_mapping_digest(mapping, "all")
+    elif args.action == "run" and key[2] == "test_repeat":
         if args.timeout is not None and args.timeout <= 0:
             raise EvidenceError("Command timeout must be positive")
-        command = args.command
+        repeated = record_test_repeat(root, plan, args, mapping)
+        command = repeated["command"]
+        exit_code = repeated["exit_code"]
+        result = repeated["result"]
+        reason = repeated["reason"]
+        output = repeated["output"]
+        extra["test_runs"] = repeated["test_runs"]
+        extra["test_mapping_digest"] = repeated["test_mapping_digest"]
+    elif args.action == "run":
+        if args.timeout is not None and args.timeout <= 0:
+            raise EvidenceError("Command timeout must be positive")
+        command = list(args.command or [])
         if command and command[0] == "--":
             command = command[1:]
         if not command:
@@ -1655,10 +3891,27 @@ def record(root, args):
         output = args.note
         if not output.strip():
             raise EvidenceError("A review requires a non-empty evidence note")
+        if key[2] == "assertion_strength":
+            if key[1] not in output or not re.search(r"\bassert(?:ion)?s?\b", output, re.I):
+                raise EvidenceError(
+                    f"{key}: review note must name the test class and its assertions"
+                )
+            extra["test_mapping_digest"] = test_mapping_digest(mapping, "review")
+        elif key[2] == "mock_boundary":
+            test = test_rows_by_id(mapping).get(key[1])
+            if test is None:
+                raise EvidenceError(f"{key}: test parity ledger entry is missing")
+            if key[1] not in output:
+                raise EvidenceError(f"{key}: review note must name the C7 test ID")
+            mock_issues = test_mock_issues(test, mapping)
+            if mock_issues:
+                raise EvidenceError("; ".join(mock_issues))
+            extra["test_mapping_digest"] = test_mapping_digest(mapping, "review")
     else:
         if not args.reason.strip():
             raise EvidenceError("A blocked check requires a reason")
         result = "blocked"
+        check_method = "blocked"
         reason = args.reason
         output = reason
     check = {
@@ -1667,7 +3920,7 @@ def record(root, args):
         "target": args.target,
         "kind": args.kind,
         "scenario": args.scenario,
-        "method": "command" if args.action == "run" else "blocked" if args.action == "block" else "review",
+        "method": check_method,
         "command": command,
         "exit_code": exit_code,
         "result": result,
@@ -1685,6 +3938,7 @@ def record(root, args):
             else None
         ),
         "output": output,
+        **extra,
     }
     try:
         validate_risk_check(plan, key, check)
@@ -1699,15 +3953,13 @@ def record(root, args):
             and previous.get(("project", ".", "docker_info", None), (None, {}))[1].get("result") == "failed"
         ):
             check["failure_class"] = "docker_unavailable"
-        elif args.kind == "tests" and "Could not find a valid Docker environment" in output:
+        elif args.kind in ("tests", "test_repeat") and "Could not find a valid Docker environment" in output:
             check["failure_class"] = "testcontainers"
         else:
             check["failure_class"] = "unclassified"
     else:
         check["failure_class"] = None
-    digest = hashlib.sha256(json.dumps(key).encode("utf-8")).hexdigest()[:20]
-    reference = (LOGS / f"{digest}.json").as_posix()
-    write_json(root, Path(reference), check)
+    reference = write_check_log(root, key, check)
     evidence["checks"] = [path for path in evidence["checks"] if path != reference] + [reference]
     write_json(root, EVIDENCE, evidence)
     print(f"{result.upper()} {args.type} {args.target} {args.kind} {args.scenario or ''}")
@@ -1752,7 +4004,11 @@ def main():
     actions.add_parser("report", help="Audit scope and write the validation gate")
     for name in ("run", "review", "block"):
         action = actions.add_parser(name)
-        action.add_argument("--type", required=True, choices=("project", "module", "model", "process", "timer", "deployment_set"))
+        action.add_argument(
+            "--type",
+            required=True,
+            choices=("project", "module", "model", "process", "timer", "deployment_set", "test"),
+        )
         action.add_argument("--target", required=True)
         action.add_argument("--kind", required=True)
         action.add_argument("--scenario")

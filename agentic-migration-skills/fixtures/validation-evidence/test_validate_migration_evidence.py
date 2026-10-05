@@ -152,6 +152,108 @@ class ValidationEvidenceTest(unittest.TestCase):
         with redirect_stdout(StringIO()):
             self.assertEqual(0, gate.initialize(self.root))
 
+    def write_reports_command(self, files, counter=None):
+        script = (
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            "payload = json.loads(sys.argv[1])\n"
+            "count = 1\n"
+            "if payload.get('counter'):\n"
+            "    counter = Path(payload['counter'])\n"
+            "    count = int(counter.read_text()) + 1 if counter.exists() else 1\n"
+            "    counter.write_text(str(count))\n"
+            "for name, content in payload['files'].items():\n"
+            "    path = Path(name)\n"
+            "    path.parent.mkdir(parents=True, exist_ok=True)\n"
+            "    if isinstance(content, list):\n"
+            "        content = content[min(count - 1, len(content) - 1)]\n"
+            "    path.write_text(content, encoding='utf-8')\n"
+        )
+        payload = {"files": files, "counter": counter}
+        return [sys.executable, "-c", script, json.dumps(payload)]
+
+    def configure_test_run(self, c7_junit, c7_coverage=None):
+        self.c7_test_id = "app:com.example.OrderTest#testOrder"
+        self.c8_test_id = "app:com.example.OrderCptTest#testOrder"
+        c7_file = self.root / "app/src/test/java/com/example/OrderTest.java"
+        c7_file.parent.mkdir(parents=True, exist_ok=True)
+        c7_file.write_text("class OrderTest {}\n", encoding="utf-8")
+        resource = self.root / "app/src/test/resources/order.bpmn"
+        resource.parent.mkdir(parents=True, exist_ok=True)
+        resource.write_text("test resource\n", encoding="utf-8")
+        baseline_reports = {
+            "app/target/surefire-reports/TEST-com.example.OrderTest.xml": c7_junit,
+        }
+        if c7_coverage is not None:
+            baseline_reports[
+                "app/target/process-test-coverage/OrderTest/report.json"
+            ] = c7_coverage
+        self.c7_command = self.write_reports_command(baseline_reports)
+
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "run"
+        inventory["test_suites"] = [
+            {
+                "module": "app",
+                "name": "unit",
+                "command": self.c7_command,
+                "test_ids": [self.c7_test_id],
+                "reports": ["target/surefire-reports/TEST-*.xml"],
+            }
+        ]
+        write_json(self.root / gate.INVENTORY, inventory)
+        (self.root / gate.REPORT).write_text(
+            "# Migration report\n\n"
+            "## Test Inventory\n\n"
+            "| Test ID | File | Test kind | Signals | Models | Handling | Notes |\n"
+            "|---|---|---|---|---|---|---|\n"
+            f"| `{self.c7_test_id}` | `app/src/test/java/com/example/OrderTest.java` "
+            "| process test | ProcessEngineRule | order.bpmn | Migrate | — |\n",
+            encoding="utf-8",
+        )
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+
+    def record_c7_baseline(self):
+        return self.submit(
+            ("module", "app", "c7_baseline", "unit"),
+            command=self.c7_command,
+        )
+
+    def map_test_to_cpt(self, mocks_c7=None, mocks_c8=None):
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(
+            item for item in mapping["tests"] if item.get("c7_id") == self.c7_test_id
+        )
+        test.update(
+            status="migrated",
+            c8_ids=[self.c8_test_id],
+            mocks={
+                "c7": mocks_c7 or [],
+                "c8": mocks_c8 or [],
+            },
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        old_file = self.root / "app/src/test/java/com/example/OrderTest.java"
+        old_file.unlink()
+        c8_file = self.root / "app/src/test/java/com/example/OrderCptTest.java"
+        c8_file.parent.mkdir(parents=True, exist_ok=True)
+        c8_file.write_text("class OrderCptTest {}\n", encoding="utf-8")
+
+    def cpt_command(self, first_junit=None, second_junit=None, first_coverage=None, second_coverage=None):
+        files = {
+            "app/target/surefire-reports/TEST-com.example.OrderCptTest.xml": [
+                first_junit or '<testsuite><testcase classname="com.example.OrderCptTest" name="testOrder" /></testsuite>',
+                second_junit or first_junit or '<testsuite><testcase classname="com.example.OrderCptTest" name="testOrder" /></testsuite>',
+            ],
+        }
+        if first_coverage is not None or second_coverage is not None:
+            files["app/target/process-test-coverage/report.json"] = [
+                first_coverage or '{"processCoverages":[]}',
+                second_coverage or first_coverage or '{"processCoverages":[]}',
+            ]
+        return self.write_reports_command(files, counter=".test-run-count")
+
     def timer_observation(self, key):
         expected = gate.requirements(self.root, self.plan).timer_starts[key]
         return {
@@ -318,7 +420,11 @@ class ValidationEvidenceTest(unittest.TestCase):
             isolation_plan=options.get("isolation_plan"),
             timeout=5,
             action=action,
-            command=command or [sys.executable, "-c", "print('check completed')"],
+            command=(
+                command
+                if command is not None
+                else [sys.executable, "-c", "print('check completed')"]
+            ),
             note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
             target_disposable=options.get(
@@ -336,8 +442,19 @@ class ValidationEvidenceTest(unittest.TestCase):
     def complete_required_checks(self):
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
-        priorities = {"project": 0, "module": 1, "deployment_set": 2,
-                      "timer": 3, "model": 4, "process": 6}
+        priorities = {
+            "project": 0,
+            "module": 1,
+            "deployment_set": 2,
+            "timer": 3,
+            "model": 4,
+            "test": 5,
+            "process": 6,
+        }
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        check_issues = []
+        recorded = gate.load_checks(self.root, evidence, plan, check_issues)
+        self.assertEqual([], check_issues)
         for key in sorted(
             plan.required,
             key=lambda item: (
@@ -349,6 +466,34 @@ class ValidationEvidenceTest(unittest.TestCase):
                 item[3] or "",
             ),
         ):
+            if key in recorded:
+                check = recorded[key][1]
+                expected_digest = gate.expected_check_digest(self.root, plan, key)
+                current = (
+                    expected_digest is None
+                    or check.get("source_digest") == expected_digest
+                )
+                if key[2] in (
+                    "test_freeze",
+                    "test_repeat",
+                    "test_parity",
+                    "coverage_parity",
+                    "assertion_strength",
+                    "mock_boundary",
+                ):
+                    mapping = gate.read_test_mapping(self.root)
+                    digest_kind = (
+                        "freeze"
+                        if key[2] == "test_freeze"
+                        else "review"
+                        if key[2] in ("assertion_strength", "mock_boundary")
+                        else "all"
+                    )
+                    current = current and check.get("test_mapping_digest") == gate.test_mapping_digest(
+                        mapping, digest_kind
+                    )
+                if current:
+                    continue
             if key == ("project", ".", "docker_info", None):
                 continue
             environment = (
@@ -359,10 +504,28 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "environment": environment,
                 "isolation_plan": "Use an isolated local cluster; remove the timer deployment and instances.",
             }
+            if key[2] == "c7_baseline":
+                options["command"] = plan.test_contract["suites"][
+                    (key[1], key[3])
+                ]["command"]
+            elif key[2] == "test_repeat":
+                options["command"] = self.cpt_command(
+                    first_coverage='{"processCoverages":[]}'
+                )
+            elif plan.required[key] in ("snapshot", "computed"):
+                options["command"] = []
+            elif key[2] == "assertion_strength":
+                options["note"] = f"Reviewed assertions for {key[1]}."
+            elif key[2] == "mock_boundary":
+                options["note"] = f"Reviewed C7 test {key[1]} and its CPT mocks."
             self.assertEqual(
                 0,
                 self.submit(key, action="review" if plan.required[key] == "review" else "run", **options),
             )
+            evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+            check_issues = []
+            recorded = gate.load_checks(self.root, evidence, plan, check_issues)
+            self.assertEqual([], check_issues)
 
     def summary(self):
         return json.loads((self.root / gate.SUMMARY).read_text(encoding="utf-8"))
@@ -384,6 +547,384 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual(
             1, (self.root / gate.REPORT).read_text(encoding="utf-8").count("**Validation gate:**")
         )
+
+    def test_c7_baseline_aggregates_parameterized_invocations(self):
+        junit = (
+            '<testsuite name="OrderTest">'
+            '<testcase classname="com.example.OrderTest" name="testOrder(String)[1]" />'
+            '<testcase classname="com.example.OrderTest" name="testOrder(String)[2]">'
+            "<skipped /></testcase>"
+            '<testcase classname="com.example.OrderTest" name="testOrder[3](String)" />'
+            "</testsuite>"
+        )
+        self.configure_test_run(junit)
+        self.assertEqual(0, self.record_c7_baseline())
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        self.assertEqual("skipped", test["c7_result"])
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(self.root, evidence, gate.requirements(self.root, self.plan), issues)
+        self.assertEqual([], issues)
+        check = checks[("module", "app", "c7_baseline", "unit")][1]
+        self.assertEqual(3, check["test_results"][self.c7_test_id]["invocation_count"])
+        self.assertTrue(check["reports"])
+        self.assertTrue((self.root / check["reports"][0]).is_file())
+
+    def test_parity_checks_require_run_mode_and_a_migrated_test(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        plan = gate.requirements(self.root, self.plan)
+        self.assertIn(("module", "app", "c7_baseline", "unit"), plan.required)
+
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "migrate_only"
+        write_json(self.root / gate.INVENTORY, inventory)
+        migrate_only = gate.requirements(self.root, self.plan)
+        self.assertFalse(any(key[2] in {
+            "c7_baseline", "test_freeze", "test_repeat", "test_parity", "coverage_parity"
+        } for key in migrate_only.required))
+
+        inventory["test_run_mode"] = "run"
+        write_json(self.root / gate.INVENTORY, inventory)
+        report = (self.root / gate.REPORT).read_text(encoding="utf-8")
+        report = report.replace("| Migrate | — |", "| Report only | — |")
+        (self.root / gate.REPORT).write_text(report, encoding="utf-8")
+        report_only = gate.requirements(self.root, self.plan)
+        self.assertFalse(any(key[2] in {
+            "c7_baseline", "test_freeze", "test_repeat", "test_parity", "coverage_parity"
+        } for key in report_only.required))
+
+    def test_test_parity_pass_writes_report_tables(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt(
+            mocks_c7=['Mocks.register("orderService", mock)'],
+            mocks_c8=["@MockitoBean OrderService"],
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("project", ".", "test_freeze", None),
+                command=[],
+            ),
+        )
+        cpt_coverage = (
+            '{"processCoverages":[],"decisionCoverages":[{"decisionDefinitionId":"approval",'
+            '"matchedRuleIds":["rule-1"],"matchedRuleIndices":[0],"coverage":1.0}]}'
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(
+                    first_coverage=cpt_coverage,
+                    second_coverage=cpt_coverage,
+                ),
+            ),
+        )
+        class_target = "app:com.example.OrderTest"
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", class_target, "assertion_strength", None),
+                action="review",
+                note=f"Reviewed assertions for {class_target}.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_parity", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "coverage_parity", None), command=[]),
+        )
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        report = (self.root / gate.REPORT).read_text(encoding="utf-8")
+        self.assertIn("## Test Parity", report)
+        self.assertIn("run 1: passed, run 2: passed", report)
+        self.assertIn("## Test Coverage", report)
+        self.assertIn("No Camunda 7 coverage baseline", report)
+        self.assertIn("DMN approval", report)
+        self.assertIn("rule-1", report)
+
+    def test_test_parity_fails_when_a_passing_c7_test_has_no_passing_cpt_test(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        skipped = (
+            '<testsuite><testcase classname="com.example.OrderCptTest" name="testOrder">'
+            "<skipped /></testcase></testsuite>"
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(first_junit=skipped),
+            ),
+        )
+        class_target = "app:com.example.OrderTest"
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", class_target, "assertion_strength", None),
+                action="review",
+                note=f"Reviewed assertions for {class_target}.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+        self.assertEqual(
+            1,
+            self.submit(("project", ".", "test_parity", None), command=[]),
+        )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        checks = gate.load_checks(
+            self.root, evidence, gate.requirements(self.root, self.plan), []
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        issues = gate.test_parity_issues(
+            gate.requirements(self.root, self.plan), checks, mapping
+        )
+        self.assertTrue(any("must pass in both runs" in issue for issue in issues), issues)
+        self.assertTrue(any(self.c8_test_id in issue for issue in issues), issues)
+        self.assertEqual(1, self.audit())
+        self.assertTrue(
+            any(self.c8_test_id in issue for issue in self.summary()["issues"])
+        )
+
+    def test_retired_test_needs_approval(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        test.update(status="retired", c8_ids=[], retirement={"reason": "", "approved_by": ""})
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        plan = gate.requirements(self.root, self.plan)
+        checks = gate.load_checks(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+            plan,
+            [],
+        )
+        issues = gate.test_parity_issues(plan, checks, mapping)
+        self.assertTrue(any("retired test needs an approved reason" in issue for issue in issues))
+        test["retirement"] = {
+            "reason": "The CMMN case has no Camunda 8 equivalent.",
+            "approved_by": "operator",
+        }
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.assertEqual([], gate.test_parity_issues(plan, checks, mapping))
+
+    def test_test_freeze_requires_approval_for_changed_files(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        test_file = self.root / "app/src/test/java/com/example/OrderCptTest.java"
+        test_file.write_text("class OrderCptTest { void changed() {} }\n", encoding="utf-8")
+        mapping = gate.read_test_mapping(self.root, required=True)
+        issues = gate.validate_test_freeze(
+            self.root, gate.requirements(self.root, self.plan), mapping
+        )
+        self.assertTrue(any("changed without an approved test_changes" in issue for issue in issues))
+        self.assertEqual(1, self.audit())
+        self.assertTrue(
+            any(
+                "OrderCptTest.java" in issue
+                for issue in self.summary()["issues"]
+            )
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "without an approved test_changes"):
+            self.submit(
+                ("project", ".", "test_freeze", None),
+                command=[],
+            )
+        old_hash = mapping["freeze"]["files"][
+            "app/src/test/java/com/example/OrderCptTest.java"
+        ]
+        mapping["test_changes"].append(
+            {
+                "file": "app/src/test/java/com/example/OrderCptTest.java",
+                "reason": "The operator approved a required assertion update.",
+                "old_hash": old_hash,
+                "new_hash": f"sha256:{gate.file_digest(test_file)}",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.assertEqual(
+            [],
+            gate.validate_test_freeze(
+                self.root, gate.requirements(self.root, self.plan), mapping
+            ),
+        )
+
+    def test_mock_boundary_requires_approval_for_new_worker_mock(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mock = 'mockJobWorker("charge")'
+        self.map_test_to_cpt(mocks_c8=[mock])
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        self.assertTrue(gate.test_mock_issues(test, mapping))
+        with self.assertRaisesRegex(gate.EvidenceError, "unapproved mock"):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+        mapping["mock_changes"].append(
+            {
+                "cpt_test_id": self.c8_test_id,
+                "mock": mock,
+                "reason": "The operator approved an isolated worker boundary.",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+
+    def test_cpt_repeat_detects_flaky_test_results(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        failed = (
+            '<testsuite><testcase classname="com.example.OrderCptTest" name="testOrder">'
+            "<failure /></testcase></testsuite>"
+        )
+        self.assertEqual(
+            1,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(second_junit=failed),
+            ),
+        )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root, evidence, gate.requirements(self.root, self.plan), issues
+        )
+        self.assertEqual([], issues)
+        check = checks[("module", "app", "test_repeat", "unit")][1]
+        self.assertIn("repeat results differ", check["reason"])
+
+    def test_coverage_parity_fails_when_cpt_drops_a_covered_element(self):
+        for name in ("models/process.bpmn", "models/converted-c8-process.bpmn"):
+            path = self.root / name
+            path.write_text(bpmn("p", extra='<bpmn:serviceTask id="TaskA" />'), encoding="utf-8")
+        c7_coverage = json.dumps(
+            {
+                "suites": [
+                    {
+                        "runs": [
+                            {
+                                "events": [
+                                    {
+                                        "source": "FLOW_NODE",
+                                        "modelKey": "p",
+                                        "definitionKey": "TaskA",
+                                    },
+                                    {
+                                        "source": "SEQUENCE_FLOW",
+                                        "modelKey": "p",
+                                        "definitionKey": "Flow",
+                                    },
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        )
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            c7_coverage,
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        dropped = json.dumps(
+            {
+                "processCoverages": [
+                    {
+                        "processDefinitionId": "p",
+                        "completedElements": ["Start", "End"],
+                        "takenSequenceFlows": ["Flow"],
+                        "coverage": 0.75,
+                    }
+                ]
+            }
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(
+                    first_coverage=dropped,
+                    second_coverage=dropped,
+                ),
+            ),
+        )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        checks = gate.load_checks(
+            self.root, evidence, gate.requirements(self.root, self.plan), []
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        issues, _ = gate.coverage_parity_issues(
+            gate.requirements(self.root, self.plan), checks, mapping
+        )
+        self.assertTrue(any("lost C7-covered elements: TaskA" in issue for issue in issues), issues)
 
     def test_previous_run_checks_cannot_validate_new_run(self):
         self.write_scope(timer=True)
