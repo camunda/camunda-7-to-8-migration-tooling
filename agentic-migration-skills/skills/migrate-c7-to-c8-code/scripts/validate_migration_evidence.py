@@ -1112,10 +1112,17 @@ def copy_reports(root, module, reports, destination):
         target = target_parent / target.name
         if target.is_symlink():
             raise EvidenceError(f"Refusing to replace symlinked report: {target}")
+        temporary_path = None
         try:
-            shutil.copy2(source, target)
+            with tempfile.NamedTemporaryFile(dir=target_parent, delete=False) as temporary:
+                temporary_path = Path(temporary.name)
+            shutil.copy2(source, temporary_path)
+            os.replace(temporary_path, target)
         except OSError as exc:
             raise EvidenceError(f"Cannot preserve report {source}: {exc}") from exc
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
         copied.append(target.relative_to(root).as_posix())
     return copied
 

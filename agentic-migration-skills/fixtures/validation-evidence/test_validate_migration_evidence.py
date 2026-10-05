@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -3003,6 +3004,25 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
 
                 self.assertEqual("original", sentinel.read_text(encoding="utf-8"))
+
+    def test_copy_reports_replaces_hard_link_without_overwriting_linked_file(self):
+        module_root = self.root / "module"
+        report = module_root / "target" / "surefire-reports" / "TEST-result.xml"
+        report.parent.mkdir(parents=True)
+        report.write_text("<testsuite />\n", encoding="utf-8")
+        destination = gate.VALIDATION / "cpt" / "hard-link" / "suite"
+        target = self.root / destination / "target" / "surefire-reports" / "TEST-result.xml"
+        target.parent.mkdir(parents=True)
+        linked_file = self.root / "pom.xml"
+        linked_file.write_text("original project file", encoding="utf-8")
+        os.link(linked_file, target)
+
+        copied = gate.copy_reports(self.root, "module", [report], destination)
+
+        self.assertEqual([target.relative_to(self.root).as_posix()], copied)
+        self.assertEqual("original project file", linked_file.read_text(encoding="utf-8"))
+        self.assertEqual(report.read_bytes(), target.read_bytes())
+        self.assertFalse(os.path.samefile(linked_file, target))
 
 
 class LiveTimerFixtureRunnerTest(unittest.TestCase):
