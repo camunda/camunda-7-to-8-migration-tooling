@@ -31,7 +31,7 @@ ProcessInstanceEvent pi = client.newCreateInstanceCommand()
     .bpmnProcessId("order").latestVersion().send().join();
 assertThat(pi).isActive().hasActiveElements(byName("Approve order"));
 assertThatUserTask(byElementId("Approve", pi.getProcessInstanceKey())).isCreated().hasAssignee("demo");
-processTestContext.completeUserTask("Approve");
+processTestContext.completeUserTask(byElementId("Approve", pi.getProcessInstanceKey()));
 assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("approved", true);
 ```
 
@@ -80,7 +80,8 @@ In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProces
 | `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
 | `assertThat(task()).hasDueDate(date)` | `assertThatUserTask(selector).isCreated().hasDueDate(isoDate)` | CPT also supports `hasFollowUpDate(...)`. |
 | `assertThat(task()).isNotAssigned()` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that its assignee is null with AssertJ. |
-| `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUserAssociated("u")` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert its candidate users with AssertJ. |
+| `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUser("u", true)` | No counterpart | These require an unassigned task. Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that its assignee is null and `u` is a candidate. |
+| `assertThat(task()).hasCandidateUser("u", false)`, `hasCandidateUserAssociated("u")` | No counterpart | These check the candidate-user association even when the task is assigned. Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that `u` is a candidate. |
 | `assertThat(task()).hasId(...)`, `hasDefinitionKey(...)`, `hasFormKey(...)`, `hasDescription(...)` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert the required field with AssertJ. |
 | `assertThat(job()).hasId(...)`, `hasDueDate(...)`, `hasRetries(...)`, `hasExceptionMessage()`, `hasDeploymentId(...)`, `hasActivityId(...)`, `hasProcessInstanceId(...)`, `hasExecutionId(...)` | No counterpart | Search the job with the client and assert its state or fields with AssertJ. |
 | `assertThat(externalTask()).hasTopicName(...)`, `hasActivityId(...)` | No counterpart | Assert the element state, or complete the job and assert the process result. |

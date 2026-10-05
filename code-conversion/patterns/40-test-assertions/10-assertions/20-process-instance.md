@@ -43,7 +43,7 @@ void testProcessInstanceIsWaitingAtUserTask() {
 }
 ```
 
-[List of supported assertions](https://docs.camunda.io/docs/next/apis-tools/testing/assertions/).
+[List of supported assertions](https://docs.camunda.io/docs/apis-tools/testing/assertions/).
 
 ## Negative assertions
 

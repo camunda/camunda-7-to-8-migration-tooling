@@ -3059,7 +3059,7 @@ void testProcessInstanceIsWaitingAtUserTask() {
 }
 ```
 
-[List of supported assertions](https://docs.camunda.io/docs/next/apis-tools/testing/assertions/).
+[List of supported assertions](https://docs.camunda.io/docs/apis-tools/testing/assertions/).
 
 ###### Negative assertions
 
@@ -3220,6 +3220,8 @@ void testUserTaskIsReachedAndCompleted() {
 In Camunda 7, you can correlate a message using runtimeService and then assert that the process advanced. You can provide multiple correlationKeys that must match process variables of the process instance.
 
 ```java
+import java.util.Map;
+
 @Test
 void testMessageCorrelation() {
   ProcessInstance instance = runtimeService()
@@ -3243,6 +3245,8 @@ void testMessageCorrelation() {
 Camunda 8 uses the client API to correlate a message immediately. The `newCorrelateMessageCommand()` and CPT assertion APIs shown here are available from Camunda 8.8. The message subscription uses one string correlation key.
 
 ```java
+import java.util.Map;
+
 @Test
 void testMessageCorrelation() {
   Map<String, Object> variables = Map.of("correlationKey", "some-key");
@@ -3453,7 +3457,7 @@ ProcessInstanceEvent pi = client.newCreateInstanceCommand()
     .bpmnProcessId("order").latestVersion().send().join();
 assertThat(pi).isActive().hasActiveElements(byName("Approve order"));
 assertThatUserTask(byElementId("Approve", pi.getProcessInstanceKey())).isCreated().hasAssignee("demo");
-processTestContext.completeUserTask("Approve");
+processTestContext.completeUserTask(byElementId("Approve", pi.getProcessInstanceKey()));
 assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("approved", true);
 ```
 
@@ -3502,7 +3506,8 @@ In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProces
 | `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
 | `assertThat(task()).hasDueDate(date)` | `assertThatUserTask(selector).isCreated().hasDueDate(isoDate)` | CPT also supports `hasFollowUpDate(...)`. |
 | `assertThat(task()).isNotAssigned()` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that its assignee is null with AssertJ. |
-| `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUserAssociated("u")` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert its candidate users with AssertJ. |
+| `assertThat(task()).hasCandidateUser("u")`, `hasCandidateUser("u", true)` | No counterpart | These require an unassigned task. Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that its assignee is null and `u` is a candidate. |
+| `assertThat(task()).hasCandidateUser("u", false)`, `hasCandidateUserAssociated("u")` | No counterpart | These check the candidate-user association even when the task is assigned. Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert that `u` is a candidate. |
 | `assertThat(task()).hasId(...)`, `hasDefinitionKey(...)`, `hasFormKey(...)`, `hasDescription(...)` | No counterpart | Search for the created user task scoped to `pi.getProcessInstanceKey()` and assert the required field with AssertJ. |
 | `assertThat(job()).hasId(...)`, `hasDueDate(...)`, `hasRetries(...)`, `hasExceptionMessage()`, `hasDeploymentId(...)`, `hasActivityId(...)`, `hasProcessInstanceId(...)`, `hasExecutionId(...)` | No counterpart | Search the job with the client and assert its state or fields with AssertJ. |
 | `assertThat(externalTask()).hasTopicName(...)`, `hasActivityId(...)` | No counterpart | Assert the element state, or complete the job and assert the process result. |
@@ -3967,6 +3972,8 @@ public class InvoiceScenarioTest {
 ###### Camunda 8
 
 ```java
+import io.camunda.process.test.api.assertions.UserTaskSelectors;
+
 @CamundaProcessTest
 @TestDeployment(resources = "converted-c8-invoice.bpmn")
 class InvoiceScenarioTest {
@@ -3979,7 +3986,7 @@ class InvoiceScenarioTest {
         .when(() -> assertThatProcessInstance(byProcessId("invoice"))
             .hasActiveElements("Approve"))
         .as("Approve")
-        .then(() -> processTestContext.completeUserTask("Approve"));
+        .then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("Approve")));
 
     ProcessInstanceEvent pi = client.newCreateInstanceCommand()
         .bpmnProcessId("invoice").latestVersion().send().join();
@@ -3992,7 +3999,7 @@ class InvoiceScenarioTest {
 | Camunda Platform Scenario | CPT 8.9 | Note |
 |---|---|---|
 | `@Mock ProcessScenario`, `MockitoAnnotations.openMocks(this)` | Remove | |
-| `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask("A", vars))` | The action must resolve the wait state so CPT can observe it again. |
+| `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("A"), vars))` | The action must resolve the wait state so CPT can observe it again. |
 | `thenReturn(first, second)` or different actions per call | Chain `.then(first).then(second)` | The last action repeats. |
 | `task.handleBpmnError(...)`, `task.handleEscalation(...)` | No direct counterpart | Report for manual migration. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtMessageIntermediateThrowEvent`, `waitsAtMessageEndEvent` with `complete(vars)` | `mockJobWorker(type).thenComplete(vars)` | Read the job type from the converted copy. |
@@ -4007,7 +4014,7 @@ class InvoiceScenarioTest {
 | `waitsAtConditionalIntermediateEvent("C")` | `processTestContext.updateVariables(byKey(pik), vars)` | Conditional events require 8.9. |
 | `runsCallActivity("C").thenReturn(Scenario.use(child))` | Deploy the converted child and register its behaviors with `byProcessId(childPid)` | |
 | `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | |
-| `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | |
+| `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | If the scenario starts with a business key, also apply the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md) to preserve it. |
 | `startByMessage(name, vars)` | `CorrelateMessageResponse response = newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | The response is not a `ProcessInstanceEvent`; use `response.getProcessInstanceKey()` with `ProcessInstanceSelectors.byKey(...)` to select the instance for CPT assertions. |
 | `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | `fromAfter` has no direct counterpart. Start before the next element only when it is unambiguous. |
 | `Scenario.instance(process)` after `startByKey` or `fromBefore` | The `ProcessInstanceEvent` returned by the create command | |

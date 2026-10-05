@@ -22,6 +22,8 @@ public class InvoiceScenarioTest {
 ## Camunda 8
 
 ```java
+import io.camunda.process.test.api.assertions.UserTaskSelectors;
+
 @CamundaProcessTest
 @TestDeployment(resources = "converted-c8-invoice.bpmn")
 class InvoiceScenarioTest {
@@ -34,7 +36,7 @@ class InvoiceScenarioTest {
         .when(() -> assertThatProcessInstance(byProcessId("invoice"))
             .hasActiveElements("Approve"))
         .as("Approve")
-        .then(() -> processTestContext.completeUserTask("Approve"));
+        .then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("Approve")));
 
     ProcessInstanceEvent pi = client.newCreateInstanceCommand()
         .bpmnProcessId("invoice").latestVersion().send().join();
@@ -47,7 +49,7 @@ class InvoiceScenarioTest {
 | Camunda Platform Scenario | CPT 8.9 | Note |
 |---|---|---|
 | `@Mock ProcessScenario`, `MockitoAnnotations.openMocks(this)` | Remove | |
-| `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask("A", vars))` | The action must resolve the wait state so CPT can observe it again. |
+| `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("A"), vars))` | The action must resolve the wait state so CPT can observe it again. |
 | `thenReturn(first, second)` or different actions per call | Chain `.then(first).then(second)` | The last action repeats. |
 | `task.handleBpmnError(...)`, `task.handleEscalation(...)` | No direct counterpart | Report for manual migration. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtMessageIntermediateThrowEvent`, `waitsAtMessageEndEvent` with `complete(vars)` | `mockJobWorker(type).thenComplete(vars)` | Read the job type from the converted copy. |
@@ -62,7 +64,7 @@ class InvoiceScenarioTest {
 | `waitsAtConditionalIntermediateEvent("C")` | `processTestContext.updateVariables(byKey(pik), vars)` | Conditional events require 8.9. |
 | `runsCallActivity("C").thenReturn(Scenario.use(child))` | Deploy the converted child and register its behaviors with `byProcessId(childPid)` | |
 | `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | |
-| `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | |
+| `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | If the scenario starts with a business key, also apply the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md) to preserve it. |
 | `startByMessage(name, vars)` | `CorrelateMessageResponse response = newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | The response is not a `ProcessInstanceEvent`; use `response.getProcessInstanceKey()` with `ProcessInstanceSelectors.byKey(...)` to select the instance for CPT assertions. |
 | `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | `fromAfter` has no direct counterpart. Start before the next element only when it is unambiguous. |
 | `Scenario.instance(process)` after `startByKey` or `fromBefore` | The `ProcessInstanceEvent` returned by the create command | |

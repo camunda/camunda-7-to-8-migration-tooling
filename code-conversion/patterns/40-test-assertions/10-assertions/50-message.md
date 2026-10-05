@@ -5,6 +5,8 @@
 In Camunda 7, you can correlate a message using runtimeService and then assert that the process advanced. You can provide multiple correlationKeys that must match process variables of the process instance.
 
 ```java
+import java.util.Map;
+
 @Test
 void testMessageCorrelation() {
   ProcessInstance instance = runtimeService()
@@ -28,6 +30,8 @@ void testMessageCorrelation() {
 Camunda 8 uses the client API to correlate a message immediately. The `newCorrelateMessageCommand()` and CPT assertion APIs shown here are available from Camunda 8.8. The message subscription uses one string correlation key.
 
 ```java
+import java.util.Map;
+
 @Test
 void testMessageCorrelation() {
   Map<String, Object> variables = Map.of("correlationKey", "some-key");
