@@ -30,7 +30,7 @@ import static io.camunda.process.test.api.assertions.UserTaskSelectors.byElement
 ProcessInstanceEvent pi = client.newCreateInstanceCommand()
     .bpmnProcessId("order").latestVersion().send().join();
 assertThat(pi).isActive().hasActiveElements(byName("Approve order"));
-assertThatUserTask(byElementId("Approve")).hasAssignee("demo");
+assertThatUserTask(byElementId("Approve", pi.getProcessInstanceKey())).isCreated().hasAssignee("demo");
 processTestContext.completeUserTask("Approve");
 assertThat(pi).hasCompletedElements("Approved").isCompleted().hasVariable("approved", true);
 ```
