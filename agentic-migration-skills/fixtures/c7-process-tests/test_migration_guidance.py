@@ -64,15 +64,6 @@ def test_method_ids(project_root):
     return ids
 
 
-def markdown_table_cells(line):
-    line = line.strip()
-    if line.startswith("|"):
-        line = line[1:]
-    if line.endswith("|"):
-        line = line[:-1]
-    return [cell.strip() for cell in line.split("|")]
-
-
 def markdown_character_is_escaped(line, index):
     backslash_count = 0
     previous = index - 1
@@ -80,6 +71,26 @@ def markdown_character_is_escaped(line, index):
         backslash_count += 1
         previous -= 1
     return backslash_count % 2 == 1
+
+
+def markdown_table_cells(line):
+    line = line.strip()
+    cell_start = 1 if line.startswith("|") else 0
+    line_end = len(line)
+    if (
+        line_end > cell_start
+        and line[line_end - 1] == "|"
+        and not markdown_character_is_escaped(line, line_end - 1)
+    ):
+        line_end -= 1
+
+    cells = []
+    for index in range(cell_start, line_end):
+        if line[index] == "|" and not markdown_character_is_escaped(line, index):
+            cells.append(line[cell_start:index].strip())
+            cell_start = index + 1
+    cells.append(line[cell_start:line_end].strip())
+    return cells
 
 
 def markdown_table_has_delimiter(line):
@@ -300,6 +311,30 @@ class MigrationGuidanceTest(unittest.TestCase):
                         markdown_table(path, ["First", "Second"]),
                     )
 
+    def test_markdown_table_preserves_escaped_pipes_in_headers(self):
+        lines = ("| First \\| alias | Second |", "|---|---|", "| left | right |")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "table.md"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            self.assertEqual(
+                [{r"First \| alias": "left", "Second": "right"}],
+                markdown_table(path, [r"First \| alias", "Second"]),
+            )
+
+    def test_markdown_table_preserves_escaped_pipes_in_rows(self):
+        lines = (
+            "| First | Second |",
+            "|---|---|",
+            r"| left \| middle | trailing \|",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "table.md"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            self.assertEqual(
+                [{"First": r"left \| middle", "Second": r"trailing \|"}],
+                markdown_table(path, ["First", "Second"]),
+            )
+
     def test_reference_tables_have_matching_header_and_separator_columns(self):
         lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
         errors = reference_table_separator_errors(lines)
@@ -307,6 +342,14 @@ class MigrationGuidanceTest(unittest.TestCase):
             [],
             errors,
             "{}:\n{}".format(TEST_MIGRATION_REFERENCE, "\n".join(errors)),
+        )
+
+    def test_reference_table_separator_supports_escaped_header_pipes(self):
+        self.assertEqual(
+            [],
+            reference_table_separator_errors(
+                [r"| First \| alias | Second |", "|---|---|"]
+            ),
         )
 
     def test_reference_table_rejects_malformed_separator_cells(self):
