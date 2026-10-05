@@ -101,8 +101,8 @@ Include only if scope includes code, approach is A, and detection was ambiguous 
 
 ## Question 7 - Application and Engine HTTP Topology
 
-Ask after the Step 2 code inventory only when production code has a Spring web server, an application
-HTTP endpoint, a health check, or a Camunda 7 Engine REST call.
+Ask after the Step 2 code inventory only when the production-source inventory identifies a Spring
+web server, an application HTTP endpoint, a health check, or a Camunda 7 Engine REST call.
 
 Show production application and management bind addresses and ports from the inventory.
 Show production application-owned routes, Engine REST routes, outbound Engine REST call sites, health

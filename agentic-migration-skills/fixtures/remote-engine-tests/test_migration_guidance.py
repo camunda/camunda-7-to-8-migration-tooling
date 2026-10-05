@@ -140,7 +140,17 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         self.assertLess(
             code_inventory.index("Classify each Camunda 7 test that drives a running engine"),
-            code_inventory.index("When production code contains a Spring web server"),
+            code_inventory.index(
+                "Search production code, application configuration, scripts, and deployment configuration"
+            ),
+        )
+        self.assertIn(
+            "Search production code, application configuration, scripts, and deployment configuration",
+            code_inventory,
+        )
+        self.assertIn(
+            "When any of these production sources contains a match, inventory its HTTP topology.",
+            code_inventory,
         )
         self.assertIn(
             "Exclude test-only Engine REST calls and test-owned servers from the HTTP topology inventory and Question 7.",
@@ -148,7 +158,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
         question_7 = INTERVIEW_QUESTIONS.read_text().split("## Question 7", 1)[1]
-        self.assertIn("only when production code has", question_7)
+        self.assertIn("only when the production-source inventory identifies", question_7)
         self.assertIn(
             "Do not ask for decisions about test-only Engine REST calls.",
             question_7,
@@ -164,15 +174,15 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             http_topology,
         )
 
-    def test_step_3_http_topology_gate_uses_production_code(self):
+    def test_step_3_http_topology_gate_uses_production_sources(self):
         step_3_topology = SKILL.read_text().split("15. **HTTP topology**", 1)[1].split(
             "16. **SLF4J providers**", 1
         )[0]
-        self.assertIn("when production code contains", step_3_topology)
+        self.assertIn("when the production-source inventory identifies", step_3_topology)
 
-    def test_code_checklist_http_topology_gate_uses_production_code(self):
+    def test_code_checklist_http_topology_gate_uses_production_sources(self):
         self.assertIn(
-            "When production code contains a Spring web server",
+            "When the production-source inventory identifies a Spring web server",
             CHECKLIST.read_text(),
         )
 
@@ -247,6 +257,32 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             checklist,
         )
 
+    def test_reference_declares_both_cpt_test_harness_annotations(self):
+        runtime_configuration = REFERENCE.read_text().split(
+            "## Runtime and build changes", 1
+        )[1].split("## Worker behavior", 1)[0]
+        runtime_configuration = " ".join(runtime_configuration.split())
+        self.assertIn(
+            "Annotate each migrated JUnit test that uses plain Java with `@CamundaProcessTest` to register `CamundaProcessTestExtension`.",
+            runtime_configuration,
+        )
+        self.assertIn(
+            "Annotate each migrated Spring CPT test with `@CamundaSpringProcessTest` to start the Spring Process Test harness.",
+            runtime_configuration,
+        )
+        self.assertIn(
+            "The artifact dependency alone does not start the CPT runtime or inject the CPT client and context fields.",
+            runtime_configuration,
+        )
+
+    def test_managed_runtime_rule_is_declared_once(self):
+        runtime_changes = REFERENCE.read_text().split(
+            "## Runtime and build changes", 1
+        )[1].split("## Worker behavior", 1)[0]
+        self.assertEqual(
+            1,
+            runtime_changes.count("CPT-managed Testcontainers runtime"),
+        )
     def test_c7_baseline_uses_engine_rest_and_a_real_external_task_worker(self):
         c7_test = (
             FIXTURE

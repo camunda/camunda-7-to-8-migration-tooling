@@ -799,6 +799,9 @@ Keep Testcontainers when another test still uses it.
 Add `io.camunda:camunda-process-test-java` for non-Spring tests.
 Select the Spring Process Test artifact using the target project's Spring Boot version.
 Add the selected Spring artifact in test scope.
+Annotate each migrated JUnit test that uses plain Java with `@CamundaProcessTest` to register `CamundaProcessTestExtension`.
+Annotate each migrated Spring CPT test with `@CamundaSpringProcessTest` to start the Spring Process Test harness.
+The artifact dependency alone does not start the CPT runtime or inject the CPT client and context fields.
 
 | Target Spring Boot version | CPT test artifact |
 |---|---|

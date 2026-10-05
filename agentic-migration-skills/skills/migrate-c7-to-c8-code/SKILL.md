@@ -243,9 +243,10 @@ Classify each Camunda 7 test that drives a running engine with `references/test-
 building the HTTP topology inventory. Exclude test-only Engine REST calls and test-owned servers
 from the HTTP topology inventory and Question 7.
 
-When production code contains a Spring web server, application HTTP endpoint, health check, or
-Camunda 7 Engine REST call, inventory its HTTP topology. Follow
-`references/http-topology-migration.md`. Ask Question 7 from
+Search production code, application configuration, scripts, and deployment configuration.
+Check these production sources for Spring web servers, application HTTP endpoints, health checks,
+and Camunda 7 Engine REST calls. When any of these production sources contains a match, inventory
+its HTTP topology. Follow `references/http-topology-migration.md`. Ask Question 7 from
 `references/interview-questions.md` before Step 3. Record the target application bind address and
 port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
 consumer actions. Where the management server uses a separate bind address or port, record both.
@@ -502,8 +503,8 @@ Assessment-only and analyze-only runs do not claim readiness.
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
-15. **HTTP topology** — when production code contains a Spring web server, application HTTP
-    endpoints, health checks, or Camunda 7 Engine REST calls, follow
+15. **HTTP topology** — when the production-source inventory identifies a Spring web server,
+    application HTTP endpoint, health check, or Camunda 7 Engine REST call, follow
     `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
     ports when they share a host. Test every discovered application endpoint and replacement API
     while the cluster is reachable. When the source includes a health check, verify each remote

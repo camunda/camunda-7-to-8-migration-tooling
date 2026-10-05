@@ -290,9 +290,10 @@ Resolve configuration errors and record those findings and deprecated aliases.
 
 ## HTTP application and engine REST topology
 
-When production code contains a Spring web server, application HTTP endpoints, health checks, or
-Camunda 7 Engine REST calls, apply [`http-topology-migration.md`](http-topology-migration.md) before
-changing code. Record the endpoint owners, consumers, and health dependencies in `MIGRATION_REPORT.md`.
+When the production-source inventory identifies a Spring web server, an application HTTP endpoint,
+a health check, or a Camunda 7 Engine REST call, apply
+[`http-topology-migration.md`](http-topology-migration.md) before changing code. Record the endpoint
+owners, consumers, and health dependencies in `MIGRATION_REPORT.md`.
 Record the target application bind address and port, the Camunda REST base address, and the
 authentication mode in `MIGRATION_REPORT.md`. Where the management server uses a separate bind
 address or port, record both. Run the endpoint checks in that reference.
