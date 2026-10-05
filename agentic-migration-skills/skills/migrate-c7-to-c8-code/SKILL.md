@@ -243,7 +243,8 @@ Classify each Camunda 7 test that drives a running engine with `references/test-
 building the HTTP topology inventory. Exclude test-only Engine REST calls and test-owned servers
 from the HTTP topology inventory and Question 7.
 
-Search production code, application configuration, scripts, and deployment configuration.
+Search production code, application configuration, production build files, scripts, and
+deployment configuration.
 Check these production sources for Spring web servers, application HTTP endpoints, health checks,
 and Camunda 7 Engine REST calls. When any of these production sources contains a match, inventory
 its HTTP topology. Follow `references/http-topology-migration.md`. Ask Question 7 from

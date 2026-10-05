@@ -141,11 +141,13 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertLess(
             code_inventory.index("Classify each Camunda 7 test that drives a running engine"),
             code_inventory.index(
-                "Search production code, application configuration, scripts, and deployment configuration"
+                "Search production code, application configuration, production build files, "
+                "scripts, and deployment configuration"
             ),
         )
         self.assertIn(
-            "Search production code, application configuration, scripts, and deployment configuration",
+            "Search production code, application configuration, production build files, "
+            "scripts, and deployment configuration",
             code_inventory,
         )
         self.assertIn(
