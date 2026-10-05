@@ -1,7 +1,7 @@
 # Test Migration
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked
-(SHOULD) and an option is marked (MAY).
+(SHOULD) and an option is marked (MAY). The skill skips a preference only for a stated reason.
 
 Camunda 7 (C7) process-test mocks replace code at a specific boundary. Camunda Process Test (CPT)
 can mock workers, child processes, and decisions.
@@ -49,11 +49,19 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 
 ### Mock detection
 
-The skill applies mock-boundary and mapping rules to every in-scope test method that uses a supported C7 mock API.
-The skill checks the test method, its setup and teardown methods, and helper methods they call.
+The Test Inventory records the `mocks` modifier in its `Signals` column for each process test or
+decision test method that matches the detector below. The skill derives this modifier from source
+code, not from an input marker or a dependency alone.
+
+| Modifier | Detect by | Used by |
+|---|---|---|
+| `mocks` | `org.camunda.bpm.engine.test.mock.Mocks`, `MockExpressionManager`, `org.camunda.community.mockito.*`, `org.camunda.bpm.extension.mockito.*`, holunda `io.holunda.c7:c7-mockito`, or Spring `@MockBean`/`@MockitoBean` collaborators used by the process | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+
+The skill applies the mock-boundary and mapping rules to every in-scope test method with a detected
+mock signal. The skill checks each test method and its class-level mock declarations. The skill checks
+inherited and local setup and teardown methods. The skill checks helper methods called by these
+methods.
 The skill detects `Mocks.register`, `CamundaMockito.registerMockInstance`, C7 `register...Mock` helpers, and `autoMock`.
-The skill also detects `@MockBean` and `@MockitoBean` collaborators used by a process test.
-The skill does not require a Test Inventory modifier.
 
 ### Test kinds
 

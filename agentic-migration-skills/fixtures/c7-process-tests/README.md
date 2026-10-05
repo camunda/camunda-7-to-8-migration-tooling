@@ -38,6 +38,9 @@ Start each walkthrough from a fresh copy of `c7-source`.
 | W6 | Delete every `src/test` directory from the copy. Choose **Code + models** and stop after the Step 2 Summary. | The inventory has no in-scope tests. The skill does not ask Question 8. |
 | W7 | Start from the result of W3. Apply each negative change separately, rerun the recorded checks, then rerun the gate. | N1, N2, and N3 produce the results in the table below. |
 
+The `Signals` column records the source-derived `mocks` modifier for process and decision tests
+with supported mock signals. A user-provided marker or a dependency alone does not trigger it.
+
 ## Negative cases
 
 | ID | Change | Expected gate result |

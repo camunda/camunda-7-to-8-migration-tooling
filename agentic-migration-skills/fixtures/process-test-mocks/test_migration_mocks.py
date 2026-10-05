@@ -158,7 +158,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('"invoice_risk", Map.of', c8_test)
         self.assertIn(result_map, c8_test)
 
-    def test_mock_rules_trigger_from_apis_without_an_inventory_modifier(self):
+    def test_mock_modifier_is_derived_and_recorded_from_source(self):
         guidance = (
             REPO_ROOT
             / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
@@ -168,14 +168,42 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("C7 `register...Mock` helpers", guidance)
-        self.assertIn("`CamundaMockito.registerMockInstance`", guidance)
+        for signal in (
+            "`org.camunda.bpm.engine.test.mock.Mocks`",
+            "`MockExpressionManager`",
+            "`org.camunda.community.mockito.*`",
+            "`org.camunda.bpm.extension.mockito.*`",
+            "`io.holunda.c7:c7-mockito`",
+            "`@MockBean`",
+            "`@MockitoBean`",
+            "C7 `register...Mock` helpers",
+            "`CamundaMockito.registerMockInstance`",
+        ):
+            with self.subTest(signal=signal):
+                self.assertIn(signal, guidance)
+        self.assertIn("| `mocks` |", guidance)
+        self.assertIn(
+            "The Test Inventory records the `mocks` modifier in its `Signals` column",
+            guidance,
+        )
+        self.assertIn(
+            "the skill derives this modifier from source code, not from an input marker or a dependency alone.",
+            " ".join(guidance.lower().split()),
+        )
+        self.assertIn(
+            "the skill checks inherited and local setup and teardown methods.",
+            " ".join(guidance.lower().split()),
+        )
         self.assertIn(
             "| C7 mock library | No remaining test uses the library. | Remove the dependency. |",
             guidance,
         )
-        self.assertIn("The skill does not require a Test Inventory modifier.", guidance)
-        self.assertIn("The skill does not require a Test Inventory modifier.", skill)
+        self.assertIn(
+            "It derives the `mocks` modifier from source and",
+            skill,
+        )
+        self.assertIn("records it in the Test Inventory's `Signals` column.", skill)
+        self.assertIn("Users do not add it.", skill)
 
     def test_listener_mappings_use_the_listener_job_type(self):
         guidance = (

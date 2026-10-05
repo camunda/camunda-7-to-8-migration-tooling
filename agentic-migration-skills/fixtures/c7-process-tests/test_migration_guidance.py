@@ -1618,6 +1618,59 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
 
+    def test_inventory_records_the_mocks_modifier_for_detected_tests(self):
+        expected_mock_tests = {
+            "engine-tests:com.camunda.fixture.order.OrderProcessTest#approvesAndShipsOrder",
+            "engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#"
+            "shouldCompleteWorkAfterTwoDailyReminders",
+            "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
+            "shouldCompleteWorkAfterTwoDailyReminders",
+            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#"
+            "registersWholeDelegateAndExecutionListenerMocks",
+            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#"
+            "registersDelegateOutputAndVerifiesItsInvocation",
+            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#routesDelegateBpmnError",
+            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#"
+            "throwsWhenTheSynchronousDelegateFails",
+            "engine-tests:com.camunda.fixture.order.OrderAutoMockTest#"
+            "autoMocksDelegatesAndTracksCoverage",
+            "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+            "shouldStartMessageProcess",
+            "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+            "shouldStartMessageProcess",
+            "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+            "shouldCountCompletedVisitsSeparately",
+            "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+            "shouldCountCompletedVisitsSeparately",
+            "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+            "shouldCountMixedFinishedVisitsByOutcome",
+            "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+            "shouldCountMixedFinishedVisitsByOutcome",
+            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#"
+            "activatesSubscription",
+            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#"
+            "startsSubscriptionFromHttp",
+            "spring-boot-app:com.camunda.fixture.subscription.ActivateDelegateMockTest#"
+            "mocksDelegateBean",
+            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#"
+            "startsSubscriptionWithoutSpring",
+        }
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            recorded_mock_tests = {
+                row["Test ID"]
+                for row in rows
+                if "mocks"
+                in {
+                    normalized(signal.strip().strip("`"))
+                    for signal in row["Signals"].split(";")
+                }
+            }
+            with self.subTest(inventory=inventory_path):
+                self.assertEqual(expected_mock_tests, recorded_mock_tests)
+
     def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
@@ -1899,6 +1952,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertNotIn("engine-test migration procedure is undefined", reference)
+        self.assertIn("| modifier | detect by | used by |", reference)
+        self.assertIn("| `mocks` |", reference)
+        self.assertIn("cpt (`io.camunda.process.test.*`)", reference)
+        self.assertIn(
+            "the test inventory records the `mocks` modifier in its `signals` column",
+            reference,
+        )
         for test_kind in TEST_KINDS:
             with self.subTest(test_kind=test_kind):
                 self.assertIn("| {} |".format(normalized(test_kind)), reference)
