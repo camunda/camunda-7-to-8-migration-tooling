@@ -475,13 +475,13 @@ The scenario runner's Cucumber module, logging, and history fast-forward reports
 
 ### Prepare the test
 
-Before changing class-level setup, the skill inspects every test method and its shared setup and
-deployment dependencies.
+Before changing a class's setup, the skill inspects every test method and each method's shared
+Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployment dependencies.
 
 | Retained method condition | Class setup action |
 |---|---|
-| No retained method needs the C7 engine or deployment. | Convert the shared setup to CPT or remove it. |
-| A manual method still needs the C7 engine or deployment. | Move migrated methods to a separate CPT class, or preserve the C7 setup until no retained method needs it. |
+| No retained method needs C7 Scenario setup. | Convert the shared setup to CPT or remove it. |
+| A retained manual method needs C7 Scenario setup. | Move migrated methods to a separate CPT class, or retain the Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployments until no retained method needs them. |
 
 The skill checks every Maven module's test-source roots and include patterns before it changes the
 target reactor.

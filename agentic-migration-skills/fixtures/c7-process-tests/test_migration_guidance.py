@@ -479,6 +479,12 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertEqual(cpt_id, parity_by_id[legacy_id]["CPT Test ID(s)"])
 
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "the skill checks every maven module's test-source roots and include "
+            "patterns before it changes the target reactor.",
+            reference,
+        )
         source_set_actions = markdown_table(
             TEST_MIGRATION_REFERENCE,
             ["Source-set condition", "Migration action"],
@@ -925,8 +931,9 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_mixed_manual_methods_preserve_required_class_setup(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "before changing class-level setup, the skill inspects every test method "
-            "and its shared setup and deployment dependencies.",
+            "before changing a class's setup, the skill inspects every test method "
+            "and each method's shared scenario runner, `processscenario` mock, c7 "
+            "engine rule, and deployment dependencies.",
             reference,
         )
         setup_actions = markdown_table(
@@ -944,7 +951,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             normalized(manual_actions[0]["Class setup action"]),
         )
         self.assertIn(
-            "preserve the c7 setup until no retained method needs it",
+            "retain the scenario runner, `processscenario` mock, c7 engine rule, and "
+            "deployments until no retained method needs them",
             normalized(manual_actions[0]["Class setup action"]),
         )
 
