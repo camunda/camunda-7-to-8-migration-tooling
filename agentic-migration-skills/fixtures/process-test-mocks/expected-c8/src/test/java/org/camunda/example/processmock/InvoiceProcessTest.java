@@ -84,18 +84,31 @@ class InvoiceProcessTest {
         processTestContext
             .mockJobWorker("notify-invoice")
             .withHandler(
-                (jobClient, job) ->
+                (jobClient, job) -> {
+                    int invocation = output.incrementAndGet();
+                    String invocationOutput =
+                        invocation == 1
+                            ? "firstNotificationOutput"
+                            : "secondNotificationOutput";
                     jobClient
                         .newCompleteCommand(job)
-                        .variables(Map.of("notificationCount", output.incrementAndGet()))
+                        .variables(
+                            Map.of(
+                                "notificationCount",
+                                invocation,
+                                invocationOutput,
+                                invocation))
                         .send()
-                        .join());
+                        .join();
+                });
 
     ProcessInstanceEvent instance = start("repeated-notify", Map.of());
 
     CamundaAssert.assertThat(instance)
         .isCompleted()
-        .hasVariable("notificationCount", 2);
+        .hasVariable("notificationCount", 2)
+        .hasVariable("firstNotificationOutput", 1)
+        .hasVariable("secondNotificationOutput", 2);
     assertThat(notify.getInvocations()).isEqualTo(2);
   }
 

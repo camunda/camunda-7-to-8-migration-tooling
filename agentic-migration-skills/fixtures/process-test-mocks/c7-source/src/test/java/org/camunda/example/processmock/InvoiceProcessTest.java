@@ -104,14 +104,18 @@ public class InvoiceProcessTest {
   public void preservesRepeatedDelegateOutputs() {
     registerJavaDelegateMock("notifyDelegate")
         .onExecutionSetVariables(
-            Variables.putValue("notificationCount", 1),
-            Variables.putValue("notificationCount", 2));
+            Variables.putValue("notificationCount", 1)
+                .putValue("firstNotificationOutput", 1),
+            Variables.putValue("notificationCount", 2)
+                .putValue("secondNotificationOutput", 2));
 
     ProcessInstance instance =
         rule.getRuntimeService().startProcessInstanceByKey("repeated-notify");
 
     assertInvoiceFinished(instance);
     assertHistoricVariable(instance, "notificationCount", 2);
+    assertHistoricVariable(instance, "firstNotificationOutput", 1);
+    assertHistoricVariable(instance, "secondNotificationOutput", 2);
     verifyJavaDelegateMock("notifyDelegate").executed(times(2));
   }
 

@@ -125,10 +125,21 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertRegex(
             c7_method,
             re.compile(
-                r'onExecutionSetVariables\(\s*Variables\.putValue\("notificationCount", 1\),'
-                r'\s*Variables\.putValue\("notificationCount", 2\)\s*\)',
+                r'onExecutionSetVariables\(\s*'
+                r'Variables\.putValue\("notificationCount", 1\)'
+                r'\s*\.putValue\("firstNotificationOutput", 1\),\s*'
+                r'Variables\.putValue\("notificationCount", 2\)'
+                r'\s*\.putValue\("secondNotificationOutput", 2\)\s*\)',
                 re.DOTALL,
             ),
+        )
+        self.assertIn(
+            'assertHistoricVariable(instance, "firstNotificationOutput", 1);',
+            c7_method,
+        )
+        self.assertIn(
+            'assertHistoricVariable(instance, "secondNotificationOutput", 2);',
+            c7_method,
         )
         self.assertIn(
             'verifyJavaDelegateMock("notifyDelegate").executed(times(2));',
@@ -137,7 +148,18 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('mockJobWorker("notify-invoice")', c8_method)
         self.assertIn("newCompleteCommand(job)", c8_method)
         self.assertIn("output.incrementAndGet()", c8_method)
+        self.assertRegex(
+            c8_method,
+            r'invocation\s*==\s*1\s*\?\s*"firstNotificationOutput"\s*:\s*"secondNotificationOutput"',
+        )
+        self.assertRegex(
+            c8_method,
+            r'Map\.of\(\s*"notificationCount",\s*invocation,\s*'
+            r'invocationOutput,\s*invocation\s*\)',
+        )
         self.assertIn('.hasVariable("notificationCount", 2)', c8_method)
+        self.assertIn('.hasVariable("firstNotificationOutput", 1)', c8_method)
+        self.assertIn('.hasVariable("secondNotificationOutput", 2)', c8_method)
         self.assertIn("assertThat(notify.getInvocations()).isEqualTo(2)", c8_method)
 
     def test_spring_harness_disables_each_mocked_job_type(self):
