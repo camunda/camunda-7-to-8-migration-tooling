@@ -55,7 +55,9 @@ code, not from an input marker or a dependency alone.
 
 | Modifier | Detect by | Used by |
 |---|---|---|
-| `mocks` | `org.camunda.bpm.engine.test.mock.Mocks`, `MockExpressionManager`, `org.camunda.community.mockito.*`, `org.camunda.bpm.extension.mockito.*`, holunda `io.holunda.c7:c7-mockito`, or Spring `@MockBean`/`@MockitoBean` collaborators used by the process | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+| `mocks` | A source-level mock operation, such as `Mocks.register(...)`, `CamundaMockito.registerMockInstance(...)`, a C7 `register...Mock` helper, or `autoMock(...)`. A Spring `@MockBean`/`@MockitoBean` collaborator used by the process also qualifies. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+
+Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone as evidence for the `mocks` modifier.
 
 The skill applies the mock-boundary and mapping rules to every in-scope test method with a detected
 mock signal. The skill checks each test method and its class-level mock declarations. The skill checks
@@ -796,7 +798,8 @@ One valid schedule uses five 12-hour increments for a daily timer and `defer("P2
 
 Migrate every in-scope test that uses a supported C7 mock API.
 Recognize `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`, and `camunda-bpm-mockito`
-(`org.camunda.bpm.extension.mockito`) as equivalent C7 mock APIs when their operations match.
+(`org.camunda.bpm.extension.mockito`) as equivalent C7 mock APIs when test source uses their mock
+operations.
 Where a C7 test uses `org.camunda.bpm.engine.test.mock.Mocks`, configure `MockExpressionManager`
 in its test engine.
 
@@ -843,6 +846,9 @@ If the real worker cannot run, the skill asks the user before it adds a mock.
 | `verifyExecutionListenerMock("name").executed()` | `assertThat(mock.getInvocations()).isEqualTo(1)` | Read the count only after a waiting CPT assertion on the related element. |
 | `verifyExecutionListenerMock("name").executed(times(n))` | `assertThat(mock.getInvocations()).isEqualTo(n)` | Read the count only after a waiting CPT assertion on the related element. |
 | `verifyExecutionListenerMock("name").executedNever()` | `assertThat(mock.getInvocations()).isZero()` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyTaskListenerMock("name").executed()` | Increment an `AtomicInteger` in the `completeJobOfUserTaskListener` result callback. Assert the count is `1`. | Read the count only after a waiting CPT assertion on the related task or process. |
+| `verifyTaskListenerMock("name").executed(times(n))` | Increment an `AtomicInteger` in each matching listener-job result callback. Assert the count is `n`. | Complete each matching listener job and read the count only after a waiting CPT assertion on the related task or process. |
+| `verifyTaskListenerMock("name").executedNever()` | Do not complete a matching listener job. | Assert that the same CPT checkpoint succeeds without a matching blocking listener job. If no waiting assertion proves the absence, then ask the user before claiming parity. |
 | `ArgumentCaptor<DelegateExecution>` on a delegate mock | `mock.getActivatedJobs()` and `job.getVariablesAsMap()` | Read the activated job after a waiting CPT assertion. |
 | `Mocks.reset()` or `@After` engine-mock cleanup | Remove the engine-mock cleanup | CPT resets runtime data after each test. |
 

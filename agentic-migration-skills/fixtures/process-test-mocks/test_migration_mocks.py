@@ -127,7 +127,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('verify(notifyDelegate).execute(any(DelegateExecution.class))', c7_test)
         self.assertIn("assertThat(notify.getInvocations()).isEqualTo(1)", c8_test)
 
-    def test_dmn_mock_preserves_the_c7_result_map_shape(self):
+    def test_dmn_runs_the_deployed_decision_without_adding_a_mock(self):
         c7_test = (
             FIXTURE
             / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
@@ -154,9 +154,19 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('name="discount"', c7_dmn)
         self.assertIn(result_map, c7_test)
         self.assertIn('decisionId="invoice_risk" resultVariable="riskOutcome"', c8_model)
-        self.assertIn("mockDmnDecision(", c8_test)
-        self.assertIn('"invoice_risk", Map.of', c8_test)
+        self.assertNotIn("mockDmnDecision(", c8_test)
         self.assertIn(result_map, c8_test)
+        self.assertIn(
+            "MockExpressionManager",
+            (FIXTURE / "c7-source/src/test/resources/camunda.cfg.xml").read_text(
+                encoding="utf-8"
+            ),
+        )
+        dmn_test = c7_test.split("public void preservesBusinessRuleResultShape()", 1)[1].split(
+            "\n  private InvoiceService", 1
+        )[0]
+        self.assertNotIn("Mocks.register(", dmn_test)
+        self.assertNotIn("registerTaskListenerMock(", dmn_test)
 
     def test_mock_modifier_is_derived_and_recorded_from_source(self):
         guidance = (
@@ -169,15 +179,12 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         for signal in (
-            "`org.camunda.bpm.engine.test.mock.Mocks`",
-            "`MockExpressionManager`",
-            "`org.camunda.community.mockito.*`",
-            "`org.camunda.bpm.extension.mockito.*`",
-            "`io.holunda.c7:c7-mockito`",
+            "`Mocks.register(...)`",
+            "`CamundaMockito.registerMockInstance(...)`",
             "`@MockBean`",
             "`@MockitoBean`",
             "C7 `register...Mock` helpers",
-            "`CamundaMockito.registerMockInstance`",
+            "`autoMock(...)`",
         ):
             with self.subTest(signal=signal):
                 self.assertIn(signal, guidance)
@@ -204,6 +211,46 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         )
         self.assertIn("records it in the Test Inventory's `Signals` column.", skill)
         self.assertIn("Users do not add it.", skill)
+
+    def test_mock_modifier_ignores_shared_engine_configuration_and_dependencies(self):
+        guidance = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+        ).read_text(encoding="utf-8")
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_config = (
+            FIXTURE / "c7-source/src/test/resources/camunda.cfg.xml"
+        ).read_text(encoding="utf-8")
+        c7_pom = (FIXTURE / "c7-source/pom.xml").read_text(encoding="utf-8")
+
+        detector = re.search(r"(?m)^\| `mocks` \| (.*?) \|", guidance)
+        self.assertIsNotNone(detector)
+        self.assertIn("MockExpressionManager", c7_config)
+        self.assertIn("c7-mockito", c7_pom)
+        self.assertIn("Mocks.reset()", c7_test)
+        self.assertIn(
+            "Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone",
+            guidance,
+        )
+        self.assertNotIn("MockExpressionManager", detector.group(1))
+        self.assertNotIn("c7-mockito", detector.group(1))
+        self.assertNotIn("Mocks.reset()", detector.group(1))
+        self.assertNotIn("import", detector.group(1))
+
+        dmn_test = c7_test.split("public void preservesBusinessRuleResultShape()", 1)[1].split(
+            "\n  private InvoiceService", 1
+        )[0]
+        for mock_operation in (
+            "Mocks.register(",
+            "registerJavaDelegateMock(",
+            "registerTaskListenerMock(",
+            "autoMock(",
+        ):
+            with self.subTest(mock_operation=mock_operation):
+                self.assertNotIn(mock_operation, dmn_test)
 
     def test_listener_mappings_use_the_listener_job_type(self):
         guidance = (
@@ -266,6 +313,82 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         waiting_assertion = test_source.index("CamundaAssert.assertThat(instance)")
         listener_count = test_source.index("assertThat(notifyStart.getInvocations())")
         self.assertLess(waiting_assertion, listener_count)
+
+    def test_task_listener_verification_preserves_each_invocation_count(self):
+        guidance = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+        ).read_text(encoding="utf-8")
+        c7_test = (
+            FIXTURE
+            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+
+        for mapping in (
+            'verifyTaskListenerMock("name").executed()',
+            'verifyTaskListenerMock("name").executed(times(n))',
+            'verifyTaskListenerMock("name").executedNever()',
+        ):
+            with self.subTest(mapping=mapping):
+                self.assertIn(mapping, guidance)
+        self.assertIn('verifyTaskListenerMock("reviewTaskListener").executed();', c7_test)
+        self.assertIn(
+            'verifyTaskListenerMock("reviewTaskListener").executed(times(2));',
+            c7_test,
+        )
+        self.assertIn(
+            'verifyTaskListenerMock("reviewTaskListener").executedNever();',
+            c7_test,
+        )
+        self.assertIn("AtomicInteger listenerInvocations", c8_test)
+        self.assertIn("assertThat(listenerInvocations.get()).isEqualTo(1)", c8_test)
+        self.assertIn("assertThat(listenerInvocations.get()).isEqualTo(2)", c8_test)
+        c7_twice = (
+            FIXTURE / "c7-source/src/test/resources/task-listener-twice.bpmn"
+        ).read_text(encoding="utf-8")
+        c8_twice = (
+            FIXTURE
+            / "expected-c8/src/main/resources/processes/converted-c8-task-listener-twice.bpmn"
+        ).read_text(encoding="utf-8")
+        c7_never = (
+            FIXTURE / "c7-source/src/test/resources/task-listener-never.bpmn"
+        ).read_text(encoding="utf-8")
+        c8_never = (
+            FIXTURE
+            / "expected-c8/src/main/resources/processes/converted-c8-task-listener-never.bpmn"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(
+            2,
+            len(
+                re.findall(
+                    r'<camunda:taskListener\b[^>]*event="create"[^>]*delegateExpression="\$\{reviewTaskListener\}"',
+                    c7_twice,
+                )
+            ),
+        )
+        self.assertEqual(
+            2,
+            len(
+                re.findall(
+                    r'<zeebe:taskListener\b[^>]*eventType="creating"[^>]*type="review-created-listener"',
+                    c8_twice,
+                )
+            ),
+        )
+        self.assertIn('event="assignment"', c7_never)
+        self.assertIn('delegateExpression="${reviewTaskListener}"', c7_never)
+        self.assertIn('eventType="assigning"', c8_never)
+        self.assertIn('type="review-assigned-listener"', c8_never)
+
+        never_test = c8_test.split(
+            "void preservesNeverExecutedTaskListenerAssertion()", 1
+        )[1].split("\n  private ProcessInstanceEvent start", 1)[0]
+        self.assertIn("CamundaAssert.assertThat(instance).isCompleted()", never_test)
+        self.assertNotIn("completeJobOfUserTaskListener", never_test)
 
     def test_expected_build_removes_c7_mock_libraries_but_keeps_mockito(self):
         pom = (FIXTURE / "expected-c8/pom.xml").read_text(encoding="utf-8")

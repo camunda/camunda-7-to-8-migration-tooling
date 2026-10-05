@@ -154,6 +154,50 @@ public class InvoiceProcessTest {
   }
 
   @Test
+  @Deployment(resources = "task-listener-twice.bpmn")
+  public void registersAndVerifiesTaskListenerMockTwice() {
+    registerTaskListenerMock("reviewTaskListener");
+    ProcessInstance instance =
+        rule.getRuntimeService().startProcessInstanceByKey("task-listener-twice");
+
+    Task firstTask =
+        rule.getTaskService()
+            .createTaskQuery()
+            .processInstanceId(instance.getId())
+            .singleResult();
+    assertNotNull(firstTask);
+    rule.getTaskService().complete(firstTask.getId());
+    Task secondTask =
+        rule.getTaskService()
+            .createTaskQuery()
+            .processInstanceId(instance.getId())
+            .singleResult();
+    assertNotNull(secondTask);
+    rule.getTaskService().complete(secondTask.getId());
+
+    assertInvoiceFinished(instance);
+    verifyTaskListenerMock("reviewTaskListener").executed(times(2));
+  }
+
+  @Test
+  @Deployment(resources = "task-listener-never.bpmn")
+  public void registersAndVerifiesTaskListenerMockNeverExecuted() {
+    registerTaskListenerMock("reviewTaskListener");
+    ProcessInstance instance =
+        rule.getRuntimeService().startProcessInstanceByKey("task-listener-never");
+    Task task =
+        rule.getTaskService()
+            .createTaskQuery()
+            .processInstanceId(instance.getId())
+            .singleResult();
+
+    assertNotNull(task);
+    rule.getTaskService().complete(task.getId());
+    assertInvoiceFinished(instance);
+    verifyTaskListenerMock("reviewTaskListener").executedNever();
+  }
+
+  @Test
   @Deployment(resources = {"decision-output.bpmn", "invoice-risk.dmn"})
   public void preservesBusinessRuleResultShape() {
     ProcessInstance instance =

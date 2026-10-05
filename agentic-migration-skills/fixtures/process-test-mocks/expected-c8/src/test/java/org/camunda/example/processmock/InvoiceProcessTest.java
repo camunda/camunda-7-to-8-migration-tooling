@@ -19,6 +19,7 @@ import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.camunda.process.test.api.assertions.JobSelectors;
 import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.camunda.example.processmock.service.InvoiceService;
 import org.camunda.example.processmock.testapp.TestProcessApplication;
 import org.junit.jupiter.api.Test;
@@ -130,20 +131,47 @@ class InvoiceProcessTest {
 
   @Test
   void usesTheDeclaredUserTaskListenerJobType() {
+    AtomicInteger listenerInvocations = new AtomicInteger();
     ProcessInstanceEvent instance = start("task-listener", Map.of());
 
     processTestContext.completeJobOfUserTaskListener(
-        JobSelectors.byJobType("review-created-listener"), result -> {});
+        JobSelectors.byJobType("review-created-listener"),
+        result -> listenerInvocations.incrementAndGet());
+    processTestContext.completeUserTask("Task_Review");
+
+    CamundaAssert.assertThat(instance).isCompleted();
+    assertThat(listenerInvocations.get()).isEqualTo(1);
+  }
+
+  @Test
+  void verifiesTaskListenerMockInvokedTwice() {
+    AtomicInteger listenerInvocations = new AtomicInteger();
+    ProcessInstanceEvent instance = start("task-listener-twice", Map.of());
+
+    processTestContext.completeJobOfUserTaskListener(
+        JobSelectors.byJobType("review-created-listener"),
+        result -> listenerInvocations.incrementAndGet());
+    processTestContext.completeUserTask("Task_Review_One");
+    processTestContext.completeJobOfUserTaskListener(
+        JobSelectors.byJobType("review-created-listener"),
+        result -> listenerInvocations.incrementAndGet());
+    processTestContext.completeUserTask("Task_Review_Two");
+
+    CamundaAssert.assertThat(instance).isCompleted();
+    assertThat(listenerInvocations.get()).isEqualTo(2);
+  }
+
+  @Test
+  void preservesNeverExecutedTaskListenerAssertion() {
+    ProcessInstanceEvent instance = start("task-listener-never", Map.of());
+
     processTestContext.completeUserTask("Task_Review");
 
     CamundaAssert.assertThat(instance).isCompleted();
   }
 
   @Test
-  void preservesBusinessRuleResultShapeWhenMockingTheDecision() {
-    processTestContext.mockDmnDecision(
-        "invoice_risk", Map.of("approved", true, "discount", "10%"));
-
+  void executesDeployedDecisionAndPreservesResultShape() {
     ProcessInstanceEvent instance = start("decision-output", Map.of("invoiceId", "I-1"));
 
     CamundaAssert.assertThat(instance)

@@ -3,10 +3,10 @@
 This fixture checks that the skill preserves each Camunda 7 mock boundary when it migrates a
 process test to Camunda Process Test (CPT).
 
-`c7-source` uses the Camunda 7 engine, `MockExpressionManager`, and `c7-mockito`. `expected-c8`
-keeps the collaborator mock, mocks the converted job
-types, and uses `mockChildProcess` for the called process. Its Spring test disables every real
-worker whose job type it mocks.
+`c7-source` uses the Camunda 7 engine, `MockExpressionManager`, and `c7-mockito`. Its real-DMN test
+uses the shared engine configuration but calls no mock API. `expected-c8` keeps the collaborator
+mock, mocks the converted job types, executes the converted DMN, and uses `mockChildProcess` for the
+called process. Its Spring test disables every real worker whose job type it mocks.
 
 ## Evaluate the fixture
 
@@ -30,10 +30,10 @@ worker whose job type it mocks.
    mvn -f agentic-migration-skills/fixtures/process-test-mocks/expected-c8/pom.xml test
    ```
 
-The C7 process test evaluates a deployed DMN table that returns a two-field result map.
-The CPT process test mocks the same decision with the same result map.
-The CPT tests also verify the collaborator call, mocked delegate outputs, execution-listener and
-user-task-listener job types, called-process output, BPMN-error route, and active incident.
+The C7 and CPT process tests execute the deployed DMN table and assert the same two-field result
+map. The CPT tests also verify the collaborator call, mocked delegate outputs, execution-listener
+and user-task-listener job types, task-listener invocation counts, called-process output, BPMN-error
+route, and active incident.
 CPT tests need Docker.
 The unit test verifies that the real `notify-invoice` worker returns the delegate's
 `notified=true` output.

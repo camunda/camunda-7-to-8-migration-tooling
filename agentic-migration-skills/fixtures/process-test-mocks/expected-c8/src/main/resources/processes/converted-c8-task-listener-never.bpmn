@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_TaskListenerNever"
+                  targetNamespace="http://camunda.org/examples/process-test-mocks">
+  <bpmn:process id="task-listener-never" name="Task listener never" isExecutable="true">
+    <bpmn:startEvent id="Start_TaskListenerNever">
+      <bpmn:outgoing>Flow_Start_ReviewNever</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_ReviewNever" sourceRef="Start_TaskListenerNever" targetRef="Task_Review" />
+    <bpmn:userTask id="Task_Review" name="Review invoice">
+      <bpmn:extensionElements>
+        <zeebe:taskListeners>
+          <zeebe:taskListener eventType="assigning" type="review-assigned-listener" retries="1" />
+        </zeebe:taskListeners>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_ReviewNever</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReviewNever_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_ReviewNever_End" sourceRef="Task_Review" targetRef="End_TaskListenerNever" />
+    <bpmn:endEvent id="End_TaskListenerNever">
+      <bpmn:incoming>Flow_ReviewNever_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>

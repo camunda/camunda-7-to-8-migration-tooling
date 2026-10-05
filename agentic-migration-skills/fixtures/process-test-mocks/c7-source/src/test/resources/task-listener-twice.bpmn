@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_TaskListenerTwice"
+                  targetNamespace="http://camunda.org/examples/process-test-mocks">
+  <bpmn:process id="task-listener-twice" name="Task listener twice" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_TaskListenerTwice">
+      <bpmn:outgoing>Flow_Start_ReviewOne</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_ReviewOne" sourceRef="Start_TaskListenerTwice" targetRef="Task_Review_One" />
+    <bpmn:userTask id="Task_Review_One" name="Review first invoice">
+      <bpmn:extensionElements>
+        <camunda:taskListener event="create" delegateExpression="${reviewTaskListener}" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_ReviewOne</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReviewOne_ReviewTwo</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_ReviewOne_ReviewTwo" sourceRef="Task_Review_One" targetRef="Task_Review_Two" />
+    <bpmn:userTask id="Task_Review_Two" name="Review second invoice">
+      <bpmn:extensionElements>
+        <camunda:taskListener event="create" delegateExpression="${reviewTaskListener}" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ReviewOne_ReviewTwo</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReviewTwo_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_ReviewTwo_End" sourceRef="Task_Review_Two" targetRef="End_TaskListenerTwice" />
+    <bpmn:endEvent id="End_TaskListenerTwice">
+      <bpmn:incoming>Flow_ReviewTwo_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>
