@@ -21,6 +21,8 @@ public class InvoiceScenarioTest {
 
 ## Camunda 8
 
+This example starts a single `invoice` process instance, so the unscoped selectors are unambiguous. If the test starts multiple instances, scope both the condition and user-task selector to the intended process-instance key.
+
 ```java
 import io.camunda.process.test.api.assertions.UserTaskSelectors;
 

@@ -34,7 +34,7 @@ Camunda 8 handles timers and async jobs differently, but you also have control i
 
 Deploy the converted model before starting an instance. See the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md) for Camunda 8.8 and 8.9 setup.
 
-You can [manipulate the clock](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#manipulate-the-clock) to trigger a BPMN timer event that would be due in the future.
+You can [manipulate the clock](https://docs.camunda.io/docs/apis-tools/testing/utilities/#manipulate-the-clock) to trigger a BPMN timer event that would be due in the future.
 
 ```java
 @Autowired
@@ -74,7 +74,7 @@ You might not want to execute any JobWorkers automatically, then you can disable
 	    })
 ```
 
-And execute jobs manually in your test, probably using the [complete job](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#complete-jobs) utility method to simulate the behavior of a job worker without invoking the actual worker. The command waits for the first job with the given job type and completes it. If no job exists, the command fails.
+And execute jobs manually in your test, probably using the [complete job](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-jobs) utility method to simulate the behavior of a job worker without invoking the actual worker. The command waits for the first job with the given job type and completes it. If no job exists, the command fails.
 
 
 ```java
@@ -89,7 +89,7 @@ void testTimerTriggered() {
 }
 ```
 
-Alternatively you could also [mock workers](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#mock-job-workers) which allows you to specify the behavior of the worker for the test case at hand, for example to verify it is executed, to simulate specific result data, or to throw an exception.
+Alternatively you could also [mock workers](https://docs.camunda.io/docs/apis-tools/testing/utilities/#mock-job-workers) which allows you to specify the behavior of the worker for the test case at hand, for example to verify it is executed, to simulate specific result data, or to throw an exception.
 
 ```java
 processTestContext.mockJobWorker("serviceTask1").thenComplete(variables);
