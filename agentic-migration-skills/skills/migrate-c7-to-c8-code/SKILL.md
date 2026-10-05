@@ -239,6 +239,13 @@ Engine REST call, inventory its HTTP topology. Follow
 port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
 consumer actions. Where the management server uses a separate bind address or port, record both.
 
+#### Test Inventory
+
+Record each test's models in the Model Inventory before Step 3.
+When the Test Inventory includes a test with handling **Migrate**, ask Question 8 in a separate
+prompt when its conditions in `references/interview-questions.md` apply. Wait for the user's answer
+before Step 3.
+
 #### Model Inventory
 
 Glob for the model files. Record each one in a table with the columns File, Type, Uses `camunda:` ns,
@@ -286,6 +293,7 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 #### Summary
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
+Present test counts by test kind and list every test with handling **Report only**, with its reason.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
@@ -428,6 +436,8 @@ When `test_run_mode` is `run` and the Test Inventory has a test marked `Migrate`
    after a failure. Classify infrastructure failures separately from application failures. A
    successful compile alone does not prove that behavior works. A failed or blocked suite prevents
    readiness.
+   When the user selects **Migrate tests only**, follow `references/test-migration.md` to compile
+   test sources without running tests and record every skipped test check as blocked.
 10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
@@ -661,6 +671,8 @@ remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the 
 converted models, and the findings that still need follow-up. Run the evidence validator and use its
 generated gate block as the validation-readiness summary in `MIGRATION_REPORT.md`. Record project
 documentation, CI readiness, and the project-readiness verdict separately.
+State test verification as `verified`, `not verified (Migrate tests only)`, or `blocked` with its
+reason.
 
 ### Step 5: AI Follow-up (offer after validation)
 

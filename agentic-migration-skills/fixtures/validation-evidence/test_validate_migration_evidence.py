@@ -133,12 +133,14 @@ class ValidationEvidenceTest(unittest.TestCase):
         }
         self.write_scope()
 
-    def write_scope(self, timer=False, extra=""):
+    def write_scope(self, timer=False, extra="", test_run_mode=None):
         inventory = {
             "schema_version": 1,
             "modules": [module["path"] for module in self.plan["modules"]],
             "models": [model["source_path"] for model in self.plan["models"]],
         }
+        if test_run_mode is not None:
+            inventory["test_run_mode"] = test_run_mode
         write_json(self.root / gate.INVENTORY, inventory)
         write_json(self.root / gate.EVIDENCE, self.plan)
         for module in self.plan["modules"]:
@@ -925,6 +927,69 @@ class ValidationEvidenceTest(unittest.TestCase):
             gate.requirements(self.root, self.plan), checks, mapping
         )
         self.assertTrue(any("lost C7-covered elements: TaskA" in issue for issue in issues), issues)
+
+    def test_migrate_only_refuses_test_commands_and_requires_exact_block_reason(self):
+        self.write_scope(test_run_mode="migrate_only")
+        test_keys = (
+            ("module", "app", "tests", "unit"),
+            ("process", "models/converted-c8-process.bpmn#p", "process_path", "normal"),
+        )
+        for key in test_keys:
+            with self.subTest(key=key):
+                with patch.object(gate.subprocess, "run") as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "Migrate tests only"):
+                        self.submit(key, command=[sys.executable, "-c", "print('must not run')"])
+                    command.assert_not_called()
+                with self.assertRaisesRegex(gate.EvidenceError, "exact Question 8 reason"):
+                    self.submit(key, action="block", reason="tests deferred")
+                self.assertEqual(
+                    1,
+                    self.submit(
+                        key,
+                        action="block",
+                        reason="declined by user (Question 8)",
+                    ),
+                )
+
+        self.assertEqual(1, self.audit())
+        summary = self.summary()
+        self.assertEqual("NOT READY", summary["gate"])
+        for key in test_keys:
+            check = next(
+                check for check in summary["checks"]
+                if (check["type"], check["target"], check["kind"], check["scenario"]) == key
+            )
+            self.assertEqual("blocked", check["result"])
+            self.assertEqual("declined by user (Question 8)", check["reason"])
+
+    def test_migrate_only_gate_rejects_previously_passed_test_checks(self):
+        self.complete_required_checks()
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "migrate_only"
+        write_json(self.root / gate.INVENTORY, inventory)
+
+        self.assertEqual(1, self.audit())
+        issues = self.summary()["issues"]
+        self.assertTrue(
+            any("must be blocked with reason" in issue for issue in issues),
+            issues,
+        )
+
+    def test_unknown_test_run_mode_is_rejected(self):
+        for mode in ("skip", None, [], {}):
+            with self.subTest(mode=mode):
+                inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+                inventory["test_run_mode"] = mode
+                write_json(self.root / gate.INVENTORY, inventory)
+
+                self.assertEqual(1, self.audit())
+                self.assertTrue(
+                    any(
+                        "test_run_mode must be 'run' or 'migrate_only'" in issue
+                        for issue in self.summary()["issues"]
+                    )
+                )
+                self.write_scope()
 
     def test_previous_run_checks_cannot_validate_new_run(self):
         self.write_scope(timer=True)

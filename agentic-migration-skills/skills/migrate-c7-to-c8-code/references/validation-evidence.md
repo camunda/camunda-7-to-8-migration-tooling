@@ -17,6 +17,11 @@ When the user approves a full migration, save the in-scope Step 2 paths in
 {"schema_version":1,"modules":["examples/web"],"models":["models/order.bpmn"]}
 ```
 
+When Question 8 applies, also record `"test_run_mode": "run"` or
+`"test_run_mode": "migrate_only"` in this inventory. The validation script uses `migrate_only` to
+reject test execution and require every `tests` and `process_path` check to be blocked with the
+Question 8 reason. Omit the field when Question 8 does not apply.
+
 Where E1 fetches a model, add its original path after retrieval and before conversion.
 Then start a new validation run before recording checks:
 
@@ -119,7 +124,8 @@ evidence pass. A failed command or invalid timer observation returns 1 and saves
 Continue with other modules, models, and suites.
 Run recorder invocations sequentially. The default command timeout is five minutes. Use
 `--timeout <seconds>` for checks that need a different limit.
-Never use a command that skips tests, checks only plugin help, or asserts only that a test file exists.
+Never use a command that skips tests for a test check, checks only plugin help, or asserts only that
+a test file exists.
 Use a bounded test that starts the application or packaged JAR. The test must assert startup before
 it stops the process.
 
@@ -172,6 +178,21 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 The validator compares each C7-covered element ID that remains in the converted copy with both CPT
 coverage reports. When no C7 coverage report exists, the validator records `No Camunda 7 coverage
 baseline` and includes the CPT coverage in `MIGRATION_REPORT.md`.
+
+When the user selects **Migrate tests only**, block every module test suite and Step 4 process
+scenario with the exact reason `declined by user (Question 8)`:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind tests --scenario unit --reason "declined by user (Question 8)"
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type process --target models/converted-c8-order.bpmn#order-process --kind process_path --scenario normal --reason "declined by user (Question 8)"
+```
+
+The validation script refuses to run these checks in `migrate_only` mode. It rejects a passing,
+missing, or differently blocked test check.
+
+When Question 8 selects **Migrate tests only** and a non-test check needs Maven packaging, use
+`-DskipTests`. For Gradle, use `-x test`. Record the reason as `declined by user (Question 8)`.
+This is the only exception to the rule against commands that skip tests.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 

@@ -60,6 +60,9 @@ DEFAULT_C7_COVERAGE_REPORTS = (
     "target/process_test_coverage/**/*.json",
 )
 DEFAULT_CPT_COVERAGE_REPORTS = ("target/process-test-coverage/report.json",)
+TEST_EXECUTION_KINDS = {"tests", "process_path"}
+TEST_RUN_MODES = {"run", "migrate_only"}
+QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 
 
 @dataclass
@@ -144,6 +147,15 @@ def strings(values, label):
     ):
         raise EvidenceError(f"{label} must contain distinct, non-empty strings")
     return values
+
+
+def read_test_run_mode(inventory):
+    if "test_run_mode" not in inventory:
+        return None
+    mode = inventory["test_run_mode"]
+    if not isinstance(mode, str) or mode not in TEST_RUN_MODES:
+        raise EvidenceError("Step 2 test_run_mode must be 'run' or 'migrate_only'")
+    return mode
 
 
 def concrete_reference(value):
@@ -244,6 +256,7 @@ def initialize(root, reset_source_snapshot=False):
     inventory = read_json(root / INVENTORY)
     if inventory.get("schema_version") != 1:
         raise EvidenceError("Unsupported Step 2 inventory version")
+    read_test_run_mode(inventory)
     modules = strings(inventory.get("modules"), "Step 2 modules")
     models = strings(inventory.get("models"), "Step 2 models")
     if not (modules or models):
@@ -336,6 +349,7 @@ def scope(root, evidence):
     inventory = read_json(root / INVENTORY)
     if inventory.get("schema_version") != 1 or evidence.get("schema_version") != 1:
         raise EvidenceError("Unsupported inventory or evidence version")
+    read_test_run_mode(inventory)
     if not isinstance(inventory.get("run_id"), str) or not inventory["run_id"]:
         raise EvidenceError("Initialize a migration validation run before recording checks")
     modules = evidence.get("modules")
@@ -3367,6 +3381,29 @@ def load_checks(root, evidence, plan, issues):
     return checks
 
 
+def validate_declined_test_checks(root, plan, checks, issues):
+    if read_test_run_mode(read_json(root / INVENTORY)) != "migrate_only":
+        return
+    test_keys = [key for key in plan.required if key[2] in TEST_EXECUTION_KINDS]
+    if not test_keys:
+        issues.append("Question 8 migrate_only requires at least one test check")
+        return
+    for key in test_keys:
+        entry = checks.get(key)
+        if entry is None:
+            continue
+        check = entry[1]
+        if (
+            check.get("method") != "blocked"
+            or check.get("result") != "blocked"
+            or check.get("reason") != QUESTION_8_DECLINE_REASON
+        ):
+            issues.append(
+                f"{key}: Question 8 migrate_only checks must be blocked with reason "
+                f"{QUESTION_8_DECLINE_REASON!r}"
+            )
+
+
 def report_text(existing, gate, issues):
     lines = existing.splitlines(keepends=True)
     kept = []
@@ -3652,6 +3689,7 @@ def report(root):
         plan = requirements(root, evidence)
         issues.extend(plan.issues)
         checks = load_checks(root, evidence, plan, issues)
+        validate_declined_test_checks(root, plan, checks, issues)
         for key in sorted(plan.required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
             issues.append(f"Missing {key[0]} {key[2]}: {key[1]} {key[3] or ''}".strip())
         for key, (index, check, _) in checks.items():
@@ -3761,6 +3799,15 @@ def record(root, args):
     key = (args.type, args.target, args.kind, args.scenario)
     if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
+    if read_test_run_mode(read_json(root / INVENTORY)) == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
+        if args.action == "run":
+            raise EvidenceError(
+                f"{key}: Question 8 selected Migrate tests only; test commands are not allowed"
+            )
+        if args.action == "block" and args.reason.strip() != QUESTION_8_DECLINE_REASON:
+            raise EvidenceError(
+                f"{key}: use the exact Question 8 reason {QUESTION_8_DECLINE_REASON!r}"
+            )
     method = plan.required.get(key, "command")
     if args.action == "review" and method != "review":
         raise EvidenceError(f"{key} requires an executable command")

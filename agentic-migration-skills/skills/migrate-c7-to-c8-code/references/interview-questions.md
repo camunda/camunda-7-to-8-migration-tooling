@@ -19,6 +19,9 @@ This shapes the scope question. The confirmed scan after Q1 gates whether to off
 Ask Question 7 in a separate prompt after Step 2 identifies an HTTP topology. Do not add it to
 Prompt 3 because that prompt can already contain four questions.
 
+Ask Question 8 in a separate prompt after the Step 2 Test Inventory. Do not add it to an earlier
+prompt.
+
 ---
 
 ## Question 1 - Project Location
@@ -122,3 +125,37 @@ For every application endpoint or Engine REST call, ask the user to select a tar
 
 Do not offer a proxy or recreation of the C7 `/engine-rest` API. See
 `http-topology-migration.md` for the inventory, decision record, and validation.
+
+## Question 8 - Test Execution
+
+Ask only when every condition in the first row below applies:
+
+| Scope | Code approach | Target | Test Inventory | Ask Question 8 |
+|---|---|---|---|---|
+| Code only or Code + models | A or B | 8.9 or later | At least one test has handling **Migrate** | Yes |
+| Assessment only or Models only | Any | Any | Any | No |
+| Any | C | Any | Any | No |
+| Any | A or B | 8.8 | Any | No |
+| Any | A or B | 8.9 or later | No test has handling **Migrate** | No |
+
+Show this context before the options:
+
+- The number of tests to migrate, grouped by test kind.
+- Every test with handling **Report only**, with its reason.
+- The test commands found for each module in project documentation and the CI inventory.
+- That CPT starts the Camunda 8 runtime in Docker through Testcontainers by default.
+- Whether `docker info` succeeds and that a remote CPT runtime is an alternative.
+
+Ask:
+
+> How should the skill handle test execution for this migration?
+
+Options:
+
+- **Run tests (recommended, default)** — Run the Camunda 7 tests before Step 3 changes any file
+  and record the baseline. Migrate the tests, run the CPT tests, and apply the test safeguards.
+- **Migrate tests only** — Migrate the tests and compile them. Do not run any test suite.
+  `MIGRATION_REPORT.md` will mark test verification as not verified and give a verification plan.
+
+Require the user to select an option explicitly. A recommendation or preselected default is not an
+answer.
