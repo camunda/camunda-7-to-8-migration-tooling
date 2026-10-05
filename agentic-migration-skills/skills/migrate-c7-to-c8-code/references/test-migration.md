@@ -506,14 +506,24 @@ The skill uses a CPT conditional behavior for each user-task, message, signal, e
 conditional-event stub. Each condition waits for the corresponding process state. The action
 resolves that state so CPT can detect it again.
 
+The skill scopes the condition and action to the same process instance key from the Scenario start
+result.
+
 The skill uses sequential CPT calls when the process path is linear. (MAY) The skill uses
 `mockJobWorker(type)` for external-task stubs. The skill advances time explicitly for timer stubs.
 
 ```java
+long processInstanceKey = processInstance.getProcessInstanceKey();
 processTestContext
-    .when(() -> assertThatProcessInstance(byProcessId(processId)).hasActiveElements("Review"))
+    .when(
+        () ->
+            assertThatProcessInstance(byKey(processInstanceKey))
+                .hasActiveElements("Review"))
     .as("Review")
-    .then(() -> processTestContext.completeUserTask("Review", variables));
+    .then(
+        () ->
+            processTestContext.completeUserTask(
+                byElementId("Review", processInstanceKey), variables));
 ```
 
 The skill preserves every existing stub. The skill does not add behavior for an unstubbed wait
@@ -530,7 +540,7 @@ parity-ledger entry.
 | `@Mock ProcessScenario process` and its Scenario stubs | Remove the mock and Scenario runner setup. Convert each existing Scenario stub with the matching CPT behavior below. | Map each verification to the CPT assertion rows below. |
 | `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove only when no retained Mockito annotations require it | Keep initialization and cleanup for `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields that rely on it. |
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
-| `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask("X", variables))` | The action completes the task tested by the condition. |
+| `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byKey(processInstanceKey)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask(byElementId("X", processInstanceKey), variables))` | The action completes the task tested by the condition. |
 | `thenReturn(a, b)` for repeated actions on a conditional behavior | Chain `.then(a).then(b)` on the corresponding CPT conditional behavior. | CPT repeats the last action after earlier actions run. The skill does not apply this chain to worker mocks. |
 | `task.handleBpmnError(...)` or `task.handleEscalation(...)` on a user task | Record `manual` in the parity ledger with the unsupported operation as the reason | CPT has no direct user-task BPMN error or escalation action. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtBusinessRuleTask`, `waitsAtMessageIntermediateThrowEvent`, or `waitsAtMessageEndEvent` completing an external task | `processTestContext.mockJobWorker(type).thenComplete(variables)` | Read `type` from the converted copy. |

@@ -1410,6 +1410,35 @@ class MigrationGuidanceTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('.hasCompletedElement("MixedWork", 2)', migrated)
 
+    def test_scenario_user_task_wait_and_completion_share_instance_key(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        wait_state_behavior = reference.split("### Wait-state behavior", 1)[1].split(
+            "### Scenario-to-CPT mapping", 1
+        )[0]
+        self.assertIn("processInstance.getProcessInstanceKey()", wait_state_behavior)
+        self.assertIn("byKey(processInstanceKey)", wait_state_behavior)
+        self.assertIn('byElementId("Review", processInstanceKey)', wait_state_behavior)
+        self.assertNotIn("byProcessId(processId)", wait_state_behavior)
+        self.assertNotIn('completeUserTask("Review", variables)', wait_state_behavior)
+
+        mappings = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        user_task_mappings = [
+            row
+            for row in mappings
+            if 'waitsAtUserTask("X")' in row["Camunda Platform Scenario"]
+        ]
+        self.assertEqual(1, len(user_task_mappings))
+        conversion = user_task_mappings[0]["Camunda Process Test 8.9 or later"]
+        self.assertIn("byKey(processInstanceKey)", conversion)
+        self.assertIn('byElementId("X", processInstanceKey)', conversion)
+
     def test_scenario_gate_accepts_inventory_handling(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
