@@ -142,6 +142,8 @@ public class ApplicationTest {
       .variables(variables) //
       .send().join();
 
+    assertThat(processInstance).hasActiveElements("Event_SmallerThan5");
+
     // increase time so that the timer event is triggered and the process moves on
     processTestContext.increaseTime(Duration.ofMinutes(6));
     

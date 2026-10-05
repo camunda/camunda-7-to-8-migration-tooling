@@ -47,6 +47,8 @@ void testTimerTriggered() {
     .latestVersion()
     .send().join();
 
+  assertThat(instance).hasActiveElements("TimerEvent");
+
   processTestContext.increaseTime(Duration.ofDays(2)); // for a 2 days timer
 
   assertThat(instance)
