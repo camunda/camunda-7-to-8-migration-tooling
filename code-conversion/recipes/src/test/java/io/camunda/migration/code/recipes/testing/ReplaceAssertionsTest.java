@@ -477,6 +477,16 @@ class OrderTaskTest {
     }
 
     @Test
+    void standaloneVariablesValueIsMarkedForManualMigration() {
+        rewrite(
+                processAssertionsSource(
+                        "var variables = assertThat(processInstance).variables();"),
+                migratedProcessAssertionsSource(
+                        "// TODO: CPT has no assertion on the variable map. Use hasVariable, hasVariableNames, hasVariables(Map), or hasVariableSatisfies.\n"
+                                + "        var variables = assertThat(processInstance).variables();"));
+    }
+
+    @Test
     void hasVariablesWithNamesStillMapsToHasVariableNames() {
         rewrite(
                 processAssertionsSource(

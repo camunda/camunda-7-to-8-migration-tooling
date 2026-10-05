@@ -184,7 +184,8 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                   if (containsUnsupportedHasVariables(visited)) {
                     return addCommentIfMissing(visited, HAS_VARIABLES_TODO);
                   }
-                  if (containsUnsupportedVariableMapAssertion(visited)) {
+                  if (VARIABLES_METHOD.matches(visited)
+                      || containsUnsupportedVariableMapAssertion(visited)) {
                     return addCommentIfMissing(visited, VARIABLE_MAP_TODO);
                   }
                 }
