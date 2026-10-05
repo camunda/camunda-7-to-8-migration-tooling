@@ -6,12 +6,12 @@
  * except in compliance with the Camunda License 1.0.
  */
 
+import { cpSync } from "node:fs";
 import babel from "@rollup/plugin-babel";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import replace from "@rollup/plugin-replace";
 import scss from "rollup-plugin-scss";
-import copy from "rollup-plugin-copy";
 
 export default {
   input: "src/plugin.js",
@@ -36,16 +36,13 @@ export default {
       failOnError: true,
       fileName: 'plugin.css',
     }),
-    copy({
-      targets: [
-        {
-          src: 'dist/*',
-          dest: '../target/classes/plugin-webapp/migrator-plugin/app'
-        }
-      ],
-      hook: 'writeBundle',
-      copyOnce: false,
-      verbose: true
-    })
+    {
+      name: "copy-to-plugin-webapp",
+      writeBundle() {
+        cpSync("dist", "../target/classes/plugin-webapp/migrator-plugin/app", {
+          recursive: true
+        });
+      }
+    }
   ]
 };
