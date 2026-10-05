@@ -2,7 +2,7 @@
  * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
  * one or more contributor license agreements. See the NOTICE file distributed
  * with this work for additional information regarding copyright ownership.
- * Licensed under the Camunda License 1.0 You may not use this file
+ * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
 package org.camunda.example.processmock;
@@ -59,7 +59,7 @@ class InvoiceProcessTest {
   void mapsDelegateVariablesAndInvocationVerification() {
     JobWorkerMock notify =
         processTestContext.mockJobWorker("notify-invoice").thenComplete(Map.of("notified", true));
-    processTestContext.mockJobWorker("notify-start").thenComplete();
+    JobWorkerMock notifyStart = processTestContext.mockJobWorker("notify-start").thenComplete();
     processTestContext.mockChildProcess("archive-invoice", Map.of("archived", true));
 
     ProcessInstanceEvent instance = start("invoice", Map.of("invoiceId", "I-1"));
@@ -69,6 +69,7 @@ class InvoiceProcessTest {
         .hasVariable("notified", true)
         .hasVariable("archived", true);
     assertThat(notify.getInvocations()).isEqualTo(1);
+    assertThat(notifyStart.getInvocations()).isEqualTo(1);
     assertThat(notify.getActivatedJobs()).hasSize(1);
     assertThat(notify.getActivatedJobs().get(0).getVariablesAsMap())
         .containsEntry("invoiceId", "I-1");

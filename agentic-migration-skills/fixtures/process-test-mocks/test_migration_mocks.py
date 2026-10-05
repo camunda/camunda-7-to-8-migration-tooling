@@ -31,6 +31,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             "registerExecutionListenerMock",
             "registerCallActivityMock",
             "verifyJavaDelegateMock",
+            "verifyExecutionListenerMock",
         ):
             with self.subTest(api=api):
                 self.assertIn(api, source)
@@ -63,6 +64,68 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
                     f"camunda.client.worker.override.{job_type}.enabled=false",
                     properties,
                 )
+
+    def test_listener_mappings_use_the_listener_job_type(self):
+        guidance = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+        ).read_text(encoding="utf-8")
+        test_source = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+        models = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (FIXTURE / "expected-c8/src/main/resources/processes").glob("*.bpmn")
+        )
+
+        task_types = set(
+            re.findall(r'<zeebe:taskDefinition\b[^>]*\btype="([^"]+)"', models)
+        )
+        listener_types = set(
+            re.findall(r'<zeebe:executionListener\b[^>]*\btype="([^"]+)"', models)
+        )
+        mocked_types = set(re.findall(r'mockJobWorker\("([^"]+)"\)', test_source))
+
+        self.assertTrue(listener_types)
+        self.assertTrue(listener_types.isdisjoint(task_types))
+        self.assertTrue(listener_types.issubset(mocked_types))
+        self.assertIn('processTestContext.mockJobWorker("notify-start")', test_source)
+        self.assertIn("zeebe:executionListener/@type", guidance)
+        self.assertIn("zeebe:taskDefinition/@type", guidance)
+        self.assertIn("the skill records that mock in `mocks.c7`", guidance.lower())
+        self.assertIn(
+            "the skill leaves `mocks.c8` without a corresponding mock",
+            guidance.lower(),
+        )
+
+    def test_verification_mappings_keep_invocation_counts_and_wait(self):
+        guidance = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+        ).read_text(encoding="utf-8")
+        test_source = (
+            FIXTURE
+            / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
+        ).read_text(encoding="utf-8")
+
+        for mapping in (
+            'verifyJavaDelegateMock("name").executed()',
+            'verifyJavaDelegateMock("name").executed(times(n))',
+            'verifyJavaDelegateMock("name").executedNever()',
+            'verifyExecutionListenerMock("name").executed()',
+            'verifyExecutionListenerMock("name").executed(times(n))',
+            'verifyExecutionListenerMock("name").executedNever()',
+            "assertThat(mock.getInvocations()).isEqualTo(1)",
+            "assertThat(mock.getInvocations()).isEqualTo(n)",
+            "assertThat(mock.getInvocations()).isZero()",
+        ):
+            with self.subTest(mapping=mapping):
+                self.assertIn(mapping, guidance)
+
+        waiting_assertion = test_source.index("CamundaAssert.assertThat(instance)")
+        listener_count = test_source.index("assertThat(notifyStart.getInvocations())")
+        self.assertLess(waiting_assertion, listener_count)
 
     def test_expected_build_removes_c7_mock_libraries_but_keeps_mockito(self):
         pom = (FIXTURE / "expected-c8/pom.xml").read_text(encoding="utf-8")

@@ -788,14 +788,17 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 
 | C7 mock replaced | CPT replacement | Boundary rule |
 |---|---|---|
-| A whole delegate, listener, or expression bean, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition` in the converted copy. |
+| A whole delegate or expression bean, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition/@type` in the converted copy. |
+| A whole execution listener, so no project code ran for that listener | `processTestContext.mockJobWorker(type)` | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
+| A whole task listener, so no project code ran for that listener | `processTestContext.mockJobWorker(type)` | Read `type` from the listener's own declaration in the converted copy. Do not use the attached task's `zeebe:taskDefinition/@type`. |
 | A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
 | A decision that the C7 test mocked through a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and output shape. |
 | No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
 
 Never derive a job type from a C7 bean name. If the converted copy has no matching job type, do not
-invent one. If the converter did not keep a listener, there is no listener job to mock.
+invent one. If the converted copy omits a C7 listener, the skill records that mock in `mocks.c7`.
+The skill leaves `mocks.c8` without a corresponding mock.
 If the real worker cannot run, the skill asks the user before it adds a mock.
 
 ## C7 mock API mapping
@@ -811,11 +814,17 @@ If the real worker cannot run, the skill asks the user before it adds a mock.
 | `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
 | `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | Preserve the BPMN error code and message when the test checks them. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
-| `autoMock("process.bpmn")` | One `mockJobWorker(type)` for each delegated job type in the converted copy | Include listener job types. |
-| `registerExecutionListenerMock("listener")` or `registerTaskListenerMock("listener")` | `mockJobWorker(type)` for the listener type in the converted copy | Omit the mock when the converted copy has no listener job. |
+| `autoMock("process.bpmn")` | One `mockJobWorker(type)` for each task and listener job type in the converted copy | Read task types from `zeebe:taskDefinition/@type` and listener types from their own declarations. |
+| `registerExecutionListenerMock("listener")` | `mockJobWorker(type)` for the listener's job type | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
+| `registerTaskListenerMock("listener")` | `mockJobWorker(type)` when the converted copy retains a listener job | Read `type` from the listener's own declaration. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
 | `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | Use the function overload when outputs depend on parent variables. |
 | A call-activity mock using `onExecutionWaitForMessage`, `onExecutionWaitForTimerWithDuration`, `onExecutionSendMessage`, `onExecutionRunIntoError`, or `onExecutionDo` | No direct counterpart | Deploy the real converted child or ask the user to approve a test-only child model. |
-| `verifyJavaDelegateMock("delegate").executed(times(n))` | `mock.getInvocations()` | Read the count only after a waiting CPT assertion. |
+| `verifyJavaDelegateMock("name").executed()` | `assertThat(mock.getInvocations()).isEqualTo(1)` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyJavaDelegateMock("name").executed(times(n))` | `assertThat(mock.getInvocations()).isEqualTo(n)` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyJavaDelegateMock("name").executedNever()` | `assertThat(mock.getInvocations()).isZero()` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyExecutionListenerMock("name").executed()` | `assertThat(mock.getInvocations()).isEqualTo(1)` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyExecutionListenerMock("name").executed(times(n))` | `assertThat(mock.getInvocations()).isEqualTo(n)` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyExecutionListenerMock("name").executedNever()` | `assertThat(mock.getInvocations()).isZero()` | Read the count only after a waiting CPT assertion on the related element. |
 | `ArgumentCaptor<DelegateExecution>` on a delegate mock | `mock.getActivatedJobs()` and `job.getVariablesAsMap()` | Read the activated job after a waiting CPT assertion. |
 | `Mocks.reset()` or `@After` engine-mock cleanup | Remove the engine-mock cleanup | CPT resets runtime data after each test. |
 
