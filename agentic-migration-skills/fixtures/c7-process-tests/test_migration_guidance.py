@@ -278,12 +278,14 @@ class MigrationGuidanceTest(unittest.TestCase):
             "each cucumber `scenario` as one test",
             "each data row in a cucumber `scenario outline` `examples` table "
             "as a separate test",
-            "does not inventory a cucumber runner class",
-            "step-definition methods as separate tests",
+            "the skill does not inventory these methods, a cucumber runner class, or "
+            "hook methods as separate tests",
             "@given",
             "@when",
             "@then",
-            "cucumber steps that call camunda 7 apis",
+            "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn process "
+            "or dmn decision",
+            "the cucumber classification includes applicable hooks, not only steps",
             "list every test with handling `report only` by test id",
             "when one test matches multiple test kinds",
             "<module path>:<feature path>#<scenario name>@l<line>",
@@ -292,6 +294,119 @@ class MigrationGuidanceTest(unittest.TestCase):
         ):
             with self.subTest(requirement=requirement):
                 self.assertIn(requirement, reference)
+
+    def test_cucumber_hooks_participate_in_scope_confirmation(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        self.assertIn(
+            "the skill reads applicable cucumber hooks.",
+            reference,
+        )
+        self.assertIn(
+            "the skill uses them to check whether scenarios run bpmn processes or "
+            "dmn decisions on a camunda 7 engine.",
+            reference,
+        )
+        scope_confirmation_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| A Cucumber `Scenario`")
+        )
+        self.assertIn(
+            "its step definitions or applicable hooks run a bpmn process or dmn "
+            "decision on a camunda 7 engine",
+            scope_confirmation_row,
+        )
+        for marker in ("| manual migration |", "| 3 |"):
+            row = next(
+                normalized(line)
+                for line in reference_text.splitlines()
+                if line.startswith(marker)
+            )
+            self.assertIn(
+                "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn "
+                "process or dmn decision",
+                row,
+            )
+            self.assertIn(
+                "the cucumber classification includes applicable hooks, not only steps",
+                row,
+            )
+
+    def test_spock_feature_methods_have_method_based_test_ids(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "the skill includes spock feature methods in groovy classes that extend "
+            "`spock.lang.specification`.",
+            reference,
+        )
+        self.assertIn(
+            "the skill includes these methods even when they have no `@test` annotation.",
+            reference,
+        )
+        self.assertIn(
+            "the skill uses this method-based test id for each spock feature method.",
+            reference,
+        )
+
+    def test_fluent_built_processes_are_manual_migration(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        fluent_model_rule = (
+            "runs an engine-backed process from a bpmn model built with the "
+            "camunda 7 fluent model api"
+        )
+        test_kind_row = next(
+            normalized(line)
+            for line in reference.splitlines()
+            if line.startswith("| manual migration |")
+        )
+        precedence_row = next(
+            normalized(line) for line in reference.splitlines() if line.startswith("| 3 |")
+        )
+        self.assertIn(fluent_model_rule, test_kind_row)
+        self.assertIn(fluent_model_rule, precedence_row)
+
+    def test_jvm_language_rules_exclude_no_engine_unit_tests(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        manual_migration_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| manual migration |")
+        )
+        out_of_scope_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| out of scope |")
+        )
+        self.assertIn(
+            "a kotlin or groovy test uses camunda 7 test apis to run an engine-backed "
+            "bpmn process or dmn decision",
+            manual_migration_row,
+        )
+        self.assertIn(
+            "a kotlin or groovy test uses camunda 7 test apis to run an engine-backed "
+            "bpmn process or dmn decision",
+            next(
+                normalized(line)
+                for line in reference_text.splitlines()
+                if line.startswith("| 3 |")
+            ),
+        )
+        self.assertIn(
+            "the skill marks kotlin/groovy tests as `manual migration` only when they "
+            "run an engine-backed bpmn process or dmn decision.",
+            reference,
+        )
+        self.assertIn(
+            "the engine must be camunda 7.",
+            reference,
+        )
+        self.assertIn(
+            "kotlin or groovy tests that use camunda 7 test apis but run no process "
+            "or decision",
+            out_of_scope_row,
+        )
 
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())

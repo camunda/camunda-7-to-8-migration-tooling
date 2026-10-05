@@ -19,9 +19,9 @@ When test methods in one class differ, the skill assigns one test kind to each m
 | decision test | `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService` used by a test | Migrate |
 | scenario test | `org.camunda.bpm.scenario.*` from camunda-platform-scenario | Migrate (lower priority) |
 | remote-engine test | A test calls a running Camunda 7 engine through Engine REST (`/engine-rest`), `org.camunda.bpm.client.*`, or a Camunda 7 Testcontainers image | Migrate (lower priority) |
-| manual migration | BDD frameworks that drive the engine through JGiven (`io.holunda.testing:camunda-bpm-jgiven`) or Cucumber steps that call Camunda 7 APIs. Also includes Arquillian, camunda-bpm-needle (CDI), and Quarkus tests with the Camunda 7 Quarkus extension. It includes Kotlin and Groovy tests that use Camunda 7 test APIs. | Report only |
+| manual migration | JGiven (`io.holunda.testing:camunda-bpm-jgiven`) or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
 | manual redesign | CMMN APIs or models, such as `CmmnAwareTests` or `CaseService`, or engine internals, such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals | Report only |
-| out of scope | Unit tests that run no engine, including delegate, listener, external task worker, or service tests with `DelegateExecutionFake`, `mock(DelegateExecution.class)`, or a Mockito `RuntimeService`. Also include WireMock stubs of Engine REST and plain Java tests. | Not part of test migration |
+| out of scope | Tests that run no engine are out of scope. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision. It also includes delegate, listener, external task worker, and service tests that run no engine. Examples include `DelegateExecutionFake`, `mock(DelegateExecution.class)`, and Mockito `RuntimeService` mocks. WireMock stubs of Engine REST and plain Java tests are also out of scope. | Not part of test migration |
 | out of scope (Camunda 8) | Zeebe Process Test (`io.camunda.zeebe.process.test.*`) or CPT (`io.camunda.process.test.*`) | Not part of test migration |
 
 ## Scope confirmation
@@ -31,10 +31,8 @@ When test methods in one class differ, the skill assigns one test kind to each m
 | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, or a JUnit 3 test method | The method runs a BPMN process or DMN decision on a Camunda 7 engine |
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
-| A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions run a BPMN process or DMN decision on a Camunda 7 engine |
+| A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
-
-When a Kotlin or Groovy test uses Camunda 7 test APIs, record its source language in `Notes`.
 
 When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
 
@@ -42,7 +40,7 @@ When one test matches multiple test kinds, the skill assigns the first matching 
 |---|---|---|
 | 1 | The test uses a Camunda 8 test API | out of scope (Camunda 8) |
 | 2 | The test uses CMMN or engine internals | manual redesign |
-| 3 | The test uses a BDD framework, Arquillian, camunda-bpm-needle, the Camunda 7 Quarkus extension, or Kotlin/Groovy with Camunda 7 test APIs | manual migration |
+| 3 | JGiven or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle, or the Camunda 7 Quarkus extension. The test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | manual migration |
 | 4 | The test uses camunda-platform-scenario | scenario test |
 | 5 | The test calls a running Camunda 7 engine remotely | remote-engine test |
 | 6 | The test directly evaluates a DMN decision | decision test |
@@ -69,15 +67,21 @@ The skill also scans each additional test source set declared by the build, such
 The skill follows each Cucumber runner or build configuration to locate executed `.feature` files in test resources.
 The skill inventories each Cucumber `Scenario` as one test.
 The skill inventories each data row in a Cucumber `Scenario Outline` `Examples` table as a separate test.
-The skill does not inventory a Cucumber runner class or `@Given`, `@When`, or `@Then` step-definition methods as separate tests.
+The skill reads methods annotated with `@Given`, `@When`, or `@Then` as step definitions.
+The skill does not inventory these methods, a Cucumber runner class, or hook methods as separate tests.
 The skill reads the referenced step definitions to confirm whether a scenario runs a BPMN process or DMN decision on a Camunda 7 engine.
+The skill reads applicable Cucumber hooks.
+The skill uses them to check whether scenarios run BPMN processes or DMN decisions on a Camunda 7 engine.
 The skill reads shared test bases, abstract test classes, test configuration classes, and `camunda.cfg.xml` under test resources.
 When a shared base or configuration supplies an engine signal, apply it to each affected test method.
 The skill includes methods annotated with `@Test`, `@ParameterizedTest`, or `@RepeatedTest`.
 The skill also includes JUnit 3 `public void test...()` methods.
+The skill includes Spock feature methods in Groovy classes that extend `spock.lang.Specification`.
+The skill includes these methods even when they have no `@Test` annotation.
 
-If a Kotlin or Groovy test source uses Camunda 7 test APIs, then report it for manual migration.
-Record the source language in the `Notes` cell.
+The skill marks Kotlin/Groovy tests as `manual migration` only when they run an engine-backed BPMN process or DMN decision.
+The engine must be Camunda 7.
+The skill records their source language in the `Notes` cell.
 
 ## Test models
 
@@ -110,6 +114,7 @@ For implicit deployment, the skill tries suffixes in this order:
 ## Test IDs and report
 
 The skill uses `<module path>:<fully qualified class name>#<method>` as the stable Test ID for method-based tests.
+The skill uses this method-based Test ID for each Spock feature method.
 The skill uses `<module path>:<feature path>#<scenario name>@L<line>` as the stable Test ID for a Cucumber `Scenario`.
 The skill resolves the feature path relative to its module.
 The skill uses the `Scenario` line number in its Test ID.
