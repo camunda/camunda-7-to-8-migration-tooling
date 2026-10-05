@@ -244,8 +244,9 @@ consumer actions. Where the management server uses a separate bind address or po
 
 Run the test inventory during every Step 2 assessment, including Assessment only and code approach C.
 Follow `references/test-migration.md`. Scan declared test source sets, shared test support, and test
-methods. Include out-of-scope tests. Link each in-scope test to its deployed models and record its
-modifiers. Do not migrate tests or ask a test-migration question during Step 2.
+cases, including configured Cucumber scenarios. Include out-of-scope tests. Link each in-scope test
+to its deployed models and record its modifiers. Do not migrate tests or ask a test-migration
+question during Step 2.
 
 #### Model Inventory
 

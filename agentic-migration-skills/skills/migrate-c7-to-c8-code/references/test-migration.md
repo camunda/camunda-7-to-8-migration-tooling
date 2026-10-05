@@ -7,9 +7,9 @@ The test must also use a framework or approach that existed for Camunda 7.
 A dependency alone never makes a test in scope.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
-The skill inventories every test method, including tests that are out of scope.
-The skill assigns one test kind to each test method.
-When methods in one class differ, assign the test kind per method.
+The skill inventories every test, including tests that are out of scope.
+The skill assigns one test kind to each test.
+When test methods in one class differ, the skill assigns one test kind to each method.
 
 ## Test kinds
 
@@ -31,22 +31,23 @@ When methods in one class differ, assign the test kind per method.
 | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, or a JUnit 3 test method | The method runs a BPMN process or DMN decision on a Camunda 7 engine |
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
+| A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions run a BPMN process or DMN decision on a Camunda 7 engine |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
 
 When a Kotlin or Groovy test uses Camunda 7 test APIs, record its source language in `Notes`.
 
-When one method matches multiple test kinds, assign the first matching kind in this order:
+When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
 
 | Order | Matching signal | Test kind |
 |---|---|---|
-| 1 | The method uses a Camunda 8 test API | out of scope (Camunda 8) |
-| 2 | The method tests CMMN or engine internals | manual redesign |
-| 3 | The method uses a BDD framework, Arquillian, camunda-bpm-needle, the Camunda 7 Quarkus extension, or Kotlin/Groovy with Camunda 7 test APIs | manual migration |
-| 4 | The method uses camunda-platform-scenario | scenario test |
-| 5 | The method calls a running Camunda 7 engine remotely | remote-engine test |
-| 6 | The method directly evaluates a DMN decision | decision test |
-| 7 | The method runs a BPMN process | process test |
-| 8 | The method runs no engine-backed process or decision | out of scope |
+| 1 | The test uses a Camunda 8 test API | out of scope (Camunda 8) |
+| 2 | The test uses CMMN or engine internals | manual redesign |
+| 3 | The test uses a BDD framework, Arquillian, camunda-bpm-needle, the Camunda 7 Quarkus extension, or Kotlin/Groovy with Camunda 7 test APIs | manual migration |
+| 4 | The test uses camunda-platform-scenario | scenario test |
+| 5 | The test calls a running Camunda 7 engine remotely | remote-engine test |
+| 6 | The test directly evaluates a DMN decision | decision test |
+| 7 | The test runs a BPMN process | process test |
+| 8 | The test runs no engine-backed process or decision | out of scope |
 
 ## Modifiers
 
@@ -65,6 +66,11 @@ Keep modifiers separate from the test kind.
 The skill scans every configured test source directory in each module.
 This includes `src/test/java`, `src/test/kotlin`, and `src/test/groovy` when present.
 The skill also scans each additional test source set declared by the build, such as `src/it/java` or Gradle `integrationTest`.
+The skill follows each Cucumber runner or build configuration to locate executed `.feature` files in test resources.
+The skill inventories each Cucumber `Scenario` as one test.
+The skill inventories each data row in a Cucumber `Scenario Outline` `Examples` table as a separate test.
+The skill does not inventory a Cucumber runner class or `@Given`, `@When`, or `@Then` step-definition methods as separate tests.
+The skill reads the referenced step definitions to confirm whether a scenario runs a BPMN process or DMN decision on a Camunda 7 engine.
 The skill reads shared test bases, abstract test classes, test configuration classes, and `camunda.cfg.xml` under test resources.
 When a shared base or configuration supplies an engine signal, apply it to each affected test method.
 The skill includes methods annotated with `@Test`, `@ParameterizedTest`, or `@RepeatedTest`.
@@ -103,7 +109,12 @@ For implicit deployment, the skill tries suffixes in this order:
 
 ## Test IDs and report
 
-Use `<module path>:<fully qualified class name>#<method>` as the stable Test ID.
+The skill uses `<module path>:<fully qualified class name>#<method>` as the stable Test ID for method-based tests.
+The skill uses `<module path>:<feature path>#<scenario name>@L<line>` as the stable Test ID for a Cucumber `Scenario`.
+The skill resolves the feature path relative to its module.
+The skill uses the `Scenario` line number in its Test ID.
+For each Cucumber `Scenario Outline` data row, the skill uses the outline name and `Examples` row's line number in that format.
+The line number distinguishes scenarios with duplicate names and separate `Examples` rows.
 Resolve the module path relative to the project root.
 Use `.` for the project root module.
 For example, `.:com.example.JobAnnouncementProcessTest#testPublishOnlyOnWeb`.
@@ -135,5 +146,5 @@ Do not migrate tests during Step 2.
 |---|---|---|
 | Migrate | Report only | `test migration needs Camunda 8.9 or later` |
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
-| Report only | Keep `Report only` | Keep the existing reason |
+| Report only | Keep `Report only` | The skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later` |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |

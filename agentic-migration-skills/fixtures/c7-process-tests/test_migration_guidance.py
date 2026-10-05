@@ -16,6 +16,7 @@ TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+SKILL_PATH = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 
 PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;")
 CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)\b")
@@ -136,7 +137,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "duplicate Test ID"):
             self.assert_unique_rows(duplicate_rows, "Test ID", "test inventory")
 
-    def test_camunda_8_8_inventory_changes_only_migrated_handling(self):
+    def test_camunda_8_8_inventory_marks_every_in_scope_test_report_only(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
         inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
@@ -146,18 +147,22 @@ class MigrationGuidanceTest(unittest.TestCase):
         rows_88 = {row["Test ID"]: row for row in inventory_88}
 
         self.assertEqual(set(rows_89), set(rows_88))
+        version_reason = normalized("test migration needs Camunda 8.9 or later")
         for test_id, row in rows_89.items():
             with self.subTest(test_id=test_id):
                 other = rows_88[test_id]
-                if row["Handling"].startswith("Migrate"):
-                    self.assertEqual(other["Handling"], "Report only")
-                    self.assertIn(
-                        normalized("test migration needs Camunda 8.9 or later"),
-                        normalized(other["Notes"]),
-                    )
-                else:
+                if row["Handling"] == "Not part of test migration":
                     self.assertEqual(other["Handling"], row["Handling"])
                     self.assertEqual(other["Notes"], row["Notes"])
+                    continue
+
+                self.assertEqual(other["Handling"], "Report only")
+                self.assertIn(version_reason, normalized(other["Notes"]))
+                if row["Handling"] == "Report only":
+                    self.assertIn(
+                        normalized(row["Notes"].rstrip(".")),
+                        normalized(other["Notes"]),
+                    )
 
     def test_parity_maps_every_migrated_test_to_an_existing_cpt_test(self):
         inventory = markdown_table(
@@ -255,19 +260,44 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(test_kind=test_kind):
                 self.assertIn("| {} |".format(test_kind), reference)
 
-    def test_expected_report_files_exist(self):
-        self.assertTrue(EXPECTED_ASSESSMENT.is_file())
-        self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())
-        self.assertTrue(EXPECTED_PARITY.is_file())
-        self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
-
         for source_directory in (
             "src/test/java",
             "src/test/kotlin",
             "src/test/groovy",
         ):
             with self.subTest(source_directory=source_directory):
-                self.assertIn(f"`{source_directory}`", reference)
+                self.assertIn("`{}`".format(source_directory), reference)
+
+    def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        skill = normalized(SKILL_PATH.read_text(encoding="utf-8"))
+        self.assertIn("test cases, including configured cucumber scenarios", skill)
+        for requirement in (
+            "cucumber runner or build configuration",
+            "`.feature` files",
+            "each cucumber `scenario` as one test",
+            "each data row in a cucumber `scenario outline` `examples` table "
+            "as a separate test",
+            "does not inventory a cucumber runner class",
+            "step-definition methods as separate tests",
+            "@given",
+            "@when",
+            "@then",
+            "cucumber steps that call camunda 7 apis",
+            "list every test with handling `report only` by test id",
+            "when one test matches multiple test kinds",
+            "<module path>:<feature path>#<scenario name>@l<line>",
+            "the skill uses the `scenario` line number in its test id",
+            "uses the outline name and `examples` row's line number in that format",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, reference)
+
+    def test_expected_report_files_exist(self):
+        self.assertTrue(EXPECTED_ASSESSMENT.is_file())
+        self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())
+        self.assertTrue(EXPECTED_PARITY.is_file())
+        self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
 
 
 if __name__ == "__main__":
