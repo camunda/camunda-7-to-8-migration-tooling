@@ -16,8 +16,8 @@ The migrated endpoint preserves the C7 `202 Accepted` response with an empty bod
 
 The test application is in a sibling package outside the production component-scan root. It scans
 only the required controllers, services, and workers. Its `@Deployment` annotation names the
-converted copies. Its `@BeforeEach` method starts the process from the application hook again
-because CPT deletes runtime data after each test.
+converted copies.
+`SpringProcessTest` uses `@BeforeEach` to repeat the startup hook because CPT deletes runtime data after each test.
 
 The `manual-without-bootstrap` case deploys a process that reaches `ManualProcessWorker` and asserts
 its execution. The application has no reusable C8 worker bootstrap, so the expected report marks

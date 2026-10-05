@@ -131,6 +131,10 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "| `@Test` + Camunda 7 test rules | Test code |",
             checklist,
         )
+        self.assertIn(
+            "The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.",
+            skill,
+        )
 
     def test_inventory_reference_defines_kinds_modifiers_models_and_report(self):
         reference = " ".join(REFERENCE.read_text().split())
@@ -244,12 +248,19 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertIn("mocked `RuntimeService`", rows[-1][2])
         self.assertEqual(rows[3][3], "Report only")
         self.assertEqual(rows[4][3], "Report only")
-        for row in rows[5:7]:
-            with self.subTest(row=row[1]):
-                self.assertEqual(
-                    row[3],
-                    "Migrate to CPT only with the `Spring` modifier; otherwise Report only",
-                )
+        self.assertEqual(rows[5][3], "Migrate")
+        self.assertEqual(
+            rows[6][3],
+            "Migrate to CPT only with the `Spring` modifier; otherwise Report only",
+        )
+        self.assertIn(
+            "When the target is Camunda 8.9 or later, the skill migrates every test with test kind `decision test`.",
+            normalized_reference,
+        )
+        self.assertIn(
+            "| Migrate to CPT only with the `Spring` modifier | Report only |",
+            normalized_reference,
+        )
         manual_source = MANUAL_SOURCE_TEST.read_text()
         spring_context = MANUAL_SOURCE_CONTEXT.read_text()
         self.assertIn("runtimeService.startProcessInstanceByKey", manual_source)
@@ -260,7 +271,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         reference = REFERENCE.read_text()
 
         self.assertIn(
-            "The skill applies Spring test migration only to process or decision test rows with the `Spring` modifier and handling `Migrate to CPT`.",
+            "The skill applies Spring test migration only to process test rows with the `Spring` modifier and handling `Migrate to CPT`.",
             reference,
         )
         self.assertIn(
@@ -275,6 +286,18 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "When a Spring test slice calls a Camunda 7 API, the skill includes it.",
             reference,
         )
+
+    def test_fixture_walkthrough_attributes_before_each_to_test_class(self):
+        readme = " ".join((FIXTURE / "README.md").read_text().split())
+        expected_test = EXPECTED_TEST.read_text()
+
+        self.assertIn("void repeatStartupHookForEachTest()", expected_test)
+        self.assertIn("startupProcessStarter.startStartupProcess(camundaClient)", expected_test)
+        self.assertIn(
+            "`SpringProcessTest` uses `@BeforeEach` to repeat the startup hook because CPT deletes runtime data after each test.",
+            readme,
+        )
+        self.assertNotIn("Its `@BeforeEach` method", readme)
 
     def test_non_boot_spring_migration_replaces_junit4_runner_and_annotations(self):
         reference = " ".join(REFERENCE.read_text().split())

@@ -48,13 +48,13 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 | 3 | manual migration | A test drives a C7 engine through BDD or Cucumber layers, Arquillian, `camunda-bpm-needle`, the C7 Quarkus extension, or Kotlin or Groovy tests that use C7 test APIs. | Report only |
 | 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Report only |
 | 5 | remote-engine test | Runs a real C7 engine through Engine REST at `/engine-rest`, `org.camunda.bpm.client.*`, or Testcontainers for C7. | Report only |
-| 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate to CPT only with the `Spring` modifier; otherwise Report only |
+| 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate |
 | 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, or `StandaloneInMemoryTestConfiguration`. It may call a real C7 engine's `RuntimeService` to start a process (for example, `startProcessInstanceByKey(...)`), `TaskService` to complete a task with a non-null `processInstanceId`, or `RuntimeService` to correlate a message. It may call a Spring Boot endpoint that starts a process, completes a process-backed task, or correlates a message on a real C7 engine. | Migrate to CPT only with the `Spring` modifier; otherwise Report only |
 | 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. | Not part of test migration |
 
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
 The skill keeps scenario and remote-engine test rows at Report only until their migration procedures are defined.
-The skill keeps process and decision test rows without the `Spring` modifier at Report only until their engine-test migration procedure is defined.
+The skill keeps process test rows without the `Spring` modifier at Report only until their engine-test migration procedure is defined.
 
 ## Decision-test migration
 
@@ -258,6 +258,7 @@ Do not migrate tests during Step 2.
 |---|---|---|
 | Migrate | Report only | `test migration needs Camunda 8.9 or later` |
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
+| Migrate to CPT only with the `Spring` modifier | Report only | `test migration needs Camunda 8.9 or later` |
 | Report only | Keep `Report only` | For an in-scope test, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. For `manual redesign`, the skill preserves the existing reason. |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |
 
@@ -265,7 +266,7 @@ Do not migrate tests during Step 2.
 
 ## Scope
 
-The skill applies Spring test migration only to process or decision test rows with the `Spring` modifier and handling `Migrate to CPT`.
+The skill applies Spring test migration only to process test rows with the `Spring` modifier and handling `Migrate to CPT`.
 
 | Spring evidence | Test Inventory treatment |
 |---|---|

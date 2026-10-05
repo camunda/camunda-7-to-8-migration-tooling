@@ -363,8 +363,7 @@ For Code + models, see `references/composing-code-and-models.md`.
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
-When the skill migrates a Camunda 7 decision test, follow `references/test-migration.md` for the CPT mapping.
-The skill follows `references/test-migration.md` for Spring process and decision tests.
+The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.
 
 For Approach A, the skill runs this gate for every C7 JavaDelegate before `REWRITE_COMMAND`.
 For Approach B, the skill runs the gate before each C7 JavaDelegate transformation.
