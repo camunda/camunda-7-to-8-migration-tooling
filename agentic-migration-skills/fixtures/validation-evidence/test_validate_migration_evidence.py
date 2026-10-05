@@ -573,6 +573,72 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertTrue(check["reports"])
         self.assertTrue((self.root / check["reports"][0]).is_file())
 
+    def test_passing_unlisted_report_only_test_requires_disposition(self):
+        test_id = "app:com.example.LegacyTest#testLegacy"
+        test = {
+            "id": test_id,
+            "module": "app",
+            "test_kind": "legacy test",
+            "handling": "Report only",
+        }
+        plan = Namespace(
+            test_contract={
+                "tests": [test],
+                "suites": {},
+                "test_suites": {},
+            }
+        )
+        mapping = {
+            "baseline": {
+                "suites": [
+                    {
+                        "module": "app",
+                        "suite": "unit",
+                        "result": "passed",
+                        "test_results": {
+                            test_id: {"result": "passed", "invocations": ["passed"]}
+                        },
+                    }
+                ]
+            },
+            "tests": [
+                {
+                    "c7_id": test_id,
+                    "test_kind": "legacy test",
+                    "handling": "Report only",
+                    "c7_result": None,
+                    "status": "manual",
+                }
+            ],
+        }
+
+        baseline_results = gate.aggregate_baseline_results(
+            plan.test_contract, mapping["baseline"]["suites"]
+        )
+        self.assertEqual("passed", baseline_results[test_id]["c7_result"])
+
+        issues = gate.test_parity_issues(plan, {}, mapping)
+        self.assertIn(f"{test_id}: manual test is not verified", issues)
+
+        mapping["tests"] = []
+        issues = gate.test_parity_issues(plan, {}, mapping)
+        self.assertIn(f"{test_id}: test parity ledger entry is missing", issues)
+
+        mapping["tests"] = [
+            {
+                "c7_id": test_id,
+                "test_kind": "legacy test",
+                "handling": "Report only",
+                "c7_result": "passed",
+                "status": "retired",
+                "retirement": {
+                    "reason": "The behavior is no longer required",
+                    "approved_by": "migration owner",
+                },
+            }
+        ]
+        self.assertEqual([], gate.test_parity_issues(plan, {}, mapping))
+
     def test_parity_checks_require_run_mode_and_a_migrated_test(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'

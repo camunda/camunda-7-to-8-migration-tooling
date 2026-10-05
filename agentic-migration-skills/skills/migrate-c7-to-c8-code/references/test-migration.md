@@ -135,6 +135,8 @@ retains the individual test results.
 The validator copies JUnit reports to `.camunda-migration/validation/baseline/`. It records one
 result for each Test Inventory ID in the suite. It records the Step 2 Git commit when the project
 uses Git. It stores the C7 test results in `test-mapping.json`.
+The validator also records a Report only test found in a fresh C7 report even when the suite omits
+its ID.
 
 Where Camunda 7 process-test-coverage reports exist, the validator copies and parses their JSON
 reports. It records covered flow-node and sequence-flow IDs under each `modelKey`. It maps those IDs

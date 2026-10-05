@@ -1548,8 +1548,9 @@ def test_parity_issues(plan, checks, mapping):
     for inventory_test in contract["tests"]:
         test_id = inventory_test["id"]
         test = rows.get(test_id)
+        expected_result = actual_baseline.get(test_id, {}).get("c7_result")
         if test is None:
-            if inventory_test["handling"] == "Migrate":
+            if inventory_test["handling"] == "Migrate" or expected_result == "passed":
                 issues.append(f"{test_id}: test parity ledger entry is missing")
             continue
         if (
@@ -1557,7 +1558,6 @@ def test_parity_issues(plan, checks, mapping):
             or test.get("handling") != inventory_test["handling"]
         ):
             issues.append(f"{test_id}: ledger kind or handling differs from the Test Inventory")
-        expected_result = actual_baseline.get(test_id, {}).get("c7_result")
         if test.get("c7_result") != expected_result:
             issues.append(f"{test_id}: C7 result differs from the captured baseline reports")
         status = test.get("status")
@@ -2602,6 +2602,14 @@ def aggregate_baseline_results(contract, baseline_suites):
     results = {}
     for test in contract["tests"]:
         memberships = contract["test_suites"].get(test["id"], [])
+        if not memberships and test["handling"] == "Report only":
+            memberships = [
+                suite_key
+                for suite_key, suite in suite_results.items()
+                if suite_key[0] == test["module"]
+                and isinstance(suite.get("test_results"), dict)
+                and test["id"] in suite["test_results"]
+            ]
         if not memberships:
             continue
         suite_statuses = []
