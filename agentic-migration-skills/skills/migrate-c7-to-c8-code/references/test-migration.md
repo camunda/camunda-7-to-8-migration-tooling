@@ -464,12 +464,15 @@ The scenario runner's Cucumber module, logging, and history fast-forward reports
 
 1. The skill reads the converted copy before mapping test behavior. It uses that copy to find element
    IDs, external job types, message names and correlation keys, and timer definitions.
-2. The skill moves JUnit 3 and JUnit 4 scenario tests to JUnit 5.
-3. The skill removes `ProcessScenario` mocks, `MockitoAnnotations.openMocks(this)`, and Scenario
+2. When the test completes a user task, the skill checks that the converted copy declares
+   `<zeebe:userTask />`. Without the marker, Camunda uses a job-worker implementation, so the User
+   Task API has no user-task instance to complete.
+3. The skill moves JUnit 3 and JUnit 4 scenario tests to JUnit 5.
+4. The skill removes `ProcessScenario` mocks, `MockitoAnnotations.openMocks(this)`, and Scenario
    runner setup.
-4. The skill removes each Scenario artifact only when no remaining test uses it.
-5. The skill adds `io.camunda:camunda-process-test-java` in test scope.
-6. The skill keeps Mockito when another remaining test uses it.
+5. The skill removes each Scenario artifact only when no remaining test uses it.
+6. The skill adds `io.camunda:camunda-process-test-java` in test scope.
+7. The skill keeps Mockito when another remaining test uses it.
 
 The Scenario runner completed external tasks itself. The skill uses `mockJobWorker(type)` for those
 tasks.
@@ -479,8 +482,8 @@ keeps the migrated worker real unless the Camunda 7 test mocked that delegate.
 ### Wait-state behavior
 
 The skill uses a CPT conditional behavior for each user-task, message, signal, event-gateway, or
-conditional-event stub. The condition waits for the corresponding process state. The action resolves
-that state and makes the condition false so CPT can detect the state again.
+conditional-event stub. Each condition waits for the corresponding process state. The action
+resolves that state so CPT can detect it again.
 
 The skill may use sequential CPT calls when the process path is linear. The skill uses
 `mockJobWorker(type)` for external-task stubs. The skill advances time explicitly for timer stubs.
@@ -533,7 +536,9 @@ assertion fails after its timeout.
 The Scenario runner moves the clock to each due timer, one timer at a time. CPT's
 `increaseTime(duration)` moves the clock once for the full duration. The skill preserves the
 intermediate timer effects by increasing time in steps no longer than the shortest timer period on
-the active path. After every step, the skill asserts the expected timer effect.
+the active path. For a boundary timer, the skill asserts that the attached activity is active.
+For a timer catch event, the skill asserts that the timer event is active. After every step, the
+skill asserts the expected timer effect.
 
 The skill runs a deferred action when the total time increase reaches its `defer(period, action)`
 period. It does not run the action before that period.
