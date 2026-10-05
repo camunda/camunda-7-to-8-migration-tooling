@@ -2,7 +2,7 @@
 
 `BpmnAwareTests` and `ProcessEngineTests` are the two Camunda 7 assertion entry points. `ProcessEngineTests` extends `CmmnAwareTests`, which extends `BpmnAwareTests`. Both map to `io.camunda.process.test.api.CamundaAssert`. The CPT assertions below are available from Camunda 8.8.
 
-Most CPT assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set another timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, the `camunda.process-test.assertion.timeout` property.
+Most CPT assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set another timeout with `CamundaAssert.setAssertionTimeout(...)`. For plain CPT, set `assertion.timeout` in `camunda-container-runtime.properties` on the test classpath; in Spring, set the `camunda.process-test.assertion.timeout` property.
 
 Deploy the converted model before starting an instance. See the [test deployment pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md) for Camunda 8.8 and 8.9 setup.
 

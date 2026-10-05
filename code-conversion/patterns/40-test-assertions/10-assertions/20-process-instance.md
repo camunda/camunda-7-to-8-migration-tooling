@@ -1,6 +1,6 @@
 # Process Instance Assertions
 
-Camunda Process Test (CPT) supports these assertions from Camunda 8.8. Most assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set a different timeout with `CamundaAssert.setAssertionTimeout(...)` or, in Spring, `camunda.process-test.assertion.timeout`.
+Camunda Process Test (CPT) supports these assertions from Camunda 8.8. Most assertions wait for the expected state for up to 10 seconds by default. `hasNotActivatedElements(...)` is an exception: it evaluates immediately and does not wait. Use it only after a waiting assertion has established the process state where the absence is meaningful. Set a different timeout with `CamundaAssert.setAssertionTimeout(...)`. For plain CPT, set `assertion.timeout` in `camunda-container-runtime.properties` on the test classpath; in Spring, set `camunda.process-test.assertion.timeout`.
 
 ## Camunda 7
 
