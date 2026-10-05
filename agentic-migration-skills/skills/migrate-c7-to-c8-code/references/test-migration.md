@@ -241,6 +241,8 @@ Use these ledger statuses:
 When a `Report only` test passed in the C7 baseline, its `manual` status does not satisfy parity.
 Migrate it or record an approved retirement before claiming `READY`.
 
+When a ledger edit changes a test check's digest, the validator ignores that stale record. Record each still-required check again.
+
 For a retired test, set `retirement.reason` and `retirement.approved_by`. The validator rejects a
 retired test without both values.
 

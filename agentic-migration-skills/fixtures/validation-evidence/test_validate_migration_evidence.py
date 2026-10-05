@@ -881,6 +881,109 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
 
+    def test_retiring_migrated_test_replaces_stale_test_evidence(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        class_target = "app:com.example.OrderTest"
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(
+                    first_coverage='{"processCoverages":[]}',
+                    second_coverage='{"processCoverages":[]}',
+                ),
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", class_target, "assertion_strength", None),
+                action="review",
+                note=f"Reviewed assertions for {class_target}.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_parity", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "coverage_parity", None), command=[]),
+        )
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        test.pop("mocks", None)
+        test.update(
+            status="retired",
+            c8_ids=[],
+            retirement={
+                "reason": "The behavior is no longer required.",
+                "approved_by": "operator",
+            },
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        stale_issues = []
+        stale_checks = gate.load_checks(
+            self.root, evidence, gate.requirements(self.root, evidence), stale_issues
+        )
+        self.assertEqual([], stale_issues)
+        self.assertNotIn(
+            ("test", class_target, "assertion_strength", None), stale_checks
+        )
+        self.assertNotIn(
+            ("test", self.c7_test_id, "mock_boundary", None), stale_checks
+        )
+
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(
+                    first_coverage='{"processCoverages":[]}',
+                    second_coverage='{"processCoverages":[]}',
+                ),
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_parity", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "coverage_parity", None), command=[]),
+        )
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        issues = []
+        checks = gate.load_checks(self.root, evidence, plan, issues)
+        self.assertEqual([], issues)
+        self.assertNotIn(("test", class_target, "assertion_strength", None), checks)
+        self.assertNotIn(("test", self.c7_test_id, "mock_boundary", None), checks)
+        self.assertEqual(
+            "passed",
+            checks[("module", "app", "test_repeat", "unit")][1]["result"],
+        )
+
     def test_test_freeze_requires_approval_for_changed_files(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'

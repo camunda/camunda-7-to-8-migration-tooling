@@ -3301,13 +3301,47 @@ def load_checks(root, evidence, plan, issues):
                 key[3] is not None and (not isinstance(key[3], str) or not key[3])
             ):
                 raise EvidenceError(f"Malformed check in {reference}")
-            if key not in plan.allowed or key in checks:
-                raise EvidenceError(f"Unexpected or duplicate check: {key}")
             if check.get("run_id") != run_id and not (
                 key[2] == "c7_baseline"
                 and check.get("source_digest") == inventory.get("source_snapshot_sha256")
             ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
+            if mapping is not None and key[2] in (
+                "test_freeze",
+                "test_repeat",
+                "test_parity",
+                "coverage_parity",
+                "assertion_strength",
+                "mock_boundary",
+            ):
+                digest_kind = (
+                    "freeze"
+                    if key[2] == "test_freeze"
+                    else "review"
+                    if key[2] in ("assertion_strength", "mock_boundary")
+                    else "all"
+                )
+                expected_mapping_digest = test_mapping_digest(mapping, digest_kind)
+                recorded_mapping_digest = check.get("test_mapping_digest")
+                if recorded_mapping_digest != expected_mapping_digest:
+                    if (
+                        isinstance(recorded_mapping_digest, str)
+                        and re.fullmatch(r"[0-9a-f]{64}", recorded_mapping_digest)
+                        and (
+                            key in plan.allowed
+                            or obsolete_test_check_key(key, plan, mapping)
+                        )
+                    ):
+                        continue
+                    if (
+                        not isinstance(recorded_mapping_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", recorded_mapping_digest) is None
+                    ):
+                        raise EvidenceError(
+                            f"{key}: test parity ledger changed after this check"
+                        )
+            if key not in plan.allowed or key in checks:
+                raise EvidenceError(f"Unexpected or duplicate check: {key}")
             method = check.get("method")
             result = check.get("result")
             command = check.get("command")
@@ -3386,23 +3420,6 @@ def load_checks(root, evidence, plan, issues):
             if needs_safe_environment(key) and result == "passed":
                 if check.get("environment") not in SAFE_ENVIRONMENTS:
                     raise EvidenceError(f"{key}: production or unknown runtime target")
-            if mapping is not None and key[2] in (
-                "test_freeze",
-                "test_repeat",
-                "test_parity",
-                "coverage_parity",
-                "assertion_strength",
-                "mock_boundary",
-            ):
-                digest_kind = (
-                    "freeze"
-                    if key[2] == "test_freeze"
-                    else "review"
-                    if key[2] in ("assertion_strength", "mock_boundary")
-                    else "all"
-                )
-                if check.get("test_mapping_digest") != test_mapping_digest(mapping, digest_kind):
-                    raise EvidenceError(f"{key}: test parity ledger changed after this check")
             if check.get("source_digest") == plan.source_digest:
                 validate_risk_check(plan, key, check)
             checks[key] = (index, check, reference)
@@ -3473,6 +3490,38 @@ def report_text(existing, gate, issues):
             kept.append(f"- {len(issues) - 20} more in the evidence summary.\n")
     kept.append("<!-- migration-validation-gate:end -->\n")
     return "".join(kept), unmarked
+
+
+def obsolete_test_check_key(key, plan, mapping):
+    if key[0] != "test" or key[3] is not None:
+        return False
+    rows = test_rows_by_id(mapping)
+    inventory_tests = {
+        test["id"]: test
+        for test in plan.test_contract["tests"]
+        if test["handling"] == "Migrate"
+    }
+    if key[2] == "mock_boundary":
+        inventory_test = inventory_tests.get(key[1])
+        ledger_test = rows.get(key[1])
+        return (
+            inventory_test is not None
+            and ledger_test is not None
+            and ledger_test.get("status") == "retired"
+        )
+    if key[2] == "assertion_strength":
+        inventory_classes = {
+            f"{test['module']}:{test['class_name']}"
+            for test in inventory_tests.values()
+        }
+        if key[1] not in inventory_classes:
+            return False
+        return not any(
+            f"{test['module']}:{test['class_name']}" == key[1]
+            and rows.get(test_id, {}).get("status") == "migrated"
+            for test_id, test in inventory_tests.items()
+        )
+    return False
 
 
 def markdown_cell(value):
