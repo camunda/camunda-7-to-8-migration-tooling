@@ -704,6 +704,20 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.summary()["issues"],
         )
 
+    def test_test_run_mode_validation_uses_one_error_message(self):
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "unsupported"
+        expected = "Step 2 test_run_mode must be 'run' or 'migrate_only'"
+
+        with self.assertRaises(gate.EvidenceError) as error:
+            gate.test_contract(self.root, inventory)
+        self.assertEqual(expected, str(error.exception))
+
+        write_json(self.root / gate.INVENTORY, inventory)
+        with self.assertRaises(gate.EvidenceError) as error:
+            gate.initialize(self.root)
+        self.assertEqual(expected, str(error.exception))
+
     def test_invalid_test_suite_shape_is_reported_without_crashing(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
@@ -836,6 +850,110 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertTrue(
             any(self.c8_test_id in issue for issue in self.summary()["issues"])
         )
+
+    def _exercise_approved_test_continuation(self, baseline_status):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        if baseline_status == "failed":
+            self.c7_command = [
+                sys.executable,
+                "-c",
+                "print('No fresh JUnit report was produced')",
+            ]
+            inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+            inventory["test_suites"][0]["command"] = self.c7_command
+            write_json(self.root / gate.INVENTORY, inventory)
+            with redirect_stdout(StringIO()):
+                self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+
+        baseline_key = ("module", "app", "c7_baseline", "unit")
+        if baseline_status == "blocked":
+            self.assertEqual(
+                1,
+                self.submit(
+                    baseline_key,
+                    action="block",
+                    reason="The database required by the baseline suite is unavailable.",
+                ),
+            )
+        else:
+            self.assertEqual(1, self.record_c7_baseline())
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["baseline"]["continue_without_baseline"] = {
+            "decision": "continue",
+            "reason": "The database required by the baseline suite is unavailable.",
+            "approved_by": "operator",
+        }
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        self.map_test_to_cpt(
+            mocks_c7=['Mocks.register("orderService", mock)'],
+            mocks_c8=["@MockitoBean OrderService"],
+        )
+        self.assertEqual(
+            0,
+            self.submit(("project", ".", "test_freeze", None), command=[]),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(),
+            ),
+        )
+        class_target = "app:com.example.OrderTest"
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", class_target, "assertion_strength", None),
+                action="review",
+                note=f"Reviewed assertions for {class_target}.",
+            ),
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+        self.assertEqual(
+            1,
+            self.submit(("project", ".", "test_parity", None), command=[]),
+        )
+        self.submit(("project", ".", "coverage_parity", None), command=[])
+
+        self.assertEqual(1, self.audit())
+        summary = self.summary()
+        self.assertEqual("NOT READY", summary["gate"])
+        checks = summary["checks"]
+        baseline = next(check for check in checks if check["kind"] == "c7_baseline")
+        self.assertEqual(baseline_status, baseline["result"])
+        self.assertTrue(
+            any(
+                check["kind"] == "test_freeze" and check["result"] == "passed"
+                for check in checks
+            )
+        )
+        self.assertTrue(
+            any(
+                check["kind"] == "test_repeat" and check["result"] == "passed"
+                for check in checks
+            )
+        )
+        self.assertTrue(any(check["kind"] == "coverage_parity" for check in checks))
+        parity = next(check for check in checks if check["kind"] == "test_parity")
+        self.assertEqual("failed", parity["result"])
+        self.assertIn(f"C7 baseline is {baseline_status}", parity["reason"])
+
+    def test_approved_continuation_allows_follow_up_checks_after_blocked_baseline(self):
+        self._exercise_approved_test_continuation("blocked")
+
+    def test_approved_continuation_allows_follow_up_checks_after_failed_baseline(self):
+        self._exercise_approved_test_continuation("failed")
 
     def test_test_parity_rejects_a_cpt_test_shared_by_migrated_c7_tests(self):
         first_c7_id = "app:com.example.OrderTest#testFirst"
@@ -1632,6 +1750,23 @@ class ValidationEvidenceTest(unittest.TestCase):
         checks = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))["checks"]
         stale = [issue for issue in self.summary()["issues"] if "another migration run" in issue]
         self.assertEqual(len(checks), len(stale))
+
+    def test_source_snapshot_digest_matches_canonical_json_digest(self):
+        modules = ["app"]
+        models = ["models/process.bpmn"]
+        files = {"app/pom.xml": "8bff"}
+        test_contract = {"mode": "run", "tests": ["app:OrderTest#testOrder"]}
+        snapshot = {
+            "modules": modules,
+            "models": models,
+            "files": files,
+            "test_contract": test_contract,
+        }
+
+        self.assertEqual(
+            gate.json_digest(snapshot),
+            gate.source_snapshot_digest(modules, models, files, test_contract),
+        )
 
     def test_repeated_init_preserves_source_updates_after_conversion(self):
         self.install_active_timer_decision()

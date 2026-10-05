@@ -231,9 +231,7 @@ def source_snapshot_digest(modules, models, files, test_contract=None):
         "files": files,
         "test_contract": test_contract,
     }
-    return hashlib.sha256(
-        json.dumps(snapshot, sort_keys=True).encode("utf-8")
-    ).hexdigest()
+    return json_digest(snapshot)
 
 
 def git_head(root):
@@ -262,11 +260,6 @@ def initialize(root, reset_source_snapshot=False):
     models = strings(inventory.get("models"), "Step 2 models")
     if not (modules or models):
         raise EvidenceError("A migration run needs at least one module or model")
-    if "test_run_mode" in inventory and inventory["test_run_mode"] not in (
-        "run",
-        "migrate_only",
-    ):
-        raise EvidenceError("Step 2 test_run_mode must be run or migrate_only")
     for path in modules + models:
         project_path(root, path, "Step 2 scope")
     if not reset_source_snapshot and "source_updates" in inventory:
@@ -853,7 +846,8 @@ def report_patterns(value, default, label):
 
 
 def test_contract(root, inventory):
-    if "test_run_mode" not in inventory:
+    mode = read_test_run_mode(inventory)
+    if mode is None:
         return {
             "mode": None,
             "tests": [],
@@ -861,9 +855,6 @@ def test_contract(root, inventory):
             "test_suites": {},
             "modules": inventory.get("modules", []),
         }
-    mode = inventory["test_run_mode"]
-    if mode not in ("run", "migrate_only"):
-        raise EvidenceError("Step 2 test_run_mode must be run or migrate_only")
     if mode != "run":
         return {
             "mode": mode,
