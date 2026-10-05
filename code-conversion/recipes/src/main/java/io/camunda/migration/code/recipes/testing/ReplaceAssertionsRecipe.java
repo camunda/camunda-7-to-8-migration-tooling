@@ -29,6 +29,7 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TextComment;
 import org.openrewrite.java.tree.TypeUtils;
 
@@ -151,6 +152,17 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
             preconditions(),
             new JavaIsoVisitor<ExecutionContext>() {
               @Override
+              public J.VariableDeclarations visitVariableDeclarations(
+                  J.VariableDeclarations declarations, ExecutionContext ctx) {
+                J.VariableDeclarations visited = super.visitVariableDeclarations(declarations, ctx);
+                if (containsStandaloneVariableMapValue(visited)) {
+                  return (J.VariableDeclarations)
+                      addCommentIfMissing((Statement) visited, VARIABLE_MAP_TODO);
+                }
+                return visited;
+              }
+
+              @Override
               public J.MethodInvocation visitMethodInvocation(
                   J.MethodInvocation invocation, ExecutionContext ctx) {
                 if (isOutermostMethodInvocation()
@@ -184,12 +196,26 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
                   if (containsUnsupportedHasVariables(visited)) {
                     return addCommentIfMissing(visited, HAS_VARIABLES_TODO);
                   }
-                  if (VARIABLES_METHOD.matches(visited)
-                      || containsUnsupportedVariableMapAssertion(visited)) {
+                  if (VARIABLES_METHOD.matches(visited)) {
+                    if (!isVariableDeclarationInitializer()) {
+                      return addCommentIfMissing(visited, VARIABLE_MAP_TODO);
+                    }
+                  } else if (containsUnsupportedVariableMapAssertion(visited)) {
                     return addCommentIfMissing(visited, VARIABLE_MAP_TODO);
                   }
                 }
                 return visited;
+              }
+
+              private boolean isVariableDeclarationInitializer() {
+                Cursor current = getCursor();
+                Cursor parent = current.getParentTreeCursor();
+                while (parent.getValue() instanceof J.Parentheses<?>) {
+                  current = parent;
+                  parent = parent.getParentTreeCursor();
+                }
+                return parent.getValue() instanceof J.VariableDeclarations.NamedVariable variable
+                    && variable.getInitializer() == current.getValue();
               }
 
               private boolean isOutermostMethodInvocation() {
@@ -282,6 +308,18 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
     return found.get();
   }
 
+  private static boolean containsStandaloneVariableMapValue(
+      J.VariableDeclarations declarations) {
+    return declarations.getVariables().stream()
+        .anyMatch(
+            variable -> {
+              Expression initializer = variable.getInitializer();
+              return initializer != null
+                  && unwrapParentheses(initializer) instanceof J.MethodInvocation invocation
+                  && VARIABLES_METHOD.matches(invocation);
+            });
+  }
+
   private static J.MethodInvocation renamed(J.MethodInvocation invocation, String newName) {
     return invocation.withName(RecipeUtils.createSimpleIdentifier(newName, "java.lang.String"));
   }
@@ -299,6 +337,21 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
         Stream.concat(
                 invocation.getComments().stream(),
                 Stream.of(RecipeUtils.createSimpleComment(invocation, text)))
+            .toList());
+  }
+
+  private static Statement addCommentIfMissing(Statement statement, String text) {
+    if (statement.getComments().stream()
+        .anyMatch(
+            comment ->
+                comment instanceof TextComment textComment
+                    && textComment.getText().contains(text.trim()))) {
+      return statement;
+    }
+    return statement.withComments(
+        Stream.concat(
+                statement.getComments().stream(),
+                Stream.of(RecipeUtils.createSimpleComment(statement, text)))
             .toList());
   }
 
