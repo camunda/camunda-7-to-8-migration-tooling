@@ -337,9 +337,9 @@ import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 
-import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.*;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.complete;
 
 class OrderTaskTest {
 
