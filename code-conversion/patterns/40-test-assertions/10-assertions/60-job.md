@@ -57,7 +57,7 @@ void testTimerTriggered() {
 }
 ```
 
-Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. CPT resets the clock after each test.
+Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. If the process must start at a specific instant, call `setTime` before creating it. If `setTime` is used to trigger a timer, first wait until the timer event is active, for example with `assertThat(instance).hasActiveElements("TimerEvent")`. CPT resets the clock after each test.
 
 For an asynchronous continuation, omit `execute(job())` and assert the next process state with a waiting assertion:
 
