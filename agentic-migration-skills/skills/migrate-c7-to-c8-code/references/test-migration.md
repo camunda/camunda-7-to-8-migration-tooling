@@ -764,7 +764,8 @@ Every instruction is mandatory. "Never" means MUST NOT. A preference is marked (
 
 Camunda Process Test (CPT) provides the Camunda 8 test runtime, commands, and assertions.
 A remote-engine test drives a running Camunda 7 engine through Engine REST or the external-task client.
-A shared-engine test calls an engine that the test does not start or own.
+A shared-engine test calls an engine that the test does not start.
+The engine is neither local nor a test-owned container.
 
 ## Scope and classification
 

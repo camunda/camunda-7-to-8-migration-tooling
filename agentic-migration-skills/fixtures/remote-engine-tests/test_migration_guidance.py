@@ -115,6 +115,23 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             with self.subTest(boundary=boundary):
                 self.assertLess(classification.index(boundary), first_client_shape)
 
+    def test_shared_engine_definition_matches_report_only_boundary(self):
+        reference = REFERENCE.read_text()
+        definition_start = reference.index("A shared-engine test calls")
+        definition_end = reference.index("\n\n", definition_start)
+        shared_engine_definition = reference[definition_start:definition_end]
+        classification = reference.split("## Scope and classification", 1)[1].split(
+            "## Runtime and build changes", 1
+        )[0]
+        report_only_rule = next(
+            row for row in classification.splitlines() if "| Report only |" in row
+        )
+
+        for boundary in ("does not start", "neither local nor a test-owned container"):
+            with self.subTest(boundary=boundary):
+                self.assertIn(boundary, shared_engine_definition)
+                self.assertIn(boundary, report_only_rule)
+
     def test_skill_classifies_test_engine_calls_before_http_topology(self):
         code_inventory = " ".join(
             SKILL.read_text().split("#### Code Inventory", 1)[1].split(
