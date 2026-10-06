@@ -1883,7 +1883,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.issues,
         )
 
-    def assert_missing_test_run_mode_rejects_malformed_inventory(self, heading):
+    def assert_missing_test_run_mode_rejects_malformed_inventory(self, heading, test_id=None):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
             test_handling="Report only",
@@ -1894,6 +1894,11 @@ class ValidationEvidenceTest(unittest.TestCase):
             "| Test ID | File | Test kind | Signals | Models | Handling | Notes |",
             "| Test ID | File | Test kind | Signals | Models | Disposition | Notes |",
         )
+        if test_id is not None:
+            malformed_report = malformed_report.replace(
+                f"`{self.c7_test_id}`",
+                f"`{test_id}`",
+            )
         if heading is None:
             malformed_report = malformed_report.replace("## Test Inventory\n\n", "")
         else:
@@ -1923,6 +1928,33 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_missing_test_run_mode_rejects_malformed_inventory_with_renamed_heading(self):
         self.assert_missing_test_run_mode_rejects_malformed_inventory("## Test Cases")
+
+    def test_missing_test_run_mode_rejects_malformed_cucumber_inventory_without_heading(self):
+        self.assert_missing_test_run_mode_rejects_malformed_inventory(
+            None,
+            "app:src/test/resources/features/order.feature#Order is paid@L12",
+        )
+
+    def test_test_inventory_parses_cucumber_feature_path_ids(self):
+        test_id = "app:src/test/resources/features/order.feature#Order is paid@L12"
+        file_path = "app/src/test/resources/features/order.feature"
+        source_file = self.root / file_path
+        source_file.parent.mkdir(parents=True, exist_ok=True)
+        source_file.write_text("Feature: Order\n", encoding="utf-8")
+        (self.root / gate.REPORT).write_text(
+            "# Migration report\n\n"
+            "## Test Inventory\n\n"
+            "| Test ID | File | Test kind | Handling |\n"
+            "|---|---|---|---|\n"
+            f"| `{test_id}` | `{file_path}` | Cucumber scenario | Migrate |\n",
+            encoding="utf-8",
+        )
+
+        test = gate.test_report_inventory(self.root)[0]
+
+        self.assertEqual(test_id, test["id"])
+        self.assertEqual("src/test/resources/features/order.feature", test["class_name"])
+        self.assertEqual("Order is paid@L12", test["method"])
 
     def test_c7_baseline_can_be_captured_before_mapping_report_only_tests(self):
         self.configure_test_run(
@@ -2007,6 +2039,27 @@ class ValidationEvidenceTest(unittest.TestCase):
                     gate.EvidenceError, "Invalid Test Inventory ID"
                 ):
                     gate.test_id_parts(test_id)
+
+    def test_test_id_parts_accepts_cucumber_feature_paths(self):
+        self.assertEqual(
+            ("app", "src/test/resources/features/order.feature", "Order is paid@L12"),
+            gate.test_id_parts(
+                "app:src/test/resources/features/order.feature#Order is paid@L12"
+            ),
+        )
+
+    def test_test_id_parts_rejects_unsafe_cucumber_feature_paths(self):
+        for path in (
+            "../outside.feature",
+            "/outside.feature",
+            "C:/outside.feature",
+            r"src\test\resources\order.feature",
+        ):
+            with self.subTest(path=path):
+                with self.assertRaisesRegex(
+                    gate.EvidenceError, "Invalid Test Inventory ID"
+                ):
+                    gate.test_id_parts(f"app:{path}#Order is paid@L12")
 
     def test_test_id_parts_preserves_hashes_in_display_names(self):
         self.assertEqual(

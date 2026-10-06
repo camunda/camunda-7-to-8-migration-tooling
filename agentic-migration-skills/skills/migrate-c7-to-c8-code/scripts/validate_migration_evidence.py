@@ -910,14 +910,30 @@ def test_id_parts(test_id):
         raise EvidenceError(f"Invalid Test Inventory ID: {test_id!r}")
     module, qualified_method = test_id.split(":", 1)
     class_name, _, method = qualified_method.partition("#")
+    feature_path = Path(class_name)
+    valid_feature_path = (
+        class_name.casefold().endswith(".feature")
+        and not feature_path.is_absolute()
+        and not PureWindowsPath(class_name).drive
+        and "\\" not in class_name
+        and ".." not in feature_path.parts
+    )
     if (
         not module
         or not class_name
         or not method.strip()
-        or re.fullmatch(r"[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*", class_name) is None
+        or (
+            re.fullmatch(r"[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*", class_name)
+            is None
+            and not valid_feature_path
+        )
     ):
         raise EvidenceError(f"Invalid Test Inventory ID: {test_id!r}")
     return module, class_name, method
+
+
+def looks_like_test_inventory_id(value):
+    return ":" in value and "#" in value
 
 
 def test_inventory_table_candidate(lines):
@@ -926,16 +942,17 @@ def test_inventory_table_candidate(lines):
         cells = markdown_cells(line)
         if not cells:
             continue
-        names = {plain_markdown_cell(cell).casefold() for cell in cells}
-        candidate_header = len(expected_columns & names) >= 2
+        names = [plain_markdown_cell(cell).casefold() for cell in cells]
+        candidate_header = len(expected_columns & set(names)) >= 2
+        test_id_headers = {
+            column for column, name in enumerate(names) if name == "test id"
+        }
         values = [plain_markdown_cell(cell) for cell in cells]
-        test_id_columns = []
-        for column, value in enumerate(values):
-            try:
-                test_id_parts(value)
-            except EvidenceError:
-                continue
-            test_id_columns.append(column)
+        test_id_columns = [
+            column
+            for column, value in enumerate(values)
+            if looks_like_test_inventory_id(value)
+        ]
         if test_id_columns and any(
             column not in test_id_columns
             and ("/" in value or "\\" in value or Path(value).suffix)
@@ -950,20 +967,17 @@ def test_inventory_table_candidate(lines):
                 break
             if all(re.fullmatch(r":?-{3,}:?", cell) for cell in row):
                 continue
+            row_values = [plain_markdown_cell(cell) for cell in row]
             if any(
-                _is_test_inventory_id(plain_markdown_cell(cell))
-                for cell in row
+                value
+                and (
+                    column in test_id_headers
+                    or looks_like_test_inventory_id(value)
+                )
+                for column, value in enumerate(row_values)
             ):
                 return True
     return False
-
-
-def _is_test_inventory_id(value):
-    try:
-        test_id_parts(value)
-    except EvidenceError:
-        return False
-    return True
 
 
 def test_report_inventory(root, *, required=True):
