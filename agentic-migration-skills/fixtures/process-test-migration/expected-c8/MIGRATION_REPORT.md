@@ -8,7 +8,9 @@ The expected project removes this engine-only file and does not add a CPT histor
 
 | Camunda 7 test | CPT 8.9 test | Mapping and behavior |
 |---|---|---|
+| `ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess` | `ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess` | Uses JUnit 5 and explicitly deploys the converted copy. The test starts `implicit-process` and asserts completion. |
 | `OrderProcessTest#approvesOrder` | `OrderProcessTest#approvesOrder` | `completeUserTask` receives BPMN element ID `Task_Approve`, not the task name. |
+| `OrderProcessTest#escalatesAfterOneDay` | `OrderProcessTest#escalatesAfterOneDay` | Replaces manual timer-job execution with `increaseTime(Duration.ofDays(1))`. The test waits for `Task_Escalate` and asserts that `Task_Approve` is inactive. |
 | `OrderProcessTest#continuesAfterAsync` | `OrderProcessTest#continuesAfterAsync` | CPT completes the `noopDelegate` job with a test handler. Camunda 7 manually executes the `NoopDelegate` job. |
 | `OrderProcessTest#failsWhenDelegateThrows` | `OrderProcessTest#failsWhenDelegateThrows` | CPT fails the `failingDelegate` job with zero retries and asserts an incident. Camunda 7 expects `IllegalStateException` from `FailingDelegate`. |
 | `MessageProcessTest#correlatesMessage` | `MessageProcessTest#correlatesMessage` | Camunda 7 `businessKey` `legacy-business-key` becomes C8 `businessId`. The message subscription separately uses `orderId` value `subscription-key`. |
