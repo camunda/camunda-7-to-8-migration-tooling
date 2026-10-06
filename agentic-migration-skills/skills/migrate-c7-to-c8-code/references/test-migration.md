@@ -598,7 +598,7 @@ parity-ledger entry.
 | `verify(process, times(n)).hasFinished("E")` | When the completed-versus-terminated split is known, the skill asserts the completed count with `hasCompletedElement("E", completedCount)`, the terminated count with `hasTerminatedElement("E", terminatedCount)`, or both. | When all visits share an outcome, the skill uses one assertion. When the path has known mixed counts, the skill uses both assertions. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason and does not assert exact counts or their sum. |
 | `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
-| `verify(process, never()).hasStarted("E")` | Assert `hasNotActivatedElements("E")` after a waiting assertion | This assertion does not wait. |
+| `verify(process, never()).hasStarted("E")` | When the skill completes a waiting assertion, the skill asserts `hasNotActivatedElements("E")` | This assertion does not wait. |
 
 ### Time rule
 
@@ -607,7 +607,8 @@ The Scenario runner moves the clock to each due timer, one timer at a time. CPT'
 intermediate timer effects by increasing time in steps no longer than the shortest timer period on
 the active path. When the active path contains a boundary timer, the skill asserts that the attached
 activity is active. When the active path contains a timer catch event, the skill asserts that the
-timer event is active. After each step, the skill asserts the expected timer effect.
+timer event is active. When the skill completes each time-increase step, the skill asserts the
+expected timer effect.
 
 When a Scenario stub uses `defer(period, action)` and the total time increase reaches `period`, the
 skill runs the deferred action.

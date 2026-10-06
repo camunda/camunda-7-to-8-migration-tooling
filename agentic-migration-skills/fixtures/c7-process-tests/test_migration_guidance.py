@@ -394,6 +394,10 @@ def non_ears_conditional_rules(markdown):
         r"\b(?:only\s+when|unless|until|when|while|if|where)\b",
         flags=re.IGNORECASE,
     )
+    non_ears_temporal_starter = re.compile(
+        r"^(?:before|after|once|whenever|provided(?:\s+that)?|as\s+long\s+as)\b",
+        flags=re.IGNORECASE,
+    )
     blocks = []
     current_lines = []
     current_start = 1
@@ -443,6 +447,10 @@ def non_ears_conditional_rules(markdown):
         for sentence in re.split(r"(?<=[.!?])\s+", block):
             sentence = sentence.strip()
             if not sentence:
+                continue
+
+            if non_ears_temporal_starter.match(sentence):
+                violations.append("{}: {}".format(line_number, sentence))
                 continue
 
             matches = list(conditional.finditer(sentence))
@@ -1277,6 +1285,26 @@ class MigrationGuidanceTest(unittest.TestCase):
                         "The skill removes this {} the rule applies.".format(marker)
                     )
                 )
+        non_ears_temporal_starters = (
+            ("before", "Before the next step, the skill checks the state."),
+            (
+                "after",
+                "After each step, the skill asserts the expected timer effect.",
+            ),
+            ("once", "Once the step completes, the skill checks the state."),
+            ("whenever", "Whenever the step completes, the skill checks the state."),
+            (
+                "provided that",
+                "Provided that the step completes, the skill checks the state.",
+            ),
+            (
+                "as long as",
+                "As long as the step is active, the skill checks the state.",
+            ),
+        )
+        for marker, rule in non_ears_temporal_starters:
+            with self.subTest(marker=marker):
+                self.assertTrue(non_ears_conditional_rules(rule))
         self.assertTrue(
             non_ears_conditional_rules(
                 "The skill waits for the result\nwhen the test is complete."
