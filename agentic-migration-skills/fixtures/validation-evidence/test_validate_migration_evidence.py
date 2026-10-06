@@ -2219,6 +2219,118 @@ class ValidationEvidenceTest(unittest.TestCase):
             ),
         )
 
+    def test_mock_boundary_uses_per_cpt_mocks_for_split_tests(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mock = 'mockJobWorker("charge")'
+        self.map_test_to_cpt(mocks_c8=[mock])
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        other_cpt_test_id = "app:com.example.OrderCptTest#testOrderDetails"
+        test["c8_ids"].append(other_cpt_test_id)
+        test["mocks"]["c8_by_test_id"] = {
+            self.c8_test_id: [],
+            other_cpt_test_id: [mock],
+        }
+        mapping["mock_changes"].append(
+            {
+                "cpt_test_id": other_cpt_test_id,
+                "mock": mock,
+                "reason": "The operator approved an isolated worker boundary.",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        self.assertEqual(
+            0,
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            ),
+        )
+
+    def test_mock_boundary_requires_per_cpt_mocks_for_split_tests(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mock = 'mockJobWorker("charge")'
+        self.map_test_to_cpt(mocks_c8=[mock])
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        other_cpt_test_id = "app:com.example.OrderCptTest#testOrderDetails"
+        test["c8_ids"].append(other_cpt_test_id)
+        mapping["mock_changes"].append(
+            {
+                "cpt_test_id": other_cpt_test_id,
+                "mock": mock,
+                "reason": "The operator approved an isolated worker boundary.",
+                "approved_by": "operator",
+            }
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "mocks.c8_by_test_id is required"
+        ):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
+    def test_mock_boundary_rejects_incomplete_per_cpt_mock_map(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        other_cpt_test_id = "app:com.example.OrderCptTest#testOrderDetails"
+        test["c8_ids"].append(other_cpt_test_id)
+        test["mocks"]["c8_by_test_id"] = {self.c8_test_id: []}
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "mocks.c8_by_test_id must have exactly the c8_ids as keys"
+        ):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
+    def test_mock_boundary_rejects_mocks_missing_from_per_cpt_map(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mock = 'mockJobWorker("charge")'
+        self.map_test_to_cpt(mocks_c8=[mock])
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        other_cpt_test_id = "app:com.example.OrderCptTest#testOrderDetails"
+        test["c8_ids"].append(other_cpt_test_id)
+        test["mocks"]["c8_by_test_id"] = {
+            self.c8_test_id: [],
+            other_cpt_test_id: [],
+        }
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "mocks.c8 must match the union of mocks.c8_by_test_id"
+        ):
+            self.submit(
+                ("test", self.c7_test_id, "mock_boundary", None),
+                action="review",
+                note=f"Reviewed C7 test {self.c7_test_id} and its CPT mocks.",
+            )
+
     def test_mock_boundary_rejects_approval_for_unmapped_cpt_test(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'

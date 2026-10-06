@@ -350,6 +350,11 @@ Record each approved new CPT mock in `mock_changes` with `cpt_test_id`, `mock`, 
 `approved_by`. The `cpt_test_id` must identify a CPT test mapped from a migrated C7 test. The
 validator rejects an unapproved new mock.
 
+When one C7 test maps to multiple CPT tests, record `mocks.c8_by_test_id` as an object keyed by
+every ID in `c8_ids`. List each CPT test's mocks under its ID. Set `mocks.c8` to the union of those
+per-test lists. The validator requires this map when a multi-ID test has any C8 mocks. If `mocks.c8`
+is empty, the map is optional.
+
 ## Coverage parity
 
 The `coverage_parity` check compares C7 and CPT coverage:

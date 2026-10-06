@@ -22,16 +22,10 @@ One class does not predict the rest of the project.
 
 ## Test migration order
 
-When the Test Inventory has a test marked `Migrate` and `test_run_mode` is `run`, use this order:
+When the Test Inventory has a test marked `Migrate` and `test_run_mode` is `run`, follow the phase
+order in `references/test-migration.md`.
 
-1. Record the C7 baseline before any Step 3 edit.
-2. Convert models that are in scope.
-3. Migrate the in-scope tests.
-4. Freeze test files and resources.
-5. Migrate production code.
-
-Follow `references/test-migration.md` for these phases. Do not change frozen tests during production
-code migration without user approval.
+Do not change frozen tests during production-code migration without user approval.
 
 ## Approach A - OpenRewrite + AI
 

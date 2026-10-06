@@ -1804,6 +1804,41 @@ def test_mock_issues(test, mapping, mapped_c8_ids, source_job_types_by_model=Non
     ):
         return [f"{test_id}: mocks.c7 and mocks.c8 must be arrays of non-blank strings"]
 
+    if "c8_by_test_id" in mocks:
+        c8_mocks_by_test_id = mocks["c8_by_test_id"]
+        if (
+            not isinstance(c8_mocks_by_test_id, dict)
+            or set(c8_mocks_by_test_id) != set(c8_ids)
+        ):
+            return [
+                f"{test_id}: mocks.c8_by_test_id must have exactly the c8_ids as keys"
+            ]
+        if any(
+            not isinstance(values, list)
+            or any(not isinstance(value, str) or not value.strip() for value in values)
+            for values in c8_mocks_by_test_id.values()
+        ):
+            return [
+                f"{test_id}: mocks.c8_by_test_id values must be arrays of non-blank strings"
+            ]
+        mapped_c8_mocks = {
+            value
+            for values in c8_mocks_by_test_id.values()
+            for value in values
+        }
+        if mapped_c8_mocks != set(c8_mocks):
+            return [
+                f"{test_id}: mocks.c8 must match the union of mocks.c8_by_test_id"
+            ]
+    elif len(c8_ids) > 1 and c8_mocks:
+        return [
+            f"{test_id}: mocks.c8_by_test_id is required when a split test has C8 mocks"
+        ]
+    elif len(c8_ids) == 1:
+        c8_mocks_by_test_id = {c8_ids[0]: c8_mocks}
+    else:
+        c8_mocks_by_test_id = {c8_id: [] for c8_id in c8_ids}
+
     c7_normalized = {normalized_mock(value) for value in c7_mocks}
     allowed_job_types = auto_mocked_job_types(
         c7_mocks, source_job_types_by_model or {}
@@ -1842,7 +1877,7 @@ def test_mock_issues(test, mapping, mapped_c8_ids, source_job_types_by_model=Non
 
     used_approvals = set()
     for c8_id in c8_ids:
-        for c8_mock in c8_mocks:
+        for c8_mock in c8_mocks_by_test_id[c8_id]:
             normalized = normalized_mock(c8_mock)
             if normalized in c7_normalized or (
                 normalized[0] == "job-worker"
