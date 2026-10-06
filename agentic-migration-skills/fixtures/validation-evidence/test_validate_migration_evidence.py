@@ -938,30 +938,58 @@ class ValidationEvidenceTest(unittest.TestCase):
         ):
             gate.initialize(self.root, reset_source_snapshot=True)
 
-    def test_reused_legacy_snapshot_rejects_missing_test_inventory_files(self):
+    def test_reused_legacy_snapshot_cannot_reuse_stale_passing_baseline(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '
             'name="testOrder" /></testsuite>'
         )
         self.configure_test_run(junit)
+        self.assertEqual(0, self.record_c7_baseline())
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        baseline = mapping["baseline"]
+        baseline_suite = baseline["suites"][0]
+        self.assertEqual("passed", baseline_suite["result"])
+        check_path = self.root / baseline_suite["evidence_path"]
+        check = json.loads(check_path.read_text(encoding="utf-8"))
+
         inventory_path = self.root / gate.INVENTORY
         inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
         inventory["source_files"].pop(self.c7_test_file_path)
-        inventory["source_snapshot_sha256"] = gate.source_snapshot_digest(
+        legacy_digest = gate.source_snapshot_digest(
             inventory["modules"],
             inventory["models"],
             inventory["source_files"],
             inventory["source_snapshot_test_contract"],
         )
+        inventory["source_snapshot_sha256"] = legacy_digest
+        baseline["source_digest"] = legacy_digest
+        check["source_digest"] = legacy_digest
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        write_json(check_path, check)
         write_json(inventory_path, inventory)
         (self.root / self.c7_test_file_path).unlink()
+        original_run_id = inventory["run_id"]
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "C7 source snapshot omits Test Inventory file"
+        ):
+            gate.initialize(self.root)
+        updated_inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        self.assertEqual(original_run_id, updated_inventory["run_id"])
+
+    def test_repeated_init_accepts_migrated_test_source_with_complete_snapshot(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit)
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertFalse((self.root / self.c7_test_file_path).exists())
 
         with redirect_stdout(StringIO()):
             self.assertEqual(0, gate.initialize(self.root))
-        with self.assertRaisesRegex(
-            gate.EvidenceError, "Test Inventory file is missing"
-        ):
-            self.record_c7_baseline()
 
     def test_c7_baseline_snapshot_tracks_configured_root_contents_under_build_directories(self):
         junit = (

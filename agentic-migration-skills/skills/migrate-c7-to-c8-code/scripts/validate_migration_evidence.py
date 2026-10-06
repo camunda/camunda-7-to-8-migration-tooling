@@ -427,6 +427,8 @@ def initialize(root, reset_source_snapshot=False):
             "Step 2 inventory lacks the test contract source snapshot; "
             "restore the C7 baseline before init --reset-source-snapshot"
         )
+    elif "test_run_mode" in inventory:
+        validate_source_snapshot_test_contract(root, inventory)
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
     if reset_source_snapshot and (root / TEST_MAPPING).exists():
@@ -1133,6 +1135,33 @@ def test_contract(root, inventory):
         "test_suites": test_suites,
         "modules": sorted(module_paths),
     }
+
+
+def validate_source_snapshot_test_contract(root, inventory):
+    if "test_run_mode" not in inventory:
+        return None
+    current_test_contract = test_contract(root, inventory)
+    if (
+        source_test_contract(current_test_contract)
+        != inventory.get("source_snapshot_test_contract")
+    ):
+        raise EvidenceError(
+            "Test Inventory or C7 suite commands changed after the Step 2 snapshot"
+        )
+    if current_test_contract["mode"] == "run":
+        missing_snapshot_files = sorted(
+            {
+                test["file"]
+                for test in current_test_contract["tests"]
+                if test["file"] not in inventory["source_files"]
+            }
+        )
+        if missing_snapshot_files:
+            raise EvidenceError(
+                "C7 source snapshot omits Test Inventory file(s): "
+                + ", ".join(missing_snapshot_files)
+            )
+    return current_test_contract
 
 
 def baseline_suite_has_valid_shape(suite):
@@ -3267,16 +3296,7 @@ def verify_unchanged_source(root, inventory):
     expected = inventory.get("source_files")
     if not isinstance(expected, dict):
         raise EvidenceError("Step 2 inventory lacks the C7 source file snapshot")
-    current_test_contract = (
-        test_contract(root, inventory) if "test_run_mode" in inventory else None
-    )
-    current_test_contract_snapshot = (
-        source_test_contract(current_test_contract)
-        if current_test_contract is not None
-        else None
-    )
-    if current_test_contract_snapshot != inventory.get("source_snapshot_test_contract"):
-        raise EvidenceError("Test Inventory or C7 suite commands changed after the Step 2 snapshot")
+    current_test_contract = validate_source_snapshot_test_contract(root, inventory)
     current = collect_source_files(
         root,
         strings(inventory.get("modules"), "Step 2 modules"),
