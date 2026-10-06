@@ -128,7 +128,8 @@ These items are not in the catalog:
   an affected flow as migrated.
 - When at least one Test Inventory row has the `Spring` modifier and handling `Migrate to CPT`, the
   skill selects the CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
-  For Spring test migration, the skill follows `references/test-migration.md`.
+  For Spring test migration, the skill follows `references/test-migration.md`, including its
+  [Spring Process Test artifact selection](test-migration.md#runtime-and-build-changes).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
@@ -290,9 +291,10 @@ Resolve configuration errors and record those findings and deprecated aliases.
 
 ## HTTP application and engine REST topology
 
-When the source has a Spring web server, application HTTP endpoints, health checks, or Camunda 7
-Engine REST calls, apply [`http-topology-migration.md`](http-topology-migration.md) before changing
-code. Record the endpoint owners, consumers, and health dependencies in `MIGRATION_REPORT.md`.
+When the production-source inventory identifies a Spring web server, an application HTTP endpoint,
+a health check, or a Camunda 7 Engine REST call, apply
+[`http-topology-migration.md`](http-topology-migration.md) before changing code. Record the endpoint
+owners, consumers, and health dependencies in `MIGRATION_REPORT.md`.
 Record the target application bind address and port, the Camunda REST base address, and the
 authentication mode in `MIGRATION_REPORT.md`. Where the management server uses a separate bind
 address or port, record both. Run the endpoint checks in that reference.

@@ -3,7 +3,8 @@
                   xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
                   id="Definitions_Manual"
                   targetNamespace="http://camunda.org/examples">
-  <bpmn:process id="manual-process" name="Manual process" isExecutable="true">
+  <bpmn:process id="manual-process" name="Manual process" isExecutable="true"
+                camunda:historyTimeToLive="30">
     <bpmn:startEvent id="manual-start" />
     <bpmn:sequenceFlow id="manual-start-worker" sourceRef="manual-start" targetRef="manual-worker" />
     <bpmn:serviceTask id="manual-worker" name="Manual worker"
