@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_TaskListener" targetNamespace="http://camunda.org/examples/process-test-mocks" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="task-listener" name="Task listener" isExecutable="true">
+    <bpmn:startEvent id="Start_TaskListener" name="Start">
+      <bpmn:outgoing>Flow_Start_Review</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Review" sourceRef="Start_TaskListener" targetRef="Task_Review" />
+    <bpmn:userTask id="Task_Review" name="Review invoice">
+      <bpmn:extensionElements>
+        <zeebe:taskListeners>
+          <zeebe:taskListener eventType="creating" type="review-created-listener" retries="1" />
+        </zeebe:taskListeners>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Review</bpmn:incoming>
+      <bpmn:outgoing>Flow_Review_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="Task_Review" targetRef="End_TaskListener" />
+    <bpmn:endEvent id="End_TaskListener" name="Review complete">
+      <bpmn:incoming>Flow_Review_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_TaskListener">
+    <bpmndi:BPMNPlane id="BPMNPlane_TaskListener" bpmnElement="task-listener">
+      <bpmndi:BPMNShape id="Start_TaskListener_di" bpmnElement="Start_TaskListener">
+        <dc:Bounds x="80" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Review_di" bpmnElement="Task_Review">
+        <dc:Bounds x="180" y="98" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_TaskListener_di" bpmnElement="End_TaskListener">
+        <dc:Bounds x="360" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Review_di" bpmnElement="Flow_Start_Review">
+        <di:waypoint x="116" y="138" />
+        <di:waypoint x="180" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Review_End_di" bpmnElement="Flow_Review_End">
+        <di:waypoint x="280" y="138" />
+        <di:waypoint x="360" y="138" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

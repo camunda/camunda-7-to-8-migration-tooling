@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_InvoiceRisk"
+             name="Invoice risk"
+             namespace="http://camunda.org/examples/process-test-mocks">
+  <decision id="invoice_risk" name="Invoice risk">
+    <decisionTable id="DecisionTable_InvoiceRisk" hitPolicy="UNIQUE">
+      <input id="Input_InvoiceId">
+        <inputExpression id="Expression_InvoiceId" typeRef="string">
+          <text>invoiceId</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Approved" name="approved" typeRef="boolean" />
+      <output id="Output_Discount" name="discount" typeRef="string" />
+      <rule id="Rule_InvoiceRisk">
+        <inputEntry id="Entry_InvoiceId">
+          <text>-</text>
+        </inputEntry>
+        <outputEntry id="Entry_Approved">
+          <text>true</text>
+        </outputEntry>
+        <outputEntry id="Entry_Discount">
+          <text>"10%"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

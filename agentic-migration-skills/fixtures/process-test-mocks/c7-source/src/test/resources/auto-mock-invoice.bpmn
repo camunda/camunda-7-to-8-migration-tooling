@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_AutoMockInvoice"
+                  targetNamespace="http://camunda.org/examples/process-test-mocks">
+  <bpmn:process id="auto-mock-invoice" name="Auto-mock invoice" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_AutoMockInvoice">
+      <bpmn:outgoing>Flow_AutoStart_Validate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_AutoStart_Validate" sourceRef="Start_AutoMockInvoice" targetRef="Task_AutoValidate" />
+    <bpmn:serviceTask id="Task_AutoValidate" name="Validate automatically" camunda:delegateExpression="${autoValidateDelegate}">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="start" delegateExpression="${autoStartListener}" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_AutoStart_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_AutoValidate_Notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_AutoValidate_Notify" sourceRef="Task_AutoValidate" targetRef="Task_AutoNotify" />
+    <bpmn:serviceTask id="Task_AutoNotify" name="Notify automatically" camunda:delegateExpression="${autoNotifyDelegate}">
+      <bpmn:incoming>Flow_AutoValidate_Notify</bpmn:incoming>
+      <bpmn:outgoing>Flow_AutoNotify_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_AutoNotify_End" sourceRef="Task_AutoNotify" targetRef="End_AutoMockInvoice" />
+    <bpmn:endEvent id="End_AutoMockInvoice">
+      <bpmn:incoming>Flow_AutoNotify_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>

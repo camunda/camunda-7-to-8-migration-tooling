@@ -13,8 +13,9 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.worker.JobWorker;
 import io.camunda.process.test.api.CamundaProcessTest;
+import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
-import java.util.List;
+import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,20 +26,23 @@ import org.junit.jupiter.api.Test;
 class OrderAutoMockTest {
 
   private CamundaClient client;
-  private List<JobWorker> workers;
+  private CamundaProcessTestContext processTestContext;
+  private JobWorker stockWorker;
 
   @BeforeEach
-  void openWorkers() {
-    workers = OrderJobHandlers.open(client);
+  void openStockWorker() {
+    stockWorker = OrderJobHandlers.openStockWorker(client);
   }
 
   @AfterEach
-  void closeWorkers() {
-    workers.forEach(JobWorker::close);
+  void closeStockWorker() {
+    stockWorker.close();
   }
 
   @Test
   void autoMocksDelegatesAndTracksCoverage() {
+    JobWorkerMock audit = processTestContext.mockJobWorker("order-audit").thenComplete();
+    JobWorkerMock charge = processTestContext.mockJobWorker("charge-payment").thenComplete();
     ProcessInstanceEvent instance =
         client.newCreateInstanceCommand()
             .bpmnProcessId("order")
@@ -48,6 +52,8 @@ class OrderAutoMockTest {
             .join();
 
     assertThat(instance).hasActiveElements("Task_Approve").hasVariable("stockChecked", true);
+    org.assertj.core.api.Assertions.assertThat(audit.getInvocations()).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThat(charge.getInvocations()).isZero();
     org.assertj.core.api.Assertions.assertThat(instance.getBpmnProcessId()).isEqualTo("order");
   }
 }

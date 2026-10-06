@@ -2455,7 +2455,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(1, reference.count(handling_rule))
         self.assertIn(handling_rule, spring_section)
- 
+
     def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         for requirement in (
@@ -2878,6 +2878,311 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())
         self.assertTrue(EXPECTED_PARITY.is_file())
         self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
+
+    def test_concrete_listener_side_effect_is_preserved_in_cpt_fixture(self):
+        c7_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'assertThat(instance).variables().containsEntry("auditStarted", true)',
+            c7_test,
+        )
+        self.assertIn('.hasVariable("auditStarted", true)', c8_test)
+
+    def test_migrated_mock_fixtures_preserve_component_boundaries(self):
+        c7_order_mock = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
+        ).read_text(encoding="utf-8")
+        c7_order_model = (
+            C7_SOURCE / "engine-tests/src/main/resources/order.bpmn"
+        ).read_text(encoding="utf-8")
+        c8_order_mock = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
+        ).read_text(encoding="utf-8")
+        c8_job_handlers = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderJobHandlers.java"
+        ).read_text(encoding="utf-8")
+        c7_notification_test = java_method_body(c7_order_mock, "routesDelegateBpmnError")
+        c7_notification_setup = java_method_body(c7_order_mock, "registerNotificationService")
+        notification_test = java_method_body(c8_order_mock, "routesDelegateBpmnError")
+        notification_setup = java_method_body(c8_order_mock, "openSupportingWorkers")
+        self.assertIn("notificationService = mock(NotificationService.class);", c7_order_mock)
+        self.assertIn(
+            'Mocks.register("notificationService", notificationService)',
+            c7_order_mock,
+        )
+        self.assertIn(
+            'camunda:expression="${notificationService.notifyPaymentFailed(execution)}"',
+            c7_order_model,
+        )
+        self.assertIn(
+            "verify(notificationService).notifyPaymentFailed(any(DelegateExecution.class))",
+            c7_notification_test,
+        )
+        self.assertIn(
+            "OrderJobHandlers.openNotificationWorker(client, notificationService)",
+            notification_setup,
+        )
+        self.assertIn(
+            "return open(client, () -> openNotificationWorker(client, notificationService));",
+            c8_job_handlers,
+        )
+        self.assertIn(
+            "verify(notificationService).notifyPaymentFailed(anyMap())",
+            notification_test,
+        )
+        self.assertNotIn('mockJobWorker("notify-customer")', notification_test)
+        self.assertNotIn("customerNotified", notification_test)
+        self.assertIn("OrderJobHandlers.openStockWorker(client)", notification_setup)
+        self.assertNotIn("OrderJobHandlers.openWithoutCharge(client)", notification_setup)
+
+        c7_inherited_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_inherited_setup = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/AbstractOrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_inherited_test = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        inherited_setup = java_method_body(c8_inherited_test, "openWorkers")
+        self.assertIn("extends AbstractOrderProcessTest", c7_inherited_test)
+        self.assertIn(
+            'Mocks.register("notificationService", Mockito.mock(NotificationService.class))',
+            c7_inherited_setup,
+        )
+        self.assertIn(
+            "OrderJobHandlers.NotificationService notificationService",
+            inherited_setup,
+        )
+        self.assertIn(
+            "mock(OrderJobHandlers.NotificationService.class)",
+            inherited_setup,
+        )
+        self.assertIn(
+            "workers = OrderJobHandlers.open(client, notificationService)",
+            inherited_setup,
+        )
+        self.assertNotIn('mockJobWorker("notify-customer")', c8_inherited_test)
+
+        c7_auto_mock = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
+        ).read_text(encoding="utf-8")
+        c8_auto_mock = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
+        ).read_text(encoding="utf-8")
+        auto_mock_test = java_method_body(c8_auto_mock, "autoMocksDelegatesAndTracksCoverage")
+        auto_mock_setup = java_method_body(c8_auto_mock, "openStockWorker")
+        self.assertIn(
+            'Mocks.register("orderAuditListener", new OrderAuditListener())',
+            c7_auto_mock,
+        )
+        self.assertLess(
+            c7_auto_mock.index('Mocks.register("orderAuditListener", new OrderAuditListener())'),
+            c7_auto_mock.index('autoMock("order.bpmn")'),
+        )
+        c7_order_model_root = ET.fromstring(c7_order_model)
+        camunda_namespace = "{http://camunda.org/schema/1.0/bpmn}"
+        bpmn_namespace = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
+        delegate_expressions = {
+            element.attrib.get(
+                f"{camunda_namespace}delegateExpression",
+                element.attrib.get("delegateExpression"),
+            )
+            for element in c7_order_model_root.iter()
+            if f"{camunda_namespace}delegateExpression" in element.attrib
+            or "delegateExpression" in element.attrib
+        }
+        self.assertEqual(
+            {"${orderAuditListener}", "${chargePaymentDelegate}"},
+            delegate_expressions,
+        )
+        service_task_implementations = {
+            task.attrib["id"]: {
+                attribute
+                for attribute in ("class", "delegateExpression", "expression")
+                if f"{camunda_namespace}{attribute}" in task.attrib
+            }
+            for task in c7_order_model_root.iter(f"{bpmn_namespace}serviceTask")
+        }
+        self.assertEqual(
+            {
+                "Task_CheckStock": {"class"},
+                "Task_ChargePayment": {"delegateExpression"},
+                "Task_NotifyCustomer": {"expression"},
+            },
+            service_task_implementations,
+        )
+        c8_order_model = ET.parse(
+            EXPECTED_C8 / "engine-tests/src/main/resources/converted-c8-order.bpmn"
+        ).getroot()
+        zeebe_namespace = "{http://camunda.org/schema/zeebe/1.0}"
+        self.assertEqual(
+            {"check-stock", "charge-payment", "notify-customer"},
+            {
+                element.attrib["type"]
+                for element in c8_order_model.iter(f"{zeebe_namespace}taskDefinition")
+            },
+        )
+        self.assertEqual(
+            {"order-audit"},
+            {
+                element.attrib["type"]
+                for element in c8_order_model.iter(f"{zeebe_namespace}executionListener")
+            },
+        )
+        mock_job_types = set(re.findall(r'mockJobWorker\("([^"]+)"\)', auto_mock_test))
+        self.assertEqual({"charge-payment", "order-audit"}, mock_job_types)
+        self.assertIn("audit.getInvocations()", auto_mock_test)
+        self.assertIn("charge.getInvocations()", auto_mock_test)
+        self.assertNotIn('mockJobWorker("notify-customer")', auto_mock_test)
+        self.assertIn("OrderJobHandlers.openStockWorker(client)", auto_mock_setup)
+        self.assertNotIn("OrderJobHandlers.openAuditWorker(client)", auto_mock_setup)
+        self.assertNotIn("OrderJobHandlers.open(client)", auto_mock_setup)
+        self.assertIn("stockChecked", auto_mock_test)
+        self.assertNotIn("auditStarted", auto_mock_test)
+
+        c7_subscription_mock = (
+            C7_SOURCE
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionStandaloneTest.java"
+        ).read_text(encoding="utf-8")
+        c8_subscription_mock = (
+            EXPECTED_C8
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionStandaloneTest.java"
+        ).read_text(encoding="utf-8")
+        subscription_test = java_method_body(
+            c8_subscription_mock, "startsSubscriptionWithoutSpring"
+        )
+        self.assertIn(
+            'Mocks.register("activateSubscriptionDelegate", Mockito.mock(JavaDelegate.class))',
+            c7_subscription_mock,
+        )
+        self.assertIn(
+            'mockJobWorker("activate-subscription").thenComplete()',
+            subscription_test,
+        )
+        self.assertIn("activationMock.getInvocations()", subscription_test)
+        self.assertNotIn('"activated"', subscription_test)
+        self.assertNotIn("newWorker()", subscription_test)
+
+    def test_mock_migration_respects_inventory_handling(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
+        self.assertTrue(
+            any(
+                row["Handling"] == "Report only" and "mocks modifier" in row["Signals"]
+                for row in inventory_88
+            )
+        )
+
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            normalized(
+                "When a Test Inventory row records the `mocks` modifier and its `Handling` value "
+                "instructs migration, the skill applies these mappings. A `mocks` modifier alone "
+                "does not qualify a `Report only` test for migration."
+            ),
+            reference,
+        )
+
+    def test_reference_approves_only_new_cpt_decision_mocks(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn("existing c7 decision mock", reference)
+        self.assertIn("same-boundary migration", reference)
+        self.assertIn("needs no additional approval", reference)
+        self.assertIn("ask the user before adding a cpt decision mock", reference)
+
+    def test_spring_worker_guidance_uses_the_spring_registered_worker(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        spring_test = (
+            EXPECTED_C8
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionProcessTest.java"
+        ).read_text(encoding="utf-8")
+        spring_application = (
+            EXPECTED_C8
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "TestSubscriptionApplication.java"
+        ).read_text(encoding="utf-8")
+        spring_worker = (
+            EXPECTED_C8
+            / "spring-boot-app/src/main/java/com/camunda/fixture/subscription/"
+            "ActivateSubscriptionWorker.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("@SpringBootTest", spring_test)
+        self.assertIn("@CamundaSpringProcessTest", spring_test)
+        self.assertIn("classes = TestSubscriptionApplication.class", spring_test)
+        self.assertIn("@MockitoBean private BillingClient billingClient", spring_test)
+        self.assertIn(
+            '@SpringBootApplication(scanBasePackages = "com.camunda.fixture.subscription")',
+            spring_application,
+        )
+        self.assertIn("@Component", spring_worker)
+        self.assertIn('@JobWorker(type = "activate-subscription")', spring_worker)
+        self.assertIn(
+            "when a c7 test mocks an expression service or a service used by a delegate or worker, "
+            "the skill checks the mapped c8 worker.",
+            reference,
+        )
+        self.assertIn(
+            "where the mapped worker is not a spring bean, the skill opens that worker in "
+            "`@beforeeach`.",
+            reference,
+        )
+        self.assertIn(
+            "where the mapped worker is a spring bean, cpt starts it through the spring process "
+            "application's client-created event.",
+            reference,
+        )
+        self.assertIn(
+            "the skill does not open a second worker.",
+            reference,
+        )
+
+    def test_workers_and_mocks_section_cross_references_the_single_owner(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        section_start = reference.index("## Workers and mocks")
+        section_end = reference.index("\n## Endpoint-driven tests", section_start)
+        section_lines = [
+            line.strip()
+            for line in reference[section_start:section_end].splitlines()
+            if line.strip()
+        ]
+
+        self.assertEqual(
+            2,
+            len(section_lines),
+            "The workers section should only point to the authoritative mock guidance.",
+        )
+        self.assertEqual(
+            normalized(
+                "Follow [Mock boundary](#mock-boundary) and "
+                "[C7 mock API mapping](#c7-mock-api-mapping)."
+            ),
+            normalized(section_lines[1]),
+        )
+        self.assertEqual(1, reference.count("camunda.client.worker.override."))
+        self.assertNotIn(
+            "The skill does not open the real worker for that component.",
+            reference,
+        )
 
 
 if __name__ == "__main__":

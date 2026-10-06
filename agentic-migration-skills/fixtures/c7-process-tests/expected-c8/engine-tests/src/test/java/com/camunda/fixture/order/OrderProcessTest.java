@@ -10,6 +10,7 @@ package com.camunda.fixture.order;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.CamundaAssert.assertThatUserTask;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byElementId;
+import static org.mockito.Mockito.mock;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
@@ -40,7 +41,9 @@ class OrderProcessTest {
 
   @BeforeEach
   void openWorkers() {
-    workers = OrderJobHandlers.open(client);
+    OrderJobHandlers.NotificationService notificationService =
+        mock(OrderJobHandlers.NotificationService.class);
+    workers = OrderJobHandlers.open(client, notificationService);
   }
 
   @AfterEach

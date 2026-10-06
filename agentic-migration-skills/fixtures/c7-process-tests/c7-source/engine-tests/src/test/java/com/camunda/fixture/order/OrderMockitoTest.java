@@ -36,10 +36,12 @@ import org.junit.Test;
 public class OrderMockitoTest {
 
   @Rule public ProcessEngineRule processEngineRule = new ProcessEngineRule();
+  private NotificationService notificationService;
 
   @Before
   public void registerNotificationService() {
-    Mocks.register("notificationService", mock(NotificationService.class));
+    notificationService = mock(NotificationService.class);
+    Mocks.register("notificationService", notificationService);
   }
 
   @After
@@ -148,6 +150,7 @@ public class OrderMockitoTest {
             .processInstanceId(instance.getId())
             .activityId("End_PaymentFailed")
             .singleResult());
+    verify(notificationService).notifyPaymentFailed(any(DelegateExecution.class));
   }
 
   @Test

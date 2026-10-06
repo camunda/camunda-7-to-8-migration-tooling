@@ -33,6 +33,7 @@ class OrderTimerTest {
     Mocks.register("orderAuditListener", new OrderAuditListener());
     ProcessInstance instance = processEngine.getRuntimeService().startProcessInstanceByKey("order");
     assertThat(instance).isWaitingAt("Task_Approve");
+    assertThat(instance).variables().containsEntry("auditStarted", true);
 
     ClockUtil.setCurrentTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
     execute(job());

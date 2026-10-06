@@ -8,6 +8,9 @@
 package com.camunda.fixture.order;
 
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
@@ -16,8 +19,6 @@ import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
 import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,16 +35,21 @@ class OrderMockitoTest {
 
   private CamundaClient client;
   private CamundaProcessTestContext processTestContext;
-  private List<JobWorker> workers;
+  private JobWorker stockWorker;
+  private JobWorker notificationWorker;
+  private OrderJobHandlers.NotificationService notificationService;
 
   @BeforeEach
   void openSupportingWorkers() {
-    workers = new ArrayList<>(OrderJobHandlers.openWithoutCharge(client));
+    stockWorker = OrderJobHandlers.openStockWorker(client);
+    notificationService = mock(OrderJobHandlers.NotificationService.class);
+    notificationWorker = OrderJobHandlers.openNotificationWorker(client, notificationService);
   }
 
   @AfterEach
   void closeWorkers() {
-    workers.forEach(JobWorker::close);
+    stockWorker.close();
+    notificationWorker.close();
   }
 
   @Test
@@ -91,6 +97,7 @@ class OrderMockitoTest {
 
     assertThat(instance).isCompleted().hasCompletedElements("End_PaymentFailed");
     org.assertj.core.api.Assertions.assertThat(charge.getInvocations()).isEqualTo(1);
+    verify(notificationService).notifyPaymentFailed(anyMap());
   }
 
   @Test

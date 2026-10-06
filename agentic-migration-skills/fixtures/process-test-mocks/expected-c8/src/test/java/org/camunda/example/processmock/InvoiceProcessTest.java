@@ -1,0 +1,225 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package org.camunda.example.processmock;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.camunda.client.CamundaClient;
+import io.camunda.client.api.response.ProcessInstanceEvent;
+import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaProcessTestContext;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.process.test.api.assertions.JobSelectors;
+import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.camunda.example.processmock.service.InvoiceService;
+import org.camunda.example.processmock.testapp.TestProcessApplication;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+@SpringBootTest(classes = TestProcessApplication.class)
+@CamundaSpringProcessTest
+class InvoiceProcessTest {
+
+  @Autowired private CamundaClient camundaClient;
+  @Autowired private CamundaProcessTestContext processTestContext;
+  @MockitoBean private InvoiceService invoiceService;
+
+  @Test
+  void registersCollaboratorAndWholeDelegateMocks() {
+    when(invoiceService.isValid("I-1")).thenReturn(true);
+    JobWorkerMock notify =
+        processTestContext.mockJobWorker("notify-invoice").thenComplete(Map.of("notified", true));
+    JobWorkerMock notifyStart = processTestContext.mockJobWorker("notify-start").thenComplete();
+    processTestContext.mockChildProcess("archive-invoice", Map.of("archived", true));
+
+    ProcessInstanceEvent instance = start("invoice", Map.of("invoiceId", "I-1"));
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasVariable("notified", true)
+        .hasVariable("archived", true);
+    verify(invoiceService).isValid("I-1");
+    assertThat(notify.getInvocations()).isEqualTo(1);
+    assertThat(notifyStart.getInvocations()).isEqualTo(1);
+    assertThat(notify.getActivatedJobs()).hasSize(1);
+    assertThat(notify.getActivatedJobs().get(0).getVariablesAsMap())
+        .containsEntry("invoiceId", "I-1");
+  }
+
+  @Test
+  void registersDelegateOutputAndVerifiesItsInvocation() {
+    JobWorkerMock notify =
+        processTestContext.mockJobWorker("notify-invoice").thenComplete(Map.of("notified", true));
+    JobWorkerMock notifyStart = processTestContext.mockJobWorker("notify-start").thenComplete();
+    processTestContext.mockChildProcess("archive-invoice", Map.of("archived", true));
+
+    ProcessInstanceEvent instance = start("invoice", Map.of("invoiceId", "I-1"));
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasVariable("notified", true)
+        .hasVariable("archived", true);
+    assertThat(notify.getInvocations()).isEqualTo(1);
+    assertThat(notifyStart.getInvocations()).isEqualTo(1);
+    assertThat(notify.getActivatedJobs()).hasSize(1);
+    assertThat(notify.getActivatedJobs().get(0).getVariablesAsMap())
+        .containsEntry("invoiceId", "I-1");
+  }
+
+  @Test
+  void preservesRepeatedDelegateOutputs() {
+    AtomicInteger output = new AtomicInteger();
+    JobWorkerMock notify =
+        processTestContext
+            .mockJobWorker("notify-invoice")
+            .withHandler(
+                (jobClient, job) -> {
+                    int invocation = output.incrementAndGet();
+                    String invocationOutput =
+                        invocation == 1
+                            ? "firstNotificationOutput"
+                            : "secondNotificationOutput";
+                    jobClient
+                        .newCompleteCommand(job)
+                        .variables(
+                            Map.of(
+                                "notificationCount",
+                                invocation,
+                                invocationOutput,
+                                invocation))
+                        .send()
+                        .join();
+                });
+
+    ProcessInstanceEvent instance = start("repeated-notify", Map.of());
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasVariable("notificationCount", 2)
+        .hasVariable("firstNotificationOutput", 1)
+        .hasVariable("secondNotificationOutput", 2);
+    assertThat(notify.getInvocations()).isEqualTo(2);
+  }
+
+  @Test
+  void routesADelegateBpmnError() {
+    processTestContext.mockJobWorker("notify-start").thenComplete();
+    JobWorkerMock notify =
+        processTestContext
+            .mockJobWorker("notify-invoice")
+            .thenThrowBpmnError("INVOICE_REJECTED", "Invoice rejected", Map.of());
+
+    ProcessInstanceEvent instance = start("invoice", Map.of("invoiceId", "I-1"));
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasCompletedElements("End_InvoiceRejected");
+    assertThat(notify.getInvocations()).isEqualTo(1);
+  }
+
+  @Test
+  void throwsWhenTheSynchronousDelegateFails() {
+    processTestContext.mockJobWorker("notify-start").thenComplete();
+    JobWorkerMock notify =
+        processTestContext
+            .mockJobWorker("notify-invoice")
+            .withHandler(
+                (jobClient, job) ->
+                    jobClient
+                        .newFailCommand(job)
+                        .retries(0)
+                        .errorMessage("Notification failed")
+                        .send()
+                        .join());
+
+    ProcessInstanceEvent instance = start("invoice", Map.of("invoiceId", "I-1"));
+
+    CamundaAssert.assertThat(instance).hasActiveIncidents();
+    assertThat(notify.getInvocations()).isEqualTo(1);
+  }
+
+  @Test
+  void autoMocksDelegatesAndExecutionListeners() {
+    JobWorkerMock autoStart =
+        processTestContext.mockJobWorker("auto-start-listener").thenComplete();
+    JobWorkerMock autoValidate = processTestContext.mockJobWorker("auto-validate").thenComplete();
+    JobWorkerMock autoNotify = processTestContext.mockJobWorker("auto-notify").thenComplete();
+
+    ProcessInstanceEvent instance = start("auto-mock-invoice", Map.of());
+
+    CamundaAssert.assertThat(instance).isCompleted();
+    assertThat(autoStart.getInvocations()).isEqualTo(1);
+    assertThat(autoValidate.getInvocations()).isEqualTo(1);
+    assertThat(autoNotify.getInvocations()).isEqualTo(1);
+  }
+
+  @Test
+  void registersAndVerifiesTaskListenerMock() {
+    AtomicInteger listenerInvocations = new AtomicInteger();
+    ProcessInstanceEvent instance = start("task-listener", Map.of());
+
+    processTestContext.completeJobOfUserTaskListener(
+        JobSelectors.byJobType("review-created-listener"),
+        result -> listenerInvocations.incrementAndGet());
+    processTestContext.completeUserTask("Task_Review");
+
+    CamundaAssert.assertThat(instance).isCompleted();
+    assertThat(listenerInvocations.get()).isEqualTo(1);
+  }
+
+  @Test
+  void registersAndVerifiesTaskListenerMockTwice() {
+    AtomicInteger listenerInvocations = new AtomicInteger();
+    ProcessInstanceEvent instance = start("task-listener-twice", Map.of());
+
+    processTestContext.completeJobOfUserTaskListener(
+        JobSelectors.byJobType("review-created-listener"),
+        result -> listenerInvocations.incrementAndGet());
+    processTestContext.completeUserTask("Task_Review_One");
+    processTestContext.completeJobOfUserTaskListener(
+        JobSelectors.byJobType("review-created-listener"),
+        result -> listenerInvocations.incrementAndGet());
+    processTestContext.completeUserTask("Task_Review_Two");
+
+    CamundaAssert.assertThat(instance).isCompleted();
+    assertThat(listenerInvocations.get()).isEqualTo(2);
+  }
+
+  @Test
+  void registersAndVerifiesTaskListenerMockNeverExecuted() {
+    ProcessInstanceEvent instance = start("task-listener-never", Map.of());
+
+    processTestContext.completeUserTask("Task_Review");
+
+    CamundaAssert.assertThat(instance).isCompleted();
+  }
+
+  @Test
+  void preservesBusinessRuleResultShape() {
+    ProcessInstanceEvent instance = start("decision-output", Map.of("invoiceId", "I-1"));
+
+    CamundaAssert.assertThat(instance)
+        .isCompleted()
+        .hasVariable("riskOutcome", Map.of("approved", true, "discount", "10%"));
+  }
+
+  private ProcessInstanceEvent start(String processId, Map<String, Object> variables) {
+    return camundaClient.newCreateInstanceCommand()
+        .bpmnProcessId(processId)
+        .latestVersion()
+        .variables(variables)
+        .send()
+        .join();
+  }
+}

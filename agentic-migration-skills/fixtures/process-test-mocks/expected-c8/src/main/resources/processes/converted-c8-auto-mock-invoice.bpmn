@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_AutoMockInvoice" targetNamespace="http://camunda.org/examples/process-test-mocks" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="auto-mock-invoice" name="Auto-mock invoice" isExecutable="true">
+    <bpmn:startEvent id="Start_AutoMockInvoice" name="Start auto-mock invoice">
+      <bpmn:outgoing>Flow_AutoStart_Validate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_AutoStart_Validate" sourceRef="Start_AutoMockInvoice" targetRef="Task_AutoValidate" />
+    <bpmn:serviceTask id="Task_AutoValidate" name="Validate automatically">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="auto-validate" retries="1" />
+        <zeebe:executionListeners>
+          <zeebe:executionListener eventType="start" type="auto-start-listener" retries="1" />
+        </zeebe:executionListeners>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_AutoStart_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_AutoValidate_Notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_AutoValidate_Notify" sourceRef="Task_AutoValidate" targetRef="Task_AutoNotify" />
+    <bpmn:serviceTask id="Task_AutoNotify" name="Notify automatically">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="auto-notify" retries="1" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_AutoValidate_Notify</bpmn:incoming>
+      <bpmn:outgoing>Flow_AutoNotify_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_AutoNotify_End" sourceRef="Task_AutoNotify" targetRef="End_AutoMockInvoice" />
+    <bpmn:endEvent id="End_AutoMockInvoice" name="Auto-mock complete">
+      <bpmn:incoming>Flow_AutoNotify_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_AutoMockInvoice">
+    <bpmndi:BPMNPlane id="BPMNPlane_AutoMockInvoice" bpmnElement="auto-mock-invoice">
+      <bpmndi:BPMNShape id="Start_AutoMockInvoice_di" bpmnElement="Start_AutoMockInvoice">
+        <dc:Bounds x="80" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AutoValidate_di" bpmnElement="Task_AutoValidate">
+        <dc:Bounds x="160" y="98" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AutoNotify_di" bpmnElement="Task_AutoNotify">
+        <dc:Bounds x="340" y="98" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AutoMockInvoice_di" bpmnElement="End_AutoMockInvoice">
+        <dc:Bounds x="520" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_AutoStart_Validate_di" bpmnElement="Flow_AutoStart_Validate">
+        <di:waypoint x="116" y="138" />
+        <di:waypoint x="160" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_AutoValidate_Notify_di" bpmnElement="Flow_AutoValidate_Notify">
+        <di:waypoint x="260" y="138" />
+        <di:waypoint x="340" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_AutoNotify_End_di" bpmnElement="Flow_AutoNotify_End">
+        <di:waypoint x="440" y="138" />
+        <di:waypoint x="520" y="138" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

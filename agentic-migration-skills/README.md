@@ -284,6 +284,10 @@ The [`fixtures/process-test-migration`](fixtures/process-test-migration) walkthr
 Camunda 7 engine-backed JUnit 3, JUnit 4, and JUnit 5 tests with CPT 8.9. It checks converted-only
 deployments, JUnit 3 lifecycle callbacks, and a retained JUnit 4 test.
 
+The [`fixtures/process-test-mocks`](fixtures/process-test-mocks) fixture checks that the skill
+preserves collaborator, delegate, listener, and called-process mock boundaries. It includes a
+negative case for an unapproved worker mock.
+
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture

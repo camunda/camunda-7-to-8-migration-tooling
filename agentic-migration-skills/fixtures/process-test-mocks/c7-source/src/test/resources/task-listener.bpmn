@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_TaskListener"
+                  targetNamespace="http://camunda.org/examples/process-test-mocks">
+  <bpmn:process id="task-listener" name="Task listener" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_TaskListener">
+      <bpmn:outgoing>Flow_Start_Review</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Review" sourceRef="Start_TaskListener" targetRef="Task_Review" />
+    <bpmn:userTask id="Task_Review" name="Review invoice">
+      <bpmn:extensionElements>
+        <camunda:taskListener event="create" delegateExpression="${reviewTaskListener}" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Review</bpmn:incoming>
+      <bpmn:outgoing>Flow_Review_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="Task_Review" targetRef="End_TaskListener" />
+    <bpmn:endEvent id="End_TaskListener">
+      <bpmn:incoming>Flow_Review_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>
