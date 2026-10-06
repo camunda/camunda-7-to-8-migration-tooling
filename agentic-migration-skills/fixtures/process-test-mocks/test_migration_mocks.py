@@ -374,17 +374,28 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             guidance,
         )
         step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
-        self.assertIn("detect mock signals from the original C7 test source", step_two)
         self.assertIn(
-            "Record the source-derived `mocks` modifier in the Test Inventory's `Signals` column.",
+            "When the skill reaches Step 2, it follows `references/test-migration.md` to build the Test Inventory.",
             step_two,
         )
-        self.assertIn("uses the source-derived modifier recorded in Step 2.", step_three)
+        self.assertNotIn("detect mock signals", step_two)
+        self.assertNotIn("source-derived `mocks` modifier", step_two)
+        part_a = step_three.split("When the user selects Approach A", 1)[0]
         self.assertIn(
-            "does not derive the modifier again after source transformations.",
-            step_three,
+            "the skill follows `references/test-migration.md` for cpt mapping",
+            " ".join(part_a.lower().split()),
         )
-        self.assertIn("Users do not add it.", skill)
+        for duplicated_rule in (
+            "mock-boundary and mapping rules.",
+            "the skill also requires an in-scope test's `signals` column to contain `mocks`.",
+            "if the `handling` value does not instruct migration, then the skill does not apply those rules.",
+            "does not use a `mocks` signal to override the test inventory's `handling` value.",
+            "the skill uses the source-derived modifier recorded in step 2.",
+            "it does not derive the modifier again after source transformations.",
+        ):
+            with self.subTest(duplicated_rule=duplicated_rule):
+                self.assertNotIn(duplicated_rule, " ".join(part_a.lower().split()))
+        self.assertNotIn("Users do not add it.", skill)
 
     def test_mock_modifier_ignores_shared_engine_configuration_and_dependencies(self):
         guidance = (

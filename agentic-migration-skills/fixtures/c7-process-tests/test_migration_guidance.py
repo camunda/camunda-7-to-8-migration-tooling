@@ -1740,14 +1740,28 @@ class MigrationGuidanceTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
 
-        self.assertIn("For every in-scope test method, detect mock signals", step_two)
-        self.assertIn("detect mock signals from the original C7 test source", step_two)
-        self.assertIn("Record the source-derived `mocks` modifier", step_two)
         self.assertIn(
-            "whose Step 2 Test Inventory `Signals` column contains `mocks`",
-            step_three,
+            "When the skill reaches Step 2, it follows `references/test-migration.md` to build the Test Inventory.",
+            step_two,
         )
-        self.assertNotIn("derives the `mocks` modifier from source", step_three)
+        self.assertNotIn("detect mock signals", step_two)
+        self.assertNotIn("source-derived `mocks` modifier", step_two)
+        part_a = step_three.split("When the user selects Approach A", 1)[0]
+        self.assertIn(
+            "the skill follows `references/test-migration.md` to map every test inventory row "
+            "whose `handling` value instructs migration, including process-test mocks.",
+            normalized(part_a),
+        )
+        for duplicated_rule in (
+            "mock-boundary and mapping rules.",
+            "the skill also requires an in-scope test's `signals` column to contain `mocks`.",
+            "if the `handling` value does not instruct migration, then the skill does not apply those rules.",
+            "does not use a `mocks` signal to override the test inventory's `handling` value.",
+            "the skill uses the source-derived modifier recorded in step 2.",
+            "it does not derive the modifier again after source transformations.",
+        ):
+            with self.subTest(duplicated_rule=duplicated_rule):
+                self.assertNotIn(duplicated_rule, normalized(part_a))
 
     def test_mock_migration_respects_inventory_handling(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
@@ -2857,9 +2871,21 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_reference_distinguishes_registry_bindings_from_test_doubles(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        self.assertIn("registry bindings, not mock evidence by themselves", reference)
         self.assertIn(
-            "when the registered value is a test double, the skill counts the call as mock evidence",
+            "`mocks.register(...)` as a registry binding, not mock evidence by itself",
+            reference,
+        )
+        self.assertIn(
+            "classify every `camundamockito.registermockinstance(...)` call as mock evidence "
+            "because the api always creates a mockito mock",
+            reference,
+        )
+        self.assertIn(
+            "`mocks.register(...)` registers a test double, the skill counts the call as mock evidence",
+            reference,
+        )
+        self.assertNotIn(
+            "`camundamockito.registermockinstance(...)` as a registry binding",
             reference,
         )
         self.assertIn(

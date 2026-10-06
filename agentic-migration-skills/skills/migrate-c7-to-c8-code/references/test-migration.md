@@ -55,7 +55,7 @@ a dependency alone.
 
 | Modifier | Detect by | Used by |
 |---|---|---|
-| `mocks` | A source-level mock or test double that replaces a project collaborator or BPMN component qualifies. Examples include a Mockito mock of a collaborator, a C7 `register...Mock` helper, `autoMock(...)`, or a Scenario behavior that stubs a BPMN component. Treat `Mocks.register(...)` and `CamundaMockito.registerMockInstance(...)` as registry bindings, not mock evidence by themselves. When the registered value is a test double, the skill counts the call as mock evidence. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+| `mocks` | A source-level mock or test double that replaces a project collaborator or BPMN component qualifies. Examples include a Mockito mock of a collaborator, a C7 `register...Mock` helper, `autoMock(...)`, or a Scenario behavior that stubs a BPMN component. Treat `Mocks.register(...)` as a registry binding, not mock evidence by itself. When `Mocks.register(...)` registers a test double, the skill counts the call as mock evidence. Classify every `CamundaMockito.registerMockInstance(...)` call as mock evidence because the API always creates a Mockito mock. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
 
 The skill does not treat a `ProcessScenario` mock used only to drive and verify a Scenario test
 as a component mock signal.
@@ -68,7 +68,7 @@ component mock signal.
 The skill checks each test method and its class-level component mock declarations.
 The skill checks inherited and local setup and teardown methods.
 The skill checks helper methods called by these methods.
-For each registry call, the skill traces the registered value to its declaration or factory.
+For each `Mocks.register(...)` call, the skill traces the registered value to its declaration or factory.
 The fixture's `new OrderAuditListener()` registers a real listener, not a test double.
 
 ### Test kinds

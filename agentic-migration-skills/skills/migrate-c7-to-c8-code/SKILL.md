@@ -227,10 +227,6 @@ Where the confirmed root is a Git repository, record `git rev-parse HEAD` and th
 When the skill reaches Step 2, it follows `references/test-migration.md` to build the Test Inventory.
 Build the inventory from the original C7 test source before Step 3 changes that source.
 Inventory every test method and assign its test kind.
-For every in-scope test method, detect mock signals from the original C7 test source using
-`references/test-migration.md`.
-Record the source-derived `mocks` modifier in the Test Inventory's `Signals` column.
-Users do not add it.
 
 #### Code Inventory
 
