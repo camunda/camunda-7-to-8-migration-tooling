@@ -887,6 +887,14 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_all_in_scope_test_kinds_keep_modifier_signals(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        modifier_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE, ["Modifier", "Detect by", "Used by"]
+        )
+        mocks_modifier = next(row for row in modifier_rows if row["Modifier"] == "mocks")
+        self.assertIn(
+            "org.camunda.bpm.scenario.ProcessScenario",
+            mocks_modifier["Detect by"],
+        )
         required_modifiers = {
             "OrderProcessTest#approvesAndShipsOrder": ("mocks modifier", "time modifier"),
             "OrderTimerTest#escalatesAfterOneDay": ("mocks modifier", "time modifier"),
@@ -901,6 +909,11 @@ class MigrationGuidanceTest(unittest.TestCase):
                 ("mocks modifier", "coverage modifier"),
             "FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders":
                 ("mocks modifier", "time modifier"),
+            "ScenarioMappingEdgeCasesTest#shouldStartMessageProcess": ("mocks modifier",),
+            "ScenarioMappingEdgeCasesTest#shouldCountCompletedVisitsSeparately":
+                ("mocks modifier",),
+            "ScenarioMappingEdgeCasesTest#shouldCountMixedFinishedVisitsByOutcome":
+                ("mocks modifier",),
             "SubscriptionStandaloneTest#startsSubscriptionWithoutSpring": ("mocks modifier",),
             "JGivenEngineBackedTest#startsProcess": ("no applicable modifiers",),
             "FluentModelTest#buildsAndStartsModel": ("no applicable modifiers",),
@@ -920,6 +933,8 @@ class MigrationGuidanceTest(unittest.TestCase):
                     ):
                         self.assertIn("Spring modifier", row["Signals"])
                     if "@MockBean" in source:
+                        self.assertIn("mocks modifier", row["Signals"])
+                    if "@Mock private ProcessScenario" in source:
                         self.assertIn("mocks modifier", row["Signals"])
 
             fulfillment_rows = [
@@ -945,6 +960,18 @@ class MigrationGuidanceTest(unittest.TestCase):
                     ):
                         for modifier in modifiers:
                             self.assertIn(modifier, row["Signals"])
+
+    def test_step_three_uses_test_migration_reference_during_execution(self):
+        skill = normalized(MIGRATION_SKILL.read_text(encoding="utf-8"))
+        code_migration = skill.split("#### part a - code migration", 1)[1].split(
+            "#### part b - model migration", 1
+        )[0]
+
+        self.assertIn(
+            "when the skill migrates camunda 7 decision tests or spring process tests, "
+            "it follows `references/test-migration.md` for their migration.",
+            code_migration,
+        )
 
     def test_inventory_count_summaries_match_each_test_kind(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
@@ -2336,7 +2363,19 @@ class MigrationGuidanceTest(unittest.TestCase):
             "`test migration needs camunda 8.9 or later`.",
             tests_gate,
         )
+    def test_worker_bootstrap_handling_is_scoped_to_non_boot_spring(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        handling_rule = (
+            "if the application has no usable worker bootstrap, then the skill sets "
+            "the test's handling to `report only`."
+        )
+        spring_section = reference.split("## spring without spring boot", 1)[1].split(
+            "## camunda platform scenario test migration", 1
+        )[0]
 
+        self.assertEqual(1, reference.count(handling_rule))
+        self.assertIn(handling_rule, spring_section)
+ 
     def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         for requirement in (

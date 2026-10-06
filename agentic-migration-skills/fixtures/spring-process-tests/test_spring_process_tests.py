@@ -182,8 +182,8 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
         self.assertIn(
-            "When the skill inventories Camunda 7 decision tests and Spring process tests, it follows `references/test-migration.md` for their handling.",
-            skill,
+            "When the skill migrates Camunda 7 decision tests or Spring process tests, it follows `references/test-migration.md` for their migration.",
+            " ".join(skill.split()),
         )
 
     def test_inventory_reference_defines_kinds_modifiers_models_and_report(self):
