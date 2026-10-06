@@ -4002,7 +4002,7 @@ def render_test_parity(plan, checks, mapping):
                 f"Retired: {retirement['reason']} "
                 f"(approved by {retirement.get('approved_by') or 'not recorded'})"
             )
-        if test.get("handling") == "Report only":
+        if test.get("handling") == "Report only" and status == "manual":
             notes.append("Report only; not verified.")
         lines.append(
             "| "

@@ -798,6 +798,39 @@ class ValidationEvidenceTest(unittest.TestCase):
         ]
         self.assertEqual([], gate.test_parity_issues(plan, {}, mapping))
 
+    def test_report_only_note_is_limited_to_manual_ledger_rows(self):
+        mapping = {
+            "tests": [
+                {
+                    "c7_id": test_id,
+                    "handling": "Report only",
+                    "status": status,
+                }
+                for test_id, status in (
+                    ("manual", "manual"),
+                    ("migrated", "migrated"),
+                    ("retired", "retired"),
+                    ("unmapped", None),
+                )
+            ]
+        }
+        report = gate.render_test_parity(
+            Namespace(test_contract={"suites": {}}),
+            {},
+            mapping,
+        )
+        rows = {
+            test_id: next(
+                line for line in report.splitlines() if line.startswith(f"| {test_id} |")
+            )
+            for test_id in ("manual", "migrated", "retired", "unmapped")
+        }
+
+        self.assertIn("Report only; not verified.", rows["manual"])
+        for test_id in ("migrated", "retired", "unmapped"):
+            with self.subTest(test_id=test_id):
+                self.assertNotIn("Report only; not verified.", rows[test_id])
+
     def test_parity_checks_require_run_mode_and_a_migrated_test(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
