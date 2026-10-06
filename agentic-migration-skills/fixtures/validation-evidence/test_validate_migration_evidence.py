@@ -455,8 +455,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual("blocked", check["result"])
             self.assertEqual("declined by user (Question 8)", check["reason"])
 
-    def test_migrate_only_rejects_test_and_uninspectable_commands_under_other_evidence_kinds(self):
-        compile_key = ("module", "app", "compile", None)
+    def test_migrate_only_rejects_test_and_uninspectable_commands_for_non_test_checks(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
         test_commands = (
             ["mvn", "test"],
             ["mvn", "verify"],
@@ -485,7 +485,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                         gate.EvidenceError,
                         "test execution|cannot inspect",
                     ):
-                        self.submit(compile_key, command=command_args)
+                        self.submit(lint_key, command=command_args)
                     command.assert_not_called()
 
     def test_migrate_only_rejects_wrapped_test_commands(self):
