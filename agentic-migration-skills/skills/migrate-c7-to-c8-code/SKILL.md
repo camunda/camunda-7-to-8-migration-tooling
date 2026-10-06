@@ -259,9 +259,6 @@ consumer actions. Where the management server uses a separate bind address or po
 #### Test Inventory
 
 When the skill reaches Step 2, it follows `references/test-migration.md` for the test inventory procedure.
-When the Test Inventory includes a test with handling **Migrate**, **Migrate to CPT**, or
-**Migrate (lower priority)**, ask Question 8 in a separate prompt when its conditions in
-`references/interview-questions.md` apply. Wait for the user's answer before Step 3.
 
 #### Model Inventory
 
@@ -320,6 +317,9 @@ When the skill presents test counts, CPT eligibility, and `Report only` findings
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
+When the Test Inventory includes a test with handling **Migrate**, **Migrate to CPT**, or
+**Migrate (lower priority)**, ask Question 8 in a separate prompt when its conditions in
+`references/interview-questions.md` apply. Wait for the user's answer before Step 3.
 
 #### Custom incident notifications
 

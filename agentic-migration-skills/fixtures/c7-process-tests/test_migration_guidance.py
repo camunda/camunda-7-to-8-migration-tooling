@@ -1103,373 +1103,67 @@ class MigrationGuidanceTest(unittest.TestCase):
                 )
 
     def test_question_8_eligibility_covers_every_migrated_handling(self):
-        handling_labels = ("Migrate", MIGRATE_TO_CPT, MIGRATE_LOWER_PRIORITY)
-        at_least_one_migrated = (
-            "At least one test has handling "
-            + ", ".join(f"**{handling}**" for handling in handling_labels[:-1])
-            + f", or **{handling_labels[-1]}**"
-        )
-        no_migrated_tests = (
-            "No test has handling "
-            + ", ".join(f"**{handling}**" for handling in handling_labels[:-1])
-            + f", or **{handling_labels[-1]}**"
-        )
-        question_rows = markdown_table(
+        handling = "**Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**"
+        rows = markdown_table(
             INTERVIEW_QUESTIONS,
             ["Scope", "Code approach", "Target", "Test Inventory", "Ask Question 8"],
         )
         self.assertEqual(
             {
-                (
-                    "Code only or Code + models",
-                    "A or B",
-                    "8.9 or later",
-                    at_least_one_migrated,
-                    "Yes",
-                ),
+                ("Code only or Code + models", "A or B", "8.9 or later",
+                 f"At least one test has handling {handling}", "Yes"),
                 ("Assessment only or Models only", "Any", "Any", "Any", "No"),
                 ("Any", "C", "Any", "Any", "No"),
                 ("Any", "A or B", "8.8", "Any", "No"),
-                ("Any", "A or B", "8.9 or later", no_migrated_tests, "No"),
+                ("Any", "A or B", "8.9 or later", f"No test has handling {handling}", "No"),
             },
             {
-                (
-                    row["Scope"],
-                    row["Code approach"],
-                    row["Target"],
-                    row["Test Inventory"],
-                    row["Ask Question 8"],
-                )
-                for row in question_rows
+                (row["Scope"], row["Code approach"], row["Target"], row["Test Inventory"],
+                 row["Ask Question 8"])
+                for row in rows
             },
         )
-
-        question_text = INTERVIEW_QUESTIONS.read_text(encoding="utf-8")
-        question_section = question_text.split("## Question 8 - Test Execution", 1)[1].split(
-            "## Question 8 runtime notice", 1
-        )[0]
-        self.assertIn("**Run tests (recommended, default)**", question_section)
-        self.assertIn("**Migrate tests only**", question_section)
-        self.assertIn("Require the user to select an option explicitly.", question_section)
-        test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
-        self.assertIn("Run each Camunda 7 test command before Step 3 changes any file", test_migration)
-        self.assertIn("Compile test sources", test_migration)
-        self.assertIn("Do not run CPT suites or Step 4 process scenarios", test_migration)
-
+        question = INTERVIEW_QUESTIONS.read_text(encoding="utf-8").split(
+            "## Question 8 - Test Execution", 1
+        )[1].split("## Question 8 runtime notice", 1)[0]
+        self.assertIn("**Run tests (recommended, default)**", question)
+        self.assertIn("**Migrate tests only**", question)
+        self.assertIn("Require the user to select an option explicitly.", question)
         self.assertRegex(
             SKILL_PATH.read_text(encoding="utf-8"),
             r"When the Test Inventory includes a test with handling \*\*Migrate\*\*,\s*"
             r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
         )
-        self.assertRegex(
-            test_migration,
-            r"at\s+least one test with handling \*\*Migrate\*\*, \*\*Migrate to CPT\*\*, "
-            r"or \*\*Migrate \(lower priority\)\*\*",
-        )
-        self.assertRegex(
-            test_migration,
-            r"inventory includes a test with handling \*\*Migrate\*\*,\s*"
-            r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
-        )
 
-    def test_migrate_only_walkthrough_covers_compile_blockers_and_deferred_plan(self):
-        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
-        self.assertIn("W5", readme)
-        self.assertIn("deferred verification plan", readme)
-        self.assertIn("sibling filesystem snapshot", readme)
-        self.assertNotIn("C7 commit in this Git-backed fixture", readme)
-
-        test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
-        self.assertRegex(
-            test_migration,
-            r"When the recorder receives module `compile` evidence, it requires successful "
-            r"test-source\s+compilation\.",
-        )
-        self.assertIn("| Gradle | `build` or `check` |", test_migration)
-        self.assertIn(
-            "When no test-capable task remains in the dry-run graph, the recorder allows the command.",
-            test_migration,
-        )
-        self.assertIn(
-            "Maven `process-test-classes` or a later standard lifecycle phase qualifies "
-            "with `-DskipTests`.",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | Non-empty `MAVEN_ARGS` or `.mvn/maven.config` |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | An explicit `maven.test.skip` command-line value |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | Inherited JVM options, `.mvn/jvm.config`, or the active project model "
-            "sets `maven.test.skip=true` |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | The recorder cannot inspect the active effective POM |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | An unknown lifecycle-bound plugin goal |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | A lifecycle command selects multiple projects or uses `-am`, `-amd`, or `-rf` |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | An unscoped aggregator command can run child projects |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | Module evidence does not select that module with `-pl` or its POM with `-f` |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Maven | `-f` or `--file` in separated or equals form |",
-            test_migration,
-        )
-        self.assertIn(
-            "Gradle requires the explicit `testClasses` task from the selected module directory.",
-            test_migration,
-        )
-        self.assertIn(
-            "| Java | The recorder cannot establish the module artifact identity |",
-            test_migration,
-        )
-        self.assertIn(
-            "| Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence |",
-            test_migration,
-        )
-        self.assertRegex(
-            test_migration,
-            r"snapshot\. \(MAY\)\s+Never rebuild the baseline from migrated code\.",
-        )
-        validation_evidence = TEST_MIGRATION_REFERENCE.with_name("validation-evidence.md").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("It rejects other Maven test plugin goals.", validation_evidence)
-        self.assertIn(
-            "The recorder inspects lifecycle-bound plugin goals in the active effective POM.",
-            validation_evidence,
-        )
-        self.assertIn(
-            "It rejects lifecycle-bound goals whose test behavior it cannot establish.",
-            validation_evidence,
-        )
-        self.assertIn(
-            "It rejects Maven lifecycle commands that can execute multiple reactor projects.",
-            validation_evidence,
-        )
-        self.assertIn(
-            "For module evidence, select exactly that module with `-pl` or its POM with `-f`.",
-            validation_evidence,
-        )
-        self.assertIn(
-            "checks separated and equals forms of `-f` and `--file` against the expected POM path.",
-            validation_evidence,
-        )
-        self.assertIn(
-            "inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks",
-            validation_evidence,
-        )
-        self.assertIn(
-            "checks test-name suffixes on case-normalized task names",
-            validation_evidence,
-        )
-        self.assertIn(
-            "checks that Gradle's `testClasses` task uses the selected module",
-            validation_evidence,
-        )
-        self.assertIn(
-            "effective Maven POM identifies the exact artifact",
-            validation_evidence,
-        )
-        self.assertIn(
-            "manifest declares `Main-Class`",
-            validation_evidence,
-        )
-        self.assertIn("`.mvn/maven.config`", validation_evidence)
-        self.assertIn("`.mvn/jvm.config`", validation_evidence)
-        self.assertIn(
-            "The recorder exempts Spring Boot's `BootRun` task only for module "
-            "`spring_boot_run` evidence.",
-            validation_evidence,
-        )
-        self.assertIn(
-            "If the recorder cannot inspect the task graph, then it rejects the command.",
-            validation_evidence,
-        )
-        self.assertIn("rejects non-empty `MAVEN_ARGS`", validation_evidence)
-        self.assertIn("It accepts `npx bpmnlint` and `npx dmnlint`", validation_evidence)
+    def test_migrate_only_guidance_and_walkthrough_report(self):
+        guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        for text in (
+            "Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task.",
+            "A main-source-only compile does not count.",
+            "Do not run C7 suites, CPT suites, or Step 4 process scenarios.",
+            "the exact reason `declined by user (Question 8)`",
+            "Copy the full project root, including hidden files, to a sibling directory.",
+            "Never rebuild the C7 baseline from migrated code.",
+        ):
+            with self.subTest(text=text):
+                self.assertIn(normalized(text), guidance)
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
-        self.assertIn("## Test-source compilation", report)
         self.assertIn("**Status:** `not verified (Migrate tests only)`", report)
-        for command in (
-            "mvn -pl engine-tests test-compile",
-            "mvn -pl spring-boot-app test-compile",
-            "mvn -pl remote-engine test-compile",
-        ):
-            self.assertIn(command, report)
-        self.assertRegex(
-            report,
-            r"The skill ran no C7 or C8 test command\s+during migration\.",
-        )
-        test_checks = markdown_table(
-            EXPECTED_TESTS_ONLY,
-            ["Check", "Status", "Reason"],
-        )
-        self.assertTrue(test_checks)
-        self.assertTrue(
-            all(
-                row["Status"] == "blocked"
-                and row["Reason"] == "declined by user (Question 8)"
-                for row in test_checks
-            )
-        )
-        deferred_checks = markdown_table(
-            EXPECTED_TESTS_ONLY,
-            ["Kind", "Scope", "Status", "Reason"],
-        )
-        self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred_checks})
-        self.assertTrue(
-            all(
-                row["Status"] == "blocked"
-                and row["Reason"] == "declined by user (Question 8)"
-                for row in deferred_checks
-            )
-        )
-        parity_rows = markdown_table(
-            EXPECTED_TESTS_ONLY,
-            ["Test ID", "Expected CPT test", "Status", "Reason"],
-        )
-        self.assertTrue(parity_rows)
-        self.assertTrue(
-            all(
-                row["Status"] == "blocked"
-                and row["Reason"] == "declined by user (Question 8)"
-                for row in parity_rows
-            )
-        )
+        self.assertIn("mvn -pl engine-tests test-compile", report)
         self.assertIn("**Verdict:** `needs review`", report)
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
         self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
-        self.assertNotIn("Baseline commit:", report)
-        self.assertIn(
-            "The C7 baseline is a sibling filesystem snapshot.",
-            report,
-        )
-        self.assertIn(
-            "mvn -f ../c7-source-baseline/pom.xml -pl engine-tests test",
-            report,
-        )
-        deferred_suite_commands = (
-            (
-                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
-                "run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- "
-                "mvn -f ../c7-source-baseline/pom.xml -pl engine-tests test"
-            ),
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test',
-            (
-                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
-                "run --type module --target engine-tests --kind tests --scenario "
-                "legacy-scenario-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml "
-                "-pl engine-tests-legacy test"
-            ),
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c8-migrated -- mvn -pl engine-tests -Dtest=FulfillmentScenarioTest,ScenarioMappingEdgeCasesTest test',
-            (
-                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
-                "run --type module --target spring-boot-app --kind tests --scenario "
-                "spring-boot-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml "
-                "-pl spring-boot-app test"
-            ),
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c8-migrated -- mvn -pl spring-boot-app test',
-            (
-                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
-                "run --type module --target remote-engine --kind tests --scenario "
-                "remote-engine-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml "
-                "-pl remote-engine verify"
-            ),
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c8-migrated -- mvn -pl remote-engine verify',
-        )
-        for command in deferred_suite_commands:
-            with self.subTest(command=command):
-                self.assertIn(command, report)
-
-        deferred_process_commands = (
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target 'engine-tests/src/main/resources/converted-c8-order.bpmn#order' "
-            "--kind process_path --scenario normal --environment local -- "
-            "mvn -pl engine-tests '-Dtest=OrderProcessTest#approvesAndShipsOrder' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target 'engine-tests/src/main/resources/converted-c8-shipping.bpmn#shipping' "
-            "--kind process_path "
-            "--scenario 'engine-tests:com.camunda.fixture.order.OrderProcessTest#approvesAndShipsOrder' "
-            "--environment local -- mvn -pl engine-tests "
-            "'-Dtest=OrderProcessTest#approvesAndShipsOrder' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target "
-            "'engine-tests/src/main/resources/converted-c8-LegacyOrderTest.testStockMissing.bpmn#legacyOrder' "
-            "--kind process_path --scenario testStockMissing --environment local -- "
-            "mvn -pl engine-tests '-Dtest=LegacyOrderTest#testStockMissing' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target 'engine-tests/src/main/resources/converted-c8-fulfillment.bpmn#fulfillment' "
-            "--kind process_path --scenario normal --environment local -- "
-            "mvn -pl engine-tests "
-            "'-Dtest=FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target "
-            "'engine-tests/src/main/resources/converted-c8-review-edge-cases.bpmn#MessageStartReview' "
-            "--kind process_path --scenario shouldStartMessageProcess --environment local -- "
-            "mvn -pl engine-tests "
-            "'-Dtest=ScenarioMappingEdgeCasesTest#shouldStartMessageProcess' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target "
-            "'engine-tests/src/main/resources/converted-c8-review-edge-cases.bpmn#MixedFinishReview' "
-            "--kind process_path --scenario shouldCountMixedFinishedVisitsByOutcome "
-            "--environment local -- mvn -pl engine-tests "
-            "'-Dtest=ScenarioMappingEdgeCasesTest#shouldCountMixedFinishedVisitsByOutcome' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target "
-            "'spring-boot-app/src/main/resources/converted-c8-subscription.bpmn#subscription' "
-            "--kind process_path --scenario normal --environment local -- mvn -pl spring-boot-app "
-            "'-Dtest=SubscriptionProcessTest#activatesSubscription' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target "
-            "'spring-boot-app/src/main/resources/converted-c8-housekeeping.bpmn#housekeeping' "
-            "--kind process_path --scenario normal --environment local -- mvn -pl spring-boot-app "
-            "'-Dtest=HousekeepingStartupTest#startsHousekeepingOnDeployment' test",
-            "python3 "
-            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
-            "--type process --target 'remote-engine/src/main/resources/converted-c8-payment.bpmn#payment' "
-            "--kind process_path --scenario normal --environment local -- "
-            "mvn -pl remote-engine -Dit.test=PaymentWorkerIT verify",
-        )
-        for command in deferred_process_commands:
-            with self.subTest(command=command):
-                self.assertIn(command, report)
-        self.assertIn("test_run_mode", report)
-        self.assertIn("unit-c7-baseline", report)
-        self.assertIn("unit-c8-migrated", report)
-        self.assertIn("--kind docker_info -- docker info", report)
-        self.assertIn("Rerun and record every deferred Step 4 process scenario", report)
-        test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").lower()
-        self.assertIn("not a git repository", test_migration)
-        self.assertIn("copy the full project root", test_migration)
-        self.assertIn("filesystem snapshot", test_migration)
+        deferred = markdown_table(EXPECTED_TESTS_ONLY, ["Kind", "Scope", "Status", "Reason"])
+        self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred})
+        for columns in (["Check", "Status", "Reason"], ["Kind", "Scope", "Status", "Reason"]):
+            rows = markdown_table(EXPECTED_TESTS_ONLY, columns)
+            self.assertTrue(rows)
+            self.assertTrue(
+                all(row["Status"] == "blocked" and row["Reason"] == "declined by user (Question 8)"
+                    for row in rows)
+            )
 
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))

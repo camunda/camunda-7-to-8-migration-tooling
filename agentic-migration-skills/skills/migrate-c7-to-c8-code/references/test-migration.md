@@ -306,158 +306,66 @@ When the target version is Camunda 8.8, the skill detects every test.
 
 ## Test Execution Choice
 
-The Step 2 Test Inventory is the source for the test kinds, handling decisions, test models, and test
-IDs used here. Ask Question 8 from `references/interview-questions.md` only after that inventory is
-complete.
-
-Question 8 applies only to code migration with approach A or B, target Camunda 8.9 or later, and at
-least one test with handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**. It
-does not apply to Assessment only, Models only, approach C, target 8.8, or an inventory without a
-test marked with one of these handling values.
+Ask Question 8 from `references/interview-questions.md` after the Step 2 Test Inventory is complete.
+The conditions for asking it are in that file.
 
 When the user selects Assessment only and the inventory includes a test with handling **Migrate**,
-**Migrate to CPT**, or **Migrate (lower priority)**, the skill explains both Question 8 options in
-`MIGRATION_REPORT.md`. Do not ask Question 8 or record a selected test run mode.
+**Migrate to CPT**, or **Migrate (lower priority)**, explain both Question 8 options in
+`MIGRATION_REPORT.md`. Do not ask Question 8 or record a test run mode.
 
-When the skill presents Question 8, it first shows the number of tests to migrate per test kind.
-It also shows every test with handling **Report only**, with its reason. Show the test commands found
-for each module in project documentation and the CI inventory. If no test command was found for a
-module, then the skill does not invent one.
+The skill runs `docker info` before the options and states whether it succeeds.
+If no test command was found for a module, then the skill does not invent one.
+If `docker info` fails, then the skill still offers both options.
 
-CPT starts the Camunda 8 runtime in Docker through Testcontainers by default. Run `docker info` and
-state whether it succeeds. A remote CPT runtime is an alternative. If `docker info` fails, then the
-skill still offers both Question 8 options. When the user selects **Migrate tests only**, the skill
-treats the Docker result as informational because no test suite runs.
-
-| User choice | Baseline step | Migration steps | Test verification |
+| User choice | Baseline step | Step 3 and Step 4 | Test verification |
 |---|---|---|---|
-| **Run tests** | Run each Camunda 7 test command before Step 3 changes any file. Record the baseline. | Migrate the tests, run each CPT test command, and apply the parity, freeze, mock-boundary, repeat-run, and coverage safeguards. | If a required test check does not pass, then the skill does not report `verified`. |
-| **Migrate tests only** | Preserve the C7 baseline before Step 3. Do not run a Camunda 7 test command. | Migrate the tests in the same way as the Run tests path. Compile test sources. Do not run CPT suites or Step 4 process scenarios. | Record every skipped test check as blocked with `declined by user (Question 8)`. Report `not verified (Migrate tests only)`. |
+| **Run tests** | Run each Camunda 7 test command before Step 3 changes any file. Record the baseline. | Migrate the tests, run each CPT test command, and apply the test safeguards. | `verified`, or `blocked` with the reason |
+| **Migrate tests only** | Preserve the C7 baseline as described below. Do not run a test command. | Migrate the tests as in the Run tests path. Compile test sources. Do not run C7 suites, CPT suites, or Step 4 process scenarios. | `not verified (Migrate tests only)` |
 
-When the user selects **Migrate tests only**, the skill preserves the C7 baseline before Step 3:
+When the user selects **Migrate tests only**, preserve the C7 baseline before Step 3:
 
 | Project root | Baseline action |
 |---|---|
-| Git repository | Record the Step 2 commit and use it for a separate worktree during deferred verification. |
-| Not a Git repository | Copy the full project root, including hidden files, to a sibling directory before Step 3. Record the snapshot path in `MIGRATION_REPORT.md`. |
+| Git repository | Record the Step 2 commit. |
+| Not a Git repository | Copy the full project root, including hidden files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. |
 
-Never reconstruct the C7 baseline from migrated files. If the skill cannot preserve the baseline,
-then ask the user before Step 3.
+If the skill cannot preserve the baseline, then ask the user before Step 3.
 
-When the user selects **Migrate tests only**, compile each module's test sources with `mvn
-test-compile` or the Gradle `testClasses` task. A main-source-only compile does not count.
-When the user selects **Migrate tests only**, the validation recorder applies this command policy
-regardless of evidence kind:
+When the user selects **Migrate tests only**, apply these rules:
 
-| Build tool | Command | Recorder action |
-|---|---|---|
-| Maven | A standard lifecycle phase with `-DskipTests` or `-DskipTests=true` | Allow standard Surefire and Failsafe test execution to be skipped. |
-| Maven | A Surefire or Failsafe test goal with `-DskipTests` or `-DskipTests=true` | Allow the known test provider to skip execution. |
-| Maven | Another plugin's `:test` or `:integration-test` goal, even with `-DskipTests` | Reject the goal because the plugin may ignore that property. |
-| Maven | An unknown lifecycle phase or plugin goal | If the recorder cannot establish its test behavior, then reject the command. |
-| Maven | An unknown lifecycle-bound plugin goal | Reject the command before execution. |
-| Maven | A lifecycle command selects multiple projects or uses `-am`, `-amd`, or `-rf` | Reject the command before execution. Select one project. |
-| Maven | An unscoped aggregator command can run child projects | Reject the command before execution. Use `-N` for a root-only check. |
-| Maven | Module evidence does not select that module with `-pl` or its POM with `-f` | Reject the command before execution. |
-| Maven | `-f` or `--file` in separated or equals form | Check the selected POM path against the expected module or root POM. |
-| Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
-| Maven | Non-empty `MAVEN_ARGS` or `.mvn/maven.config` | Reject the command because these arguments can add goals that the recorder cannot inspect. |
-| Maven | An explicit `maven.test.skip` command-line value | Use this value ahead of inherited JVM options, `.mvn/jvm.config`, and the active project model. |
-| Maven | Inherited JVM options, `.mvn/jvm.config`, or the active project model sets `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
-| Maven | The recorder cannot inspect the active effective POM | Reject the lifecycle command before execution. If test-source compilation is unverified, then reject module `compile` evidence. |
-| Maven | `spring-boot:run` | Allow the documented application-launch goal. |
-| Java | `java -jar <artifact>.jar` for module `executable_jar` evidence | When the effective Maven POM identifies the exact module artifact and its manifest declares `Main-Class`, the recorder allows the launch. |
-| Java | The recorder cannot establish the module artifact identity | Reject the JAR command before execution. |
-| Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from the task graph. |
-| Gradle | `testClasses` for module `compile` evidence | When the dry-run graph maps the task to the selected module directory, the recorder allows the evidence. |
-| Gradle | `build` or `check` | When no test-capable task remains in the dry-run graph, the recorder allows the command. |
-| Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence | Exclude only Spring Boot's `BootRun` task from test-capable task detection. Continue to reject every other executable or test-named task. |
-| Gradle | A test-capable task remains after exclusions | Reject the command before execution. |
-| Either | A test lifecycle goal or task without an applicable skip option | Reject the command. |
+- Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task. A
+  main-source-only compile does not count.
+- Where a non-test check needs packaging, package with `-DskipTests` (Maven) or `-x test` (Gradle).
+  Record why in `MIGRATION_REPORT.md`.
+- Record each module `tests` check and each process `process_path` check with the `block` action and
+  the exact reason `declined by user (Question 8)`.
+- The validation gate reports `NOT READY`. The project-readiness verdict is `needs review`, as
+  defined in `references/project-readiness.md`.
 
-The recorder treats each Gradle `JavaExec` and `Exec` task as test-capable.
-The recorder exempts Spring Boot's `BootRun` task only for module `spring_boot_run` evidence.
-The recorder also treats case-normalized test-named tasks as test-capable.
-When the recorder receives module `compile` evidence, it requires successful test-source
-compilation.
-Maven `test-compile` qualifies.
-Maven `process-test-classes` or a later standard lifecycle phase qualifies with `-DskipTests`.
-Gradle requires the explicit `testClasses` task from the selected module directory.
-A main-source-only compile does not qualify.
-
-When a non-test check needs Maven packaging, use the standard lifecycle with `-DskipTests`.
-When a non-test Gradle check needs packaging, the recorder permits `build` or `check` after task
-graph inspection.
-When the recorder lists a remaining test-capable task, exclude it with `-x <task>` and submit the
-command again.
-For every independently runnable suite, declare separate `test_suites` entries named
-`<suite>-c7-baseline` and `<suite>-c8-migrated`. Set `requires_docker` for each entry according to
-its runtime. These names give the baseline and migrated run separate validation evidence keys.
-
-Record the user's Question 8 answer in the `MIGRATION_REPORT.md` decision log.
-When the user selects **Migrate tests only**, record `test_run_mode: "migrate_only"` in
-`.camunda-migration/validation/step2-inventory.json`. When the user selects **Run tests**, record
-`test_run_mode: "run"` there. The validation script reads this field.
-
-For example:
-
-```json
-{
-  "schema_version": 1,
-  "modules": ["examples/web"],
-  "models": ["models/order.bpmn"],
-  "test_run_mode": "migrate_only"
-}
-```
-
-Where Question 8 does not apply, the skill omits `test_run_mode`.
-
-When the user selects **Migrate tests only**, record each module `tests` check and each process
-`process_path` check with the `block` action and the exact reason `declined by user (Question 8)`.
-The validation gate must report `NOT READY` because the required test checks remain unrun.
-
-When no required check failed and no required runtime dependency is unavailable, the project-readiness
-verdict is `needs review`, not `blocked`. Follow `references/project-readiness.md`.
+Record the Question 8 answer in the `MIGRATION_REPORT.md` decision log. Also record it as
+`test_run_mode` in `.camunda-migration/validation/step2-inventory.json`, as described in
+`references/validation-evidence.md`.
 
 ## Verification Plan for a Deferred Test Run
 
 When the user selects **Migrate tests only**, add a **Verify the test migration** section to
-`MIGRATION_REPORT.md`. List the C7 baseline and C8 migrated recorder command for every declared
-module suite. List the recorder command for every deferred Step 4 `process_path` scenario.
-Use commands from the Test Inventory, project documentation, and CI inventory. Do not replace a
-declared command with an example. Record the actual baseline commit or filesystem snapshot path in
-the report.
-Replace each placeholder below with the actual baseline, worktree path, and module commands:
+`MIGRATION_REPORT.md`. Use the actual baseline commit or snapshot path, and the test commands from
+the Test Inventory, project documentation, and CI inventory:
 
-1. When the project root is a Git repository, create a separate worktree from the recorded Step 2
-   baseline with `git worktree add ../c7-baseline <baseline-commit>`.
-   When the project root is not a Git repository, use the filesystem snapshot path recorded before
-   Step 3 instead.
-2. Change only `test_run_mode` from `migrate_only` to `run` in
-   `.camunda-migration/validation/step2-inventory.json`. Keep its scope, run ID, and source snapshot.
-   Do not run `init`, because it clears earlier validation checks.
-3. When any reserved suite entry requires Docker, the skill records the Docker probe before running
-   the first Docker-dependent suite:
-   `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info`.
-   The skill runs each Camunda 7 suite from the separate worktree or snapshot with its recorded
-   command. The skill runs each migrated suite from the migrated project with its recorded command.
-   When a migrated suite needs a runtime, the skill starts Docker or configures the remote CPT
-   runtime.
-4. Record the baseline and migrated results with their distinct suite names. The suite `unit` uses
-   `unit-c7-baseline` for the C7 run and `unit-c8-migrated` for the C8 run. The C7 command can use
-   `mvn -f ../c7-baseline/pom.xml -pl <module> test`. The migrated command can use
-   `mvn -pl <module> test`.
-5. Rerun every deferred Step 4 process scenario from the migrated project. Record each result with
-   its existing `process_path` key and recorded command.
-6. Regenerate the gate with
-   `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . report`.
+1. Run the Camunda 7 suite from the baseline. Where the project root is a Git repository, create a
+   separate worktree with `git worktree add ../c7-baseline <baseline-commit>` and run the module
+   test command there. Where the project root is not a Git repository, run the command in the
+   recorded snapshot directory.
+2. Start Docker or configure a remote CPT runtime. Run the migrated suite, for example `mvn test`.
+3. Change only `test_run_mode` from `migrate_only` to `run` in the Step 2 inventory. Do not run
+   `init`, because it clears earlier checks.
+4. Record the Docker probe, each module `tests` check, and each Step 4 `process_path` check with the
+   validator `run` action. Then regenerate the gate with the validator `report` action.
 
-The verification plan is not test evidence. If either test run is not recorded or a required test
-check does not pass, then the skill does not report the tests as verified.
+The verification plan is not test evidence.
 
-When the user later asks the skill to verify a **Migrate tests only** run, the skill follows this
-plan and runs the Camunda 7 suite from the Step 2 worktree or filesystem snapshot. (MAY)
-Never rebuild the baseline from migrated code.
+When the user later asks the skill to verify a **Migrate tests only** run, follow this plan. (MAY)
+Never rebuild the C7 baseline from migrated code.
 
 ---
 
