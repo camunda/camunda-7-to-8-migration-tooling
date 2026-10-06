@@ -1737,7 +1737,36 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertNotIn("derives the `mocks` modifier from source", step_three)
 
-    def test_inventory_and_parity_match_supported_test_migration_rules(self):
+    def test_camunda_8_8_inventory_preserves_signals_across_targets(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
+        inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
+        self.assert_unique_rows(inventory, "Test ID", EXPECTED_ASSESSMENT)
+        self.assert_unique_rows(inventory_88, "Test ID", EXPECTED_ASSESSMENT_88)
+        rows_89 = {row["Test ID"]: row for row in inventory}
+        rows_88 = {row["Test ID"]: row for row in inventory_88}
+
+        self.assertEqual(set(rows_89), set(rows_88))
+        for test_id, row in rows_89.items():
+            with self.subTest(test_id=test_id):
+                other = rows_88[test_id]
+                for column in ("File", "Test kind", "Signals", "Models"):
+                    self.assertEqual(other[column], row[column])
+                if row["Handling"].startswith("Migrate"):
+                    self.assertEqual(other["Handling"], "Report only")
+                    self.assertIn(
+                        normalized("test migration needs Camunda 8.9 or later"),
+                        normalized(other["Notes"]),
+                    )
+                else:
+                    self.assertEqual(other["Handling"], row["Handling"])
+                    if other["Notes"] != row["Notes"]:
+                        self.assertIn(
+                            normalized("test migration needs Camunda 8.9 or later"),
+                            normalized(other["Notes"]),
+                        )
+
+   def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
             ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
@@ -2490,6 +2519,39 @@ class MigrationGuidanceTest(unittest.TestCase):
                     "Conditional requirements must use the EARS 'If ..., then ...' form.",
                 )
 
+    def test_reference_distinguishes_registry_bindings_from_test_doubles(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn("registry bindings, not mock evidence by themselves", reference)
+        self.assertIn(
+            "when the registered value is a test double, the skill counts the call as mock evidence",
+            reference,
+        )
+        self.assertIn(
+            "a spring `@mockbean` or `@mockitobean` used by the process qualifies "
+            "whether it mocks a collaborator, delegate, or listener.",
+            reference,
+        )
+        spring_delegate_test = (
+            C7_SOURCE
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "ActivateDelegateMockTest.java"
+        ).read_text(encoding="utf-8")
+        spring_collaborator_test = (
+            C7_SOURCE
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionProcessTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("@MockBean", spring_delegate_test)
+        self.assertIn("JavaDelegate", spring_delegate_test)
+        self.assertIn("@MockBean", spring_collaborator_test)
+        self.assertIn("BillingClient", spring_collaborator_test)
+
+    def test_reference_approves_only_new_cpt_decision_mocks(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn("existing c7 decision mock", reference)
+        self.assertIn("same-boundary migration", reference)
+        self.assertIn("needs no additional approval", reference)
+        self.assertIn("ask the user before adding a cpt decision mock", reference)
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())
         self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())

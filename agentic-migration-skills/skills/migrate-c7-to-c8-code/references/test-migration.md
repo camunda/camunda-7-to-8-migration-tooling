@@ -1,7 +1,7 @@
 # Test Migration
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked
-(SHOULD) and an option is marked (MAY). The skill skips a preference only for a stated reason.
+(SHOULD) and an option is marked (MAY).
 
 Camunda 7 (C7) process-test mocks replace code at a specific boundary. Camunda Process Test (CPT)
 can mock workers, child processes, and decisions.
@@ -55,7 +55,7 @@ a dependency alone.
 
 | Modifier | Detect by | Used by |
 |---|---|---|
-| `mocks` | A source-level mock or test double used by an in-scope test qualifies. Examples include a Mockito mock, a C7 `register...Mock` helper, or `autoMock(...)`. Treat `Mocks.register(...)` and `CamundaMockito.registerMockInstance(...)` as registry bindings, not mock evidence by themselves. Count them only when the registered value is a test double. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+| `mocks` | A source-level mock or test double used by an in-scope test qualifies. Examples include a Mockito mock, a C7 `register...Mock` helper, or `autoMock(...)`. Treat `Mocks.register(...)` and `CamundaMockito.registerMockInstance(...)` as registry bindings, not mock evidence by themselves. When the registered value is a test double, the skill counts the call as mock evidence. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
 
 Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone as evidence for the `mocks` modifier.
 
@@ -488,7 +488,8 @@ The skill removes each C7 test dependency that no remaining test or production c
 migration.
 When only migrated tests use them, the skill removes `camunda-bpm-spring-boot-starter-test`,
 `camunda-bpm-junit5`, and `camunda-bpm-assert`.
-If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.
+If any test outside the migrated set or production code still uses a dependency, then the skill
+keeps it.
 
 The skill migrates each Spring Boot test to JUnit 5. The skill keeps `@SpringBootTest` and adds
 `@CamundaSpringProcessTest`. The skill injects `CamundaClient` and `CamundaProcessTestContext` with
@@ -798,9 +799,9 @@ One valid schedule uses five 12-hour increments for a daily timer and `defer("P2
 ## Mock boundary
 
 Migrate every in-scope test that uses a supported C7 mock API.
-Recognize `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`, and `camunda-bpm-mockito`
-(`org.camunda.bpm.extension.mockito`) as equivalent C7 mock APIs when test source uses their mock
-operations.
+When test source uses mock operations from `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`,
+or `camunda-bpm-mockito` (`org.camunda.bpm.extension.mockito`), the skill recognizes the APIs as
+equivalent C7 mock APIs.
 Where a C7 test uses `org.camunda.bpm.engine.test.mock.Mocks`, configure `MockExpressionManager`
 in its test engine.
 
@@ -836,12 +837,12 @@ If the real worker cannot run, then the skill asks the user before it adds a moc
 | `registerJavaDelegateMock("delegate")` | `mockJobWorker(type).thenComplete()` | The whole delegate was mocked. |
 | `.onExecutionSetVariables(vars)` or `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | Preserve every output variable. |
 | `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
-| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | Preserve the BPMN error code and message when the test checks them. |
+| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | When the test checks a BPMN error code or message, the skill preserves it. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
 | `autoMock("process.bpmn")` | Use `mockJobWorker(type)` for every converted service-task and execution-listener type. Use `completeJobOfUserTaskListener(...)` for each retained user-task listener. | Read each `type` from its own extension declaration in the converted copy. |
 | `registerExecutionListenerMock("listener")` | `mockJobWorker(type)` for the listener's job type | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
-| `registerTaskListenerMock("listener")` | `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` when the converted copy retains a listener job | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
-| `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | Use the function overload when outputs depend on parent variables. |
+| `registerTaskListenerMock("listener")` | Where the converted copy retains a listener job, the skill calls `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
+| `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | When outputs depend on parent variables, the skill uses the function overload. |
 | A call-activity mock using `onExecutionWaitForMessage`, `onExecutionWaitForTimerWithDuration`, `onExecutionSendMessage`, `onExecutionRunIntoError`, or `onExecutionDo` | No direct counterpart | Deploy the real converted child or ask the user to approve a test-only child model. |
 | `verifyJavaDelegateMock("name").executed()` | `assertThat(mock.getInvocations()).isEqualTo(1)` | Read the count only after a waiting CPT assertion on the related element. |
 | `verifyJavaDelegateMock("name").executed(times(n))` | `assertThat(mock.getInvocations()).isEqualTo(n)` | Read the count only after a waiting CPT assertion on the related element. |
@@ -863,14 +864,14 @@ processTestContext.mockJobWorker("notify").withHandler((jobClient, job) ->
 ```
 
 The CPT mock reports invocations and activated jobs without waiting. Mockito `verify` also does not
-wait. Place a waiting CPT assertion on the related element before reading either mock. Use
-`verify(mock, timeout(...))` only when no suitable waiting CPT assertion exists.
+wait. Place a waiting CPT assertion on the related element before reading either mock.
+When no suitable waiting CPT assertion exists, the skill uses `verify(mock, timeout(...))`.
 
 ## Real workers and Spring
 
 Where migrated workers are Spring beans, the skill uses `@SpringBootTest` with
 `@CamundaSpringProcessTest` and `@MockitoBean` for a mocked collaborator. (SHOULD) This also applies
-when the C7 test had no Spring context. Use a minimal `TestProcessApplication` in another package.
+to a C7 test with no Spring context. Use a minimal `TestProcessApplication` in another package.
 Scan only the worker packages.
 
 Where a Spring test mocks a job type, the test disables its real worker:
@@ -895,7 +896,9 @@ opened through it.
 ## Parity ledger
 
 Record the C7 mocks and CPT mocks for each mapped test in the parity ledger's `mocks` field. Keep
-both `c7` and `c8` arrays, including an empty array when that side has no mocks:
+both `c7` and `c8` arrays.
+
+When a side has no mocks, the skill records an empty array for that side:
 
 ```json
 {
@@ -922,10 +925,11 @@ Without approval, the mock-boundary review fails.
 | `camunda.cfg.xml` | A remaining C7 test uses the file. | Keep the file and its required `MockExpressionManager` settings. |
 | `camunda.cfg.xml` | No remaining C7 test uses the file. | Delete the file and its `MockExpressionManager` settings. Do not retain it for CPT tests. |
 
-Keep Mockito when migrated tests still use Mockito.
+When migrated tests still use Mockito, the skill keeps Mockito.
 
-Remove `MockExpressionManager` settings from a test `camunda.cfg.xml` file when the migration deletes
-that file. Do not retain a C7 test-engine configuration only to support migrated CPT tests.
+When the migration deletes a test `camunda.cfg.xml` file, the skill removes its
+`MockExpressionManager` settings. The skill does not retain C7 test-engine configuration only to
+support migrated CPT tests.
 
 ## References
 
