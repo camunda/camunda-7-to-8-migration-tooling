@@ -36,34 +36,44 @@ async function openProcessesPage(page: Page) {
   await page.waitForURL(/#\/processes/, { timeout: 15000 });
 }
 
+// Authenticate through the REST API before the SPA loads. The Cockpit login
+// form sends a request with the pre-login session concurrently with the login
+// POST. When the server handles that request after the login rotated the
+// session, its Set-Cookie replaces the authenticated JSESSIONID with an
+// anonymous one, and the SPA falls back to the login form (#3291).
+// page.request shares the cookie store of the browser context.
+async function login(page: Page) {
+  const bootstrap = await page.request.get('/camunda/app/cockpit/default/');
+  expect(bootstrap.ok()).toBeTruthy();
+
+  const xsrfToken = (await page.context().cookies()).find((cookie) => cookie.name === 'XSRF-TOKEN')?.value;
+  expect(xsrfToken).toBeTruthy();
+
+  const response = await page.request.post('/camunda/api/admin/auth/user/default/login/cockpit', {
+    form: { username: 'demo', password: 'demo' },
+    headers: { 'X-XSRF-TOKEN': xsrfToken!, Accept: 'application/json' },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
 test.describe('Cockpit Plugin E2E', () => {
   test.describe.configure({ mode: 'serial' });
   // Cold CI containers need time for the login round-trip plus the Angular
   // bootstrap; give each test a generous budget. Firefox initialises the
   // Angular runtime noticeably slower than Chromium on cold CI runners, so
-  // the budget must cover the worst-case beforeEach (up to 60 s for the login
-  // form + up to 60 s for the processes-link readiness gate + navigation
-  // overhead) and still leave meaningful headroom for the test body itself.
+  // the budget must cover the worst-case beforeEach (up to 60 s for the
+  // processes-link readiness gate + navigation overhead) and still leave
+  // meaningful headroom for the test body itself.
   test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
     // Playwright's default `page` fixture is function-scoped: every test gets a
     // fresh, cookie-less context, so we authenticate from scratch each time.
-    // Wait only for DOMContentLoaded (not the full `load` event) so that we
-    // start polling for the Angular-rendered login form as soon as the DOM is
-    // parsed, rather than waiting for every sub-resource to finish loading.
-    await page.goto('/camunda/app/cockpit/default/', { waitUntil: 'domcontentloaded' });
+    await login(page);
 
-    // Log in with the Camunda 7 demo user. The login form is served by the same
-    // Angular app, so wait for it explicitly rather than racing isVisible().
-    // Use a 60 s budget to accommodate Firefox's slower Angular bootstrap on
-    // cold CI containers (the previous 30 s budget caused intermittent failures
-    // in Firefox, see #1955).
-    const usernameInput = page.locator('input[ng-model="username"]');
-    await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
-    await usernameInput.fill('demo');
-    await page.fill('input[ng-model="password"]', 'demo');
-    await page.click('button[type="submit"]');
+    // Wait only for DOMContentLoaded (not the full `load` event) so that the
+    // readiness gate starts polling as soon as the DOM is parsed.
+    await page.goto('/camunda/app/cockpit/default/', { waitUntil: 'domcontentloaded' });
 
     // Readiness gate: the Cockpit SPA must finish bootstrapping and render its
     // navigation before any test interacts with it. If a plugin bundle fails to
