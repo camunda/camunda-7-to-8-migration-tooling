@@ -1,6 +1,6 @@
 # Agentic Migration Skills
 
-[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8. The skill covers Java code and Camunda 7 test inventories, BPMN/DMN models, project documentation, and migration-readiness checks for CI. It uses platform-agnostic instructions for compatible agents on Windows, macOS, and Linux.
+[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8. The skill inventories Camunda 7 process and decision tests during Step 2. It covers Java and Spring code, process-test migration to Camunda Process Test (CPT), BPMN/DMN models, project documentation, and migration-readiness checks for CI. It uses platform-agnostic instructions for compatible agents on Windows, macOS, and Linux.
 
 ## Install
 

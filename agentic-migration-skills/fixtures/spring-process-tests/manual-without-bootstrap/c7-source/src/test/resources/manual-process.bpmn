@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_Manual"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="manual-process" name="Manual process" isExecutable="true">
+    <bpmn:startEvent id="manual-start" />
+    <bpmn:sequenceFlow id="manual-start-worker" sourceRef="manual-start" targetRef="manual-worker" />
+    <bpmn:serviceTask id="manual-worker" name="Manual worker"
+                      camunda:class="org.camunda.bpm.example.manual.ManualProcessWorker" />
+    <bpmn:sequenceFlow id="manual-worker-review" sourceRef="manual-worker" targetRef="manual-review" />
+    <bpmn:userTask id="manual-review" name="Manual review" />
+    <bpmn:sequenceFlow id="manual-review-end" sourceRef="manual-review" targetRef="manual-end" />
+    <bpmn:endEvent id="manual-end" />
+  </bpmn:process>
+</bpmn:definitions>

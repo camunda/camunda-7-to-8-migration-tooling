@@ -242,11 +242,7 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
-Run the test inventory during every Step 2 assessment, including Assessment only and code approach C.
-Follow `references/test-migration.md`. Scan declared test source sets, shared test support, and test
-cases, including configured Cucumber scenarios. Include out-of-scope tests. Link each in-scope test
-to its deployed models and record its modifiers. Do not migrate tests or ask a test-migration
-question during Step 2.
+For Step 2, follow `references/test-migration.md` for the Test Inventory procedure.
 
 #### Model Inventory
 
@@ -300,9 +296,11 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
+Present test counts by kind and the number eligible for CPT migration.
+Present the number selected for CPT migration.
+List every `Report only` Test ID and its reason.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
-Present test counts by test kind. State how many tests are eligible for CPT migration. List every
-`Report only` Test ID and its reason. Follow `references/test-migration.md` for Camunda 8.8 handling.
+Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
 
 #### Custom incident notifications
@@ -356,7 +354,7 @@ For Code + models, see `references/composing-code-and-models.md`.
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
-When the skill migrates a Camunda 7 decision test, follow `references/test-migration.md` for the CPT mapping.
+The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.
 
 For Approach A, the skill runs this gate for every C7 JavaDelegate before `REWRITE_COMMAND`.
 For Approach B, the skill runs the gate before each C7 JavaDelegate transformation.

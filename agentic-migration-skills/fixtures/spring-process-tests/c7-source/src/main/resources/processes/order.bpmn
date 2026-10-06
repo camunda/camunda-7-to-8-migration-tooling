@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_Order"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="order" name="Order" isExecutable="true"
+                camunda:historyTimeToLive="P1D">
+    <bpmn:startEvent id="StartEvent_Order" />
+    <bpmn:sequenceFlow id="Flow_Start_Charge" sourceRef="StartEvent_Order" targetRef="Task_Charge" />
+    <bpmn:serviceTask id="Task_Charge" name="Charge payment"
+                      camunda:delegateExpression="${chargePaymentDelegate}" />
+    <bpmn:sequenceFlow id="Flow_Charge_Ship" sourceRef="Task_Charge" targetRef="Task_Ship" />
+    <bpmn:serviceTask id="Task_Ship" name="Ship order"
+                      camunda:delegateExpression="${shipOrderDelegate}" />
+    <bpmn:sequenceFlow id="Flow_Ship_Review" sourceRef="Task_Ship" targetRef="Task_Review" />
+    <bpmn:userTask id="Task_Review" name="Review order" />
+    <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="Task_Review" targetRef="EndEvent_Order" />
+    <bpmn:endEvent id="EndEvent_Order" />
+  </bpmn:process>
+</bpmn:definitions>
