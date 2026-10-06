@@ -45,7 +45,7 @@
     <version.errorprone>2.50.0</version.errorprone>
     <version.node>v22.22.2</version.node>
     <version.npm>10.8.2</version.npm>
-    <version.netty>4.2.18.Final</version.netty>
+    <version.netty>4.2.19.Final</version.netty>
     <version.micrometer>1.17.1</version.micrometer>
     <version.kotlin-stdlib>2.4.20</version.kotlin-stdlib>
     <version.httpcore5>5.4.4</version.httpcore5>
