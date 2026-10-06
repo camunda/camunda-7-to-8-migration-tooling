@@ -86,6 +86,38 @@ MAVEN_LIFECYCLE_GOALS = {
     "post-site",
     "site-deploy",
 }
+MAVEN_LIFECYCLE_PHASE_SEQUENCES = (
+    (
+        "validate",
+        "initialize",
+        "generate-sources",
+        "process-sources",
+        "generate-resources",
+        "process-resources",
+        "compile",
+        "process-classes",
+        "generate-test-sources",
+        "process-test-sources",
+        "generate-test-resources",
+        "process-test-resources",
+        "test-compile",
+        "process-test-classes",
+        "test",
+        "prepare-package",
+        "package",
+        "pre-integration-test",
+        "integration-test",
+        "post-integration-test",
+        "verify",
+        "install",
+        "deploy",
+    ),
+    ("pre-clean", "clean", "post-clean"),
+    ("pre-site", "site", "post-site", "site-deploy"),
+)
+MAVEN_LIFECYCLE_PHASES = {
+    phase for sequence in MAVEN_LIFECYCLE_PHASE_SEQUENCES for phase in sequence
+}
 MAVEN_TEST_SOURCE_COMPILATION_PHASES = {
     "test",
     "prepare-package",
@@ -103,6 +135,44 @@ MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS = {
     "maven-surefire-plugin",
 }
 MAVEN_SKIP_TESTS_PLUGIN_PREFIXES = {"failsafe", "surefire"}
+MAVEN_SAFE_LIFECYCLE_PLUGIN_GOALS = {
+    ("org.apache.maven.plugins", "maven-clean-plugin", "clean"),
+    ("org.apache.maven.plugins", "maven-resources-plugin", "resources"),
+    ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"),
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "compile"),
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "testcompile"),
+    ("org.apache.maven.plugins", "maven-jar-plugin", "jar"),
+    ("org.apache.maven.plugins", "maven-war-plugin", "war"),
+    ("org.apache.maven.plugins", "maven-ejb-plugin", "ejb"),
+    ("org.apache.maven.plugins", "maven-ear-plugin", "ear"),
+    ("org.apache.maven.plugins", "maven-install-plugin", "install"),
+    ("org.apache.maven.plugins", "maven-deploy-plugin", "deploy"),
+    ("org.apache.maven.plugins", "maven-site-plugin", "site"),
+    ("org.apache.maven.plugins", "maven-site-plugin", "deploy"),
+}
+MAVEN_TEST_LIFECYCLE_PLUGIN_GOALS = {
+    ("org.apache.maven.plugins", "maven-surefire-plugin", "test"),
+    ("org.apache.maven.plugins", "maven-failsafe-plugin", "integration-test"),
+    ("org.apache.maven.plugins", "maven-failsafe-plugin", "verify"),
+}
+MAVEN_LIFECYCLE_PLUGIN_DEFAULT_PHASES = {
+    ("org.apache.maven.plugins", "maven-clean-plugin", "clean"): "clean",
+    ("org.apache.maven.plugins", "maven-resources-plugin", "resources"): "process-resources",
+    ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"): "process-test-resources",
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "compile"): "compile",
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "testcompile"): "test-compile",
+    ("org.apache.maven.plugins", "maven-surefire-plugin", "test"): "test",
+    ("org.apache.maven.plugins", "maven-failsafe-plugin", "integration-test"): "integration-test",
+    ("org.apache.maven.plugins", "maven-failsafe-plugin", "verify"): "verify",
+    ("org.apache.maven.plugins", "maven-jar-plugin", "jar"): "package",
+    ("org.apache.maven.plugins", "maven-war-plugin", "war"): "package",
+    ("org.apache.maven.plugins", "maven-ejb-plugin", "ejb"): "package",
+    ("org.apache.maven.plugins", "maven-ear-plugin", "ear"): "package",
+    ("org.apache.maven.plugins", "maven-install-plugin", "install"): "install",
+    ("org.apache.maven.plugins", "maven-deploy-plugin", "deploy"): "deploy",
+    ("org.apache.maven.plugins", "maven-site-plugin", "site"): "site",
+    ("org.apache.maven.plugins", "maven-site-plugin", "deploy"): "site-deploy",
+}
 MAVEN_KNOWN_NON_TEST_PLUGIN_GOALS = {"spring-boot:run"}
 MAVEN_BOOLEAN_TRUE_VALUES = {"true", "1", "yes", "on"}
 MAVEN_BOOLEAN_FALSE_VALUES = {"false", "0", "no", "off"}
@@ -348,10 +418,13 @@ def _maven_effective_pom_command(command, target, output_path, root, module_pom)
                 project_selected = True
             index += 2
             continue
-        if argument.startswith("--projects="):
+        if argument.startswith(("--projects=", "-pl=")):
             if select_target and not project_selected:
-                result.append(f"--projects={target}")
+                option = argument.partition("=")[0]
+                result.append(f"{option}={target}")
                 project_selected = True
+            elif not select_target:
+                result.append(argument)
             index += 1
             continue
         if argument in MAVEN_OPTIONS_WITH_VALUES | {
@@ -380,15 +453,135 @@ def _maven_effective_pom_command(command, target, output_path, root, module_pom)
     return result
 
 
-def _maven_active_model_skips_test_compilation(
-    root,
-    target,
-    command,
-    environment,
-    timeout,
-):
-    if _maven_command_details(command)[2] is not None:
+def _maven_child(element, name):
+    if element is None:
+        return None
+    return next(
+        (
+            child
+            for child in element
+            if child.tag.rsplit("}", 1)[-1] == name
+        ),
+        None,
+    )
+
+
+def _maven_child_text(element, name):
+    child = _maven_child(element, name)
+    return (child.text or "").strip() if child is not None else ""
+
+
+def _maven_model_has_modules(model):
+    modules = _maven_child(model, "modules")
+    if modules is None:
         return False
+    return any(module.tag.rsplit("}", 1)[-1] == "module" for module in modules)
+
+
+def _maven_validate_project_scope(root, key, target, command, model):
+    selected_projects = None
+    pom_selected = False
+    also_make = False
+    non_recursive = False
+    index = 1
+    while index < len(command):
+        argument = command[index]
+        if argument in {
+            "-am",
+            "--also-make",
+            "-amd",
+            "--also-make-dependents",
+        }:
+            also_make = True
+            index += 1
+            continue
+        if argument in {"-rf", "--resume-from"}:
+            if index + 1 >= len(command):
+                raise EvidenceError("Question 8 cannot inspect incomplete Maven reactor options")
+            also_make = True
+            index += 2
+            continue
+        if argument.startswith(("--resume-from=", "-rf=")):
+            also_make = True
+            index += 1
+            continue
+        if argument in {"-N", "--non-recursive"}:
+            non_recursive = True
+            index += 1
+            continue
+        if argument in {"-pl", "--projects"}:
+            if index + 1 >= len(command):
+                raise EvidenceError("Question 8 cannot inspect incomplete Maven project options")
+            projects = [project.strip() for project in command[index + 1].split(",")]
+            selected_projects = (
+                projects
+                if selected_projects is None
+                else selected_projects + projects
+            )
+            index += 2
+            continue
+        if argument.startswith(("--projects=", "-pl=")):
+            projects = [
+                project.strip()
+                for project in argument.partition("=")[2].split(",")
+            ]
+            selected_projects = (
+                projects
+                if selected_projects is None
+                else selected_projects + projects
+            )
+            index += 1
+            continue
+        if argument in {"-f", "--file"}:
+            if index + 1 >= len(command):
+                raise EvidenceError("Question 8 cannot inspect incomplete Maven POM options")
+            pom_selected = True
+            index += 2
+            continue
+        if argument.startswith("--file="):
+            pom_selected = True
+        index += 1
+
+    ambiguous_project_selection = selected_projects is not None and (
+        len(selected_projects) != 1
+        or not selected_projects[0]
+        or any(character in selected_projects[0] for character in "*?!")
+    )
+    if also_make or ambiguous_project_selection:
+        raise EvidenceError(
+            "Question 8 requires one Maven project per lifecycle command"
+        )
+    if key[0] == "module":
+        expected_pom = project_path(
+            root,
+            (Path(target) / "pom.xml").as_posix(),
+            "Maven module POM",
+            must_exist=True,
+        )
+        if selected_projects is None:
+            if not pom_selected or not _maven_command_uses_pom(command, root, expected_pom):
+                raise EvidenceError(
+                    f"Question 8 requires one Maven project per lifecycle command for module {target!r}"
+                )
+        elif selected_projects[0] != target:
+            raise EvidenceError(
+                f"Question 8 requires one Maven project per lifecycle command for module {target!r}"
+            )
+        elif pom_selected and not _maven_command_uses_pom(
+            command,
+            root,
+            project_path(root, "pom.xml", "Maven root POM"),
+        ):
+            raise EvidenceError(
+                f"Question 8 requires one Maven project per lifecycle command for module {target!r}"
+            )
+    if _maven_model_has_modules(model) and selected_projects is None and not non_recursive:
+        raise EvidenceError(
+            "Question 8 requires one Maven project per lifecycle command"
+        )
+
+
+def _maven_active_model(root, target, command, environment, timeout):
     module_pom = project_path(
         root,
         (Path(target) / "pom.xml").as_posix(),
@@ -452,6 +645,12 @@ def _maven_active_model_skips_test_compilation(
             f"Question 8 could not inspect the active Maven model for module "
             f"{target!r}: effective POM has no project root"
         )
+    return model
+
+
+def _maven_active_model_skips_test_compilation(model, target, command):
+    if _maven_command_details(command)[2] is not None:
+        return False
     values = [
         (property_node.text or "").strip().casefold()
         for properties in model
@@ -469,6 +668,75 @@ def _maven_active_model_skips_test_compilation(
             f"`maven.test.skip` for module {target!r}"
         )
     return any(value in MAVEN_BOOLEAN_TRUE_VALUES for value in values)
+
+
+def _maven_selected_lifecycle_phases(command):
+    arguments, _, _ = _maven_command_details(command)
+    return {
+        argument.split("@", 1)[0]
+        for argument in arguments
+        if argument.split("@", 1)[0] in MAVEN_LIFECYCLE_GOALS
+    }
+
+
+def _maven_lifecycle_phase_is_reached(phase, selected_phases):
+    for sequence in MAVEN_LIFECYCLE_PHASE_SEQUENCES:
+        selected_indexes = [
+            sequence.index(selected)
+            for selected in selected_phases
+            if selected in sequence
+        ]
+        if (
+            phase in sequence
+            and selected_indexes
+            and sequence.index(phase) <= max(selected_indexes)
+        ):
+            return True
+    return False
+
+
+def _maven_validate_active_model_lifecycle_goals(model, command):
+    selected_phases = _maven_selected_lifecycle_phases(command)
+    if not selected_phases:
+        return
+    _, skip_tests, _ = _maven_command_details(command)
+    build = _maven_child(model, "build")
+    plugins = _maven_child(build, "plugins")
+    for plugin in plugins if plugins is not None else ():
+        if plugin.tag.rsplit("}", 1)[-1] != "plugin":
+            continue
+        group_id = _maven_child_text(plugin, "groupId") or "org.apache.maven.plugins"
+        artifact_id = _maven_child_text(plugin, "artifactId").casefold()
+        executions = _maven_child(plugin, "executions")
+        for execution in executions if executions is not None else ():
+            if execution.tag.rsplit("}", 1)[-1] != "execution":
+                continue
+            goals = _maven_child(execution, "goals")
+            for goal_node in goals if goals is not None else ():
+                if goal_node.tag.rsplit("}", 1)[-1] != "goal":
+                    continue
+                goal = (goal_node.text or "").strip().casefold()
+                plugin_goal = (group_id.casefold(), artifact_id, goal)
+                phase = (
+                    _maven_child_text(execution, "phase").casefold()
+                    or MAVEN_LIFECYCLE_PLUGIN_DEFAULT_PHASES.get(plugin_goal)
+                )
+                if phase not in MAVEN_LIFECYCLE_PHASES:
+                    phase_description = phase or "an unknown default phase"
+                    raise EvidenceError(
+                        "Question 8 cannot establish test-free behavior for Maven lifecycle "
+                        f"goal {group_id}:{artifact_id}:{goal} bound to {phase_description}"
+                    )
+                if not _maven_lifecycle_phase_is_reached(phase, selected_phases):
+                    continue
+                if plugin_goal in MAVEN_SAFE_LIFECYCLE_PLUGIN_GOALS:
+                    continue
+                if plugin_goal in MAVEN_TEST_LIFECYCLE_PLUGIN_GOALS and skip_tests:
+                    continue
+                raise EvidenceError(
+                    "Question 8 cannot establish test-free behavior for Maven lifecycle "
+                    f"goal {group_id}:{artifact_id}:{goal} bound to phase {phase!r}"
+                )
 
 
 def _gradle_command_details(command):
@@ -2401,16 +2669,38 @@ def record(root, args):
                 raise EvidenceError(
                     f"{key}: Question 8 Migrate tests only requires test-source compilation evidence"
                 )
+            maven_model = None
             if (
-                key[0] == "module"
-                and key[2] == "compile"
-                and executable in MAVEN_EXECUTABLES
-                and _maven_active_model_skips_test_compilation(
+                executable in MAVEN_EXECUTABLES
+                and _maven_selected_lifecycle_phases(direct_command)
+            ):
+                maven_target = key[1] if key[0] == "module" else "."
+                maven_model = _maven_active_model(
                     root,
-                    key[1],
+                    maven_target,
                     direct_command,
                     command_environment,
                     args.timeout,
+                )
+                _maven_validate_project_scope(
+                    root,
+                    key,
+                    maven_target,
+                    direct_command,
+                    maven_model,
+                )
+                _maven_validate_active_model_lifecycle_goals(
+                    maven_model,
+                    direct_command,
+                )
+            if (
+                key[0] == "module"
+                and key[2] == "compile"
+                and maven_model is not None
+                and _maven_active_model_skips_test_compilation(
+                    maven_model,
+                    key[1],
+                    direct_command,
                 )
             ):
                 raise EvidenceError(

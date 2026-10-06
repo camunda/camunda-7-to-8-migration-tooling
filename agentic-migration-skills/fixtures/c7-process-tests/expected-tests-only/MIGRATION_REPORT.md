@@ -21,7 +21,7 @@ during migration. Each test check is blocked because the user declined test exec
 
 | Scope | Command | Result |
 |---|---|---|
-| Migrated test modules | `mvn -pl engine-tests,spring-boot-app,remote-engine -am test-compile` | passed |
+| Migrated test modules | `mvn -pl engine-tests test-compile`<br>`mvn -pl spring-boot-app test-compile`<br>`mvn -pl remote-engine test-compile` | passed |
 
 ## Test checks
 
@@ -72,13 +72,9 @@ unverified because the user selected **Migrate tests only**.
 
 ## Verify the test migration
 
-Baseline commit: `d84e685f57e6eee2af52c9966017c3272fd3a205`
+Baseline filesystem snapshot: `../c7-source-baseline/`
 
-Create a separate baseline worktree:
-
-```sh
-git worktree add ../c7-baseline d84e685f57e6eee2af52c9966017c3272fd3a205
-```
+The C7 baseline is a sibling filesystem snapshot.
 
 Before recording either run, change only `test_run_mode` from `migrate_only` to `run` in
 `.camunda-migration/validation/step2-inventory.json`. Keep the scope, run ID, and source snapshot.
@@ -90,25 +86,25 @@ When a reserved suite entry requires Docker, record the probe before running tha
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info
 ```
 
-Record each C7 suite from the baseline worktree and each C8 suite from the migrated project. The
+Record each C7 suite from the sibling snapshot and each C8 suite from the migrated project. The
 target consolidates the legacy Scenario classes into `engine-tests`. Record each run with a separate
 suite name:
 
 ```sh
 # engine-tests unit suite: C7 baseline and C8 migrated
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests test
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml -pl engine-tests test
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test
 
 # engine-tests-legacy Scenario suite: C7 baseline and consolidated C8 migrated suite
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml -pl engine-tests-legacy test
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c8-migrated -- mvn -pl engine-tests -Dtest=FulfillmentScenarioTest,ScenarioMappingEdgeCasesTest test
 
 # Spring Boot suite: C7 baseline and C8 migrated
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl spring-boot-app test
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml -pl spring-boot-app test
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c8-migrated -- mvn -pl spring-boot-app test
 
 # Remote-engine suite: C7 baseline and C8 migrated. These commands run the Failsafe suite.
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl remote-engine verify
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml -pl remote-engine verify
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c8-migrated -- mvn -pl remote-engine verify
 ```
 

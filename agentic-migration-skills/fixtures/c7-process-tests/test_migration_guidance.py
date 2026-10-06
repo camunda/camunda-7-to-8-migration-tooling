@@ -709,7 +709,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
         self.assertIn("W5", readme)
         self.assertIn("deferred verification plan", readme)
-        self.assertIn("filesystem snapshot path", readme)
+        self.assertIn("sibling filesystem snapshot", readme)
+        self.assertNotIn("C7 commit in this Git-backed fixture", readme)
 
         test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         self.assertRegex(
@@ -745,6 +746,22 @@ class MigrationGuidanceTest(unittest.TestCase):
             test_migration,
         )
         self.assertIn(
+            "| Maven | An unknown lifecycle-bound plugin goal |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Maven | A lifecycle command selects multiple projects or uses `-am`, `-amd`, or `-rf` |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Maven | An unscoped aggregator command can run child projects |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Maven | Module evidence does not select that module with `-pl` or its POM with `-f` |",
+            test_migration,
+        )
+        self.assertIn(
             "| Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence |",
             test_migration,
         )
@@ -756,6 +773,22 @@ class MigrationGuidanceTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("It rejects other Maven test plugin goals.", validation_evidence)
+        self.assertIn(
+            "The recorder inspects lifecycle-bound plugin goals in the active effective POM.",
+            validation_evidence,
+        )
+        self.assertIn(
+            "It rejects lifecycle-bound goals whose test behavior it cannot establish.",
+            validation_evidence,
+        )
+        self.assertIn(
+            "It rejects Maven lifecycle commands that can execute multiple reactor projects.",
+            validation_evidence,
+        )
+        self.assertIn(
+            "For module evidence, select exactly that module with `-pl` or its POM with `-f`.",
+            validation_evidence,
+        )
         self.assertIn(
             "inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks",
             validation_evidence,
@@ -780,10 +813,12 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("## Test-source compilation", report)
-        self.assertIn(
-            "mvn -pl engine-tests,spring-boot-app,remote-engine -am test-compile",
-            report,
-        )
+        for command in (
+            "mvn -pl engine-tests test-compile",
+            "mvn -pl spring-boot-app test-compile",
+            "mvn -pl remote-engine test-compile",
+        ):
+            self.assertIn(command, report)
         self.assertRegex(
             report,
             r"The skill ran no C7 or C8 test command\s+during migration\.",
@@ -827,33 +862,43 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Verdict:** `needs review`", report)
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
-        self.assertNotIn("<baseline-commit>", report)
-        baseline_commit = re.search(
-            r"(?m)^Baseline commit: `([0-9a-f]{40})`$",
-            report,
-        )
-        self.assertIsNotNone(baseline_commit)
-        self.assertEqual(
-            "d84e685f57e6eee2af52c9966017c3272fd3a205",
-            baseline_commit.group(1),
-        )
+        self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
+        self.assertNotIn("Baseline commit:", report)
         self.assertIn(
-            f"git worktree add ../c7-baseline {baseline_commit.group(1)}",
+            "The C7 baseline is a sibling filesystem snapshot.",
             report,
         )
         self.assertIn(
-            "mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/"
-            "c7-source/pom.xml -pl engine-tests test",
+            "mvn -f ../c7-source-baseline/pom.xml -pl engine-tests test",
             report,
         )
         deferred_suite_commands = (
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests test',
+            (
+                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
+                "run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- "
+                "mvn -f ../c7-source-baseline/pom.xml -pl engine-tests test"
+            ),
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test',
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test',
+            (
+                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
+                "run --type module --target engine-tests --kind tests --scenario "
+                "legacy-scenario-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml "
+                "-pl engine-tests-legacy test"
+            ),
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c8-migrated -- mvn -pl engine-tests -Dtest=FulfillmentScenarioTest,ScenarioMappingEdgeCasesTest test',
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl spring-boot-app test',
+            (
+                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
+                "run --type module --target spring-boot-app --kind tests --scenario "
+                "spring-boot-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml "
+                "-pl spring-boot-app test"
+            ),
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c8-migrated -- mvn -pl spring-boot-app test',
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl remote-engine verify',
+            (
+                'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . '
+                "run --type module --target remote-engine --kind tests --scenario "
+                "remote-engine-c7-baseline -- mvn -f ../c7-source-baseline/pom.xml "
+                "-pl remote-engine verify"
+            ),
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c8-migrated -- mvn -pl remote-engine verify',
         )
         for command in deferred_suite_commands:

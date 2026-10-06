@@ -129,13 +129,19 @@ When a non-test Maven check needs packaging in `migrate_only`, use a standard li
 `-DskipTests`.
 The recorder accepts `-DskipTests` for standard Maven lifecycle phases and Surefire or Failsafe
 goals. It rejects other Maven test plugin goals.
+The recorder inspects lifecycle-bound plugin goals in the active effective POM.
+It rejects lifecycle-bound goals whose test behavior it cannot establish.
+It allows Surefire and Failsafe lifecycle goals only with `-DskipTests` or `-DskipTests=true`.
+It rejects Maven lifecycle commands that can execute multiple reactor projects.
+For module evidence, select exactly that module with `-pl` or its POM with `-f`.
 The recorder rejects non-empty `MAVEN_ARGS` or `.mvn/maven.config` because either can add
 arguments outside the submitted command.
 An explicit `maven.test.skip` command-line value takes precedence over inherited JVM options,
 `.mvn/jvm.config`, and the active Maven project model.
-The recorder inspects the active effective POM when the command has no explicit value.
-If inspection fails or the active model sets `maven.test.skip=true`, then it rejects module
-`compile` evidence.
+When the command has no explicit `maven.test.skip` value, the recorder reads the active effective
+POM to determine that property.
+If Maven lifecycle inspection fails, then it rejects the command.
+If the active model sets `maven.test.skip=true`, then it rejects module `compile` evidence.
 The recorder unwraps simple `env` commands.
 If the recorder cannot inspect an executable or Maven goal, then it rejects the command.
 It accepts `npx bpmnlint` and `npx dmnlint` as non-test model checks.

@@ -163,7 +163,20 @@ class ValidationEvidenceTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def maven_subprocess(self, active_model_skip=None):
+    def maven_plugin_execution(self, group_id, artifact_id, goal, phase):
+        phase_element = f"<phase>{phase}</phase>" if phase else ""
+        return (
+            "<build><plugins><plugin>"
+            f"<groupId>{group_id}</groupId>"
+            f"<artifactId>{artifact_id}</artifactId>"
+            "<executions><execution>"
+            f"{phase_element}"
+            f"<goals><goal>{goal}</goal></goals>"
+            "</execution></executions>"
+            "</plugin></plugins></build>"
+        )
+
+    def maven_subprocess(self, active_model_skip=None, active_model_plugins=""):
         def run(command, **kwargs):
             if "help:effective-pom" in command:
                 properties = (
@@ -180,7 +193,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 )
                 Path(output_path).write_text(
                     '<project xmlns="http://maven.apache.org/POM/4.0.0">'
-                    f"{properties}</project>",
+                    f"{properties}{active_model_plugins}</project>",
                     encoding="utf-8",
                 )
                 return subprocess.CompletedProcess(command, 0, "")
@@ -415,7 +428,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "isolation_plan": "Use an isolated local cluster; remove the timer deployment and instances.",
             }
             if test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile":
-                command_args = ["mvn", "test-compile"]
+                command_args = ["mvn", "-pl", key[1], "test-compile"]
                 self.write_maven_project(key[1])
                 with patch.object(
                     gate.subprocess,
@@ -556,10 +569,23 @@ class ValidationEvidenceTest(unittest.TestCase):
                     command.assert_not_called()
 
     def test_migrate_only_allows_env_wrapped_maven_packaging_when_tests_are_skipped(self):
-        command_args = ["env", "MAVEN_OPTS=-Xmx1g", "mvn", "package", "-DskipTests"]
+        command_args = [
+            "env",
+            "MAVEN_OPTS=-Xmx1g",
+            "mvn",
+            "-pl",
+            "app",
+            "package",
+            "-DskipTests",
+        ]
         self.write_scope(test_run_mode="migrate_only")
-        completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
-        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+        self.write_maven_project(".")
+        self.write_maven_project("app")
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(),
+        ) as command:
             self.assertEqual(
                 0,
                 self.submit(
@@ -567,7 +593,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     command=command_args,
                 ),
             )
-        command.assert_called_once()
+        self.assertEqual(2, command.call_count)
 
     def test_migrate_only_allows_known_bpmn_linter(self):
         command_args = [
@@ -609,11 +635,11 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_migrate_only_allows_maven_packaging_when_tests_are_skipped(self):
         compile_key = ("module", "app", "compile", None)
         maven_commands = (
-            ["mvn", "package", "-DskipTests"],
-            ["mvn", "-DskipTests=true", "package"],
-            ["mvn", "prepare-package", "-DskipTests"],
-            ["mvn", "pre-integration-test", "-DskipTests"],
-            ["mvn", "post-integration-test", "-DskipTests"],
+            ["mvn", "-pl", "app", "package", "-DskipTests"],
+            ["mvn", "-pl", "app", "-DskipTests=true", "package"],
+            ["mvn", "-pl", "app", "prepare-package", "-DskipTests"],
+            ["mvn", "-pl", "app", "pre-integration-test", "-DskipTests"],
+            ["mvn", "-pl", "app", "post-integration-test", "-DskipTests"],
         )
         for command_args in maven_commands:
             with self.subTest(command=command_args):
@@ -724,7 +750,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 with patch.object(
                     gate.subprocess,
                     "run",
-                    return_value=completed,
+                    side_effect=self.maven_subprocess(active_model_skip="true"),
                 ) as command:
                     self.assertEqual(
                         0,
@@ -733,7 +759,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                             command=compile_args,
                         ),
                     )
-                command.assert_called_once()
+                self.assertEqual(2, command.call_count)
 
     def test_migrate_only_rejects_maven_test_compilation_skipped_by_active_model(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -774,6 +800,260 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIn("help:effective-pom", inspected_command)
         self.assertIn("app", inspected_command)
         self.assertNotIn("test-compile", inspected_command)
+
+    def test_migrate_only_rejects_unknown_maven_lifecycle_plugin_goals(self):
+        compile_key = ("module", "app", "compile", None)
+        cases = (
+            (
+                "test-compile",
+                "process-resources",
+                "org.codehaus.mojo",
+                "exec-maven-plugin",
+                "exec",
+                (),
+            ),
+            (
+                "test-compile",
+                "test-compile",
+                "org.example",
+                "custom-runner-plugin",
+                "run-tests",
+                (),
+            ),
+            (
+                "test-compile",
+                None,
+                "org.example",
+                "unclassified-plugin",
+                "custom-goal",
+                (),
+            ),
+            (
+                "package",
+                "package",
+                "org.codehaus.mojo",
+                "exec-maven-plugin",
+                "exec",
+                ("-DskipTests",),
+            ),
+            (
+                "test-compile",
+                "test-compile",
+                "org.apache.maven.plugins",
+                "maven-surefire-plugin",
+                "test",
+                (),
+            ),
+        )
+        for selected_phase, bound_phase, group_id, artifact_id, goal, options in cases:
+            with self.subTest(
+                selected_phase=selected_phase,
+                bound_phase=bound_phase,
+                artifact_id=artifact_id,
+                goal=goal,
+            ):
+                self.write_scope(test_run_mode="migrate_only")
+                self.write_maven_project("app")
+                command_args = [
+                    "mvn",
+                    "-pl",
+                    "app",
+                    selected_phase,
+                    *options,
+                ]
+                plugin = self.maven_plugin_execution(
+                    group_id,
+                    artifact_id,
+                    goal,
+                    bound_phase,
+                )
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(active_model_plugins=plugin),
+                ) as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "cannot establish test-free behavior",
+                    ):
+                        self.submit(compile_key, command=command_args)
+                self.assertEqual(1, command.call_count)
+                self.assertIn("help:effective-pom", command.call_args.args[0])
+
+    def test_migrate_only_allows_known_maven_lifecycle_plugin_goals(self):
+        cases = (
+            (
+                "test-compile",
+                "org.apache.maven.plugins",
+                "maven-compiler-plugin",
+                "testCompile",
+                (),
+            ),
+            (
+                "test-compile",
+                "org.apache.maven.plugins",
+                "maven-surefire-plugin",
+                "test",
+                ("-DskipTests",),
+            ),
+        )
+        for selected_phase, group_id, artifact_id, goal, options in cases:
+            with self.subTest(artifact_id=artifact_id, goal=goal):
+                self.write_scope(test_run_mode="migrate_only")
+                self.write_maven_project("app")
+                command_args = ["mvn", "-pl", "app", selected_phase, *options]
+                plugin = self.maven_plugin_execution(
+                    group_id,
+                    artifact_id,
+                    goal,
+                    "test-compile",
+                )
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(active_model_plugins=plugin),
+                ) as command:
+                    self.assertEqual(
+                        0,
+                        self.submit(
+                            ("module", "app", "compile", None),
+                            command=command_args,
+                        ),
+                    )
+                self.assertEqual(2, command.call_count)
+
+    def test_migrate_only_rejects_unknown_maven_goals_for_noncompile_evidence(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(".")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-pl", "app", "package", "-DskipTests"]
+        plugin = self.maven_plugin_execution(
+            "org.codehaus.mojo",
+            "exec-maven-plugin",
+            "exec",
+            "package",
+        )
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_plugins=plugin),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "cannot establish test-free behavior",
+            ):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        self.assertEqual(1, command.call_count)
+
+    def test_migrate_only_ignores_unknown_maven_executions_after_selected_phase(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        plugin = self.maven_plugin_execution(
+            "org.codehaus.mojo",
+            "exec-maven-plugin",
+            "exec",
+            "package",
+        )
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_plugins=plugin),
+        ) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("module", "app", "compile", None),
+                    command=command_args,
+                ),
+            )
+        self.assertEqual(2, command.call_count)
+
+    def test_migrate_only_rejects_maven_lifecycle_commands_with_uninspected_projects(self):
+        for command_args in (
+            ["mvn", "test-compile"],
+            ["mvn", "-pl", "app,other", "test-compile"],
+            ["mvn", "-pl", "app", "-am", "test-compile"],
+            ["mvn", "-pl", "app", "-amd", "test-compile"],
+            ["mvn", "-rf", "app", "test-compile"],
+        ):
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                self.write_maven_project("app")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ) as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "one Maven project per lifecycle command",
+                    ):
+                        self.submit(
+                            ("module", "app", "compile", None),
+                            command=command_args,
+                        )
+                self.assertEqual(1, command.call_count)
+
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(".")
+        command_args = ["mvn", "-pl", "*", "package", "-DskipTests"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "one Maven project per lifecycle command",
+            ):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        self.assertEqual(1, command.call_count)
+
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(".", "<modules><module>app</module></modules>")
+        self.write_maven_project("app")
+        command_args = ["mvn", "package", "-DskipTests"]
+        active_model = "<modules><module>app</module></modules>"
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_plugins=active_model),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "one Maven project per lifecycle command",
+            ):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        self.assertEqual(1, command.call_count)
+
+    def test_migrate_only_allows_nonrecursive_root_maven_commands(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(".", "<modules><module>app</module></modules>")
+        command_args = ["mvn", "-N", "package", "-DskipTests"]
+        active_model = "<modules><module>app</module></modules>"
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_plugins=active_model),
+        ) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                ),
+            )
+        self.assertEqual(2, command.call_count)
 
     def test_migrate_only_fails_closed_when_maven_model_inspection_fails(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -1171,12 +1451,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                         0,
                         self.submit(("module", "app", "compile", None), command=command_args),
                     )
-                expected_calls = (
-                    1
-                    if gate._maven_command_details(command_args)[2] is not None
-                    else 2
-                )
-                self.assertEqual(expected_calls, command.call_count)
+                self.assertEqual(2, command.call_count)
 
     def test_migrate_only_allows_gradle_test_source_compilation(self):
         self.write_scope(test_run_mode="migrate_only")
