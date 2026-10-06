@@ -298,10 +298,42 @@ treats the Docker result as informational because no test suite runs.
 | User choice | Baseline step | Migration steps | Test verification |
 |---|---|---|---|
 | **Run tests** | Run each Camunda 7 test command before Step 3 changes any file. Record the baseline. | Migrate the tests, run each CPT test command, and apply the parity, freeze, mock-boundary, repeat-run, and coverage safeguards. | If a required test check does not pass, then the skill does not report `verified`. |
-| **Migrate tests only** | Do not run a Camunda 7 test command. | Migrate the tests in the same way as the Run tests path. Compile test sources. Do not run CPT suites or Step 4 process scenarios. | Record every skipped test check as blocked with `declined by user (Question 8)`. Report `not verified (Migrate tests only)`. |
+| **Migrate tests only** | Preserve the C7 baseline before Step 3. Do not run a Camunda 7 test command. | Migrate the tests in the same way as the Run tests path. Compile test sources. Do not run CPT suites or Step 4 process scenarios. | Record every skipped test check as blocked with `declined by user (Question 8)`. Report `not verified (Migrate tests only)`. |
+
+When the user selects **Migrate tests only**, the skill preserves the C7 baseline before Step 3:
+
+| Project root | Baseline action |
+|---|---|
+| Git repository | Record the Step 2 commit and use it for a separate worktree during deferred verification. |
+| Not a Git repository | Copy the full project root, including hidden files, to a sibling directory before Step 3. Record the snapshot path in `MIGRATION_REPORT.md`. |
+
+Never reconstruct the C7 baseline from migrated files. If the skill cannot preserve the baseline,
+then ask the user before Step 3.
 
 When the user selects **Migrate tests only**, compile each module's test sources with `mvn
 test-compile` or the Gradle `testClasses` task. A main-source-only compile does not count.
+When the user selects **Migrate tests only**, the validation recorder applies this command policy
+regardless of evidence kind:
+
+| Build tool | Command | Recorder action |
+|---|---|---|
+| Maven | A standard lifecycle phase with `-DskipTests` or `-DskipTests=true` | Allow standard Surefire and Failsafe test execution to be skipped. |
+| Maven | A Surefire or Failsafe test goal with `-DskipTests` or `-DskipTests=true` | Allow the known test provider to skip execution. |
+| Maven | Another plugin's `:test` or `:integration-test` goal, even with `-DskipTests` | Reject the goal because the plugin may ignore that property. |
+| Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
+| Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from test-task detection. |
+| Gradle | `build` or `check`, including with `-x test` | Reject the aggregate task because other test tasks can remain in its task graph. |
+| Either | A test lifecycle goal or task without an applicable skip option | Reject the command. |
+
+When the recorder receives module `compile` evidence, it requires successful test-source
+compilation.
+Maven `test-compile` or a later standard lifecycle phase with `-DskipTests` qualifies.
+Gradle requires the explicit `testClasses` task.
+A main-source-only compile does not qualify.
+
+When a non-test check needs Maven packaging, use the standard lifecycle with `-DskipTests`.
+When a non-test Gradle check needs packaging, select a task whose dependency graph contains no test
+tasks. Do not use aggregate `build` or `check` tasks in `migrate_only`.
 For every independently runnable suite, declare separate `test_suites` entries named
 `<suite>-c7-baseline` and `<suite>-c8-migrated`. Set `requires_docker` for each entry according to
 its runtime. These names give the baseline and migrated run separate validation evidence keys.
@@ -682,12 +714,14 @@ verdict is `needs review`, not `blocked`. Follow `references/project-readiness.m
 
 When the user selects **Migrate tests only**, add a **Verify the test migration** section to
 `MIGRATION_REPORT.md`. List concrete commands from the Test Inventory and the project documentation
-and CI inventory. Replace each placeholder below with the actual baseline commit, worktree path, and
-module commands:
+and CI inventory. Record the actual baseline commit or filesystem snapshot path in the report.
+Replace each placeholder below with the actual baseline, worktree path, and module commands:
 
-1. Create a separate worktree from the Step 2 baseline with
-   `git worktree add ../c7-baseline <baseline-commit>`.
-2. Change `test_run_mode` from `migrate_only` to `run` in
+1. When the project root is a Git repository, create a separate worktree from the recorded Step 2
+   baseline with `git worktree add ../c7-baseline <baseline-commit>`.
+   When the project root is not a Git repository, use the filesystem snapshot path recorded before
+   Step 3 instead.
+2. Change only `test_run_mode` from `migrate_only` to `run` in
    `.camunda-migration/validation/step2-inventory.json`. When deferred verification starts and the
    initial inventory has no `test_suites`, add one C7 suite entry for each independently runnable
    suite. Record its exact C7 command and every Test Inventory ID. Keep the Test Inventory, scope,
@@ -696,9 +730,10 @@ module commands:
 3. When any reserved suite entry requires Docker, the skill records the Docker probe before running
    the first Docker-dependent suite:
    `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info`.
-   The skill runs each Camunda 7 suite in the separate worktree with its recorded command. The skill
-   runs each migrated suite from the migrated project with its recorded command. When a migrated
-   suite needs a runtime, the skill starts Docker or configures the remote CPT runtime.
+   The skill runs each Camunda 7 suite from the separate worktree or snapshot with its recorded
+   command. The skill runs each migrated suite from the migrated project with its recorded command.
+   When a migrated suite needs a runtime, the skill starts Docker or configures the remote CPT
+   runtime.
 4. Record the baseline and migrated results with their distinct suite names. The suite `unit` uses
    `unit-c7-baseline` for the C7 run and `unit-c8-migrated` for the C8 run. The C7 command can use
    `mvn -f ../c7-baseline/pom.xml -pl <module> test`. The migrated command can use
@@ -712,8 +747,8 @@ The verification plan is not test evidence. If either test run is not recorded o
 check does not pass, then the skill does not report the tests as verified.
 
 When the user later asks the skill to verify a **Migrate tests only** run, the skill follows this
-plan and runs the Camunda 7 suite from the Step 2 baseline commit in a separate worktree. Never
-rebuild the baseline from migrated code. (MAY)
+plan and runs the Camunda 7 suite from the Step 2 worktree or filesystem snapshot. (MAY)
+Never rebuild the baseline from migrated code.
 
 ---
 

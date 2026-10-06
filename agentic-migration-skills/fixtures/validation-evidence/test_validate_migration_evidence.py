@@ -580,6 +580,15 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "environment": environment,
                 "isolation_plan": "Use an isolated local cluster; remove the timer deployment and instances.",
             }
+            if test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile":
+                command_args = ["mvn", "test-compile"]
+                completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
+                with patch.object(gate.subprocess, "run", return_value=completed):
+                    self.assertEqual(
+                        0,
+                        self.submit(key, command=command_args, **options),
+                    )
+                continue
             if key[2] == "c7_baseline":
                 options["command"] = plan.test_contract["suites"][
                     (key[1], key[3])
@@ -3959,8 +3968,14 @@ class ValidationEvidenceTest(unittest.TestCase):
                     with self.assertRaisesRegex(gate.EvidenceError, "Migrate tests only"):
                         self.submit(key, command=[sys.executable, "-c", "print('must not run')"])
                     command.assert_not_called()
-                with self.assertRaisesRegex(gate.EvidenceError, "exact Question 8 reason"):
-                    self.submit(key, action="block", reason="tests deferred")
+                for reason in (
+                    "tests deferred",
+                    " declined by user (Question 8)",
+                    "declined by user (Question 8) ",
+                ):
+                    with self.subTest(key=key, reason=reason):
+                        with self.assertRaisesRegex(gate.EvidenceError, "exact Question 8 reason"):
+                            self.submit(key, action="block", reason=reason)
                 self.assertEqual(
                     1,
                     self.submit(
@@ -4094,6 +4109,108 @@ class ValidationEvidenceTest(unittest.TestCase):
             f"{key}: C7 baseline suite contract changed after recording",
             issues,
         )
+
+    def test_migrate_only_rejects_test_lifecycle_commands_under_other_evidence_kinds(self):
+        compile_key = ("module", "app", "compile", None)
+        test_commands = (
+            ["mvn", "test"],
+            ["mvn", "verify"],
+            ["mvnd", "package"],
+            ["mvnw", "maven-surefire-plugin:test"],
+            ["mvn", "org.apache.maven.plugins:maven-surefire-plugin:test@unit"],
+            ["mvn", "org.apache.maven.plugins:maven-failsafe-plugin:integration-test@it"],
+            ["mvn", "org.example:maven-custom-plugin:test", "-DskipTests"],
+            ["mvn", "org.example:maven-custom-plugin:1.0:integration-test@it", "-DskipTests=true"],
+            ["./gradlew", "test"],
+            ["gradle", "check"],
+            ["gradle", "build"],
+            ["gradle", "build", "-x", "test"],
+            ["gradle", "build", "-x", "test", "-x", "integrationTest"],
+            ["gradle", "check", "--exclude-task", "test"],
+            ["./gradlew", ":app:check", "--exclude-task=test"],
+            ["./gradlew", "integrationTest"],
+            ["gradle", "build", "-x", "test", "integrationTest"],
+        )
+        for command_args in test_commands:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                completed = subprocess.CompletedProcess(command_args, 0, "test command ran")
+                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
+                        self.submit(compile_key, command=command_args)
+                    command.assert_not_called()
+
+    def test_migrate_only_allows_maven_packaging_when_tests_are_skipped(self):
+        compile_key = ("module", "app", "compile", None)
+        maven_commands = (
+            ["mvn", "package", "-DskipTests"],
+            ["mvn", "-DskipTests=true", "package"],
+        )
+        for command_args in maven_commands:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
+                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                    self.assertEqual(0, self.submit(compile_key, command=command_args))
+                command.assert_called_once()
+
+    def test_migrate_only_rejects_main_source_only_compilation(self):
+        compile_key = ("module", "app", "compile", None)
+        main_source_commands = (
+            ["mvn", "compile"],
+            ["gradle", "classes"],
+        )
+        for command_args in main_source_commands:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                completed = subprocess.CompletedProcess(command_args, 0, "main sources compiled")
+                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+                        self.submit(compile_key, command=command_args)
+                    command.assert_not_called()
+
+    def test_migrate_only_skip_tests_applies_to_surefire_and_failsafe_goals(self):
+        known_test_provider_commands = (
+            ["mvn", "surefire:test", "-DskipTests"],
+            ["mvn", "org.apache.maven.plugins:maven-surefire-plugin:3.5.2:test@unit", "-DskipTests=true"],
+            ["mvn", "failsafe:integration-test", "-DskipTests"],
+            ["mvn", "org.apache.maven.plugins:maven-failsafe-plugin:3.5.2:integration-test@it", "-DskipTests=true"],
+        )
+        for command_args in known_test_provider_commands:
+            with self.subTest(command=command_args):
+                self.assertFalse(gate.command_runs_test_suite(command_args))
+
+    def test_migrate_only_rejects_build_commands_with_false_maven_test_skip(self):
+        compile_key = ("module", "app", "compile", None)
+        command_args = ["mvn", "package", "-DskipTests=false"]
+        self.write_scope(test_run_mode="migrate_only")
+        completed = subprocess.CompletedProcess(command_args, 0, "test command ran")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
+                self.submit(compile_key, command=command_args)
+            command.assert_not_called()
+
+    def test_migrate_only_allows_maven_test_source_compilation(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            self.assertEqual(
+                0,
+                self.submit(("module", "app", "compile", None), command=command_args),
+            )
+        command.assert_called_once()
+
+    def test_migrate_only_allows_gradle_test_source_compilation(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["./gradlew", ":app:testClasses"]
+        completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            self.assertEqual(
+                0,
+                self.submit(("module", "app", "compile", None), command=command_args),
+            )
+        command.assert_called_once()
 
     def test_migrate_only_does_not_require_docker_probe_for_unrun_suites(self):
         self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True

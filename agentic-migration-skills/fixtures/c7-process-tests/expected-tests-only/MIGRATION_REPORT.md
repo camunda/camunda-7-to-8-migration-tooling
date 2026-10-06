@@ -72,10 +72,12 @@ unverified because the user selected **Migrate tests only**.
 
 ## Verify the test migration
 
-Use the C7 baseline commit recorded during Step 2. Create a separate baseline worktree:
+Baseline commit: `d84e685f57e6eee2af52c9966017c3272fd3a205`
+
+Create a separate baseline worktree:
 
 ```sh
-git worktree add ../c7-baseline <baseline-commit>
+git worktree add ../c7-baseline d84e685f57e6eee2af52c9966017c3272fd3a205
 ```
 
 Before recording either run, change only `test_run_mode` from `migrate_only` to `run` in
@@ -92,7 +94,7 @@ Record each C7 suite from the baseline worktree and each C8 suite from the migra
 separate evidence keys such as `unit-c7-baseline` and `unit-c8-migrated`. For example:
 
 ```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/pom.xml -pl engine-tests test
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests test
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test
 ```
 

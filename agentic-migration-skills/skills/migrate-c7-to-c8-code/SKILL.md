@@ -221,6 +221,8 @@ C7 baseline with the command in `references/validation-evidence.md`.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
+When the confirmed root is not a Git repository and the user selects **Migrate tests only**, the
+skill follows `references/test-migration.md` to preserve a filesystem baseline before Step 3.
 
 #### Code Inventory
 

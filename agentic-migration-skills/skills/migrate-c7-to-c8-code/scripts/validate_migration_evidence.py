@@ -71,6 +71,186 @@ TEST_LEDGER_CHECK_KINDS = {
 }
 TEST_RUN_MODES = {"run", "migrate_only"}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
+MAVEN_EXECUTABLES = {"mvn", "mvn.cmd", "mvnw", "mvnw.cmd", "mvnd", "mvnd.bat", "mvnd.cmd"}
+GRADLE_EXECUTABLES = {
+    "gradle", "gradle.bat", "gradle.cmd", "gradlew", "gradlew.bat", "gradlew.cmd",
+}
+MAVEN_TEST_LIFECYCLE_GOALS = {
+    "test",
+    "integration-test",
+    "verify",
+    "package",
+    "install",
+    "deploy",
+}
+MAVEN_TEST_SOURCE_COMPILATION_PHASES = {
+    "test",
+    "prepare-package",
+    "package",
+    "pre-integration-test",
+    "integration-test",
+    "post-integration-test",
+    "verify",
+    "install",
+    "deploy",
+}
+MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS = {
+    "maven-failsafe-plugin",
+    "maven-surefire-plugin",
+}
+MAVEN_SKIP_TESTS_PLUGIN_PREFIXES = {"failsafe", "surefire"}
+GRADLE_TEST_TASKS = {"build", "check", "test"}
+MAVEN_OPTIONS_WITH_VALUES = {
+    "--activate-profiles", "--define", "--file", "--projects", "--resume-from",
+    "--settings", "--threads", "--toolchains", "-D", "-P", "-T", "-f", "-pl", "-rf",
+    "-s", "-t",
+}
+GRADLE_OPTIONS_WITH_VALUES = {
+    "--console", "--exclude-task", "--include-build", "--init-script", "--max-workers",
+    "--project-cache-dir", "--project-dir", "--tests", "--warning-mode", "-D", "-I",
+    "-P", "-p", "-x",
+}
+
+
+def _maven_command_details(command):
+    arguments = []
+    skip_tests = False
+    index = 1
+    while index < len(command):
+        argument = command[index]
+        property_argument = None
+        if argument in {"-D", "--define"}:
+            if index + 1 < len(command):
+                property_argument = command[index + 1]
+                index += 1
+        elif argument.startswith("-D"):
+            property_argument = argument[2:]
+        elif argument.startswith("--define="):
+            property_argument = argument.partition("=")[2]
+
+        if property_argument is not None:
+            name, separator, value = property_argument.partition("=")
+            if name == "skipTests":
+                skip_tests = not separator or value.casefold() == "true"
+            index += 1
+            continue
+        if argument in MAVEN_OPTIONS_WITH_VALUES:
+            index += 2
+            continue
+        if argument.startswith("-"):
+            index += 1
+            continue
+        arguments.append(argument.casefold())
+        index += 1
+    return arguments, skip_tests
+
+
+def _gradle_command_details(command):
+    arguments = []
+    excluded_task_names = set()
+    excluded_task_paths = set()
+    index = 1
+    while index < len(command):
+        argument = command[index]
+        if argument in {"-x", "--exclude-task"}:
+            if index + 1 < len(command):
+                excluded_task = command[index + 1]
+                normalized_task = excluded_task.casefold().lstrip(":")
+                if ":" in excluded_task:
+                    excluded_task_paths.add(normalized_task)
+                else:
+                    excluded_task_names.add(normalized_task)
+                index += 2
+            else:
+                index += 1
+            continue
+        if argument.startswith("--exclude-task="):
+            excluded_task = argument.partition("=")[2]
+            normalized_task = excluded_task.casefold().lstrip(":")
+            if ":" in excluded_task:
+                excluded_task_paths.add(normalized_task)
+            else:
+                excluded_task_names.add(normalized_task)
+            index += 1
+            continue
+        if argument in GRADLE_OPTIONS_WITH_VALUES:
+            index += 2
+            continue
+        if argument.startswith("-"):
+            index += 1
+            continue
+        arguments.append(argument.casefold())
+        index += 1
+    return arguments, excluded_task_names, excluded_task_paths
+
+
+def _maven_test_goal_honors_skip_tests(goal):
+    parts = goal.split("@", 1)[0].split(":")
+    if len(parts) == 2:
+        return parts[0] in MAVEN_SKIP_TESTS_PLUGIN_PREFIXES | MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS
+    if len(parts) in {3, 4}:
+        group_id, artifact_id = parts[:2]
+        return (
+            group_id == "org.apache.maven.plugins"
+            and artifact_id in MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS
+        )
+    return False
+
+
+def command_runs_test_suite(command):
+    if not command or not isinstance(command[0], str):
+        return False
+    executable = command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    if executable in MAVEN_EXECUTABLES:
+        arguments, skip_tests = _maven_command_details(command)
+        for argument in arguments:
+            goal = argument.split("@", 1)[0]
+            if ":" in goal:
+                goal_name = goal.rsplit(":", 1)[-1]
+                if goal_name in {"test", "integration-test"} and not (
+                    skip_tests and _maven_test_goal_honors_skip_tests(goal)
+                ):
+                    return True
+            elif goal in MAVEN_TEST_LIFECYCLE_GOALS and not skip_tests:
+                return True
+        return False
+    if executable in GRADLE_EXECUTABLES:
+        arguments, excluded_task_names, excluded_task_paths = _gradle_command_details(command)
+        for argument in arguments:
+            task_path = argument.lstrip(":")
+            task = task_path.rsplit(":", 1)[-1]
+            if task_path in excluded_task_paths or task in excluded_task_names:
+                continue
+            if (
+                task in GRADLE_TEST_TASKS
+                or (task.startswith("test") and task not in {"testclasses", "testfixturesclasses"})
+                or task.endswith(("test", "tests"))
+            ):
+                return True
+        return False
+    return False
+
+
+def command_compiles_test_sources(command):
+    if not command or not isinstance(command[0], str):
+        return False
+    executable = command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    if executable in MAVEN_EXECUTABLES:
+        arguments, skip_tests = _maven_command_details(command)
+        phases = {argument.split("@", 1)[0] for argument in arguments if ":" not in argument}
+        return "test-compile" in phases or (
+            skip_tests and bool(phases & MAVEN_TEST_SOURCE_COMPILATION_PHASES)
+        )
+    if executable in GRADLE_EXECUTABLES:
+        arguments, excluded_task_names, excluded_task_paths = _gradle_command_details(command)
+        for argument in arguments:
+            task_path = argument.lstrip(":")
+            task = task_path.rsplit(":", 1)[-1]
+            if task_path in excluded_task_paths or task in excluded_task_names:
+                continue
+            if task == "testclasses":
+                return True
+    return False
 
 
 @dataclass
@@ -4824,12 +5004,13 @@ def record(root, args):
     key = (args.type, args.target, args.kind, args.scenario)
     if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
-    if read_test_run_mode(read_json(root / INVENTORY)) == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
+    test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
+    if test_run_mode == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
         if args.action == "run":
             raise EvidenceError(
                 f"{key}: Question 8 selected Migrate tests only; test commands are not allowed"
             )
-        if args.action == "block" and args.reason.strip() != QUESTION_8_DECLINE_REASON:
+        if args.action == "block" and args.reason != QUESTION_8_DECLINE_REASON:
             raise EvidenceError(
                 f"{key}: use the exact Question 8 reason {QUESTION_8_DECLINE_REASON!r}"
             )
@@ -4932,6 +5113,19 @@ def record(root, args):
             raise EvidenceError("Executable path cannot be empty")
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
+        if test_run_mode == "migrate_only":
+            if command_runs_test_suite(command):
+                raise EvidenceError(
+                    f"{key}: Question 8 selected Migrate tests only; test execution commands are not allowed"
+                )
+            if (
+                key[0] == "module"
+                and key[2] == "compile"
+                and not command_compiles_test_sources(command)
+            ):
+                raise EvidenceError(
+                    f"{key}: Question 8 Migrate tests only requires test-source compilation evidence"
+                )
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
