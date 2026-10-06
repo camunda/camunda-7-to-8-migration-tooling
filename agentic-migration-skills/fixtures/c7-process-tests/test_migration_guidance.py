@@ -1198,6 +1198,39 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual([], non_ears_for_openers)
 
+    def test_build_resource_checks_are_scoped_by_platform(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        start = reference.index("before changing the target build")
+        end = reference.index("| source-set condition", start)
+        sentences = re.split(r"(?<=[.!?])\s+", reference[start:end])
+        platform_markers = {
+            "maven": ("testsourcedirectory", "compiler include patterns", "targetpath"),
+            "gradle": (
+                "test source set",
+                "test-task include and exclude patterns",
+                "`processresources`",
+                "`processtestresources`",
+                "their filters and output paths",
+            ),
+        }
+
+        for platform, markers in platform_markers.items():
+            for marker in markers:
+                with self.subTest(platform=platform, marker=marker):
+                    sentence = next(
+                        (sentence for sentence in sentences if marker in sentence),
+                        None,
+                    )
+                    self.assertTrue(
+                        sentence is not None
+                        and sentence.startswith(
+                            "where a project uses {}, ".format(platform)
+                        ),
+                        "{} check is not scoped to {}: {}".format(
+                            marker, platform, sentence
+                        ),
+                    )
+
     def test_linear_paths_may_replace_cpt_conditionals_with_sequential_calls(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
 

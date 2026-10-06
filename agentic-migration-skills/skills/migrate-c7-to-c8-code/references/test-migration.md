@@ -485,12 +485,13 @@ Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployment dependen
 Before changing the target build, the skill checks test-source roots, test filters, and resource
 processing in every Maven module or Gradle source set.
 Where a project uses Maven, the skill checks each module's
-`testSourceDirectory`, compiler include patterns, `resources`, and `testResources` declarations. The
-skill checks resource filters, includes, excludes, and `targetPath` settings. Where a project uses
-Gradle, the skill checks each test source set and its test-task include and exclude patterns. The
-skill checks source-set resource directories and matching resource-processing tasks such as
-`processResources` and `processTestResources`. The skill checks their filters and output paths. The
-skill checks plugins or tasks that copy or generate resources.
+`testSourceDirectory`, compiler include patterns, `resources`, and `testResources` declarations.
+Where a project uses Maven, the skill checks resource filters, includes, excludes, and `targetPath`
+settings. Where a project uses Gradle, the skill checks each test source set and its test-task
+include and exclude patterns. Where a project uses Gradle, the skill checks source-set resource
+directories and matching resource-processing tasks such as `processResources` and
+`processTestResources`. Where a project uses Gradle, the skill checks their filters and output
+paths. The skill checks plugins or tasks that copy or generate resources.
 
 | Source-set condition | Migration action |
 |---|---|
