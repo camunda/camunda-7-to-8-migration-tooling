@@ -257,10 +257,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertEqual(rows[3][3], "Report only")
         self.assertEqual(rows[4][3], "Report only")
         self.assertEqual(rows[5][3], "Migrate")
-        self.assertEqual(
-            rows[6][3],
-            "Migrate to CPT only with the `Spring` modifier; otherwise Report only",
-        )
+        self.assertEqual(rows[6][3], "Migrate to CPT")
         self.assertIn(
             "When the target is Camunda 8.9 or later, the skill migrates every test with test kind `decision test`.",
             normalized_reference,

@@ -280,6 +280,10 @@ The [`fixtures/dmn-decision-tests`](fixtures/dmn-decision-tests) walkthrough pai
 Camunda 7 DMN tests and `DecisionService` tests with CPT 8.9 equivalents. It covers output shapes,
 nullable inputs, a required DRD decision, no-match behavior, and hit-policy failures.
 
+The [`fixtures/process-test-migration`](fixtures/process-test-migration) walkthrough compares
+Camunda 7 engine-backed JUnit 3, JUnit 4, and JUnit 5 tests with CPT 8.9. It checks converted-only
+deployments, JUnit 3 lifecycle callbacks, and a retained JUnit 4 test.
+
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture

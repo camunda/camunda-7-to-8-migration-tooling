@@ -47,14 +47,7 @@ TEST_KINDS = (
     "out of scope (Camunda 8)",
 )
 MIGRATE_TO_CPT = "Migrate to CPT"
-SPRING_PROCESS_TEST_IDS = {
-    "spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription",
-    "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp",
-    "spring-boot-app:com.camunda.fixture.subscription.ActivateDelegateMockTest#mocksDelegateBean",
-    "spring-boot-app:com.camunda.fixture.subscription.HousekeepingStartupTest#startsHousekeepingOnDeployment",
-}
 REPORT_ONLY_REASONS = {
-    "process test": "engine-test migration procedure is defined",
     "scenario test": "scenario-test migration procedure is defined",
     "remote-engine test": "remote-engine migration procedure is defined",
 }
@@ -1183,7 +1176,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("org.camunda.bpm.engine.impl.util.ClockUtil", timer_source)
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path, handling in (
-            (EXPECTED_ASSESSMENT, "Report only"),
+            (EXPECTED_ASSESSMENT, "Migrate to CPT"),
             (EXPECTED_ASSESSMENT_88, "Report only"),
         ):
             timer_rows = [
@@ -1481,11 +1474,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             test_id = row["Test ID"]
             test_kind = row["Test kind"]
             if test_kind == "process test":
-                expected_handling = (
-                    MIGRATE_TO_CPT
-                    if test_id in SPRING_PROCESS_TEST_IDS
-                    else "Report only"
-                )
+                expected_handling = MIGRATE_TO_CPT
             elif test_kind == "decision test":
                 expected_handling = "Migrate"
             elif test_kind == "scenario test":
@@ -1636,10 +1625,15 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn("| priority | test kind | detect by | handling |", reference)
-        self.assertIn(
-            "migrate to cpt only with the `spring` modifier; otherwise report only",
-            reference,
+        process_test_row = next(
+            row
+            for row in markdown_table(
+                TEST_MIGRATION_REFERENCE,
+                ["Priority", "Test kind", "Detect by", "Handling"],
+            )
+            if row["Test kind"] == "process test"
         )
+        self.assertEqual("Migrate to CPT", process_test_row["Handling"])
         self.assertIn(
             "while the remote-engine migration procedure is undefined, the skill keeps "
             "remote-engine test rows at report only.",
@@ -1650,11 +1644,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "test kind `decision test`.",
             reference,
         )
-        self.assertIn(
-            "while the engine-test migration procedure is undefined, the skill keeps "
-            "process test rows without the `spring` modifier at report only.",
-            reference,
-        )
+        self.assertNotIn("engine-test migration procedure is undefined", reference)
         for test_kind in TEST_KINDS:
             with self.subTest(test_kind=test_kind):
                 self.assertIn("| {} |".format(normalized(test_kind)), reference)
