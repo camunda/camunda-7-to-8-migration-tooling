@@ -795,6 +795,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     self.assertIn('taskName.endsWith("test")', inspection_script)
                     self.assertIn('taskName.endsWith("tests")', inspection_script)
                     self.assertNotIn("task.name.endsWith", inspection_script)
+                    self.assertIn("|| testNamed", inspection_script)
                     return subprocess.CompletedProcess(command, 0, graph_output)
 
                 with patch.object(gate.subprocess, "run", side_effect=run) as command:
@@ -821,6 +822,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "org.springframework.boot.gradle.tasks.run.BootRun",
                     inspection_script,
                 )
+                self.assertIn('taskName == "bootrun"', inspection_script)
+                self.assertIn("&& !supportedSpringBootRun", inspection_script)
                 return subprocess.CompletedProcess(command, 0, graph_markers)
             return subprocess.CompletedProcess(command, 0, "application started")
 
@@ -918,6 +921,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                         self.assertIn("task.name.toLowerCase()", inspection_script)
                         self.assertIn('taskName.endsWith("test")', inspection_script)
                         self.assertIn('taskName.endsWith("tests")', inspection_script)
+                        self.assertIn("|| testNamed", inspection_script)
                         return subprocess.CompletedProcess(command, 0, graph_output)
                     self.fail("The aggregate command must not run while a test-named task remains")
 
