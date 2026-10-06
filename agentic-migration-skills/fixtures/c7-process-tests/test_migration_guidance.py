@@ -885,6 +885,35 @@ class MigrationGuidanceTest(unittest.TestCase):
             readme,
         )
 
+    def test_scenario_deferred_actions_are_time_modifier_signals(self):
+        modifier_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE, ["Modifier", "Detect by", "Used by"]
+        )
+        time_modifier = next(row for row in modifier_rows if row["Modifier"] == "time")
+        self.assertIn("task.defer(period, action)", time_modifier["Detect by"])
+
+        fulfillment_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "FulfillmentScenarioTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("task.defer(", fulfillment_source)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            scenario_rows = [
+                row
+                for row in rows
+                if row["Test ID"].endswith(
+                    "FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders"
+                )
+            ]
+            self.assertEqual(2, len(scenario_rows))
+            for row in scenario_rows:
+                with self.subTest(inventory=inventory_path, test_id=row["Test ID"]):
+                    self.assertIn("time modifier", row["Signals"])
+
     def test_all_in_scope_test_kinds_keep_modifier_signals(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         modifier_rows = markdown_table(

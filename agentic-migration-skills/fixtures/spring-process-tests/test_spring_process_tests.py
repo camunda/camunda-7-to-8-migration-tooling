@@ -126,6 +126,13 @@ class ManualSpringFixtureTest(unittest.TestCase):
 
 
 class SpringProcessTestFixtureTest(unittest.TestCase):
+    def test_readme_documents_maven_fixture_test_prerequisites(self):
+        readme = (FIXTURE / "README.md").read_text()
+
+        self.assertIn("runs a Maven test for the manual C7 fixture", readme)
+        self.assertIn("JDK 17 or later", readme)
+        self.assertIn("resolvable fixture dependencies", readme)
+
     def test_reference_covers_boot_variants_and_deployment_rules(self):
         reference = " ".join(REFERENCE.read_text().split())
         package_readme = PACKAGE_README.read_text()
