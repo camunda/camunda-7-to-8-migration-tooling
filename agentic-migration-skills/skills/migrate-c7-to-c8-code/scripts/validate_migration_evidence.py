@@ -1223,6 +1223,12 @@ def read_test_mapping(root, required=False):
         and type(baseline["coverage_available"]) is not bool
     ):
         raise EvidenceError("Test parity ledger baseline has an invalid shape")
+    coverage_available, coverage = aggregate_baseline_coverage(baseline["suites"])
+    if (
+        baseline.get("coverage_available", False) is not coverage_available
+        or baseline.get("coverage", {}) != coverage
+    ):
+        raise EvidenceError("C7 coverage aggregate differs from its suite records")
     return mapping
 
 
@@ -1236,17 +1242,29 @@ def module_suite_digest(module, suite):
     return hashlib.sha256(f"{module}\0{suite}".encode("utf-8")).hexdigest()[:20]
 
 
+def reject_symlink_components(root, path, label):
+    try:
+        relative = path.relative_to(root)
+    except ValueError as exc:
+        raise EvidenceError(f"{label} is outside its module: {path}") from exc
+    current = root
+    for component in relative.parts:
+        current = current / component
+        if current.is_symlink():
+            raise EvidenceError(f"Refusing symlinked {label}: {current}")
+
+
 def discover_reports(root, module, patterns, label):
     module_root = project_path(root, module, f"{label} module", must_exist=True)
+    reject_symlink_components(root, root / module, f"{label} module")
     found = set()
     for pattern in patterns:
         try:
             candidates = module_root.glob(pattern)
             for path in candidates:
+                reject_symlink_components(module_root, path, label)
                 if not path.is_file():
                     continue
-                if path.is_symlink():
-                    raise EvidenceError(f"Refusing symlinked {label}: {path}")
                 try:
                     path.resolve(strict=True).relative_to(module_root.resolve(strict=True))
                 except (OSError, ValueError) as exc:
@@ -1280,13 +1298,13 @@ def fresh_reports(root, module, patterns, before, label):
 def copy_reports(root, module, reports, destination):
     root = root.resolve(strict=True)
     module_root = project_path(root, module, "report module", must_exist=True)
+    reject_symlink_components(root, root / module, "report module")
     destination_root = ensure_directory_path(
         root, root / destination, "report destination"
     )
     copied = []
     for source in reports:
-        if source.is_symlink():
-            raise EvidenceError(f"Refusing symlinked report: {source}")
+        reject_symlink_components(module_root, source, "report")
         try:
             relative = source.resolve(strict=True).relative_to(module_root.resolve(strict=True))
         except (OSError, ValueError) as exc:
@@ -1768,6 +1786,20 @@ def mapped_migrated_test_ids(mapping):
     }
 
 
+def suite_requires_c7_baseline(suite, contract, mapping):
+    if suite["migrate_test_ids"]:
+        return True
+    if mapping is None:
+        return False
+    rows = test_rows_by_id(mapping)
+    inventory_tests = {test["id"]: test for test in contract["tests"]}
+    return any(
+        inventory_tests.get(test_id, {}).get("handling") == "Report only"
+        and rows.get(test_id, {}).get("status") == "migrated"
+        for test_id in suite["test_ids"]
+    )
+
+
 def test_validation_enabled(contract, migrated_test_ids, mapping):
     has_added_tests = mapping is not None and any(
         isinstance(test, dict) and test.get("status") == "added"
@@ -2035,7 +2067,7 @@ def test_parity_issues(plan, checks, mapping):
     expected_suites = {
         suite_key
         for suite_key, suite in contract["suites"].items()
-        if suite["migrate_test_ids"]
+        if suite_requires_c7_baseline(suite, contract, mapping)
     }
     baseline_entries = {}
     for suite in mapping["baseline"].get("suites", []):
@@ -2064,6 +2096,7 @@ def test_parity_issues(plan, checks, mapping):
         elif (
             baseline.get("test_results") != check.get("test_results")
             or baseline.get("coverage_by_process") != check.get("coverage_by_process")
+            or baseline.get("coverage_available") != check.get("coverage_available")
         ):
             issues.append(f"{suite_key}: test parity ledger differs from its baseline log")
 
@@ -2103,6 +2136,14 @@ def test_parity_issues(plan, checks, mapping):
         if status not in TEST_STATUSES:
             issues.append(f"{test_id}: ledger status must be migrated, retired, manual, or added")
             continue
+        if (
+            status == "migrated"
+            and inventory_test["handling"] == "Report only"
+            and expected_result is None
+        ):
+            issues.append(
+                f"{test_id}: migrated Report only test requires a captured C7 baseline"
+            )
         if status == "manual":
             if test.get("handling") == "Migrate" or expected_result == "passed":
                 issues.append(f"{test_id}: manual test is not verified")
@@ -2210,6 +2251,14 @@ def coverage_parity_issues(plan, checks, mapping):
                 cpt_decisions[index].setdefault(decision_id, set()).update(rule_ids)
 
     baseline = mapping["baseline"]
+    baseline_coverage_available, source_coverage = aggregate_baseline_coverage(
+        baseline.get("suites", [])
+    )
+    if (
+        baseline.get("coverage_available", False) is not baseline_coverage_available
+        or baseline.get("coverage", {}) != source_coverage
+    ):
+        issues.append("C7 coverage aggregate differs from its suite records")
     normalized_source_coverage = {}
     process_mappings = {}
     retained_c7_elements = {}
@@ -2226,17 +2275,13 @@ def coverage_parity_issues(plan, checks, mapping):
             converted_path
         )
     ambiguous_cpt_process_ids = set()
-    if baseline.get("coverage_available") is not True:
+    if not baseline_coverage_available:
         note = "No Camunda 7 coverage baseline."
     else:
         note = "Camunda 7 coverage baseline captured."
     if not has_cpt_tests:
         note += " No migrated or added CPT tests remain for target comparison."
-    if baseline.get("coverage_available") is True:
-        source_coverage = baseline.get("coverage")
-        if not isinstance(source_coverage, dict):
-            issues.append("C7 coverage baseline is not an object")
-            source_coverage = {}
+    if baseline_coverage_available:
         for process_id, elements in source_coverage.items():
             if (
                 not isinstance(process_id, str)
@@ -2698,7 +2743,8 @@ def requirements(root, evidence):
     if test_enabled:
         for suite_key, suite in tests["suites"].items():
             has_cpt_tests = suite_has_cpt_tests(suite, mapping)
-            if not has_cpt_tests and not suite["migrate_test_ids"]:
+            needs_c7_baseline = suite_requires_c7_baseline(suite, tests, mapping)
+            if not has_cpt_tests and not needs_c7_baseline:
                 continue
             module, name = suite_key
             if suite_key not in module_suite_keys:
@@ -2707,7 +2753,7 @@ def requirements(root, evidence):
                 )
                 if has_cpt_tests:
                     need("module", module, "test_repeat", name)
-            if suite["migrate_test_ids"]:
+            if needs_c7_baseline:
                 need("module", module, "c7_baseline", name)
         if expected_cpt_test_ids(mapping):
             need("project", ".", "test_freeze", method="snapshot")
@@ -3320,17 +3366,26 @@ def update_baseline_ledger(mapping, contract):
         if isinstance(test, dict) and test.get("status") == "added"
     ]
     mapping["tests"] = updated + added
+    update_baseline_ledger_coverage(mapping)
+
+
+def aggregate_baseline_coverage(baseline_suites):
     coverage = {}
     available = False
-    for suite in mapping["baseline"]["suites"]:
+    for suite in baseline_suites:
         if suite.get("result") != "passed":
             continue
         if suite.get("coverage_available") is True:
             available = True
         for process_id, elements in suite.get("coverage_by_process", {}).items():
             coverage.setdefault(process_id, set()).update(elements)
+    return available, coverage_json(coverage)
+
+
+def update_baseline_ledger_coverage(mapping):
+    available, coverage = aggregate_baseline_coverage(mapping["baseline"]["suites"])
     mapping["baseline"]["coverage_available"] = available
-    mapping["baseline"]["coverage"] = coverage_json(coverage)
+    mapping["baseline"]["coverage"] = coverage
 
 
 def record_c7_baseline(root, args):
@@ -3345,10 +3400,11 @@ def record_c7_baseline(root, args):
     suite = contract["suites"].get(suite_key)
     if key[0] != "module" or key[2] != "c7_baseline" or suite is None:
         raise EvidenceError(f"Unexpected C7 baseline check: {key}")
-    if not suite["migrate_test_ids"]:
-        raise EvidenceError(f"{key}: the suite has no Test Inventory tests marked Migrate")
-
     mapping = ensure_test_mapping(root, inventory)
+    if not suite_requires_c7_baseline(suite, contract, mapping):
+        raise EvidenceError(
+            f"{key}: the suite has no Test Inventory tests requiring a C7 baseline"
+        )
     command = list(getattr(args, "command", []) or [])
     if command and command[0] == "--":
         command = command[1:]

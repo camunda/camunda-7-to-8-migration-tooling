@@ -43,12 +43,12 @@ When the user selects **Migrate tests only**, record `test_run_mode: "migrate_on
 
 ## Step 3 order
 
-When `test_run_mode` is `run` and the Test Inventory has a test with handling `Migrate`, use these
-phases in this order:
+When `test_run_mode` is `run` and the Test Inventory has a `Migrate` test or a `Report only` test
+selected for migration, use these phases in this order:
 
 | Phase | Action |
 |---|---|
-| C7 baseline | Run each Camunda 7 suite that contains an in-scope test. Run it before Step 3 changes any file. |
+| C7 baseline | Before Step 3, run each suite containing a `Migrate` test or a `Report only` test selected for migration. |
 | Models | Convert the model copies, including test models. |
 | Tests | Migrate the in-scope tests. Review recipe changes before accepting them. |
 | Freeze | Record hashes for test source files and test resources. |
@@ -249,6 +249,7 @@ Use these ledger statuses:
 | `added` | The migration added a CPT test without a C7 source test. |
 
 The validator requires the same repeat, parity, freeze, and review evidence for migrated `Report only` tests.
+The validator also requires a C7 baseline for every suite that contains a migrated `Report only` test.
 
 When a `Report only` test passed in the C7 baseline, its `manual` status does not satisfy parity.
 Migrate it or record an approved retirement before claiming `READY`.

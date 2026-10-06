@@ -34,6 +34,23 @@ def migrated_test_rows(*test_ids):
     ]
 
 
+def c7_baseline_with_coverage(coverage):
+    return {
+        "suites": [
+            {
+                "module": "app",
+                "suite": "unit",
+                "result": "passed",
+                "test_results": {},
+                "coverage_available": True,
+                "coverage_by_process": coverage,
+            }
+        ],
+        "coverage_available": True,
+        "coverage": coverage,
+    }
+
+
 def bpmn(process_id, timer=False, extra=""):
     start = (
         '<bpmn:timerEventDefinition><bpmn:timeCycle>R/PT1H</bpmn:timeCycle>'
@@ -732,6 +749,95 @@ class ValidationEvidenceTest(unittest.TestCase):
                 ):
                     gate.read_test_mapping(self.root, required=True)
 
+    def test_read_test_mapping_rejects_coverage_aggregates_that_differ_from_suite_records(self):
+        valid_mapping = {
+            "schema_version": 1,
+            "baseline": {
+                "suites": [
+                    {
+                        "module": "app",
+                        "suite": "unit",
+                        "result": "passed",
+                        "test_results": {},
+                        "coverage_available": True,
+                        "coverage_by_process": {"p": ["TaskA"]},
+                    }
+                ],
+                "coverage_available": True,
+                "coverage": {"p": ["TaskA"]},
+            },
+            "tests": [],
+            "freeze": {"files": {}},
+            "test_changes": [],
+            "mock_changes": [],
+        }
+        corruptions = (
+            ("availability", lambda baseline: baseline.update(coverage_available=False)),
+            ("coverage", lambda baseline: baseline.update(coverage={})),
+        )
+
+        for name, corrupt in corruptions:
+            with self.subTest(aggregate=name):
+                mapping = json.loads(json.dumps(valid_mapping))
+                corrupt(mapping["baseline"])
+                write_json(self.root / gate.TEST_MAPPING, mapping)
+
+                with self.assertRaisesRegex(
+                    gate.EvidenceError,
+                    "C7 coverage aggregate differs from its suite records",
+                ):
+                    gate.read_test_mapping(self.root, required=True)
+
+    def test_test_parity_rejects_tampered_baseline_coverage_availability(self):
+        test_id = "app:com.example.OrderTest#testOrder"
+        coverage = {"p": ["TaskA"]}
+        plan = Namespace(
+            test_contract={
+                "tests": [],
+                "suites": {
+                    ("app", "unit"): {
+                        "migrate_test_ids": [test_id],
+                        "test_ids": [test_id],
+                    }
+                },
+            }
+        )
+        mapping = {
+            "baseline": {
+                "suites": [
+                    {
+                        "module": "app",
+                        "suite": "unit",
+                        "result": "passed",
+                        "test_results": {},
+                        "coverage_available": False,
+                        "coverage_by_process": coverage,
+                    }
+                ],
+                "coverage_available": False,
+                "coverage": coverage,
+            },
+            "tests": [],
+        }
+        checks = {
+            ("module", "app", "c7_baseline", "unit"): (
+                None,
+                {
+                    "result": "passed",
+                    "test_results": {},
+                    "coverage_available": True,
+                    "coverage_by_process": coverage,
+                },
+            )
+        }
+
+        issues = gate.test_parity_issues(plan, checks, mapping)
+
+        self.assertIn(
+            "('app', 'unit'): test parity ledger differs from its baseline log",
+            issues,
+        )
+
     def test_c7_baseline_tracks_out_of_module_converted_copies(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '
@@ -1368,6 +1474,42 @@ class ValidationEvidenceTest(unittest.TestCase):
             mapping["baseline"]["suites"][0]["test_results"],
         )
         self.assertIn(("module", "app", "test_repeat", "unit"), plan.required)
+
+    def test_migrated_report_only_test_requires_a_c7_baseline(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        mapping = gate.empty_test_mapping(inventory)
+        mapping["tests"] = [
+            {
+                "c7_id": self.c7_test_id,
+                "test_kind": "process test",
+                "handling": "Report only",
+                "c7_result": None,
+                "c8_ids": [self.c8_test_id],
+                "mocks": {"c7": [], "c8": []},
+                "status": "migrated",
+            }
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(self.root, self.plan)
+        baseline_key = ("module", "app", "c7_baseline", "unit")
+        self.assertIn(baseline_key, plan.required)
+        issues = gate.test_parity_issues(plan, {}, mapping)
+        missing_baseline_issue = (
+            f"{self.c7_test_id}: migrated Report only test requires a captured C7 baseline"
+        )
+        self.assertIn(missing_baseline_issue, issues)
+
+        self.assertEqual(0, self.record_c7_baseline())
+        recorded = gate.read_test_mapping(self.root, required=True)
+        recorded_test = next(
+            test for test in recorded["tests"] if test.get("c7_id") == self.c7_test_id
+        )
+        self.assertEqual("passed", recorded_test["c7_result"])
 
     def test_all_report_only_migrated_tests_require_validation(self):
         self.configure_test_run(
@@ -3062,10 +3204,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
         }
         mapping = {
-            "baseline": {
-                "coverage_available": True,
-                "coverage": {"p": ["TaskA"]},
-            },
+            "baseline": c7_baseline_with_coverage({"p": ["TaskA"]}),
             "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
@@ -3115,10 +3254,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                 }
                 mapping = {
-                    "baseline": {
-                        "coverage_available": True,
-                        "coverage": {"p": ["TaskA"]},
-                    },
+                    "baseline": c7_baseline_with_coverage({"p": ["TaskA"]}),
                     "tests": migrated_test_rows(
                         "app:com.example.OrderTest#testOrder"
                     ),
@@ -3169,10 +3305,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ),
         }
         mapping = {
-            "baseline": {
-                "coverage_available": True,
-                "coverage": {"source-a": ["TaskA"]},
-            },
+            "baseline": c7_baseline_with_coverage({"source-a": ["TaskA"]}),
             "tests": migrated_test_rows(
                 "app:com.example.OrderTest#testOrder",
                 "worker:com.example.OtherTest#testOther",
@@ -3216,13 +3349,12 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
         }
         mapping = {
-            "baseline": {
-                "coverage_available": True,
-                "coverage": {
+            "baseline": c7_baseline_with_coverage(
+                {
                     "source-p1": ["TaskA"],
                     "source-p2": ["TaskB"],
-                },
-            },
+                }
+            ),
             "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
@@ -3262,10 +3394,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
         }
         mapping = {
-            "baseline": {
-                "coverage_available": True,
-                "coverage": {"p": ["TaskA", "TaskB"]},
-            },
+            "baseline": c7_baseline_with_coverage({"p": ["TaskA", "TaskB"]}),
             "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
@@ -3277,6 +3406,9 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
 
         mapping["baseline"]["coverage"] = {"p": ["RemovedTask"]}
+        mapping["baseline"]["suites"][0]["coverage_by_process"] = {
+            "p": ["RemovedTask"]
+        }
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
         self.assertEqual([], issues)
 
@@ -3302,13 +3434,12 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("module", "app", "test_repeat", "unit"): (None, {"test_runs": [run, run]})
         }
         mapping = {
-            "baseline": {
-                "coverage_available": True,
-                "coverage": {
+            "baseline": c7_baseline_with_coverage(
+                {
                     "p": ["RemovedTask"],
                     "legacy-p": ["TaskA"],
-                },
-            },
+                }
+            ),
             "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
@@ -4567,6 +4698,63 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         self.assertEqual("original", sentinel.read_text(encoding="utf-8"))
 
+    def test_discover_reports_rejects_symlinked_parent_components(self):
+        scenarios = (
+            (
+                "target",
+                Path("target"),
+                Path("redirect"),
+                Path("surefire-reports/TEST-result.xml"),
+            ),
+            (
+                "report-directory",
+                Path("target/surefire-reports"),
+                Path("redirect-reports"),
+                Path("TEST-result.xml"),
+            ),
+        )
+
+        for name, link_relative, target_relative, report_relative in scenarios:
+            with self.subTest(component=name):
+                module_root = self.root / f"module-{name}"
+                target = module_root / target_relative
+                report = target / report_relative
+                report.parent.mkdir(parents=True)
+                report.write_text("<testsuite />", encoding="utf-8")
+                link = module_root / link_relative
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(target, target_is_directory=True)
+
+                with self.assertRaises(gate.EvidenceError):
+                    gate.discover_reports(
+                        self.root,
+                        module_root.name,
+                        ["target/surefire-reports/TEST-*.xml"],
+                        "JUnit report",
+                    )
+
+        module_target = self.root / "real-module"
+        report = module_target / "target" / "surefire-reports" / "TEST-result.xml"
+        report.parent.mkdir(parents=True)
+        report.write_text("<testsuite />", encoding="utf-8")
+        module_link = self.root / "module-link"
+        module_link.symlink_to(module_target, target_is_directory=True)
+
+        with self.assertRaises(gate.EvidenceError):
+            gate.discover_reports(
+                self.root,
+                module_link.name,
+                ["target/surefire-reports/TEST-*.xml"],
+                "JUnit report",
+            )
+        with self.assertRaises(gate.EvidenceError):
+            gate.copy_reports(
+                self.root,
+                module_link.name,
+                [report],
+                Path("module-link-copies"),
+            )
+
     def test_copy_reports_rejects_symlinked_destination_components(self):
         module_root = self.root / "module"
         report = module_root / "target" / "surefire-reports" / "TEST-result.xml"
@@ -4599,6 +4787,25 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
 
                 self.assertEqual("original", sentinel.read_text(encoding="utf-8"))
+
+    def test_copy_reports_rejects_symlinked_source_components(self):
+        module_root = self.root / "module-source-link"
+        redirect_root = module_root / "redirect-reports"
+        report = redirect_root / "TEST-result.xml"
+        report.parent.mkdir(parents=True)
+        report.write_text("<testsuite />", encoding="utf-8")
+        symlink = module_root / "target" / "surefire-reports"
+        symlink.parent.mkdir(parents=True)
+        symlink.symlink_to(redirect_root, target_is_directory=True)
+        source = symlink / report.name
+
+        with self.assertRaises(gate.EvidenceError):
+            gate.copy_reports(
+                self.root,
+                module_root.name,
+                [source],
+                Path("symlinked-source-copies"),
+            )
 
     def test_copy_reports_replaces_hard_link_without_overwriting_linked_file(self):
         module_root = self.root / "module"
