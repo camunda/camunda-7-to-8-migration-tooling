@@ -32,7 +32,7 @@ Start each walkthrough from a fresh copy of `c7-source`.
 |---|---|---|
 | W1 | Choose **Assessment only** with target 8.9. | The Test Inventory matches `expected-assessment/test-inventory.md`. The skill changes no file except `MIGRATION_REPORT.md`. |
 | W2 | Choose **Code + models**, target 8.8. Stop after the Step 2 Summary. | The inventory matches `expected-assessment-8.8/test-inventory.md`. The skill does not ask Question 8. |
-| W3 | Choose **Code + models**, target 8.9, and **Run tests**. Approve retiring E9 with "CMMN has no Camunda 8 equivalent". Approve retiring E10 with "model built in Java, migrated by hand later". | The skill records the C7 baseline before editing files. The gate is `READY`. The Test Parity table matches `expected-run/test-parity.md`. |
+| W3 | Choose **Code + models**, target 8.9, and **Run tests**. Approve retiring E9 with "CMMN has no Camunda 8 equivalent". Approve retiring E10 with "model built in Java, migrated by hand later". | The skill records the C7 baseline before editing files. It reports non-Spring process, decision, scenario, and remote-engine tests as `Report only`. The Test Parity table marks available fixture CPT equivalents as manual, keeps the shared-engine test manual, and matches `expected-run/test-parity.md`. The gate is `READY`. |
 | W4 | Repeat W3 and decline both retirements. | The gate is `NOT READY`. The report names E9 and E10 as `manual`. |
 | W5 | Stop Docker, then choose **Migrate tests only**. | Question 8 reports that `docker info` fails and still offers both options. The migrated tests compile, and no test command runs. Every test check is blocked with `declined by user (Question 8)`. The gate is `NOT READY`, and the readiness verdict is `needs review`. The report matches `expected-tests-only/MIGRATION_REPORT.md`. |
 | W6 | Delete every `src/test` directory from the copy. Choose **Code + models** and stop after the Step 2 Summary. | The inventory has no in-scope tests. The skill does not ask Question 8. |
@@ -54,9 +54,12 @@ those contracts.
 
 - `c7-source/` is the migration input. Its modules are independent of
   `expected-c8/`, but keep the same Maven coordinates.
-- `expected-c8/` contains the expected migrated project. It uses converted
-  copies named `converted-c8-*` and minimal `.form` files for converted user
-  tasks.
+- `c7-source/engine-tests-legacy/` runs only the shared Scenario tests against
+  `camunda-bpm-assert-scenario` 1.1.1, isolated from the 2.x runner.
+- `expected-c8/` contains the expected migrated project. It runs the shared C7
+  Scenario tests once in `engine-tests`. The target omits `engine-tests-legacy`
+  because that module has no unique tests. It uses converted copies named
+  `converted-c8-*` and minimal `.form` files for converted user tasks.
 - `expected-assessment/` and `expected-assessment-8.8/` contain target-specific
   Test Inventories.
 - `expected-run/` contains the Test Parity table for a full migration.

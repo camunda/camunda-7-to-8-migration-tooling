@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:conversion="http://camunda.org/schema/conversion/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" conversion:converterVersion="0.3.6-SNAPSHOT" expressionLanguage="http://www.w3.org/1999/XPath" id="Definitions_Implicit" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0" targetNamespace="http://camunda.org/examples" typeLanguage="http://www.w3.org/2001/XMLSchema">
+  <bpmn:process id="implicit-process" isClosed="false" isExecutable="true" processType="None">
+    <bpmn:startEvent id="Start_Implicit" isInterrupting="true" name="Start implicit process" parallelMultiple="false"/>
+    <bpmn:endEvent id="End_Implicit" name="Complete implicit process"/>
+    <bpmn:sequenceFlow id="Flow_Implicit" sourceRef="Start_Implicit" targetRef="End_Implicit"/>
+  </bpmn:process>
+</bpmn:definitions>

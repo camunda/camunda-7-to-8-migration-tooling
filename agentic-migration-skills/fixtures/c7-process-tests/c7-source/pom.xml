@@ -11,6 +11,7 @@
 
   <modules>
     <module>engine-tests</module>
+    <module>engine-tests-legacy</module>
     <module>spring-boot-app</module>
     <module>remote-engine</module>
   </modules>

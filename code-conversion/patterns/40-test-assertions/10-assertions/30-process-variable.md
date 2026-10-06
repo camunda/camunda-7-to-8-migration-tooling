@@ -27,7 +27,7 @@ assertThat(processInstance)
 
 ## Camunda 8
 
-[Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) has direct support for assertions on the process instance level:
+[Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/) is available from Camunda 8.8 and supports direct assertions on the process instance level:
 
 ```java
 @Test

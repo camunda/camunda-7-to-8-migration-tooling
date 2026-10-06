@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:conversion="http://camunda.org/schema/conversion/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" conversion:converterVersion="0.3.6-SNAPSHOT" expressionLanguage="http://www.w3.org/1999/XPath" id="Definitions_ProcessTests" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0" targetNamespace="http://camunda.org/examples" typeLanguage="http://www.w3.org/2001/XMLSchema">
+  <bpmn:message id="Message_Continue" name="ContinueMessage">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="= orderId"/>
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:process id="order-process" isClosed="false" isExecutable="true" processType="None">
+    <bpmn:startEvent id="Start_Order" isInterrupting="true" name="Start order" parallelMultiple="false"/>
+    <bpmn:userTask completionQuantity="1" id="Task_Approve" implementation="##unspecified" isForCompensation="false" name="Approve order" startQuantity="1">
+      <bpmn:extensionElements>
+        <zeebe:userTask/>
+        <zeebe:assignmentDefinition assignee="demo" candidateGroups="" candidateUsers=""/>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent attachedToRef="Task_Approve" cancelActivity="true" id="Boundary_Timer" name="Timer expires" parallelMultiple="false">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>P1D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask completionQuantity="1" id="Task_Escalate" implementation="##unspecified" isForCompensation="false" name="Escalate order" startQuantity="1">
+      <bpmn:extensionElements>
+        <zeebe:userTask/>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Approved" name="Order approved"/>
+    <bpmn:endEvent id="End_Timeout" name="Order timed out"/>
+    <bpmn:sequenceFlow id="Flow_Order_Start" sourceRef="Start_Order" targetRef="Task_Approve"/>
+    <bpmn:sequenceFlow id="Flow_Order_Approved" sourceRef="Task_Approve" targetRef="End_Approved"/>
+    <bpmn:sequenceFlow id="Flow_Order_Timer" sourceRef="Boundary_Timer" targetRef="Task_Escalate"/>
+    <bpmn:sequenceFlow id="Flow_Order_Timeout" sourceRef="Task_Escalate" targetRef="End_Timeout"/>
+  </bpmn:process>
+  <bpmn:process id="async-process" isClosed="false" isExecutable="true" processType="None">
+    <bpmn:startEvent id="Start_Async" isInterrupting="true" name="Start async process" parallelMultiple="false"/>
+    <bpmn:serviceTask completionQuantity="1" id="Task_Async" implementation="##WebService" isForCompensation="false" name="Run continuation" startQuantity="1">
+      <bpmn:extensionElements>
+        <conversion:message severity="REVIEW">Delegate class or expression 'com.camunda.fixture.tests.NoopDelegate' has been transformed to job type 'noopDelegate'.</conversion:message>
+        <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'serviceTask' is removed.</conversion:message>
+        <zeebe:taskHeaders>
+          <zeebe:header key="class" value="com.camunda.fixture.tests.NoopDelegate"/>
+        </zeebe:taskHeaders>
+        <zeebe:taskDefinition type="noopDelegate"/>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:userTask completionQuantity="1" id="Task_AfterAsync" implementation="##unspecified" isForCompensation="false" name="Continue after async" startQuantity="1">
+      <bpmn:extensionElements>
+        <zeebe:userTask/>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Async" name="Async process complete"/>
+    <bpmn:sequenceFlow id="Flow_Async_Start" sourceRef="Start_Async" targetRef="Task_Async"/>
+    <bpmn:sequenceFlow id="Flow_Async_Continue" sourceRef="Task_Async" targetRef="Task_AfterAsync"/>
+    <bpmn:sequenceFlow id="Flow_Async_End" sourceRef="Task_AfterAsync" targetRef="End_Async"/>
+  </bpmn:process>
+  <bpmn:process id="message-process" isClosed="false" isExecutable="true" processType="None">
+    <bpmn:startEvent id="Start_Message" isInterrupting="true" name="Start message process" parallelMultiple="false"/>
+    <bpmn:intermediateCatchEvent id="Message_Catch" name="Wait for continuation" parallelMultiple="false">
+      <bpmn:extensionElements>
+        <conversion:reference>Message_Continue</conversion:reference>
+      </bpmn:extensionElements>
+      <bpmn:messageEventDefinition messageRef="Message_Continue"/>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="End_Message" name="Message process complete"/>
+    <bpmn:sequenceFlow id="Flow_Message_Start" sourceRef="Start_Message" targetRef="Message_Catch"/>
+    <bpmn:sequenceFlow id="Flow_Message_End" sourceRef="Message_Catch" targetRef="End_Message"/>
+  </bpmn:process>
+  <bpmn:process id="failing-process" isClosed="false" isExecutable="true" processType="None">
+    <bpmn:startEvent id="Start_Failure" isInterrupting="true" name="Start failing process" parallelMultiple="false"/>
+    <bpmn:serviceTask completionQuantity="1" id="Task_Fail" implementation="##WebService" isForCompensation="false" name="Fail process" startQuantity="1">
+      <bpmn:extensionElements>
+        <conversion:message severity="REVIEW">Delegate class or expression 'com.camunda.fixture.tests.FailingDelegate' has been transformed to job type 'failingDelegate'.</conversion:message>
+        <zeebe:taskHeaders>
+          <zeebe:header key="class" value="com.camunda.fixture.tests.FailingDelegate"/>
+        </zeebe:taskHeaders>
+        <zeebe:taskDefinition type="failingDelegate"/>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Failure" name="Failure process complete"/>
+    <bpmn:sequenceFlow id="Flow_Failure_Start" sourceRef="Start_Failure" targetRef="Task_Fail"/>
+    <bpmn:sequenceFlow id="Flow_Failure_End" sourceRef="Task_Fail" targetRef="End_Failure"/>
+  </bpmn:process>
+</bpmn:definitions>

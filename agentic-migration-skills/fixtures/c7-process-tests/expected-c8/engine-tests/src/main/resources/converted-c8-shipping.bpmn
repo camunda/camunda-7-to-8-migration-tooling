@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
                   xmlns:modeler="http://camunda.org/schema/modeler/1.0"
                   xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
                   id="Definitions_Shipping"
@@ -28,25 +25,4 @@
     <bpmn:sequenceFlow id="Flow_Shipping_Ship" sourceRef="Start_Shipping" targetRef="Task_ShipOrder" />
     <bpmn:sequenceFlow id="Flow_Ship_End" sourceRef="Task_ShipOrder" targetRef="End_Shipping" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="Diagram_Shipping">
-    <bpmndi:BPMNPlane id="Plane_Shipping" bpmnElement="shipping">
-      <bpmndi:BPMNShape id="Start_Shipping_di" bpmnElement="Start_Shipping">
-        <dc:Bounds x="100" y="120" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ShipOrder_di" bpmnElement="Task_ShipOrder">
-        <dc:Bounds x="190" y="98" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_Shipping_di" bpmnElement="End_Shipping">
-        <dc:Bounds x="350" y="120" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_Shipping_Ship_di" bpmnElement="Flow_Shipping_Ship">
-        <di:waypoint x="136" y="138" />
-        <di:waypoint x="190" y="138" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Ship_End_di" bpmnElement="Flow_Ship_End">
-        <di:waypoint x="290" y="138" />
-        <di:waypoint x="350" y="138" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
 </bpmn:definitions>

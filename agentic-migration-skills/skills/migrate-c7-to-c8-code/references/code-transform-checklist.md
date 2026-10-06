@@ -126,7 +126,9 @@ These items are not in the catalog:
 - If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
   affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
   an affected flow as migrated.
-- If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
+- When at least one Test Inventory row has the `Spring` modifier and handling `Migrate to CPT`, the
+  skill selects the CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
+  For Spring test migration, the skill follows `references/test-migration.md`.
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
@@ -528,7 +530,7 @@ Use these to classify files during assessment:
 | `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
-| `@Test` + Camunda 7 test rules | Test code |
+| `@Test` with Camunda 7 test rules | Test code. Classify the test kind in [test-migration.md](test-migration.md). |
 | `application.properties`/`.yaml` with `camunda.*` keys | Config |
 | `ProcessEnginePlugin`, BPMN parse listeners | Flag: global behavior |
 

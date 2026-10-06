@@ -75,8 +75,7 @@ public class ApplicationTest {
 
 ## Camunda 8
 
-Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
-The `completeUserTask(UserTaskSelector)` overload requires Camunda 8.9 or later. On Camunda 8.8, pass the BPMN element ID to `completeUserTask(String)`.
+Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/) for the same test case. The CPT assertions, timer controls, and selector-based user-task completion APIs shown here are available from Camunda 8.8.
 
 ```java
 import org.junit.jupiter.api.Test;
@@ -120,7 +119,7 @@ public class ApplicationTest {
       .hasName("Say hello to demo")
       .hasAssignee("demo");
 
-    // Complete the user task with a selector that matches its name
+    // Using utility method to complete user task found by name
     processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Say hello to demo"));
 
     // Assert that it completed in the right end event, and that a Spring Bean hooked into the service task has written the expected process variable
@@ -142,6 +141,8 @@ public class ApplicationTest {
       .bpmnProcessId("sample-process-solution-process").latestVersion() //
       .variables(variables) //
       .send().join();
+
+    assertThat(processInstance).hasActiveElements("Event_SmallerThan5");
 
     // increase time so that the timer event is triggered and the process moves on
     processTestContext.increaseTime(Duration.ofMinutes(6));

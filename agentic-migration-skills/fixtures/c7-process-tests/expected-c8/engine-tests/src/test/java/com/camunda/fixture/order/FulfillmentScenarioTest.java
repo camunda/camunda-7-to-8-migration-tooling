@@ -9,16 +9,19 @@ package com.camunda.fixture.order;
 
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.CamundaAssert.assertThatProcessInstance;
-import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
+import static io.camunda.process.test.api.CamundaAssert.assertThatUserTask;
+import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byKey;
+import static io.camunda.process.test.api.assertions.UserTaskSelectors.byElementId;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
+import io.camunda.process.test.api.assertions.UserTaskSelector;
 import java.time.Duration;
 import java.util.Map;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 @CamundaProcessTest
 @TestDeployment(resources = {"converted-c8-fulfillment.bpmn", "fulfillment-task.form"})
@@ -26,52 +29,79 @@ class FulfillmentScenarioTest {
 
   private CamundaProcessTestContext processTestContext;
 
-  @RepeatedTest(2)
+  @Test
   void shouldCompleteWorkAfterTwoDailyReminders() {
+    String orderId = "order-42";
+    Map<String, Object> variables = Map.of("orderId", orderId);
     CamundaClient client = processTestContext.createClient();
+    processTestContext.mockJobWorker("book-carrier").thenComplete();
+    processTestContext.mockChildProcess("shipping", Map.of("shipped", true));
+
+    // Keep another instance active to verify task actions stay scoped to the intended instance.
+    ProcessInstanceEvent decoyProcessInstance =
+        client
+            .newCreateInstanceCommand()
+            .bpmnProcessId("fulfillment")
+            .latestVersion()
+            .variables(Map.of("orderId", "order-43"))
+            .send()
+            .join();
+    ProcessInstanceEvent processInstance =
+        client
+            .newCreateInstanceCommand()
+            .bpmnProcessId("fulfillment")
+            .latestVersion()
+            .variables(variables)
+            .send()
+            .join();
+    long processInstanceKey = processInstance.getProcessInstanceKey();
+    UserTaskSelector completeWork = byElementId("CompleteWork", processInstanceKey);
+    UserTaskSelector decoyCompleteWork =
+        byElementId("CompleteWork", decoyProcessInstance.getProcessInstanceKey());
 
     processTestContext
         .when(
             () ->
-                assertThatProcessInstance(byProcessId("fulfillment"))
+                assertThatProcessInstance(byKey(processInstanceKey))
                     .hasActiveElements("RemindColleague"))
         .as("RemindColleague")
-        .then(() -> processTestContext.completeUserTask("RemindColleague"));
+        .then(
+            () ->
+                processTestContext.completeUserTask(
+                    byElementId("RemindColleague", processInstanceKey)));
     processTestContext
         .when(
             () ->
-                assertThatProcessInstance(byProcessId("fulfillment"))
-                    .isWaitingForMessage("CarrierConfirmed", "order-42"))
+                assertThatProcessInstance(byKey(processInstanceKey))
+                    .isWaitingForMessage("CarrierConfirmed", orderId))
         .as("CarrierConfirmed")
         .then(
             () ->
                 client
                     .newCorrelateMessageCommand()
                     .messageName("CarrierConfirmed")
-                    .correlationKey("order-42")
+                    .correlationKey(orderId)
                     .variables(Map.of("carrierConfirmed", true))
                     .send()
                     .join());
-    processTestContext.mockJobWorker("book-carrier").thenComplete();
-    processTestContext.mockChildProcess("shipping", Map.of("shipped", true));
 
-    ProcessInstanceEvent instance =
-        client.newCreateInstanceCommand()
-            .bpmnProcessId("fulfillment")
-            .latestVersion()
-            .variables(Map.of("orderId", "order-42"))
-            .send()
-            .join();
-
-    assertThat(instance).hasActiveElements("CompleteWork");
-    processTestContext.increaseTime(Duration.ofDays(1));
-    assertThat(instance).hasCompletedElement("ColleagueReminded", 1);
-    processTestContext.increaseTime(Duration.ofDays(1));
-    assertThat(instance).hasCompletedElement("ColleagueReminded", 2);
+    assertThat(processInstance).hasActiveElements("CompleteWork");
+    assertThatUserTask(completeWork).isCreated();
     processTestContext.increaseTime(Duration.ofHours(12));
-    processTestContext.completeUserTask("CompleteWork");
+    assertThat(processInstance).hasNotActivatedElements("ColleagueReminded");
+    processTestContext.increaseTime(Duration.ofHours(12));
+    assertThat(processInstance).hasCompletedElement("ColleagueReminded", 1);
+    processTestContext.increaseTime(Duration.ofHours(12));
+    assertThat(processInstance).hasCompletedElement("ColleagueReminded", 1);
+    processTestContext.increaseTime(Duration.ofHours(12));
+    assertThat(processInstance).hasCompletedElement("ColleagueReminded", 2);
+    processTestContext.increaseTime(Duration.ofHours(12));
+    assertThat(processInstance).hasCompletedElement("ColleagueReminded", 2);
+    processTestContext.completeUserTask(completeWork);
+    assertThatUserTask(decoyCompleteWork).isCreated();
+    client.newCancelInstanceCommand(decoyProcessInstance.getProcessInstanceKey()).send().join();
 
-    assertThat(instance).isCompleted().hasCompletedElements("WorkFinished");
-    assertThat(instance).hasCompletedElement("ColleagueReminded", 2);
+    assertThat(processInstance).isCompleted().hasCompletedElements("WorkFinished");
+    assertThat(processInstance).hasCompletedElement("ColleagueReminded", 2);
   }
 }

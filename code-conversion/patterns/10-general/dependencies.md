@@ -87,9 +87,24 @@ never proves that the classpath is compatible.
 </dependency>
 ```
 
-For Spring Boot applications, use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with `camunda-spring-boot-3-starter`. The former `spring-boot-starter-camunda-test` and `spring-boot-starter-camunda-test-testcontainer` artifacts are replaced by these CPT Spring modules.
+For Camunda 8.9 or later, use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with `camunda-spring-boot-3-starter`. Replace `spring-boot-starter-camunda-test` and `spring-boot-starter-camunda-test-testcontainer` with these CPT Spring modules for those targets.
 
-If the project uses the temporary `camunda-process-test-spring-4` or `camunda-process-test-spring-boot-4` artifact names from Camunda 8.8, replace them with `camunda-process-test-spring`.
+For Camunda 8.8 with Spring Boot 4, use the version-specific artifact names shown in the table below.
+
+For Camunda 8.9 or later, replace the temporary `camunda-process-test-spring-4` or `camunda-process-test-spring-boot-4` artifact names from Camunda 8.8 with `camunda-process-test-spring`.
+
+**Camunda 7 test artifacts and replacements**: CPT Java and Spring test APIs are available from Camunda 8.8. Conditional behavior requires 8.9. Inventory the test dependencies before removing them. Keep dependencies that still support in-scope tests.
+
+| Camunda 7 test artifact or use | Camunda 8 replacement | Note |
+|---|---|---|
+| `camunda-bpm-assert`, `camunda-bpm-junit5` | `io.camunda:camunda-process-test-java` | Use the matching CPT Spring artifact instead when the tests use the Camunda Spring Boot Starter. |
+| `camunda-bpm-spring-boot-starter-test` | `io.camunda:camunda-process-test-spring` or `io.camunda:camunda-process-test-spring-boot-3` | Match the CPT artifact to the selected Camunda Spring Boot Starter. Both include the CPT Java API. For Camunda 8.8 with Spring Boot 4, use `camunda-process-test-spring-4` on 8.8.9–8.8.21 or `camunda-process-test-spring-boot-4` from 8.8.22. |
+| `camunda-platform-7-mockito` | CPT job-worker, child-process, and DMN mock utilities | Keep Mockito for collaborator mocks. |
+| `camunda-process-test-coverage` platform 7 modules | No extra dependency | CPT writes its own coverage report from 8.8. |
+| `camunda-bpm-assert-scenario`, `camunda-platform-scenario-runner` | `io.camunda:camunda-process-test-java` | Conditional behavior requires 8.9. |
+| Test-scoped `camunda-engine` used only by process tests | `io.camunda:camunda-process-test-java` | Remove the embedded engine only after confirming no other required use remains. |
+| H2 used only by the embedded test engine | No replacement | Remove H2 only when the application does not use it. CPT runs against the Camunda runtime. |
+| JUnit 4 tests that remain in the module but are not process tests | `org.junit.vintage:junit-vintage-engine` | Add it in test scope so the remaining JUnit 4 tests still run. |
 
 **Logging backend**: When removing Camunda 7 webapp/rest starters, keep an SLF4J binding. If those starters were your only logging source, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
 
