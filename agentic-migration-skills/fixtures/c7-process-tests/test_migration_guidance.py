@@ -47,6 +47,8 @@ TEST_KINDS = (
     "out of scope (Camunda 8)",
 )
 MIGRATE_TO_CPT = "Migrate to CPT"
+MIGRATE_LOWER_PRIORITY = "Migrate (lower priority)"
+MIGRATED_HANDLINGS = ("Migrate", MIGRATE_TO_CPT, MIGRATE_LOWER_PRIORITY)
 REPORT_ONLY_REASONS = {
     "scenario test": "scenario-test migration procedure is defined",
     "remote-engine test": "remote-engine migration procedure is defined",
@@ -390,9 +392,38 @@ def fixture_files(root, pattern):
     )
 
 
+def migrated_test_parity_errors(inventory, parity_by_id, cpt_test_ids):
+    errors = []
+    for row in inventory:
+        if row["Handling"] not in MIGRATED_HANDLINGS:
+            continue
+
+        test_id = row["Test ID"]
+        parity_row = parity_by_id.get(test_id)
+        if parity_row is None:
+            errors.append("Missing parity row for {}".format(test_id))
+            continue
+
+        if parity_row["Verdict"] != "migrated":
+            errors.append("Expected migrated verdict for {}".format(test_id))
+        mapped_ids = TEST_ID_RE.findall(parity_row["CPT Test ID(s)"])
+        if not mapped_ids:
+            errors.append("Missing CPT test mapping for {}".format(test_id))
+        for mapped_id in mapped_ids:
+            if mapped_id not in cpt_test_ids:
+                errors.append(
+                    "Unknown CPT test mapping {} for {}".format(mapped_id, test_id)
+                )
+    return errors
+
+
 def non_ears_conditional_rules(markdown):
     conditional = re.compile(
         r"\b(?:only\s+when|unless|until|when|while|if|where)\b",
+        flags=re.IGNORECASE,
+    )
+    if_then_rule = re.compile(
+        r"^if\s+(.+?),\s*then\s+(.+)$",
         flags=re.IGNORECASE,
     )
     non_ears_temporal_starter = re.compile(
@@ -462,7 +493,16 @@ def non_ears_conditional_rules(markdown):
                 matches[0].start() == 0
                 and matches[0].group().lower() in {"when", "while", "if", "where"}
             )
-            if not starts_with_trigger or len(matches) > 1:
+            starts_with_if = (
+                starts_with_trigger and matches[0].group().lower() == "if"
+            )
+            if_match = if_then_rule.match(sentence) if starts_with_if else None
+            incomplete_if_rule = starts_with_if and (
+                if_match is None
+                or not re.search(r"\w", if_match.group(1))
+                or not re.search(r"\w", if_match.group(2))
+            )
+            if not starts_with_trigger or len(matches) > 1 or incomplete_if_rule:
                 violations.append("{}: {}".format(line_number, sentence))
 
     return violations
@@ -1328,6 +1368,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             )
         )
 
+    def test_if_rules_require_a_complete_condition_and_response(self):
+        malformed_rules = (
+            "If a dependency remains, the skill keeps it.",
+            "If a dependency remains, then.",
+            "If a dependency remains, then ,",
+            "If a dependency remains then the skill keeps it.",
+            "If, then the skill keeps it.",
+            "If ..., then the skill keeps it.",
+        )
+        for rule in malformed_rules:
+            with self.subTest(rule=rule):
+                self.assertTrue(non_ears_conditional_rules(rule))
+
+        self.assertEqual(
+            [],
+            non_ears_conditional_rules(
+                "If a dependency remains, then the skill keeps it."
+            ),
+        )
+
     def test_build_resource_checks_are_scoped_by_platform(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         start = reference.index("when the skill plans a target-build change")
@@ -1453,7 +1513,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
                 self.assertIn(
                     row["Handling"],
-                    ("Migrate", MIGRATE_TO_CPT, "Migrate (lower priority)"),
+                    MIGRATED_HANDLINGS,
                 )
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
@@ -1478,7 +1538,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             elif test_kind == "decision test":
                 expected_handling = "Migrate"
             elif test_kind == "scenario test":
-                expected_handling = "Migrate (lower priority)"
+                expected_handling = MIGRATE_LOWER_PRIORITY
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -1524,17 +1584,10 @@ class MigrationGuidanceTest(unittest.TestCase):
         parity_by_id = {row["Camunda 7 Test ID"]: row for row in parity}
         cpt_test_ids = test_method_ids(EXPECTED_C8)
 
-        for row in inventory:
-            test_id = row["Test ID"]
-            parity_row = parity_by_id.get(test_id)
-            if row["Handling"] in ("Migrate", MIGRATE_TO_CPT):
-                self.assertIsNotNone(parity_row, "Missing parity row for {}".format(test_id))
-                self.assertEqual(parity_row["Verdict"], "migrated")
-                mapped_ids = TEST_ID_RE.findall(parity_row["CPT Test ID(s)"])
-                self.assertTrue(mapped_ids, "Missing CPT test mapping for {}".format(test_id))
-                for mapped_id in mapped_ids:
-                    with self.subTest(test_id=test_id, cpt_test=mapped_id):
-                        self.assertIn(mapped_id, cpt_test_ids)
+        self.assertEqual(
+            [],
+            migrated_test_parity_errors(inventory, parity_by_id, cpt_test_ids),
+        )
 
         required_verdicts = {
             "engine-tests:com.camunda.fixture.order.SupportCaseTest#startsSupportCase":
@@ -1549,6 +1602,60 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertIn(test_id, parity_by_id)
                 self.assertEqual(parity_by_id[test_id]["Verdict"], verdict)
                 self.assertIn(note.lower(), normalized(parity_by_id[test_id]["Notes"]))
+
+    def test_lower_priority_scenarios_require_valid_primary_parity_rows(self):
+        test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "ScenarioMappingEdgeCasesTest#shouldStartMessageProcess"
+        )
+        inventory = [{"Test ID": test_id, "Handling": MIGRATE_LOWER_PRIORITY}]
+        valid_row = {
+            "Verdict": "migrated",
+            "CPT Test ID(s)": test_id,
+        }
+        self.assertEqual(
+            [],
+            migrated_test_parity_errors(
+                inventory, {test_id: valid_row}, {test_id}
+            ),
+        )
+
+        unknown_cpt_id = test_id.rsplit("#", 1)[0] + "#missingCptTest"
+        invalid_cases = (
+            ("missing row", {}, ["Missing parity row for {}".format(test_id)]),
+            (
+                "non-migrated verdict",
+                {test_id: {"Verdict": "manual", "CPT Test ID(s)": test_id}},
+                ["Expected migrated verdict for {}".format(test_id)],
+            ),
+            (
+                "missing CPT mapping",
+                {test_id: {"Verdict": "migrated", "CPT Test ID(s)": "—"}},
+                ["Missing CPT test mapping for {}".format(test_id)],
+            ),
+            (
+                "unknown CPT mapping",
+                {
+                    test_id: {
+                        "Verdict": "migrated",
+                        "CPT Test ID(s)": unknown_cpt_id,
+                    }
+                },
+                [
+                    "Unknown CPT test mapping {} for {}".format(
+                        unknown_cpt_id, test_id
+                    )
+                ],
+            ),
+        )
+        for case, parity_by_id, expected_errors in invalid_cases:
+            with self.subTest(case=case):
+                self.assertEqual(
+                    expected_errors,
+                    migrated_test_parity_errors(
+                        inventory, parity_by_id, {test_id}
+                    ),
+                )
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
@@ -2023,7 +2130,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         scenario_handling = {
             row["Handling"] for row in inventory if row["Test kind"] == "scenario test"
         }
-        self.assertIn("Migrate (lower priority)", scenario_handling)
+        self.assertIn(MIGRATE_LOWER_PRIORITY, scenario_handling)
 
         gate = markdown_table(
             TEST_MIGRATION_REFERENCE,
@@ -2035,7 +2142,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             if row["Selected code approach"] == "Approach A or B"
             and row["Action"].startswith("Apply the preparation")
         }
-        self.assertIn("Migrate (lower priority)", enabled_handling)
+        self.assertIn(MIGRATE_LOWER_PRIORITY, enabled_handling)
 
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())

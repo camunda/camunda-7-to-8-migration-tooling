@@ -444,7 +444,7 @@ The skill removes each C7 test dependency that no remaining test or production c
 migration.
 When only migrated tests use them, the skill removes `camunda-bpm-spring-boot-starter-test`,
 `camunda-bpm-junit5`, and `camunda-bpm-assert`.
-If any test outside the migrated set or production code still uses a dependency, the skill keeps it.
+If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.
 
 The skill migrates each Spring Boot test to JUnit 5. The skill keeps `@SpringBootTest` and adds
 `@CamundaSpringProcessTest`. The skill injects `CamundaClient` and `CamundaProcessTestContext` with
@@ -567,7 +567,7 @@ It updates their imports.
 When the migrated test needs Spring-managed beans, the skill keeps `@ContextConfiguration` and adds
 `@ExtendWith(SpringExtension.class)`.
 
-If the application has no usable worker bootstrap, the skill sets the test's handling to
+If the application has no usable worker bootstrap, then the skill sets the test's handling to
 `Report only`. The skill records the manual migration reason in the Notes column of
 `MIGRATION_REPORT.md`.
 The skill states which bootstrap is missing and why it cannot start the workers.
