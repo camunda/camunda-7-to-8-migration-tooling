@@ -4,8 +4,9 @@ description: |-
   Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring
   code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService clients,
   execution/task listeners, IncidentHandler implementations, ProcessEnginePlugin
-  registrations, and application config with camunda.* keys). Handles BPMN/DMN
-  models with the camunda: namespace, project documentation, and CI readiness.
+  registrations, and application config with camunda.* keys), Camunda 7 test
+  inventories, BPMN/DMN models with the camunda: namespace, project documentation,
+  and CI readiness.
   Use for code migration, model migration, or both.
 license: Camunda License 1.0
 ---
@@ -143,8 +144,8 @@ These rules apply to every later step.
 | Approach A, OpenRewrite | Java 21-25 (`[21,26)`) or a narrower project range. | Use a separate code-phase runtime. |
 | Approach B, M2, M3, or assessment-only | No Java requirement for that selected path. | Do not block it on Java. Check any separate M1 or E1 phase independently. |
 
-For Code + models, select a runtime for each Java-dependent phase. Do not use one Java decision for
-both phases.
+When code and models are in scope, select a runtime for each Java-dependent phase. Do not use one
+Java decision for both phases.
 Do not run or require a full repository build to preflight M1 or E1. Invoke the released CLI directly.
 If a repository or OpenRewrite build fails, record its phase and error separately.
 Do not mark M1 or E1 blocked by that unrelated failure.
@@ -232,6 +233,12 @@ class by its fully qualified class name, including its package and class name. I
 or service class that could receive or delegate a `@JobWorker`, including classes without Camunda
 APIs.
 
+#### Scenario Test Inventory
+
+When code scope includes Camunda Platform Scenario tests, follow
+`references/test-migration.md` during Step 2. Record each method's classification and target-version
+handling in the Test Inventory.
+
 When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
 Engine REST call, inventory its HTTP topology. Follow
 `references/http-topology-migration.md`. Ask Question 7 from
@@ -241,15 +248,20 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
+When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
 Record each test's models in the Model Inventory before Step 3.
-When the Test Inventory includes a test with handling **Migrate**, ask Question 8 in a separate
-prompt when its conditions in `references/interview-questions.md` apply. Wait for the user's answer
-before Step 3.
+When the Test Inventory includes a test with handling **Migrate**, **Migrate to CPT**, or
+**Migrate (lower priority)**, ask Question 8 in a separate prompt when its conditions in
+`references/interview-questions.md` apply. Wait for the user's answer before Step 3.
 
 #### Model Inventory
 
 Glob for the model files. Record each one in a table with the columns File, Type, Uses `camunda:` ns,
 Notes.
+Include CMMN models deployed by tests in the Model Inventory. Record them as manual redesign. Do not
+offer them for BPMN/DMN conversion.
+Include every model deployed by a test, including models under `src/test/resources`. Link each
+model path from the Test Inventory.
 
 Then parse every original BPMN with a namespace-aware parser and inventory all three Camunda 7 form
 surfaces:
@@ -272,8 +284,9 @@ its finding.
 
 Run `references/deployment-and-timer-preflight.md` after the code and model inventories. Record its
 findings and decisions in `MIGRATION_REPORT.md`.
-For a full migration, record deployment sets, timer decisions, and module due-date reviews through
-`references/validation-evidence.md`. Never treat the gate's source hints as a complete caller review.
+When conducting a full migration, record deployment sets, timer decisions, and module due-date
+reviews through `references/validation-evidence.md`. Never treat the gate's source hints as a
+complete caller review.
 The validation gate supports a guarded `message_rearm` path for project-approved active-timer updates.
 When the project approves this path, map each source location to a reviewed migrated caller and run the live check.
 If a mapping is unknown or unapproved, then keep the affected flow blocked.
@@ -293,9 +306,12 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 #### Summary
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
-Present test counts by test kind and list every test with handling **Report only**, with its reason.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
+Present test counts by kind and the number eligible for CPT migration.
+Present the number selected for CPT migration.
+List every `Report only` Test ID and its reason.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
+Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
 
 #### Custom incident notifications
@@ -320,7 +336,8 @@ before the project records its decision.
 
 When the project approves an integration, test it in a disposable Camunda 8 target with synthetic
 data during Step 4. Verify each handler using its recorded trigger.
-For failed-job handlers, fail a test job with zero remaining retries and verify the expected incident.
+When testing a failed-job handler, fail a test job with zero remaining retries and verify the
+expected incident.
 Verify notification delivery through the approved channel to the approved recipients.
 Verify that the notification includes useful context approved by the project.
 Verify that the notification contains no secrets or sensitive business data.
@@ -345,17 +362,22 @@ When the user selects Models only and Analyze-only, run `Analyze-Only Mode` in
 `references/model-migration-approaches.md` instead of Part B.
 Exit after it presents findings. Do not run conversion, form follow-up, Step 4, or Step 5.
 
-Run Part B when the scope includes models.
-Run Part A when the scope includes code.
-For Code + models, see `references/composing-code-and-models.md`.
+When models are in scope outside the Models-only Analyze-only path, run Part B.
+When code is in scope, run Part A.
+When code and models are in scope, see `references/composing-code-and-models.md`.
 
 #### Part A - Code Migration
 
+When code migration includes Camunda Platform Scenario tests, follow
+`references/test-migration.md`.
+
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
+The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.
 
-For Approach A, the skill runs this gate for every C7 JavaDelegate before `REWRITE_COMMAND`.
-For Approach B, the skill runs the gate before each C7 JavaDelegate transformation.
+When the user selects Approach A, the skill runs this gate for every C7 JavaDelegate before
+`REWRITE_COMMAND`.
+When the user selects Approach B, the skill runs the gate before each C7 JavaDelegate transformation.
 The gate treats `camunda:asyncAfter` on a preceding activity as a boundary after that activity.
 If the gate blocks migration or has an undecided gap, then the skill stops that delegate's
 transformation and, for Approach A, OpenRewrite. The skill asks the user for the missing evidence or
@@ -383,7 +405,7 @@ See `references/model-migration-approaches.md` for all four.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
   model exists.
 
-For every approach, once each original BPMN is paired with its converted copy, run
+When the skill pairs each original BPMN with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
 
@@ -430,7 +452,11 @@ When `test_run_mode` is `run` and the Test Inventory has a test marked `Migrate`
   applies the readiness verdicts in the checklist. Record the failing and final dependency
   coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
   there. Record the test command and its exit code there.
-9. **Tests** — run `mvn test` or the Gradle test task and every independent suite in each module.
+9. **Tests** — when the target is Camunda 8.9 or later, verify that every process test with handling
+   `Migrate to CPT` was migrated by following `references/test-migration.md`. When the target is
+   Camunda 8.8, verify that each such test keeps `Report only` handling with the reason
+   `test migration needs Camunda 8.9 or later`. Run `mvn test` or the Gradle test task and
+   every independent suite in each module.
    Test each retained domain-library behavior for every supported type and downstream call path.
    Use synthetic fixture values, never production keys or credentials. Continue with other suites
    after a failure. Classify infrastructure failures separately from application failures. A
@@ -464,14 +490,18 @@ When `test_run_mode` is `run` and the Test Inventory has a test marked `Migrate`
     log. If model/path evidence is missing and the user has not decided, check that the report marks
     the gate **blocked** and records the missing evidence and unknown rollback effects in an open
     item with status `open`.
-13. **Deployment resources** — when `@Deployment` is present after migration, build the
-    inventory from this run's converted copies and accepted forms. Create separate `resources`
-    entries for each included type, allowing multiple entries per type. Resolve the actual annotation
-    entries with Spring's `PathMatchingResourcePatternResolver`. Require each entry to match a
-    non-empty subset of one resource type in the inventory. Reject any match outside the inventory.
-    Require each inventory resource to match exactly one entry. Confirm that the packaged
-    application contains every match. A test that disables annotation deployment does not validate
-    this wiring.
+13. **Deployment resources** — when `@Deployment` or `@TestDeployment` is present after migration,
+    build the inventory from this run's converted copies and accepted forms. Create separate
+    `resources` entries for each included type, allowing multiple entries per type.
+    Where a test uses Spring `@Deployment`, resolve the actual entries with Spring's
+    `PathMatchingResourcePatternResolver`. Require each entry to match a non-empty subset of one
+    resource type in the inventory. Reject any match outside the inventory. Require each inventory
+    resource to match exactly one entry. Confirm that the packaged application contains every match.
+    Where a test uses CPT `@TestDeployment`, resolve each entry against the test classpath. Require
+    each entry to resolve at least one resource. Require every resolved resource to match a converted
+    copy or an accepted form in the inventory. Check method-level entries before class-level entries because a method-level
+    annotation takes precedence. Never deploy an original model. A test that disables annotation
+    deployment does not validate this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and
     launches the entry point class. `java -jar` on the `mvn package` artifact launches the same
@@ -719,11 +749,11 @@ Offer these options:
 
 #### Action 1: fix findings and migration TODOs
 
-For model categories, work from the verdict table in `model-migration-approaches.md` step 5d.
+When processing model categories, use the verdict table in `model-migration-approaches.md` step 5d.
 For each M1 **needs fix** or **needs review** row, load its complete list from the Element list
 reference. Use the grouped summary only to select a category.
 
-For `needs fix` rows, sequence the follow-up work by runtime impact:
+When processing a `needs fix` row, sequence the follow-up work by runtime impact:
 
 | Order | Runtime impact | Secondary order |
 |---|---|---|
@@ -779,15 +809,17 @@ the declined candidates in `MIGRATION_REPORT.md`.
 
 ## Exit Criteria
 
-For a full migration, report completion only when every pass condition in Step 4 holds, the evidence
-gate reports `READY`, and the project-readiness verdict is `ready`. Keep complete inventories,
-decisions, open items, and validation results in `MIGRATION_REPORT.md`.
-The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
-issue, deletion candidate, or project-readiness blocker remains. No item can have `deferred` or
-`blocked` status.
-An open item is a team decision. It does not block completion unless it prevents an in-scope
-documentation change or a required readiness check. The summary always lists every open item.
+When reporting a full migration as complete, require every pass condition in Step 4, a `READY`
+evidence-gate result, and a `ready` project-readiness verdict.
+Also require no unresolved migration TODO, finding, compilation issue, deletion candidate, or
+project-readiness blocker.
+Keep complete inventories, decisions, open items, and validation results in `MIGRATION_REPORT.md`.
+No item can have `deferred` or `blocked` status.
+An open item is a team decision. If an open item prevents an in-scope documentation change or a
+required readiness check, then it blocks completion. If it does not prevent either, then it does not
+block completion. The summary always lists every open item.
 Unresolved deployment/timer preflight findings are `blocked` readiness checks, not non-blocking
 `open` team decisions.
-Otherwise, the skill reports the migration as incomplete and records the follow-up work.
+If a full migration fails any completion condition, then the skill reports it as incomplete and
+records the follow-up work.
 Where the root is confirmed, follow `references/final-change-summary.md` before the final response.

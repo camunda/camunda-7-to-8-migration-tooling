@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_Payment"
+                  targetNamespace="http://camunda.com/fixture/payment"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.32.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="payment" name="Payment" isExecutable="true">
+    <bpmn:startEvent id="Start_Payment" name="Start payment">
+      <bpmn:outgoing>Flow_Start_Charge</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_ChargePayment" name="Charge payment">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="charge-payment" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Charge</bpmn:incoming>
+      <bpmn:outgoing>Flow_Charge_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Payment" name="Payment complete">
+      <bpmn:incoming>Flow_Charge_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Charge" sourceRef="Start_Payment" targetRef="Task_ChargePayment" />
+    <bpmn:sequenceFlow id="Flow_Charge_End" sourceRef="Task_ChargePayment" targetRef="End_Payment" />
+  </bpmn:process>
+</bpmn:definitions>

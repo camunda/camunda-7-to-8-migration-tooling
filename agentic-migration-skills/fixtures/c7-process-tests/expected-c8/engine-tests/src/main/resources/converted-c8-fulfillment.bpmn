@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_Fulfillment"
+                  targetNamespace="http://camunda.com/fixture/fulfillment"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.32.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.9.0">
+  <bpmn:message id="Message_CarrierConfirmed" name="CarrierConfirmed">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=orderId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:process id="fulfillment" name="Fulfillment" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Fulfillment" name="Start">
+      <bpmn:outgoing>Flow_Start_CompleteWork</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="CompleteWork" name="Complete work">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="fulfillment-task" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_CompleteWork</bpmn:incoming>
+      <bpmn:outgoing>Flow_CompleteWork_BookCarrier</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="DailyReminder" name="Daily reminder" attachedToRef="CompleteWork" cancelActivity="false">
+      <bpmn:outgoing>Flow_DailyReminder_RemindColleague</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeCycle>R/PT24H</bpmn:timeCycle>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="RemindColleague" name="Remind colleague">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="fulfillment-task" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_DailyReminder_RemindColleague</bpmn:incoming>
+      <bpmn:outgoing>Flow_RemindColleague_ColleagueReminded</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="ColleagueReminded" name="Colleague reminded">
+      <bpmn:incoming>Flow_RemindColleague_ColleagueReminded</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="BookCarrier" name="Book carrier">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="book-carrier" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_CompleteWork_BookCarrier</bpmn:incoming>
+      <bpmn:outgoing>Flow_BookCarrier_WaitForConfirmation</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:intermediateCatchEvent id="WaitForCarrierConfirmation" name="Wait for carrier confirmation">
+      <bpmn:incoming>Flow_BookCarrier_WaitForConfirmation</bpmn:incoming>
+      <bpmn:outgoing>Flow_WaitForConfirmation_ShipOrder</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_CarrierConfirmed" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:callActivity id="ShipOrder" name="Ship order">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="shipping" propagateAllChildVariables="true" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_WaitForConfirmation_ShipOrder</bpmn:incoming>
+      <bpmn:outgoing>Flow_ShipOrder_WorkFinished</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="WorkFinished" name="Work finished">
+      <bpmn:incoming>Flow_ShipOrder_WorkFinished</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_CompleteWork" sourceRef="StartEvent_Fulfillment" targetRef="CompleteWork" />
+    <bpmn:sequenceFlow id="Flow_CompleteWork_BookCarrier" sourceRef="CompleteWork" targetRef="BookCarrier" />
+    <bpmn:sequenceFlow id="Flow_DailyReminder_RemindColleague" sourceRef="DailyReminder" targetRef="RemindColleague" />
+    <bpmn:sequenceFlow id="Flow_RemindColleague_ColleagueReminded" sourceRef="RemindColleague" targetRef="ColleagueReminded" />
+    <bpmn:sequenceFlow id="Flow_BookCarrier_WaitForConfirmation" sourceRef="BookCarrier" targetRef="WaitForCarrierConfirmation" />
+    <bpmn:sequenceFlow id="Flow_WaitForConfirmation_ShipOrder" sourceRef="WaitForCarrierConfirmation" targetRef="ShipOrder" />
+    <bpmn:sequenceFlow id="Flow_ShipOrder_WorkFinished" sourceRef="ShipOrder" targetRef="WorkFinished" />
+  </bpmn:process>
+</bpmn:definitions>

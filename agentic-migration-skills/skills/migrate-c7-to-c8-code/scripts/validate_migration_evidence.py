@@ -2725,6 +2725,7 @@ def requirements(root, evidence):
         allowed.add(key)
         return key
 
+    test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
     docker_suites = {}
     cpt_suites = {}
     module_suite_keys = set()
@@ -2775,7 +2776,7 @@ def requirements(root, evidence):
             need("module", path, "external_launcher")
         elif runtime != "none":
             issues.append(f"{path}: invalid runtime mode")
-    if any(docker_suites.values()):
+    if any(docker_suites.values()) and test_run_mode != "migrate_only":
         need("project", ".", "docker_info")
     if test_enabled:
         for suite_key, suite in tests["suites"].items():
@@ -4514,6 +4515,7 @@ def report(root):
         issues.extend(plan.issues)
         checks = load_checks(root, evidence, plan, issues)
         validate_declined_test_checks(root, plan, checks, issues)
+        test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
         for key in sorted(plan.required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
             issues.append(f"Missing {key[0]} {key[2]}: {key[1]} {key[3] or ''}".strip())
         for key, (index, check, _) in checks.items():
@@ -4536,7 +4538,11 @@ def report(root):
                 require_prerequisites(root, plan, checks, key, before=index)
             except EvidenceError as exc:
                 issues.append(str(exc))
-            if key in plan.docker_suites and plan.docker_suites[key]:
+            if (
+                test_run_mode != "migrate_only"
+                and key in plan.docker_suites
+                and plan.docker_suites[key]
+            ):
                 probe = checks.get(("project", ".", "docker_info", None))
                 if probe is None or probe[0] >= index:
                     issues.append(f"{key}: Docker probe must precede the suite")

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_Order"
+                  targetNamespace="http://camunda.com/fixture/order"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.32.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.9.0">
+  <bpmn:message id="Message_PaymentConfirmed" name="PaymentConfirmed">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=orderId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:error id="Error_PaymentFailed" name="Payment failed" errorCode="PAYMENT_FAILED" />
+  <bpmn:process id="order" name="Order" isExecutable="true">
+    <bpmn:extensionElements>
+      <zeebe:executionListeners>
+        <zeebe:executionListener eventType="start" type="order-audit" retries="3" />
+      </zeebe:executionListeners>
+    </bpmn:extensionElements>
+    <bpmn:startEvent id="Start_Order" name="Start order">
+      <bpmn:outgoing>Flow_Start_CheckStock</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_CheckStock" name="Check stock">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="check-stock" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_CheckStock</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckStock_Approve</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_Approve" name="Approve order">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:assignmentDefinition assignee="demo" />
+        <zeebe:formDefinition formId="order-review" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_CheckStock_Approve</bpmn:incoming>
+      <bpmn:outgoing>Flow_Approve_Charge</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="Boundary_ApprovalTimer" name="Approval timeout" attachedToRef="Task_Approve" cancelActivity="true">
+      <bpmn:outgoing>Flow_Timer_Escalate</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">=duration("P1D")</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="Task_Escalate" name="Escalate order">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:assignmentDefinition assignee="demo" />
+        <zeebe:formDefinition formId="order-review" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Timer_Escalate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Escalate_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_ChargePayment" name="Charge payment">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="charge-payment" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Approve_Charge</bpmn:incoming>
+      <bpmn:outgoing>Flow_Charge_Message</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="Boundary_PaymentFailed" name="Payment failed" attachedToRef="Task_ChargePayment" cancelActivity="true">
+      <bpmn:outgoing>Flow_PaymentFailed_Notify</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_PaymentFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:serviceTask id="Task_NotifyCustomer" name="Notify customer">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="notify-customer" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_PaymentFailed_Notify</bpmn:incoming>
+      <bpmn:outgoing>Flow_Notify_FailedEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:intermediateCatchEvent id="Event_PaymentConfirmed" name="Wait for payment confirmation">
+      <bpmn:incoming>Flow_Charge_Message</bpmn:incoming>
+      <bpmn:outgoing>Flow_Message_Ship</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_PaymentConfirmed" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:callActivity id="CallActivity_Ship" name="Ship order">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="shipping" propagateAllChildVariables="true" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Message_Ship</bpmn:incoming>
+      <bpmn:outgoing>Flow_Ship_Discount</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:businessRuleTask id="Task_Discount" name="Calculate discount">
+      <bpmn:extensionElements>
+        <zeebe:calledDecision decisionId="discount" resultVariable="discountResult" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Ship_Discount</bpmn:incoming>
+      <bpmn:outgoing>Flow_Discount_End</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:endEvent id="End_Order" name="Order completed">
+      <bpmn:incoming>Flow_Discount_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Escalated" name="Order escalated">
+      <bpmn:incoming>Flow_Escalate_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_PaymentFailed" name="Payment failure handled">
+      <bpmn:incoming>Flow_Notify_FailedEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_CheckStock" sourceRef="Start_Order" targetRef="Task_CheckStock" />
+    <bpmn:sequenceFlow id="Flow_CheckStock_Approve" sourceRef="Task_CheckStock" targetRef="Task_Approve" />
+    <bpmn:sequenceFlow id="Flow_Approve_Charge" sourceRef="Task_Approve" targetRef="Task_ChargePayment" />
+    <bpmn:sequenceFlow id="Flow_Timer_Escalate" sourceRef="Boundary_ApprovalTimer" targetRef="Task_Escalate" />
+    <bpmn:sequenceFlow id="Flow_Escalate_End" sourceRef="Task_Escalate" targetRef="End_Escalated" />
+    <bpmn:sequenceFlow id="Flow_Charge_Message" sourceRef="Task_ChargePayment" targetRef="Event_PaymentConfirmed" />
+    <bpmn:sequenceFlow id="Flow_PaymentFailed_Notify" sourceRef="Boundary_PaymentFailed" targetRef="Task_NotifyCustomer" />
+    <bpmn:sequenceFlow id="Flow_Notify_FailedEnd" sourceRef="Task_NotifyCustomer" targetRef="End_PaymentFailed" />
+    <bpmn:sequenceFlow id="Flow_Message_Ship" sourceRef="Event_PaymentConfirmed" targetRef="CallActivity_Ship" />
+    <bpmn:sequenceFlow id="Flow_Ship_Discount" sourceRef="CallActivity_Ship" targetRef="Task_Discount" />
+    <bpmn:sequenceFlow id="Flow_Discount_End" sourceRef="Task_Discount" targetRef="End_Order" />
+  </bpmn:process>
+</bpmn:definitions>

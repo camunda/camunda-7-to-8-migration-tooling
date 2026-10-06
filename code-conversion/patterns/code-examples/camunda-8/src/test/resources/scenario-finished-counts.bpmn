@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_scenario_finished_counts"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="scenario-finished-counts" name="Scenario finished activity counts" isExecutable="true">
+    <bpmn:startEvent id="StartEvent">
+      <bpmn:outgoing>Flow_StartToRepeatedTask</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_StartToRepeatedTask" sourceRef="StartEvent" targetRef="RepeatedTask" />
+    <bpmn:userTask id="RepeatedTask" name="Repeated task">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_StartToRepeatedTask</bpmn:incoming>
+      <bpmn:incoming>Flow_Repeat</bpmn:incoming>
+      <bpmn:outgoing>Flow_RepeatedTaskToGateway</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="CancelRepeatedTask" attachedToRef="RepeatedTask" cancelActivity="true">
+      <bpmn:outgoing>Flow_CancelToEnd</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerEventDefinition">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT1M</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_RepeatedTaskToGateway" sourceRef="RepeatedTask" targetRef="RepeatGateway" />
+    <bpmn:exclusiveGateway id="RepeatGateway" default="Flow_ToEnd">
+      <bpmn:incoming>Flow_RepeatedTaskToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Repeat</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToEnd</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_Repeat" sourceRef="RepeatGateway" targetRef="RepeatedTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">= repeatAgain</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_ToEnd" sourceRef="RepeatGateway" targetRef="EndEvent" />
+    <bpmn:sequenceFlow id="Flow_CancelToEnd" sourceRef="CancelRepeatedTask" targetRef="EndEvent" />
+    <bpmn:endEvent id="EndEvent">
+      <bpmn:incoming>Flow_ToEnd</bpmn:incoming>
+      <bpmn:incoming>Flow_CancelToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+</bpmn:definitions>

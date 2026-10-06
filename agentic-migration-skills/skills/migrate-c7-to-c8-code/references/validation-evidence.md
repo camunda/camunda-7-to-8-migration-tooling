@@ -31,9 +31,11 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 `init` assigns a new run ID and marks previous readiness `NOT READY`. Run it again to invalidate old
 check logs without replacing the source snapshot. Run `init` before code conversion to capture
-due-date locations and operations in the Step 2 inventory. Never rewrite that inventory during
-the same migration. The gate detects retained operations in the same source file even when
-arguments, line numbers, or formatting change.
+due-date locations and operations in the Step 2 inventory. Do not change its scope, run ID, or
+source snapshot during the migration. For deferred test verification, change only `test_run_mode`
+from `migrate_only` to `run` as described in `references/test-migration.md`. Do not run `init` for
+this transition because it clears earlier validation checks. The gate detects retained operations
+in the same source file even when arguments, line numbers, or formatting change.
 After `init`, the source snapshot detects additions, changes, and removals of each source model's
 sibling `converted-c8-*` copy, even outside selected modules.
 
@@ -91,6 +93,9 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
 
 Use project-relative paths. List every migrated module and every in-scope original BPMN/DMN.
 Include all independent test suites from each module's build. Set `requires_docker` for each suite.
+When `test_run_mode` is `migrate_only`, declare separate suite entries for the C7 baseline and
+migrated C8 run. Give them distinct names so the recorder keeps their results in separate evidence
+files.
 Where a module uses a Camunda Spring Boot starter, include its real-client context test as a suite.
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
 module to skip runtime checks.
@@ -420,9 +425,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 | Target | Required checks |
 |---|---|
-| Project `.` | `docker_info` before the first Docker-dependent suite, when any suite needs Docker. Use exactly `docker info`. |
+| Project `.` | In `run` mode, require `docker_info` before the first Docker-dependent suite when any suite needs Docker. Use exactly `docker info`. |
 | Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
-| Each module test suite | `test_repeat` for a suite with mapped migrated or added CPT tests in `Run tests` mode. The validator runs the suite twice. Use `tests` for other suites. |
+| Each module test suite | In `run` mode, record one test check per declared suite. Use `test_repeat` for a suite with mapped migrated or added CPT tests. The validator runs that suite twice. Use `tests` for other suites. In `migrate_only` mode, block every `tests` check with the reason `declined by user (Question 8)`. |
 | Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |
 | Each migrated test class | `assertion_strength` review. |
 | Each migrated C7 test | `mock_boundary` review. |
@@ -437,6 +442,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Each non-standalone executable process | `process_path` with the `covering_test` as its scenario. |
 | Each applicable behavior | A command check named in the assertion table below. |
 | Each repeating timer start directly under a process | An approved `disposition` review. For a retained timer, a separate runtime `preflight` before deployment or process execution. |
+
+When `test_run_mode` is `migrate_only`, the validator does not require or record `docker_info`.
+The skill reports Docker availability in Question 8.
 
 The module review covers the code checks in Step 4 of `SKILL.md`: dependencies and their
 compatibility, imports, TODOs, business keys, client usage, queries, adapters, and packaged resources.

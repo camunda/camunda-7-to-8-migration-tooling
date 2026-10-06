@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  targetNamespace="http://camunda.com/fixture/housekeeping">
+  <bpmn:process id="housekeeping" name="Housekeeping" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_Housekeeping" name="Start housekeeping">
+      <bpmn:outgoing>Flow_Start_Review</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Review" name="Review housekeeping">
+      <bpmn:incoming>Flow_Start_Review</bpmn:incoming>
+      <bpmn:outgoing>Flow_Review_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Housekeeping" name="Housekeeping complete">
+      <bpmn:incoming>Flow_Review_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Review" sourceRef="Start_Housekeeping" targetRef="Task_Review" />
+    <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="Task_Review" targetRef="End_Housekeeping" />
+  </bpmn:process>
+</bpmn:definitions>

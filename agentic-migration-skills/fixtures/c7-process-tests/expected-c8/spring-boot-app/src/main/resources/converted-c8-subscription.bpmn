@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_Subscription"
+                  targetNamespace="http://camunda.com/fixture/subscription"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.32.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="subscription" name="Activate subscription" isExecutable="true">
+    <bpmn:startEvent id="Start_Subscription" name="Start subscription">
+      <bpmn:outgoing>Flow_Start_Activate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Activate" name="Activate subscription">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="activate-subscription" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Activate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Activate_Welcome</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_WelcomeCall" name="Schedule welcome call">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="subscription-task" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Activate_Welcome</bpmn:incoming>
+      <bpmn:outgoing>Flow_Welcome_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Subscription" name="Subscription ready">
+      <bpmn:incoming>Flow_Welcome_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Activate" sourceRef="Start_Subscription" targetRef="Task_Activate" />
+    <bpmn:sequenceFlow id="Flow_Activate_Welcome" sourceRef="Task_Activate" targetRef="Task_WelcomeCall" />
+    <bpmn:sequenceFlow id="Flow_Welcome_End" sourceRef="Task_WelcomeCall" targetRef="End_Subscription" />
+  </bpmn:process>
+</bpmn:definitions>

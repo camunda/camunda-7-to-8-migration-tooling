@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cmmn:definitions xmlns:cmmn="http://www.omg.org/spec/CMMN/20151109/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/cmmn"
+                  id="Definitions_SupportCase"
+                  targetNamespace="http://camunda.com/fixture/support-case">
+  <cmmn:case id="support-case" name="Support case" camunda:historyTimeToLive="180">
+    <cmmn:casePlanModel id="PlanModel_SupportCase" name="Support case">
+      <cmmn:planItem id="PlanItem_Review" name="Review case" definitionRef="HumanTask_Review" />
+      <cmmn:humanTask id="HumanTask_Review" name="Review case" />
+    </cmmn:casePlanModel>
+  </cmmn:case>
+</cmmn:definitions>

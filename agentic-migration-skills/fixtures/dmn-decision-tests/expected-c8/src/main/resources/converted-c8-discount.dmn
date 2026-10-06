@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_Discount"
+             name="Discount"
+             namespace="http://camunda.org/examples">
+  <decision id="discount" name="Discount">
+    <decisionTable id="DecisionTable_Discount" hitPolicy="UNIQUE">
+      <input id="Input_CustomerType" label="Customer type">
+        <inputExpression id="InputExpression_CustomerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <output id="Output_DiscountRate" name="discountRate" typeRef="string"/>
+      <output id="Output_Segment" name="segment" typeRef="string"/>
+      <rule id="Rule_Gold">
+        <inputEntry id="InputEntry_Gold">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Gold_Discount">
+          <text>"15%"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Gold_Segment">
+          <text>"premium"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_Silver">
+        <inputEntry id="InputEntry_Silver">
+          <text>"silver"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Silver_Discount">
+          <text>"10%"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Silver_Segment">
+          <text>"standard"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_Trial">
+        <inputEntry id="InputEntry_Trial">
+          <text>"trial"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Trial_Discount">
+          <text>null</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Trial_Segment">
+          <text>"basic"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="ruleOrder" name="Rule order">
+    <decisionTable id="DecisionTable_RuleOrder" hitPolicy="RULE ORDER">
+      <input id="Input_RuleOrder_CustomerType">
+        <inputExpression id="InputExpression_RuleOrder_CustomerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <output id="Output_RuleOrder_Value" name="value" typeRef="string"/>
+      <rule id="Rule_RuleOrder_First">
+        <inputEntry id="InputEntry_RuleOrder_First">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_RuleOrder_First">
+          <text>"first"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_RuleOrder_Null">
+        <inputEntry id="InputEntry_RuleOrder_Null">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_RuleOrder_Null">
+          <text>null</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_RuleOrder_Last">
+        <inputEntry id="InputEntry_RuleOrder_Last">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_RuleOrder_Last">
+          <text>"last"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="uniqueViolation" name="Unique violation">
+    <variable id="Variable_UniqueViolation" name="uniqueViolation" typeRef="string"/>
+    <decisionTable id="DecisionTable_UniqueViolation" hitPolicy="UNIQUE">
+      <input id="Input_UniqueViolation_CustomerType">
+        <inputExpression id="InputExpression_UniqueViolation_CustomerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <output id="Output_UniqueViolation" name="value" typeRef="string"/>
+      <rule id="Rule_UniqueViolation_First">
+        <inputEntry id="InputEntry_UniqueViolation_First">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_UniqueViolation_First">
+          <text>"first"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_UniqueViolation_Second">
+        <inputEntry id="InputEntry_UniqueViolation_Second">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_UniqueViolation_Second">
+          <text>"second"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

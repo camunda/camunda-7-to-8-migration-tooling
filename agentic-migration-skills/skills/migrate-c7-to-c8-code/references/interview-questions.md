@@ -132,11 +132,11 @@ Ask only when every condition in the first row below applies:
 
 | Scope | Code approach | Target | Test Inventory | Ask Question 8 |
 |---|---|---|---|---|
-| Code only or Code + models | A or B | 8.9 or later | At least one test has handling **Migrate** | Yes |
+| Code only or Code + models | A or B | 8.9 or later | At least one test has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)** | Yes |
 | Assessment only or Models only | Any | Any | Any | No |
 | Any | C | Any | Any | No |
 | Any | A or B | 8.8 | Any | No |
-| Any | A or B | 8.9 or later | No test has handling **Migrate** | No |
+| Any | A or B | 8.9 or later | No test has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)** | No |
 
 Show this context before the options:
 
@@ -159,3 +159,10 @@ Options:
 
 Require the user to select an option explicitly. A recommendation or preselected default is not an
 answer.
+
+## Question 8 runtime notice for decision tests
+
+When the skill asks Question 8 and the Test Inventory includes a standalone DMN decision test,
+the skill includes this notice:
+
+> Camunda 7 evaluated DMN with an in-process engine. The CPT test needs a Camunda 8 runtime. CPT uses Docker by default. You can configure a remote runtime instead.
