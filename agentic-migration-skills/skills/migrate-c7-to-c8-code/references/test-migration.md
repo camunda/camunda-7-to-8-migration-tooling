@@ -4,9 +4,9 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 
 ## Scope rule
 
-A test is in scope only when it runs a BPMN process or DMN decision on a Camunda 7 engine.
+A test is eligible for migration only when it runs a BPMN process or DMN decision on a Camunda 7 engine.
 The test must also use a framework or approach that existed for Camunda 7.
-A dependency alone never makes a test in scope.
+A dependency alone never makes a test eligible for migration.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
 The skill inventories every test method, including tests that are out of scope.
@@ -176,7 +176,8 @@ The skill records their source language in the `Notes` cell.
 
 ## Test models
 
-Every BPMN, DMN, or CMMN model that a test deploys or parses appears in the Model Inventory, including models under `src/test/resources`.
+Every BPMN, DMN, or CMMN model that a test deploys or parses appears in the Model Inventory.
+Include models under `src/test/resources` in the Model Inventory.
 Link each test ID to every model it deploys or parses in the `Models` cell.
 Trace model resources through test setup and shared helpers.
 Record the resolved path for each model resource.
