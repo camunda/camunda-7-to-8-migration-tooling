@@ -7,11 +7,13 @@ import html
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
@@ -72,6 +74,21 @@ TEST_LEDGER_CHECK_KINDS = {
 TEST_RUN_MODES = {"run", "migrate_only"}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
+MAVEN_EXECUTABLES = {"mvn", "mvnw"}
+GRADLE_EXECUTABLES = {"gradle", "gradlew"}
+SHELL_EXECUTABLES = {"bash", "cmd", "dash", "powershell", "pwsh", "sh", "zsh"}
+MAVEN_TEST_EXECUTION_GOALS = {
+    "deploy",
+    "install",
+    "integration-test",
+    "post-integration-test",
+    "pre-integration-test",
+    "prepare-package",
+    "test",
+    "verify",
+}
+GRADLE_PACKAGE_TASKS = {"assemble", "bootjar", "build", "jar", "war"}
+GRADLE_TEST_COMPILE_TASKS = {"testclasses", "testcompile", "testresources"}
 
 
 @dataclass
@@ -200,14 +217,632 @@ def read_test_run_mode(inventory):
     return mode
 
 
-def compiles_test_sources(command):
-    goals = {argument.rsplit(":", 1)[-1] for argument in command[1:]}
-    skips = any(
-        argument.removeprefix("-D").startswith("maven.test.skip")
-        and argument.removeprefix("-D") != "maven.test.skip=false"
-        for argument in command[1:]
+def command_executable(command):
+    return (
+        PureWindowsPath(command[0]).name.casefold()
+        .removesuffix(".exe")
+        .removesuffix(".cmd")
+        .removesuffix(".bat")
     )
-    return bool(goals & TEST_SOURCE_COMPILE_GOALS) and not skips
+
+
+def build_tool(command):
+    executable = command_executable(command)
+    if executable in MAVEN_EXECUTABLES:
+        return "maven"
+    if executable in GRADLE_EXECUTABLES:
+        return "gradle"
+    return None
+
+
+def parse_build_command(command, tool):
+    parsed = {
+        "tasks": [],
+        "projects": [],
+        "pom_files": [],
+        "project_dirs": [],
+        "excluded_tasks": [],
+        "properties": {},
+    }
+
+    def add_property(value):
+        name, separator, property_value = value.partition("=")
+        if name:
+            parsed["properties"].setdefault(name, []).append(
+                property_value if separator else None
+            )
+
+    index = 1
+    while index < len(command):
+        argument = command[index]
+        if tool == "maven":
+            if argument in ("-D", "--define"):
+                value = command[index + 1] if index + 1 < len(command) else ""
+                add_property(value)
+                index += 2
+                continue
+            if argument.startswith("-D") and len(argument) > 2:
+                add_property(argument[2:])
+                index += 1
+                continue
+            if argument.startswith("--define="):
+                add_property(argument.partition("=")[2])
+                index += 1
+                continue
+            if argument in ("-pl", "--projects"):
+                if index + 1 < len(command):
+                    parsed["projects"].append(command[index + 1])
+                index += 2
+                continue
+            if argument.startswith(("-pl=", "--projects=")):
+                parsed["projects"].append(argument.partition("=")[2])
+                index += 1
+                continue
+            if argument in ("-f", "--file"):
+                if index + 1 < len(command):
+                    parsed["pom_files"].append(command[index + 1])
+                index += 2
+                continue
+            if argument.startswith(("-f=", "--file=")):
+                parsed["pom_files"].append(argument.partition("=")[2])
+                index += 1
+                continue
+            if argument in {
+                "-P", "--activate-profiles", "-s", "--settings", "-T",
+                "--threads", "-t", "--toolchains", "-l", "--log-file",
+                "-rf", "--resume-from",
+            }:
+                index += 2
+                continue
+        else:
+            if argument in ("-p", "--project-dir"):
+                if index + 1 < len(command):
+                    parsed["project_dirs"].append(command[index + 1])
+                index += 2
+                continue
+            if argument.startswith(("-p=", "--project-dir=")):
+                parsed["project_dirs"].append(argument.partition("=")[2])
+                index += 1
+                continue
+            if argument in ("-x", "--exclude-task"):
+                if index + 1 < len(command):
+                    parsed["excluded_tasks"].append(command[index + 1])
+                index += 2
+                continue
+            if argument.startswith(("-x=", "--exclude-task=")):
+                parsed["excluded_tasks"].append(argument.partition("=")[2])
+                index += 1
+                continue
+            if argument in {
+                "-D", "-P", "--system-prop", "--project-prop", "-I",
+                "--init-script", "-b", "--build-file", "-c", "--settings-file",
+                "-g", "--gradle-user-home", "--args", "--tests",
+            }:
+                index += 2
+                continue
+        if argument.startswith("-"):
+            index += 1
+        else:
+            parsed["tasks"].append(argument)
+            index += 1
+    return parsed
+
+
+def project_relative_path(root, value):
+    if not isinstance(value, str) or not value.strip() or PureWindowsPath(value).drive:
+        return None
+    path = Path(value)
+    try:
+        base = root.resolve(strict=True)
+        resolved = path.resolve(strict=False) if path.is_absolute() else (base / path).resolve(strict=False)
+        return resolved.relative_to(base).as_posix() or "."
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def maven_module_selected(root, target, parsed):
+    target_path = project_relative_path(root, target)
+    if target_path is None:
+        return False
+    if parsed["projects"]:
+        selected = set()
+        excluded = set()
+        for project_list in parsed["projects"]:
+            for selector in project_list.split(","):
+                selector = selector.strip()
+                is_excluded = selector.startswith(("!", "-"))
+                if is_excluded:
+                    selector = selector[1:]
+                module_path = project_relative_path(root, selector)
+                if module_path is not None:
+                    (excluded if is_excluded else selected).add(module_path)
+        if target_path not in selected or target_path in excluded:
+            return False
+    if parsed["pom_files"]:
+        pom_modules = set()
+        for pom_file in parsed["pom_files"]:
+            pom_path = project_relative_path(root, pom_file)
+            if pom_path is not None and Path(pom_path).name == "pom.xml":
+                pom_modules.add(Path(pom_path).parent.as_posix() or ".")
+        if target_path not in pom_modules:
+            return False
+    return bool(parsed["projects"] or parsed["pom_files"]) or target_path == "."
+
+
+def gradle_task_module(task):
+    if not task.startswith(":") and ":" in task:
+        return None
+    parts = [part for part in task.split(":") if part]
+    if not parts:
+        return None
+    return "/".join(parts[:-1]) or "."
+
+
+def gradle_module_selected(root, target, parsed, task):
+    target_path = project_relative_path(root, target)
+    if target_path is None:
+        return False
+    if parsed["project_dirs"]:
+        selected = {
+            project_relative_path(root, project_dir)
+            for project_dir in parsed["project_dirs"]
+        }
+        return target_path in selected and gradle_task_module(task) == "."
+    return gradle_task_module(task) == target_path
+
+
+def property_is_true(parsed, name):
+    values = parsed["properties"].get(name, [])
+    if not values:
+        return False
+    value = values[-1]
+    return value is None or value.strip().casefold() not in {"0", "false", "no", "off"}
+
+
+def read_maven_options(path, label):
+    if path.is_symlink():
+        raise EvidenceError(f"Refusing symlinked Maven configuration: {path}")
+    try:
+        content = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise EvidenceError(f"Cannot read {label}: {path}: {exc}") from exc
+    try:
+        return shlex.split(content, comments=True)
+    except ValueError as exc:
+        raise EvidenceError(f"Cannot parse {label}: {path}: {exc}") from exc
+
+
+def maven_project_arguments_present(root):
+    return bool(os.environ.get("MAVEN_ARGS", "").strip()) or bool(
+        read_maven_options(root / ".mvn" / "maven.config", "Maven project arguments")
+    )
+
+
+def maven_pom_skips_test_compilation(root, target):
+    root = root.resolve(strict=True)
+    module = (root / target).resolve(strict=False)
+    try:
+        module.relative_to(root)
+    except ValueError as exc:
+        raise EvidenceError(f"Maven module is outside the project root: {target}") from exc
+    current = module
+    false_values = {"", "0", "false", "no", "off"}
+    while True:
+        pom = current / "pom.xml"
+        if pom.is_symlink():
+            raise EvidenceError(f"Refusing symlinked Maven POM: {pom}")
+        if pom.is_file():
+            try:
+                document = ET.parse(pom)
+            except (OSError, ET.ParseError) as exc:
+                raise EvidenceError(f"Cannot inspect Maven POM {pom}: {exc}") from exc
+            if any(
+                (element.text or "").strip().casefold() not in false_values
+                for element in document.iter()
+                if element.tag.rsplit("}", 1)[-1].casefold() == "maven.test.skip"
+            ):
+                return True
+        if current == root:
+            return False
+        parent = current.parent
+        try:
+            parent.relative_to(root)
+        except ValueError:
+            return False
+        current = parent
+
+
+def maven_test_compilation_disabled(root, parsed):
+    if property_is_true(parsed, "maven.test.skip"):
+        return True
+    option_sources = []
+    for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"):
+        value = os.environ.get(name, "")
+        if not value.strip():
+            continue
+        try:
+            option_sources.append(shlex.split(value, comments=True))
+        except ValueError as exc:
+            raise EvidenceError(f"Cannot parse Maven JVM options: {exc}") from exc
+    option_sources.append(
+        read_maven_options(root / ".mvn" / "jvm.config", "Maven JVM options")
+    )
+    for options in option_sources:
+        parsed_options = parse_build_command(["mvn", *options], "maven")
+        if property_is_true(parsed_options, "maven.test.skip"):
+            return True
+    return False
+
+
+def task_leaf(task):
+    return task.rsplit(":", 1)[-1].casefold()
+
+
+def compiles_test_sources(root, target, command):
+    tool = build_tool(command)
+    if tool is None:
+        return False
+    parsed = parse_build_command(command, tool)
+    tasks = [task_leaf(task) for task in parsed["tasks"]]
+    if tool == "maven":
+        return (
+            maven_module_selected(root, target, parsed)
+            and not maven_test_compilation_disabled(root, parsed)
+            and not maven_pom_skips_test_compilation(root, target)
+            and not maven_project_arguments_present(root)
+            and "test-compile" in tasks
+            and set(tasks) <= {"clean", "test-compile"}
+        )
+    return any(
+        task_leaf(task) == "testclasses"
+        and gradle_module_selected(root, target, parsed, task)
+        for task in parsed["tasks"]
+    ) and set(tasks) <= {"clean", "testclasses"}
+
+
+def gradle_task_is_excluded(parsed, task):
+    excluded = {task_leaf(value) for value in parsed["excluded_tasks"]}
+    excluded_paths = set(parsed["excluded_tasks"])
+    return task in excluded_paths or task_leaf(task) in excluded
+
+
+def maven_executes_tests(parsed):
+    tasks = {task_leaf(task) for task in parsed["tasks"]}
+    if tasks & MAVEN_TEST_EXECUTION_GOALS:
+        return True
+    return "package" in tasks and not property_is_true(parsed, "skipTests")
+
+
+def gradle_executes_tests(parsed):
+    for task in parsed["tasks"]:
+        leaf = task_leaf(task)
+        if leaf in {"build", "check"}:
+            if not gradle_task_is_excluded(parsed, "test"):
+                return True
+        elif "test" in leaf and leaf not in GRADLE_TEST_COMPILE_TASKS:
+            if not gradle_task_is_excluded(parsed, task):
+                return True
+    return False
+
+
+def has_test_compile_task(parsed, tool):
+    if tool == "maven":
+        return any(task_leaf(task) == "test-compile" for task in parsed["tasks"])
+    return any(task_leaf(task) in GRADLE_TEST_COMPILE_TASKS for task in parsed["tasks"])
+
+
+def migrate_only_packaging_exception(root, key, parsed, tool):
+    if key[0] != "module" or key[2] not in {"executable_jar", "external_launcher"}:
+        return False
+    if tool == "maven":
+        tasks = {task_leaf(task) for task in parsed["tasks"]}
+        return (
+            "package" in tasks
+            and tasks <= {"clean", "package"}
+            and maven_module_selected(root, key[1], parsed)
+            and property_is_true(parsed, "skipTests")
+            and not property_is_true(parsed, "maven.test.skip")
+        )
+    packaging_tasks = [
+        task for task in parsed["tasks"] if task_leaf(task) in GRADLE_PACKAGE_TASKS
+    ]
+    task_names = {task_leaf(task) for task in parsed["tasks"]}
+    return (
+        bool(packaging_tasks)
+        and task_names <= {"clean", "assemble", "bootjar", "jar", "war"}
+        and all(gradle_module_selected(root, key[1], parsed, task) for task in packaging_tasks)
+        and gradle_task_is_excluded(parsed, "test")
+        and not any(
+            "test" in task_leaf(task)
+            and task_leaf(task) not in GRADLE_TEST_COMPILE_TASKS
+            and task_leaf(task) not in {"build", "check"}
+            for task in parsed["tasks"]
+        )
+    )
+
+
+def is_spring_boot_run_task(task, tool):
+    normalized = task.casefold()
+    if tool == "maven":
+        return normalized == "spring-boot:run" or (
+            "spring-boot-maven-plugin" in normalized and task_leaf(task) == "run"
+        )
+    return task_leaf(task) == "bootrun"
+
+
+def shell_command(command):
+    if build_tool(command) is not None:
+        return False
+    executable = command_executable(command)
+    raw_executable = PureWindowsPath(command[0]).name.casefold()
+    return executable in SHELL_EXECUTABLES or raw_executable.endswith(
+        (".bash", ".bat", ".cmd", ".ps1", ".sh")
+    )
+
+
+def test_runner_command(command):
+    executable = command_executable(command)
+    if executable in {"java", "node", "py", "python", "python3"} and any(
+        "test" in PureWindowsPath(argument).name.casefold()
+        and Path(argument).suffix.casefold() in {".cjs", ".jar", ".js", ".mjs", ".py", ".ts"}
+        for argument in command[1:]
+        if not argument.startswith("-")
+    ):
+        return True
+    if executable in {"pytest", "py.test", "tox", "nosetests", "dotnet"}:
+        return executable != "dotnet" or any(arg.casefold() == "test" for arg in command[1:])
+    if executable in {"python", "python3", "py"}:
+        return any(
+            arg == "-m" and index + 1 < len(command)
+            and command[index + 1].casefold() in {"pytest", "unittest", "nose", "tox"}
+            for index, arg in enumerate(command[1:], start=1)
+        )
+    if executable in {"npm", "pnpm", "yarn", "bun"}:
+        arguments = [arg.casefold() for arg in command[1:]]
+        return any(
+            argument == "test" or argument.startswith("test:")
+            for argument in arguments
+        )
+    if executable in {"go", "make"}:
+        return any(arg.casefold() == "test" for arg in command[1:])
+    if executable == "java":
+        return any(
+            "junit.platform.console" in arg.casefold()
+            or "org.junit.runner.junitcore" in arg.casefold()
+            or "org.testng.testng" in arg.casefold()
+            for arg in command[1:]
+        )
+    return "test" in executable
+
+
+def java_application_jar(root, key, command):
+    if (
+        key[0] != "module"
+        or key[2] != "executable_jar"
+        or key[3] is not None
+        or command_executable(command) != "java"
+    ):
+        return False
+    arguments = command[1:]
+    if test_runner_command(command) or arguments.count("-jar") != 1:
+        return False
+    jar_index = arguments.index("-jar")
+    if jar_index + 1 >= len(arguments):
+        return False
+    jar_path = Path(arguments[jar_index + 1])
+    if jar_path.suffix.casefold() != ".jar":
+        return False
+    jar_path = jar_path if jar_path.is_absolute() else root / jar_path
+    if jar_path.is_symlink():
+        raise EvidenceError(f"{key}: Question 8 refuses a symlinked Java artifact")
+    try:
+        jar_path = jar_path.resolve(strict=True)
+        module_root = (root / key[1]).resolve(strict=True)
+        relative_jar = jar_path.relative_to(module_root)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise EvidenceError(
+            f"{key}: Question 8 cannot establish that the Java JAR belongs to the module"
+        ) from exc
+    if not (
+        relative_jar.parts[0] == "target"
+        or relative_jar.parts[:2] == ("build", "libs")
+    ):
+        raise EvidenceError(
+            f"{key}: Question 8 cannot establish that the Java JAR is a module build artifact"
+        )
+    try:
+        with zipfile.ZipFile(jar_path) as archive:
+            with archive.open("META-INF/MANIFEST.MF") as manifest_file:
+                manifest = manifest_file.read(65536).decode("utf-8", errors="replace")
+    except (OSError, KeyError, RuntimeError, zipfile.BadZipFile) as exc:
+        raise EvidenceError(
+            f"{key}: Question 8 cannot establish that the Java JAR is executable"
+        ) from exc
+    return any(
+        line.partition(":")[0].strip().casefold() == "main-class"
+        for line in manifest.splitlines()
+    )
+
+
+def verified_non_test_command(key, command):
+    executable = command_executable(command)
+    model_suffix = (
+        Path(key[1].split("#", 1)[0]).suffix.casefold()
+        if key[0] == "model"
+        else ""
+    )
+    if (
+        executable == "npx"
+        and key[0] == "model"
+        and key[2] == "lint"
+        and len(command) > 1
+        and (
+            model_suffix == ".bpmn" and command[1].casefold() == "bpmnlint"
+            or model_suffix == ".dmn" and command[1].casefold() == "dmnlint"
+        )
+    ):
+        return True
+    if executable == "c8ctl" and key[0] == "model":
+        return (
+            key[2] == "lint"
+            and len(command) > 2
+            and (
+                model_suffix == ".bpmn"
+                and tuple(argument.casefold() for argument in command[1:3])
+                == ("bpmn", "lint")
+                or model_suffix == ".dmn"
+                and tuple(argument.casefold() for argument in command[1:3])
+                == ("dmn", "lint")
+            )
+        ) or (
+            key[2] == "deployment"
+            and len(command) > 1
+            and command[1].casefold() == "deploy"
+        )
+    return False
+
+
+def validate_migrate_only_command(root, key, command):
+    if key[0] == "module" and key[2] == "compile":
+        if compiles_test_sources(root, key[1], command):
+            return
+        raise EvidenceError(
+            f"{key}: Question 8 Migrate tests only requires module-specific "
+            "test-source compilation with Maven `test-compile` or Gradle `testClasses`, "
+            "without an enabled `maven.test.skip` property"
+        )
+    if shell_command(command):
+        raise EvidenceError(
+            "Question 8 Migrate tests only does not accept shell-wrapped commands"
+        )
+    if key == ("project", ".", "docker_info", None):
+        if command == ["docker", "info"]:
+            return
+        raise EvidenceError("Question 8 Migrate tests only requires the exact `docker info` command")
+    if test_runner_command(command):
+        raise EvidenceError(
+            "Question 8 Migrate tests only forbids test-execution commands for every check"
+        )
+    if verified_non_test_command(key, command):
+        return
+    tool = build_tool(command)
+    if tool is not None:
+        if tool == "maven" and maven_project_arguments_present(root):
+            raise EvidenceError(
+                "Question 8 cannot verify Maven project arguments from MAVEN_ARGS "
+                "or `.mvn/maven.config`"
+            )
+        parsed = parse_build_command(command, tool)
+        if has_test_compile_task(parsed, tool):
+            raise EvidenceError(
+                "Question 8 Migrate tests only accepts test-source compilation only "
+                "for module compile checks"
+            )
+        executes_tests = (
+            maven_executes_tests(parsed)
+            if tool == "maven"
+            else gradle_executes_tests(parsed)
+        )
+        if executes_tests:
+            raise EvidenceError(
+                "Question 8 Migrate tests only forbids test-execution commands for every check"
+            )
+        runtime_tasks = [
+            task for task in parsed["tasks"] if is_spring_boot_run_task(task, tool)
+        ]
+        if runtime_tasks:
+            if key[0] != "module" or key[2] != "spring_boot_run":
+                raise EvidenceError(
+                    "Question 8 Migrate tests only accepts Spring Boot launch commands "
+                    "for spring_boot_run checks"
+                )
+            selected = (
+                maven_module_selected(root, key[1], parsed)
+                if tool == "maven"
+                else all(
+                    gradle_module_selected(root, key[1], parsed, task)
+                    for task in runtime_tasks
+                )
+            )
+            if not selected:
+                raise EvidenceError(
+                    f"Question 8 Migrate tests only {key}: Spring Boot launch command "
+                    "does not select the recorded module"
+                )
+            if any(
+                task not in runtime_tasks and task_leaf(task) != "clean"
+                for task in parsed["tasks"]
+            ):
+                raise EvidenceError(
+                    "Question 8 Migrate tests only cannot verify additional build goals "
+                    "alongside a Spring Boot launch"
+                )
+            if (
+                tool == "maven"
+                and (
+                    property_is_true(parsed, "skipTests")
+                    or property_is_true(parsed, "maven.test.skip")
+                )
+            ) or (
+                tool == "gradle"
+                and any(
+                    "test" in task_leaf(task) for task in parsed["excluded_tasks"]
+                )
+            ):
+                raise EvidenceError(
+                    "Question 8 Migrate tests only permits test-skip flags only for packaging checks"
+                )
+            return
+        packaging_tasks = (
+            {task_leaf(task) for task in parsed["tasks"]} & {"package"}
+            if tool == "maven"
+            else {task_leaf(task) for task in parsed["tasks"]} & GRADLE_PACKAGE_TASKS
+        )
+        if packaging_tasks:
+            if migrate_only_packaging_exception(root, key, parsed, tool):
+                return
+            option = "`-DskipTests`" if tool == "maven" else "`-x test`"
+            raise EvidenceError(
+                f"Question 8 Migrate tests only allows packaging only for executable-jar "
+                f"or external-launcher checks with {option}"
+            )
+        if (maven_executes_tests(parsed) if tool == "maven" else gradle_executes_tests(parsed)):
+            raise EvidenceError(
+                "Question 8 Migrate tests only forbids test-execution commands for every check"
+            )
+        if tool == "maven":
+            skipped_tests = (
+                property_is_true(parsed, "skipTests")
+                or property_is_true(parsed, "maven.test.skip")
+            )
+        else:
+            skipped_tests = any(
+                "test" in task_leaf(task) for task in parsed["excluded_tasks"]
+            )
+        if skipped_tests:
+            raise EvidenceError(
+                "Question 8 Migrate tests only permits test-skip flags only for packaging checks"
+            )
+        if (
+            tool == "maven"
+            and key[0] == "module"
+            and key[2] == "configuration"
+            and parsed["tasks"]
+            and {task.casefold() for task in parsed["tasks"]} == {"help:effective-pom"}
+            and maven_module_selected(root, key[1], parsed)
+        ):
+            return
+        raise EvidenceError(
+            "Question 8 Migrate tests only cannot verify Maven or Gradle goals "
+            "as non-test commands for this check"
+        )
+    if java_application_jar(root, key, command):
+        return
+    raise EvidenceError(
+        "Question 8 Migrate tests only rejects unverified executable commands"
+    )
 
 
 def concrete_reference(value):
@@ -1020,6 +1655,8 @@ def test_report_inventory(root, *, required=True):
             handling = "Migrate"
         elif handling_text.startswith("report only"):
             handling = "Report only"
+        elif handling_text.startswith(("not part of test migration", "out of scope")):
+            handling = "Not part of test migration"
         else:
             raise EvidenceError(
                 f"{test_id}: unsupported Test Inventory handling "
@@ -1105,28 +1742,27 @@ def test_directory_roots(root, module, module_paths, values, label):
 
 def test_contract(root, inventory):
     mode = read_test_run_mode(inventory)
-    if mode is None:
-        if test_report_inventory(root, required=False):
-            raise EvidenceError(
-                "Step 2 test_run_mode is required when the Test Inventory contains tests"
-            )
-        return {
-            "mode": None,
-            "tests": [],
-            "suites": {},
-            "test_suites": {},
-            "modules": inventory.get("modules", []),
-        }
-
     tests = test_report_inventory(root, required=False)
     module_paths = set(strings(inventory.get("modules"), "Step 2 modules"))
-    test_by_id = {test["id"]: test for test in tests}
     for test in tests:
         if test["module"] not in module_paths:
             raise EvidenceError(
                 f"{test['id']}: Test Inventory module is outside the Step 2 scope"
             )
+    if mode is None:
+        if any(test["handling"] == "Migrate" for test in tests):
+            raise EvidenceError(
+                "Step 2 test_run_mode is required when the Test Inventory contains migratable tests"
+            )
+        return {
+            "mode": None,
+            "tests": tests,
+            "suites": {},
+            "test_suites": {},
+            "modules": inventory.get("modules", []),
+        }
 
+    test_by_id = {test["id"]: test for test in tests}
     migrate_ids = {
         test["id"] for test in tests if test["handling"] == "Migrate"
     }
@@ -1413,10 +2049,11 @@ def fresh_reports(root, module, patterns, before, label):
     ]
 
 
-def copy_reports(root, module, reports, destination):
+def copy_reports(root, module, reports, destination, source_root=None):
     root = root.resolve(strict=True)
-    module_root = project_path(root, module, "report module", must_exist=True)
-    reject_symlink_components(root, root / module, "report module")
+    source_root = root if source_root is None else source_root.resolve(strict=True)
+    module_root = project_path(source_root, module, "report module", must_exist=True)
+    reject_symlink_components(source_root, source_root / module, "report module")
     destination_root = ensure_directory_path(
         root, root / destination, "report destination"
     )
@@ -3435,13 +4072,18 @@ def ensure_test_mapping(root, inventory):
     return mapping
 
 
-def verify_unchanged_source(root, inventory):
+def verify_unchanged_source(root, inventory, source_root=None):
     expected = inventory.get("source_files")
     if not isinstance(expected, dict):
         raise EvidenceError("Step 2 inventory lacks the C7 source file snapshot")
+    if source_root is not None and source_root.is_symlink():
+        raise EvidenceError(f"Refusing symlinked C7 baseline source root: {source_root}")
+    source_root = root if source_root is None else source_root.resolve(strict=True)
+    if not source_root.is_dir():
+        raise EvidenceError(f"C7 baseline source root is not a directory: {source_root}")
     current_test_contract = validate_source_snapshot_test_contract(root, inventory)
     current = collect_source_files(
-        root,
+        source_root,
         strings(inventory.get("modules"), "Step 2 modules"),
         strings(inventory.get("models"), "Step 2 models"),
         current_test_contract,
@@ -3464,6 +4106,44 @@ def verify_unchanged_source(root, inventory):
     )
     if digest != inventory.get("source_snapshot_sha256"):
         raise EvidenceError("Step 2 C7 source snapshot digest is invalid")
+
+
+def resolve_c7_baseline_root(root, inventory, value):
+    if value is None:
+        baseline_root = root
+    else:
+        if not str(value).strip():
+            raise EvidenceError("C7 baseline root cannot be empty")
+        requested = Path(value)
+        requested = requested if requested.is_absolute() else root / requested
+        if requested.is_symlink():
+            raise EvidenceError(f"Refusing symlinked C7 baseline root: {requested}")
+        try:
+            baseline_root = requested.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise EvidenceError(f"C7 baseline root is missing: {requested}") from exc
+    if not baseline_root.is_dir():
+        raise EvidenceError(f"C7 baseline root is not a directory: {baseline_root}")
+    verify_unchanged_source(root, inventory, source_root=baseline_root)
+    commit = inventory.get("source_snapshot_commit")
+    if commit:
+        try:
+            completed = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=baseline_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise EvidenceError(f"Cannot verify the C7 baseline commit: {exc}") from exc
+        if completed.returncode != 0 or completed.stdout.strip() != commit:
+            raise EvidenceError(
+                f"C7 baseline root must match the recorded commit {commit}"
+            )
+    return baseline_root
 
 
 def aggregate_baseline_results(contract, baseline_suites):
@@ -3578,6 +4258,7 @@ def record_c7_baseline(root, args):
             f"{key}: the suite has no Test Inventory tests marked Migrate or Report only"
         )
     mapping = ensure_test_mapping(root, inventory)
+    baseline_root = root
     command = list(getattr(args, "command", []) or [])
     if command and command[0] == "--":
         command = command[1:]
@@ -3588,7 +4269,9 @@ def record_c7_baseline(root, args):
             )
         if args.timeout is not None and args.timeout <= 0:
             raise EvidenceError("Command timeout must be positive")
-        verify_unchanged_source(root, inventory)
+        baseline_root = resolve_c7_baseline_root(
+            root, inventory, getattr(args, "baseline_root", None)
+        )
 
     suite_digest = module_suite_digest(args.target, args.scenario)
     suite_root = VALIDATION / "baseline" / suite_digest
@@ -3596,10 +4279,17 @@ def record_c7_baseline(root, args):
     previous_coverage = {}
     if args.action == "run":
         previous_junit = report_signatures(
-            discover_reports(root, args.target, suite["reports"], "JUnit report")
+            discover_reports(
+                baseline_root, args.target, suite["reports"], "JUnit report"
+            )
         )
         previous_coverage = report_signatures(
-            discover_reports(root, args.target, suite["coverage_reports"], "C7 coverage report")
+            discover_reports(
+                baseline_root,
+                args.target,
+                suite["coverage_reports"],
+                "C7 coverage report",
+            )
         )
     output = ""
     exit_code = None
@@ -3620,7 +4310,7 @@ def record_c7_baseline(root, args):
         try:
             completed = subprocess.run(
                 command,
-                cwd=root,
+                cwd=baseline_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -3643,12 +4333,16 @@ def record_c7_baseline(root, args):
         if reason is None:
             try:
                 junit_paths = fresh_reports(
-                    root, args.target, suite["reports"], previous_junit, "JUnit report"
+                    baseline_root, args.target, suite["reports"], previous_junit, "JUnit report"
                 )
                 if not junit_paths:
                     raise EvidenceError("The baseline command produced no fresh JUnit XML reports")
                 junit_copies = copy_reports(
-                    root, args.target, junit_paths, suite_root / "junit"
+                    root,
+                    args.target,
+                    junit_paths,
+                    suite_root / "junit",
+                    source_root=baseline_root,
                 )
                 inventory_test_ids = {
                     test["id"]
@@ -3664,19 +4358,25 @@ def record_c7_baseline(root, args):
                         "JUnit reports omit Test Inventory IDs: " + ", ".join(missing)
                     )
                 coverage_paths = fresh_reports(
-                    root,
+                    baseline_root,
                     args.target,
                     suite["coverage_reports"],
                     previous_coverage,
                     "C7 coverage report",
                 )
                 coverage_copies = copy_reports(
-                    root, args.target, coverage_paths, suite_root / "coverage"
+                    root,
+                    args.target,
+                    coverage_paths,
+                    suite_root / "coverage",
+                    source_root=baseline_root,
                 )
                 for path in coverage_paths:
                     for process_id, elements in parse_c7_coverage_report(path).items():
                         coverage.setdefault(process_id, set()).update(elements)
-                verify_unchanged_source(root, inventory)
+                verify_unchanged_source(
+                    root, inventory, source_root=baseline_root
+                )
                 result = "passed"
             except EvidenceError as exc:
                 result = "failed"
@@ -4876,12 +5576,10 @@ def record(root, args):
             raise EvidenceError("Executable path cannot be empty")
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
-        if (test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile"
-                and not compiles_test_sources(command)):
-            raise EvidenceError(
-                f"{key}: Question 8 Migrate tests only requires test-source compilation, "
-                "such as mvn test-compile or the Gradle testClasses task"
-            )
+        if args.baseline_root is not None:
+            raise EvidenceError("--baseline-root is only valid for c7_baseline checks")
+        if test_run_mode == "migrate_only":
+            validate_migrate_only_command(root, key, command)
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -5043,6 +5741,11 @@ def main():
         action.add_argument("--non-timer-evidence-json")
         if name == "run":
             action.add_argument("--timeout", type=int, default=300)
+            action.add_argument(
+                "--baseline-root",
+                type=Path,
+                help="Run a deferred C7 baseline from its preserved project root",
+            )
             action.add_argument("command", nargs=argparse.REMAINDER)
         elif name == "review":
             action.add_argument("--note", required=True)

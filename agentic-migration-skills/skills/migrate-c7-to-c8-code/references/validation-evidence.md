@@ -38,7 +38,8 @@ the same source file even when arguments, line numbers, or formatting change.
 After `init`, the source snapshot detects additions, changes, and removals of each source model's
 sibling `converted-c8-*` copy, even outside selected modules.
 
-When the user selects `Run tests` and the Test Inventory has tests marked `Migrate`, add
+When the user selects `Run tests` and the Test Inventory has a test marked `Migrate`,
+`Migrate to CPT`, or `Migrate (lower priority)`, add
 `test_run_mode: "run"` and `test_suites` to the Step 2 inventory. Set each suite's `module`, `name`,
 exact C7 `command`, and `test_ids`. Set `reports` or `coverage_reports` only when the project uses
 custom paths. Follow `references/test-migration.md` for the inventory table and ledger fields.
@@ -48,6 +49,17 @@ that contains an in-scope test immediately after `init`:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
+```
+
+When the user verifies a deferred migration, add `--baseline-root <path>` to the `c7_baseline`
+command. Set `<path>` to the preserved Git worktree or filesystem snapshot.
+The validator checks its source files against the Step 2 snapshot. It also checks the Git commit
+when the project has one.
+The validator runs the exact Step 2 suite command from that root and copies its reports into the
+current project:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --baseline-root ../c7-baseline --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
 ```
 
 Use the exact command from the Step 2 inventory. The validator parses JUnit XML and copies each
@@ -204,12 +216,26 @@ In `migrate_only` mode, the validation script applies these rules:
 - It refuses the `run` and `review` actions for `tests` and `process_path` checks.
 - It rejects a `block` action with another reason.
 - The gate rejects a passed or differently blocked `tests` or `process_path` check.
-- It accepts module `compile` evidence only for a `test-compile` or `testClasses` command without
-  `-Dmaven.test.skip`.
+- It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle
+  `testClasses` command that selects the recorded module. The command must not enable
+  `maven.test.skip` in the module or an ancestor POM, command-line, or JVM options, including
+  `.mvn/jvm.config`.
+- It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.
+- It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test
+  checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
+  Maven goals or Gradle tasks.
+- It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's
+  `spring_boot_run` check.
+- It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact
+  with a `Main-Class` manifest entry.
+- It accepts Maven `help:effective-pom` only for module `configuration` checks. It accepts
+  `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only for matching model
+  checks.
+- It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for
+  `executable_jar` and `external_launcher` checks.
 - It does not require `docker_info`.
 
-Where a non-test check needs packaging in `migrate_only` mode, use `-DskipTests` (Maven) or
-`-x test` (Gradle). This is the only exception to the rule against commands that skip tests.
+These packaging flags are the only exception to the rule against commands that skip tests.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 

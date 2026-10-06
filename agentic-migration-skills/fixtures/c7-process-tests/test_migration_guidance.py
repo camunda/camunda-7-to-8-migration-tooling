@@ -1129,8 +1129,20 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Run tests (recommended, default)**", question)
         self.assertIn("**Migrate tests only**", question)
         self.assertIn("Require the user to select an option explicitly.", question)
+        skill_text = SKILL_PATH.read_text(encoding="utf-8")
+        handling_values = normalized(
+            "**Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**"
+        )
+        step_3 = skill_text.split("### Step 3: Execute Migration", 1)[1].split(
+            "#### Part A - Code Migration", 1
+        )[0]
+        step_4 = skill_text.split("### Step 4: Validation (always runs)", 1)[1].split(
+            "#### Code checks", 1
+        )[0]
+        self.assertIn(handling_values, normalized(step_3))
+        self.assertIn(handling_values, normalized(step_4))
         self.assertRegex(
-            SKILL_PATH.read_text(encoding="utf-8"),
+            skill_text,
             r"When the Test Inventory includes a test with handling \*\*Migrate\*\*,\s*"
             r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
         )
@@ -1138,7 +1150,7 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_migrate_only_guidance_and_walkthrough_report(self):
         guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         for text in (
-            "Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task.",
+            "Compile each module's test sources with a module-specific `mvn -pl <module> test-compile` or Gradle `:<module>:testClasses` task.",
             "A main-source-only compile does not count.",
             "Do not run C7 suites, CPT suites, or Step 4 process scenarios.",
             "the exact reason `declined by user (Question 8)`",
@@ -1148,6 +1160,25 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), guidance)
 
+        validation_evidence = normalized(
+            (
+                REPO_ROOT
+                / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/validation-evidence.md"
+            ).read_text(encoding="utf-8")
+        )
+        for text in (
+            "It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle `testClasses` command that selects the recorded module.",
+            "The command must not enable `maven.test.skip` in the module or an ancestor POM, command-line, or JVM options, including `.mvn/jvm.config`.",
+            "It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test checks.",
+            "It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.",
+            "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
+            "It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's `spring_boot_run` check.",
+            "It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact with a `Main-Class` manifest entry.",
+            "It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for `executable_jar` and `external_launcher` checks.",
+        ):
+            with self.subTest(text=text):
+                self.assertIn(normalized(text), validation_evidence)
+
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("**Status:** `not verified (Migrate tests only)`", report)
         self.assertIn("mvn -pl engine-tests test-compile", report)
@@ -1155,6 +1186,10 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
         self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
+        self.assertIn(
+            "kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`",
+            report,
+        )
         deferred = markdown_table(EXPECTED_TESTS_ONLY, ["Kind", "Scope", "Status", "Reason"])
         self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred})
         for columns in (["Check", "Status", "Reason"], ["Kind", "Scope", "Status", "Reason"]):

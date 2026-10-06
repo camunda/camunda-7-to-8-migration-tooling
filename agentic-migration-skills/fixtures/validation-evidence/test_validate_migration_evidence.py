@@ -3,13 +3,15 @@
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 import uuid
+import zipfile
 from argparse import Namespace
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext, redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest.mock import call, patch
@@ -219,6 +221,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         *,
         test_file_path="app/src/test/java/com/example/OrderTest.java",
         test_handling="Migrate",
+        test_run_mode="run",
         test_source_roots=None,
         test_resource_roots=None,
     ):
@@ -241,7 +244,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.c7_command = self.write_reports_command(baseline_reports)
 
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
-        inventory["test_run_mode"] = "run"
+        inventory["test_run_mode"] = test_run_mode
         suite = {
             "module": "app",
             "name": "unit",
@@ -492,6 +495,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             timeout=5,
             action=action,
             command=[sys.executable, "-c", "print('check completed')"] if command is None else command,
+            baseline_root=options.get("baseline_root"),
             note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
             target_disposable=options.get(
@@ -576,8 +580,16 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "environment": environment,
                 "isolation_plan": "Use an isolated local cluster; remove the timer deployment and instances.",
             }
+            command_patch = nullcontext()
             if test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile":
-                options["command"] = [sys.executable, "-c", "print('test-compile')", "test-compile"]
+                options["command"] = ["mvn", "-pl", "app", "test-compile"]
+                command_patch = patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=gate.subprocess.CompletedProcess(
+                        options["command"], 0, "compiled"
+                    ),
+                )
             elif key[2] == "c7_baseline":
                 options["command"] = plan.test_contract["suites"][
                     (key[1], key[3])
@@ -592,10 +604,33 @@ class ValidationEvidenceTest(unittest.TestCase):
                 options["note"] = f"Reviewed assertions for {key[1]}."
             elif key[2] == "mock_boundary":
                 options["note"] = f"Reviewed C7 test {key[1]} and its CPT mocks."
-            self.assertEqual(
-                0,
-                self.submit(key, action="review" if plan.required[key] == "review" else "run", **options),
-            )
+            elif test_run_mode == "migrate_only" and key[0] == "model" and key[2] == "lint":
+                options["command"] = ["npx", "bpmnlint", key[1]]
+                command_patch = patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=gate.subprocess.CompletedProcess(
+                        options["command"], 0, "linted"
+                    ),
+                )
+            elif test_run_mode == "migrate_only" and key[0] == "model" and key[2] == "deployment":
+                options["command"] = ["c8ctl", "deploy", key[1]]
+                command_patch = patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=gate.subprocess.CompletedProcess(
+                        options["command"], 0, "deployed"
+                    ),
+                )
+            with command_patch:
+                self.assertEqual(
+                    0,
+                    self.submit(
+                        key,
+                        action="review" if plan.required[key] == "review" else "run",
+                        **options,
+                    ),
+                )
             evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
             check_issues = []
             recorded = gate.load_checks(self.root, evidence, plan, check_issues)
@@ -628,21 +663,219 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.write_scope(test_run_mode="migrate_only")
         key = ("module", "app", "compile", None)
         for command_args in (
+            ["python3", "-c", "print('test-compile')", "test-compile"],
             ["mvn", "compile"],
+            ["mvn", "test-compile"],
+            ["mvn", "-pl", "other", "test-compile"],
             ["gradle", "classes"],
+            ["gradle", "testClasses"],
+            ["gradle", ":other:testClasses"],
             ["mvn", "test-compile", "-Dmaven.test.skip=true"],
             ["mvn", "-D", "maven.test.skip", "test-compile"],
+            ["mvn", "-pl", "app", "test-compile", "-Dmaven.test.skip=true"],
+            ["mvn", "-pl", "app", "-D", "maven.test.skip", "test-compile"],
+            ["mvn", "-pl", "app", "--define=maven.test.skip=true", "test-compile"],
+            ["mvn", "-pl", "app", "test-compile", "test"],
+            ["gradle", ":app:testClasses", ":app:test"],
         ):
             with self.subTest(command=command_args):
-                with patch.object(gate.subprocess, "run") as command:
+                completed = gate.subprocess.CompletedProcess(
+                    command_args, 0, "unexpected pass"
+                )
+                with patch.object(
+                    gate.subprocess, "run", return_value=completed
+                ) as command:
                     with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
                         self.submit(key, command=command_args)
                     command.assert_not_called()
-        for command_args in (["mvn", "-pl", "app", "test-compile"], ["gradle", ":app:testClasses"]):
+        for command_args in (
+            ["mvn", "-pl", "app", "test-compile"],
+            ["mvn", "-f", "app/pom.xml", "test-compile"],
+            ["mvn", "-pl", "app", "-Dmaven.test.skip=false", "test-compile"],
+            ["mvn", "-pl", "app", "--define=maven.test.skip=false", "test-compile"],
+            ["gradle", ":app:testClasses"],
+            ["gradle", "-p", "app", "testClasses"],
+        ):
             with self.subTest(command=command_args):
                 completed = gate.subprocess.CompletedProcess(command_args, 0, "compiled")
                 with patch.object(gate.subprocess, "run", return_value=completed):
                     self.assertEqual(0, self.submit(key, command=command_args))
+
+    def test_migrate_only_rejects_maven_test_skip_from_jvm_and_project_options(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        jvm_config = self.root / ".mvn/jvm.config"
+        jvm_config.parent.mkdir(parents=True)
+        jvm_config.write_text("-Dmaven.test.skip=true\n", encoding="utf-8")
+        with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+            self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
+        jvm_config.unlink()
+
+        for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"):
+            with self.subTest(environment=name):
+                with patch.dict(gate.os.environ, {name: "-Dmaven.test.skip=true"}):
+                    with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+                        self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
+
+        with patch.dict(gate.os.environ, {"MAVEN_ARGS": "test"}):
+            with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+                self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
+
+        pom = self.root / "app/pom.xml"
+        for value in ("true", "${skipTests}"):
+            with self.subTest(pom_value=value):
+                pom.write_text(
+                    "<project><properties><maven.test.skip>"
+                    f"{value}</maven.test.skip></properties></project>\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+                    self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
+        pom.write_text(
+            "<project><properties><maven.test.skip>false</maven.test.skip>"
+            "</properties></project>\n",
+            encoding="utf-8",
+        )
+        completed = gate.subprocess.CompletedProcess(
+            ["mvn", "-pl", "app", "test-compile"], 0, "compiled"
+        )
+        with patch.object(gate.subprocess, "run", return_value=completed):
+            self.assertEqual(
+                0,
+                self.submit(key, command=["mvn", "-pl", "app", "test-compile"]),
+            )
+
+        maven_config = self.root / ".mvn/maven.config"
+        maven_config.write_text("test\n", encoding="utf-8")
+        with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+            self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
+
+    def test_migrate_only_rejects_test_commands_under_non_test_keys(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        cases = (
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "test"]),
+            (("module", "app", "spring_boot_run", None), ["gradle", ":app:integrationTest"]),
+            (("module", "app", "executable_jar", None), ["./mvnw", "-pl", "app", "verify"]),
+            (("module", "app", "spring_boot_run", None), ["mvnDebug", "-pl", "app", "test"]),
+            (("module", "app", "spring_boot_run", None), ["env", "mvn", "-pl", "app", "test"]),
+            (("module", "app", "spring_boot_run", None), ["cargo", "test"]),
+            (("module", "app", "spring_boot_run", None), ["pnpm", "test"]),
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "custom:run-tests"]),
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "prepare-package"]),
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "pre-integration-test"]),
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "post-integration-test"]),
+            (("module", "app", "spring_boot_run", None), ["sh", "-c", "mvn -pl app test"]),
+            (("module", "app", "spring_boot_run", None), ["python3", "-m", "unittest"]),
+            (("module", "app", "spring_boot_run", None), ["python3", "scripts/test_helper.py"]),
+            (("module", "app", "spring_boot_run", None), ["npm", "test"]),
+            (("module", "app", "spring_boot_run", None), ["java", "org.junit.platform.console.ConsoleLauncher"]),
+            (("module", "app", "executable_jar", None), ["mvn", "-pl", "app", "package"]),
+            (
+                ("module", "app", "executable_jar", None),
+                ["mvn", "-pl", "app", "package", "-Dmaven.test.skip=true"],
+            ),
+            (("module", "app", "executable_jar", None), ["gradle", ":app:bootJar"]),
+            (("module", "app", "executable_jar", None), ["gradle", ":app:build"]),
+            (("module", "app", "executable_jar", None), ["gradle", ":app:bootRun"]),
+            (
+                ("module", "app", "executable_jar", None),
+                ["gradle", ":app:bootJar", ":app:customTask", "-x", "test"],
+            ),
+            (("module", "app", "spring_boot_run", None), ["gradle", ":other:bootRun"]),
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "other", "spring-boot:run"]),
+            (
+                ("module", "app", "spring_boot_run", None),
+                ["mvn", "-pl", "app", "spring-boot:run", "-DskipTests"],
+            ),
+            (("module", "app", "spring_boot_run", None), ["gradle", ":app:bootRun", "-x", "test"]),
+            (
+                ("module", "app", "executable_jar", None),
+                ["gradle", ":other:bootJar", "-x", "test"],
+            ),
+            (
+                ("module", "app", "executable_jar", None),
+                ["mvn", "-pl", "other", "package", "-DskipTests"],
+            ),
+        )
+        for key, command_args in cases:
+            with self.subTest(key=key, command=command_args):
+                completed = gate.subprocess.CompletedProcess(
+                    command_args, 0, "unexpected pass"
+                )
+                with patch.object(
+                    gate.subprocess, "run", return_value=completed
+                ) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "Migrate tests only"):
+                        self.submit(
+                            key,
+                            command=command_args,
+                            environment="local",
+                        )
+                    command.assert_not_called()
+        with patch.dict(gate.os.environ, {"MAVEN_ARGS": "test"}):
+            with patch.object(gate.subprocess, "run") as command:
+                with self.assertRaisesRegex(gate.EvidenceError, "MAVEN_ARGS"):
+                    self.submit(
+                        ("module", "app", "spring_boot_run", None),
+                        command=["mvn", "-pl", "app", "spring-boot:run"],
+                        environment="local",
+                    )
+                command.assert_not_called()
+
+    def test_migrate_only_allows_verified_runtime_and_packaging_commands(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        cases = (
+            (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "spring-boot:run"]),
+            (("module", "app", "spring_boot_run", None), ["gradle", ":app:bootRun"]),
+            (("module", "app", "executable_jar", None), ["mvn", "-pl", "app", "package", "-DskipTests"]),
+            (("module", "app", "executable_jar", None), ["gradle", ":app:bootJar", "-x", "test"]),
+        )
+        for key, command_args in cases:
+            with self.subTest(key=key, command=command_args):
+                completed = gate.subprocess.CompletedProcess(command_args, 0, "verified")
+                with patch.object(gate.subprocess, "run", return_value=completed):
+                    self.assertEqual(
+                        0,
+                        self.submit(key, command=command_args, environment="local"),
+                    )
+
+    def test_migrate_only_allows_module_executable_jar_with_main_class(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        artifact = self.root / "app/target/application.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: com.example.Application\n",
+            )
+        command_args = ["java", "-jar", "app/target/application.jar"]
+        completed = gate.subprocess.CompletedProcess(command_args, 0, "started")
+        with patch.object(gate.subprocess, "run", return_value=completed):
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                ),
+            )
+
+    def test_migrate_only_rejects_unverified_external_launcher_commands(self):
+        self.plan["modules"][0]["runtime_mode"] = "external-launcher"
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "external_launcher", None)
+        for command_args in (
+            ["java", "-cp", "app/target/test-classes", "com.example.TestRunner"],
+            ["python3", "scripts/start-worker.py"],
+        ):
+            with self.subTest(command=command_args):
+                with patch.object(gate.subprocess, "run") as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "unverified executable"):
+                        self.submit(key, command=command_args, environment="local")
+                    command.assert_not_called()
 
     def test_migrate_only_blocks_gate_without_docker_probe(self):
         self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
@@ -1074,6 +1307,62 @@ class ValidationEvidenceTest(unittest.TestCase):
         baseline = mapping["baseline"]["suites"][0]
         self.assertEqual("failed", baseline["result"])
         self.assertIn("C7 baseline must run before source changes", baseline["reason"])
+
+    def test_deferred_c7_baseline_runs_from_the_preserved_source_root(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit, test_run_mode="migrate_only")
+        baseline_root = self.root.parent / f"{self.root.name}-c7-baseline"
+        shutil.copytree(self.root, baseline_root)
+        self.addCleanup(shutil.rmtree, baseline_root)
+        (self.root / self.c7_test_file_path).write_text(
+            "class OrderCptTest {}\n", encoding="utf-8"
+        )
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "run"
+        write_json(inventory_path, inventory)
+
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "c7_baseline", "unit"),
+                command=self.c7_command,
+                baseline_root=baseline_root,
+            ),
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        self.assertEqual("passed", mapping["baseline"]["suites"][0]["result"])
+
+    def test_deferred_c7_baseline_uses_the_preserved_source_root(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit, test_run_mode="migrate_only")
+        baseline_root = self.root.parent / f"{self.root.name}-c7-baseline"
+        shutil.copytree(self.root, baseline_root)
+        self.addCleanup(shutil.rmtree, baseline_root)
+        (self.root / self.c7_test_file_path).write_text(
+            "class OrderCptTest {}\n", encoding="utf-8"
+        )
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "run"
+        write_json(inventory_path, inventory)
+
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "c7_baseline", "unit"),
+                command=self.c7_command,
+                baseline_root=baseline_root,
+            ),
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        self.assertEqual("passed", mapping["baseline"]["suites"][0]["result"])
 
     def test_c7_baseline_snapshot_tracks_inventory_tests_under_build_directories(self):
         junit = (
@@ -1880,7 +2169,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
         )
 
-    def test_retired_report_only_without_test_run_mode_cannot_reach_ready(self):
+    def test_retired_report_only_without_test_run_mode_can_reach_ready(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
             test_handling="Report only",
@@ -1907,31 +2196,51 @@ class ValidationEvidenceTest(unittest.TestCase):
         write_json(inventory_path, inventory)
 
         plan = gate.requirements(self.root, self.plan)
+        self.assertFalse(
+            any("test_run_mode is required" in issue for issue in plan.issues),
+            plan.issues,
+        )
         if not plan.issues:
             self.complete_required_checks()
-        self.assertEqual(1, self.audit())
+        self.assertEqual(0, self.audit())
         summary = self.summary()
-        self.assertEqual("NOT READY", summary["gate"])
-        self.assertIn(
-            "Step 2 test_run_mode is required when the Test Inventory contains tests",
-            summary["issues"],
-        )
+        self.assertEqual("READY", summary["gate"])
 
     def test_migrate_test_inventory_requires_an_explicit_test_run_mode(self):
+        for handling in ("Migrate", "Migrate to CPT", "Migrate (lower priority)"):
+            with self.subTest(handling=handling):
+                self.configure_test_run(
+                    '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+                    test_handling=handling,
+                )
+                inventory_path = self.root / gate.INVENTORY
+                inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+                inventory.pop("test_run_mode")
+                write_json(inventory_path, inventory)
+
+                plan = gate.requirements(self.root, self.plan)
+
+                self.assertIn(
+                    "Step 2 test_run_mode is required when the Test Inventory contains migratable tests",
+                    plan.issues,
+                )
+
+    def test_out_of_scope_inventory_without_test_run_mode_is_allowed(self):
         self.configure_test_run(
-            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Not part of test migration",
         )
         inventory_path = self.root / gate.INVENTORY
         inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
         inventory.pop("test_run_mode")
         write_json(inventory_path, inventory)
 
-        plan = gate.requirements(self.root, self.plan)
-
-        self.assertIn(
-            "Step 2 test_run_mode is required when the Test Inventory contains tests",
-            plan.issues,
+        contract = gate.test_contract(
+            self.root, json.loads(inventory_path.read_text(encoding="utf-8"))
         )
+
+        self.assertIsNone(contract["mode"])
+        self.assertEqual("Not part of test migration", contract["tests"][0]["handling"])
 
     def test_missing_test_run_mode_rejects_a_malformed_test_inventory(self):
         self.configure_test_run(

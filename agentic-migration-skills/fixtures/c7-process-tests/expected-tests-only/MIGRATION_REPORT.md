@@ -78,14 +78,15 @@ unverified because the user selected **Migrate tests only**.
 
 Baseline filesystem snapshot: `../c7-source-baseline/`
 
-1. Run the C7 suites in `../c7-source-baseline/` with `mvn -pl engine-tests,engine-tests-legacy,spring-boot-app test`
-   and `mvn -pl remote-engine verify`.
-2. Start Docker. Run the migrated suites with `mvn -pl engine-tests,spring-boot-app test` and
-   `mvn -pl remote-engine verify`.
-3. Change only `test_run_mode` from `migrate_only` to `run` in
+1. Change only `test_run_mode` from `migrate_only` to `run` in
    `.camunda-migration/validation/step2-inventory.json`. Do not run `init`.
-4. Record `docker_info`, each module `tests` check, and each `process_path` check with the
-   validator `run` action. Then run the validator `report` action.
+2. Record `docker_info` before the first Docker-dependent suite.
+3. Record each C7 baseline with kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`.
+   Use each exact Step 2 suite command: `mvn -pl engine-tests,engine-tests-legacy,spring-boot-app test`
+   and `mvn -pl remote-engine verify`.
+4. Start Docker. Record the migrated C8 suites with kind `tests` using
+   `mvn -pl engine-tests,spring-boot-app test` and `mvn -pl remote-engine verify`.
+5. Record each `process_path` check. Then run the validator `report` action.
 
 ## Readiness
 

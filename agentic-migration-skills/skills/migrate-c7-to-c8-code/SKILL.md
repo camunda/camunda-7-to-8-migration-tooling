@@ -361,9 +361,10 @@ Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before St
 
 ### Step 3: Execute Migration
 
-When `test_run_mode` is `run` and the Test Inventory has a test marked `Migrate`, follow
-`references/test-migration.md`. Complete the C7 baseline, model migration, test migration, and test
-freeze before production-code migration.
+When `test_run_mode` is `run` and the Test Inventory includes a test with handling **Migrate**,
+**Migrate to CPT**, or **Migrate (lower priority)**, follow `references/test-migration.md`.
+Complete the C7 baseline, model migration, test migration, and test freeze before production-code
+migration.
 
 When the user selects Models only and Analyze-only, run `Analyze-Only Mode` in
 `references/model-migration-approaches.md` instead of Part B.
@@ -430,8 +431,9 @@ Follow the exit rule for the selected mode.
 Follow `references/validation-evidence.md` to record command results and audit required checks.
 Never write a passing command result by hand. Run the gate only after a full migration.
 Assessment-only and analyze-only runs do not claim readiness.
-When `test_run_mode` is `run` and the Test Inventory has a test marked `Migrate`, follow
-`references/test-migration.md` for test parity, freeze, repeat-run, and coverage checks.
+When `test_run_mode` is `run` and the Test Inventory includes a test with handling **Migrate**,
+**Migrate to CPT**, or **Migrate (lower priority)**, follow `references/test-migration.md` for test
+parity, freeze, repeat-run, and coverage checks.
 
 #### Code checks, when code was migrated
 
