@@ -8,6 +8,9 @@
 package com.camunda.fixture.order;
 
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
@@ -33,15 +36,20 @@ class OrderMockitoTest {
   private CamundaClient client;
   private CamundaProcessTestContext processTestContext;
   private JobWorker stockWorker;
+  private JobWorker notificationWorker;
+  private OrderJobHandlers.NotificationService notificationService;
 
   @BeforeEach
   void openSupportingWorkers() {
     stockWorker = OrderJobHandlers.openStockWorker(client);
+    notificationService = mock(OrderJobHandlers.NotificationService.class);
+    notificationWorker = OrderJobHandlers.openNotificationWorker(client, notificationService);
   }
 
   @AfterEach
   void closeWorkers() {
     stockWorker.close();
+    notificationWorker.close();
   }
 
   @Test
@@ -83,15 +91,13 @@ class OrderMockitoTest {
     processTestContext.mockJobWorker("order-audit").thenComplete();
     JobWorkerMock charge =
         processTestContext.mockJobWorker("charge-payment").thenThrowBpmnError("PAYMENT_FAILED");
-    JobWorkerMock notification =
-        processTestContext.mockJobWorker("notify-customer").thenComplete();
 
     ProcessInstanceEvent instance = startOrderAtApproval();
     processTestContext.completeUserTask("Task_Approve", Map.of("approved", true));
 
     assertThat(instance).isCompleted().hasCompletedElements("End_PaymentFailed");
     org.assertj.core.api.Assertions.assertThat(charge.getInvocations()).isEqualTo(1);
-    org.assertj.core.api.Assertions.assertThat(notification.getInvocations()).isEqualTo(1);
+    verify(notificationService).notifyPaymentFailed(anyMap());
   }
 
   @Test

@@ -19,7 +19,7 @@ MIGRATION_SKILL = (
     REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 )
 SHARED_ENGINE_REASON = (
-    "CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime."
+    "shared environment. Report only until the remote-engine migration procedure is defined."
 )
 TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
@@ -54,6 +54,7 @@ MIGRATE_LOWER_PRIORITY = "Migrate (lower priority)"
 MIGRATED_HANDLINGS = ("Migrate", MIGRATE_TO_CPT, MIGRATE_LOWER_PRIORITY)
 REPORT_ONLY_REASONS = {
     "scenario test": "scenario-test migration procedure is defined",
+    "remote-engine test": "remote-engine migration procedure is defined",
 }
 LEGACY_TEST_IDS = {
     "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
@@ -1205,10 +1206,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        for inventory_path, handling in (
-            (EXPECTED_ASSESSMENT, "Migrate (lower priority)"),
-            (EXPECTED_ASSESSMENT_88, "Report only"),
-        ):
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
             payment_test = next(
                 row
                 for row in markdown_table(inventory_path, headers)
@@ -1217,7 +1215,11 @@ class MigrationGuidanceTest(unittest.TestCase):
                 )
             )
             self.assertEqual("remote-engine test", payment_test["Test kind"])
-            self.assertEqual(handling, payment_test["Handling"])
+            self.assertEqual("Report only", payment_test["Handling"])
+            self.assertIn(
+                "remote-engine migration procedure is defined",
+                normalized(payment_test["Notes"]),
+            )
             if inventory_path == EXPECTED_ASSESSMENT_88:
                 self.assertIn(
                     "test migration needs camunda 8.9 or later",
@@ -1569,17 +1571,21 @@ class MigrationGuidanceTest(unittest.TestCase):
                 if other["Test kind"] == "remote-engine test":
                     other_notes = normalized(other["Notes"])
                     self.assertIn(version_reason, other_notes)
-                    if is_shared_engine_test:
-                        self.assertIn(normalized(SHARED_ENGINE_REASON), other_notes)
-                    else:
-                        self.assertNotIn(normalized(SHARED_ENGINE_REASON), other_notes)
-                    self.assertNotIn(
+                    self.assertIn(
                         normalized(
                             "Report only until the remote-engine migration "
                             "procedure is defined"
                         ),
                         other_notes,
                     )
+                    if is_shared_engine_test:
+                        self.assertIn(normalized(SHARED_ENGINE_REASON), other_notes)
+                        self.assertIn(
+                            "cpt deletes runtime data between tests",
+                            other_notes,
+                        )
+                    else:
+                        self.assertNotIn("shared environment", other_notes)
 
                 if row["Test kind"] == "manual redesign":
                     self.assertEqual(other["Handling"], "Report only")
@@ -1748,7 +1754,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertNotIn("source-derived `mocks` modifier", step_two)
         part_a = step_three.split("When the user selects Approach A", 1)[0]
         self.assertIn(
-            "the skill follows `references/test-migration.md` to map every test inventory row "
+            "the skill follows `references/test-migration.md` for every test inventory row "
             "whose `handling` value instructs migration, including process-test mocks.",
             normalized(part_a),
         )
@@ -1831,8 +1837,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("@Component", spring_worker)
         self.assertIn('@JobWorker(type = "activate-subscription")', spring_worker)
         self.assertIn(
-            "when a c7 test mocks a collaborator called by a real delegate, the skill checks "
-            "the mapped c8 worker.",
+            "when a c7 test mocks an expression service or a service used by a delegate or worker, "
+            "the skill checks the mapped c8 worker.",
             reference,
         )
         self.assertIn(
@@ -1893,8 +1899,9 @@ class MigrationGuidanceTest(unittest.TestCase):
         c7_notification_setup = java_method_body(c7_order_mock, "registerNotificationService")
         notification_test = java_method_body(c8_order_mock, "routesDelegateBpmnError")
         notification_setup = java_method_body(c8_order_mock, "openSupportingWorkers")
+        self.assertIn("notificationService = mock(NotificationService.class);", c7_order_mock)
         self.assertIn(
-            'Mocks.register("notificationService", mock(NotificationService.class))',
+            'Mocks.register("notificationService", notificationService)',
             c7_order_mock,
         )
         self.assertIn(
@@ -2120,14 +2127,6 @@ class MigrationGuidanceTest(unittest.TestCase):
                 expected_handling = "Migrate"
             elif test_kind == "scenario test":
                 expected_handling = MIGRATE_LOWER_PRIORITY
-            elif test_kind == "remote-engine test":
-                expected_handling = (
-                    MIGRATE_LOWER_PRIORITY
-                    if test_id.endswith(
-                        "PaymentWorkerIT#chargesPaymentThroughEngineRest"
-                    )
-                    else "Report only"
-                )
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -2144,7 +2143,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
                 shared_engine = (
                     test_kind == "remote-engine test"
-                    and normalized(SHARED_ENGINE_REASON) in normalized(row["Notes"])
+                    and "shared environment" in normalized(row["Notes"])
                 )
                 reason = (
                     normalized(SHARED_ENGINE_REASON)
@@ -2198,10 +2197,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine"
         )
         self.assertEqual(parity_by_id[shared_engine_test_id]["Verdict"], "manual")
-        self.assertEqual(
-            parity_by_id[shared_engine_test_id]["Notes"],
-            SHARED_ENGINE_REASON,
-        )
+        shared_engine_notes = normalized(parity_by_id[shared_engine_test_id]["Notes"])
+        self.assertIn(normalized(SHARED_ENGINE_REASON), shared_engine_notes)
+        self.assertIn("cpt deletes runtime data between tests", shared_engine_notes)
 
     def test_lower_priority_scenarios_require_valid_primary_parity_rows(self):
         test_id = (
@@ -2270,13 +2268,16 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(assessment=assessment_path):
                 self.assertIn(shared_engine_test_id, rows)
                 self.assertEqual(rows[shared_engine_test_id]["Handling"], "Report only")
-                expected_notes = "R2; {}".format(SHARED_ENGINE_REASON)
-                if assessment_path == EXPECTED_ASSESSMENT_88:
-                    expected_notes += " test migration needs Camunda 8.9 or later"
-                self.assertEqual(
-                    rows[shared_engine_test_id]["Notes"],
-                    expected_notes,
+                notes = normalized(rows[shared_engine_test_id]["Notes"])
+                self.assertTrue(
+                    notes.startswith(normalized("R2; {}".format(SHARED_ENGINE_REASON)))
                 )
+                self.assertIn("cpt deletes runtime data between tests", notes)
+                if assessment_path == EXPECTED_ASSESSMENT_88:
+                    self.assertIn(
+                        "test migration needs camunda 8.9 or later",
+                        notes,
+                    )
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
@@ -2733,7 +2734,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 "SharedEngineSmokeIT#readsConfiguredSharedEngine"
             )
         )
-        self.assertEqual("migrated", payment_test["Verdict"])
+        self.assertEqual("manual", payment_test["Verdict"])
         self.assertEqual("manual", shared_engine_test["Verdict"])
 
     def test_scenario_fixture_covers_retained_mockito_annotations(self):

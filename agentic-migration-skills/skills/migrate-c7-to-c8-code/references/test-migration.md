@@ -63,8 +63,7 @@ The skill applies the [Scenario-to-CPT mapping](#scenario-to-cpt-mapping) to tha
 
 Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone as evidence for the `mocks` modifier.
 
-The skill applies the mock-boundary and mapping rules to every in-scope test method with a detected
-component mock signal.
+The signal records source evidence. It does not override the Test Inventory's `Handling` value.
 The skill checks each test method and its class-level component mock declarations.
 The skill checks inherited and local setup and teardown methods.
 The skill checks helper methods called by these methods.
@@ -526,8 +525,7 @@ When a test needs a resource set that differs from the application's deployment,
 
 ## Workers and mocks
 
-The skill keeps each C7 test's mock boundary. The Test Parity record owns approved test and mock
-changes.
+The skill keeps each C7 test's mock boundary.
 
 When a C7 test mocks a service called by a delegate, the skill mocks the same service in the CPT
 test. The skill runs the real C8 worker.
@@ -542,8 +540,7 @@ The skill registers the mocked job worker before the test starts a process. The 
 same completion variables, BPMN error, or failure outcome as the C7 mock.
 
 If the C7 test ran a delegate for real, then the skill keeps the C8 worker real. The skill asks
-the user before it changes this boundary. The skill records each approved boundary change in the
-Test Parity record.
+the user before it changes this boundary.
 
 ```java
 processTestContext.mockJobWorker("ship-order").thenComplete();
@@ -591,14 +588,8 @@ to restore C8 process state.
 
 ## Test Parity record
 
-When the user approves a test or mock boundary change, the skill records it before changing the
-boundary in `MIGRATION_REPORT.md` at the project root.
-When `MIGRATION_REPORT.md` does not exist, the skill creates it.
-When `MIGRATION_REPORT.md` exists, the skill adds the Test Parity record and preserves its existing content.
-Record one row per approved change with these columns:
-
-| Test ID | C7 boundary | Approved C8 boundary | Approver | Reason |
-|---|---|---|---|---|
+See the [Parity ledger](#parity-ledger) for the authoritative record and approval contract.
+Do not maintain a separate approval table in `MIGRATION_REPORT.md`.
 
 ## Spring without Spring Boot
 
@@ -803,7 +794,12 @@ One valid schedule uses five 12-hour increments for a daily timer and `defer("P2
 
 ## Mock boundary
 
-Migrate every in-scope test that uses a supported C7 mock API to replace a component or collaborator.
+Where an in-scope test's `Handling` value instructs migration, the skill applies mock-boundary
+mappings.
+The skill also requires `mocks` in that row's `Signals` column.
+If the `Handling` value does not instruct migration, then the skill does not apply a mock mapping.
+A `mocks` signal alone does not qualify a `Report only` test for migration.
+
 When test source uses mock operations from `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`,
 or `camunda-bpm-mockito` (`org.camunda.bpm.extension.mockito`), the skill recognizes the APIs as
 equivalent C7 mock APIs.
@@ -889,12 +885,17 @@ camunda.client.worker.override.<job type>.enabled=false
 Add one override for every mocked job type. Otherwise, the real worker and mock can handle the same
 job.
 
-When the C7 test mocks a collaborator of a real delegate, the skill opens the matching non-Spring worker in `@BeforeEach`.
+When a C7 test mocks an expression service or a service used by a delegate or worker, the skill checks the mapped C8 worker.
+Where the mapped worker is not a Spring bean, the skill opens that worker in `@BeforeEach`.
 The test uses the injected CPT client:
 
 ```java
 client.newWorker().jobType(type).handler(handler).open();
 ```
+
+Where the mapped worker is a Spring bean, CPT starts it through the Spring process application's
+client-created event.
+The skill does not open a second worker.
 
 When a C7 test mocks a whole delegate or listener, the skill uses the matching CPT job mock.
 The skill does not open the real worker for that component.

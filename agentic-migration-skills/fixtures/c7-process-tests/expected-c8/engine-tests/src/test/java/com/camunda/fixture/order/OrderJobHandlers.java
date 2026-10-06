@@ -108,4 +108,21 @@ final class OrderJobHandlers {
             })
         .open();
   }
+
+  static JobWorker openNotificationWorker(
+      CamundaClient client, NotificationService notificationService) {
+    return client.newWorker()
+        .jobType("notify-customer")
+        .handler(
+            (jobClient, job) -> {
+              notificationService.notifyPaymentFailed(job.getVariablesAsMap());
+              jobClient.newCompleteCommand(job).send().join();
+            })
+        .open();
+  }
+
+  interface NotificationService {
+
+    void notifyPaymentFailed(Map<String, Object> variables);
+  }
 }

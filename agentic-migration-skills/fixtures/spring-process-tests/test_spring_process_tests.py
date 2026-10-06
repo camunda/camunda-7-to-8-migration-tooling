@@ -126,7 +126,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
         self.assertIn(
-            "The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.",
+            "The skill follows `references/test-migration.md` for every Test Inventory row whose `Handling` value instructs migration, including process-test mocks.",
             skill,
         )
 
@@ -410,18 +410,37 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                         user_task.get("id"),
                     )
 
-    def test_test_parity_record_has_a_location_format_and_creation_rule(self):
-        reference = " ".join(REFERENCE.read_text().split())
+    def test_test_parity_record_redirects_to_the_authoritative_ledger(self):
+        reference = REFERENCE.read_text()
+        normalized_reference = " ".join(reference.split()).lower()
+        test_parity_record = reference.split("## Test Parity record", 1)[1].split(
+            "## Spring without Spring Boot", 1
+        )[0]
+        parity_ledger = reference.split("## Parity ledger", 1)[1].split(
+            "## Build cleanup", 1
+        )[0]
 
         for required in (
-            "## Test Parity record",
-            "`MIGRATION_REPORT.md` at the project root",
-            "Create `MIGRATION_REPORT.md` when it does not exist",
-            "before changing the boundary",
-            "| Test ID | C7 boundary | Approved C8 boundary | Approver | Reason |",
+            "## test parity record",
+            "see the [parity ledger](#parity-ledger) for the authoritative record and approval contract.",
+            "## parity ledger",
+            "`mock_changes`",
+            "`cpt_test_id`",
+            "`approved_by`",
         ):
             with self.subTest(required=required):
-                self.assertIn(required, reference, msg=f"Missing {required!r}")
+                self.assertIn(required, normalized_reference, msg=f"Missing {required!r}")
+
+        self.assertIn("[Parity ledger](#parity-ledger)", test_parity_record)
+        self.assertIn("mock_changes", parity_ledger)
+        self.assertIn(
+            "Do not maintain a separate approval table in `MIGRATION_REPORT.md`.",
+            test_parity_record,
+        )
+        self.assertNotIn(
+            "| Test ID | C7 boundary | Approved C8 boundary | Approver | Reason |",
+            reference,
+        )
 
     def test_startup_hook_rules_preserve_each_original_action(self):
         reference = REFERENCE.read_text()

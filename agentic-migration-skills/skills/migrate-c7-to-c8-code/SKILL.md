@@ -375,7 +375,7 @@ When code migration includes Camunda Platform Scenario tests, follow
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
-The skill follows `references/test-migration.md` to map every Test Inventory row whose `Handling` value instructs migration, including process-test mocks.
+The skill follows `references/test-migration.md` for every Test Inventory row whose `Handling` value instructs migration, including process-test mocks.
 
 When the user selects Approach A, the skill runs this gate for every C7 JavaDelegate before
 `REWRITE_COMMAND`.

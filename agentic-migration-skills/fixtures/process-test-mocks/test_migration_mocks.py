@@ -382,7 +382,8 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertNotIn("source-derived `mocks` modifier", step_two)
         part_a = step_three.split("When the user selects Approach A", 1)[0]
         self.assertIn(
-            "the skill follows `references/test-migration.md` for cpt mapping",
+            "the skill follows `references/test-migration.md` for every test inventory row "
+            "whose `handling` value instructs migration, including process-test mocks.",
             " ".join(part_a.lower().split()),
         )
         for duplicated_rule in (
@@ -602,8 +603,13 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             normalized_guidance,
         )
         self.assertIn(
-            "when the c7 test mocks a collaborator of a real delegate, the skill opens the "
-            "matching non-spring worker in `@beforeeach`",
+            "when a c7 test mocks an expression service or a service used by a delegate or "
+            "worker, the skill checks the mapped c8 worker.",
+            normalized_guidance,
+        )
+        self.assertIn(
+            "where the mapped worker is not a spring bean, the skill opens that worker in "
+            "`@beforeeach`.",
             normalized_guidance,
         )
         self.assertIn(
