@@ -129,10 +129,10 @@ When a non-test Maven check needs packaging in `migrate_only`, use a standard li
 `-DskipTests`.
 The recorder accepts `-DskipTests` for standard Maven lifecycle phases and Surefire or Failsafe
 goals. It rejects other Maven test plugin goals.
-The recorder rejects non-empty `MAVEN_ARGS` because those arguments can add goals outside the
-submitted command.
-When Maven JVM or command-line options set `maven.test.skip=true`, the recorder rejects module
-`compile` evidence.
+The recorder rejects non-empty `MAVEN_ARGS` or `.mvn/maven.config` because either can add
+arguments outside the submitted command.
+When Maven JVM options, command-line options, or `.mvn/jvm.config` set `maven.test.skip=true`, the
+recorder rejects module `compile` evidence.
 The recorder unwraps simple `env` commands.
 If the recorder cannot inspect an executable or Maven goal, then it rejects the command.
 It accepts `npx bpmnlint` and `npx dmnlint` as non-test model checks.
@@ -140,8 +140,10 @@ It accepts `mvn spring-boot:run` as an application launch command.
 It accepts `java -jar <artifact>.jar` only for module `executable_jar` evidence.
 When a Gradle non-test check needs packaging, select a task whose dependency graph contains no
 test-capable tasks.
-The recorder inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks and
-test-named tasks.
+The recorder inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks.
+The recorder checks test-name suffixes on case-normalized task names.
+The recorder exempts Spring Boot's `BootRun` task only for module `spring_boot_run` evidence.
+The recorder still rejects every other test-capable task.
 When no test-capable task remains after the supplied exclusions, the recorder allows `build` or
 `check`.
 If a test-capable task remains, then the recorder rejects the command before it runs.

@@ -727,7 +727,19 @@ class MigrationGuidanceTest(unittest.TestCase):
             "with `-DskipTests`.",
             test_migration,
         )
-        self.assertIn("| Maven | Non-empty `MAVEN_ARGS` |", test_migration)
+        self.assertIn(
+            "| Maven | Non-empty `MAVEN_ARGS` or `.mvn/maven.config` |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Maven | JVM options, command-line options, or `.mvn/jvm.config` "
+            "set `maven.test.skip=true` |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence |",
+            test_migration,
+        )
         self.assertRegex(
             test_migration,
             r"snapshot\. \(MAY\)\s+Never rebuild the baseline from migrated code\.",
@@ -738,6 +750,17 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("It rejects other Maven test plugin goals.", validation_evidence)
         self.assertIn(
             "inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks",
+            validation_evidence,
+        )
+        self.assertIn(
+            "checks test-name suffixes on case-normalized task names",
+            validation_evidence,
+        )
+        self.assertIn("`.mvn/maven.config`", validation_evidence)
+        self.assertIn("`.mvn/jvm.config`", validation_evidence)
+        self.assertIn(
+            "The recorder exempts Spring Boot's `BootRun` task only for module "
+            "`spring_boot_run` evidence.",
             validation_evidence,
         )
         self.assertIn(
@@ -815,6 +838,80 @@ class MigrationGuidanceTest(unittest.TestCase):
             "c7-source/pom.xml -pl engine-tests test",
             report,
         )
+        deferred_suite_commands = (
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests-legacy --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c8-migrated -- mvn -pl engine-tests -Dtest=FulfillmentScenarioTest,ScenarioMappingEdgeCasesTest test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl spring-boot-app test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c8-migrated -- mvn -pl spring-boot-app test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl remote-engine verify',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target remote-engine --kind tests --scenario remote-engine-c8-migrated -- mvn -pl remote-engine verify',
+        )
+        for command in deferred_suite_commands:
+            with self.subTest(command=command):
+                self.assertIn(command, report)
+
+        deferred_process_commands = (
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target 'engine-tests/src/main/resources/converted-c8-order.bpmn#order' "
+            "--kind process_path --scenario normal --environment local -- "
+            "mvn -pl engine-tests '-Dtest=OrderProcessTest#approvesAndShipsOrder' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target 'engine-tests/src/main/resources/converted-c8-shipping.bpmn#shipping' "
+            "--kind process_path "
+            "--scenario 'engine-tests:com.camunda.fixture.order.OrderProcessTest#approvesAndShipsOrder' "
+            "--environment local -- mvn -pl engine-tests "
+            "'-Dtest=OrderProcessTest#approvesAndShipsOrder' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target "
+            "'engine-tests/src/main/resources/converted-c8-LegacyOrderTest.testStockMissing.bpmn#legacyOrder' "
+            "--kind process_path --scenario testStockMissing --environment local -- "
+            "mvn -pl engine-tests '-Dtest=LegacyOrderTest#testStockMissing' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target 'engine-tests/src/main/resources/converted-c8-fulfillment.bpmn#fulfillment' "
+            "--kind process_path --scenario normal --environment local -- "
+            "mvn -pl engine-tests "
+            "'-Dtest=FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target "
+            "'engine-tests/src/main/resources/converted-c8-review-edge-cases.bpmn#MessageStartReview' "
+            "--kind process_path --scenario shouldStartMessageProcess --environment local -- "
+            "mvn -pl engine-tests "
+            "'-Dtest=ScenarioMappingEdgeCasesTest#shouldStartMessageProcess' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target "
+            "'engine-tests/src/main/resources/converted-c8-review-edge-cases.bpmn#MixedFinishReview' "
+            "--kind process_path --scenario shouldCountMixedFinishedVisitsByOutcome "
+            "--environment local -- mvn -pl engine-tests "
+            "'-Dtest=ScenarioMappingEdgeCasesTest#shouldCountMixedFinishedVisitsByOutcome' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target "
+            "'spring-boot-app/src/main/resources/converted-c8-subscription.bpmn#subscription' "
+            "--kind process_path --scenario normal --environment local -- mvn -pl spring-boot-app "
+            "'-Dtest=SubscriptionProcessTest#activatesSubscription' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target "
+            "'spring-boot-app/src/main/resources/converted-c8-housekeeping.bpmn#housekeeping' "
+            "--kind process_path --scenario normal --environment local -- mvn -pl spring-boot-app "
+            "'-Dtest=HousekeepingStartupTest#startsHousekeepingOnDeployment' test",
+            "python3 "
+            '"<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run '
+            "--type process --target 'remote-engine/src/main/resources/converted-c8-payment.bpmn#payment' "
+            "--kind process_path --scenario normal --environment local -- "
+            "mvn -pl remote-engine -Dit.test=PaymentWorkerIT verify",
+        )
+        for command in deferred_process_commands:
+            with self.subTest(command=command):
+                self.assertIn(command, report)
         self.assertIn("test_run_mode", report)
         self.assertIn("unit-c7-baseline", report)
         self.assertIn("unit-c8-migrated", report)

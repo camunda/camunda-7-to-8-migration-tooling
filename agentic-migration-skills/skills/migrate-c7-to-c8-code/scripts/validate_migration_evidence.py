@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -183,12 +184,8 @@ def _unwrap_env_command(command):
 
 
 def _maven_skips_test_compilation(environment, command=None):
-    skip_property = re.compile(
-        r"""(?<!\S)['"]?-Dmaven\.test\.skip=(?:true|1|yes)['"]?(?=\s|$)""",
-        flags=re.IGNORECASE,
-    )
     skips_test_compilation = any(
-        skip_property.search(environment.get(name, ""))
+        _maven_option_skips_test_compilation(environment.get(name, ""))
         for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")
     )
     if command is not None:
@@ -233,6 +230,56 @@ def _maven_command_details(command):
         arguments.append(argument.casefold())
         index += 1
     return arguments, skip_tests, skip_test_compilation
+
+
+def _maven_option_skips_test_compilation(options, comments=False):
+    try:
+        option_arguments = shlex.split(options, comments=comments)
+    except ValueError as exc:
+        raise EvidenceError("Question 8 could not inspect Maven options") from exc
+    _, _, skip_test_compilation = _maven_command_details(["mvn", *option_arguments])
+    return skip_test_compilation
+
+
+def _read_maven_project_configuration(root, filename):
+    relative_path = Path(".mvn") / filename
+    path = project_path(
+        root,
+        relative_path.as_posix(),
+        "Maven project configuration",
+    )
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError) as exc:
+        raise EvidenceError(
+            f"Question 8 could not inspect Maven project configuration {relative_path}: {exc}"
+        ) from exc
+
+
+def _maven_project_jvm_config_skips_test_compilation(root):
+    options = _read_maven_project_configuration(root, "jvm.config")
+    if options is None:
+        return False
+    try:
+        return _maven_option_skips_test_compilation(options, comments=True)
+    except EvidenceError as exc:
+        raise EvidenceError(
+            "Question 8 cannot inspect Maven project configuration in `.mvn/jvm.config`"
+        ) from exc
+
+
+def _maven_project_maven_config_has_arguments(root):
+    options = _read_maven_project_configuration(root, "maven.config")
+    if options is None:
+        return False
+    try:
+        return bool(shlex.split(options, comments=True))
+    except ValueError as exc:
+        raise EvidenceError(
+            "Question 8 cannot inspect Maven project arguments in `.mvn/maven.config`"
+        ) from exc
 
 
 def _gradle_command_details(command):
@@ -385,22 +432,34 @@ def command_compiles_test_sources(command):
     return False
 
 
-def inspect_gradle_test_tasks(command, root, timeout):
+def inspect_gradle_test_tasks(command, root, timeout, allow_spring_boot_run=False):
     init_script = f"""
+def allowSpringBootRun = {str(allow_spring_boot_run).lower()}
 gradle.taskGraph.whenReady {{ graph ->
     println("{GRADLE_TASK_GRAPH_BEGIN}")
     graph.allTasks.findAll {{ task ->
         def taskName = task.name.toLowerCase()
+        def taskTypeNames = []
+        def taskType = task.class
+        while (taskType != null) {{
+            taskTypeNames.add(taskType.name)
+            taskType = taskType.superclass
+        }}
+        def supportedSpringBootRun =
+            allowSpringBootRun
+            && taskName == "bootrun"
+            && taskTypeNames.contains("org.springframework.boot.gradle.tasks.run.BootRun")
         def testNamed = (
             (taskName.startsWith("test")
                 && !(taskName in ["testclasses", "testfixturesclasses"]))
-            || task.name.endsWith("Test")
-            || task.name.endsWith("Tests")
+            || taskName.endsWith("test")
+            || taskName.endsWith("tests")
             || taskName.matches(".*[-_.]tests?$")
         )
         task instanceof org.gradle.api.tasks.testing.Test
-            || task instanceof org.gradle.api.tasks.JavaExec
-            || task instanceof org.gradle.api.tasks.Exec
+            || ((task instanceof org.gradle.api.tasks.JavaExec
+                || task instanceof org.gradle.api.tasks.Exec)
+                && !supportedSpringBootRun)
             || testNamed
     }}.each {{ task ->
         println("{GRADLE_TASK_GRAPH_TEST}" + task.path)
@@ -2114,6 +2173,13 @@ def record(root, args):
                 raise EvidenceError(
                     f"{key}: Question 8 does not accept Gradle dry-run output as check evidence"
                 )
+            if (
+                executable in MAVEN_EXECUTABLES
+                and _maven_project_maven_config_has_arguments(root)
+            ):
+                raise EvidenceError(
+                    f"{key}: Question 8 cannot inspect Maven project arguments in `.mvn/maven.config`"
+                )
             test_execution = command_runs_test_suite(command, key=key)
             if test_execution is True:
                 raise EvidenceError(
@@ -2127,7 +2193,10 @@ def record(root, args):
                 key[0] == "module"
                 and key[2] == "compile"
                 and executable in MAVEN_EXECUTABLES
-                and _maven_skips_test_compilation(command_environment, direct_command)
+                and (
+                    _maven_skips_test_compilation(command_environment, direct_command)
+                    or _maven_project_jvm_config_skips_test_compilation(root)
+                )
             ):
                 raise EvidenceError(
                     f"{key}: Question 8 Maven options skip test-source compilation"
@@ -2145,6 +2214,9 @@ def record(root, args):
                     command,
                     root,
                     args.timeout,
+                    allow_spring_boot_run=(
+                        key[0] == "module" and key[2] == "spring_boot_run"
+                    ),
                 )
                 if remaining_test_capable_tasks:
                     task_list = ", ".join(remaining_test_capable_tasks[:10])

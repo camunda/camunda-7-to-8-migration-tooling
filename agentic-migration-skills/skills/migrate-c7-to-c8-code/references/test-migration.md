@@ -322,17 +322,19 @@ regardless of evidence kind:
 | Maven | Another plugin's `:test` or `:integration-test` goal, even with `-DskipTests` | Reject the goal because the plugin may ignore that property. |
 | Maven | An unknown lifecycle phase or plugin goal | If the recorder cannot establish its test behavior, then reject the command. |
 | Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
-| Maven | Non-empty `MAVEN_ARGS` | Reject the command because these arguments can add goals that the recorder cannot inspect. |
-| Maven | JVM options or command-line options set `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
+| Maven | Non-empty `MAVEN_ARGS` or `.mvn/maven.config` | Reject the command because these arguments can add goals that the recorder cannot inspect. |
+| Maven | JVM options, command-line options, or `.mvn/jvm.config` set `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
 | Maven | `spring-boot:run` | Allow the documented application-launch goal. |
 | Java | `java -jar <artifact>.jar` for module `executable_jar` evidence | Allow the documented packaged-application launch command. |
 | Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from the task graph. |
 | Gradle | `build` or `check` | When no test-capable task remains in the dry-run graph, the recorder allows the command. |
+| Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence | Exclude only Spring Boot's `BootRun` task from test-capable task detection. Continue to reject every other executable or test-named task. |
 | Gradle | A test-capable task remains after exclusions | Reject the command before execution. |
 | Either | A test lifecycle goal or task without an applicable skip option | Reject the command. |
 
-The recorder treats every Gradle `JavaExec` and `Exec` task as test-capable. It also treats a
-test-named task as test-capable.
+The recorder treats each Gradle `JavaExec` and `Exec` task as test-capable.
+The recorder exempts Spring Boot's `BootRun` task only for module `spring_boot_run` evidence.
+The recorder also treats case-normalized test-named tasks as test-capable.
 When the recorder receives module `compile` evidence, it requires successful test-source
 compilation.
 Maven `test-compile` qualifies.
@@ -377,8 +379,11 @@ verdict is `needs review`, not `blocked`. Follow `references/project-readiness.m
 ## Verification Plan for a Deferred Test Run
 
 When the user selects **Migrate tests only**, add a **Verify the test migration** section to
-`MIGRATION_REPORT.md`. List concrete commands from the Test Inventory and the project documentation
-and CI inventory. Record the actual baseline commit or filesystem snapshot path in the report.
+`MIGRATION_REPORT.md`. List the C7 baseline and C8 migrated recorder command for every declared
+module suite. List the recorder command for every deferred Step 4 `process_path` scenario.
+Use commands from the Test Inventory, project documentation, and CI inventory. Do not replace a
+declared command with an example. Record the actual baseline commit or filesystem snapshot path in
+the report.
 Replace each placeholder below with the actual baseline, worktree path, and module commands:
 
 1. When the project root is a Git repository, create a separate worktree from the recorded Step 2

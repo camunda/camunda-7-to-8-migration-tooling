@@ -623,6 +623,59 @@ class ValidationEvidenceTest(unittest.TestCase):
                         self.submit(compile_key, command=command_args)
                     command.assert_not_called()
 
+    def test_migrate_only_rejects_maven_project_jvm_config_skipping_test_compilation(self):
+        compile_key = ("module", "app", "compile", None)
+        config_path = self.root / ".mvn" / "jvm.config"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        for options in (
+            "-Dmaven.test.skip=true\n",
+            "-Dmaven.test.skip=1\n",
+            "-Dmaven.test.skip=yes\n",
+            "-Dmaven.test.skip\n",
+        ):
+            with self.subTest(options=options):
+                config_path.write_text(options, encoding="utf-8")
+                self.write_scope(test_run_mode="migrate_only")
+                command_args = ["mvn", "-pl", "app", "test-compile"]
+                with patch.object(gate.subprocess, "run") as command:
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "Maven options skip test-source compilation",
+                        ):
+                            self.submit(compile_key, command=command_args)
+                command.assert_not_called()
+
+    def test_migrate_only_rejects_uninspectable_maven_project_jvm_config(self):
+        self.write_scope(test_run_mode="migrate_only")
+        config_path = self.root / ".mvn" / "jvm.config"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text('-Dmaven.test.skip="true', encoding="utf-8")
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        with patch.object(gate.subprocess, "run") as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "cannot inspect Maven project configuration",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_not_called()
+
+    def test_migrate_only_rejects_maven_goals_from_project_configuration(self):
+        self.write_scope(test_run_mode="migrate_only")
+        config_path = self.root / ".mvn" / "maven.config"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text("test\n", encoding="utf-8")
+        command_args = ["mvn", "-pl", "app", "package", "-DskipTests"]
+        with patch.object(gate.subprocess, "run") as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "cannot inspect Maven project arguments",
+            ):
+                self.submit(
+                        ("model", "models/converted-c8-process.bpmn", "lint", None),
+                        command=command_args,
+                )
+        command.assert_not_called()
+
     def test_migrate_only_rejects_inherited_maven_args(self):
         self.write_scope(test_run_mode="migrate_only")
         command_args = ["mvn", "package", "-DskipTests"]
@@ -739,10 +792,140 @@ class ValidationEvidenceTest(unittest.TestCase):
                     inspection_script = script_path.read_text(encoding="utf-8")
                     self.assertIn(f"task instanceof {task_type}", inspection_script)
                     self.assertIn("task.name.toLowerCase()", inspection_script)
+                    self.assertIn('taskName.endsWith("test")', inspection_script)
+                    self.assertIn('taskName.endsWith("tests")', inspection_script)
+                    self.assertNotIn("task.name.endsWith", inspection_script)
                     return subprocess.CompletedProcess(command, 0, graph_output)
 
                 with patch.object(gate.subprocess, "run", side_effect=run) as command:
                     with self.assertRaisesRegex(gate.EvidenceError, "Gradle .*tasks remain"):
+                        self.submit(lint_key, command=command_args)
+                command.assert_called_once()
+
+    def test_migrate_only_allows_spring_boot_bootrun_only_for_runtime_evidence(self):
+        command_args = ["gradle", "bootRun"]
+        spring_boot_key = ("module", "app", "spring_boot_run", None)
+        graph_markers = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+
+        def allow_boot_run(command, **kwargs):
+            if "--dry-run" in command:
+                script_path = Path(command[command.index("--init-script") + 1])
+                inspection_script = script_path.read_text(encoding="utf-8")
+                self.assertIn("allowSpringBootRun = true", inspection_script)
+                self.assertIn(
+                    "org.springframework.boot.gradle.tasks.run.BootRun",
+                    inspection_script,
+                )
+                return subprocess.CompletedProcess(command, 0, graph_markers)
+            return subprocess.CompletedProcess(command, 0, "application started")
+
+        with patch.object(gate.subprocess, "run", side_effect=allow_boot_run) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    spring_boot_key,
+                    command=command_args,
+                    environment="local",
+                ),
+            )
+        self.assertEqual(2, command.call_count)
+
+        custom_task_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_TASK__:app:launchFixture\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def keep_custom_executable_blocked(command, **kwargs):
+            if "--dry-run" in command:
+                script_path = Path(command[command.index("--init-script") + 1])
+                self.assertIn(
+                    "allowSpringBootRun = true",
+                    script_path.read_text(encoding="utf-8"),
+                )
+                return subprocess.CompletedProcess(command, 0, custom_task_output)
+            self.fail("The application command must not run with an uninspected executable task")
+
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=keep_custom_executable_blocked,
+        ) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "app:launchFixture"):
+                self.submit(
+                    spring_boot_key,
+                    command=command_args,
+                    environment="local",
+                )
+        command.assert_called_once()
+
+        self.plan["modules"][0]["runtime_mode"] = "none"
+        self.write_scope(test_run_mode="migrate_only")
+        boot_run_task_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_TASK__:app:bootRun\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def keep_boot_run_blocked_for_other_evidence(command, **kwargs):
+            if "--dry-run" in command:
+                script_path = Path(command[command.index("--init-script") + 1])
+                self.assertIn(
+                    "allowSpringBootRun = false",
+                    script_path.read_text(encoding="utf-8"),
+                )
+                return subprocess.CompletedProcess(command, 0, boot_run_task_output)
+            self.fail("The application launch command must not run for a model lint check")
+
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=keep_boot_run_blocked_for_other_evidence,
+        ) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "app:bootRun"):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        command.assert_called_once()
+
+    def test_migrate_only_gradle_inspection_catches_case_normalized_test_suffixes(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
+        command_args = ["gradle", "check", "-x", "test"]
+        for task_name in (
+            "integrationtest",
+            "integrationtests",
+            "integrationTest",
+            "integrationTests",
+        ):
+            with self.subTest(task_name=task_name):
+                self.write_scope(test_run_mode="migrate_only")
+                graph_output = (
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+                    f"__CAMUNDA_MIGRATION_TEST_TASK__:app:{task_name}\n"
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+                )
+
+                def run(command, **kwargs):
+                    if "--dry-run" in command:
+                        script_path = Path(command[command.index("--init-script") + 1])
+                        inspection_script = script_path.read_text(encoding="utf-8")
+                        self.assertIn("task.name.toLowerCase()", inspection_script)
+                        self.assertIn('taskName.endsWith("test")', inspection_script)
+                        self.assertIn('taskName.endsWith("tests")', inspection_script)
+                        return subprocess.CompletedProcess(command, 0, graph_output)
+                    self.fail("The aggregate command must not run while a test-named task remains")
+
+                with patch.object(gate.subprocess, "run", side_effect=run) as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        f"Gradle test-capable tasks remain in the task graph: app:{task_name}",
+                    ):
                         self.submit(lint_key, command=command_args)
                 command.assert_called_once()
 
