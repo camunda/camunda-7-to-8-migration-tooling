@@ -7,7 +7,7 @@
 # http://www.camunda.org/license/
 Feature: Candidate test discovery
 
-  Scenario: WithoutEngineExecution
+  Scenario: Without engine execution
     Given no process is started
 
   Scenario Outline: MultipleExampleRows

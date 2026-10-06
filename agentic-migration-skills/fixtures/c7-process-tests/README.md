@@ -1,10 +1,10 @@
 # Camunda 7 process-test migration fixture
 
 This fixture contains a synthetic Camunda 7.24.0 project and its expected
-Camunda 8.9.21 migration. The fixture covers embedded engine tests, Spring
-Boot tests, DMN decisions, mocks, Camunda Platform Scenario, and remote-engine
-tests. It also records tests that need manual redesign or are outside process
-test migration.
+Camunda 8.9.21 migration. The fixture covers embedded engine tests, Spring Boot tests, DMN decisions,
+mocks, Camunda Platform Scenario, remote-engine tests, and JGiven classification.
+It also exercises inherited, Spock, and Cucumber inventory discovery.
+It records tests that need manual redesign or are outside process-test migration.
 
 ## Run the fixture
 
@@ -38,9 +38,8 @@ Start each walkthrough from a fresh copy of `c7-source`.
 | W6 | Delete every `src/test` directory from the copy. Choose **Code + models** and stop after the Step 2 Summary. | The inventory has no in-scope tests. The skill does not ask Question 8. |
 | W7 | Start from the result of W3. Apply each negative change separately, rerun the recorded checks, then rerun the gate. | N1, N2, and N3 produce the results in the table below. |
 
-When E1 and E2 have `Report only` or manual-migration handling, do not treat
-them as migrated or frozen. Use the supported Spring S1 test for the N1-N3
-parity, freeze, and mock-boundary checks.
+E1 and E2 have migrated CPT equivalents. Use the supported Spring S1 test for
+the N1-N3 parity, freeze, and mock-boundary checks.
 
 ## Negative cases
 

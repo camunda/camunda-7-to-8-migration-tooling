@@ -56,7 +56,7 @@
 | decision test | 7 |
 | scenario test | 8 |
 | remote-engine test | 2 |
-| manual migration | 1 |
+| manual migration | 2 |
 | manual redesign | 1 |
-| out of scope | 11 |
+| out of scope | 12 |
 | out of scope (Camunda 8) | 0 |

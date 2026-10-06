@@ -319,12 +319,13 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertIn("mocked `RuntimeService`", rows[-1][2])
         self.assertEqual(rows[3][3], "Migrate (lower priority)")
         self.assertEqual(rows[4][3], "Report only")
-        self.assertEqual(rows[5][3], "Report only")
+        self.assertEqual(rows[5][3], "Migrate")
         self.assertEqual(rows[6][3], "Migrate to CPT")
         self.assertIn(
-            "If the separate DMN migration work in #3203 is incomplete, then the skill keeps decision tests at `Report only`.",
+            "When the target is Camunda 8.9 or later, the skill migrates every test with test kind `decision test`.",
             normalized_reference,
         )
+        self.assertIn("Decision-test migration", REFERENCE.read_text())
         self.assertIn(
             "| Migrate to CPT | Report only |",
             normalized_reference,

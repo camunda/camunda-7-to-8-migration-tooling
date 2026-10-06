@@ -76,19 +76,84 @@ When a discovered test has `Report only` or out-of-scope handling, the skill kee
 
 When a JGiven test does not execute a real C7 process or decision, the skill assigns the out-of-scope test kind.
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
-If the application has no usable worker bootstrap, then the skill sets the test's handling to `Report only`.
 
-## Decision-test handling
+## Decision-test migration
 
-If the separate DMN migration work in #3203 is incomplete, then the skill keeps decision tests at `Report only`.
-Inventory each decision test and record the reason for its `Report only` handling.
+When the target is Camunda 8.9 or later, the skill migrates every test with test kind `decision test`.
+The skill keeps a decision test distinct from a process test.
 A process test that checks a business rule task remains a process test.
+Add `assertThatDecision(DecisionSelectors.byId("dish", processInstanceKey))` to a process test without changing its test kind. (MAY)
+Decision mocks use the mock subtask's `mockDmnDecision` rules.
 
-DMN test conversion is outside this process-test scope.
+### Harness and evaluation mapping
 
+| Camunda 7 | Camunda 8.9 with CPT | Notes |
+|---|---|---|
+| `@Rule DmnEngineRule` or `DmnEngine` built with `DmnEngineConfiguration` | `@CamundaProcessTest` with an injected `CamundaClient` | Camunda 7 evaluates DMN in process. CPT needs a Camunda 8 runtime. |
+| A Spring test that injects `DecisionService` | `@SpringBootTest` with `@CamundaSpringProcessTest` and an injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
+| `dmnEngine.parseDecision("dish", stream)`, `parseDecisions(stream)`, or `@Deployment(resources = "dish.dmn")` | `@TestDeployment(resources = "converted-c8-dish.dmn")` | Deploy the converted DMN copy. A DRD deploys as one resource. |
+| `dmnEngine.evaluateDecisionTable(decision, vars)`, `evaluateDecision(decision, vars)`, `DecisionService.evaluateDecisionByKey("dish").variables(vars).evaluate()`, or `evaluateDecisionTableByKey("dish", vars)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | The Camunda 8 command evaluates required decisions automatically. |
+| `Variables.putValue("a", 1).putValue("b", "x")` | A `Map<String, Object>` | The skill keeps the same logical inputs. Camunda 8 serializes map values as JSON. Where a Camunda 7 value is a `Date` or typed value, the skill checks that the converted DMN reads its JSON representation as intended. The skill does not assume the Java type survives serialization. |
+| `result.getSingleResult().getSingleEntry()` or `result.getSingleEntry()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(value)` | Use for one output column and one result. |
+| `result.getSingleResult().getEntry("a")` or `getEntryMap()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected outputs. |
+| `result.collectEntries("x")` with hit policy `COLLECT` | The skill parses `response.getDecisionOutput()` as a list of scalar values for one output column, or a list of maps keyed by output name for multiple output columns. The skill selects values by output name and compares rows without relying on their order. | Camunda 8 returns `COLLECT` results in arbitrary order. |
+| `result.collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | The order is defined by the hit policy. |
+| `result.isEmpty()` or `getSingleResult()` returns `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).hasNoMatchedRules()` | |
+| Matched-rule checks through `HistoricDecisionInstance` | `hasMatchedRules(int...)` or `hasNotMatchedRules(int...)` | When the expected rule numbers are a subset of the matched rules, `hasMatchedRules` passes. |
+| An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | The skill checks `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for this response. |
 
+The skill reads the hit policy and output columns from the converted DMN copy before choosing an assertion.
+When the skill checks a map, it uses the output names from the converted DMN copy.
+The skill preserves exact checks as exact and order-insensitive checks as order-insensitive.
+If the converted decision uses an output shape not listed here, then the skill parses `response.getDecisionOutput()` and checks its actual JSON shape.
+The skill does not guess an output shape from the Camunda 7 Java result type.
+The skill never uses `hasOutput(List)` for a `COLLECT` decision.
 
+### Nullable inputs and failures
 
+The skill keeps every input key whose Camunda 7 value is `null`.
+The skill builds nullable decision variables with a mutable map, such as `HashMap`.
+The skill never uses `Map.of` for a decision variable map that contains `null`.
+The skill distinguishes an explicit `null` input from an omitted input.
+The skill uses a null-tolerant map or list for an expected output that contains `null`.
+The skill never uses `Map.of` or `List.of` to build an expected output that contains `null`.
+`Map.of` rejects null values. `List.of` rejects null elements.
+If the target decision treats those inputs differently from Camunda 7, then the skill records the difference for review instead of dropping the input or adding a default.
+
+When Camunda 7 throws an exception for a decision evaluation, the skill checks the returned Camunda 8 response.
+The skill checks `getFailureMessage()` and `getFailedDecisionId()` for a failed Camunda 8 evaluation.
+The skill does not expect a Camunda 8 evaluation failure to throw.
+
+When a migrated decision test fails, the skill checks the converted DMN findings report.
+The skill links the failure to a relevant finding in `MIGRATION_REPORT.md`.
+The skill changes the DMN copy only through the normal model-editing rules.
+The skill does not change the Diagram Converter.
+
+### Build changes
+
+| Dependency use | Camunda 7 artifact | Camunda 8 test artifact |
+|---|---|---|
+| Standalone DMN tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` and `org.camunda.bpm.dmn:camunda-engine-feel-*` artifacts. | Add `io.camunda:camunda-process-test-java` in test scope. |
+| Spring decision tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn` engine and FEEL artifacts. | Use the CPT Spring artifact that matches the production Spring Boot starter. Use `camunda-process-test-spring` with Spring Boot 4 or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. |
+| Process engine used only by tests | When tests are its only users, the skill removes the test-scoped Camunda 7 engine. | Use the CPT artifact for the selected test harness. |
+
+The skill inventories each dependency before removal.
+When production code uses an artifact, the skill keeps it.
+When a production dependency has no Camunda 8 equivalent, the skill records a required redesign.
+
+Standalone Camunda 7 DMN tests run with an in-process engine.
+The migrated CPT tests need a Camunda 8 runtime.
+CPT uses Docker by default and supports a configured remote runtime.
+When the skill asks Question 8, the skill follows its DMN runtime notice in `interview-questions.md`.
+
+### Limitations
+
+| Source behavior | Handling |
+|---|---|
+| Camunda 7 DMN engine plugins or custom function providers | Manual redesign |
+| Camunda 7 decision table with hit policy `PRIORITY` | Manual redesign. Camunda 8.9 does not support `PRIORITY`. |
+| Camunda 7 decision table with hit policy `OUTPUT ORDER` | Manual redesign. Camunda 8.9 does not support `OUTPUT ORDER`. |
+| Decision-history assertions beyond matched rules and outputs | Report only |
 
 ## Scope confirmation
 

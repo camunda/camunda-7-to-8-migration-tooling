@@ -12,7 +12,7 @@ package com.camunda.fixture.order
 import spock.lang.Specification
 
 class InventoryDiscoverySpec extends Specification {
-  def featureWithoutEngine() {
+  def "feature without engine"() {
     expect:
     true
   }

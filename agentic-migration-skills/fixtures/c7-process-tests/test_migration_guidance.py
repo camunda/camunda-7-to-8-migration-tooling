@@ -43,10 +43,11 @@ METHOD_RE = re.compile(
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
 TEST_ID_RE = re.compile(r"[\w./-]+:[\w.$/-]+#[\w.$/@-]+")
 GROOVY_FEATURE_METHOD_RE = re.compile(
-    r"(?m)^\s*def\s+([A-Za-z_$][\w$]*)\s*\("
+    r"(?m)^\s*def\s+(?:(?P<identifier>[A-Za-z_$][\w$]*)|"
+    r"(?P<quote>[\"'])(?P<quoted>(?:\\.|(?!(?P=quote)).)+)(?P=quote))\s*\("
 )
 CUCUMBER_SCENARIO_RE = re.compile(
-    r"^\s*Scenario(?: Outline)?:\s*([A-Za-z0-9_$.-]+)\s*$"
+    r"^\s*Scenario(?: Outline)?:\s*(\S(?:.*\S)?)\s*$"
 )
 CUCUMBER_EXAMPLE_ROW_RE = re.compile(r"^\s*\|[^|]+\|")
 TEST_KINDS = (
@@ -229,7 +230,11 @@ def test_method_ids(project_root):
                     class_match.group("name"),
                 )
                 ids.update(
-                    "{}:{}#{}".format(module_name, class_name, method.group(1))
+                    "{}:{}#{}".format(
+                        module_name,
+                        class_name,
+                        method.group("identifier") or method.group("quoted"),
+                    )
                     for method in GROOVY_FEATURE_METHOD_RE.finditer(source)
                 )
 
@@ -764,6 +769,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "InheritedInventoryOneTest",
             "InheritedInventoryTwoTest",
             "InventoryDiscoverySpec",
+            "JGivenEngineBackedTest",
+            "JGivenNoEngineTest",
         }
         actual_test_classes = {
             test_id.split("#", 1)[0].rsplit(".", 1)[-1]
@@ -784,6 +791,45 @@ class MigrationGuidanceTest(unittest.TestCase):
             "the skill assigns the out-of-scope test kind.",
             reference,
         )
+        engine_test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "JGivenEngineBackedTest#startsProcess"
+        )
+        no_engine_test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "JGivenNoEngineTest#runsPlainUnitTest"
+        )
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(
+                inventory_path,
+                ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+            )
+            inventory_by_id = {row["Test ID"]: row for row in rows}
+            engine_row = inventory_by_id[engine_test_id]
+            self.assertEqual("manual migration", engine_row["Test kind"])
+            self.assertEqual("Report only", engine_row["Handling"])
+            self.assertIn("jgiven", normalized(engine_row["Signals"]))
+
+            no_engine_row = inventory_by_id[no_engine_test_id]
+            self.assertEqual("out of scope", no_engine_row["Test kind"])
+            self.assertEqual("Not part of test migration", no_engine_row["Handling"])
+            self.assertIn("jgiven", normalized(no_engine_row["Signals"]))
+
+        engine_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "JGivenEngineBackedTest.java"
+        ).read_text(encoding="utf-8")
+        no_engine_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "JGivenNoEngineTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("ScenarioTest<", engine_source)
+        self.assertIn("startProcessInstanceByKey", engine_source)
+        self.assertIn("ScenarioTest<", no_engine_source)
+        self.assertNotIn("ProcessEngine", no_engine_source)
+        self.assertNotIn("startProcessInstanceByKey", no_engine_source)
 
         parity = markdown_table(
             EXPECTED_PARITY,
@@ -835,8 +881,10 @@ class MigrationGuidanceTest(unittest.TestCase):
             "engine-tests:com.camunda.fixture.order.LegacyOrderTest#testStockMissing",
             "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp",
             "engine-tests:com.camunda.fixture.order.PromotionsDecisionTest#evaluatesRequiredDecision",
-            "engine-tests:com.camunda.fixture.order.InventoryDiscoverySpec#featureWithoutEngine",
-            "engine-tests:src/test/resources/features/CandidateDiscovery.feature#WithoutEngineExecution@L10",
+            "engine-tests:com.camunda.fixture.order.InventoryDiscoverySpec#feature without engine",
+            "engine-tests:src/test/resources/features/CandidateDiscovery.feature#Without engine execution@L10",
+            "engine-tests:com.camunda.fixture.order.JGivenEngineBackedTest#startsProcess",
+            "engine-tests:com.camunda.fixture.order.JGivenNoEngineTest#runsPlainUnitTest",
         ):
             with self.subTest(test_id=test_id):
                 self.assertIn(test_id, test_ids)
@@ -2052,7 +2100,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             if test_kind == "process test":
                 expected_handling = MIGRATE_TO_CPT
             elif test_kind == "decision test":
-                expected_handling = "Report only"
+                expected_handling = "Migrate"
             elif test_kind == "scenario test":
                 expected_handling = MIGRATE_LOWER_PRIORITY
             elif test_kind == "remote-engine test":
@@ -2075,12 +2123,6 @@ class MigrationGuidanceTest(unittest.TestCase):
 
                 parity_row = parity_by_id.get(test_id)
                 self.assertIsNotNone(parity_row, "Missing parity row for {}".format(test_id))
-                if test_kind == "decision test":
-                    self.assertEqual(parity_row["Verdict"], "report only")
-                    self.assertEqual(parity_row["CPT Test ID(s)"], "—")
-                    self.assertIn("#3203", normalized(row["Notes"]))
-                    self.assertIn("#3203", normalized(parity_row["Notes"]))
-                    continue
                 self.assertEqual(parity_row["Verdict"], "manual")
 
                 shared_engine = (
@@ -2346,18 +2388,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn("| priority | test kind | detect by | handling |", reference)
+        test_kind_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Priority", "Test kind", "Detect by", "Handling"],
+        )
         process_test_row = next(
-            row
-            for row in markdown_table(
-                TEST_MIGRATION_REFERENCE,
-                ["Priority", "Test kind", "Detect by", "Handling"],
-            )
-            if row["Test kind"] == "process test"
+            row for row in test_kind_rows if row["Test kind"] == "process test"
         )
         self.assertEqual("Migrate to CPT", process_test_row["Handling"])
+        decision_test_row = next(
+            row for row in test_kind_rows if row["Test kind"] == "decision test"
+        )
+        self.assertEqual("Migrate", decision_test_row["Handling"])
         self.assertIn(
-            "when the target is camunda 8.9 or later, the skill migrates every test with "
-            "test kind `decision test`.",
+            "when the target is camunda 8.9 or later, the skill migrates every test "
+            "with test kind `decision test`.",
+            reference,
+        )
+        self.assertIn("harness and evaluation mapping", reference)
+        self.assertNotIn(
+            "if the separate dmn migration work in #3203 is incomplete",
             reference,
         )
         self.assertNotIn("engine-test migration procedure is undefined", reference)
