@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_payment"
+                  targetNamespace="http://camunda.org/examples/payment">
+  <bpmn:process id="payment" name="Payment" isExecutable="true">
+    <bpmn:startEvent id="start_payment" />
+    <bpmn:sequenceFlow id="flow_start_charge" sourceRef="start_payment" targetRef="charge_payment" />
+    <bpmn:serviceTask id="charge_payment" name="Charge payment">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="charge-payment" retries="3" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="flow_charge_end" sourceRef="charge_payment" targetRef="end_payment" />
+    <bpmn:endEvent id="end_payment" />
+  </bpmn:process>
+</bpmn:definitions>

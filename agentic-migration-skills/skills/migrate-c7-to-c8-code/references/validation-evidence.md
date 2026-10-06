@@ -18,9 +18,7 @@ When the user approves a full migration, save the in-scope Step 2 paths in
 ```
 
 When Question 8 applies, also record `"test_run_mode": "run"` or
-`"test_run_mode": "migrate_only"` in this inventory. The validation script uses `migrate_only` to
-reject test execution and require every `tests` and `process_path` check to be blocked with the
-Question 8 reason. Omit the field when Question 8 does not apply.
+`"test_run_mode": "migrate_only"` in this inventory. Omit the field when Question 8 does not apply.
 
 Where E1 fetches a model, add its original path after retrieval and before conversion.
 Then start a new validation run before recording checks:
@@ -94,9 +92,6 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
 
 Use project-relative paths. List every migrated module and every in-scope original BPMN/DMN.
 Include all independent test suites from each module's build. Set `requires_docker` for each suite.
-When `test_run_mode` is `migrate_only`, declare separate suite entries for the C7 baseline and
-migrated C8 run. Give them distinct names so the recorder keeps their results in separate evidence
-files.
 Where a module uses a Camunda Spring Boot starter, include its real-client context test as a suite.
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
 module to skip runtime checks.
@@ -204,36 +199,17 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type process --target models/converted-c8-order.bpmn#order-process --kind process_path --scenario normal --reason "declined by user (Question 8)"
 ```
 
-The validation script refuses to run these checks in `migrate_only` mode. It rejects a passing,
-missing, or differently blocked test check.
+In `migrate_only` mode, the validation script applies these rules:
 
-When a non-test Maven check needs packaging in `migrate_only`, use a standard lifecycle phase with
-`-DskipTests`.
-The recorder accepts `-DskipTests` for standard Maven lifecycle phases and Surefire or Failsafe
-goals. It rejects other Maven test plugin goals.
-The recorder rejects non-empty `MAVEN_ARGS` or `.mvn/maven.config` because either can add
-arguments outside the submitted command.
-An explicit `maven.test.skip` command-line value takes precedence over inherited JVM options,
-`.mvn/jvm.config`, and the active Maven project model.
-The recorder inspects the active effective POM when the command has no explicit value.
-If inspection fails or the active model sets `maven.test.skip=true`, then it rejects module
-`compile` evidence.
-The recorder unwraps simple `env` commands.
-If the recorder cannot inspect an executable or Maven goal, then it rejects the command.
-It accepts `npx bpmnlint` and `npx dmnlint` as non-test model checks.
-It accepts `mvn spring-boot:run` as an application launch command.
-It accepts `java -jar <artifact>.jar` only for module `executable_jar` evidence.
-When a Gradle non-test check needs packaging, select a task whose dependency graph contains no
-test-capable tasks.
-The recorder inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks.
-The recorder checks test-name suffixes on case-normalized task names.
-The recorder exempts Spring Boot's `BootRun` task only for module `spring_boot_run` evidence.
-The recorder still rejects every other test-capable task.
-When no test-capable task remains after the supplied exclusions, the recorder allows `build` or
-`check`.
-If a test-capable task remains, then the recorder rejects the command before it runs.
-If the recorder cannot inspect the task graph, then it rejects the command.
-Record the reason as `declined by user (Question 8)`.
+- It refuses the `run` and `review` actions for `tests` and `process_path` checks.
+- It rejects a `block` action with another reason.
+- The gate rejects a passed or differently blocked `tests` or `process_path` check.
+- It accepts module `compile` evidence only for a `test-compile` or `testClasses` command without
+  `-Dmaven.test.skip`.
+- It does not require `docker_info`.
+
+Where a non-test check needs packaging in `migrate_only` mode, use `-DskipTests` (Maven) or
+`-x test` (Gradle). This is the only exception to the rule against commands that skip tests.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 
@@ -467,9 +443,6 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Each non-standalone executable process | `process_path` with the `covering_test` as its scenario. |
 | Each applicable behavior | A command check named in the assertion table below. |
 | Each repeating timer start directly under a process | An approved `disposition` review. For a retained timer, a separate runtime `preflight` before deployment or process execution. |
-
-When `test_run_mode` is `migrate_only`, the validator does not require or record `docker_info`.
-The skill reports Docker availability in Question 8.
 
 The module review covers the code checks in Step 4 of `SKILL.md`: dependencies and their
 compatibility, imports, TODOs, business keys, client usage, queries, adapters, and packaged resources.

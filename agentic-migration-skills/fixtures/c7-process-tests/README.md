@@ -1,10 +1,10 @@
 # Camunda 7 process-test migration fixture
 
 This fixture contains a synthetic Camunda 7.24.0 project and its expected
-Camunda 8.9.21 migration. The fixture covers embedded engine tests, Spring
-Boot tests, DMN decisions, mocks, Camunda Platform Scenario, and remote-engine
-tests. It also records tests that need manual redesign or are outside process
-test migration.
+Camunda 8.9.21 migration. The fixture covers embedded engine tests, Spring Boot tests, DMN decisions,
+mocks, Camunda Platform Scenario, remote-engine tests, and JGiven classification.
+It also exercises inherited, Spock, and Cucumber inventory discovery.
+It records tests that need manual redesign or are outside process-test migration.
 
 ## Run the fixture
 
@@ -32,19 +32,22 @@ Start each walkthrough from a fresh copy of `c7-source`.
 |---|---|---|
 | W1 | Choose **Assessment only** with target 8.9. | The Test Inventory matches `expected-assessment/test-inventory.md`. The skill changes no file except `MIGRATION_REPORT.md`. |
 | W2 | Choose **Code + models**, target 8.8. Stop after the Step 2 Summary. | The inventory matches `expected-assessment-8.8/test-inventory.md`. The skill does not ask Question 8. |
-| W3 | Choose **Code + models**, target 8.9, and **Run tests**. Approve retiring E9 with "CMMN has no Camunda 8 equivalent". Approve retiring E10 with "model built in Java, migrated by hand later". | The skill records the C7 baseline before editing files. It reports non-Spring process, decision, scenario, and remote-engine tests as `Report only`. The Test Parity table marks available fixture CPT equivalents as manual, keeps the shared-engine test manual, and matches `expected-run/test-parity.md`. The gate is `READY`. |
+| W3 | Choose **Code + models**, target 8.9, and **Run tests**. Approve retiring E9 with "CMMN has no Camunda 8 equivalent". Approve retiring E10 with "model built in Java, migrated by hand later". | The skill records the C7 baseline before editing files. It migrates selected process, decision, scenario, and remote-engine tests with available CPT procedures. The Test Parity table maps migrated tests to their CPT equivalents, marks the PaymentWorker remote-engine test as migrated, keeps the shared-engine test manual because CPT deletes runtime data between tests, and records the engine-backed JGiven test as `manual` with no CPT mapping. It excludes JGiven tests that execute no real C7 process or decision. The gate is `READY`. |
 | W4 | Repeat W3 and decline both retirements. | The gate is `NOT READY`. The report names E9 and E10 as `manual`. |
-| W5 | Stop Docker, then choose **Migrate tests only**. | Question 8 reports that `docker info` fails and still offers both options. The migrated test sources compile, and no C7 or C8 test command runs. Every module test and Step 4 process check is blocked with `declined by user (Question 8)`. The deferred verification plan records a C7 commit in this Git-backed fixture. A non-Git project records the filesystem snapshot path. Both paths use separate C7 baseline and C8 migrated evidence keys. The gate is `NOT READY`, and the readiness verdict is `needs review`. The report matches `expected-tests-only/MIGRATION_REPORT.md`. |
+| W5 | Stop Docker, then choose **Migrate tests only**. | Question 8 reports that `docker info` fails and still offers both options. The migrated tests compile, and no test command runs. Every test check is blocked with `declined by user (Question 8)`. The gate is `NOT READY`, and the readiness verdict is `needs review`. The report matches `expected-tests-only/MIGRATION_REPORT.md`. |
 | W6 | Delete every `src/test` directory from the copy. Choose **Code + models** and stop after the Step 2 Summary. | The inventory has no in-scope tests. The skill does not ask Question 8. |
 | W7 | Start from the result of W3. Apply each negative change separately, rerun the recorded checks, then rerun the gate. | N1, N2, and N3 produce the results in the table below. |
+
+E1 and E2 have migrated CPT equivalents. Use the supported Spring S1 test for
+the N1-N3 parity, freeze, and mock-boundary checks.
 
 ## Negative cases
 
 | ID | Change | Expected gate result |
 |---|---|---|
-| N1 | Delete the CPT test mapped to E1. | `NOT READY`; `test_parity` fails and names the E1 test ID. |
-| N2 | Change an assertion in the frozen E2 test without an approved `test_changes` entry. | `NOT READY`; `test_freeze` fails and names the file. |
-| N3 | Replace E1's real `Task_ChargePayment` worker with `mockJobWorker("charge-payment").thenComplete()` without an approved `mock_changes` entry. | `NOT READY`; `mock_boundary` fails and names the CPT test and job type. |
+| N1 | Delete the CPT test mapped to S1, `spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription`. | `NOT READY`; `test_parity` fails and names the S1 test ID. |
+| N2 | Change an assertion in the frozen S1 test without an approved `test_changes` entry. | `NOT READY`; `test_freeze` fails and names the file. |
+| N3 | Replace S1's real `activate-subscription` worker with `mockJobWorker("activate-subscription").thenComplete()` without an approved `mock_changes` entry. | `NOT READY`; `mock_boundary` fails and names the S1 CPT test and `activate-subscription` job type. |
 
 The `test_parity`, `test_freeze`, and `mock_boundary` check names come from the
 parity and mock migration contracts. The fixture tests the names implemented by

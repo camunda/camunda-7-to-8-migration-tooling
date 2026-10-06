@@ -122,8 +122,5 @@ Use this readiness verdict table:
 | `blocked` | A required check fails or a required runtime dependency is unavailable. |
 | `not assessed` | The user selects assessment-only or analyze-only and the migration checks do not run. |
 
-When the user selects **Migrate tests only** and no required check failed or runtime dependency is
-unavailable, set the verdict to `needs review`, not `blocked`.
-
 Set the verdict to `ready` only after every required CI or approved manual check passes.
 Keep failed, unavailable, and not-run checks visible in the report.

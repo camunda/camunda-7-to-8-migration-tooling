@@ -7,7 +7,6 @@ import html
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -72,668 +71,7 @@ TEST_LEDGER_CHECK_KINDS = {
 }
 TEST_RUN_MODES = {"run", "migrate_only"}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
-MAVEN_EXECUTABLES = {"mvn", "mvn.cmd", "mvnw", "mvnw.cmd", "mvnd", "mvnd.bat", "mvnd.cmd"}
-GRADLE_EXECUTABLES = {
-    "gradle", "gradle.bat", "gradle.cmd", "gradlew", "gradlew.bat", "gradlew.cmd",
-}
-MAVEN_TEST_LIFECYCLE_GOALS = {
-    "test",
-    "prepare-package",
-    "package",
-    "pre-integration-test",
-    "integration-test",
-    "post-integration-test",
-    "verify",
-    "install",
-    "deploy",
-}
-MAVEN_LIFECYCLE_GOALS = {
-    "validate",
-    "initialize",
-    "generate-sources",
-    "process-sources",
-    "generate-resources",
-    "process-resources",
-    "compile",
-    "process-classes",
-    "generate-test-sources",
-    "process-test-sources",
-    "generate-test-resources",
-    "process-test-resources",
-    "test-compile",
-    "process-test-classes",
-    *MAVEN_TEST_LIFECYCLE_GOALS,
-    "pre-clean",
-    "clean",
-    "post-clean",
-    "pre-site",
-    "site",
-    "post-site",
-    "site-deploy",
-}
-MAVEN_TEST_SOURCE_COMPILATION_PHASES = {
-    "test",
-    "prepare-package",
-    "package",
-    "process-test-classes",
-    "pre-integration-test",
-    "integration-test",
-    "post-integration-test",
-    "verify",
-    "install",
-    "deploy",
-}
-MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS = {
-    "maven-failsafe-plugin",
-    "maven-surefire-plugin",
-}
-MAVEN_SKIP_TESTS_PLUGIN_PREFIXES = {"failsafe", "surefire"}
-MAVEN_KNOWN_NON_TEST_PLUGIN_GOALS = {"spring-boot:run"}
-MAVEN_BOOLEAN_TRUE_VALUES = {"true", "1", "yes", "on"}
-MAVEN_BOOLEAN_FALSE_VALUES = {"false", "0", "no", "off"}
-JAVA_EXECUTABLES = {"java", "java.exe"}
-GRADLE_TEST_TASKS = {"test"}
-GRADLE_DRY_RUN_OPTIONS = {"--dry-run", "-m"}
-GRADLE_TASK_GRAPH_BEGIN = "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__"
-GRADLE_TASK_GRAPH_TEST = "__CAMUNDA_MIGRATION_TEST_TASK__:"
-GRADLE_TASK_GRAPH_END = "__CAMUNDA_MIGRATION_TEST_GRAPH_END__"
-ENVIRONMENT_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
-MAVEN_OPTIONS_WITH_VALUES = {
-    "--activate-profiles", "--define", "--file", "--projects", "--resume-from",
-    "--settings", "--threads", "--toolchains", "-D", "-P", "-T", "-f", "-pl", "-rf",
-    "-s", "-t",
-}
-GRADLE_OPTIONS_WITH_VALUES = {
-    "--console", "--exclude-task", "--include-build", "--init-script", "--max-workers",
-    "--project-cache-dir", "--project-dir", "--tests", "--warning-mode", "-D", "-I",
-    "-P", "-p", "-x",
-}
-
-
-def _command_executable(command):
-    if not command or not isinstance(command[0], str):
-        return None
-    return command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
-
-
-def _unwrap_env_command(command):
-    if not command or any(not isinstance(argument, str) for argument in command):
-        return None
-    unwrapped = list(command)
-    environment = os.environ.copy()
-    wrappers = 0
-    while _command_executable(unwrapped) == "env":
-        wrappers += 1
-        if wrappers > 8:
-            return None
-        index = 1
-        options_ended = False
-        while index < len(unwrapped):
-            argument = unwrapped[index]
-            if argument == "--" and not options_ended:
-                options_ended = True
-                index += 1
-                continue
-            if not options_ended and argument in {"-i", "--ignore-environment"}:
-                environment.clear()
-                index += 1
-                continue
-            if not options_ended and argument in {"-u", "--unset"}:
-                if index + 1 >= len(unwrapped):
-                    return None
-                environment.pop(unwrapped[index + 1], None)
-                index += 2
-                continue
-            if not options_ended and argument.startswith("--unset="):
-                environment.pop(argument.partition("=")[2], None)
-                index += 1
-                continue
-            if (
-                not options_ended
-                and argument.startswith("-u")
-                and len(argument) > 2
-            ):
-                environment.pop(argument[2:], None)
-                index += 1
-                continue
-            if not options_ended and argument.startswith("-"):
-                return None
-            if ENVIRONMENT_ASSIGNMENT.match(argument):
-                name, _, value = argument.partition("=")
-                environment[name] = value
-                index += 1
-                continue
-            break
-        if index >= len(unwrapped):
-            return None
-        unwrapped = unwrapped[index:]
-    return unwrapped, environment
-
-
-def _maven_skips_test_compilation(environment, command=None):
-    command_setting = None
-    if command is not None:
-        _, _, command_setting = _maven_command_details(command)
-    if command_setting is not None:
-        return command_setting
-    return any(
-        _maven_option_skips_test_compilation(environment.get(name, ""))
-        for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")
-    )
-
-
-def _maven_command_details(command):
-    arguments = []
-    skip_tests = False
-    skip_test_compilation = None
-    index = 1
-    while index < len(command):
-        argument = command[index]
-        property_argument = None
-        if argument in {"-D", "--define"}:
-            if index + 1 < len(command):
-                property_argument = command[index + 1]
-                index += 1
-        elif argument.startswith("-D"):
-            property_argument = argument[2:]
-        elif argument.startswith("--define="):
-            property_argument = argument.partition("=")[2]
-
-        if property_argument is not None:
-            name, separator, value = property_argument.partition("=")
-            if name == "skipTests":
-                skip_tests = not separator or value.casefold() == "true"
-            elif name == "maven.test.skip":
-                normalized_value = value.casefold()
-                if not separator or normalized_value in MAVEN_BOOLEAN_TRUE_VALUES:
-                    skip_test_compilation = True
-                elif normalized_value in MAVEN_BOOLEAN_FALSE_VALUES:
-                    skip_test_compilation = False
-                else:
-                    raise EvidenceError(
-                        f"Question 8 cannot inspect `maven.test.skip` value {value!r}"
-                    )
-            index += 1
-            continue
-        if argument in MAVEN_OPTIONS_WITH_VALUES:
-            index += 2
-            continue
-        if argument.startswith("-"):
-            index += 1
-            continue
-        arguments.append(argument.casefold())
-        index += 1
-    return arguments, skip_tests, skip_test_compilation
-
-
-def _maven_option_skips_test_compilation(options, comments=False):
-    try:
-        option_arguments = shlex.split(options, comments=comments)
-    except ValueError as exc:
-        raise EvidenceError("Question 8 could not inspect Maven options") from exc
-    _, _, skip_test_compilation = _maven_command_details(["mvn", *option_arguments])
-    return skip_test_compilation
-
-
-def _read_maven_project_configuration(root, filename):
-    relative_path = Path(".mvn") / filename
-    path = project_path(
-        root,
-        relative_path.as_posix(),
-        "Maven project configuration",
-    )
-    try:
-        return path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return None
-    except (OSError, UnicodeError) as exc:
-        raise EvidenceError(
-            f"Question 8 could not inspect Maven project configuration {relative_path}: {exc}"
-        ) from exc
-
-
-def _maven_project_jvm_config_skips_test_compilation(root, command=None):
-    if command is not None and _maven_command_details(command)[2] is not None:
-        return False
-    options = _read_maven_project_configuration(root, "jvm.config")
-    if options is None:
-        return False
-    try:
-        return _maven_option_skips_test_compilation(options, comments=True)
-    except EvidenceError as exc:
-        raise EvidenceError(
-            "Question 8 cannot inspect Maven project configuration in `.mvn/jvm.config`"
-        ) from exc
-
-
-def _maven_project_maven_config_has_arguments(root):
-    options = _read_maven_project_configuration(root, "maven.config")
-    if options is None:
-        return False
-    try:
-        return bool(shlex.split(options, comments=True))
-    except ValueError as exc:
-        raise EvidenceError(
-            "Question 8 cannot inspect Maven project arguments in `.mvn/maven.config`"
-        ) from exc
-
-
-def _maven_command_uses_pom(command, root, expected_pom):
-    pom_argument = None
-    index = 1
-    while index < len(command):
-        argument = command[index]
-        if argument in {"-f", "--file"}:
-            if index + 1 >= len(command):
-                raise EvidenceError("Question 8 cannot inspect incomplete Maven POM options")
-            pom_argument = command[index + 1]
-            index += 2
-            continue
-        if argument.startswith("--file="):
-            pom_argument = argument.partition("=")[2]
-            index += 1
-            continue
-        if argument in MAVEN_OPTIONS_WITH_VALUES:
-            index += 2
-            continue
-        index += 1
-    if pom_argument is None:
-        return False
-    pom_path = Path(pom_argument)
-    if not pom_path.is_absolute():
-        pom_path = root / pom_path
-    try:
-        return pom_path.resolve() == expected_pom.resolve()
-    except (OSError, RuntimeError):
-        return False
-
-
-def _maven_effective_pom_command(command, target, output_path, root, module_pom):
-    command = list(command)
-    result = [command[0]]
-    project_selected = False
-    select_target = target != "." and not _maven_command_uses_pom(
-        command,
-        root,
-        module_pom,
-    )
-    index = 1
-    while index < len(command):
-        argument = command[index]
-        if argument == "--":
-            raise EvidenceError("Question 8 cannot inspect Maven options after `--`")
-        if argument in {"-am", "--also-make", "-amd", "--also-make-dependents"}:
-            index += 1
-            continue
-        if argument in {"-pl", "--projects"}:
-            if index + 1 >= len(command):
-                raise EvidenceError("Question 8 cannot inspect incomplete Maven project options")
-            if select_target and not project_selected:
-                result.extend((argument, target))
-                project_selected = True
-            index += 2
-            continue
-        if argument.startswith("--projects="):
-            if select_target and not project_selected:
-                result.append(f"--projects={target}")
-                project_selected = True
-            index += 1
-            continue
-        if argument in MAVEN_OPTIONS_WITH_VALUES | {
-            "-gs",
-            "--global-settings",
-        }:
-            if index + 1 >= len(command):
-                raise EvidenceError("Question 8 cannot inspect incomplete Maven options")
-            result.extend((argument, command[index + 1]))
-            index += 2
-            continue
-        if argument.startswith(
-            (
-                "--activate-profiles=",
-                "--define=",
-                "--file=",
-                "--global-settings=",
-                "--settings=",
-            )
-        ) or argument.startswith("-"):
-            result.append(argument)
-        index += 1
-    if select_target and not project_selected:
-        result.extend(("-pl", target))
-    result.extend(("-q", "help:effective-pom", f"-Doutput={output_path}"))
-    return result
-
-
-def _maven_active_model_skips_test_compilation(
-    root,
-    target,
-    command,
-    environment,
-    timeout,
-):
-    if _maven_command_details(command)[2] is not None:
-        return False
-    module_pom = project_path(
-        root,
-        (Path(target) / "pom.xml").as_posix(),
-        "Maven module POM",
-        must_exist=True,
-    )
-    if not module_pom.is_file():
-        raise EvidenceError(
-            f"Question 8 cannot inspect the active Maven model for module {target!r}: "
-            "its POM is not a file"
-        )
-    with tempfile.TemporaryDirectory(prefix=".maven-effective-pom-", dir=root) as temporary:
-        output_path = Path(temporary) / "effective-pom.xml"
-        inspect_command = _maven_effective_pom_command(
-            command,
-            target,
-            output_path,
-            root,
-            module_pom,
-        )
-        try:
-            completed = subprocess.run(
-                inspect_command,
-                cwd=root,
-                env=environment,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                errors="replace",
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise EvidenceError(
-                f"Question 8 could not inspect the active Maven model for module "
-                f"{target!r}: effective POM inspection timed out"
-            ) from exc
-        except OSError as exc:
-            raise EvidenceError(
-                f"Question 8 could not inspect the active Maven model for module "
-                f"{target!r}: {exc}"
-            ) from exc
-        if completed.returncode != 0:
-            detail = (completed.stdout or "").strip()
-            if len(detail) > 1000:
-                detail = detail[-1000:]
-            reason = f": {detail}" if detail else ""
-            raise EvidenceError(
-                f"Question 8 could not inspect the active Maven model for module "
-                f"{target!r} (exit code {completed.returncode}){reason}"
-            )
-        try:
-            model = ET.parse(output_path).getroot()
-        except (OSError, ET.ParseError) as exc:
-            raise EvidenceError(
-                f"Question 8 could not inspect the active Maven model for module "
-                f"{target!r}: invalid effective POM"
-            ) from exc
-    if model.tag.rsplit("}", 1)[-1] != "project":
-        raise EvidenceError(
-            f"Question 8 could not inspect the active Maven model for module "
-            f"{target!r}: effective POM has no project root"
-        )
-    values = [
-        (property_node.text or "").strip().casefold()
-        for properties in model
-        if properties.tag.rsplit("}", 1)[-1] == "properties"
-        for property_node in properties
-        if property_node.tag.rsplit("}", 1)[-1] == "maven.test.skip"
-    ]
-    false_values = MAVEN_BOOLEAN_FALSE_VALUES | {""}
-    if any(
-        value not in MAVEN_BOOLEAN_TRUE_VALUES | false_values
-        for value in values
-    ):
-        raise EvidenceError(
-            f"Question 8 could not establish the active Maven model value of "
-            f"`maven.test.skip` for module {target!r}"
-        )
-    return any(value in MAVEN_BOOLEAN_TRUE_VALUES for value in values)
-
-
-def _gradle_command_details(command):
-    arguments = []
-    excluded_task_names = set()
-    excluded_task_paths = set()
-    index = 1
-    while index < len(command):
-        argument = command[index]
-        if argument in {"-x", "--exclude-task"}:
-            if index + 1 < len(command):
-                excluded_task = command[index + 1]
-                normalized_task = excluded_task.casefold().lstrip(":")
-                if ":" in excluded_task:
-                    excluded_task_paths.add(normalized_task)
-                else:
-                    excluded_task_names.add(normalized_task)
-                index += 2
-            else:
-                index += 1
-            continue
-        if argument.startswith("--exclude-task="):
-            excluded_task = argument.partition("=")[2]
-            normalized_task = excluded_task.casefold().lstrip(":")
-            if ":" in excluded_task:
-                excluded_task_paths.add(normalized_task)
-            else:
-                excluded_task_names.add(normalized_task)
-            index += 1
-            continue
-        if argument in GRADLE_OPTIONS_WITH_VALUES:
-            index += 2
-            continue
-        if argument.startswith("-"):
-            index += 1
-            continue
-        arguments.append(argument.casefold())
-        index += 1
-    return arguments, excluded_task_names, excluded_task_paths
-
-
-def _maven_test_goal_honors_skip_tests(goal):
-    parts = goal.split("@", 1)[0].split(":")
-    if len(parts) == 2:
-        return parts[0] in MAVEN_SKIP_TESTS_PLUGIN_PREFIXES | MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS
-    if len(parts) in {3, 4}:
-        group_id, artifact_id = parts[:2]
-        return (
-            group_id == "org.apache.maven.plugins"
-            and artifact_id in MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS
-        )
-    return False
-
-
-def command_runs_test_suite(command, key=None):
-    """Return True for tests, False for known non-tests, or None when inspection is needed."""
-    unwrapped = _unwrap_env_command(command)
-    if unwrapped is None:
-        return None
-    command, environment = unwrapped
-    executable = _command_executable(command)
-    if executable in MAVEN_EXECUTABLES:
-        if environment.get("MAVEN_ARGS", "").strip():
-            return None
-        arguments, skip_tests, _ = _maven_command_details(command)
-        skip_test_compilation = _maven_skips_test_compilation(environment, command)
-        for argument in arguments:
-            goal = argument.split("@", 1)[0]
-            if ":" in goal:
-                if goal in MAVEN_KNOWN_NON_TEST_PLUGIN_GOALS:
-                    continue
-                goal_name = goal.rsplit(":", 1)[-1]
-                if goal_name in {"test", "integration-test"}:
-                    if (
-                        not (skip_tests or skip_test_compilation)
-                        or not _maven_test_goal_honors_skip_tests(goal)
-                    ):
-                        return True
-                    continue
-                return None
-            if goal not in MAVEN_LIFECYCLE_GOALS:
-                return None
-            if (
-                goal in MAVEN_TEST_LIFECYCLE_GOALS
-                and not (skip_tests or skip_test_compilation)
-            ):
-                return True
-        return False if arguments else None
-    if executable in GRADLE_EXECUTABLES:
-        arguments, excluded_task_names, excluded_task_paths = _gradle_command_details(command)
-        for argument in arguments:
-            task_path = argument.lstrip(":")
-            task = task_path.rsplit(":", 1)[-1]
-            if task_path in excluded_task_paths or task in excluded_task_names:
-                continue
-            if (
-                task in GRADLE_TEST_TASKS
-                or (task.startswith("test") and task not in {"testclasses", "testfixturesclasses"})
-                or task.endswith(("test", "tests"))
-            ):
-                return True
-        return None
-    if executable == "npx":
-        if len(command) > 1 and command[1].casefold() in {"bpmnlint", "dmnlint"}:
-            return False
-        return None
-    if (
-        key is not None
-        and key[0] == "module"
-        and key[2] == "executable_jar"
-        and executable in JAVA_EXECUTABLES
-        and "-jar" in command[1:]
-    ):
-        jar_option = command.index("-jar")
-        if (
-            jar_option + 1 < len(command)
-            and Path(command[jar_option + 1]).suffix.casefold() == ".jar"
-        ):
-            return False
-    if executable == "echo":
-        return False
-    if executable == "docker" and command[1:] == ["info"]:
-        return False
-    return None
-
-
-def command_compiles_test_sources(command):
-    unwrapped = _unwrap_env_command(command)
-    if unwrapped is None:
-        return False
-    command, environment = unwrapped
-    executable = _command_executable(command)
-    if executable in MAVEN_EXECUTABLES:
-        if _maven_skips_test_compilation(environment, command):
-            return False
-        arguments, skip_tests, _ = _maven_command_details(command)
-        phases = {argument.split("@", 1)[0] for argument in arguments if ":" not in argument}
-        return "test-compile" in phases or (
-            skip_tests and bool(phases & MAVEN_TEST_SOURCE_COMPILATION_PHASES)
-        )
-    if executable in GRADLE_EXECUTABLES:
-        arguments, excluded_task_names, excluded_task_paths = _gradle_command_details(command)
-        for argument in arguments:
-            task_path = argument.lstrip(":")
-            task = task_path.rsplit(":", 1)[-1]
-            if task_path in excluded_task_paths or task in excluded_task_names:
-                continue
-            if task == "testclasses":
-                return True
-    return False
-
-
-def inspect_gradle_test_tasks(command, root, timeout, allow_spring_boot_run=False):
-    init_script = f"""
-def allowSpringBootRun = {str(allow_spring_boot_run).lower()}
-gradle.taskGraph.whenReady {{ graph ->
-    println("{GRADLE_TASK_GRAPH_BEGIN}")
-    graph.allTasks.findAll {{ task ->
-        def taskName = task.name.toLowerCase()
-        def taskTypeNames = []
-        def taskType = task.class
-        while (taskType != null) {{
-            taskTypeNames.add(taskType.name)
-            taskType = taskType.superclass
-        }}
-        def supportedSpringBootRun =
-            allowSpringBootRun
-            && taskName == "bootrun"
-            && taskTypeNames.contains("org.springframework.boot.gradle.tasks.run.BootRun")
-        def testNamed = (
-            (taskName.startsWith("test")
-                && !(taskName in ["testclasses", "testfixturesclasses"]))
-            || taskName.endsWith("test")
-            || taskName.endsWith("tests")
-            || taskName.matches(".*[-_.]tests?$")
-        )
-        task instanceof org.gradle.api.tasks.testing.Test
-            || ((task instanceof org.gradle.api.tasks.JavaExec
-                || task instanceof org.gradle.api.tasks.Exec)
-                && !supportedSpringBootRun)
-            || testNamed
-    }}.each {{ task ->
-        println("{GRADLE_TASK_GRAPH_TEST}" + task.path)
-    }}
-    println("{GRADLE_TASK_GRAPH_END}")
-}}
-"""
-    with tempfile.TemporaryDirectory(prefix="camunda-migration-gradle-") as temporary:
-        script_path = Path(temporary) / "inspect-test-tasks.gradle"
-        script_path.write_text(init_script, encoding="utf-8")
-        inspection_command = [
-            *command,
-            "--dry-run",
-            "--init-script",
-            str(script_path),
-        ]
-        try:
-            completed = subprocess.run(
-                inspection_command,
-                cwd=root,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                errors="replace",
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise EvidenceError(
-                "Question 8 could not inspect the Gradle task graph before the command timeout"
-            ) from exc
-        except OSError as exc:
-            raise EvidenceError(
-                f"Question 8 could not inspect the Gradle task graph: {exc}"
-            ) from exc
-
-    output = completed.stdout or ""
-    if completed.returncode != 0:
-        detail = output.strip()[-1000:]
-        raise EvidenceError(
-            "Question 8 could not inspect the Gradle task graph"
-            f" (exit code {completed.returncode}): {detail}"
-        )
-    lines = output.splitlines()
-    begin_markers = [index for index, line in enumerate(lines) if line == GRADLE_TASK_GRAPH_BEGIN]
-    end_markers = [index for index, line in enumerate(lines) if line == GRADLE_TASK_GRAPH_END]
-    if (
-        len(begin_markers) != 1
-        or len(end_markers) != 1
-        or begin_markers[0] >= end_markers[0]
-    ):
-        raise EvidenceError(
-            "Question 8 could not verify the Gradle task graph inspection output"
-        )
-    tasks = [
-        line[len(GRADLE_TASK_GRAPH_TEST):]
-        for line in lines[begin_markers[0] + 1:end_markers[0]]
-        if line.startswith(GRADLE_TASK_GRAPH_TEST)
-    ]
-    return tasks
+TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
 
 
 @dataclass
@@ -860,6 +198,16 @@ def read_test_run_mode(inventory):
     if not isinstance(mode, str) or mode not in TEST_RUN_MODES:
         raise EvidenceError("Step 2 test_run_mode must be 'run' or 'migrate_only'")
     return mode
+
+
+def compiles_test_sources(command):
+    goals = {argument.rsplit(":", 1)[-1] for argument in command[1:]}
+    skips = any(
+        argument.removeprefix("-D").startswith("maven.test.skip")
+        and argument.removeprefix("-D") != "maven.test.skip=false"
+        for argument in command[1:]
+    )
+    return bool(goals & TEST_SOURCE_COMPILE_GOALS) and not skips
 
 
 def concrete_reference(value):
@@ -4957,20 +4305,12 @@ def load_checks(root, evidence, plan, issues):
 def validate_declined_test_checks(root, plan, checks, issues):
     if read_test_run_mode(read_json(root / INVENTORY)) != "migrate_only":
         return
-    test_keys = [key for key in plan.required if key[2] in TEST_EXECUTION_KINDS]
-    if not test_keys:
-        issues.append("Question 8 migrate_only requires at least one test check")
-        return
-    for key in test_keys:
+    for key in plan.required:
         entry = checks.get(key)
-        if entry is None:
+        if key[2] not in TEST_EXECUTION_KINDS or entry is None:
             continue
         check = entry[1]
-        if (
-            check.get("method") != "blocked"
-            or check.get("result") != "blocked"
-            or check.get("reason") != QUESTION_8_DECLINE_REASON
-        ):
+        if check.get("result") != "blocked" or check.get("reason") != QUESTION_8_DECLINE_REASON:
             issues.append(
                 f"{key}: Question 8 migrate_only checks must be blocked with reason "
                 f"{QUESTION_8_DECLINE_REASON!r}"
@@ -5310,7 +4650,7 @@ def report(root):
         issues.extend(plan.issues)
         checks = load_checks(root, evidence, plan, issues)
         validate_declined_test_checks(root, plan, checks, issues)
-        test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
+        migrate_only = read_test_run_mode(read_json(root / INVENTORY)) == "migrate_only"
         for key in sorted(plan.required.keys() - checks.keys(), key=lambda item: tuple(str(value) for value in item)):
             issues.append(f"Missing {key[0]} {key[2]}: {key[1]} {key[3] or ''}".strip())
         for key, (index, check, _) in checks.items():
@@ -5333,11 +4673,7 @@ def report(root):
                 require_prerequisites(root, plan, checks, key, before=index)
             except EvidenceError as exc:
                 issues.append(str(exc))
-            if (
-                test_run_mode != "migrate_only"
-                and key in plan.docker_suites
-                and plan.docker_suites[key]
-            ):
+            if not migrate_only and plan.docker_suites.get(key):
                 probe = checks.get(("project", ".", "docker_info", None))
                 if probe is None or probe[0] >= index:
                     issues.append(f"{key}: Docker probe must precede the suite")
@@ -5437,14 +4773,10 @@ def record(root, args):
         raise EvidenceError(f"Check is not in the migration scope: {key}")
     test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
     if test_run_mode == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
-        if args.action == "run":
-            raise EvidenceError(
-                f"{key}: Question 8 selected Migrate tests only; test commands are not allowed"
-            )
-        if args.action == "block" and args.reason != QUESTION_8_DECLINE_REASON:
-            raise EvidenceError(
-                f"{key}: use the exact Question 8 reason {QUESTION_8_DECLINE_REASON!r}"
-            )
+        if args.action != "block":
+            raise EvidenceError(f"{key}: Question 8 selected Migrate tests only; record a blocker")
+        if args.reason != QUESTION_8_DECLINE_REASON:
+            raise EvidenceError(f"{key}: use the exact Question 8 reason {QUESTION_8_DECLINE_REASON!r}")
     method = plan.required.get(key, "command")
     if args.action == "review" and method != "review":
         raise EvidenceError(f"{key} requires an executable command")
@@ -5485,7 +4817,6 @@ def record(root, args):
     output = ""
     reason = None
     result = "passed"
-    gradle_task_graph_inspected = False
     extra = {}
     check_method = "command" if args.action == "run" else "review"
     mapping = None
@@ -5545,90 +4876,12 @@ def record(root, args):
             raise EvidenceError("Executable path cannot be empty")
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
-        if test_run_mode == "migrate_only":
-            unwrapped_command = _unwrap_env_command(command)
-            direct_command, command_environment = (
-                unwrapped_command if unwrapped_command is not None else (None, {})
+        if (test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile"
+                and not compiles_test_sources(command)):
+            raise EvidenceError(
+                f"{key}: Question 8 Migrate tests only requires test-source compilation, "
+                "such as mvn test-compile or the Gradle testClasses task"
             )
-            executable = _command_executable(direct_command)
-            if (
-                executable in GRADLE_EXECUTABLES
-                and any(argument in GRADLE_DRY_RUN_OPTIONS for argument in direct_command[1:])
-            ):
-                raise EvidenceError(
-                    f"{key}: Question 8 does not accept Gradle dry-run output as check evidence"
-                )
-            if (
-                executable in MAVEN_EXECUTABLES
-                and _maven_project_maven_config_has_arguments(root)
-            ):
-                raise EvidenceError(
-                    f"{key}: Question 8 cannot inspect Maven project arguments in `.mvn/maven.config`"
-                )
-            test_execution = command_runs_test_suite(command, key=key)
-            if test_execution is True:
-                raise EvidenceError(
-                    f"{key}: Question 8 selected Migrate tests only; test execution commands are not allowed"
-                )
-            if test_execution is None and executable not in GRADLE_EXECUTABLES:
-                raise EvidenceError(
-                    f"{key}: Question 8 cannot inspect test behavior for this command"
-                )
-            if (
-                key[0] == "module"
-                and key[2] == "compile"
-                and executable in MAVEN_EXECUTABLES
-                and (
-                    _maven_skips_test_compilation(command_environment, direct_command)
-                    or _maven_project_jvm_config_skips_test_compilation(
-                        root,
-                        direct_command,
-                    )
-                )
-            ):
-                raise EvidenceError(
-                    f"{key}: Question 8 Maven configuration skips test-source compilation"
-                )
-            if (
-                key[0] == "module"
-                and key[2] == "compile"
-                and not command_compiles_test_sources(command)
-            ):
-                raise EvidenceError(
-                    f"{key}: Question 8 Migrate tests only requires test-source compilation evidence"
-                )
-            if (
-                key[0] == "module"
-                and key[2] == "compile"
-                and executable in MAVEN_EXECUTABLES
-                and _maven_active_model_skips_test_compilation(
-                    root,
-                    key[1],
-                    direct_command,
-                    command_environment,
-                    args.timeout,
-                )
-            ):
-                raise EvidenceError(
-                    f"{key}: Question 8 Maven configuration skips test-source compilation"
-                )
-            if test_execution is None:
-                remaining_test_capable_tasks = inspect_gradle_test_tasks(
-                    command,
-                    root,
-                    args.timeout,
-                    allow_spring_boot_run=(
-                        key[0] == "module" and key[2] == "spring_boot_run"
-                    ),
-                )
-                if remaining_test_capable_tasks:
-                    task_list = ", ".join(remaining_test_capable_tasks[:10])
-                    if len(remaining_test_capable_tasks) > 10:
-                        task_list += f", and {len(remaining_test_capable_tasks) - 10} more"
-                    raise EvidenceError(
-                        f"{key}: Question 8 Gradle test-capable tasks remain in the task graph: {task_list}"
-                    )
-                gradle_task_graph_inspected = True
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -5649,8 +4902,6 @@ def record(root, args):
             result = "blocked"
             reason = str(exc)
             output = reason
-        if gradle_task_graph_inspected:
-            output = "Gradle dry-run task graph contained no Test tasks.\n\n" + output
     elif args.action == "review":
         output = args.note
         if not output.strip():

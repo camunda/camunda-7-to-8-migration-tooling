@@ -27,6 +27,7 @@
 | `engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#shouldCountMixedFinishedVisitsByOutcome` | `engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#shouldCountMixedFinishedVisitsByOutcome` | migrated | The legacy module runs the shared C7 test source; CPT maps it to the primary module's migrated test. |
 | `engine-tests:com.camunda.fixture.order.SupportCaseTest#startsSupportCase` | — | retired | CMMN has no Camunda 8 equivalent |
 | `engine-tests:com.camunda.fixture.order.FluentModelTest#buildsAndStartsModel` | — | retired | model built in Java, migrated by hand later |
+| `engine-tests:com.camunda.fixture.order.JGivenEngineBackedTest#startsProcess` | — | manual | The JGiven test executes a real C7 process and requires manual migration. |
 | `engine-tests:com.camunda.fixture.order.CheckStockDelegateTest#setsStockFlagForAvailableItem` | — | not-in-scope | The C7 test is a unit test with no engine-backed process or decision; the C8-only `OrderStockWorkerTest` checks the migrated worker output. |
 | `engine-tests:com.camunda.fixture.order.ChargePaymentDelegateFakeTest#writesPaymentReference` | — | not-in-scope | Delegate unit test; no engine-backed process or decision. |
 | `engine-tests:com.camunda.fixture.order.PriceCalculatorTest#appliesDiscount` | — | not-in-scope | Plain Java unit test. |
@@ -36,8 +37,8 @@
 | `spring-boot-app:com.camunda.fixture.subscription.ActivateDelegateMockTest#mocksDelegateBean` | `spring-boot-app:com.camunda.fixture.subscription.ActivateDelegateMockTest#mocksDelegateBean` | migrated | The CPT job mock replaces the real activation worker. |
 | `spring-boot-app:com.camunda.fixture.subscription.HousekeepingStartupTest#startsHousekeepingOnDeployment` | `spring-boot-app:com.camunda.fixture.subscription.HousekeepingStartupTest#startsHousekeepingOnDeployment` | migrated | The Spring startup hook starts housekeeping. A separate C8-only test completes the review task. |
 | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#startsSubscriptionWithoutSpring` | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#startsSubscriptionWithoutSpring` | migrated | The CPT test uses no Spring application context. |
-| `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPaymentThroughEngineRest` | `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPayment` | manual | The fixture includes a manual CPT equivalent. The skill reports remote-engine tests until the remote-engine migration procedure is defined. CPT replaces the C7 container and Engine REST calls with its managed runtime. |
-| `remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine` | — | manual | Shared environment; CPT deletes runtime data between tests. The skill reports remote-engine tests until the migration procedure is defined. |
+| `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPaymentThroughEngineRest` | `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPayment` | migrated | CPT replaces the C7 container and Engine REST calls with its managed runtime. |
+| `remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine` | — | manual | CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime. |
 | `remote-engine:com.camunda.fixture.payment.ChargePaymentHandlerTest#completesExternalTask` | — | not-in-scope | External task handler unit test; no engine-backed process or decision. |
 
 ## Approved retirements
