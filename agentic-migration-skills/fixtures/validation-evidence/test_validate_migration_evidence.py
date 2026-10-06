@@ -4116,6 +4116,24 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         self.assertEqual([self.c7_test_id], [test["id"] for test in tests])
 
+    def test_test_inventory_ignores_table_after_adjacent_section_heading(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        report_path = self.root / gate.REPORT
+        report_path.write_text(
+            report_path.read_text(encoding="utf-8").rstrip()
+            + "\n## Other evidence\n"
+            + "| ID | Path | Kind | Status |\n"
+            + "|---|---|---|---|\n"
+            + "| other | app/src/test/java/OtherTest.java | process test | passed |\n",
+            encoding="utf-8",
+        )
+
+        tests = gate.test_report_inventory(self.root)
+
+        self.assertEqual([self.c7_test_id], [test["id"] for test in tests])
+
     def test_deferred_baseline_check_detects_suite_contract_changes(self):
         key = ("module", "app", "c7_baseline", "unit")
         suite = {

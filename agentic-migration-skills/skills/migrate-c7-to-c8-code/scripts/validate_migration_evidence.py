@@ -1232,7 +1232,7 @@ def test_inventory_table_candidate(lines):
                 if (
                     recognized_column_count >= 2
                     and test_inventory_row_after_table_break(
-                        lines, row_index + 1, names
+                        lines, row_index, names
                     )
                 ):
                     return True
@@ -1286,7 +1286,7 @@ def test_report_inventory(root, *, required=True):
             row = markdown_cells(candidate)
             if not row:
                 if test_inventory_row_after_table_break(
-                    lines, row_index + 1, names
+                    lines, row_index, names
                 ):
                     raise EvidenceError(
                         "MIGRATION_REPORT.md Test Inventory has rows after a blank line"
