@@ -28,6 +28,27 @@ def test_method_names(source):
     return set(re.findall(r"(?m)^\s*(?:public\s+)?void\s+(\w+)\s*\(", source))
 
 
+def annotated_test_method_names(source):
+    return set(
+        re.findall(
+            r"(?m)^\s*@Test\b[^\n]*\n\s*(?:public\s+)?void\s+(\w+)\s*\(",
+            source,
+        )
+    )
+
+
+def c7_test_method_names(source):
+    if "extends ProcessEngineTestCase" in source:
+        return set(re.findall(r"(?m)^\s*public\s+void\s+(test\w*)\s*\(", source))
+    return annotated_test_method_names(source)
+
+
+def diagram_shapes(bpmn):
+    return sorted(
+        re.findall(r'<bpmndi:BPMN(?:Shape|Edge)\b[^>]*\bbpmnElement="([^"]+)"', bpmn)
+    )
+
+
 def extract_test_deployment_resources(source):
     resources_by_annotation = []
     for annotation in re.finditer(
@@ -78,8 +99,22 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
             with self.subTest(class_name=class_name):
                 c7_source = (C7_TESTS / f"{class_name}.java").read_text()
                 c8_source = (C8_TESTS / f"{class_name}.java").read_text()
-                self.assertEqual(test_method_names(c7_source), test_method_names(c8_source))
+                c7_methods = c7_test_method_names(c7_source)
+                self.assertTrue(c7_methods)
+                self.assertEqual(c7_methods, annotated_test_method_names(c8_source))
                 self.assertIn("@CamundaProcessTest", c8_source)
+
+    def test_junit3_lifecycle_overrides_map_to_junit5_callbacks(self):
+        c7_source = (C7_TESTS / "ImplicitDeploymentTest.java").read_text()
+        c8_source = (C8_TESTS / "ImplicitDeploymentTest.java").read_text()
+
+        self.assertIn("protected void setUp() throws Exception", c7_source)
+        self.assertIn("protected void tearDown() throws Exception", c7_source)
+        self.assertRegex(c8_source, r"@BeforeEach\s+void setUp\(\)")
+        self.assertRegex(c8_source, r"@AfterEach\s+void tearDown\(\)")
+        self.assertNotIn("super.setUp()", c8_source)
+        self.assertNotIn("super.tearDown()", c8_source)
+        self.assertNotIn("@Override", c8_source)
 
     def test_cpt_tests_cover_semantic_changes(self):
         order = (C8_TESTS / "OrderProcessTest.java").read_text()
@@ -91,8 +126,8 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertNotIn("execute(job())", order)
         async_test = order.split("void continuesAfterAsync()", maxsplit=1)[1].split("@Test", maxsplit=1)[0]
         self.assertNotIn("completeJob(", async_test)
-        self.assertIn("mockJobWorker(\"fail\")", order)
-        self.assertIn("mockJobWorker(\"async-continuation\")", order)
+        self.assertIn("mockJobWorker(\"failingDelegate\")", order)
+        self.assertIn("mockJobWorker(\"noopDelegate\")", order)
         self.assertIn("hasActiveIncidents()", order)
         self.assertIn("newCorrelateMessageCommand()", message)
         self.assertIn('.correlationKey("subscription-key")', message)
@@ -128,8 +163,8 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
 
         self.assertEqual(
             {
-                "converted-c8-implicit-process.bpmn",
-                "converted-c8-process-test-cases.bpmn",
+                "com/camunda/fixture/tests/converted-c8-ImplicitDeploymentTest.bpmn",
+                "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn",
             },
             set(deployment_paths),
         )
@@ -137,10 +172,12 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
             with self.subTest(resource=resource):
                 self.assertTrue(Path(resource).name.startswith("converted-c8-"))
                 self.assertTrue((C8_RESOURCES / resource).is_file())
+                source_name = Path(resource).name.removeprefix("converted-c8-")
+                self.assertTrue((C7_RESOURCES / Path(resource).parent / source_name).is_file())
 
         expected_sources = "\n".join(path.read_text() for path in C8_TESTS.glob("*Test.java"))
-        self.assertNotIn('"process-test-cases.bpmn"', expected_sources)
-        self.assertNotIn("ImplicitDeploymentTest.bpmn", expected_sources)
+        self.assertNotRegex(expected_sources, r"(?<!converted-c8-)process-test-cases\.bpmn")
+        self.assertNotRegex(expected_sources, r"(?<!converted-c8-)ImplicitDeploymentTest\.bpmn")
         self.assertTrue(
             (C7_RESOURCES / "com/camunda/fixture/tests/ImplicitDeploymentTest.bpmn").is_file()
         )
@@ -179,37 +216,31 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         skill = SKILL_PATH.read_text()
         checklist = CHECKLIST_PATH.read_text()
         reference = REFERENCE_PATH.read_text()
-        user_task_pattern = (
-            REPO_ROOT
-            / "code-conversion/patterns/40-test-assertions/10-assertions/40-user-task.md"
-        ).read_text()
-        complete_case_pattern = (
-            REPO_ROOT
-            / "code-conversion/patterns/40-test-assertions/10-assertions/10-complete-test-case.md"
-        ).read_text()
 
         self.assertIn("references/test-migration.md", skill)
         self.assertIn("references/test-migration.md", checklist)
         self.assertIn("ProcessEngineTestCase", reference)
         self.assertIn("hasNoActiveElements", reference)
         self.assertIn("newCorrelateMessageCommand", reference)
-        self.assertIn('completeUserTask("UserTask_Approve", variables)', user_task_pattern)
-        self.assertNotIn('completeUserTask("Approve Request", variables)', user_task_pattern)
-        self.assertIn(
-            'completeUserTask(UserTaskSelectors.byTaskName("Say hello to demo"))',
-            complete_case_pattern,
-        )
-        self.assertIn("requires Camunda 8.9 or later", complete_case_pattern)
-        self.assertIn("pass the BPMN element ID", complete_case_pattern)
+        self.assertIn("`@BeforeEach`", reference)
+        self.assertIn("`@AfterEach`", reference)
+        self.assertIn("accepted forms from the Test Inventory", reference)
+        self.assertIn("ProcessEngineTestCase", checklist)
 
     def test_validation_guidance_is_read_only_and_checks_empty_deployments(self):
         skill = " ".join(SKILL_PATH.read_text().split())
 
         self.assertIn(
-            "verify that every process test that uses Camunda 7 engine support without Spring "
-            "was migrated",
+            "when the target is Camunda 8.9 or later, verify that every process test with "
+            "handling `Migrate to CPT` was migrated",
             skill,
         )
+        self.assertIn(
+            "When the target is Camunda 8.8, verify that each such test keeps `Report only` "
+            "handling with the reason `test migration needs Camunda 8.9 or later`.",
+            skill,
+        )
+        self.assertIn("match a converted copy or an accepted form in the inventory", skill)
         self.assertNotIn(
             "migrate every process test that uses Camunda 7 engine support without Spring",
             skill,
@@ -217,11 +248,12 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn("Require each entry to resolve at least one resource.", skill)
 
     def test_migration_report_records_test_mappings_and_mock_boundaries(self):
-        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+        report = " ".join((FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text().split())
 
         for evidence in (
-            "`async-continuation`",
-            "`fail`",
+            "`noopDelegate`",
+            "`failingDelegate`",
+            "BPMN diagram interchange from the Camunda 7 source models",
             "`IllegalStateException`",
             "incident",
             "`legacy-business-key`",
@@ -231,6 +263,28 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
             with self.subTest(evidence=evidence):
                 self.assertIn(evidence, report)
         self.assertIn("approval is pending", report.lower())
+
+    def test_converted_copies_match_converter_output(self):
+        for name in (
+            "converted-c8-ImplicitDeploymentTest.bpmn",
+            "converted-c8-process-test-cases.bpmn",
+        ):
+            with self.subTest(name=name):
+                converted = (C8_RESOURCES / "com/camunda/fixture/tests" / name).read_text()
+                source_name = name.removeprefix("converted-c8-")
+                source = (C7_RESOURCES / "com/camunda/fixture/tests" / source_name).read_text()
+                self.assertIn("conversion:converterVersion=", converted)
+                self.assertEqual(diagram_shapes(source), diagram_shapes(converted))
+                self.assertTrue(diagram_shapes(converted))
+                self.assertNotIn("correlation key", converted)
+
+        converted = (
+            C8_RESOURCES / "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn"
+        ).read_text()
+        self.assertIn('<zeebe:taskDefinition type="noopDelegate"/>', converted)
+        self.assertIn('<zeebe:taskDefinition type="failingDelegate"/>', converted)
+        self.assertIn('<zeebe:header key="class" value="com.camunda.fixture.tests.NoopDelegate"/>', converted)
+        self.assertIn('<zeebe:subscription correlationKey="= orderId"/>', converted)
 
     def test_bpmn_lint_suppresses_only_form_free_user_tasks(self):
         lint_config = json.loads((FIXTURE_ROOT / "expected-c8/.bpmnlintrc").read_text())

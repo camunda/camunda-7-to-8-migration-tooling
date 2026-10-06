@@ -536,7 +536,7 @@ Use these to classify files during assessment:
 | `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
-| `@Test` with Camunda 7 test rules | Test code. Classify the test kind in [test-migration.md](test-migration.md). |
+| `@Test` with `ProcessEngineRule` or `ProcessEngineExtension`, a JUnit 3 `test*()` method in a `ProcessEngineTestCase` subclass, `AbstractProcessEngineRuleTest`, `StandaloneInMemoryTestConfiguration`, or `BpmnAwareTests`/`ProcessEngineTests` assertions | Test code. Classify the test kind in [test-migration.md](test-migration.md). |
 | `application.properties`/`.yaml` with `camunda.*` keys | Config |
 | `ProcessEnginePlugin`, BPMN parse listeners | Flag: global behavior |
 

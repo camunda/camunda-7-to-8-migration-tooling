@@ -274,14 +274,11 @@ When the target version is Camunda 8.8, the skill detects every test.
 
 ## Migrate Engine-Backed Process Tests
 
-Every instruction in this section is mandatory. Mark a preference with `(SHOULD)` and an option
-with `(MAY)`.
-
 ### Scope
 
 This section covers each `process test` that uses Camunda 7 engine test support without Spring.
-Migrate every test in this scope. Spring tests, mock migration, DMN tests, and scenario tests belong
-to separate migrations.
+Migrate every test in this scope. Spring tests, decision tests, and scenario tests follow their own
+sections in this reference. Mock migration belongs to a separate migration.
 
 Use JUnit 5. Convert JUnit 3 and JUnit 4 process tests to JUnit 5. Keep test class names and method
 names. (SHOULD)
@@ -289,7 +286,7 @@ names. (SHOULD)
 | Camunda 8 target | Response |
 |---|---|
 | 8.9 or later | Use target-aligned CPT and follow this section. |
-| 8.8 | Stop before changing test dependencies. Record a blocked item in `MIGRATION_REPORT.md` and ask the user to approve a target-compatible test setup. |
+| 8.8 | Apply the Camunda 8.8 target table above. Keep `Report only` handling with the reason `test migration needs Camunda 8.9 or later`. Do not change test dependencies. |
 
 CPT assertions wait for asynchronous process behavior. The default assertion timeout is 10 seconds.
 The default Java runtime uses Testcontainers and needs a Docker-compatible runtime.
@@ -304,34 +301,35 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
    converted-copy path resolved by the Test Inventory.
 4. Keep the class and method annotation scope. A method-level `@TestDeployment` takes precedence
    over a class-level annotation.
-5. Deploy converted copies only. Never deploy an original model.
+5. Deploy only converted copies and accepted forms from the Test Inventory. Never deploy an
+   original model or a form outside the inventory.
 6. Preserve the behavior of every passing Camunda 7 test.
-7. Record a mapping gap in `MIGRATION_REPORT.md` when no listed mapping applies. Do not invent an
-   API or report the affected test as migrated.
+7. If no listed mapping applies, then record a mapping gap in `MIGRATION_REPORT.md`. Do not invent
+   an API or report the affected test as migrated.
 
 ### Harness and API mappings
 
 The mapping table covers engine-backed tests without Spring. Use the code-conversion pattern
 catalog as the source of truth for exact API mappings. Record any disagreement with the catalog in
-`MIGRATION_REPORT.md` and track catalog corrections in #3209.
+`MIGRATION_REPORT.md`.
 
 | Camunda 7 | CPT 8.9 or later | Note |
 |---|---|---|
 | `@Rule ProcessEngineRule`, `@ClassRule`, or `ProcessEngineRule("custom.cfg.xml")` | `@CamundaProcessTest` on the class, with `CamundaClient client` and `CamundaProcessTestContext processTestContext` fields | Configure the CPT runtime in `camunda-container-runtime.properties`. |
 | `@ExtendWith(ProcessEngineExtension.class)` or `@RegisterExtension ProcessEngineExtension` | `@CamundaProcessTest` on the class, with the same fields | |
-| `extends ProcessEngineTestCase` (JUnit 3) | JUnit 5 class with `@CamundaProcessTest` | Add `@Test` to each `testXxx()` method. |
+| `extends ProcessEngineTestCase` (JUnit 3) | JUnit 5 class with `@CamundaProcessTest` | Add `@Test` to each `testXxx()` method. Annotate an overridden `setUp()` with `@BeforeEach` and an overridden `tearDown()` with `@AfterEach`. Remove the `super.setUp()` and `super.tearDown()` calls. |
 | `extends AbstractProcessEngineRuleTest` or `new StandaloneInMemoryTestConfiguration().rule()` | `@CamundaProcessTest` | These Camunda 7 helpers start a standalone engine with `MockExpressionManager` and no Spring context. |
-| Test-only `camunda.cfg.xml` | Remove it when only the test engine uses it | Record plugins, custom history, and other behavior-changing settings. |
+| Test-only `camunda.cfg.xml` | Where only the test engine uses it, remove it. | Record plugins, custom history, and other behavior-changing settings. |
 | Class- or method-level `@Deployment(resources = {...})` | Class- or method-level `@TestDeployment(resources = {...})` | Name converted copies. Method-level annotations take precedence. |
 | Implicit `@Deployment` | Explicit `@TestDeployment(resources = "<resolved converted-copy path>")` | Use the path resolved by the Test Inventory. |
-| `runtimeService().startProcessInstanceByKey(key, vars)` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Returns `ProcessInstanceEvent`. Follow the catalog's business-key pattern when needed. |
+| `runtimeService().startProcessInstanceByKey(key, vars)` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Returns `ProcessInstanceEvent`. Where the test sets a business key, follow the catalog's business-key pattern. |
 | `assertThat(pi).isWaitingAt("A")` | `assertThat(pi).hasActiveElements("A")` | |
 | `isWaitingAtExactly("A")` | `hasActiveElementsExactly("A")` | |
 | `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Do not use `hasNotActivatedElements`. |
 | `hasPassed("A")` | `hasCompletedElements("A")` | |
 | `hasPassedInOrder("A", "B")` | `hasCompletedElementsInOrder("A", "B")` | |
-| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements` is stricter because it also fails when the element is active. Decide per test and record the decision. |
-| `isEnded()` | `isCompleted()` | Use `isTerminated()` when the instance was cancelled. |
+| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements` is stricter because it also fails for an active element. Decide per test and record the decision. |
+| `isEnded()` | `isCompleted()` | If the test cancels the instance, then use `isTerminated()`. |
 | `isNotEnded()` or `isActive()` | `isActive()` | |
 | `isStarted()` | `isCreated()` | |
 | `hasVariables("x")` | `hasVariableNames("x")` | |
@@ -343,7 +341,7 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 | `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").send().join()` | Get the task key with a user-task search. Record a reason before dropping the step. |
 | `complete(externalTask(), vars)` or `fetchAndLock(topic, ...)` followed by `complete` | `processTestContext.completeJob(jobType, vars)` | Use the converted topic as the job type. Use `throwBpmnErrorFromJob` for `handleBpmnError`. |
 | `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion. |
-| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(Duration)` | Assert the timer catch event first. For a boundary timer, assert the attached task because CPT does not expose the timer as an active element. |
+| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(Duration)` | Assert the timer catch event first. When the timer is a boundary timer, assert the attached task because CPT does not expose the timer as an active element. |
 | `ClockUtil.setCurrentTime(date)` or `ClockUtil.reset()` | `processTestContext.setTime(instant)` | CPT resets the clock after each test. |
 | `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Get `key` from the converted model's message subscription, not the business key. |
 | `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | |
@@ -356,7 +354,7 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 
 | Camunda 7 behavior | Camunda 8 behavior | Required test change |
 |---|---|---|
-| The in-memory engine runs synchronously in the test thread until a wait state. | The runtime runs asynchronously. | Use waiting CPT assertions. Put non-CPT checks, such as Mockito `verify`, behind a timeout or Awaitility. |
+| The in-memory engine runs synchronously in the test thread up to the next wait state. | The runtime runs asynchronously. | Use waiting CPT assertions. Put non-CPT checks, such as Mockito `verify`, behind a timeout or Awaitility. |
 | The job executor is off, and tests step through jobs with `execute(job())`. | Camunda 8 advances asynchronously. Workers or test job handlers complete service-task jobs. | Remove manual async-continuation steps. Record which job types run real workers and which use test handlers. |
 | A failing synchronous delegate throws into the test. | A failing worker creates an incident after its retries. | Assert the incident instead of the exception. Record this semantic change. |
 | A process-instance ID is a string. | A process-instance key is a `long`. | Update helpers and variables that store process-instance IDs. |
@@ -366,12 +364,12 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 
 1. Remove `camunda-bpm-assert`, `camunda-bpm-junit5`, test-scoped `camunda-engine`, and Camunda 7
    coverage artifacts after migrating their uses.
-2. Remove H2 when the embedded test engine is its only user.
+2. Where the embedded test engine is the only H2 user, remove H2.
 3. Add `io.camunda:camunda-process-test-java` in test scope. Align its version with the target
    Camunda version and the catalog's dependency pattern.
-4. Use the CPT Spring artifact instead when the module uses the Camunda Spring Boot Starter. That
+4. Where the module uses the Camunda Spring Boot Starter, use the CPT Spring artifact instead. That
    migration is outside this section.
-5. Add `junit-vintage-engine` when non-process JUnit 4 tests remain in the module.
+5. Where non-process JUnit 4 tests remain in the module, add `junit-vintage-engine`.
 6. Align AssertJ with the version required by CPT.
 
 ### Recipe-assisted migration
@@ -379,7 +377,7 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 The OpenRewrite pass adds the CPT dependency and renames assertions. Review every migrated test
 against its Camunda 7 source. A successful compile does not prove behavioral parity.
 
-Until `ReplaceAssertionsRecipe` fixes #3213, inspect and repair these cases:
+While #3213 is open, inspect and repair these `ReplaceAssertionsRecipe` cases:
 
 | Recipe output or source | Required check |
 |---|---|
@@ -389,8 +387,8 @@ Until `ReplaceAssertionsRecipe` fixes #3213, inspect and repair these cases:
 | Any other assertion chained after `variables()` | Keep the Camunda 7 call with a TODO. Do not replace it with `isCreated()`. |
 | `hasVariables()` with no names | Keep the Camunda 7 call with a TODO. Do not replace it with `hasVariableNames()`, which passes without names. |
 
-Until `ReplaceAssertionsRecipe` fixes #3214, change assertion imports before the recipe or convert
-the assertions by hand afterward:
+While #3214 is open, change assertion imports before `ReplaceAssertionsRecipe` runs or convert the
+assertions by hand afterward:
 
 | Camunda 7 code | Workaround before the recipe |
 |---|---|

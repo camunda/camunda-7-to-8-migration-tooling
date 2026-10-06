@@ -442,8 +442,10 @@ Assessment-only and analyze-only runs do not claim readiness.
   applies the readiness verdicts in the checklist. Record the failing and final dependency
   coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
   there. Record the test command and its exit code there.
-9. **Tests** — verify that every process test that uses Camunda 7 engine support without Spring was
-   migrated by following `references/test-migration.md`. Run `mvn test` or the Gradle test task and
+9. **Tests** — when the target is Camunda 8.9 or later, verify that every process test with handling
+   `Migrate to CPT` was migrated by following `references/test-migration.md`. When the target is
+   Camunda 8.8, verify that each such test keeps `Report only` handling with the reason
+   `test migration needs Camunda 8.9 or later`. Run `mvn test` or the Gradle test task and
    every independent suite in each module.
    Test each retained domain-library behavior for every supported type and downstream call path.
    Use synthetic fixture values, never production keys or credentials. Continue with other suites
@@ -479,13 +481,13 @@ Assessment-only and analyze-only runs do not claim readiness.
 13. **Deployment resources** — when `@Deployment` or `@TestDeployment` is present after migration,
     build the inventory from this run's converted copies and accepted forms. Create separate
     `resources` entries for each included type, allowing multiple entries per type.
-    For Spring `@Deployment`, resolve the actual entries with Spring's
+    Where a test uses Spring `@Deployment`, resolve the actual entries with Spring's
     `PathMatchingResourcePatternResolver`. Require each entry to match a non-empty subset of one
     resource type in the inventory. Reject any match outside the inventory. Require each inventory
     resource to match exactly one entry. Confirm that the packaged application contains every match.
-    For CPT `@TestDeployment`, resolve each entry against the test classpath. Require each entry to
-    resolve at least one resource. Require every resolved resource to match a converted copy in the
-    inventory. Check method-level entries before class-level entries because a method-level
+    Where a test uses CPT `@TestDeployment`, resolve each entry against the test classpath. Require
+    each entry to resolve at least one resource. Require every resolved resource to match a converted
+    copy or an accepted form in the inventory. Check method-level entries before class-level entries because a method-level
     annotation takes precedence. Never deploy an original model. A test that disables annotation
     deployment does not validate this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in

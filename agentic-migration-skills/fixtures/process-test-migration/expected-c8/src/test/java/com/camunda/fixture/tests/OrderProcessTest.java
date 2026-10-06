@@ -21,7 +21,8 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.CamundaAssert.assertThatUserTask;
 
 @CamundaProcessTest
-@TestDeployment(resources = "converted-c8-process-test-cases.bpmn")
+@TestDeployment(
+    resources = "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn")
 class OrderProcessTest {
 
   private CamundaClient client;
@@ -68,7 +69,7 @@ class OrderProcessTest {
 
   @Test
   void continuesAfterAsync() {
-    processTestContext.mockJobWorker("async-continuation").thenComplete();
+    processTestContext.mockJobWorker("noopDelegate").thenComplete();
 
     ProcessInstanceEvent processInstance =
         client
@@ -84,7 +85,7 @@ class OrderProcessTest {
   @Test
   void failsWhenDelegateThrows() {
     processTestContext
-        .mockJobWorker("fail")
+        .mockJobWorker("failingDelegate")
         .withHandler(
             (jobClient, job) ->
                 jobClient

@@ -31,8 +31,8 @@ Run the BPMN linter from `expected-c8`:
 
 ```bash
 cd agentic-migration-skills/fixtures/process-test-migration/expected-c8
-c8ctl bpmn lint src/test/resources/converted-c8-implicit-process.bpmn
-c8ctl bpmn lint src/test/resources/converted-c8-process-test-cases.bpmn
+c8ctl bpmn lint src/test/resources/com/camunda/fixture/tests/converted-c8-ImplicitDeploymentTest.bpmn
+c8ctl bpmn lint src/test/resources/com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn
 ```
 
 ## Migration walkthrough
@@ -40,14 +40,19 @@ c8ctl bpmn lint src/test/resources/converted-c8-process-test-cases.bpmn
 1. Copy `c7-source` to a temporary project and run the `migrate-c7-to-c8-code` skill.
 2. Classify each engine-backed test without Spring as a process test. Migrate the JUnit 3 and JUnit
    4 tests to JUnit 5. Keep the class and method names.
-3. Map the implicit deployment for `ImplicitDeploymentTest` to
-   `@TestDeployment(resources = "converted-c8-implicit-process.bpmn")`.
-4. Map each explicit deployment to `converted-c8-process-test-cases.bpmn`. Do not deploy either
-   Camunda 7 BPMN file.
-5. Compare every migrated method with the same method in `expected-c8`.
-6. Run both commands above. Confirm that the JUnit 4 `LegacyFormatterTest` still runs in
+3. Map the implicit deployment for `ImplicitDeploymentTest` to the converted copy
+   `com/camunda/fixture/tests/converted-c8-ImplicitDeploymentTest.bpmn`.
+4. Map each explicit deployment to the converted copy
+   `com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn`. Do not deploy either Camunda 7
+   BPMN file.
+5. Map the JUnit 3 `setUp()` and `tearDown()` overrides to `@BeforeEach` and `@AfterEach`.
+6. Compare every migrated method with the same method in `expected-c8`.
+7. Run both commands above. Confirm that the JUnit 4 `LegacyFormatterTest` still runs in
    `expected-c8`.
 
-The async-continuation and failure tests use CPT job handlers. One completes the no-op service task.
-The other creates an incident. These test handlers do not define the general Camunda 7 mock
-migration.
+The async-continuation and failure tests use CPT job handlers for the converter-derived job types
+`noopDelegate` and `failingDelegate`. One completes the no-op service task. The other creates an
+incident. These test handlers do not define the general Camunda 7 mock migration.
+
+The Diagram Converter created both converted copies. `expected-c8/MIGRATION_REPORT.md` records the
+one manual change.

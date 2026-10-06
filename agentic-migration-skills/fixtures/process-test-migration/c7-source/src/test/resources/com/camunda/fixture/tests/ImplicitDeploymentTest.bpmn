@@ -1,10 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  id="Definitions_Implicit"
-                  targetNamespace="http://camunda.org/examples">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_Implicit" targetNamespace="http://camunda.org/examples">
   <bpmn:process id="implicit-process" isExecutable="true">
-    <bpmn:startEvent id="Start_Implicit" name="Start implicit process" />
-    <bpmn:endEvent id="End_Implicit" name="Complete implicit process" />
+    <bpmn:startEvent id="Start_Implicit" name="Start implicit process">
+      <bpmn:outgoing>Flow_Implicit</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="End_Implicit" name="Complete implicit process">
+      <bpmn:incoming>Flow_Implicit</bpmn:incoming>
+    </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_Implicit" sourceRef="Start_Implicit" targetRef="End_Implicit" />
   </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="implicit-process">
+      <bpmndi:BPMNShape id="Start_Implicit_di" bpmnElement="Start_Implicit">
+        <dc:Bounds x="160" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Implicit_di" bpmnElement="End_Implicit">
+        <dc:Bounds x="256" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Implicit_di" bpmnElement="Flow_Implicit">
+        <di:waypoint x="196" y="120" />
+        <di:waypoint x="256" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
 </bpmn:definitions>

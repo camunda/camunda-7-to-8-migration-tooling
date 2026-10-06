@@ -1,7 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:conversion="http://camunda.org/schema/conversion/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" conversion:converterVersion="0.3.6-SNAPSHOT" expressionLanguage="http://www.w3.org/1999/XPath" id="Definitions_Implicit" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0" targetNamespace="http://camunda.org/examples" typeLanguage="http://www.w3.org/2001/XMLSchema">
+<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:conversion="http://camunda.org/schema/conversion/1.0" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" conversion:converterVersion="0.3.6-SNAPSHOT" expressionLanguage="http://www.w3.org/1999/XPath" id="Definitions_Implicit" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0" targetNamespace="http://camunda.org/examples" typeLanguage="http://www.w3.org/2001/XMLSchema">
   <bpmn:process id="implicit-process" isClosed="false" isExecutable="true" processType="None">
-    <bpmn:startEvent id="Start_Implicit" isInterrupting="true" name="Start implicit process" parallelMultiple="false"/>
-    <bpmn:endEvent id="End_Implicit" name="Complete implicit process"/>
+    <bpmn:startEvent id="Start_Implicit" isInterrupting="true" name="Start implicit process" parallelMultiple="false">
+      <bpmn:outgoing>Flow_Implicit</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="End_Implicit" name="Complete implicit process">
+      <bpmn:incoming>Flow_Implicit</bpmn:incoming>
+    </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_Implicit" sourceRef="Start_Implicit" targetRef="End_Implicit"/>
   </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane bpmnElement="implicit-process" id="BPMNPlane_1">
+      <bpmndi:BPMNShape bpmnElement="Start_Implicit" id="Start_Implicit_di">
+        <dc:Bounds height="36" width="36" x="160" y="102"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="End_Implicit" id="End_Implicit_di">
+        <dc:Bounds height="36" width="36" x="256" y="102"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="Flow_Implicit" id="Flow_Implicit_di">
+        <di:waypoint x="196" y="120"/>
+        <di:waypoint x="256" y="120"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
 </bpmn:definitions>

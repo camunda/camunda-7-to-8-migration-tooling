@@ -18,7 +18,8 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @CamundaProcessTest
-@TestDeployment(resources = "converted-c8-process-test-cases.bpmn")
+@TestDeployment(
+    resources = "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn")
 class MessageProcessTest {
 
   private CamundaClient client;

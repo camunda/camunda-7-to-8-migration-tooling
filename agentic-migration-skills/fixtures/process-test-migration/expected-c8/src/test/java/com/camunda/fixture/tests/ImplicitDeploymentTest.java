@@ -11,22 +11,37 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.TestDeployment;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 
 @CamundaProcessTest
-@TestDeployment(resources = "converted-c8-implicit-process.bpmn")
+@TestDeployment(
+    resources = "com/camunda/fixture/tests/converted-c8-ImplicitDeploymentTest.bpmn")
 class ImplicitDeploymentTest {
 
   private CamundaClient client;
+
+  private String processDefinitionKey;
+
+  @BeforeEach
+  void setUp() {
+    processDefinitionKey = "implicit-process";
+  }
+
+  @AfterEach
+  void tearDown() {
+    processDefinitionKey = null;
+  }
 
   @Test
   void testStartsImplicitlyDeployedProcess() {
     ProcessInstanceEvent processInstance =
         client
             .newCreateInstanceCommand()
-            .bpmnProcessId("implicit-process")
+            .bpmnProcessId(processDefinitionKey)
             .latestVersion()
             .send()
             .join();

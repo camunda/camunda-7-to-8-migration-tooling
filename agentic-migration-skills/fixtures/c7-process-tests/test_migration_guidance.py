@@ -1176,7 +1176,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("org.camunda.bpm.engine.impl.util.ClockUtil", timer_source)
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path, handling in (
-            (EXPECTED_ASSESSMENT, "Report only"),
+            (EXPECTED_ASSESSMENT, "Migrate to CPT"),
             (EXPECTED_ASSESSMENT_88, "Report only"),
         ):
             timer_rows = [
@@ -1626,9 +1626,14 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("| priority | test kind | detect by | handling |", reference)
         process_test_row = next(
-            line for line in reference.splitlines() if line.startswith("| 7 | process test |")
+            row
+            for row in markdown_table(
+                TEST_MIGRATION_REFERENCE,
+                ["Priority", "Test kind", "Detect by", "Handling"],
+            )
+            if row["Test kind"] == "process test"
         )
-        self.assertTrue(process_test_row.endswith("| migrate to cpt |"))
+        self.assertEqual("Migrate to CPT", process_test_row["Handling"])
         self.assertIn(
             "while the remote-engine migration procedure is undefined, the skill keeps "
             "remote-engine test rows at report only.",

@@ -17,8 +17,23 @@ import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.runtime
 @Deployment
 public class ImplicitDeploymentTest extends ProcessEngineTestCase {
 
+  private String processDefinitionKey;
+
+  @Override
+  protected void setUp() throws Exception {
+    super.setUp();
+    processDefinitionKey = "implicit-process";
+  }
+
+  @Override
+  protected void tearDown() throws Exception {
+    processDefinitionKey = null;
+    super.tearDown();
+  }
+
   public void testStartsImplicitlyDeployedProcess() {
-    ProcessInstance processInstance = runtimeService().startProcessInstanceByKey("implicit-process");
+    ProcessInstance processInstance =
+        runtimeService().startProcessInstanceByKey(processDefinitionKey);
 
     assertThat(processInstance).isEnded();
   }
