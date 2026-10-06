@@ -711,6 +711,29 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("deferred verification plan", readme)
         self.assertIn("filesystem snapshot path", readme)
 
+        test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertRegex(
+            test_migration,
+            r"When the recorder receives module `compile` evidence, it requires successful "
+            r"test-source\s+compilation\.",
+        )
+        self.assertIn(
+            "| Gradle | `build` or `check`, including with `-x test` |",
+            test_migration,
+        )
+        self.assertRegex(
+            test_migration,
+            r"snapshot\. \(MAY\)\s+Never rebuild the baseline from migrated code\.",
+        )
+        validation_evidence = TEST_MIGRATION_REFERENCE.with_name("validation-evidence.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("It rejects other Maven test plugin goals.", validation_evidence)
+        self.assertIn(
+            "Do not use Gradle `build` or `check` with `-x test` in this mode.",
+            validation_evidence,
+        )
+
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("## Test-source compilation", report)
         self.assertIn(

@@ -125,9 +125,14 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 The validation script refuses to run these checks in `migrate_only` mode. It rejects a passing,
 missing, or differently blocked test check.
 
-When Question 8 selects **Migrate tests only** and a non-test check needs Maven packaging, use
-`-DskipTests`. For Gradle, use `-x test`. Record the reason as `declined by user (Question 8)`.
-This is the only exception to the rule against commands that skip tests.
+When a non-test Maven check needs packaging in `migrate_only`, use a standard lifecycle phase with
+`-DskipTests`.
+The recorder accepts `-DskipTests` for standard Maven lifecycle phases and Surefire or Failsafe
+goals. It rejects other Maven test plugin goals.
+When a Gradle non-test check needs packaging, select a task whose dependency graph contains no test
+tasks.
+Do not use Gradle `build` or `check` with `-x test` in this mode.
+Record the reason as `declined by user (Question 8)`.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 

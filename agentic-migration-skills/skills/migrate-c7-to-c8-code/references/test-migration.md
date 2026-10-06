@@ -317,13 +317,23 @@ regardless of evidence kind:
 
 | Build tool | Command | Recorder action |
 |---|---|---|
-| Maven | `-DskipTests` or `-DskipTests=true` | Allow the command because it skips tests. |
-| Maven | `-DskipTests=false` or another non-true value | Reject a test lifecycle goal. |
-| Gradle | `-x test` or `--exclude-task test` | If no other test task remains, then allow the command. |
+| Maven | A standard lifecycle phase with `-DskipTests` or `-DskipTests=true` | Allow standard Surefire and Failsafe test execution to be skipped. |
+| Maven | A Surefire or Failsafe test goal with `-DskipTests` or `-DskipTests=true` | Allow the known test provider to skip execution. |
+| Maven | Another plugin's `:test` or `:integration-test` goal, even with `-DskipTests` | Reject the goal because the plugin may ignore that property. |
+| Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
+| Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from test-task detection. |
+| Gradle | `build` or `check`, including with `-x test` | Reject the aggregate task because other test tasks can remain in its task graph. |
 | Either | A test lifecycle goal or task without an applicable skip option | Reject the command. |
 
-When a non-test check needs Maven packaging, use `-DskipTests`.
-When a non-test check needs a Gradle build, use `-x test`.
+When the recorder receives module `compile` evidence, it requires successful test-source
+compilation.
+Maven `test-compile` or a later standard lifecycle phase with `-DskipTests` qualifies.
+Gradle requires the explicit `testClasses` task.
+A main-source-only compile does not qualify.
+
+When a non-test check needs Maven packaging, use the standard lifecycle with `-DskipTests`.
+When a non-test Gradle check needs packaging, select a task whose dependency graph contains no test
+tasks. Do not use aggregate `build` or `check` tasks in `migrate_only`.
 For every independently runnable suite, declare separate `test_suites` entries named
 `<suite>-c7-baseline` and `<suite>-c8-migrated`. Set `requires_docker` for each entry according to
 its runtime. These names give the baseline and migrated run separate validation evidence keys.
@@ -387,8 +397,8 @@ The verification plan is not test evidence. If either test run is not recorded o
 check does not pass, then the skill does not report the tests as verified.
 
 When the user later asks the skill to verify a **Migrate tests only** run, the skill follows this
-plan and runs the Camunda 7 suite from the Step 2 worktree or filesystem snapshot. Never rebuild
-the baseline from migrated code. (MAY)
+plan and runs the Camunda 7 suite from the Step 2 worktree or filesystem snapshot. (MAY)
+Never rebuild the baseline from migrated code.
 
 ---
 
