@@ -1633,6 +1633,7 @@ def test_inventory_section(lines):
 
 def test_report_inventory(root, *, required=True):
     path = root / REPORT
+    reject_symlink_components(root, path, "MIGRATION_REPORT.md")
     lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
     table = test_inventory_section(lines)
     if not table:

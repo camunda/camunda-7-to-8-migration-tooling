@@ -2658,6 +2658,17 @@ class ValidationEvidenceTest(unittest.TestCase):
             gate.test_parity_issues(plan, {}, mapping),
         )
 
+    def test_test_inventory_rejects_a_symlinked_report(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        outside = self.root / "outside.md"
+        (self.root / gate.REPORT).replace(outside)
+        (self.root / gate.REPORT).symlink_to(outside)
+
+        with self.assertRaisesRegex(gate.EvidenceError, "Refusing symlinked MIGRATION_REPORT.md"):
+            gate.test_report_inventory(self.root)
+
     def test_every_ledger_read_checks_its_c7_snapshot_binding(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
