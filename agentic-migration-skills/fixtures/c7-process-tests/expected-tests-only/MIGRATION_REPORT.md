@@ -95,9 +95,9 @@ repository, keep its `.git` metadata in the snapshot so the validator can verify
    and `mvn -pl remote-engine verify`.
 5. Confirm that `test-mapping.json` and its approved test and mock changes are complete.
 6. Record `test_freeze` after the migrated test sources and resources are final.
-7. Start Docker. Record `test_repeat` for each suite with mapped or added CPT tests, using its
-   exact Step 2 command: `mvn -pl engine-tests test`, `mvn -pl spring-boot-app test`, or
-   `mvn -pl remote-engine verify`. Do not use `tests` for these mapped suites.
+7. Start Docker. Record `test_repeat` for suites with mapped or added CPT tests, using their exact
+   Step 2 commands: `mvn -pl engine-tests,spring-boot-app test` and `mvn -pl remote-engine verify`.
+   Do not use `tests` for mapped suites.
 8. Record `assertion_strength` for each migrated test class and `mock_boundary` for each migrated
    C7 test.
 9. Record the computed `test_parity` and `coverage_parity` checks after the repeat checks pass.
