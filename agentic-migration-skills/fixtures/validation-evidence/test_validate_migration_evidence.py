@@ -638,11 +638,11 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.write_scope(test_run_mode="migrate_only")
                 command_args = ["mvn", "-pl", "app", "test-compile"]
                 with patch.object(gate.subprocess, "run") as command:
-                        with self.assertRaisesRegex(
-                            gate.EvidenceError,
-                            "Maven options skip test-source compilation",
-                        ):
-                            self.submit(compile_key, command=command_args)
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Maven options skip test-source compilation",
+                    ):
+                        self.submit(compile_key, command=command_args)
                 command.assert_not_called()
 
     def test_migrate_only_rejects_uninspectable_maven_project_jvm_config(self):
@@ -671,8 +671,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "cannot inspect Maven project arguments",
             ):
                 self.submit(
-                        ("model", "models/converted-c8-process.bpmn", "lint", None),
-                        command=command_args,
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
                 )
         command.assert_not_called()
 
