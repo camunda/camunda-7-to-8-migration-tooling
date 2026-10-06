@@ -1895,7 +1895,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
         ).read_text(encoding="utf-8")
         auto_mock_test = java_method_body(c8_auto_mock, "autoMocksDelegatesAndTracksCoverage")
-        auto_mock_setup = java_method_body(c8_auto_mock, "openAuditWorker")
+        auto_mock_setup = java_method_body(c8_auto_mock, "openStockWorker")
         self.assertIn(
             'Mocks.register("orderAuditListener", new OrderAuditListener())',
             c7_auto_mock,
@@ -1904,12 +1904,66 @@ class MigrationGuidanceTest(unittest.TestCase):
             c7_auto_mock.index('Mocks.register("orderAuditListener", new OrderAuditListener())'),
             c7_auto_mock.index('autoMock("order.bpmn")'),
         )
-        self.assertIn('processTestContext.mockJobWorker("check-stock")', auto_mock_test)
-        self.assertIn("checkStock.getInvocations()", auto_mock_test)
-        self.assertIn("OrderJobHandlers.openAuditWorker(client)", auto_mock_setup)
+        c7_order_model_root = ET.fromstring(c7_order_model)
+        camunda_namespace = "{http://camunda.org/schema/1.0/bpmn}"
+        bpmn_namespace = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
+        delegate_expressions = {
+            element.attrib.get(
+                f"{camunda_namespace}delegateExpression",
+                element.attrib.get("delegateExpression"),
+            )
+            for element in c7_order_model_root.iter()
+            if f"{camunda_namespace}delegateExpression" in element.attrib
+            or "delegateExpression" in element.attrib
+        }
+        self.assertEqual(
+            {"${orderAuditListener}", "${chargePaymentDelegate}"},
+            delegate_expressions,
+        )
+        service_task_implementations = {
+            task.attrib["id"]: {
+                attribute
+                for attribute in ("class", "delegateExpression", "expression")
+                if f"{camunda_namespace}{attribute}" in task.attrib
+            }
+            for task in c7_order_model_root.iter(f"{bpmn_namespace}serviceTask")
+        }
+        self.assertEqual(
+            {
+                "Task_CheckStock": {"class"},
+                "Task_ChargePayment": {"delegateExpression"},
+                "Task_NotifyCustomer": {"expression"},
+            },
+            service_task_implementations,
+        )
+        c8_order_model = ET.parse(
+            EXPECTED_C8 / "engine-tests/src/main/resources/converted-c8-order.bpmn"
+        ).getroot()
+        zeebe_namespace = "{http://camunda.org/schema/zeebe/1.0}"
+        self.assertEqual(
+            {"check-stock", "charge-payment", "notify-customer"},
+            {
+                element.attrib["type"]
+                for element in c8_order_model.iter(f"{zeebe_namespace}taskDefinition")
+            },
+        )
+        self.assertEqual(
+            {"order-audit"},
+            {
+                element.attrib["type"]
+                for element in c8_order_model.iter(f"{zeebe_namespace}executionListener")
+            },
+        )
+        mock_job_types = set(re.findall(r'mockJobWorker\("([^"]+)"\)', auto_mock_test))
+        self.assertEqual({"charge-payment", "order-audit"}, mock_job_types)
+        self.assertIn("audit.getInvocations()", auto_mock_test)
+        self.assertIn("charge.getInvocations()", auto_mock_test)
+        self.assertNotIn('mockJobWorker("notify-customer")', auto_mock_test)
+        self.assertIn("OrderJobHandlers.openStockWorker(client)", auto_mock_setup)
+        self.assertNotIn("OrderJobHandlers.openAuditWorker(client)", auto_mock_setup)
         self.assertNotIn("OrderJobHandlers.open(client)", auto_mock_setup)
-        self.assertNotIn("stockChecked", auto_mock_test)
-        self.assertIn('.hasVariable("auditStarted", true)', auto_mock_test)
+        self.assertIn("stockChecked", auto_mock_test)
+        self.assertNotIn("auditStarted", auto_mock_test)
 
         c7_subscription_mock = (
             C7_SOURCE
@@ -1941,8 +1995,11 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "where the c7 test registers a concrete component before `automock`, keep that "
-            "component real in cpt.",
+            "the last registration for a bean sets the effective boundary",
+            reference,
+        )
+        self.assertIn(
+            "the skill does not infer mocks from `camunda:class` or `camunda:expression`",
             reference,
         )
     def test_camunda_8_8_inventory_preserves_signals_across_targets(self):

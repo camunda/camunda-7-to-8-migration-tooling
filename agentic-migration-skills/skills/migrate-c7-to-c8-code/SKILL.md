@@ -224,7 +224,8 @@ Where the confirmed root is a Git repository, record `git rev-parse HEAD` and th
 
 #### Test Inventory
 
-Build the Test Inventory from the original C7 test source before Step 3 changes that source.
+When the skill reaches Step 2, it follows `references/test-migration.md` to build the Test Inventory.
+Build the inventory from the original C7 test source before Step 3 changes that source.
 Inventory every test method and assign its test kind.
 For every in-scope test method, detect mock signals from the original C7 test source using
 `references/test-migration.md`.
@@ -262,10 +263,6 @@ its HTTP topology. Follow `references/http-topology-migration.md`. Ask Question 
 `references/interview-questions.md` before Step 3. Record the target application bind address and
 port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
 consumer actions. Where the management server uses a separate bind address or port, record both.
-
-#### Test Inventory
-
-When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
 
 #### Model Inventory
 

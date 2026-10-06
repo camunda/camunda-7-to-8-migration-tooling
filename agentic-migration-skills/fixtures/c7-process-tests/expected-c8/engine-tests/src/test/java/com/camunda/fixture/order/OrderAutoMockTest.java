@@ -27,21 +27,22 @@ class OrderAutoMockTest {
 
   private CamundaClient client;
   private CamundaProcessTestContext processTestContext;
-  private JobWorker auditWorker;
+  private JobWorker stockWorker;
 
   @BeforeEach
-  void openAuditWorker() {
-    auditWorker = OrderJobHandlers.openAuditWorker(client);
+  void openStockWorker() {
+    stockWorker = OrderJobHandlers.openStockWorker(client);
   }
 
   @AfterEach
-  void closeAuditWorker() {
-    auditWorker.close();
+  void closeStockWorker() {
+    stockWorker.close();
   }
 
   @Test
   void autoMocksDelegatesAndTracksCoverage() {
-    JobWorkerMock checkStock = processTestContext.mockJobWorker("check-stock").thenComplete();
+    JobWorkerMock audit = processTestContext.mockJobWorker("order-audit").thenComplete();
+    JobWorkerMock charge = processTestContext.mockJobWorker("charge-payment").thenComplete();
     ProcessInstanceEvent instance =
         client.newCreateInstanceCommand()
             .bpmnProcessId("order")
@@ -50,8 +51,9 @@ class OrderAutoMockTest {
             .send()
             .join();
 
-    assertThat(instance).hasActiveElements("Task_Approve").hasVariable("auditStarted", true);
-    org.assertj.core.api.Assertions.assertThat(checkStock.getInvocations()).isEqualTo(1);
+    assertThat(instance).hasActiveElements("Task_Approve").hasVariable("stockChecked", true);
+    org.assertj.core.api.Assertions.assertThat(audit.getInvocations()).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThat(charge.getInvocations()).isZero();
     org.assertj.core.api.Assertions.assertThat(instance.getBpmnProcessId()).isEqualTo("order");
   }
 }
