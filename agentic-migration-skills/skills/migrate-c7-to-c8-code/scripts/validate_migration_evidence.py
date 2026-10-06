@@ -965,9 +965,13 @@ def test_inventory_table_candidate(lines):
         ):
             return True
 
-        if len(expected_columns & name_set) < 2:
+        recognized_column_count = len(expected_columns & name_set)
+        if recognized_column_count < 2:
             index += 1
             continue
+        candidate_inventory_shape = (
+            "file" in name_set and recognized_column_count >= 3
+        )
         test_id_headers = {
             column for column, name in enumerate(names) if name == "test id"
         }
@@ -980,6 +984,8 @@ def test_inventory_table_candidate(lines):
                 row_index += 1
                 continue
             row_values = [plain_markdown_cell(cell) for cell in row]
+            if candidate_inventory_shape and any(row_values):
+                return True
             if any(
                 value
                 and (

@@ -1945,6 +1945,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             include_empty_table=True,
         )
 
+    def test_missing_test_run_mode_rejects_malformed_inventory_with_blank_test_id(self):
+        self.assert_missing_test_run_mode_rejects_malformed_inventory(None, "")
+
     def test_missing_test_run_mode_rejects_malformed_cucumber_inventory_without_heading(self):
         self.assert_missing_test_run_mode_rejects_malformed_inventory(
             None,
