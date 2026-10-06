@@ -822,14 +822,19 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_c7_baseline_accepts_cucumber_and_spock_display_names(self):
         cucumber_id = "app:com.example.RunCucumberTest#Scenario: customer pays"
-        spock_id = "app:com.example.OrderSpec#an order can be paid"
+        spock_id = "app:com.example.OrderSpec#an order can be paid (3DS)"
+        parameterized_id = "app:com.example.ParameterizedTest#testWithCase"
         junit = (
             "<testsuite>"
             '<testcase classname="com.example.OrderTest" name="testOrder" />'
             '<testcase classname="com.example.RunCucumberTest" '
             'name="Scenario: customer pays" />'
             '<testcase classname="com.example.OrderSpec" '
-            'name="an order can be paid" />'
+            'name="an order can be paid (3DS)" />'
+            '<testcase classname="com.example.ParameterizedTest" '
+            'name="testWithCase[1]" />'
+            '<testcase classname="com.example.ParameterizedTest" '
+            'name="testWithCase[2]" />'
             "</testsuite>"
         )
         self.configure_test_run(junit)
@@ -843,6 +848,11 @@ class ValidationEvidenceTest(unittest.TestCase):
                 spock_id,
                 "app/src/test/groovy/com/example/OrderSpec.groovy",
                 "Spock feature",
+            ),
+            (
+                parameterized_id,
+                "app/src/test/java/com/example/ParameterizedTest.java",
+                "JUnit parameterized test",
             ),
         )
         report = self.root / gate.REPORT
@@ -872,6 +882,38 @@ class ValidationEvidenceTest(unittest.TestCase):
         results = {test["c7_id"]: test["c7_result"] for test in mapping["tests"]}
         self.assertEqual("passed", results[cucumber_id])
         self.assertEqual("passed", results[spock_id])
+        self.assertEqual("passed", results[parameterized_id])
+
+    def test_cpt_repeat_preserves_mapped_display_name_suffixes(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.c8_test_id = (
+            "app:com.example.OrderCptTest#Scenario: pay by card (3DS)"
+        )
+        self.map_test_to_cpt()
+        junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderCptTest" '
+            'name="Scenario: pay by card (3DS)" />'
+            "</testsuite>"
+        )
+        result = gate.record_test_repeat(
+            self.root,
+            gate.requirements(self.root, self.plan),
+            Namespace(
+                target="app",
+                scenario="unit",
+                command=self.cpt_command(first_junit=junit),
+                timeout=None,
+            ),
+            gate.read_test_mapping(self.root, required=True),
+        )
+
+        self.assertEqual("passed", result["result"])
+        for run in result["test_runs"]:
+            self.assertEqual({self.c8_test_id}, set(run["test_results"]))
 
     def test_test_id_parts_rejects_blank_method_names(self):
         for test_id in ("app:com.example.OrderSpec#", "app:com.example.OrderSpec#  "):
@@ -880,6 +922,18 @@ class ValidationEvidenceTest(unittest.TestCase):
                     gate.EvidenceError, "Invalid Test Inventory ID"
                 ):
                     gate.test_id_parts(test_id)
+
+    def test_test_id_parts_preserves_hashes_in_display_names(self):
+        self.assertEqual(
+            (
+                "app",
+                "com.example.RunCucumberTest",
+                "Scenario: reconcile #2",
+            ),
+            gate.test_id_parts(
+                "app:com.example.RunCucumberTest#Scenario: reconcile #2"
+            ),
+        )
 
     def test_test_run_mode_validation_uses_one_error_message(self):
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))

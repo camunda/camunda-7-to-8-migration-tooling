@@ -818,7 +818,7 @@ def test_id_parts(test_id):
     if not isinstance(test_id, str) or ":" not in test_id or "#" not in test_id:
         raise EvidenceError(f"Invalid Test Inventory ID: {test_id!r}")
     module, qualified_method = test_id.split(":", 1)
-    class_name, method = qualified_method.rsplit("#", 1)
+    class_name, _, method = qualified_method.partition("#")
     if (
         not module
         or not class_name
@@ -1225,7 +1225,7 @@ def junit_method_name(name):
     return re.sub(r"(?:\([^()]*\)|\[[^\]]*\])+$", "", name).strip()
 
 
-def parse_junit_report(path, module):
+def parse_junit_report(path, module, expected_test_ids):
     try:
         document = ET.parse(path)
     except (OSError, ET.ParseError) as exc:
@@ -1235,7 +1235,13 @@ def parse_junit_report(path, module):
         if testcase.tag.rsplit("}", 1)[-1] != "testcase":
             continue
         class_name = testcase.get("classname")
-        method = junit_method_name(testcase.get("name", ""))
+        report_name = testcase.get("name", "")
+        exact_test_id = f"{module}:{class_name}#{report_name}"
+        method = (
+            report_name
+            if exact_test_id in expected_test_ids
+            else junit_method_name(report_name)
+        )
         if not class_name or not method:
             raise EvidenceError(f"JUnit report has a test without a class or method: {path}")
         test_id = f"{module}:{class_name}#{method}"
@@ -1243,10 +1249,13 @@ def parse_junit_report(path, module):
     return cases
 
 
-def parse_junit_reports(paths, module):
+def parse_junit_reports(paths, module, expected_test_ids=None):
+    expected_test_ids = set(expected_test_ids or ())
     invocations = {}
     for path in paths:
-        for test_id, statuses in parse_junit_report(path, module).items():
+        for test_id, statuses in parse_junit_report(
+            path, module, expected_test_ids
+        ).items():
             invocations.setdefault(test_id, []).extend(statuses)
     return {
         test_id: {
@@ -2071,7 +2080,16 @@ def coverage_parity_issues(plan, checks, mapping):
     return issues, output
 
 
-def run_cpt_test_suite(root, module, suite_name, command, timeout, run_number, suite_config):
+def run_cpt_test_suite(
+    root,
+    module,
+    suite_name,
+    command,
+    timeout,
+    run_number,
+    suite_config,
+    expected_test_ids=None,
+):
     reports = report_patterns(
         suite_config.get("reports"), DEFAULT_JUNIT_REPORTS, f"{module} {suite_name} JUnit reports"
     )
@@ -2127,7 +2145,9 @@ def run_cpt_test_suite(root, module, suite_name, command, timeout, run_number, s
             )
             if not junit_paths:
                 raise EvidenceError("The CPT command produced no fresh JUnit XML reports")
-            test_results = parse_junit_reports(junit_paths, module)
+            test_results = parse_junit_reports(
+                junit_paths, module, expected_test_ids
+            )
             coverage_paths = fresh_reports(
                 root,
                 module,
@@ -2195,6 +2215,9 @@ def record_test_repeat(root, plan, args, mapping):
     if not command or not command[0]:
         raise EvidenceError("Supply the CPT test command after --")
 
+    expected_test_ids = mapped_cpt_test_ids(
+        plan.test_contract, test_rows_by_id(mapping)
+    )
     runs = [
         run_cpt_test_suite(
             root,
@@ -2204,6 +2227,7 @@ def record_test_repeat(root, plan, args, mapping):
             args.timeout,
             run_number,
             suite_config,
+            expected_test_ids,
         )
         for run_number in (1, 2)
     ]
@@ -3116,7 +3140,14 @@ def record_c7_baseline(root, args):
                 junit_copies = copy_reports(
                     root, args.target, junit_paths, suite_root / "junit"
                 )
-                junit_results = parse_junit_reports(junit_paths, args.target)
+                inventory_test_ids = {
+                    test["id"]
+                    for test in contract["tests"]
+                    if test["module"] == args.target
+                }
+                junit_results = parse_junit_reports(
+                    junit_paths, args.target, inventory_test_ids
+                )
                 missing = sorted(set(suite["test_ids"]) - set(junit_results))
                 if missing:
                     raise EvidenceError(

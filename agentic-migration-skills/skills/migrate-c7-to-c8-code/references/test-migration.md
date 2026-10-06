@@ -124,8 +124,9 @@ It reads Gradle files from `build/test-results/**/`.
 
 The validator maps each invocation to `<module>:<fully qualified class>#<method>`. The `method`
 part can be a framework display name, including spaces and punctuation, such as a Cucumber scenario
-or Spock feature name. The validator removes parameter and repeat suffixes from each JUnit report
-name before matching it. It marks a method `passed` only when every invocation passes.
+or Spock feature name. The validator preserves a report name that exactly matches a C7 Test
+Inventory ID or mapped CPT test ID. It removes parameter and repeat suffixes from other JUnit
+report names before matching them. It marks a method `passed` only when every invocation passes.
 
 The baseline check passes when it captures a fresh report for every suite test ID. A failed or
 skipped C7 test remains visible in the ledger. A C7 test that did not pass is not required to pass
