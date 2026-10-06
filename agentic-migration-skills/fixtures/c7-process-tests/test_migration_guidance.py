@@ -1089,6 +1089,43 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_remote_engine_tests_require_process_or_decision_execution(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        inventory_scope_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Runs a BPMN process or DMN decision on a Camunda 7 engine",
+                "Uses a framework or approach that existed for Camunda 7",
+                "Matches the shared-engine exception in Scope confirmation",
+                "Scope decision",
+            ],
+        )
+        shared_engine_scope_row = next(
+            row
+            for row in inventory_scope_rows
+            if row["Runs a BPMN process or DMN decision on a Camunda 7 engine"] == "No"
+            and row["Matches the shared-engine exception in Scope confirmation"]
+            == "Yes"
+        )
+        no_process_scope_row = next(
+            row
+            for row in inventory_scope_rows
+            if row["Runs a BPMN process or DMN decision on a Camunda 7 engine"] == "No"
+            and row["Matches the shared-engine exception in Scope confirmation"]
+            == "No"
+        )
+        self.assertLess(
+            inventory_scope_rows.index(shared_engine_scope_row),
+            inventory_scope_rows.index(no_process_scope_row),
+        )
+        self.assertIn(
+            "the skill includes the test in scope as `remote-engine test` with "
+            "`report only` handling",
+            normalized(shared_engine_scope_row["Scope decision"]),
+        )
+        self.assertIn(
+            "the skill excludes the test from scope",
+            normalized(no_process_scope_row["Scope decision"]),
+        )
+
         remote_engine_row = next(
             normalized(line)
             for line in reference_text.splitlines()
@@ -1798,6 +1835,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             [
                 "Runs a BPMN process or DMN decision on a Camunda 7 engine",
                 "Uses a framework or approach that existed for Camunda 7",
+                "Matches the shared-engine exception in Scope confirmation",
                 "Scope decision",
             ],
         )
@@ -1806,6 +1844,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
                     "Uses a framework or approach that existed for Camunda 7": "Yes",
+                    "Matches the shared-engine exception in Scope confirmation": "Any",
                     "Scope decision": (
                         "When both prerequisites are met, the skill includes the "
                         "test in scope."
@@ -1814,14 +1853,24 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
                     "Uses a framework or approach that existed for Camunda 7": "Any",
+                    "Matches the shared-engine exception in Scope confirmation": "Yes",
                     "Scope decision": (
-                        "If a test does not run a BPMN process or DMN decision on a "
-                        "Camunda 7 engine, then the skill excludes the test from scope."
+                        "The skill includes the test in scope as "
+                        "`remote-engine test` with `Report only` handling."
+                    ),
+                },
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
+                    "Uses a framework or approach that existed for Camunda 7": "Any",
+                    "Matches the shared-engine exception in Scope confirmation": "No",
+                    "Scope decision": (
+                        "The skill excludes the test from scope."
                     ),
                 },
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
                     "Uses a framework or approach that existed for Camunda 7": "No",
+                    "Matches the shared-engine exception in Scope confirmation": "Any",
                     "Scope decision": (
                         "If a test does not use a framework or approach that existed "
                         "for Camunda 7, then the skill excludes the test from scope."
