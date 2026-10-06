@@ -820,6 +820,67 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.summary()["issues"],
         )
 
+    def test_c7_baseline_accepts_cucumber_and_spock_display_names(self):
+        cucumber_id = "app:com.example.RunCucumberTest#Scenario: customer pays"
+        spock_id = "app:com.example.OrderSpec#an order can be paid"
+        junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderTest" name="testOrder" />'
+            '<testcase classname="com.example.RunCucumberTest" '
+            'name="Scenario: customer pays" />'
+            '<testcase classname="com.example.OrderSpec" '
+            'name="an order can be paid" />'
+            "</testsuite>"
+        )
+        self.configure_test_run(junit)
+        framework_tests = (
+            (
+                cucumber_id,
+                "app/src/test/resources/features/order.feature",
+                "Cucumber scenario",
+            ),
+            (
+                spock_id,
+                "app/src/test/groovy/com/example/OrderSpec.groovy",
+                "Spock feature",
+            ),
+        )
+        report = self.root / gate.REPORT
+        for test_id, file_path, test_kind in framework_tests:
+            source_file = self.root / file_path
+            source_file.parent.mkdir(parents=True, exist_ok=True)
+            source_file.write_text("", encoding="utf-8")
+        report.write_text(
+            "# Migration report\n\n"
+            "## Test Inventory\n\n"
+            "| Test ID | File | Test kind | Handling |\n"
+            "|---|---|---|---|\n"
+            f"| `{self.c7_test_id}` | `{self.c7_test_file_path}` "
+            "| process test | Migrate |\n"
+            + "".join(
+                f"| `{test_id}` | `{file_path}` | {test_kind} | Report only |\n"
+                for test_id, file_path, test_kind in framework_tests
+            ),
+            encoding="utf-8",
+        )
+
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+        self.assertEqual(0, self.record_c7_baseline())
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        results = {test["c7_id"]: test["c7_result"] for test in mapping["tests"]}
+        self.assertEqual("passed", results[cucumber_id])
+        self.assertEqual("passed", results[spock_id])
+
+    def test_test_id_parts_rejects_blank_method_names(self):
+        for test_id in ("app:com.example.OrderSpec#", "app:com.example.OrderSpec#  "):
+            with self.subTest(test_id=test_id):
+                with self.assertRaisesRegex(
+                    gate.EvidenceError, "Invalid Test Inventory ID"
+                ):
+                    gate.test_id_parts(test_id)
+
     def test_test_run_mode_validation_uses_one_error_message(self):
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
         inventory["test_run_mode"] = "unsupported"

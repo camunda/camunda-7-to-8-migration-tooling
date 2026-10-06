@@ -822,9 +822,8 @@ def test_id_parts(test_id):
     if (
         not module
         or not class_name
-        or not method
+        or not method.strip()
         or re.fullmatch(r"[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*", class_name) is None
-        or re.fullmatch(r"[A-Za-z_$][\w$]*", method) is None
     ):
         raise EvidenceError(f"Invalid Test Inventory ID: {test_id!r}")
     return module, class_name, method
