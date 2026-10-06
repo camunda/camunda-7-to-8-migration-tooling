@@ -52,11 +52,38 @@ GRADLE_EXECUTABLES = {
 }
 MAVEN_TEST_LIFECYCLE_GOALS = {
     "test",
-    "integration-test",
-    "verify",
+    "prepare-package",
     "package",
+    "pre-integration-test",
+    "integration-test",
+    "post-integration-test",
+    "verify",
     "install",
     "deploy",
+}
+MAVEN_LIFECYCLE_GOALS = {
+    "validate",
+    "initialize",
+    "generate-sources",
+    "process-sources",
+    "generate-resources",
+    "process-resources",
+    "compile",
+    "process-classes",
+    "generate-test-sources",
+    "process-test-sources",
+    "generate-test-resources",
+    "process-test-resources",
+    "test-compile",
+    "process-test-classes",
+    *MAVEN_TEST_LIFECYCLE_GOALS,
+    "pre-clean",
+    "clean",
+    "post-clean",
+    "pre-site",
+    "site",
+    "post-site",
+    "site-deploy",
 }
 MAVEN_TEST_SOURCE_COMPILATION_PHASES = {
     "test",
@@ -75,73 +102,13 @@ MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS = {
     "maven-surefire-plugin",
 }
 MAVEN_SKIP_TESTS_PLUGIN_PREFIXES = {"failsafe", "surefire"}
+MAVEN_KNOWN_NON_TEST_PLUGIN_GOALS = {"spring-boot:run"}
+JAVA_EXECUTABLES = {"java", "java.exe"}
 GRADLE_TEST_TASKS = {"test"}
 GRADLE_DRY_RUN_OPTIONS = {"--dry-run", "-m"}
 GRADLE_TASK_GRAPH_BEGIN = "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__"
 GRADLE_TASK_GRAPH_TEST = "__CAMUNDA_MIGRATION_TEST_TASK__:"
 GRADLE_TASK_GRAPH_END = "__CAMUNDA_MIGRATION_TEST_GRAPH_END__"
-UNINSPECTABLE_EXECUTABLES = {
-    "ant",
-    "ant.bat",
-    "bazel",
-    "bazelisk",
-    "bash",
-    "buck",
-    "buck2",
-    "bun",
-    "busybox",
-    "chronic",
-    "cmd",
-    "cmd.exe",
-    "command",
-    "cargo",
-    "dash",
-    "doas",
-    "dotnet",
-    "exec",
-    "fish",
-    "flock",
-    "go",
-    "gmake",
-    "gtimeout",
-    "just",
-    "ksh",
-    "make",
-    "mix",
-    "msbuild",
-    "nice",
-    "node",
-    "nodejs",
-    "nohup",
-    "npm",
-    "npx",
-    "perl",
-    "php",
-    "powershell",
-    "pwsh",
-    "pytest",
-    "python",
-    "python2",
-    "python3",
-    "ruby",
-    "rake",
-    "runuser",
-    "sh",
-    "sbt",
-    "setsid",
-    "sudo",
-    "su",
-    "time",
-    "task",
-    "timeout",
-    "tox",
-    "swift",
-    "watch",
-    "xargs",
-    "xcodebuild",
-    "yarn",
-    "zsh",
-}
 ENVIRONMENT_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 MAVEN_OPTIONS_WITH_VALUES = {
     "--activate-profiles", "--define", "--file", "--projects", "--resume-from",
@@ -215,20 +182,25 @@ def _unwrap_env_command(command):
     return unwrapped, environment
 
 
-def _maven_skips_test_compilation(environment):
+def _maven_skips_test_compilation(environment, command=None):
     skip_property = re.compile(
         r"""(?<!\S)['"]?-Dmaven\.test\.skip=(?:true|1|yes)['"]?(?=\s|$)""",
         flags=re.IGNORECASE,
     )
-    return any(
+    skips_test_compilation = any(
         skip_property.search(environment.get(name, ""))
         for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")
     )
+    if command is not None:
+        _, _, command_skips_test_compilation = _maven_command_details(command)
+        skips_test_compilation = skips_test_compilation or command_skips_test_compilation
+    return skips_test_compilation
 
 
 def _maven_command_details(command):
     arguments = []
     skip_tests = False
+    skip_test_compilation = False
     index = 1
     while index < len(command):
         argument = command[index]
@@ -246,6 +218,10 @@ def _maven_command_details(command):
             name, separator, value = property_argument.partition("=")
             if name == "skipTests":
                 skip_tests = not separator or value.casefold() == "true"
+            elif name == "maven.test.skip":
+                skip_test_compilation = (
+                    not separator or value.casefold() in {"true", "1", "yes"}
+                )
             index += 1
             continue
         if argument in MAVEN_OPTIONS_WITH_VALUES:
@@ -256,7 +232,7 @@ def _maven_command_details(command):
             continue
         arguments.append(argument.casefold())
         index += 1
-    return arguments, skip_tests
+    return arguments, skip_tests, skip_test_compilation
 
 
 def _gradle_command_details(command):
@@ -311,8 +287,8 @@ def _maven_test_goal_honors_skip_tests(goal):
     return False
 
 
-def command_runs_test_suite(command):
-    """Return True for tests, False for non-tests, or None when inspection is needed."""
+def command_runs_test_suite(command, key=None):
+    """Return True for tests, False for known non-tests, or None when inspection is needed."""
     unwrapped = _unwrap_env_command(command)
     if unwrapped is None:
         return None
@@ -321,18 +297,30 @@ def command_runs_test_suite(command):
     if executable in MAVEN_EXECUTABLES:
         if environment.get("MAVEN_ARGS", "").strip():
             return None
-        arguments, skip_tests = _maven_command_details(command)
+        arguments, skip_tests, _ = _maven_command_details(command)
+        skip_test_compilation = _maven_skips_test_compilation(environment, command)
         for argument in arguments:
             goal = argument.split("@", 1)[0]
             if ":" in goal:
+                if goal in MAVEN_KNOWN_NON_TEST_PLUGIN_GOALS:
+                    continue
                 goal_name = goal.rsplit(":", 1)[-1]
-                if goal_name in {"test", "integration-test"} and not (
-                    skip_tests and _maven_test_goal_honors_skip_tests(goal)
-                ):
-                    return True
-            elif goal in MAVEN_TEST_LIFECYCLE_GOALS and not skip_tests:
+                if goal_name in {"test", "integration-test"}:
+                    if (
+                        not (skip_tests or skip_test_compilation)
+                        or not _maven_test_goal_honors_skip_tests(goal)
+                    ):
+                        return True
+                    continue
+                return None
+            if goal not in MAVEN_LIFECYCLE_GOALS:
+                return None
+            if (
+                goal in MAVEN_TEST_LIFECYCLE_GOALS
+                and not (skip_tests or skip_test_compilation)
+            ):
                 return True
-        return False
+        return False if arguments else None
     if executable in GRADLE_EXECUTABLES:
         arguments, excluded_task_names, excluded_task_paths = _gradle_command_details(command)
         for argument in arguments:
@@ -351,12 +339,24 @@ def command_runs_test_suite(command):
         if len(command) > 1 and command[1].casefold() in {"bpmnlint", "dmnlint"}:
             return False
         return None
-    if executable in UNINSPECTABLE_EXECUTABLES or (
-        executable.startswith("python")
-        and re.fullmatch(r"python\d+(?:\.\d+)*", executable)
+    if (
+        key is not None
+        and key[0] == "module"
+        and key[2] == "executable_jar"
+        and executable in JAVA_EXECUTABLES
+        and "-jar" in command[1:]
     ):
-        return None
-    return False
+        jar_option = command.index("-jar")
+        if (
+            jar_option + 1 < len(command)
+            and Path(command[jar_option + 1]).suffix.casefold() == ".jar"
+        ):
+            return False
+    if executable == "echo":
+        return False
+    if executable == "docker" and command[1:] == ["info"]:
+        return False
+    return None
 
 
 def command_compiles_test_sources(command):
@@ -366,7 +366,9 @@ def command_compiles_test_sources(command):
     command, _ = unwrapped
     executable = _command_executable(command)
     if executable in MAVEN_EXECUTABLES:
-        arguments, skip_tests = _maven_command_details(command)
+        arguments, skip_tests, skip_test_compilation = _maven_command_details(command)
+        if skip_test_compilation:
+            return False
         phases = {argument.split("@", 1)[0] for argument in arguments if ":" not in argument}
         return "test-compile" in phases or (
             skip_tests and bool(phases & MAVEN_TEST_SOURCE_COMPILATION_PHASES)
@@ -388,7 +390,18 @@ def inspect_gradle_test_tasks(command, root, timeout):
 gradle.taskGraph.whenReady {{ graph ->
     println("{GRADLE_TASK_GRAPH_BEGIN}")
     graph.allTasks.findAll {{ task ->
+        def taskName = task.name.toLowerCase()
+        def testNamed = (
+            (taskName.startsWith("test")
+                && !(taskName in ["testclasses", "testfixturesclasses"]))
+            || task.name.endsWith("Test")
+            || task.name.endsWith("Tests")
+            || taskName.matches(".*[-_.]tests?$")
+        )
         task instanceof org.gradle.api.tasks.testing.Test
+            || task instanceof org.gradle.api.tasks.JavaExec
+            || task instanceof org.gradle.api.tasks.Exec
+            || testNamed
     }}.each {{ task ->
         println("{GRADLE_TASK_GRAPH_TEST}" + task.path)
     }}
@@ -2101,16 +2114,20 @@ def record(root, args):
                 raise EvidenceError(
                     f"{key}: Question 8 does not accept Gradle dry-run output as check evidence"
                 )
-            test_execution = command_runs_test_suite(command)
+            test_execution = command_runs_test_suite(command, key=key)
             if test_execution is True:
                 raise EvidenceError(
                     f"{key}: Question 8 selected Migrate tests only; test execution commands are not allowed"
+                )
+            if test_execution is None and executable not in GRADLE_EXECUTABLES:
+                raise EvidenceError(
+                    f"{key}: Question 8 cannot inspect test behavior for this command"
                 )
             if (
                 key[0] == "module"
                 and key[2] == "compile"
                 and executable in MAVEN_EXECUTABLES
-                and _maven_skips_test_compilation(command_environment)
+                and _maven_skips_test_compilation(command_environment, direct_command)
             ):
                 raise EvidenceError(
                     f"{key}: Question 8 Maven options skip test-source compilation"
@@ -2124,21 +2141,17 @@ def record(root, args):
                     f"{key}: Question 8 Migrate tests only requires test-source compilation evidence"
                 )
             if test_execution is None:
-                if executable not in GRADLE_EXECUTABLES:
-                    raise EvidenceError(
-                        f"{key}: Question 8 cannot inspect test behavior for this command"
-                    )
-                remaining_test_tasks = inspect_gradle_test_tasks(
+                remaining_test_capable_tasks = inspect_gradle_test_tasks(
                     command,
                     root,
                     args.timeout,
                 )
-                if remaining_test_tasks:
-                    task_list = ", ".join(remaining_test_tasks[:10])
-                    if len(remaining_test_tasks) > 10:
-                        task_list += f", and {len(remaining_test_tasks) - 10} more"
+                if remaining_test_capable_tasks:
+                    task_list = ", ".join(remaining_test_capable_tasks[:10])
+                    if len(remaining_test_capable_tasks) > 10:
+                        task_list += f", and {len(remaining_test_capable_tasks) - 10} more"
                     raise EvidenceError(
-                        f"{key}: Question 8 Gradle test tasks remain in the task graph: {task_list}"
+                        f"{key}: Question 8 Gradle test-capable tasks remain in the task graph: {task_list}"
                     )
                 gradle_task_graph_inspected = True
         try:

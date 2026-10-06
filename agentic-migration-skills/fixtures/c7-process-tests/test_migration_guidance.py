@@ -719,7 +719,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("| Gradle | `build` or `check` |", test_migration)
         self.assertIn(
-            "When no Gradle `Test` task remains in the dry-run graph, the recorder allows the command.",
+            "When no test-capable task remains in the dry-run graph, the recorder allows the command.",
             test_migration,
         )
         self.assertIn(
@@ -737,7 +737,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("It rejects other Maven test plugin goals.", validation_evidence)
         self.assertIn(
-            "identifies tasks by Gradle's `Test` type.",
+            "inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks",
             validation_evidence,
         )
         self.assertIn(

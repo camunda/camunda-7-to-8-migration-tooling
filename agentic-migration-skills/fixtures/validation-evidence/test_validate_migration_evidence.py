@@ -455,17 +455,24 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual("blocked", check["result"])
             self.assertEqual("declined by user (Question 8)", check["reason"])
 
-    def test_migrate_only_rejects_test_lifecycle_commands_under_other_evidence_kinds(self):
+    def test_migrate_only_rejects_test_and_uninspectable_commands_under_other_evidence_kinds(self):
         compile_key = ("module", "app", "compile", None)
         test_commands = (
             ["mvn", "test"],
             ["mvn", "verify"],
+            ["mvn", "prepare-package"],
+            ["mvn", "pre-integration-test"],
+            ["mvn", "post-integration-test"],
             ["mvnd", "package"],
             ["mvnw", "maven-surefire-plugin:test"],
             ["mvn", "org.apache.maven.plugins:maven-surefire-plugin:test@unit"],
             ["mvn", "org.apache.maven.plugins:maven-failsafe-plugin:integration-test@it"],
             ["mvn", "org.example:maven-custom-plugin:test", "-DskipTests"],
             ["mvn", "org.example:maven-custom-plugin:1.0:integration-test@it", "-DskipTests=true"],
+            ["mvn", "org.example:custom-test-plugin:run-tests"],
+            ["mvn", "org.example:custom-test-plugin:run-tests", "-DskipTests"],
+            ["pnpm", "test"],
+            ["mvnDebug", "test"],
             ["./gradlew", "test"],
             ["./gradlew", "integrationTest"],
         )
@@ -474,7 +481,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.write_scope(test_run_mode="migrate_only")
                 completed = subprocess.CompletedProcess(command_args, 0, "test command ran")
                 with patch.object(gate.subprocess, "run", return_value=completed) as command:
-                    with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "test execution|cannot inspect",
+                    ):
                         self.submit(compile_key, command=command_args)
                     command.assert_not_called()
 
@@ -539,11 +549,33 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
         command.assert_called_once()
 
+    def test_migrate_only_recognizes_documented_runtime_launch_commands(self):
+        self.assertFalse(gate.command_runs_test_suite(["mvn", "spring-boot:run"]))
+        for executable in ("java", "java.exe", "/usr/bin/java"):
+            command = [executable, "-jar", "target/application.jar"]
+            with self.subTest(executable=executable):
+                self.assertIsNone(gate.command_runs_test_suite(command))
+                self.assertIsNone(
+                    gate.command_runs_test_suite(
+                        command,
+                        key=("module", "app", "compile", None),
+                    )
+                )
+                self.assertFalse(
+                    gate.command_runs_test_suite(
+                        command,
+                        key=("module", "app", "executable_jar", None),
+                    )
+                )
+
     def test_migrate_only_allows_maven_packaging_when_tests_are_skipped(self):
         compile_key = ("module", "app", "compile", None)
         maven_commands = (
             ["mvn", "package", "-DskipTests"],
             ["mvn", "-DskipTests=true", "package"],
+            ["mvn", "prepare-package", "-DskipTests"],
+            ["mvn", "pre-integration-test", "-DskipTests"],
+            ["mvn", "post-integration-test", "-DskipTests"],
         )
         for command_args in maven_commands:
             with self.subTest(command=command_args):
@@ -559,6 +591,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "compile"],
             ["gradle", "classes"],
             ["env", "MAVEN_OPTS=-Dmaven.test.skip=true", "mvn", "test-compile"],
+            ["env", "JAVA_TOOL_OPTIONS=-Dmaven.test.skip=true", "mvn", "test-compile"],
+            ["env", "JDK_JAVA_OPTIONS=-Dmaven.test.skip=1", "mvn", "test-compile"],
+            ["env", "_JAVA_OPTIONS=-Dmaven.test.skip=yes", "mvn", "test-compile"],
         )
         for command_args in main_source_commands:
             with self.subTest(command=command_args):
@@ -566,6 +601,25 @@ class ValidationEvidenceTest(unittest.TestCase):
                 completed = subprocess.CompletedProcess(command_args, 0, "main sources compiled")
                 with patch.object(gate.subprocess, "run", return_value=completed) as command:
                     with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
+                        self.submit(compile_key, command=command_args)
+                    command.assert_not_called()
+
+    def test_migrate_only_rejects_maven_test_compilation_skipped_by_command_line_property(self):
+        compile_key = ("module", "app", "compile", None)
+        command_arguments = (
+            ["mvn", "-pl", "app", "test-compile", "-Dmaven.test.skip=true"],
+            ["mvn", "-pl", "app", "test-compile", "-D", "maven.test.skip=true"],
+            ["mvn", "--define=maven.test.skip=1", "-pl", "app", "test-compile"],
+        )
+        for command_args in command_arguments:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                completed = subprocess.CompletedProcess(command_args, 0, "test compilation skipped")
+                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Maven options skip test-source compilation",
+                    ):
                         self.submit(compile_key, command=command_args)
                     command.assert_not_called()
 
@@ -657,12 +711,40 @@ class ValidationEvidenceTest(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0, graph_output)
 
         with patch.object(gate.subprocess, "run", side_effect=run) as command:
-            with self.assertRaisesRegex(gate.EvidenceError, "Gradle test tasks"):
+            with self.assertRaisesRegex(gate.EvidenceError, "Gradle test-capable tasks"):
                 self.submit(
                     ("model", "models/converted-c8-process.bpmn", "lint", None),
                     command=command_args,
                 )
         command.assert_called_once()
+
+    def test_migrate_only_gradle_inspection_covers_custom_executable_tasks(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
+        command_args = ["gradle", "check", "-x", "test"]
+        for task_type, task_path in (
+            ("org.gradle.api.tasks.JavaExec", ":app:launchFixture"),
+            ("org.gradle.api.tasks.Exec", ":app:invokeFixtureRunner"),
+        ):
+            with self.subTest(task_type=task_type):
+                self.write_scope(test_run_mode="migrate_only")
+                graph_output = (
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+                    f"__CAMUNDA_MIGRATION_TEST_TASK__:{task_path}\n"
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+                )
+
+                def run(command, **kwargs):
+                    self.assertIn("--dry-run", command)
+                    script_path = Path(command[command.index("--init-script") + 1])
+                    inspection_script = script_path.read_text(encoding="utf-8")
+                    self.assertIn(f"task instanceof {task_type}", inspection_script)
+                    self.assertIn("task.name.toLowerCase()", inspection_script)
+                    return subprocess.CompletedProcess(command, 0, graph_output)
+
+                with patch.object(gate.subprocess, "run", side_effect=run) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "Gradle .*tasks remain"):
+                        self.submit(lint_key, command=command_args)
+                command.assert_called_once()
 
     def test_migrate_only_rejects_gradle_when_dry_run_cannot_inspect_task_graph(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -691,6 +773,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         for command_args in (
             ["mvn", "-pl", "app", "test-compile"],
             ["env", "MAVEN_OPTS=-Xmx1g", "mvn", "-pl", "app", "test-compile"],
+            ["mvn", "-pl", "app", "test-compile", "-Dmaven.test.skip=false"],
+            ["mvn", "-D", "maven.test.skip=false", "-pl", "app", "test-compile"],
         ):
             with self.subTest(command=command_args):
                 self.write_scope(test_run_mode="migrate_only")
