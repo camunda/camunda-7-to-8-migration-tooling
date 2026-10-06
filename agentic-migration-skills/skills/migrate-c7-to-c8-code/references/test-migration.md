@@ -20,6 +20,7 @@ The skill scans `src/test/java` and additional source sets such as `src/it/java`
 | No | Any | No | The skill excludes the test from scope. |
 | Yes | No | Any | If a test does not use a framework or approach that existed for Camunda 7, then the skill excludes the test from scope. |
 A dependency alone never makes a test eligible for migration.
+When production code or an unmigrated test uses a dependency, the skill keeps it.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
 The skill inventories every test method declared or inherited by each concrete test class in the scanned test source sets.
@@ -44,98 +45,50 @@ CMMN tests and tests that use unsupported Camunda engine internals do not meet t
 The skill does not assign `manual redesign` based on `ClockUtil` alone.
 The skill inventories CMMN tests and tests that use unsupported engine internals as `manual redesign` with `Report only` handling.
 
+## Candidate discovery
+
+When the skill scans a configured test source set, it looks for these test inputs:
+
+| Candidate source | Discovery signal |
+|---|---|
+| JUnit 3 | `ProcessEngineTestCase` and a `test*` method |
+| Cucumber | A configured Cucumber runner or build configuration and `.feature` files |
+| Spock | A Groovy test class that extends `spock.lang.Specification` |
+| Spring endpoint | A test that calls an application endpoint backed by a C7 engine |
+| Direct decision service | A test that calls `DecisionService` |
+
+When the skill identifies a candidate, it records a Test Inventory row before it assigns a test kind.
+When the skill assigns a test kind, it uses the Test kinds table and evidence of executed engine behavior.
+When a discovered test has `Report only` or out-of-scope handling, the skill keeps its Test Inventory row.
+
 ## Test kinds
 
 | Priority | Test kind | Detect by | Handling |
 |---|---|---|---|
 | 1 | out of scope (Camunda 8) | Uses Zeebe Process Test (`io.camunda.zeebe.process.test.*`) or CPT (`io.camunda.process.test.*`). | Not part of test migration |
 | 2 | manual redesign | A C7 engine test covers CMMN APIs or models, or unsupported engine internals such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. `ClockUtil` timer control does not trigger this signal by itself. | Report only |
-| 3 | manual migration | JGiven (`io.holunda.testing:camunda-bpm-jgiven`) tests require manual migration. Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
+| 3 | manual migration | A JGiven (`io.holunda.testing:camunda-bpm-jgiven`) test executes a real C7 process or decision and requires manual migration. Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
 | 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate (lower priority) |
 | 5 | remote-engine test | A test runs a BPMN process or DMN decision on a C7 engine through Engine REST (`/engine-rest`), a service-API REST client such as `camunda-platform-7-rest-client-spring-boot`, `org.camunda.bpm.client.*` or `@ExternalTaskSubscription`. The test may start the C7 engine with a Testcontainers image or Docker Compose. | Migrate (lower priority) |
 | 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate |
 | 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, or `StandaloneInMemoryTestConfiguration`. It may call a real C7 engine's `RuntimeService` to start a process (for example, `startProcessInstanceByKey(...)`), `TaskService` to complete a task with a non-null `processInstanceId`, or `RuntimeService` to correlate a message. It may call a Spring Boot endpoint that starts a process, completes a process-backed task, or correlates a message on a real C7 engine. | Migrate to CPT |
 | 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or tests that use WireMock or another Engine REST stub. The skill classifies every other test that runs no process or decision as out of scope, including a test that only deploys a model. When the shared-engine exception in Scope confirmation applies, the skill classifies that test as a remote-engine test instead. | Not part of test migration |
 
+When a JGiven test does not execute a real C7 process or decision, the skill assigns the out-of-scope test kind.
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
+If the application has no usable worker bootstrap, then the skill sets the test's handling to `Report only`.
 
-## Decision-test migration
+## Decision-test handling
 
-When the target is Camunda 8.9 or later, the skill migrates every test with test kind `decision test`.
-The skill keeps a decision test distinct from a process test.
+If the separate DMN migration work in #3203 is incomplete, then the skill keeps decision tests at `Report only`.
+Inventory each decision test and record the reason for its `Report only` handling.
 A process test that checks a business rule task remains a process test.
-Add `assertThatDecision(DecisionSelectors.byId("dish", processInstanceKey))` to a process test without changing its test kind. (MAY)
-Decision mocks use the mock subtask's `mockDmnDecision` rules.
 
-### Harness and evaluation mapping
+DMN test conversion is outside this process-test scope.
 
-| Camunda 7 | Camunda 8.9 with CPT | Notes |
-|---|---|---|
-| `@Rule DmnEngineRule` or `DmnEngine` built with `DmnEngineConfiguration` | `@CamundaProcessTest` with an injected `CamundaClient` | Camunda 7 evaluates DMN in process. CPT needs a Camunda 8 runtime. |
-| A Spring test that injects `DecisionService` | `@SpringBootTest` with `@CamundaSpringProcessTest` and an injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
-| `dmnEngine.parseDecision("dish", stream)`, `parseDecisions(stream)`, or `@Deployment(resources = "dish.dmn")` | `@TestDeployment(resources = "converted-c8-dish.dmn")` | Deploy the converted DMN copy. A DRD deploys as one resource. |
-| `dmnEngine.evaluateDecisionTable(decision, vars)`, `evaluateDecision(decision, vars)`, `DecisionService.evaluateDecisionByKey("dish").variables(vars).evaluate()`, or `evaluateDecisionTableByKey("dish", vars)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | The Camunda 8 command evaluates required decisions automatically. |
-| `Variables.putValue("a", 1).putValue("b", "x")` | A `Map<String, Object>` | The skill keeps the same logical inputs. Camunda 8 serializes map values as JSON. Where a Camunda 7 value is a `Date` or typed value, the skill checks that the converted DMN reads its JSON representation as intended. The skill does not assume the Java type survives serialization. |
-| `result.getSingleResult().getSingleEntry()` or `result.getSingleEntry()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(value)` | Use for one output column and one result. |
-| `result.getSingleResult().getEntry("a")` or `getEntryMap()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected outputs. |
-| `result.collectEntries("x")` with hit policy `COLLECT` | The skill parses `response.getDecisionOutput()` as a list of scalar values for one output column, or a list of maps keyed by output name for multiple output columns. The skill selects values by output name and compares rows without relying on their order. | Camunda 8 returns `COLLECT` results in arbitrary order. |
-| `result.collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | The order is defined by the hit policy. |
-| `result.isEmpty()` or `getSingleResult()` returns `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).hasNoMatchedRules()` | |
-| Matched-rule checks through `HistoricDecisionInstance` | `hasMatchedRules(int...)` or `hasNotMatchedRules(int...)` | When the expected rule numbers are a subset of the matched rules, `hasMatchedRules` passes. |
-| An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | The skill checks `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for this response. |
 
-The skill reads the hit policy and output columns from the converted DMN copy before choosing an assertion.
-When the skill checks a map, it uses the output names from the converted DMN copy.
-The skill preserves exact checks as exact and order-insensitive checks as order-insensitive.
-If the converted decision uses an output shape not listed here, then the skill parses `response.getDecisionOutput()` and checks its actual JSON shape.
-The skill does not guess an output shape from the Camunda 7 Java result type.
-The skill never uses `hasOutput(List)` for a `COLLECT` decision.
 
-### Nullable inputs and failures
 
-The skill keeps every input key whose Camunda 7 value is `null`.
-The skill builds nullable decision variables with a mutable map, such as `HashMap`.
-The skill never uses `Map.of` for a decision variable map that contains `null`.
-The skill distinguishes an explicit `null` input from an omitted input.
-The skill uses a null-tolerant map or list for an expected output that contains `null`.
-The skill never uses `Map.of` or `List.of` to build an expected output that contains `null`.
-`Map.of` rejects null values. `List.of` rejects null elements.
-If the target decision treats those inputs differently from Camunda 7, then the skill records the difference for review instead of dropping the input or adding a default.
-
-When Camunda 7 throws an exception for a decision evaluation, the skill checks the returned Camunda 8 response.
-The skill checks `getFailureMessage()` and `getFailedDecisionId()` for a failed Camunda 8 evaluation.
-The skill does not expect a Camunda 8 evaluation failure to throw.
-
-When a migrated decision test fails, the skill checks the converted DMN findings report.
-The skill links the failure to a relevant finding in `MIGRATION_REPORT.md`.
-The skill changes the DMN copy only through the normal model-editing rules.
-The skill does not change the Diagram Converter.
-
-### Build changes
-
-| Dependency use | Camunda 7 artifact | Camunda 8 test artifact |
-|---|---|---|
-| Standalone DMN tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` and `org.camunda.bpm.dmn:camunda-engine-feel-*` artifacts. | Add `io.camunda:camunda-process-test-java` in test scope. |
-| Spring decision tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn` engine and FEEL artifacts. | Use the CPT Spring artifact that matches the production Spring Boot starter. Use `camunda-process-test-spring` with Spring Boot 4 or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. |
-| Process engine used only by tests | When tests are its only users, the skill removes the test-scoped Camunda 7 engine. | Use the CPT artifact for the selected test harness. |
-
-The skill inventories each dependency before removal.
-When production code uses an artifact, the skill keeps it.
-When a production dependency has no Camunda 8 equivalent, the skill records a required redesign.
-
-Standalone Camunda 7 DMN tests run with an in-process engine.
-The migrated CPT tests need a Camunda 8 runtime.
-CPT uses Docker by default and supports a configured remote runtime.
-When the skill asks Question 8, the skill follows its DMN runtime notice in `interview-questions.md`.
-
-### Limitations
-
-| Source behavior | Handling |
-|---|---|
-| Camunda 7 DMN engine plugins or custom function providers | Manual redesign |
-| Camunda 7 decision table with hit policy `PRIORITY` | Manual redesign. Camunda 8.9 does not support `PRIORITY`. |
-| Camunda 7 decision table with hit policy `OUTPUT ORDER` | Manual redesign. Camunda 8.9 does not support `OUTPUT ORDER`. |
-| Decision-history assertions beyond matched rules and outputs | Report only |
 
 ## Scope confirmation
 
@@ -167,7 +120,7 @@ When one test matches multiple test kinds, the skill assigns the first matching 
 
 ## Modifiers
 
-The skill records modifiers only for process tests and decision tests.
+The skill records every applicable modifier for every in-scope test row, including scenario, remote-engine, and manual-migration tests.
 
 | Modifier | Detect by | Used by |
 |---|---|---|
@@ -252,6 +205,7 @@ Resolve the module path relative to the project root.
 Use `.` for the project root module.
 For example, `.:com.example.JobAnnouncementProcessTest#testPublishOnlyOnWeb`.
 
+When `MIGRATION_REPORT.md` does not exist, the skill creates it.
 Add a `Test Inventory` table to `MIGRATION_REPORT.md` with these columns in this order:
 
 | Test ID | File | Test kind | Signals | Models | Handling | Notes |

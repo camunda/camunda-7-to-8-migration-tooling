@@ -27,8 +27,11 @@ TEST_MIGRATION_REFERENCE = (
 )
 SKILL_PATH = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 
-PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;")
-CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)\b")
+PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;?\s*$")
+CLASS_DECLARATION_RE = re.compile(
+    r"\b(?P<abstract>abstract\s+)?class\s+(?P<name>[A-Za-z_$][\w$]*)"
+    r"(?:\s+extends\s+(?P<parent>[A-Za-z_$][\w$.$]*))?"
+)
 TEST_ANNOTATION_RE = re.compile(
     r"@\s*(?:org\.junit(?:\.jupiter\.api)?\.)?(?:Test|ParameterizedTest|RepeatedTest)\b"
 )
@@ -38,7 +41,14 @@ METHOD_RE = re.compile(
     r"(?:[\w$<>?,.\[\]]+\s+)+([A-Za-z_$][\w$]*)\s*\("
 )
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
-TEST_ID_RE = re.compile(r"[\w.-]+:[\w.]+#[A-Za-z_$][\w$]*")
+TEST_ID_RE = re.compile(r"[\w./-]+:[\w.$/-]+#[\w.$/@-]+")
+GROOVY_FEATURE_METHOD_RE = re.compile(
+    r"(?m)^\s*def\s+([A-Za-z_$][\w$]*)\s*\("
+)
+CUCUMBER_SCENARIO_RE = re.compile(
+    r"^\s*Scenario(?: Outline)?:\s*([A-Za-z0-9_$.-]+)\s*$"
+)
+CUCUMBER_EXAMPLE_ROW_RE = re.compile(r"^\s*\|[^|]+\|")
 TEST_KINDS = (
     "process test",
     "decision test",
@@ -124,6 +134,7 @@ def test_method_ids(project_root):
             else []
         )
 
+        test_classes = []
         for source_file in sorted(source_root.rglob("*.java")):
             relative_source_file = source_file.relative_to(source_root).as_posix()
             if include_patterns and not any(
@@ -134,19 +145,141 @@ def test_method_ids(project_root):
 
             source = source_file.read_text(encoding="utf-8")
             package_match = PACKAGE_RE.search(source)
-            class_match = CLASS_RE.search(source)
+            class_match = CLASS_DECLARATION_RE.search(source)
             if package_match is None or class_match is None:
                 continue
 
-            class_name = "{}.{}".format(package_match.group(1), class_match.group(1))
+            class_name = "{}.{}".format(
+                package_match.group(1),
+                class_match.group("name"),
+            )
+            declared_methods = set()
             for annotation in TEST_ANNOTATION_RE.finditer(source):
                 method = METHOD_RE.search(source[annotation.end() :])
                 if method is not None:
-                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
+                    declared_methods.add(method.group(1))
 
-            if "extends ProcessEngineTestCase" in source:
-                for method in JUNIT3_METHOD_RE.finditer(source):
-                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
+            if re.search(
+                r"\bextends\s+(?:[\w.]+\.)?ProcessEngineTestCase\b",
+                source,
+            ):
+                declared_methods.update(
+                    method.group(1)
+                    for method in JUNIT3_METHOD_RE.finditer(source)
+                )
+
+            test_classes.append(
+                {
+                    "abstract": bool(class_match.group("abstract")),
+                    "class": class_name,
+                    "methods": declared_methods,
+                    "module": module_name,
+                    "parent": (
+                        class_match.group("parent").rsplit(".", 1)[-1]
+                        if class_match.group("parent")
+                        else None
+                    ),
+                }
+            )
+
+        classes_by_name = {
+            (test_class["module"], test_class["class"].rsplit(".", 1)[-1]):
+                test_class
+            for test_class in test_classes
+        }
+        for test_class in test_classes:
+            if test_class["abstract"]:
+                continue
+            methods = set(test_class["methods"])
+            parent_name = test_class["parent"]
+            visited_parents = set()
+            while parent_name is not None:
+                if parent_name in visited_parents:
+                    break
+                visited_parents.add(parent_name)
+                parent_class = classes_by_name.get(
+                    (test_class["module"], parent_name)
+                )
+                if parent_class is None:
+                    break
+                methods.update(parent_class["methods"])
+                parent_name = parent_class["parent"]
+            ids.update(
+                "{}:{}#{}".format(
+                    test_class["module"],
+                    test_class["class"],
+                    method_name,
+                )
+                for method_name in methods
+            )
+
+        groovy_root = module_root / "src/test/groovy"
+        if groovy_root.is_dir():
+            for source_file in sorted(groovy_root.rglob("*.groovy")):
+                source = source_file.read_text(encoding="utf-8")
+                package_match = PACKAGE_RE.search(source)
+                class_match = CLASS_DECLARATION_RE.search(source)
+                if package_match is None or class_match is None:
+                    continue
+                parent = class_match.group("parent")
+                if parent not in ("Specification", "spock.lang.Specification"):
+                    continue
+                class_name = "{}.{}".format(
+                    package_match.group(1),
+                    class_match.group("name"),
+                )
+                ids.update(
+                    "{}:{}#{}".format(module_name, class_name, method.group(1))
+                    for method in GROOVY_FEATURE_METHOD_RE.finditer(source)
+                )
+
+        feature_root = module_root / "src/test/resources"
+        cucumber_properties = feature_root / "cucumber.properties"
+        if feature_root.is_dir() and cucumber_properties.is_file():
+            for feature_file in sorted(feature_root.rglob("*.feature")):
+                lines = feature_file.read_text(encoding="utf-8").splitlines()
+                scenario_outline = None
+                in_examples = False
+                saw_example_header = False
+                for line_number, line in enumerate(lines, 1):
+                    scenario_match = CUCUMBER_SCENARIO_RE.match(line)
+                    if scenario_match:
+                        scenario_name = scenario_match.group(1)
+                        if line.lstrip().startswith("Scenario Outline:"):
+                            scenario_outline = scenario_name
+                            in_examples = False
+                            saw_example_header = False
+                        else:
+                            scenario_outline = None
+                            in_examples = False
+                            ids.add(
+                                "{}:{}#{}@L{}".format(
+                                    module_name,
+                                    feature_file.relative_to(module_root).as_posix(),
+                                    scenario_name,
+                                    line_number,
+                                )
+                            )
+                        continue
+                    if scenario_outline and line.strip().startswith("Examples:"):
+                        in_examples = True
+                        saw_example_header = False
+                        continue
+                    if not scenario_outline or not in_examples:
+                        continue
+                    if not CUCUMBER_EXAMPLE_ROW_RE.match(line):
+                        continue
+                    if not saw_example_header:
+                        saw_example_header = True
+                        continue
+                    ids.add(
+                        "{}:{}#{}@L{}".format(
+                            module_name,
+                            feature_file.relative_to(module_root).as_posix(),
+                            scenario_outline,
+                            line_number,
+                        )
+                    )
     return ids
 
 
@@ -523,6 +656,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         count_rows = markdown_table(inventory_path, ["Test kind", "Count"])
         self.assert_unique_rows(count_rows, "Test kind", inventory_path)
         expected_counts = {row["Test kind"]: int(row["Count"]) for row in count_rows}
+        self.assertEqual(
+            set(TEST_KINDS),
+            set(expected_counts),
+            "{} must include every test kind, including zero counts.".format(
+                inventory_path
+            ),
+        )
         actual_counts = Counter(row["Test kind"] for row in inventory_rows)
         for test_kind in expected_counts:
             actual_counts.setdefault(test_kind, 0)
@@ -543,6 +683,34 @@ class MigrationGuidanceTest(unittest.TestCase):
             generated.touch()
 
             self.assertEqual([source], fixture_files(root, "diagram.bpmn"))
+
+    def test_inherited_methods_have_one_concrete_row_and_declaring_file(self):
+        rows = markdown_table(
+            EXPECTED_ASSESSMENT,
+            ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+        )
+        inherited_rows = {
+            row["Test ID"]: row["File"]
+            for row in rows
+            if "#inheritedInventoryTest" in row["Test ID"]
+        }
+
+        base_file = (
+            "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "AbstractInheritedInventoryTestBase.java"
+        )
+        self.assertEqual(
+            {
+                "engine-tests:com.camunda.fixture.order."
+                "InheritedInventoryOneTest#inheritedInventoryTest": base_file,
+                "engine-tests:com.camunda.fixture.order."
+                "InheritedInventoryTwoTest#inheritedInventoryTest": base_file,
+            },
+            inherited_rows,
+        )
+        self.assertFalse(
+            any("AbstractInheritedInventoryTestBase#" in test_id for test_id in inherited_rows)
+        )
 
     def test_inventory_matches_every_camunda_7_test_method(self):
         source_ids = test_method_ids(C7_SOURCE)
@@ -582,9 +750,90 @@ class MigrationGuidanceTest(unittest.TestCase):
             "PaymentWorkerIT",
             "SharedEngineSmokeIT",
             "ChargePaymentHandlerTest",
+            "InheritedInventoryOneTest",
+            "InheritedInventoryTwoTest",
+            "InventoryDiscoverySpec",
         }
-        actual_test_classes = {test_id.split("#", 1)[0].rsplit(".", 1)[-1] for test_id in source_ids}
+        actual_test_classes = {
+            test_id.split("#", 1)[0].rsplit(".", 1)[-1]
+            for test_id in source_ids
+            if not test_id.split("#", 1)[0].endswith(".feature")
+        }
         self.assertEqual(expected_test_classes, actual_test_classes)
+
+    def test_jgiven_manual_migration_requires_real_engine_execution(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "a jgiven (`io.holunda.testing:camunda-bpm-jgiven`) test executes a "
+            "real c7 process or decision and requires manual migration.",
+            reference,
+        )
+        self.assertIn(
+            "when a jgiven test does not execute a real c7 process or decision, "
+            "the skill assigns the out-of-scope test kind.",
+            reference,
+        )
+
+    def test_supported_discovery_inputs_stay_separate_from_kind_assignment(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        inventory = markdown_table(
+            EXPECTED_ASSESSMENT,
+            ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+        )
+        test_ids = {row["Test ID"] for row in inventory}
+
+        for source_kind in (
+            "junit 3",
+            "cucumber",
+            "spock",
+            "spring endpoint",
+            "direct decision service",
+        ):
+            with self.subTest(source_kind=source_kind):
+                self.assertIn(f"| {source_kind} |", reference)
+
+        self.assertIn(
+            "when the skill identifies a candidate, it records a test inventory row "
+            "before it assigns a test kind.",
+            reference,
+        )
+        self.assertIn(
+            "when the skill assigns a test kind, it uses the test kinds table and "
+            "evidence of executed engine behavior.",
+            reference,
+        )
+        for test_id in (
+            "engine-tests:com.camunda.fixture.order.LegacyOrderTest#testStockMissing",
+            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp",
+            "engine-tests:com.camunda.fixture.order.PromotionsDecisionTest#evaluatesRequiredDecision",
+            "engine-tests:com.camunda.fixture.order.InventoryDiscoverySpec#featureWithoutEngine",
+            "engine-tests:src/test/resources/features/CandidateDiscovery.feature#WithoutEngineExecution@L10",
+        ):
+            with self.subTest(test_id=test_id):
+                self.assertIn(test_id, test_ids)
+
+    def test_all_in_scope_test_kinds_keep_modifier_signals(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            for row in rows:
+                if row["Test kind"] in ("out of scope", "out of scope (Camunda 8)"):
+                    continue
+                with self.subTest(inventory=inventory_path, test_id=row["Test ID"]):
+                    self.assertTrue(row["Signals"].strip())
+
+            fulfillment_rows = [
+                row for row in rows if "FulfillmentScenarioTest#" in row["Test ID"]
+            ]
+            self.assertEqual(2, len(fulfillment_rows))
+            for row in fulfillment_rows:
+                self.assertIn("mocks modifier", row["Signals"])
+                self.assertIn("time modifier", row["Signals"])
+
+            manual_row = next(
+                row for row in rows if "FluentModelTest#buildsAndStartsModel" in row["Test ID"]
+            )
+            self.assertIn("no applicable modifiers", manual_row["Signals"])
 
     def test_inventory_count_summaries_match_each_test_kind(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
@@ -1636,7 +1885,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             if test_kind == "process test":
                 expected_handling = MIGRATE_TO_CPT
             elif test_kind == "decision test":
-                expected_handling = "Migrate"
+                expected_handling = "Report only"
             elif test_kind == "scenario test":
                 expected_handling = MIGRATE_LOWER_PRIORITY
             elif test_kind == "remote-engine test":
@@ -1659,6 +1908,12 @@ class MigrationGuidanceTest(unittest.TestCase):
 
                 parity_row = parity_by_id.get(test_id)
                 self.assertIsNotNone(parity_row, "Missing parity row for {}".format(test_id))
+                if test_kind == "decision test":
+                    self.assertEqual(parity_row["Verdict"], "report only")
+                    self.assertEqual(parity_row["CPT Test ID(s)"], "—")
+                    self.assertIn("#3203", normalized(row["Notes"]))
+                    self.assertIn("#3203", normalized(parity_row["Notes"]))
+                    continue
                 self.assertEqual(parity_row["Verdict"], "manual")
 
                 shared_engine = (

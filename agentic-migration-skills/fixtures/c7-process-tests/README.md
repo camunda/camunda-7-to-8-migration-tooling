@@ -38,13 +38,17 @@ Start each walkthrough from a fresh copy of `c7-source`.
 | W6 | Delete every `src/test` directory from the copy. Choose **Code + models** and stop after the Step 2 Summary. | The inventory has no in-scope tests. The skill does not ask Question 8. |
 | W7 | Start from the result of W3. Apply each negative change separately, rerun the recorded checks, then rerun the gate. | N1, N2, and N3 produce the results in the table below. |
 
+When E1 and E2 have `Report only` or manual-migration handling, do not treat
+them as migrated or frozen. Use the supported Spring S1 test for the N1-N3
+parity, freeze, and mock-boundary checks.
+
 ## Negative cases
 
 | ID | Change | Expected gate result |
 |---|---|---|
-| N1 | Delete the CPT test mapped to E1. | `NOT READY`; `test_parity` fails and names the E1 test ID. |
-| N2 | Change an assertion in the frozen E2 test without an approved `test_changes` entry. | `NOT READY`; `test_freeze` fails and names the file. |
-| N3 | Replace E1's real `Task_ChargePayment` worker with `mockJobWorker("charge-payment").thenComplete()` without an approved `mock_changes` entry. | `NOT READY`; `mock_boundary` fails and names the CPT test and job type. |
+| N1 | Delete the CPT test mapped to S1, `spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#activatesSubscription`. | `NOT READY`; `test_parity` fails and names the S1 test ID. |
+| N2 | Change an assertion in the frozen S1 test without an approved `test_changes` entry. | `NOT READY`; `test_freeze` fails and names the file. |
+| N3 | Replace S1's real `activate-subscription` worker with `mockJobWorker("activate-subscription").thenComplete()` without an approved `mock_changes` entry. | `NOT READY`; `mock_boundary` fails and names the S1 CPT test and `activate-subscription` job type. |
 
 The `test_parity`, `test_freeze`, and `mock_boundary` check names come from the
 parity and mock migration contracts. The fixture tests the names implemented by
