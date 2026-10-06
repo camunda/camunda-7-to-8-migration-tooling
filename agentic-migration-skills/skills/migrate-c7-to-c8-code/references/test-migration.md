@@ -148,7 +148,7 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
-| A remote-engine test reads a shared engine URL from an environment variable, does not start the engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
+| A remote-engine test reads a shared engine URL from any configuration source, does not start the engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
 | A remote test makes only health or metadata calls and does not run a process or decision, without the shared-engine exception | The skill classifies the test as out of scope. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
 
@@ -160,7 +160,7 @@ When one test matches multiple test kinds, the skill assigns the first matching 
 | 2 | The test uses CMMN or unsupported engine internals. `ClockUtil` timer control does not trigger this signal by itself. | manual redesign |
 | 3 | JGiven or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle, or the Camunda 7 Quarkus extension. The test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | manual migration |
 | 4 | The test uses camunda-platform-scenario | scenario test |
-| 5 | The test reads a shared Camunda 7 engine URL from an environment variable, does not start that engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | remote-engine test |
+| 5 | The test reads a shared Camunda 7 engine URL from any configuration source, does not start that engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | remote-engine test |
 | 6 | The test runs a BPMN process or DMN decision against a running Camunda 7 engine remotely | remote-engine test |
 | 7 | The test directly evaluates a DMN decision | decision test |
 | 8 | The test runs a BPMN process | process test |
@@ -272,7 +272,7 @@ Do not migrate tests during Step 2.
 
 | Condition | Handling | Reason or note |
 |---|---|---|
-| A remote-engine test reads a shared engine URL from an environment variable, does not start the engine, and the engine is neither local nor a test-owned container | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
+| A remote-engine test reads a shared engine URL from any configuration source, does not start the engine, and the engine is neither local nor a test-owned container | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
 
 ## Camunda 8.8 target
 
@@ -775,8 +775,6 @@ One valid schedule uses five 12-hour increments for a daily timer and `defer("P2
 - `code-conversion/patterns/10-general/dependencies.md`
  
 ## Remote-engine test migration
- 
-Every instruction is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD), and an option is marked (MAY).
 
 Camunda Process Test (CPT) provides the Camunda 8 test runtime, commands, and assertions.
 A remote-engine test drives a running Camunda 7 engine through Engine REST or the external-task client.
@@ -804,7 +802,7 @@ The shared-engine row overrides every client-shape row below it.
 | Testcontainers image `camunda/camunda-bpm-platform` or Docker Compose setup started by the test | In scope | Remove the Camunda 7 runtime setup and use the CPT-managed runtime. |
 | `@SpringBootTest(webEnvironment = RANDOM_PORT)` calling the embedded engine's `/engine-rest` | In scope | Map the REST calls. Use the Spring test harness from the Spring migration. |
 
-For report-only tests, record this exact reason in `MIGRATION_REPORT.md`:
+For shared-engine tests, record this exact reason in `MIGRATION_REPORT.md`:
 
 > CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.
 
@@ -815,7 +813,7 @@ Remove the Camunda 7 container setup, Engine REST base URL, and credentials from
 Remove Camunda 7 REST-client test dependencies when no remaining test uses them.
 Remove Testcontainers from test dependencies when no remaining test uses it.
 Keep Testcontainers when another test still uses it.
-Add `io.camunda:camunda-process-test-java` for non-Spring tests.
+Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.
 Select the Spring Process Test artifact using the target project's Spring Boot version.
 Add the selected Spring artifact in test scope.
 Annotate each migrated JUnit test that uses plain Java with `@CamundaProcessTest` to register `CamundaProcessTestExtension`.

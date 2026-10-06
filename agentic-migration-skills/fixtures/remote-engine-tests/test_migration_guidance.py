@@ -1,4 +1,5 @@
 from pathlib import Path
+import ast
 import re
 import unittest
 import xml.etree.ElementTree as ET
@@ -52,6 +53,11 @@ YAML_REMOTE_RUNTIME_INDIRECTION = re.compile(
     r"""(?:runtime-mode|camunda\.process-test\.runtime-mode)(?P=key_quote)"""
     r"""[ \t]*:[ \t]*(?:![^\s#]+[ \t]+)?[&*][^\s#]+"""
 )
+YAML_DOUBLE_QUOTED_SCALAR = re.compile(r'"(?:\\.|[^"\\])*"')
+YAML_UNICODE_ESCAPE = re.compile(
+    r"(?<!\\)(?P<escaped_backslashes>(?:\\\\)*)\\"
+    r"(?P<escape>x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+)
 
 
 def _java_properties_logical_lines(content):
@@ -82,7 +88,23 @@ def _unescape_java_properties_unicode_escapes(content):
     )
 
 
+def _unescape_yaml_double_quoted_unicode_escapes(content):
+    def unescape_scalar(match):
+        def unescape_escape(escape):
+            codepoint = int(escape.group("escape")[1:], 16)
+            if codepoint > 0x10FFFF or 0xD800 <= codepoint <= 0xDFFF:
+                return escape.group(0)
+            return escape.group("escaped_backslashes") + chr(codepoint)
+
+        value = match.group(0)[1:-1]
+        value = YAML_UNICODE_ESCAPE.sub(unescape_escape, value)
+        return f'"{value}"'
+
+    return YAML_DOUBLE_QUOTED_SCALAR.sub(unescape_scalar, content)
+
+
 def _contains_remote_runtime_configuration(content):
+    yaml_content = _unescape_yaml_double_quoted_unicode_escapes(content)
     return (
         any(
             JAVA_PROPERTIES_REMOTE_RUNTIME.search(
@@ -91,28 +113,26 @@ def _contains_remote_runtime_configuration(content):
             is not None
             for line in _java_properties_logical_lines(content)
         )
-        or YAML_REMOTE_RUNTIME.search(content) is not None
-        or YAML_REMOTE_RUNTIME_INDIRECTION.search(content) is not None
+        or YAML_REMOTE_RUNTIME.search(yaml_content) is not None
+        or YAML_REMOTE_RUNTIME_INDIRECTION.search(yaml_content) is not None
     )
 
 
 class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_skill_points_to_the_reference(self):
-        skill = SKILL.read_text()
+        skill = " ".join(SKILL.read_text(encoding="utf-8").split())
         self.assertIn(
-            "For tests that drive a running Camunda 7 engine, follow `references/test-migration.md`.",
+            "The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine, Camunda 7 decision-test CPT mapping, and Spring process-test migration.",
             skill,
         )
 
     def test_reference_declares_obligations_immediately_after_title(self):
-        reference = REFERENCE.read_text()
+        reference = " ".join(REFERENCE.read_text(encoding="utf-8").split())
         declaration = (
-            'Every instruction is mandatory. "Never" means MUST NOT. '
+            'Every instruction in this reference is mandatory. "Never" means MUST NOT. '
             "A preference is marked (SHOULD) and an option is marked (MAY)."
         )
-        self.assertTrue(
-            reference.startswith(f"# Camunda 7 Test Inventory\n\n{declaration}\n\n")
-        )
+        self.assertTrue(reference.startswith(f"# Test Migration {declaration} "))
         self.assertEqual(1, reference.count(declaration))
 
     def test_test_kind_table_excludes_engine_rest_stubs(self):
@@ -123,7 +143,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         out_of_scope_row = next(
             line
             for line in test_kinds.splitlines()
-            if line.startswith("| out of scope |")
+            if line.startswith("| 8 | out of scope |")
         )
 
         self.assertIn("WireMock or another Engine REST stub", out_of_scope_row)
@@ -136,7 +156,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         camunda_8_row = next(
             line
             for line in test_kinds.splitlines()
-            if line.startswith("| out of scope (Camunda 8) |")
+            if line.startswith("| 9 | out of scope (Camunda 8) |")
         )
 
         self.assertIn("CPT (`io.camunda.process.test.*`)", camunda_8_row)
@@ -186,7 +206,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_reference_classifies_remote_engine_tests_and_boundaries(self):
-        reference = " ".join(REFERENCE.read_text().lower().split())
+        reference = " ".join(REFERENCE.read_text(encoding="utf-8").lower().split())
         for term in (
             "restassured",
             "resttemplate",
@@ -206,7 +226,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 self.assertIn(term, reference)
 
     def test_remote_engine_kind_excludes_embedded_engine_rest_from_process_test(self):
-        reference = " ".join(REFERENCE.read_text().split())
+        reference = " ".join(REFERENCE.read_text(encoding="utf-8").split())
         self.assertIn(
             "The skill classifies an embedded Engine REST call from a "
             "`@SpringBootTest` as a remote-engine test, not a process test.",
@@ -214,7 +234,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_scope_boundaries_precede_client_shape_rules(self):
-        classification = REFERENCE.read_text().split("## Scope and classification", 1)[1].split(
+        classification = REFERENCE.read_text(encoding="utf-8").split("## Scope and classification", 1)[1].split(
             "## Runtime and build changes", 1
         )[0]
         self.assertIn(
@@ -259,7 +279,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 self.assertLess(classification.index(boundary), shared_engine_index)
 
     def test_camunda_8_8_gate_precedes_in_scope_client_shapes(self):
-        classification = REFERENCE.read_text().split("## Scope and classification", 1)[1].split(
+        classification = REFERENCE.read_text(encoding="utf-8").split("## Scope and classification", 1)[1].split(
             "## Runtime and build changes", 1
         )[0]
         version_gate = (
@@ -290,7 +310,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_shared_engine_definition_matches_report_only_boundary(self):
-        reference = REFERENCE.read_text()
+        reference = REFERENCE.read_text(encoding="utf-8")
         definition_start = reference.index("A shared-engine test calls")
         definition_end = reference.index("\n\n", definition_start)
         shared_engine_definition = reference[definition_start:definition_end]
@@ -329,6 +349,10 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         self.assertIn(shared_reason, shared_scope_rule)
         self.assertIn(
+            "For shared-engine tests, record this exact reason in `MIGRATION_REPORT.md`:",
+            reference,
+        )
+        self.assertIn(
             "Where the target is Camunda 8.8, append `test migration needs "
             "Camunda 8.9 or later`",
             shared_override_rule,
@@ -343,18 +367,23 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             ("scope confirmation", shared_scope_rule),
             ("scope precedence", shared_precedence_rule),
             ("handling override", shared_override_rule),
-            ("report-only classification", report_only_rule),
         ):
             with self.subTest(rule=name):
-                self.assertIn("does not start", " ".join(rule.lower().split()))
+                normalized_rule = " ".join(rule.lower().split())
+                self.assertIn("from any configuration source", normalized_rule)
+                self.assertNotIn("environment variable", normalized_rule)
+                self.assertIn("does not start", normalized_rule)
                 self.assertIn(
                     "neither local nor a test-owned container",
-                    " ".join(rule.lower().split()),
+                    normalized_rule,
                 )
+
+        self.assertIn("does not start", report_only_rule)
+        self.assertIn("neither local nor a test-owned container", report_only_rule)
 
     def test_skill_classifies_test_engine_calls_before_http_topology(self):
         code_inventory = " ".join(
-            SKILL.read_text().split("#### Code Inventory", 1)[1].split(
+            SKILL.read_text(encoding="utf-8").split("#### Code Inventory", 1)[1].split(
                 "#### Model Inventory", 1
             )[0].split()
         )
@@ -384,14 +413,14 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             code_inventory,
         )
 
-        question_7 = INTERVIEW_QUESTIONS.read_text().split("## Question 7", 1)[1]
+        question_7 = INTERVIEW_QUESTIONS.read_text(encoding="utf-8").split("## Question 7", 1)[1]
         self.assertIn("only when the production-source inventory identifies", question_7)
         self.assertIn(
             "Do not ask for decisions about test-only Engine REST calls.",
             question_7,
         )
 
-        http_topology = " ".join(HTTP_TOPOLOGY.read_text().split())
+        http_topology = " ".join(HTTP_TOPOLOGY.read_text(encoding="utf-8").split())
         self.assertIn(
             "Classify tests that drive a Camunda 7 engine with `test-migration.md` before building this inventory.",
             http_topology,
@@ -403,7 +432,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn(test_only_build_filter, http_topology)
 
     def test_step_3_http_topology_gate_uses_production_sources(self):
-        step_3_topology = SKILL.read_text().split("15. **HTTP topology**", 1)[1].split(
+        step_3_topology = SKILL.read_text(encoding="utf-8").split("15. **HTTP topology**", 1)[1].split(
             "16. **SLF4J providers**", 1
         )[0]
         self.assertIn("when the production-source inventory identifies", step_3_topology)
@@ -411,7 +440,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_code_checklist_http_topology_gate_uses_production_sources(self):
         self.assertIn(
             "When the production-source inventory identifies a Spring web server",
-            CHECKLIST.read_text(),
+            CHECKLIST.read_text(encoding="utf-8"),
         )
 
     def test_reference_maps_engine_rest_and_cpt_behaviors(self):
@@ -445,7 +474,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
-        rows = REFERENCE.read_text().splitlines()
+        rows = REFERENCE.read_text(encoding="utf-8").splitlines()
         timer_row = next(
             row
             for row in rows
@@ -463,7 +492,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn("job type", non_timer_row)
 
     def test_cpt_artifacts_and_remote_runtime_configuration_match_target(self):
-        reference = REFERENCE.read_text()
+        reference = REFERENCE.read_text(encoding="utf-8")
         self.assertIn(
             "| Spring Boot 3.5.x | `io.camunda:camunda-process-test-spring-boot-3` |",
             reference,
@@ -489,14 +518,14 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| Explicit request for remote mode and a dedicated local Camunda 8 runtime | Plain Java test | Add `src/test/resources/camunda-container-runtime.properties` with `runtimeMode=remote` (MAY). |",
             runtime_configuration,
         )
-        checklist = CHECKLIST.read_text()
+        checklist = CHECKLIST.read_text(encoding="utf-8")
         self.assertIn(
             "[Spring Process Test artifact selection](test-migration.md#runtime-and-build-changes)",
             checklist,
         )
 
     def test_reference_declares_both_cpt_test_harness_annotations(self):
-        runtime_configuration = REFERENCE.read_text().split(
+        runtime_configuration = REFERENCE.read_text(encoding="utf-8").split(
             "## Runtime and build changes", 1
         )[1].split("## Worker behavior", 1)[0]
         runtime_configuration = " ".join(runtime_configuration.split())
@@ -514,7 +543,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_managed_runtime_rule_is_declared_once(self):
-        runtime_changes = REFERENCE.read_text().split(
+        runtime_changes = REFERENCE.read_text(encoding="utf-8").split(
             "## Runtime and build changes", 1
         )[1].split("## Worker behavior", 1)[0]
         self.assertEqual(
@@ -526,12 +555,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         c7_test = (
             FIXTURE
             / "c7-source/src/test/java/org/camunda/example/payment/PaymentWorkerTest.java"
-        ).read_text()
+        ).read_text(encoding="utf-8")
         c7_worker = (
             FIXTURE
             / "c7-source/src/main/java/org/camunda/example/payment/PaymentWorker.java"
-        ).read_text()
-        c7_pom = (FIXTURE / "c7-source/pom.xml").read_text()
+        ).read_text(encoding="utf-8")
+        c7_pom = (FIXTURE / "c7-source/pom.xml").read_text(encoding="utf-8")
 
         for term in (
             "@Container",
@@ -551,13 +580,13 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         c8_test = (
             EXPECTED
             / "src/test/java/org/camunda/example/payment/PaymentWorkerTest.java"
-        ).read_text()
+        ).read_text(encoding="utf-8")
         c8_worker = (
             EXPECTED
             / "src/main/java/org/camunda/example/payment/PaymentWorker.java"
-        ).read_text()
-        c8_bpmn = (EXPECTED / "src/test/resources/converted-c8-payment.bpmn").read_text()
-        c8_pom = (EXPECTED / "pom.xml").read_text()
+        ).read_text(encoding="utf-8")
+        c8_bpmn = (EXPECTED / "src/test/resources/converted-c8-payment.bpmn").read_text(encoding="utf-8")
+        c8_pom = (EXPECTED / "pom.xml").read_text(encoding="utf-8")
 
         self.assertIn("@CamundaSpringProcessTest", c8_test)
         self.assertIn('@TestDeployment(resources = "converted-c8-payment.bpmn")', c8_test)
@@ -570,7 +599,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertNotIn("<groupId>org.testcontainers</groupId>", c8_pom)
 
     def test_mock_worker_guidance_configures_job_completion(self):
-        reference = REFERENCE.read_text()
+        reference = REFERENCE.read_text(encoding="utf-8")
         self.assertIn(
             "processTestContext.mockJobWorker(type).thenComplete(variables)",
             reference,
@@ -593,7 +622,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_direct_user_task_completion_sends_variables(self):
         row = next(
             line
-            for line in REFERENCE.read_text().splitlines()
+            for line in REFERENCE.read_text(encoding="utf-8").splitlines()
             if line.startswith(
                 "| `GET /task?processInstanceId=...` then `POST /task/{id}/complete`"
             )
@@ -605,7 +634,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_unavailable_baseline_keeps_shared_engine_verdict_manual(self):
-        baseline_reporting = REFERENCE.read_text().split(
+        baseline_reporting = REFERENCE.read_text(encoding="utf-8").split(
             "## Baseline and parity reporting", 1
         )[1].split("\n## ", 1)[0]
 
@@ -666,6 +695,25 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             self.assertNotIn("camunda/camunda-bpm-platform", content)
             self.assertNotIn("/engine-rest", content)
 
+    def test_fixture_path_reads_use_explicit_utf8_encoding(self):
+        source = Path(__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        missing_utf8 = [
+            call.lineno
+            for call in ast.walk(tree)
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "read_text"
+            and not any(
+                keyword.arg == "encoding"
+                and isinstance(keyword.value, ast.Constant)
+                and keyword.value.value == "utf-8"
+                for keyword in call.keywords
+            )
+        ]
+
+        self.assertEqual([], missing_utf8)
+
     def test_remote_runtime_guard_detects_java_properties_separators(self):
         for key in ("runtimeMode", "camunda.process-test.runtime-mode"):
             for separator in ("=", " = ", ":", " : ", " ", "\t=\t", "\f:\f", "\t", "\f"):
@@ -719,6 +767,26 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             with self.subTest(setting=setting):
                 self.assertTrue(_contains_remote_runtime_configuration(setting))
 
+    def test_remote_runtime_guard_detects_yaml_unicode_escapes(self):
+        for setting in (
+            r'camunda.process-test.runtime-mode: "\u0072emote"',
+            r'camunda.process-test.runtime-mode: "\x72emote"',
+            r'camunda.process-test.runtime-mode: "\U00000072emote"',
+            r'"runtime-\u006dode": "remote"',
+        ):
+            with self.subTest(setting=setting):
+                self.assertTrue(_contains_remote_runtime_configuration(setting))
+
+        for setting in (
+            r"runtime-mode: '\u0072emote'",
+            r'runtime-mode: "\\u0072emote"',
+            r'runtime-mode: "\\\u0072emote"',
+            r"runtime-mode: \u0072emote",
+            r'runtime-mode: "\u0072emote-ish"',
+        ):
+            with self.subTest(setting=setting):
+                self.assertFalse(_contains_remote_runtime_configuration(setting))
+
     def test_remote_runtime_guard_detects_yaml_values_and_ignores_non_config(self):
         for setting in (
             "runtime-mode: remote",
@@ -750,7 +818,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 self.assertFalse(_contains_remote_runtime_configuration(setting))
 
     def test_readme_documents_baseline_and_cpt_test_commands(self):
-        readme = (FIXTURE / "README.md").read_text()
+        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
         self.assertIn("c7-source/pom.xml test", readme)
         self.assertIn("expected-c8/pom.xml test", readme)
         self.assertIn("record the baseline as `not run`", readme)

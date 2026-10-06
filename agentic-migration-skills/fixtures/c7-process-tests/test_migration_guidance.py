@@ -54,7 +54,6 @@ MIGRATE_LOWER_PRIORITY = "Migrate (lower priority)"
 MIGRATED_HANDLINGS = ("Migrate", MIGRATE_TO_CPT, MIGRATE_LOWER_PRIORITY)
 REPORT_ONLY_REASONS = {
     "scenario test": "scenario-test migration procedure is defined",
-    "remote-engine test": "remote-engine migration procedure is defined",
 }
 LEGACY_TEST_IDS = {
     "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
@@ -1064,7 +1063,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual(len(exception_rows), 1)
         signal = normalized(exception_rows[0]["Signal"])
         requirement = normalized(exception_rows[0]["Confirmation required"])
-        self.assertIn("from an environment variable", signal)
+        self.assertIn("from any configuration source", signal)
         self.assertIn("does not start the engine", signal)
         self.assertIn("neither local nor a test-owned container", signal)
         self.assertIn("the test runs no process or decision", signal)
@@ -1131,8 +1130,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             if "shared engine url" in normalized(row["Signal"])
         )
         self.assertIn(
-            "reads a shared camunda 7 engine url from an environment variable, does "
-            "not start that engine, and the engine is neither local nor a test-owned "
+            "reads a shared engine url from any configuration source, does not start "
+            "the engine, and the engine is neither local nor a test-owned "
             "container. the test runs no process or decision",
             normalized(shared_engine["Signal"]),
         )
@@ -1516,11 +1515,8 @@ class MigrationGuidanceTest(unittest.TestCase):
                         normalized(other["Notes"]),
                     )
                     reason = REPORT_ONLY_REASONS.get(row["Test kind"])
-                    if (
-                        row["Test kind"] == "remote-engine test"
-                        and "shared environment" in normalized(row["Notes"])
-                    ):
-                        reason = "shared environment"
+                    if row["Test kind"] == "remote-engine test":
+                        reason = normalized(SHARED_ENGINE_REASON)
                     if reason is not None:
                         self.assertIn(reason, normalized(other["Notes"]))
                     source_note_id = row["Notes"].split(";", 1)[0].strip()
@@ -1557,6 +1553,14 @@ class MigrationGuidanceTest(unittest.TestCase):
                 expected_handling = "Migrate"
             elif test_kind == "scenario test":
                 expected_handling = MIGRATE_LOWER_PRIORITY
+            elif test_kind == "remote-engine test":
+                expected_handling = (
+                    MIGRATE_LOWER_PRIORITY
+                    if test_id.endswith(
+                        "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+                    )
+                    else "Report only"
+                )
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -1571,13 +1575,15 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertIsNotNone(parity_row, "Missing parity row for {}".format(test_id))
                 self.assertEqual(parity_row["Verdict"], "manual")
 
-                reason = REPORT_ONLY_REASONS[test_kind]
                 shared_engine = (
                     test_kind == "remote-engine test"
-                    and "shared environment" in normalized(row["Notes"])
+                    and normalized(SHARED_ENGINE_REASON) in normalized(row["Notes"])
                 )
-                if shared_engine:
-                    reason = "shared environment"
+                reason = (
+                    normalized(SHARED_ENGINE_REASON)
+                    if shared_engine
+                    else REPORT_ONLY_REASONS[test_kind]
+                )
                 self.assertIn(reason, normalized(row["Notes"]))
                 self.assertIn(reason, normalized(parity_row["Notes"]))
                 mapped_ids = TEST_ID_RE.findall(parity_row["CPT Test ID(s)"])
@@ -1613,7 +1619,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "engine-tests:com.camunda.fixture.order.FluentModelTest#buildsAndStartsModel":
                 ("retired", "model built in Java, migrated by hand later"),
             "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine":
-                ("manual", "shared environment"),
+                ("manual", SHARED_ENGINE_REASON),
         }
         for test_id, (verdict, note) in required_verdicts.items():
             with self.subTest(test_id=test_id):
@@ -1790,8 +1796,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertEqual("Migrate to CPT", process_test_row["Handling"])
         self.assertIn(
-            "while the remote-engine migration procedure is undefined, the skill keeps "
-            "remote-engine test rows at report only.",
+            "the skill keeps scenario test rows at report only until their migration "
+            "procedures are defined.",
             reference,
         )
         self.assertIn(
