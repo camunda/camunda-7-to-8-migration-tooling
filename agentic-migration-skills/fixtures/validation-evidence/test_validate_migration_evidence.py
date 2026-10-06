@@ -325,6 +325,40 @@ class ValidationEvidenceTest(unittest.TestCase):
             ]
         return self.write_reports_command(files, counter=".test-run-count")
 
+    def write_maven_project(self, target, content=""):
+        pom = self.root / target / "pom.xml"
+        pom.write_text(
+            '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+            "<modelVersion>4.0.0</modelVersion>"
+            f"{content}</project>",
+            encoding="utf-8",
+        )
+
+    def maven_subprocess(self, active_model_skip=None):
+        def run(command, **kwargs):
+            if "help:effective-pom" in command:
+                properties = (
+                    "<properties><maven.test.skip>"
+                    f"{active_model_skip}"
+                    "</maven.test.skip></properties>"
+                    if active_model_skip is not None
+                    else ""
+                )
+                output_path = next(
+                    argument.partition("=")[2]
+                    for argument in command
+                    if argument.startswith("-Doutput=")
+                )
+                Path(output_path).write_text(
+                    '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+                    f"{properties}</project>",
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(command, 0, "")
+            return subprocess.CompletedProcess(command, 0, "test sources compiled")
+
+        return run
+
     def timer_observation(self, key):
         expected = gate.requirements(self.root, self.plan).timer_starts[key]
         return {
@@ -482,6 +516,13 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                     + " publishing DueDateChanged with projectId and updatedDueDate into dueDate.",
                 )
+        if command is None:
+            inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+            command = (
+                ["echo", "check completed"]
+                if gate.read_test_run_mode(inventory) == "migrate_only"
+                else [sys.executable, "-c", "print('check completed')"]
+            )
         arguments = Namespace(
             type=category,
             target=target,
@@ -491,11 +532,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             isolation_plan=options.get("isolation_plan"),
             timeout=5,
             action=action,
-            command=(
-                command
-                if command is not None
-                else [sys.executable, "-c", "print('check completed')"]
-            ),
+            command=command,
             note=options.get("note", "Reviewed the migration checklist and recorded decisions."),
             reason=options.get("reason", "Check could not run."),
             target_disposable=options.get(
@@ -582,8 +619,12 @@ class ValidationEvidenceTest(unittest.TestCase):
             }
             if test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile":
                 command_args = ["mvn", "test-compile"]
-                completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
-                with patch.object(gate.subprocess, "run", return_value=completed):
+                self.write_maven_project(key[1])
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ):
                     self.assertEqual(
                         0,
                         self.submit(key, command=command_args, **options),
@@ -4197,55 +4238,149 @@ class ValidationEvidenceTest(unittest.TestCase):
             issues,
         )
 
-    def test_migrate_only_rejects_test_lifecycle_commands_under_other_evidence_kinds(self):
-        compile_key = ("module", "app", "compile", None)
+    def test_migrate_only_rejects_test_and_uninspectable_commands_for_non_test_checks(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
         test_commands = (
             ["mvn", "test"],
             ["mvn", "verify"],
+            ["mvn", "prepare-package"],
+            ["mvn", "pre-integration-test"],
+            ["mvn", "post-integration-test"],
             ["mvnd", "package"],
             ["mvnw", "maven-surefire-plugin:test"],
             ["mvn", "org.apache.maven.plugins:maven-surefire-plugin:test@unit"],
             ["mvn", "org.apache.maven.plugins:maven-failsafe-plugin:integration-test@it"],
             ["mvn", "org.example:maven-custom-plugin:test", "-DskipTests"],
             ["mvn", "org.example:maven-custom-plugin:1.0:integration-test@it", "-DskipTests=true"],
+            ["mvn", "org.example:custom-test-plugin:run-tests"],
+            ["mvn", "org.example:custom-test-plugin:run-tests", "-DskipTests"],
+            ["pnpm", "test"],
+            ["mvnDebug", "test"],
             ["./gradlew", "test"],
-            ["gradle", "check"],
-            ["gradle", "build"],
-            ["gradle", "build", "-x", "test"],
-            ["gradle", "build", "-x", "test", "-x", "integrationTest"],
-            ["gradle", "check", "--exclude-task", "test"],
-            ["./gradlew", ":app:check", "--exclude-task=test"],
             ["./gradlew", "integrationTest"],
-            ["gradle", "build", "-x", "test", "integrationTest"],
         )
         for command_args in test_commands:
             with self.subTest(command=command_args):
                 self.write_scope(test_run_mode="migrate_only")
                 completed = subprocess.CompletedProcess(command_args, 0, "test command ran")
                 with patch.object(gate.subprocess, "run", return_value=completed) as command:
-                    with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
-                        self.submit(compile_key, command=command_args)
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "test execution|cannot inspect",
+                    ):
+                        self.submit(lint_key, command=command_args)
                     command.assert_not_called()
+
+    def test_migrate_only_rejects_wrapped_test_commands(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
+        test_commands = (
+            ["env", "mvn", "test"],
+            ["env", "--", "mvn", "test"],
+            ["/usr/bin/env", "MAVEN_OPTS=-Xmx1g", "./mvnw", "verify"],
+            ["env", "MAVEN_ARGS=test", "mvn", "package", "-DskipTests"],
+            ["env", "--", "MAVEN_ARGS=test", "mvn", "package", "-DskipTests"],
+            ["env", "gradle", "integrationTest"],
+            ["env", "-S", "mvn test"],
+            ["sh", "-c", "mvn test"],
+            ["bash", "-c", "gradle test"],
+            ["timeout", "30", "mvn", "test"],
+            ["make", "test"],
+            ["npm", "test"],
+            ["npx", "jest"],
+            [sys.executable, "-c", "import subprocess; subprocess.run(['mvn', 'test'])"],
+        )
+        for command_args in test_commands:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                with patch.object(gate.subprocess, "run") as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "test execution|cannot inspect",
+                    ):
+                        self.submit(lint_key, command=command_args)
+                    command.assert_not_called()
+
+    def test_migrate_only_allows_env_wrapped_maven_packaging_when_tests_are_skipped(self):
+        command_args = ["env", "MAVEN_OPTS=-Xmx1g", "mvn", "package", "-DskipTests"]
+        self.write_scope(test_run_mode="migrate_only")
+        completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                ),
+            )
+        command.assert_called_once()
+
+    def test_migrate_only_allows_known_bpmn_linter(self):
+        command_args = [
+            "npx",
+            "bpmnlint",
+            "models/converted-c8-process.bpmn",
+        ]
+        self.write_scope(test_run_mode="migrate_only")
+        completed = subprocess.CompletedProcess(command_args, 0, "model is valid")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                ),
+            )
+        command.assert_called_once()
+
+    def test_migrate_only_recognizes_documented_runtime_launch_commands(self):
+        self.assertFalse(gate.command_runs_test_suite(["mvn", "spring-boot:run"]))
+        for executable in ("java", "java.exe", "/usr/bin/java"):
+            command = [executable, "-jar", "target/application.jar"]
+            with self.subTest(executable=executable):
+                self.assertIsNone(gate.command_runs_test_suite(command))
+                self.assertIsNone(
+                    gate.command_runs_test_suite(
+                        command,
+                        key=("module", "app", "compile", None),
+                    )
+                )
+                self.assertFalse(
+                    gate.command_runs_test_suite(
+                        command,
+                        key=("module", "app", "executable_jar", None),
+                    )
+                )
 
     def test_migrate_only_allows_maven_packaging_when_tests_are_skipped(self):
         compile_key = ("module", "app", "compile", None)
         maven_commands = (
             ["mvn", "package", "-DskipTests"],
             ["mvn", "-DskipTests=true", "package"],
+            ["mvn", "prepare-package", "-DskipTests"],
+            ["mvn", "pre-integration-test", "-DskipTests"],
+            ["mvn", "post-integration-test", "-DskipTests"],
         )
         for command_args in maven_commands:
             with self.subTest(command=command_args):
                 self.write_scope(test_run_mode="migrate_only")
-                completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
-                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                self.write_maven_project("app")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ) as command:
                     self.assertEqual(0, self.submit(compile_key, command=command_args))
-                command.assert_called_once()
+                self.assertEqual(2, command.call_count)
 
     def test_migrate_only_rejects_main_source_only_compilation(self):
         compile_key = ("module", "app", "compile", None)
         main_source_commands = (
             ["mvn", "compile"],
             ["gradle", "classes"],
+            ["env", "MAVEN_OPTS=-Dmaven.test.skip=true", "mvn", "test-compile"],
+            ["env", "JAVA_TOOL_OPTIONS=-Dmaven.test.skip=true", "mvn", "test-compile"],
+            ["env", "JDK_JAVA_OPTIONS=-Dmaven.test.skip=1", "mvn", "test-compile"],
+            ["env", "_JAVA_OPTIONS=-Dmaven.test.skip=yes", "mvn", "test-compile"],
         )
         for command_args in main_source_commands:
             with self.subTest(command=command_args):
@@ -4255,6 +4390,240 @@ class ValidationEvidenceTest(unittest.TestCase):
                     with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
                         self.submit(compile_key, command=command_args)
                     command.assert_not_called()
+
+    def test_migrate_only_rejects_maven_test_compilation_skipped_by_command_line_property(self):
+        compile_key = ("module", "app", "compile", None)
+        command_arguments = (
+            ["mvn", "-pl", "app", "test-compile", "-Dmaven.test.skip=true"],
+            ["mvn", "-pl", "app", "test-compile", "-D", "maven.test.skip=true"],
+            ["mvn", "--define=maven.test.skip=1", "-pl", "app", "test-compile"],
+        )
+        for command_args in command_arguments:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                completed = subprocess.CompletedProcess(command_args, 0, "test compilation skipped")
+                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Maven configuration skips test-source compilation",
+                    ):
+                        self.submit(compile_key, command=command_args)
+                    command.assert_not_called()
+
+    def test_migrate_only_honors_maven_cli_property_over_inherited_jvm_options(self):
+        self.write_scope(test_run_mode="migrate_only")
+        for jvm_option in (
+            "MAVEN_OPTS",
+            "JAVA_TOOL_OPTIONS",
+            "JDK_JAVA_OPTIONS",
+            "_JAVA_OPTIONS",
+        ):
+            command_args = [
+                "env",
+                f"{jvm_option}=-Dmaven.test.skip=true",
+                "mvn",
+                "test",
+                "-Dmaven.test.skip=false",
+            ]
+            with self.subTest(jvm_option=jvm_option):
+                completed = subprocess.CompletedProcess(command_args, 0, "tests ran")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=completed,
+                ) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
+                        self.submit(
+                            ("model", "models/converted-c8-process.bpmn", "lint", None),
+                            command=command_args,
+                        )
+                command.assert_not_called()
+
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(
+            "app",
+            "<properties><maven.test.skip>true</maven.test.skip></properties>",
+        )
+        (self.root / ".mvn").mkdir(parents=True, exist_ok=True)
+        (self.root / ".mvn" / "jvm.config").write_text(
+            "-Dmaven.test.skip=true\n",
+            encoding="utf-8",
+        )
+        for jvm_option in (
+            "MAVEN_OPTS",
+            "JAVA_TOOL_OPTIONS",
+            "JDK_JAVA_OPTIONS",
+            "_JAVA_OPTIONS",
+        ):
+            compile_args = [
+                "env",
+                f"{jvm_option}=-Dmaven.test.skip=true",
+                "mvn",
+                "-pl",
+                "app",
+                "test-compile",
+                "-Dmaven.test.skip=false",
+            ]
+            completed = subprocess.CompletedProcess(compile_args, 0, "test sources compiled")
+            with self.subTest(compile_jvm_option=jvm_option):
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=completed,
+                ) as command:
+                    self.assertEqual(
+                        0,
+                        self.submit(
+                            ("module", "app", "compile", None),
+                            command=compile_args,
+                        ),
+                    )
+                command.assert_called_once()
+
+    def test_migrate_only_rejects_maven_test_compilation_skipped_by_active_model(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(
+            "app",
+            """
+            <profiles>
+              <profile>
+                <id>skip-test-sources</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <properties><maven.test.skip>true</maven.test.skip></properties>
+              </profile>
+            </profiles>
+            """,
+        )
+        command_args = [
+            "mvn",
+            "-pl",
+            "app",
+            "-Pskip-test-sources",
+            "-Dactivate.skip=true",
+            "test-compile",
+        ]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_skip="true"),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "Maven configuration skips test-source compilation",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
+        inspected_command = command.call_args.args[0]
+        self.assertIn("-Pskip-test-sources", inspected_command)
+        self.assertIn("-Dactivate.skip=true", inspected_command)
+        self.assertIn("help:effective-pom", inspected_command)
+        self.assertIn("app", inspected_command)
+        self.assertNotIn("test-compile", inspected_command)
+
+    def test_migrate_only_fails_closed_when_maven_model_inspection_fails(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        inspection_failed = subprocess.CompletedProcess(
+            command_args,
+            1,
+            "Maven help plugin is unavailable",
+        )
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=inspection_failed,
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "could not inspect the active Maven model",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
+
+    def test_migrate_only_inspects_a_module_pom_without_a_reactor_selector(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-f", "app/pom.xml", "test-compile"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_skip="true"),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "Maven configuration skips test-source compilation",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
+        inspected_command = command.call_args.args[0]
+        self.assertIn("app/pom.xml", inspected_command)
+        self.assertNotIn("-pl", inspected_command)
+
+    def test_migrate_only_rejects_maven_project_jvm_config_skipping_test_compilation(self):
+        compile_key = ("module", "app", "compile", None)
+        config_path = self.root / ".mvn" / "jvm.config"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        for options in (
+            "-Dmaven.test.skip=true\n",
+            "-Dmaven.test.skip=1\n",
+            "-Dmaven.test.skip=yes\n",
+            "-Dmaven.test.skip\n",
+        ):
+            with self.subTest(options=options):
+                config_path.write_text(options, encoding="utf-8")
+                self.write_scope(test_run_mode="migrate_only")
+                command_args = ["mvn", "-pl", "app", "test-compile"]
+                with patch.object(gate.subprocess, "run") as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Maven configuration skips test-source compilation",
+                    ):
+                        self.submit(compile_key, command=command_args)
+                command.assert_not_called()
+
+    def test_migrate_only_rejects_uninspectable_maven_project_jvm_config(self):
+        self.write_scope(test_run_mode="migrate_only")
+        config_path = self.root / ".mvn" / "jvm.config"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text('-Dmaven.test.skip="true', encoding="utf-8")
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        with patch.object(gate.subprocess, "run") as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "cannot inspect Maven project configuration",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_not_called()
+
+    def test_migrate_only_rejects_maven_goals_from_project_configuration(self):
+        self.write_scope(test_run_mode="migrate_only")
+        config_path = self.root / ".mvn" / "maven.config"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text("test\n", encoding="utf-8")
+        command_args = ["mvn", "-pl", "app", "package", "-DskipTests"]
+        with patch.object(gate.subprocess, "run") as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "cannot inspect Maven project arguments",
+            ):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        command.assert_not_called()
+
+    def test_migrate_only_rejects_inherited_maven_args(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["mvn", "package", "-DskipTests"]
+        with patch.dict("os.environ", {"MAVEN_ARGS": "test"}):
+            with patch.object(gate.subprocess, "run") as command:
+                with self.assertRaisesRegex(gate.EvidenceError, "cannot inspect"):
+                    self.submit(
+                        ("model", "models/converted-c8-process.bpmn", "lint", None),
+                        command=command_args,
+                    )
+            command.assert_not_called()
 
     def test_migrate_only_skip_tests_applies_to_surefire_and_failsafe_goals(self):
         known_test_provider_commands = (
@@ -4277,27 +4646,302 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.submit(compile_key, command=command_args)
             command.assert_not_called()
 
-    def test_migrate_only_allows_maven_test_source_compilation(self):
+    def test_migrate_only_accepts_maven_process_test_classes_as_compile_evidence(self):
         self.write_scope(test_run_mode="migrate_only")
-        command_args = ["mvn", "-pl", "app", "test-compile"]
-        completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
-        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+        self.write_maven_project("app")
+        command_args = ["mvn", "-pl", "app", "process-test-classes", "-DskipTests"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(),
+        ) as command:
             self.assertEqual(
                 0,
                 self.submit(("module", "app", "compile", None), command=command_args),
             )
+        self.assertEqual(2, command.call_count)
+
+    def test_migrate_only_allows_gradle_aggregate_when_dry_run_has_no_test_tasks(self):
+        graph_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+        aggregate_commands = (
+            ["gradle", "build", "-x", "test", "-x", "integrationTest"],
+            ["gradle", "check", "--exclude-task", "test"],
+        )
+        for command_args in aggregate_commands:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+
+                def run(command, **kwargs):
+                    if "--dry-run" in command:
+                        return subprocess.CompletedProcess(command, 0, graph_output)
+                    return subprocess.CompletedProcess(command, 0, "non-test build ran")
+
+                with patch.object(gate.subprocess, "run", side_effect=run) as command:
+                    self.assertEqual(
+                        0,
+                        self.submit(
+                            ("model", "models/converted-c8-process.bpmn", "lint", None),
+                            command=command_args,
+                        ),
+                    )
+                self.assertEqual(2, command.call_count)
+                self.assertIn("--dry-run", command.call_args_list[0].args[0])
+                self.assertEqual(command_args, command.call_args_list[1].args[0])
+
+    def test_migrate_only_rejects_gradle_aggregate_with_an_unexcluded_test_task(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["gradle", "check", "-x", "test"]
+        graph_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_TASK__:app:integrationTest\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def run(command, **kwargs):
+            self.assertIn("--dry-run", command)
+            return subprocess.CompletedProcess(command, 0, graph_output)
+
+        with patch.object(gate.subprocess, "run", side_effect=run) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "Gradle test-capable tasks"):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
         command.assert_called_once()
+
+    def test_migrate_only_gradle_inspection_covers_custom_executable_tasks(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
+        command_args = ["gradle", "check", "-x", "test"]
+        for task_type, task_path in (
+            ("org.gradle.api.tasks.JavaExec", ":app:launchFixture"),
+            ("org.gradle.api.tasks.Exec", ":app:invokeFixtureRunner"),
+        ):
+            with self.subTest(task_type=task_type):
+                self.write_scope(test_run_mode="migrate_only")
+                graph_output = (
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+                    f"__CAMUNDA_MIGRATION_TEST_TASK__:{task_path}\n"
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+                )
+
+                def run(command, **kwargs):
+                    self.assertIn("--dry-run", command)
+                    script_path = Path(command[command.index("--init-script") + 1])
+                    inspection_script = script_path.read_text(encoding="utf-8")
+                    self.assertIn(f"task instanceof {task_type}", inspection_script)
+                    self.assertIn("task.name.toLowerCase()", inspection_script)
+                    self.assertIn('taskName.endsWith("test")', inspection_script)
+                    self.assertIn('taskName.endsWith("tests")', inspection_script)
+                    self.assertNotIn("task.name.endsWith", inspection_script)
+                    self.assertIn("|| testNamed", inspection_script)
+                    return subprocess.CompletedProcess(command, 0, graph_output)
+
+                with patch.object(gate.subprocess, "run", side_effect=run) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "Gradle .*tasks remain"):
+                        self.submit(lint_key, command=command_args)
+                command.assert_called_once()
+
+    def test_migrate_only_allows_spring_boot_bootrun_only_for_runtime_evidence(self):
+        command_args = ["gradle", "bootRun"]
+        spring_boot_key = ("module", "app", "spring_boot_run", None)
+        graph_markers = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+
+        def allow_boot_run(command, **kwargs):
+            if "--dry-run" in command:
+                script_path = Path(command[command.index("--init-script") + 1])
+                inspection_script = script_path.read_text(encoding="utf-8")
+                self.assertIn("allowSpringBootRun = true", inspection_script)
+                self.assertIn(
+                    "org.springframework.boot.gradle.tasks.run.BootRun",
+                    inspection_script,
+                )
+                self.assertIn('taskName == "bootrun"', inspection_script)
+                self.assertIn("&& !supportedSpringBootRun", inspection_script)
+                return subprocess.CompletedProcess(command, 0, graph_markers)
+            return subprocess.CompletedProcess(command, 0, "application started")
+
+        with patch.object(gate.subprocess, "run", side_effect=allow_boot_run) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    spring_boot_key,
+                    command=command_args,
+                    environment="local",
+                ),
+            )
+        self.assertEqual(2, command.call_count)
+
+        custom_task_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_TASK__:app:launchFixture\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def keep_custom_executable_blocked(command, **kwargs):
+            if "--dry-run" in command:
+                script_path = Path(command[command.index("--init-script") + 1])
+                self.assertIn(
+                    "allowSpringBootRun = true",
+                    script_path.read_text(encoding="utf-8"),
+                )
+                return subprocess.CompletedProcess(command, 0, custom_task_output)
+            self.fail("The application command must not run with an uninspected executable task")
+
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=keep_custom_executable_blocked,
+        ) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "app:launchFixture"):
+                self.submit(
+                    spring_boot_key,
+                    command=command_args,
+                    environment="local",
+                )
+        command.assert_called_once()
+
+        self.plan["modules"][0]["runtime_mode"] = "none"
+        self.write_scope(test_run_mode="migrate_only")
+        boot_run_task_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_TASK__:app:bootRun\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def keep_boot_run_blocked_for_other_evidence(command, **kwargs):
+            if "--dry-run" in command:
+                script_path = Path(command[command.index("--init-script") + 1])
+                self.assertIn(
+                    "allowSpringBootRun = false",
+                    script_path.read_text(encoding="utf-8"),
+                )
+                return subprocess.CompletedProcess(command, 0, boot_run_task_output)
+            self.fail("The application launch command must not run for a model lint check")
+
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=keep_boot_run_blocked_for_other_evidence,
+        ) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "app:bootRun"):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        command.assert_called_once()
+
+    def test_migrate_only_gradle_inspection_catches_case_normalized_test_suffixes(self):
+        lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)
+        command_args = ["gradle", "check", "-x", "test"]
+        for task_name in (
+            "integrationtest",
+            "integrationtests",
+            "integrationTest",
+            "integrationTests",
+        ):
+            with self.subTest(task_name=task_name):
+                self.write_scope(test_run_mode="migrate_only")
+                graph_output = (
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+                    f"__CAMUNDA_MIGRATION_TEST_TASK__:app:{task_name}\n"
+                    "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+                )
+
+                def run(command, **kwargs):
+                    if "--dry-run" in command:
+                        script_path = Path(command[command.index("--init-script") + 1])
+                        inspection_script = script_path.read_text(encoding="utf-8")
+                        self.assertIn("task.name.toLowerCase()", inspection_script)
+                        self.assertIn('taskName.endsWith("test")', inspection_script)
+                        self.assertIn('taskName.endsWith("tests")', inspection_script)
+                        self.assertIn("|| testNamed", inspection_script)
+                        return subprocess.CompletedProcess(command, 0, graph_output)
+                    self.fail("The aggregate command must not run while a test-named task remains")
+
+                with patch.object(gate.subprocess, "run", side_effect=run) as command:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        f"Gradle test-capable tasks remain in the task graph: app:{task_name}",
+                    ):
+                        self.submit(lint_key, command=command_args)
+                command.assert_called_once()
+
+    def test_migrate_only_rejects_gradle_when_dry_run_cannot_inspect_task_graph(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["gradle", "build", "-x", "test"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(command_args, 0, "no graph markers"),
+        ) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "could not verify"):
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                )
+        command.assert_called_once()
+
+    def test_migrate_only_rejects_user_supplied_gradle_dry_run_as_evidence(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["gradle", "testClasses", "--dry-run"]
+        with patch.object(gate.subprocess, "run") as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "does not accept Gradle dry-run"):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_not_called()
+
+    def test_migrate_only_allows_maven_test_source_compilation(self):
+        for command_args in (
+            ["mvn", "-pl", "app", "test-compile"],
+            ["env", "MAVEN_OPTS=-Xmx1g", "mvn", "-pl", "app", "test-compile"],
+            ["mvn", "-pl", "app", "test-compile", "-Dmaven.test.skip=false"],
+            ["mvn", "-D", "maven.test.skip=false", "-pl", "app", "test-compile"],
+        ):
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                self.write_maven_project("app")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ) as command:
+                    self.assertEqual(
+                        0,
+                        self.submit(("module", "app", "compile", None), command=command_args),
+                    )
+                expected_calls = (
+                    1
+                    if gate._maven_command_details(command_args)[2] is not None
+                    else 2
+                )
+                self.assertEqual(expected_calls, command.call_count)
 
     def test_migrate_only_allows_gradle_test_source_compilation(self):
         self.write_scope(test_run_mode="migrate_only")
         command_args = ["./gradlew", ":app:testClasses"]
-        completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
-        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+        graph_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def run(command, **kwargs):
+            if "--dry-run" in command:
+                return subprocess.CompletedProcess(command, 0, graph_output)
+            return subprocess.CompletedProcess(command, 0, "test sources compiled")
+
+        with patch.object(gate.subprocess, "run", side_effect=run) as command:
             self.assertEqual(
                 0,
                 self.submit(("module", "app", "compile", None), command=command_args),
             )
-        command.assert_called_once()
+        self.assertEqual(2, command.call_count)
 
     def test_migrate_only_does_not_require_docker_probe_for_unrun_suites(self):
         self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
