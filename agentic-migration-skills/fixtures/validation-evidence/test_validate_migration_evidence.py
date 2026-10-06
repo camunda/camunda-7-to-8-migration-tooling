@@ -832,6 +832,31 @@ class ValidationEvidenceTest(unittest.TestCase):
         ):
             gate.initialize(self.root, reset_source_snapshot=True)
 
+    def test_reused_legacy_snapshot_rejects_missing_test_inventory_files(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit)
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["source_files"].pop(self.c7_test_file_path)
+        inventory["source_snapshot_sha256"] = gate.source_snapshot_digest(
+            inventory["modules"],
+            inventory["models"],
+            inventory["source_files"],
+            inventory["source_snapshot_test_contract"],
+        )
+        write_json(inventory_path, inventory)
+        (self.root / self.c7_test_file_path).unlink()
+
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root))
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "Test Inventory file is missing"
+        ):
+            self.record_c7_baseline()
+
     def test_c7_baseline_snapshot_tracks_configured_root_contents_under_build_directories(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '

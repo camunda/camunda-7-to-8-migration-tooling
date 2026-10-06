@@ -3229,6 +3229,7 @@ def verify_unchanged_source(root, inventory):
         strings(inventory.get("modules"), "Step 2 modules"),
         strings(inventory.get("models"), "Step 2 models"),
         current_test_contract,
+        require_inventory_files=True,
     )
     changed = sorted(
         path
