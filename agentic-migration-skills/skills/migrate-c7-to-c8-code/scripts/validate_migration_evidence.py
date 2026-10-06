@@ -1841,10 +1841,17 @@ def test_validation_enabled(contract, migrated_test_ids, mapping):
         isinstance(test, dict) and test.get("status") == "added"
         for test in mapping["tests"]
     )
+    rows = test_rows_by_id(mapping) if mapping is not None else {}
+    has_retired_report_only_tests = any(
+        test["handling"] == "Report only"
+        and rows.get(test["id"], {}).get("status") == "retired"
+        for test in contract["tests"]
+    )
     return contract["mode"] == "run" and (
         bool(migrated_test_ids)
         or bool(expected_cpt_test_ids(mapping))
         or has_added_tests
+        or has_retired_report_only_tests
         or any(test["handling"] == "Migrate" for test in contract["tests"])
     )
 
@@ -2097,6 +2104,18 @@ def approved_retirement(test):
     )
 
 
+def baseline_suite_matches_check(baseline, check):
+    return all(
+        baseline.get(field) == check.get(field)
+        for field in (
+            "result",
+            "test_results",
+            "coverage_by_process",
+            "coverage_available",
+        )
+    )
+
+
 def test_parity_issues(plan, checks, mapping):
     issues = []
     contract = plan.test_contract
@@ -2114,12 +2133,19 @@ def test_parity_issues(plan, checks, mapping):
         if suite_key in baseline_entries:
             issues.append(f"{suite_key}: duplicate C7 baseline suite entry")
         baseline_entries[suite_key] = suite
-    for suite_key in sorted(expected_suites):
+    verified_baseline_suites = []
+    for suite_key in sorted(expected_suites | baseline_entries.keys()):
         key = ("module", suite_key[0], "c7_baseline", suite_key[1])
         entry = checks.get(key)
         baseline = baseline_entries.get(suite_key)
         if entry is None:
-            issues.append(f"{suite_key}: C7 baseline has not run")
+            if suite_key in expected_suites:
+                issues.append(f"{suite_key}: C7 baseline has not run")
+            else:
+                issues.append(
+                    f"{suite_key}: test parity ledger has no matching "
+                    "validator-owned C7 baseline check"
+                )
             continue
         check = entry[1]
         if check.get("result") != "passed":
@@ -2128,17 +2154,17 @@ def test_parity_issues(plan, checks, mapping):
                 f"{check.get('reason') or 'not verified'}"
             )
         if baseline is None:
-            issues.append(f"{suite_key}: test parity ledger has no C7 baseline record")
-        elif (
-            baseline.get("result") != check.get("result")
-            or baseline.get("test_results") != check.get("test_results")
-            or baseline.get("coverage_by_process") != check.get("coverage_by_process")
-            or baseline.get("coverage_available") != check.get("coverage_available")
-        ):
+            if suite_key in expected_suites:
+                issues.append(f"{suite_key}: test parity ledger has no C7 baseline record")
+            continue
+        if not baseline_suite_matches_check(baseline, check):
             issues.append(f"{suite_key}: test parity ledger differs from its baseline log")
+            continue
+        if check.get("result") == "passed":
+            verified_baseline_suites.append(baseline)
 
     actual_baseline = aggregate_baseline_results(
-        contract, mapping["baseline"].get("suites", [])
+        contract, verified_baseline_suites
     )
     rows = test_rows_by_id(mapping)
     repeat_runs = test_repeat_checks(plan, checks)

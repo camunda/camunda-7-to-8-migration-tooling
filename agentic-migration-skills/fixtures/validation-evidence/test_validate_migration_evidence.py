@@ -1207,17 +1207,28 @@ class ValidationEvidenceTest(unittest.TestCase):
                 }
             ],
         }
+        checks = {
+            ("module", "app", "c7_baseline", "unit"): (
+                1,
+                {
+                    "result": "passed",
+                    "test_results": {
+                        test_id: {"result": "passed", "invocations": ["passed"]}
+                    },
+                },
+            )
+        }
 
         baseline_results = gate.aggregate_baseline_results(
             plan.test_contract, mapping["baseline"]["suites"]
         )
         self.assertEqual("passed", baseline_results[test_id]["c7_result"])
 
-        issues = gate.test_parity_issues(plan, {}, mapping)
+        issues = gate.test_parity_issues(plan, checks, mapping)
         self.assertIn(f"{test_id}: manual test is not verified", issues)
 
         mapping["tests"] = []
-        issues = gate.test_parity_issues(plan, {}, mapping)
+        issues = gate.test_parity_issues(plan, checks, mapping)
         self.assertIn(f"{test_id}: test parity ledger entry is missing", issues)
 
         mapping["tests"] = [
@@ -1233,7 +1244,80 @@ class ValidationEvidenceTest(unittest.TestCase):
                 },
             }
         ]
-        self.assertEqual([], gate.test_parity_issues(plan, {}, mapping))
+        self.assertEqual([], gate.test_parity_issues(plan, checks, mapping))
+
+    def test_unbound_report_only_baseline_suite_cannot_supply_c7_results(self):
+        test_id = "app:com.example.LegacyTest#testLegacy"
+        test = {
+            "id": test_id,
+            "module": "app",
+            "test_kind": "legacy test",
+            "handling": "Report only",
+        }
+        plan = Namespace(
+            test_contract={
+                "tests": [test],
+                "suites": {},
+                "test_suites": {},
+            }
+        )
+        suite = {
+            "module": "app",
+            "suite": "unit",
+            "result": "passed",
+            "test_results": {
+                test_id: {"result": "passed", "invocations": ["passed"]}
+            },
+        }
+        mapping = {
+            "baseline": {"suites": [suite]},
+            "tests": [
+                {
+                    "c7_id": test_id,
+                    "test_kind": "legacy test",
+                    "handling": "Report only",
+                    "c7_result": "passed",
+                    "c8_ids": [],
+                    "status": "retired",
+                    "retirement": {
+                        "reason": "The behavior is no longer required.",
+                        "approved_by": "migration owner",
+                    },
+                }
+            ],
+        }
+        suite_key = ("module", "app", "c7_baseline", "unit")
+        cases = (
+            ("missing check log", {}),
+            (
+                "mismatched check log",
+                {
+                    suite_key: (
+                        1,
+                        {
+                            "result": "passed",
+                            "test_results": {},
+                        },
+                    )
+                },
+            ),
+        )
+
+        for name, checks in cases:
+            with self.subTest(name=name):
+                issues = gate.test_parity_issues(plan, checks, mapping)
+                self.assertTrue(
+                    any(
+                        "no matching validator-owned C7 baseline check" in issue
+                        or "differs from its baseline log" in issue
+                        for issue in issues
+                    ),
+                    issues,
+                )
+                self.assertIn(
+                    f"{test_id}: C7 result differs from the captured baseline reports",
+                    issues,
+                )
 
     def test_report_only_note_is_limited_to_manual_ledger_rows(self):
         mapping = {
@@ -1666,6 +1750,59 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIn(
             f"{self.c7_test_id}: retired Report only test requires a captured C7 baseline",
             issues,
+        )
+
+    def test_retired_report_only_only_test_enables_c7_parity(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        mapping = gate.empty_test_mapping(inventory)
+        mapping["tests"] = [
+            {
+                "c7_id": self.c7_test_id,
+                "test_kind": "process test",
+                "handling": "Report only",
+                "c7_result": None,
+                "c8_ids": [],
+                "mocks": {"c7": [], "c8": []},
+                "status": "retired",
+                "retirement": {
+                    "reason": "The behavior is no longer required.",
+                    "approved_by": "migration owner",
+                },
+            }
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertEqual(set(), gate.mapped_migrated_test_ids(mapping))
+        self.assertEqual(set(), gate.expected_cpt_test_ids(mapping))
+        self.assertIn(("module", "app", "c7_baseline", "unit"), plan.required)
+        self.assertIn(("project", ".", "test_parity", None), plan.required)
+        self.assertIn(("project", ".", "coverage_parity", None), plan.required)
+        self.assertNotIn(("module", "app", "test_repeat", "unit"), plan.required)
+        self.assertNotIn(("project", ".", "test_freeze", None), plan.required)
+
+        issues = gate.test_parity_issues(plan, {}, mapping)
+        self.assertIn("('app', 'unit'): C7 baseline has not run", issues)
+        self.assertIn(
+            f"{self.c7_test_id}: retired Report only test requires a captured C7 baseline",
+            issues,
+        )
+
+        self.assertEqual(0, self.record_c7_baseline())
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        self.assertTrue(
+            any(
+                check["type"] == "module"
+                and check["target"] == "app"
+                and check["kind"] == "c7_baseline"
+                for check in self.summary()["checks"]
+            )
         )
 
     def test_c7_baseline_can_be_captured_before_mapping_report_only_tests(self):

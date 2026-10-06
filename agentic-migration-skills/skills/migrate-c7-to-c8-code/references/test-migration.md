@@ -416,6 +416,7 @@ retains the individual test results.
 
 The validator copies JUnit reports to `.camunda-migration/validation/baseline/`. It records one
 result for each Test Inventory ID in the suite. Where the project uses Git, it records the Step 2 Git commit. It stores the C7 test results in `test-mapping.json`.
+The validator matches each baseline-suite record against its recorded `c7_baseline` check before it uses the record for parity.
 Where a fresh C7 report contains a `Report only` test that the suite omits, the validator also
 records that test.
 
@@ -518,7 +519,7 @@ Use these ledger statuses:
 | `added` | The migration added a CPT test without a C7 source test. |
 
 The validator requires the same repeat, parity, freeze, and review evidence for migrated `Report only` tests.
-The validator also requires a C7 baseline for every suite that contains a migrated `Report only` test.
+The validator requires a C7 baseline for every suite that contains a migrated or retired `Report only` test.
 
 When a `Report only` test passed in the C7 baseline, its `manual` status does not satisfy parity.
 Migrate it or record an approved retirement before claiming `READY`.
