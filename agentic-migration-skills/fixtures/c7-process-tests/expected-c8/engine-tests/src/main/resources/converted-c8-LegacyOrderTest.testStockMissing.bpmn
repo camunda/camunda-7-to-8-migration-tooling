@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
                   xmlns:modeler="http://camunda.org/schema/modeler/1.0"
                   xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
                   id="Definitions_LegacyOrder"
@@ -28,25 +25,4 @@
     <bpmn:sequenceFlow id="Flow_Legacy_CheckStock" sourceRef="Start_LegacyOrder" targetRef="Task_LegacyCheckStock" />
     <bpmn:sequenceFlow id="Flow_Legacy_End" sourceRef="Task_LegacyCheckStock" targetRef="End_LegacyOrder" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="Diagram_LegacyOrder">
-    <bpmndi:BPMNPlane id="Plane_LegacyOrder" bpmnElement="legacyOrder">
-      <bpmndi:BPMNShape id="Start_LegacyOrder_di" bpmnElement="Start_LegacyOrder">
-        <dc:Bounds x="100" y="110" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_LegacyCheckStock_di" bpmnElement="Task_LegacyCheckStock">
-        <dc:Bounds x="190" y="88" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_LegacyOrder_di" bpmnElement="End_LegacyOrder">
-        <dc:Bounds x="350" y="110" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_Legacy_CheckStock_di" bpmnElement="Flow_Legacy_CheckStock">
-        <di:waypoint x="136" y="128" />
-        <di:waypoint x="190" y="128" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Legacy_End_di" bpmnElement="Flow_Legacy_End">
-        <di:waypoint x="290" y="128" />
-        <di:waypoint x="350" y="128" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
 </bpmn:definitions>

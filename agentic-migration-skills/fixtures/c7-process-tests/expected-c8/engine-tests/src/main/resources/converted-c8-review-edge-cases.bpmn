@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_ReviewEdgeCases" targetNamespace="http://camunda.com/fixture" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:message id="Message_FulfillmentRequested" name="FulfillmentRequested" />
+  <bpmn:error id="Error_MixedWork" name="Mixed work error" errorCode="MIXED_WORK_ERROR" />
+  <bpmn:process id="MessageStartReview" name="Message start review" isExecutable="true">
+    <bpmn:startEvent id="StartByMessage" name="Start by message">
+      <bpmn:outgoing>Flow_MessageStart_MessageStarted</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_FulfillmentRequested" />
+    </bpmn:startEvent>
+    <bpmn:endEvent id="MessageStarted" name="Message started">
+      <bpmn:incoming>Flow_MessageStart_MessageStarted</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_MessageStart_MessageStarted" sourceRef="StartByMessage" targetRef="MessageStarted" />
+  </bpmn:process>
+  <bpmn:process id="MixedFinishReview" name="Mixed finish review" isExecutable="true">
+    <bpmn:startEvent id="Start_MixedWork" name="Start">
+      <bpmn:outgoing>Flow_MixedStart_MixedWork</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="MixedWork" name="Process item">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="mixed-work" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_MixedStart_MixedWork</bpmn:incoming>
+      <bpmn:outgoing>Flow_MixedWork_MoreVisits</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="Boundary_MixedWorkError" name="Mixed work error" attachedToRef="MixedWork" cancelActivity="true">
+      <bpmn:outgoing>Flow_MixedWorkError_Failed</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_MixedWork" />
+    </bpmn:boundaryEvent>
+    <bpmn:exclusiveGateway id="MoreVisits" name="More visits?" default="Flow_MoreVisits_Completed">
+      <bpmn:incoming>Flow_MixedWork_MoreVisits</bpmn:incoming>
+      <bpmn:outgoing>Flow_MoreVisits_MixedWork</bpmn:outgoing>
+      <bpmn:outgoing>Flow_MoreVisits_Completed</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="MixedWorkCompleted" name="Work completed">
+      <bpmn:incoming>Flow_MoreVisits_Completed</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="MixedWorkFailed" name="Work failed">
+      <bpmn:incoming>Flow_MixedWorkError_Failed</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_MixedStart_MixedWork" sourceRef="Start_MixedWork" targetRef="MixedWork" />
+    <bpmn:sequenceFlow id="Flow_MixedWork_MoreVisits" sourceRef="MixedWork" targetRef="MoreVisits" />
+    <bpmn:sequenceFlow id="Flow_MoreVisits_MixedWork" name="Repeat once" sourceRef="MoreVisits" targetRef="MixedWork">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=visitCount = 1</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_MoreVisits_Completed" sourceRef="MoreVisits" targetRef="MixedWorkCompleted" />
+    <bpmn:sequenceFlow id="Flow_MixedWorkError_Failed" sourceRef="Boundary_MixedWorkError" targetRef="MixedWorkFailed" />
+  </bpmn:process>
+</bpmn:definitions>

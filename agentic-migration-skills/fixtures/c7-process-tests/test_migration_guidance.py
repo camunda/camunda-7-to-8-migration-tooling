@@ -1,9 +1,10 @@
 from collections import Counter
-from pathlib import Path
+import fnmatch
 import re
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 FIXTURE = Path(__file__).resolve().parent
@@ -14,6 +15,9 @@ EXPECTED_ASSESSMENT = FIXTURE / "expected-assessment" / "test-inventory.md"
 EXPECTED_ASSESSMENT_88 = FIXTURE / "expected-assessment-8.8" / "test-inventory.md"
 EXPECTED_PARITY = FIXTURE / "expected-run" / "test-parity.md"
 EXPECTED_TESTS_ONLY = FIXTURE / "expected-tests-only" / "MIGRATION_REPORT.md"
+MIGRATION_SKILL = (
+    REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
+)
 TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
@@ -25,12 +29,13 @@ CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)\b")
 TEST_ANNOTATION_RE = re.compile(
     r"@\s*(?:org\.junit(?:\.jupiter\.api)?\.)?(?:Test|ParameterizedTest|RepeatedTest)\b"
 )
+MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
 METHOD_RE = re.compile(
     r"(?m)^\s*(?:(?:public|protected|private)\s+)?(?:static\s+)?"
     r"(?:[\w$<>?,.\[\]]+\s+)+([A-Za-z_$][\w$]*)\s*\("
 )
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
-TEST_ID_RE = re.compile(r"(?:engine-tests|spring-boot-app|remote-engine):[\w.]+#[A-Za-z_$][\w$]*")
+TEST_ID_RE = re.compile(r"[\w.-]+:[\w.]+#[A-Za-z_$][\w$]*")
 TEST_KINDS = (
     "process test",
     "decision test",
@@ -53,27 +58,98 @@ REPORT_ONLY_REASONS = {
     "scenario test": "scenario-test migration procedure is defined",
     "remote-engine test": "remote-engine migration procedure is defined",
 }
+LEGACY_TEST_IDS = {
+    "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
+    "shouldCompleteWorkAfterTwoDailyReminders",
+    "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+    "shouldStartMessageProcess",
+    "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+    "shouldCountCompletedVisitsSeparately",
+    "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
+    "shouldCountMixedFinishedVisitsByOutcome",
+}
 
 
 def test_method_ids(project_root):
     ids = set()
-    for source_file in sorted(project_root.glob("*/src/test/java/**/*.java")):
-        source = source_file.read_text(encoding="utf-8")
-        package_match = PACKAGE_RE.search(source)
-        class_match = CLASS_RE.search(source)
-        if package_match is None or class_match is None:
+    root = ET.parse(project_root / "pom.xml").getroot()
+    modules = root.findall("m:modules/m:module", MAVEN_NAMESPACE)
+
+    for module_element in modules:
+        module_name = (module_element.text or "").strip()
+        module_root = (project_root / module_name).resolve()
+        module_pom = ET.parse(module_root / "pom.xml").getroot()
+        build = module_pom.find("m:build", MAVEN_NAMESPACE)
+        test_source_directory = (
+            build.findtext("m:testSourceDirectory", namespaces=MAVEN_NAMESPACE)
+            if build is not None
+            else None
+        )
+        test_source_directory = (
+            test_source_directory.strip()
+            if test_source_directory and test_source_directory.strip()
+            else "${project.basedir}/src/test/java"
+        )
+        test_source_directory = test_source_directory.replace(
+            "${project.basedir}", str(module_root)
+        )
+        if "${" in test_source_directory:
+            raise AssertionError(
+                "Unsupported testSourceDirectory expression in {}".format(module_root)
+            )
+        source_root = Path(test_source_directory)
+        if not source_root.is_absolute():
+            source_root = module_root / source_root
+        source_root = source_root.resolve()
+        if not source_root.is_dir():
             continue
 
-        module = source_file.relative_to(project_root).parts[0]
-        class_name = "{}.{}".format(package_match.group(1), class_match.group(1))
-        for annotation in TEST_ANNOTATION_RE.finditer(source):
-            method = METHOD_RE.search(source[annotation.end() :])
-            if method is not None:
-                ids.add("{}:{}#{}".format(module, class_name, method.group(1)))
+        compiler_plugin = None
+        if build is not None:
+            compiler_plugin = next(
+                (
+                    plugin
+                    for plugin in build.findall("m:plugins/m:plugin", MAVEN_NAMESPACE)
+                    if plugin.findtext("m:artifactId", namespaces=MAVEN_NAMESPACE)
+                    == "maven-compiler-plugin"
+                ),
+                None,
+            )
+        include_patterns = (
+            [
+                (include.text or "").strip()
+                for include in compiler_plugin.findall(
+                    "m:configuration/m:testIncludes/m:testInclude", MAVEN_NAMESPACE
+                )
+                if include.text and include.text.strip()
+            ]
+            if compiler_plugin is not None
+            else []
+        )
 
-        if "extends ProcessEngineTestCase" in source:
-            for method in JUNIT3_METHOD_RE.finditer(source):
-                ids.add("{}:{}#{}".format(module, class_name, method.group(1)))
+        for source_file in sorted(source_root.rglob("*.java")):
+            relative_source_file = source_file.relative_to(source_root).as_posix()
+            if include_patterns and not any(
+                fnmatch.fnmatchcase(relative_source_file, pattern)
+                for pattern in include_patterns
+            ):
+                continue
+
+            source = source_file.read_text(encoding="utf-8")
+            package_match = PACKAGE_RE.search(source)
+            class_match = CLASS_RE.search(source)
+            if package_match is None or class_match is None:
+                continue
+
+            class_name = "{}.{}".format(package_match.group(1), class_match.group(1))
+            for annotation in TEST_ANNOTATION_RE.finditer(source):
+                method = METHOD_RE.search(source[annotation.end() :])
+                if method is not None:
+                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
+
+            if "extends ProcessEngineTestCase" in source:
+                for method in JUNIT3_METHOD_RE.finditer(source):
+                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
     return ids
 
 
@@ -147,12 +223,70 @@ def markdown_table_has_delimiter(line):
     return False
 
 
+def java_method_body(source, method_name):
+    signature = re.compile(
+        r"(?m)^[ \t]*(?:(?:public|protected|private)\s+)?(?:static\s+)?"
+        r"(?:[\w$<>?,.\[\]]+\s+)+"
+        + re.escape(method_name)
+        + r"\s*\([^)]*\)\s*\{"
+    )
+    match = signature.search(source)
+    if match is None:
+        raise AssertionError("Could not find Java method {}.".format(method_name))
+
+    opening_brace = match.end() - 1
+
+    def skip_quoted_literal(start, delimiter):
+        index = start + len(delimiter)
+        while index < len(source):
+            if source[index] == "\\":
+                index += 2
+            elif source.startswith(delimiter, index):
+                return index + len(delimiter)
+            else:
+                index += 1
+        return len(source)
+
+    depth = 0
+    index = opening_brace
+    while index < len(source):
+        if source.startswith("//", index):
+            index += 2
+            while index < len(source) and source[index] not in "\r\n":
+                index += 1
+            continue
+        if source.startswith("/*", index):
+            comment_end = source.find("*/", index + 2)
+            if comment_end == -1:
+                break
+            index = comment_end + 2
+            continue
+        if source.startswith('"""', index):
+            index = skip_quoted_literal(index, '"""')
+            continue
+        if source[index] == '"':
+            index = skip_quoted_literal(index, '"')
+            continue
+        if source[index] == "'":
+            index = skip_quoted_literal(index, "'")
+            continue
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening_brace + 1 : index]
+        index += 1
+
+    raise AssertionError("Could not find the end of Java method {}.".format(method_name))
+
+
 def markdown_table(path, required_headers):
     lines = path.read_text(encoding="utf-8").splitlines()
     for index, line in enumerate(lines):
         if "|" not in line:
             continue
-        headers = [cell.strip("`") for cell in markdown_table_cells(line)]
+        headers = [cell.replace("`", "") for cell in markdown_table_cells(line)]
         if headers != required_headers:
             continue
 
@@ -255,6 +389,92 @@ def normalized(value):
     return " ".join(value.lower().split())
 
 
+def fixture_files(root, pattern):
+    return sorted(
+        path
+        for path in root.rglob(pattern)
+        if "target" not in path.relative_to(root).parts
+    )
+
+
+def non_ears_conditional_rules(markdown):
+    conditional = re.compile(
+        r"\b(?:only\s+when|unless|until|when|while|if|where)\b",
+        flags=re.IGNORECASE,
+    )
+    non_ears_temporal_starter = re.compile(
+        r"^(?:before|after|once|whenever|provided(?:\s+that)?|as\s+long\s+as|as\s+soon\s+as)\b",
+        flags=re.IGNORECASE,
+    )
+    blocks = []
+    current_lines = []
+    current_start = 1
+    violations = []
+    in_code_block = False
+
+    def flush_block():
+        nonlocal current_lines
+        if current_lines:
+            blocks.append((current_start, " ".join(current_lines)))
+            current_lines = []
+
+    for line_number, line in enumerate(markdown.splitlines(), start=1):
+        if line.lstrip().startswith("```"):
+            flush_block()
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        line = re.sub(r"`[^`]*`", "CODE", line)
+        if not line.strip():
+            flush_block()
+            continue
+        if line.lstrip().startswith("|"):
+            flush_block()
+            blocks.extend((line_number, cell) for cell in line.split("|"))
+            continue
+        if re.match(r"^\s*(?:[-*+]|\d+\.)\s+", line):
+            flush_block()
+            current_start = line_number
+            current_lines.append(
+                re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", line).strip()
+            )
+            continue
+        if re.match(r"^\s*#{1,6}\s+", line):
+            flush_block()
+            current_start = line_number
+            current_lines.append(re.sub(r"^\s*#{1,6}\s+", "", line).strip())
+            continue
+        if not current_lines:
+            current_start = line_number
+        current_lines.append(line.strip())
+
+    flush_block()
+
+    for line_number, block in blocks:
+        for sentence in re.split(r"(?<=[.!?])\s+", block):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+
+            if non_ears_temporal_starter.match(sentence):
+                violations.append("{}: {}".format(line_number, sentence))
+                continue
+
+            matches = list(conditional.finditer(sentence))
+            if not matches:
+                continue
+
+            starts_with_trigger = (
+                matches[0].start() == 0
+                and matches[0].group().lower() in {"when", "while", "if", "where"}
+            )
+            if not starts_with_trigger or len(matches) > 1:
+                violations.append("{}: {}".format(line_number, sentence))
+
+    return violations
+
+
 class MigrationGuidanceTest(unittest.TestCase):
     def assert_unique_rows(self, rows, identifier_column, report_path):
         identifiers = [row[identifier_column] for row in rows]
@@ -276,6 +496,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             expected_counts,
             "{} must count every test kind exactly.".format(inventory_path),
         )
+
+    def test_fixture_file_discovery_excludes_maven_targets(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            source = root / "module/src/main/resources/diagram.bpmn"
+            generated = root / "module/target/classes/diagram.bpmn"
+            source.parent.mkdir(parents=True)
+            generated.parent.mkdir(parents=True)
+            source.touch()
+            generated.touch()
+
+            self.assertEqual([source], fixture_files(root, "diagram.bpmn"))
 
     def test_inventory_matches_every_camunda_7_test_method(self):
         source_ids = test_method_ids(C7_SOURCE)
@@ -300,11 +532,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             "DiscountDecisionTest",
             "PromotionsDecisionTest",
             "FulfillmentScenarioTest",
+            "ScenarioMappingEdgeCasesTest",
             "SupportCaseTest",
             "FluentModelTest",
             "CheckStockDelegateTest",
             "ChargePaymentDelegateFakeTest",
             "PriceCalculatorTest",
+            "MockitoAnnotationTest",
             "SubscriptionProcessTest",
             "SubscriptionEndpointTest",
             "ActivateDelegateMockTest",
@@ -323,6 +557,284 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(inventory=inventory_path):
                 inventory = markdown_table(inventory_path, headers)
                 self.assert_test_kind_counts(inventory_path, inventory)
+
+    def test_inventory_includes_legacy_module_test_source_set(self):
+        actual_legacy_ids = {
+            test_id
+            for test_id in test_method_ids(C7_SOURCE)
+            if test_id.startswith("engine-tests-legacy:")
+        }
+
+        self.assertEqual(LEGACY_TEST_IDS, actual_legacy_ids)
+
+    def test_legacy_module_tests_map_to_primary_cpt_suite(self):
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        parity_by_id = {row["Camunda 7 Test ID"]: row for row in parity}
+
+        for legacy_id in sorted(LEGACY_TEST_IDS):
+            with self.subTest(test_id=legacy_id):
+                cpt_id = legacy_id.replace("engine-tests-legacy:", "engine-tests:", 1)
+                self.assertEqual(cpt_id, parity_by_id[legacy_id]["CPT Test ID(s)"])
+
+    def test_tests_only_report_keeps_legacy_executions_blocked(self):
+        rows = markdown_table(
+            EXPECTED_TESTS_ONLY,
+            ["Test ID", "Expected CPT test", "Status", "Reason"],
+        )
+        self.assert_unique_rows(rows, "Test ID", EXPECTED_TESTS_ONLY)
+        rows_by_id = {row["Test ID"]: row for row in rows}
+
+        for legacy_id in sorted(LEGACY_TEST_IDS):
+            cpt_id = legacy_id.split(":", 1)[1].rsplit(".", 1)[-1]
+            with self.subTest(test_id=legacy_id):
+                self.assertIn(legacy_id, rows_by_id)
+                self.assertEqual(rows_by_id[legacy_id]["Expected CPT test"], cpt_id)
+                self.assertEqual(rows_by_id[legacy_id]["Status"], "blocked")
+                self.assertEqual(
+                    rows_by_id[legacy_id]["Reason"],
+                    "declined by user (Question 8)",
+                )
+
+    def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "when the skill plans a target-build change, it checks test-source roots, "
+            "test filters, and resource processing in every maven module or gradle source set.",
+            reference,
+        )
+        self.assertIn(
+            "where a project uses maven, the skill checks each module's `testsourcedirectory`, compiler "
+            "include patterns, `resources`, and `testresources` declarations.",
+            reference,
+        )
+        self.assertIn(
+            "where a project uses gradle, the skill checks each test source set and its "
+            "test-task include and exclude patterns.",
+            reference,
+        )
+        self.assertIn(
+            "the skill checks source-set resource directories and matching resource-processing "
+            "tasks such as `processresources` and `processtestresources`.",
+            reference,
+        )
+        self.assertIn(
+            "the skill checks their filters and output paths.",
+            reference,
+        )
+        self.assertNotIn("target reactor", reference)
+
+        source_set_actions = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Source-set condition", "Migration action"],
+        )
+        duplicate_source_actions = [
+            row
+            for row in source_set_actions
+            if "multiple c7 modules" in row["Source-set condition"].lower()
+        ]
+        self.assertEqual(1, len(duplicate_source_actions))
+        self.assertIn(
+            "migrate that source only once",
+            duplicate_source_actions[0]["Migration action"].lower(),
+        )
+        self.assertIn(
+            "map duplicate module executions to one cpt test id",
+            duplicate_source_actions[0]["Migration action"].lower(),
+        )
+
+        redundant_module_actions = [
+            row
+            for row in source_set_actions
+            if "target module" in row["Source-set condition"].lower()
+        ]
+        self.assertEqual(2, len(redundant_module_actions))
+        remove_action = next(
+            row
+            for row in redundant_module_actions
+            if "remove the module" in row["Migration action"].lower()
+        )
+        for requirement in (
+            "no test sources outside the shared set",
+            "unique resources",
+            "resource-processing behavior",
+            "main outputs",
+            "generated outputs",
+            "build responsibilities",
+        ):
+            self.assertIn(requirement, remove_action["Source-set condition"].lower())
+
+        preserve_action = next(
+            row
+            for row in redundant_module_actions
+            if "preserve every unique" in row["Migration action"].lower()
+        )
+        self.assertIn(
+            "resource",
+            preserve_action["Migration action"].lower(),
+        )
+        self.assertIn(
+            "resource-processing rule",
+            preserve_action["Migration action"].lower(),
+        )
+        self.assertIn(
+            "output",
+            preserve_action["Migration action"].lower(),
+        )
+        self.assertIn(
+            "the skill retains the target module",
+            preserve_action["Migration action"].lower(),
+        )
+
+        target_project = ET.parse(EXPECTED_C8 / "pom.xml").getroot()
+        target_modules = {
+            (module.text or "").strip()
+            for module in target_project.findall("m:modules/m:module", MAVEN_NAMESPACE)
+        }
+        self.assertNotIn("engine-tests-legacy", target_modules)
+
+    def test_module_removal_inspects_configured_resource_processing(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        for requirement in (
+            "compiler include patterns, `resources`, and `testresources` declarations",
+            "resource filters, includes, excludes, and `targetpath` settings",
+            "plugins or tasks that copy or generate resources",
+            "matching resource-processing tasks such as `processresources` and `processtestresources`",
+            "the skill checks their filters and output paths",
+            "shared resource root can produce unique output",
+        ):
+            self.assertIn(requirement, reference)
+
+        legacy_pom = ET.parse(C7_SOURCE / "engine-tests-legacy/pom.xml").getroot()
+        legacy_build = legacy_pom.find("m:build", MAVEN_NAMESPACE)
+        self.assertIsNotNone(legacy_build)
+        self.assertEqual(
+            "${project.basedir}/../engine-tests/src/main/resources",
+            legacy_build.findtext(
+                "m:resources/m:resource/m:directory", namespaces=MAVEN_NAMESPACE
+            ),
+        )
+        self.assertEqual(
+            "${project.basedir}/../engine-tests/src/test/resources",
+            legacy_build.findtext(
+                "m:testResources/m:testResource/m:directory",
+                namespaces=MAVEN_NAMESPACE,
+            ),
+        )
+        self.assertTrue(
+            (C7_SOURCE / "engine-tests/src/main/resources/order.bpmn").is_file()
+        )
+        self.assertTrue(
+            (
+                C7_SOURCE
+                / "engine-tests/src/test/resources/com/camunda/fixture/order/"
+                "LegacyOrderTest.testStockMissing.bpmn"
+            ).is_file()
+        )
+
+        target_resources = EXPECTED_C8 / "engine-tests/src/main/resources"
+        self.assertTrue((target_resources / "converted-c8-order.bpmn").is_file())
+        self.assertTrue(
+            (
+                target_resources
+                / "converted-c8-LegacyOrderTest.testStockMissing.bpmn"
+            ).is_file()
+        )
+
+    def test_converted_bpmn_copies_do_not_add_di_to_sources_without_di(self):
+        namespace = {"bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI"}
+        converted_files = fixture_files(EXPECTED_C8, "converted-c8-*.bpmn")
+        no_di_sources = 0
+
+        for converted_file in converted_files:
+            source_name = converted_file.name.removeprefix("converted-c8-")
+            source_files = fixture_files(C7_SOURCE, source_name)
+            self.assertEqual(
+                1,
+                len(source_files),
+                "Expected one C7 source for {}.".format(converted_file),
+            )
+            source_root = ET.parse(source_files[0]).getroot()
+            if source_root.findall(".//bpmndi:BPMNDiagram", namespace):
+                continue
+
+            no_di_sources += 1
+            converted_root = ET.parse(converted_file).getroot()
+            with self.subTest(source=source_files[0], converted=converted_file):
+                self.assertEqual(
+                    [],
+                    converted_root.findall(".//bpmndi:BPMNDiagram", namespace),
+                    "A converted copy must not manufacture DI absent from its source.",
+                )
+
+        self.assertGreater(no_di_sources, 0)
+
+    def test_linear_repeated_external_task_mapping_does_not_register_worker_mock(self):
+        mappings = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        linear_actions = [
+            row
+            for row in mappings
+            if "repeated external-task actions on a linear path"
+            in row["Camunda Platform Scenario"].lower()
+        ]
+
+        self.assertEqual(1, len(linear_actions))
+        self.assertIn(
+            "does not register a worker mock",
+            linear_actions[0]["Notes"].lower(),
+        )
+
+    def test_scenario_test_guidance_is_loaded_during_step_two(self):
+        skill = normalized(MIGRATION_SKILL.read_text(encoding="utf-8"))
+        step_two_start = skill.index("### step 2: assessment (always runs)")
+        step_three_start = skill.index("### step 3: execute migration", step_two_start)
+        step_two = skill[step_two_start:step_three_start]
+
+        self.assertIn("scenario test inventory", step_two)
+        self.assertIn("references/test-migration.md", step_two)
+
+    def test_fulfillment_parity_note_matches_bounded_time_guidance(self):
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        time_rule = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        test_id = (
+            "engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#"
+            "shouldCompleteWorkAfterTwoDailyReminders"
+        )
+        notes = {row["Camunda 7 Test ID"]: row for row in parity}[test_id]["Notes"]
+        cpt_source = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "FulfillmentScenarioTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("steps no longer than the shortest timer period", time_rule)
+        self.assertIn(
+            "one valid schedule uses five 12-hour increments",
+            time_rule,
+        )
+        self.assertIn(
+            "when a scenario stub uses `defer(period, action)` and the total time increase "
+            "reaches `period`, the skill runs the deferred action.",
+            time_rule,
+        )
+        self.assertNotIn("increases time by one day twice", time_rule)
+        self.assertEqual(5, cpt_source.count("increaseTime(Duration.ofHours(12))"))
+        self.assertIn("one scenario test", notes)
+        self.assertIn("five 12-hour steps", notes)
+        self.assertNotIn("repeats the scenario", notes)
+        self.assertNotIn("advances time twice", notes)
 
     def test_inventory_rejects_duplicate_test_ids(self):
         duplicate_rows = [
@@ -548,12 +1060,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("runs a bpmn process or dmn decision", remote_engine_row)
         self.assertIn(
-            "remote health or metadata probes that run no process or decision are "
-            "also out of scope",
+            "the skill classifies remote health or metadata probes that run no process "
+            "or decision as out of scope.",
             out_of_scope_row,
         )
         self.assertIn(
-            "unless the shared-engine exception in scope confirmation applies",
+            "when the shared-engine exception in scope confirmation applies, the skill "
+            "classifies the probe as a remote-engine test instead.",
             out_of_scope_row,
         )
         confirmation_rows = markdown_table(
@@ -682,6 +1195,225 @@ class MigrationGuidanceTest(unittest.TestCase):
             self.assertEqual("process test", timer_rows[0]["Test kind"])
             self.assertEqual(handling, timer_rows[0]["Handling"])
 
+    def test_scenario_test_classification_is_method_scoped(self):
+        inventory = markdown_table(
+            EXPECTED_ASSESSMENT,
+            ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+        )
+        for row in inventory:
+            if row["Test kind"] != "scenario test":
+                continue
+
+            source = (C7_SOURCE / row["File"]).read_text(encoding="utf-8")
+            method_name = row["Test ID"].rsplit("#", 1)[1]
+            with self.subTest(test_id=row["Test ID"]):
+                self.assertRegex(
+                    java_method_body(source, method_name),
+                    r"\bScenario\.(?:run|use)\s*\(",
+                )
+
+    def test_mixed_manual_methods_preserve_required_class_setup(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "when the skill changes a class's setup, it first inspects every test method "
+            "and each method's shared scenario runner, `processscenario` mock, c7 "
+            "engine rule, and deployment dependencies.",
+            reference,
+        )
+        setup_actions = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Retained method condition", "Class setup action"],
+        )
+        manual_actions = [
+            row
+            for row in setup_actions
+            if "manual method" in row["Retained method condition"].lower()
+        ]
+        self.assertEqual(1, len(manual_actions))
+        self.assertIn(
+            "the skill moves migrated methods to a separate cpt class",
+            normalized(manual_actions[0]["Class setup action"]),
+        )
+        self.assertIn(
+            "while a retained manual method needs c7 scenario setup, the skill moves "
+            "migrated methods to a separate cpt class or retains the scenario runner, "
+            "`processscenario` mock, c7 engine rule, and deployments",
+            normalized(manual_actions[0]["Class setup action"]),
+        )
+
+    def test_prepare_step_removes_shared_scenario_setup_only_when_unused(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "4. when no retained method needs the `processscenario` mock or scenario "
+            "runner setup, the skill removes both.",
+            reference,
+        )
+
+    def test_scenario_mapping_removes_shared_setup_only_when_unused(self):
+        scenario_mappings = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Camunda Platform Scenario", "Camunda Process Test 8.9 or later", "Notes"],
+        )
+        mock_mapping = [
+            row
+            for row in scenario_mappings
+            if "@mock processscenario" in row["Camunda Platform Scenario"].lower()
+        ]
+        self.assertEqual(1, len(mock_mapping))
+        self.assertIn(
+            "when no retained method needs c7 scenario setup, the skill removes the "
+            "mock and scenario runner setup",
+            normalized(mock_mapping[0]["Camunda Process Test 8.9 or later"]),
+        )
+
+    def test_skill_scope_rules_use_ears_triggers(self):
+        skill = MIGRATION_SKILL.read_text(encoding="utf-8")
+        normalized_skill = normalized(skill)
+        unqualified_scope_rules = [
+            line.strip()
+            for line in skill.splitlines()
+            if re.match(
+                r"^\s*For\b(?!\s+(?:each|every|example)\b)",
+                line,
+                flags=re.IGNORECASE,
+            )
+        ]
+
+        self.assertEqual([], unqualified_scope_rules)
+        self.assertIn(
+            "when code migration includes camunda platform scenario tests, follow "
+            "`references/test-migration.md`.",
+            normalized_skill,
+        )
+
+    def test_reference_conditional_rules_use_ears_triggers(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        non_ears_for_openers = re.findall(
+            r"(?:^|[.!?]\s+|\|\s*|[-*]\s+)"
+            r"(For\s+(?!each\b|every\b|example\b)[^.!?\n]*)",
+            reference,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+
+        self.assertEqual([], non_ears_for_openers)
+        self.assertEqual([], non_ears_conditional_rules(reference))
+        for marker in ("only when", "unless", "until", "when"):
+            with self.subTest(marker=marker):
+                self.assertTrue(
+                    non_ears_conditional_rules(
+                        "The skill removes this {} the rule applies.".format(marker)
+                    )
+                )
+        non_ears_temporal_starters = (
+            ("before", "Before the next step, the skill checks the state."),
+            (
+                "after",
+                "After each step, the skill asserts the expected timer effect.",
+            ),
+            ("once", "Once the step completes, the skill checks the state."),
+            ("whenever", "Whenever the step completes, the skill checks the state."),
+            (
+                "provided that",
+                "Provided that the step completes, the skill checks the state.",
+            ),
+            (
+                "as long as",
+                "As long as the step is active, the skill checks the state.",
+            ),
+            (
+                "as soon as",
+                "As soon as the step completes, the skill checks the state.",
+            ),
+        )
+        for marker, rule in non_ears_temporal_starters:
+            with self.subTest(marker=marker):
+                self.assertTrue(non_ears_conditional_rules(rule))
+        self.assertTrue(
+            non_ears_conditional_rules(
+                "The skill waits for the result\nwhen the test is complete."
+            )
+        )
+
+    def test_build_resource_checks_are_scoped_by_platform(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        start = reference.index("when the skill plans a target-build change")
+        end = reference.index("| source-set condition", start)
+        sentences = re.split(r"(?<=[.!?])\s+", reference[start:end])
+        platform_markers = {
+            "maven": ("testsourcedirectory", "compiler include patterns", "targetpath"),
+            "gradle": (
+                "test source set",
+                "test-task include and exclude patterns",
+                "`processresources`",
+                "`processtestresources`",
+                "their filters and output paths",
+            ),
+        }
+
+        for platform, markers in platform_markers.items():
+            for marker in markers:
+                with self.subTest(platform=platform, marker=marker):
+                    sentence = next(
+                        (sentence for sentence in sentences if marker in sentence),
+                        None,
+                    )
+                    self.assertTrue(
+                        sentence is not None
+                        and sentence.startswith(
+                            "where a project uses {}, ".format(platform)
+                        ),
+                        "{} check is not scoped to {}: {}".format(
+                            marker, platform, sentence
+                        ),
+                    )
+
+    def test_linear_paths_may_replace_cpt_conditionals_with_sequential_calls(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "the skill uses a cpt conditional behavior for each user-task, message, "
+            "signal, event-gateway, or conditional-event stub.",
+            reference,
+        )
+        self.assertIn(
+            "when the process path is linear, the skill may use sequential cpt calls "
+            "instead of conditional behaviors. (may)",
+            reference,
+        )
+
+    def test_java_method_body_ignores_braces_in_non_code(self):
+        snippets = (
+            ("string opening brace", 'String value = "{";'),
+            ("string closing brace", 'String value = "}";'),
+            ("escaped quote in string", r'String value = "\"}";'),
+            ("character opening brace", "char value = '{';"),
+            ("character closing brace", "char value = '}';"),
+            ("line comment opening brace", "// {"),
+            ("line comment closing brace", "// }"),
+            ("block comment opening brace", "/* { */"),
+            ("block comment closing brace", "/* } */"),
+            ("text block opening brace", 'String value = """\n{\n""";'),
+            ("text block closing brace", 'String value = """\n}\n""";'),
+        )
+
+        for context, snippet in snippets:
+            source = "\n".join(
+                (
+                    "class Sample {",
+                    "  void target() {",
+                    "    " + snippet,
+                    "    bodyMarker();",
+                    "  }",
+                    "  void afterTarget() {}",
+                    "}",
+                )
+            )
+            with self.subTest(context=context):
+                method = java_method_body(source, "target")
+                self.assertIn("bodyMarker();", method)
+                self.assertNotIn("afterTarget", method)
+
     def test_camunda_8_8_inventory_applies_version_gate(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
@@ -726,7 +1458,10 @@ class MigrationGuidanceTest(unittest.TestCase):
                     )
                     continue
 
-                self.assertIn(row["Handling"], ("Migrate", MIGRATE_TO_CPT))
+                self.assertIn(
+                    row["Handling"],
+                    ("Migrate", MIGRATE_TO_CPT, "Migrate (lower priority)"),
+                )
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
 
@@ -753,6 +1488,8 @@ class MigrationGuidanceTest(unittest.TestCase):
                 )
             elif test_kind == "decision test":
                 expected_handling = "Migrate"
+            elif test_kind == "scenario test":
+                expected_handling = "Migrate (lower priority)"
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -826,10 +1563,10 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
-            path.read_text(encoding="utf-8") for path in EXPECTED_C8.rglob("*.java")
+            path.read_text(encoding="utf-8") for path in fixture_files(EXPECTED_C8, "*.java")
         )
         job_types = set()
-        for model in EXPECTED_C8.rglob("converted-c8-*.bpmn"):
+        for model in fixture_files(EXPECTED_C8, "converted-c8-*.bpmn"):
             root = ET.parse(model).getroot()
             for element in root.iter():
                 if element.tag.rsplit("}", 1)[-1] in {"taskDefinition", "executionListener"}:
@@ -857,11 +1594,42 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The test migration reference must exist.",
         )
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        self.assertIn(
-            "a test is eligible for migration only when it runs a bpmn process or dmn "
-            "decision "
-            "on a camunda 7 engine.",
-            reference,
+        scope_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Runs a BPMN process or DMN decision on a Camunda 7 engine",
+                "Uses a framework or approach that existed for Camunda 7",
+                "Scope decision",
+            ],
+        )
+        self.assertEqual(
+            [
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
+                    "Uses a framework or approach that existed for Camunda 7": "Yes",
+                    "Scope decision": (
+                        "When both prerequisites are met, the skill includes the "
+                        "test in scope."
+                    ),
+                },
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
+                    "Uses a framework or approach that existed for Camunda 7": "Any",
+                    "Scope decision": (
+                        "If a test does not run a BPMN process or DMN decision on a "
+                        "Camunda 7 engine, then the skill excludes the test from scope."
+                    ),
+                },
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
+                    "Uses a framework or approach that existed for Camunda 7": "No",
+                    "Scope decision": (
+                        "If a test does not use a framework or approach that existed "
+                        "for Camunda 7, then the skill excludes the test from scope."
+                    ),
+                },
+            ],
+            scope_rows,
         )
         self.assertIn(
             "the skill classifies tests by executed engine behavior, not assertion type.",
@@ -873,8 +1641,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill keeps scenario and remote-engine test rows at report only until "
-            "their migration procedures are defined.",
+            "while the remote-engine migration procedure is undefined, the skill keeps "
+            "remote-engine test rows at report only.",
             reference,
         )
         self.assertIn(
@@ -883,8 +1651,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill keeps process test rows without the `spring` modifier at report "
-            "only until their engine-test migration procedure is defined.",
+            "while the engine-test migration procedure is undefined, the skill keeps "
+            "process test rows without the `spring` modifier at report only.",
             reference,
         )
         for test_kind in TEST_KINDS:
@@ -916,7 +1684,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "@but",
             "the skill reads constructor-registered lambda steps",
             "`io.cucumber.java8.en`",
-            "the skill follows both forms when it checks for camunda 7 process or decision calls.",
+            "when the skill checks for camunda 7 process or decision calls, it inspects "
+            "both step-definition methods and constructor-registered lambda steps.",
             "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn process "
             "or dmn decision",
             "the cucumber classification includes applicable hooks, not only steps",
@@ -949,10 +1718,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             if line.startswith("| A test uses CMMN")
         )
         self.assertIn("unsupported camunda engine internals", scope_confirmation_row)
-        self.assertIn("manual redesign", scope_confirmation_row)
-        self.assertIn("report only", scope_confirmation_row)
         self.assertIn(
-            "even when it does not run a bpmn process or dmn decision",
+            "the skill marks the test as `manual redesign` and uses `report only` handling.",
+            scope_confirmation_row,
+        )
+        self.assertIn(
+            "the skill applies this classification to tests that do not run a bpmn "
+            "process or dmn decision.",
             scope_confirmation_row,
         )
 
@@ -1071,7 +1843,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill includes these methods even when they have no `@test` annotation.",
+            "the skill includes these methods without a `@test` annotation.",
             reference,
         )
         self.assertIn(
@@ -1124,8 +1896,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             ),
         )
         self.assertIn(
-            "the skill marks kotlin/groovy tests as `manual migration` only when they "
-            "run an engine-backed bpmn process or dmn decision.",
+            "where kotlin or groovy tests run an engine-backed bpmn process or dmn "
+            "decision on c7, the skill marks them as `manual migration`.",
             reference,
         )
         self.assertIn(
@@ -1137,6 +1909,143 @@ class MigrationGuidanceTest(unittest.TestCase):
             "or decision",
             out_of_scope_row,
         )
+
+    def test_reference_declares_instruction_convention_below_title(self):
+        lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual("# Test Migration", lines[0])
+        self.assertEqual(
+            normalized(
+                'Every instruction in this reference is mandatory. "Never" means MUST NOT. '
+                "A preference is marked (SHOULD) and an option is marked (MAY)."
+            ),
+            normalized(" ".join(lines[2:4])),
+        )
+
+    def test_readme_documents_c7_process_test_fixture_once(self):
+        readme = (
+            REPO_ROOT / "agentic-migration-skills/README.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(1, readme.count("fixtures/c7-process-tests"))
+        self.assertIn("inventories JUnit 3/4/5", readme)
+
+    def test_scenario_fixture_covers_retained_mockito_annotations(self):
+        source_path = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ScenarioMappingEdgeCasesTest.java"
+        )
+        migrated_path = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ScenarioMappingEdgeCasesTest.java"
+        )
+        required_annotations = ("@Spy", "@Captor", "@InjectMocks")
+
+        for path in (source_path, migrated_path):
+            source = path.read_text(encoding="utf-8")
+            with self.subTest(path=path):
+                for annotation in required_annotations:
+                    self.assertIn(annotation, source)
+                self.assertIn("MockitoAnnotations.openMocks(this)", source)
+                method = java_method_body(source, "shouldCountCompletedVisitsSeparately")
+                self.assertIn("collaboratorService.lookup", method)
+                self.assertIn("orderIdCaptor.capture()", method)
+
+    def test_cpt_detection_signal_uses_balanced_inline_code(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertIn("CPT (`io.camunda.process.test.*`)", reference)
+
+    def test_counted_completion_mapping_preserves_exact_count(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertIn(
+            '| `verify(process, times(n)).hasCompleted("E")` | '
+            'Assert `hasCompletedElement("E", n)`. | '
+            'The skill preserves the exact completed-element count. |',
+            reference,
+        )
+        migrated = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ScenarioMappingEdgeCasesTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn('.hasCompletedElement("MixedWork", 2)', migrated)
+
+    def test_scenario_user_task_wait_and_completion_share_instance_key(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        wait_state_behavior = reference.split("### Wait-state behavior", 1)[1].split(
+            "### Scenario-to-CPT mapping", 1
+        )[0]
+        self.assertIn("processInstance.getProcessInstanceKey()", wait_state_behavior)
+        self.assertIn("byKey(processInstanceKey)", wait_state_behavior)
+        self.assertIn('byElementId("Review", processInstanceKey)', wait_state_behavior)
+        self.assertNotIn("byProcessId(processId)", wait_state_behavior)
+        self.assertNotIn('completeUserTask("Review", variables)', wait_state_behavior)
+
+        mappings = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        user_task_mappings = [
+            row
+            for row in mappings
+            if 'waitsAtUserTask("X")' in row["Camunda Platform Scenario"]
+        ]
+        self.assertEqual(1, len(user_task_mappings))
+        conversion = user_task_mappings[0]["Camunda Process Test 8.9 or later"]
+        self.assertIn("byKey(processInstanceKey)", conversion)
+        self.assertIn('byElementId("X", processInstanceKey)', conversion)
+
+    def test_wait_state_targets_explain_instance_scope(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        wait_state_behavior = reference.split("### Wait-state behavior", 1)[1].split(
+            "### Scenario-to-CPT mapping", 1
+        )[0]
+        normalized_behavior = normalized(wait_state_behavior)
+        self.assertNotIn(
+            "The skill scopes the condition and action to the same process instance key",
+            wait_state_behavior,
+        )
+        self.assertIn(
+            "where the corresponding cpt api accepts a process-instance selector, "
+            "the skill scopes a condition or action to the scenario instance",
+            normalized_behavior,
+        )
+        self.assertIn(
+            "the message action targets a message name and evaluated correlation key, "
+            "not the scenario start result's process-instance key",
+            normalized_behavior,
+        )
+        self.assertIn(
+            "the signal action broadcasts by signal name and can also advance another "
+            "process instance waiting for that signal",
+            normalized_behavior,
+        )
+
+    def test_scenario_gate_accepts_inventory_handling(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
+        scenario_handling = {
+            row["Handling"] for row in inventory if row["Test kind"] == "scenario test"
+        }
+        self.assertIn("Migrate (lower priority)", scenario_handling)
+
+        gate = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Selected code approach", "Step 2 Test Inventory Handling", "Action"],
+        )
+        enabled_handling = {
+            row["Step 2 Test Inventory Handling"]
+            for row in gate
+            if row["Selected code approach"] == "Approach A or B"
+            and row["Action"].startswith("Apply the preparation")
+        }
+        self.assertIn("Migrate (lower priority)", enabled_handling)
 
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())
