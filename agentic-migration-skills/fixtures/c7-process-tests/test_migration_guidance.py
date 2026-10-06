@@ -762,6 +762,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             test_migration,
         )
         self.assertIn(
+            "| Maven | `-f` or `--file` in separated or equals form |",
+            test_migration,
+        )
+        self.assertIn(
+            "Gradle requires the explicit `testClasses` task from the selected module directory.",
+            test_migration,
+        )
+        self.assertIn(
+            "| Java | The recorder cannot establish the module artifact identity |",
+            test_migration,
+        )
+        self.assertIn(
             "| Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence |",
             test_migration,
         )
@@ -790,11 +802,27 @@ class MigrationGuidanceTest(unittest.TestCase):
             validation_evidence,
         )
         self.assertIn(
+            "checks separated and equals forms of `-f` and `--file` against the expected POM path.",
+            validation_evidence,
+        )
+        self.assertIn(
             "inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks",
             validation_evidence,
         )
         self.assertIn(
             "checks test-name suffixes on case-normalized task names",
+            validation_evidence,
+        )
+        self.assertIn(
+            "checks that Gradle's `testClasses` task uses the selected module",
+            validation_evidence,
+        )
+        self.assertIn(
+            "effective Maven POM identifies the exact artifact",
+            validation_evidence,
+        )
+        self.assertIn(
+            "manifest declares `Main-Class`",
             validation_evidence,
         )
         self.assertIn("`.mvn/maven.config`", validation_evidence)
@@ -813,6 +841,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("## Test-source compilation", report)
+        self.assertIn("**Status:** `not verified (Migrate tests only)`", report)
         for command in (
             "mvn -pl engine-tests test-compile",
             "mvn -pl spring-boot-app test-compile",

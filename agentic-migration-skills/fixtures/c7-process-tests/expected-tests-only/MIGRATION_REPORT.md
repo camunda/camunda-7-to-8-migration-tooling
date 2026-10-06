@@ -17,6 +17,10 @@ only**. The user chose **Migrate tests only**.
 The migrated test sources compile with the command below. The skill ran no C7 or C8 test command
 during migration. Each test check is blocked because the user declined test execution.
 
+## Test verification
+
+**Status:** `not verified (Migrate tests only)`
+
 ## Test-source compilation
 
 | Scope | Command | Result |

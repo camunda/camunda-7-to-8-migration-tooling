@@ -134,6 +134,7 @@ It rejects lifecycle-bound goals whose test behavior it cannot establish.
 It allows Surefire and Failsafe lifecycle goals only with `-DskipTests` or `-DskipTests=true`.
 It rejects Maven lifecycle commands that can execute multiple reactor projects.
 For module evidence, select exactly that module with `-pl` or its POM with `-f`.
+It checks separated and equals forms of `-f` and `--file` against the expected POM path.
 The recorder rejects non-empty `MAVEN_ARGS` or `.mvn/maven.config` because either can add
 arguments outside the submitted command.
 An explicit `maven.test.skip` command-line value takes precedence over inherited JVM options,
@@ -146,9 +147,13 @@ The recorder unwraps simple `env` commands.
 If the recorder cannot inspect an executable or Maven goal, then it rejects the command.
 It accepts `npx bpmnlint` and `npx dmnlint` as non-test model checks.
 It accepts `mvn spring-boot:run` as an application launch command.
-It accepts `java -jar <artifact>.jar` only for module `executable_jar` evidence.
+When the effective Maven POM identifies the exact artifact and its manifest declares `Main-Class`,
+the recorder accepts `java -jar <artifact>.jar` for module `executable_jar` evidence.
+It rejects the JAR command when the recorder cannot establish the artifact identity.
 When a Gradle non-test check needs packaging, select a task whose dependency graph contains no
 test-capable tasks.
+For module `compile` evidence, it checks that Gradle's `testClasses` task uses the selected module
+directory.
 The recorder inspects a Gradle dry-run task graph for `Test`, `JavaExec`, and `Exec` tasks.
 The recorder checks test-name suffixes on case-normalized task names.
 The recorder exempts Spring Boot's `BootRun` task only for module `spring_boot_run` evidence.

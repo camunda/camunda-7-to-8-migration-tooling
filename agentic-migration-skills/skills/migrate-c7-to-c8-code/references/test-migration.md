@@ -325,14 +325,17 @@ regardless of evidence kind:
 | Maven | A lifecycle command selects multiple projects or uses `-am`, `-amd`, or `-rf` | Reject the command before execution. Select one project. |
 | Maven | An unscoped aggregator command can run child projects | Reject the command before execution. Use `-N` for a root-only check. |
 | Maven | Module evidence does not select that module with `-pl` or its POM with `-f` | Reject the command before execution. |
+| Maven | `-f` or `--file` in separated or equals form | Check the selected POM path against the expected module or root POM. |
 | Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
 | Maven | Non-empty `MAVEN_ARGS` or `.mvn/maven.config` | Reject the command because these arguments can add goals that the recorder cannot inspect. |
 | Maven | An explicit `maven.test.skip` command-line value | Use this value ahead of inherited JVM options, `.mvn/jvm.config`, and the active project model. |
 | Maven | Inherited JVM options, `.mvn/jvm.config`, or the active project model sets `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
 | Maven | The recorder cannot inspect the active effective POM | Reject the lifecycle command before execution. If test-source compilation is unverified, then reject module `compile` evidence. |
 | Maven | `spring-boot:run` | Allow the documented application-launch goal. |
-| Java | `java -jar <artifact>.jar` for module `executable_jar` evidence | Allow the documented packaged-application launch command. |
+| Java | `java -jar <artifact>.jar` for module `executable_jar` evidence | When the effective Maven POM identifies the exact module artifact and its manifest declares `Main-Class`, the recorder allows the launch. |
+| Java | The recorder cannot establish the module artifact identity | Reject the JAR command before execution. |
 | Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from the task graph. |
+| Gradle | `testClasses` for module `compile` evidence | When the dry-run graph maps the task to the selected module directory, the recorder allows the evidence. |
 | Gradle | `build` or `check` | When no test-capable task remains in the dry-run graph, the recorder allows the command. |
 | Gradle | Spring Boot `bootRun` for module `spring_boot_run` evidence | Exclude only Spring Boot's `BootRun` task from test-capable task detection. Continue to reject every other executable or test-named task. |
 | Gradle | A test-capable task remains after exclusions | Reject the command before execution. |
@@ -345,7 +348,7 @@ When the recorder receives module `compile` evidence, it requires successful tes
 compilation.
 Maven `test-compile` qualifies.
 Maven `process-test-classes` or a later standard lifecycle phase qualifies with `-DskipTests`.
-Gradle requires the explicit `testClasses` task.
+Gradle requires the explicit `testClasses` task from the selected module directory.
 A main-source-only compile does not qualify.
 
 When a non-test check needs Maven packaging, use the standard lifecycle with `-DskipTests`.

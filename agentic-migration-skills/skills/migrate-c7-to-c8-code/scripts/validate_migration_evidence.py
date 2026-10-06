@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
@@ -181,6 +182,7 @@ GRADLE_TEST_TASKS = {"test"}
 GRADLE_DRY_RUN_OPTIONS = {"--dry-run", "-m"}
 GRADLE_TASK_GRAPH_BEGIN = "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__"
 GRADLE_TASK_GRAPH_TEST = "__CAMUNDA_MIGRATION_TEST_TASK__:"
+GRADLE_TASK_GRAPH_COMPILE_TASK = "__CAMUNDA_MIGRATION_TEST_COMPILE_TASK__:"
 GRADLE_TASK_GRAPH_END = "__CAMUNDA_MIGRATION_TEST_GRAPH_END__"
 ENVIRONMENT_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 MAVEN_OPTIONS_WITH_VALUES = {
@@ -374,7 +376,7 @@ def _maven_command_uses_pom(command, root, expected_pom):
             pom_argument = command[index + 1]
             index += 2
             continue
-        if argument.startswith("--file="):
+        if argument.startswith(("--file=", "-f=")):
             pom_argument = argument.partition("=")[2]
             index += 1
             continue
@@ -538,7 +540,7 @@ def _maven_validate_project_scope(root, key, target, command, model):
             pom_selected = True
             index += 2
             continue
-        if argument.startswith("--file="):
+        if argument.startswith(("--file=", "-f=")):
             pom_selected = True
         index += 1
 
@@ -646,6 +648,124 @@ def _maven_active_model(root, target, command, environment, timeout):
             f"{target!r}: effective POM has no project root"
         )
     return model
+
+
+def _validate_maven_application_jar(root, target, command, environment, timeout):
+    jar_options = [
+        index for index, argument in enumerate(command[1:], start=1) if argument == "-jar"
+    ]
+    if len(jar_options) != 1 or jar_options[0] + 1 >= len(command):
+        raise EvidenceError(
+            "Question 8 cannot establish that the Java JAR is the target "
+            "module's application artifact"
+        )
+    if (
+        environment.get("MAVEN_ARGS", "").strip()
+        or _maven_project_maven_config_has_arguments(root)
+    ):
+        raise EvidenceError(
+            "Question 8 cannot inspect the Maven application artifact with "
+            "additional Maven arguments"
+        )
+
+    module_dir = project_path(root, target, "Maven application module", must_exist=True)
+    module_pom = project_path(
+        root,
+        (Path(target) / "pom.xml").as_posix(),
+        "Maven module POM",
+        must_exist=True,
+    )
+    if not module_pom.is_file():
+        raise EvidenceError(
+            f"Question 8 cannot establish the application artifact for module {target!r}: "
+            "its POM is not a file"
+        )
+    maven_wrapper = next(
+        (
+            wrapper
+            for wrapper in (Path(root) / "mvnw", module_dir / "mvnw")
+            if wrapper.is_file() and os.access(wrapper, os.X_OK)
+        ),
+        None,
+    )
+    model = _maven_active_model(
+        root,
+        target,
+        [str(maven_wrapper) if maven_wrapper else "mvn", "-f", str(module_pom)],
+        environment,
+        timeout,
+    )
+    artifact_id = _maven_child_text(model, "artifactId")
+    version = _maven_child_text(model, "version")
+    packaging = _maven_child_text(model, "packaging") or "jar"
+    if packaging != "jar" or not artifact_id or not version:
+        raise EvidenceError(
+            f"Question 8 cannot establish the application artifact for module {target!r}"
+        )
+
+    build = _maven_child(model, "build")
+    final_name = _maven_child_text(build, "finalName") or f"{artifact_id}-{version}"
+    if (
+        not final_name
+        or Path(final_name).name != final_name
+        or "\\" in final_name
+        or "${" in final_name
+    ):
+        raise EvidenceError(
+            f"Question 8 cannot establish the application artifact for module {target!r}"
+        )
+    build_directory = _maven_child_text(build, "directory") or "target"
+    if "${" in build_directory:
+        raise EvidenceError(
+            f"Question 8 cannot establish the application artifact for module {target!r}"
+        )
+    output_directory = Path(build_directory)
+    if not output_directory.is_absolute():
+        output_directory = module_dir / output_directory
+    try:
+        output_directory = output_directory.resolve()
+        output_directory.relative_to(module_dir)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise EvidenceError(
+            f"Question 8 cannot establish the application artifact for module {target!r}"
+        ) from exc
+
+    artifact_path = output_directory / f"{final_name}.jar"
+    supplied_path = Path(command[jar_options[0] + 1])
+    if not supplied_path.is_absolute():
+        supplied_path = Path(root) / supplied_path
+    try:
+        artifact_path = artifact_path.resolve(strict=True)
+        supplied_path = supplied_path.resolve(strict=True)
+        artifact_path.relative_to(output_directory)
+        supplied_path.relative_to(Path(root).resolve())
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise EvidenceError(
+            "Question 8 cannot establish that the Java JAR is the target "
+            "module's application artifact"
+        ) from exc
+    if supplied_path != artifact_path or not artifact_path.is_file():
+        raise EvidenceError(
+            "Question 8 cannot establish that the Java JAR is the target "
+            "module's application artifact"
+        )
+    try:
+        with zipfile.ZipFile(artifact_path) as archive:
+            with archive.open("META-INF/MANIFEST.MF") as manifest_file:
+                manifest = manifest_file.read(65536).decode("utf-8", errors="replace")
+    except (OSError, KeyError, RuntimeError, zipfile.BadZipFile) as exc:
+        raise EvidenceError(
+            "Question 8 cannot establish that the Java JAR is the target "
+            "module's application artifact"
+        ) from exc
+    if not any(
+        line.partition(":")[0].strip().casefold() == "main-class"
+        for line in manifest.splitlines()
+    ):
+        raise EvidenceError(
+            "Question 8 cannot establish that the Java JAR is the target "
+            "module's application artifact"
+        )
 
 
 def _maven_active_model_skips_test_compilation(model, target, command):
@@ -843,19 +963,6 @@ def command_runs_test_suite(command, key=None):
         if len(command) > 1 and command[1].casefold() in {"bpmnlint", "dmnlint"}:
             return False
         return None
-    if (
-        key is not None
-        and key[0] == "module"
-        and key[2] == "executable_jar"
-        and executable in JAVA_EXECUTABLES
-        and "-jar" in command[1:]
-    ):
-        jar_option = command.index("-jar")
-        if (
-            jar_option + 1 < len(command)
-            and Path(command[jar_option + 1]).suffix.casefold() == ".jar"
-        ):
-            return False
     if executable == "echo":
         return False
     if executable == "docker" and command[1:] == ["info"]:
@@ -889,9 +996,16 @@ def command_compiles_test_sources(command):
     return False
 
 
-def inspect_gradle_test_tasks(command, root, timeout, allow_spring_boot_run=False):
+def inspect_gradle_test_tasks(
+    command,
+    root,
+    timeout,
+    allow_spring_boot_run=False,
+    inspect_test_source_compilation=False,
+):
     init_script = f"""
 def allowSpringBootRun = {str(allow_spring_boot_run).lower()}
+def inspectTestSourceCompilation = {str(inspect_test_source_compilation).lower()}
 gradle.taskGraph.whenReady {{ graph ->
     println("{GRADLE_TASK_GRAPH_BEGIN}")
     graph.allTasks.findAll {{ task ->
@@ -920,6 +1034,16 @@ gradle.taskGraph.whenReady {{ graph ->
             || testNamed
     }}.each {{ task ->
         println("{GRADLE_TASK_GRAPH_TEST}" + task.path)
+    }}
+    if (inspectTestSourceCompilation) {{
+        graph.allTasks.findAll {{ task ->
+            task.name.equalsIgnoreCase("testClasses")
+        }}.each {{ task ->
+            println("{GRADLE_TASK_GRAPH_COMPILE_TASK}" + groovy.json.JsonOutput.toJson([
+                path: task.path,
+                projectDir: task.project.projectDir.canonicalPath
+            ]))
+        }}
     }}
     println("{GRADLE_TASK_GRAPH_END}")
 }}
@@ -971,12 +1095,28 @@ gradle.taskGraph.whenReady {{ graph ->
         raise EvidenceError(
             "Question 8 could not verify the Gradle task graph inspection output"
         )
-    tasks = [
-        line[len(GRADLE_TASK_GRAPH_TEST):]
-        for line in lines[begin_markers[0] + 1:end_markers[0]]
-        if line.startswith(GRADLE_TASK_GRAPH_TEST)
-    ]
-    return tasks
+    tasks = []
+    compile_tasks = []
+    for line in lines[begin_markers[0] + 1:end_markers[0]]:
+        if line.startswith(GRADLE_TASK_GRAPH_TEST):
+            tasks.append(line[len(GRADLE_TASK_GRAPH_TEST):])
+        elif line.startswith(GRADLE_TASK_GRAPH_COMPILE_TASK):
+            try:
+                task = json.loads(line[len(GRADLE_TASK_GRAPH_COMPILE_TASK):])
+            except json.JSONDecodeError as exc:
+                raise EvidenceError(
+                    "Question 8 could not verify Gradle test-source compilation scope"
+                ) from exc
+            if (
+                not isinstance(task, dict)
+                or not isinstance(task.get("path"), str)
+                or not isinstance(task.get("projectDir"), str)
+            ):
+                raise EvidenceError(
+                    "Question 8 could not verify Gradle test-source compilation scope"
+                )
+            compile_tasks.append(task)
+    return tasks, compile_tasks
 
 
 @dataclass
@@ -2638,6 +2778,22 @@ def record(root, args):
                     f"{key}: Question 8 cannot inspect Maven project arguments in `.mvn/maven.config`"
                 )
             test_execution = command_runs_test_suite(command, key=key)
+            if (
+                test_execution is None
+                and key[0] == "module"
+                and key[2] == "executable_jar"
+                and executable in JAVA_EXECUTABLES
+                and direct_command is not None
+                and "-jar" in direct_command[1:]
+            ):
+                _validate_maven_application_jar(
+                    root,
+                    key[1],
+                    direct_command,
+                    command_environment,
+                    args.timeout,
+                )
+                test_execution = False
             if test_execution is True:
                 raise EvidenceError(
                     f"{key}: Question 8 selected Migrate tests only; test execution commands are not allowed"
@@ -2707,14 +2863,40 @@ def record(root, args):
                     f"{key}: Question 8 Maven configuration skips test-source compilation"
                 )
             if test_execution is None:
-                remaining_test_capable_tasks = inspect_gradle_test_tasks(
+                inspect_test_source_compilation = (
+                    key[0] == "module"
+                    and key[2] == "compile"
+                    and executable in GRADLE_EXECUTABLES
+                )
+                remaining_test_capable_tasks, gradle_compile_tasks = inspect_gradle_test_tasks(
                     command,
                     root,
                     args.timeout,
                     allow_spring_boot_run=(
                         key[0] == "module" and key[2] == "spring_boot_run"
                     ),
+                    inspect_test_source_compilation=inspect_test_source_compilation,
                 )
+                if inspect_test_source_compilation:
+                    target_module_dir = project_path(
+                        root,
+                        key[1],
+                        "Gradle module",
+                        must_exist=True,
+                    )
+                    try:
+                        module_compile_was_inspected = any(
+                            Path(task["projectDir"]).resolve() == target_module_dir
+                            for task in gradle_compile_tasks
+                        )
+                    except (OSError, RuntimeError) as exc:
+                        raise EvidenceError(
+                            "Question 8 could not verify Gradle test-source compilation scope"
+                        ) from exc
+                    if not module_compile_was_inspected:
+                        raise EvidenceError(
+                            f"{key}: Question 8 requires test-source compilation from the selected Gradle module"
+                        )
                 if remaining_test_capable_tasks:
                     task_list = ", ".join(remaining_test_capable_tasks[:10])
                     if len(remaining_test_capable_tasks) > 10:

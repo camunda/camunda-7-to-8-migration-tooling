@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 import uuid
+import zipfile
 from argparse import Namespace
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -23,6 +24,15 @@ import run_live_timer_fixture as runner  # noqa: E402
 def write_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def write_jar(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as jar:
+        jar.writestr(
+            "META-INF/MANIFEST.MF",
+            "Manifest-Version: 1.0\nMain-Class: com.example.Application\n\n",
+        )
 
 
 def bpmn(process_id, timer=False, extra=""):
@@ -618,7 +628,12 @@ class ValidationEvidenceTest(unittest.TestCase):
         for executable in ("java", "java.exe", "/usr/bin/java"):
             command = [executable, "-jar", "target/application.jar"]
             with self.subTest(executable=executable):
-                self.assertIsNone(gate.command_runs_test_suite(command))
+                self.assertIsNone(
+                    gate.command_runs_test_suite(
+                        command,
+                        key=("module", "app", "executable_jar", None),
+                    )
+                )
                 self.assertIsNone(
                     gate.command_runs_test_suite(
                         command,
@@ -631,6 +646,65 @@ class ValidationEvidenceTest(unittest.TestCase):
                         key=("module", "app", "executable_jar", None),
                     )
                 )
+
+    def test_migrate_only_rejects_unverified_java_jar_as_executable_jar_evidence(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(
+            "app",
+            "<artifactId>app</artifactId><version>1.0</version>",
+        )
+        write_jar(self.root / "app/target/junit-platform-console-standalone.jar")
+        command_args = [
+            "java",
+            "-jar",
+            "app/target/junit-platform-console-standalone.jar",
+            "--scan-classpath",
+        ]
+        active_model = (
+            "<artifactId>app</artifactId><version>1.0</version><packaging>jar</packaging>"
+            "<build><directory>target</directory><finalName>app-1.0</finalName></build>"
+        )
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_plugins=active_model),
+        ) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "application artifact"):
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                )
+        self.assertEqual(1, command.call_count)
+
+    def test_migrate_only_accepts_the_target_modules_maven_application_jar(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(
+            "app",
+            "<artifactId>app</artifactId><version>1.0</version>",
+        )
+        write_jar(self.root / "app/target/app-1.0.jar")
+        command_args = ["java", "-jar", "app/target/app-1.0.jar"]
+        active_model = (
+            "<artifactId>app</artifactId><version>1.0</version><packaging>jar</packaging>"
+            "<build><directory>target</directory><finalName>app-1.0</finalName></build>"
+        )
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_plugins=active_model),
+        ) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                ),
+            )
+        self.assertEqual(2, command.call_count)
 
     def test_migrate_only_allows_maven_packaging_when_tests_are_skipped(self):
         compile_key = ("module", "app", "compile", None)
@@ -979,6 +1053,13 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "-pl", "app", "-am", "test-compile"],
             ["mvn", "-pl", "app", "-amd", "test-compile"],
             ["mvn", "-rf", "app", "test-compile"],
+            [
+                "mvn",
+                "-f=../c7-source-baseline/pom.xml",
+                "-pl",
+                "app",
+                "test-compile",
+            ],
         ):
             with self.subTest(command=command_args):
                 self.write_scope(test_run_mode="migrate_only")
@@ -1035,6 +1116,24 @@ class ValidationEvidenceTest(unittest.TestCase):
                     command=command_args,
                 )
         self.assertEqual(1, command.call_count)
+
+    def test_migrate_only_accepts_attached_short_maven_pom_option_for_module(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-f=app/pom.xml", "test-compile"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(),
+        ) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("module", "app", "compile", None),
+                    command=command_args,
+                ),
+            )
+        self.assertEqual(2, command.call_count)
 
     def test_migrate_only_allows_nonrecursive_root_maven_commands(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -1458,6 +1557,14 @@ class ValidationEvidenceTest(unittest.TestCase):
         command_args = ["./gradlew", ":app:testClasses"]
         graph_output = (
             "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_COMPILE_TASK__:"
+            + json.dumps(
+                {
+                    "path": ":app:testClasses",
+                    "projectDir": str(self.root / "app"),
+                }
+            )
+            + "\n"
             "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
         )
 
@@ -1472,6 +1579,59 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.submit(("module", "app", "compile", None), command=command_args),
             )
         self.assertEqual(2, command.call_count)
+
+    def test_migrate_only_maps_gradle_test_source_compilation_to_the_module_directory(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["./gradlew", ":renamed:testClasses"]
+        graph_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_COMPILE_TASK__:"
+            + json.dumps(
+                {
+                    "path": ":renamed:testClasses",
+                    "projectDir": str(self.root / "app"),
+                }
+            )
+            + "\n"
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def run(command, **kwargs):
+            if "--dry-run" in command:
+                return subprocess.CompletedProcess(command, 0, graph_output)
+            return subprocess.CompletedProcess(command, 0, "test sources compiled")
+
+        with patch.object(gate.subprocess, "run", side_effect=run) as command:
+            self.assertEqual(
+                0,
+                self.submit(("module", "app", "compile", None), command=command_args),
+            )
+        self.assertEqual(2, command.call_count)
+
+    def test_migrate_only_rejects_gradle_test_source_compilation_from_another_module(self):
+        self.write_scope(test_run_mode="migrate_only")
+        command_args = ["./gradlew", ":other:testClasses"]
+        graph_output = (
+            "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__\n"
+            "__CAMUNDA_MIGRATION_TEST_COMPILE_TASK__:"
+            + json.dumps(
+                {
+                    "path": ":other:testClasses",
+                    "projectDir": str(self.root / "other"),
+                }
+            )
+            + "\n__CAMUNDA_MIGRATION_TEST_GRAPH_END__\n"
+        )
+
+        def run(command, **kwargs):
+            if "--dry-run" in command:
+                return subprocess.CompletedProcess(command, 0, graph_output)
+            self.fail("The command must not run when another module supplied compile evidence")
+
+        with patch.object(gate.subprocess, "run", side_effect=run) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "selected Gradle module"):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
 
     def test_migrate_only_does_not_require_docker_probe_for_unrun_suites(self):
         self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
