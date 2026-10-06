@@ -237,12 +237,16 @@ Resolve the module path relative to the project root.
 Use `.` for the project root module.
 For example, `.:com.example.JobAnnouncementProcessTest#testPublishOnlyOnWeb`.
 
-Add a `Test Inventory` table to `MIGRATION_REPORT.md` with these columns in this order:
+Add a `Test Inventory` table under a `## Test Inventory` heading in `MIGRATION_REPORT.md`, with these
+columns in this order:
 
 | Test ID | File | Test kind | Signals | Models | Handling | Notes |
 |---|---|---|---|---|---|---|
 
-Add a `Test kind counts` table to `MIGRATION_REPORT.md` with the columns `Test kind` and `Count`.
+Keep the Test Inventory table as the only table in its section. The validator reads every table row
+between the `Test Inventory` heading and the next heading as an inventory row.
+Add a `Test kind counts` table under its own heading in `MIGRATION_REPORT.md` with the columns
+`Test kind` and `Count`.
 Include a row for every test kind, including zero counts.
 Present the test-kind counts in the Step 2 Summary.
 State how many tests are eligible for CPT migration.
@@ -397,6 +401,8 @@ A **Run tests** inventory includes `test_suites`:
 }
 ```
 
+Where deferred verification is planned, a **Migrate tests only** inventory declares `test_suites` in
+Step 2. The validator rejects suites added later, because the source snapshot does not cover them.
 Where deferred verification is not planned, a **Migrate tests only** inventory omits `test_suites`:
 
 ```json
@@ -586,7 +592,9 @@ When all C7 tests are retired and no migrated or added `c8_ids` remain, the vali
 the C7 baseline and retired disposition. It does not require `test_freeze` or `test_repeat`. It
 skips target coverage comparison because no CPT tests remain.
 
-Set `c8_ids` on each added test. The validator requires each added CPT test to pass in both runs.
+Set `c8_ids` on each added test. Set `suite` to the name of the module test suite that runs it. The
+validator requires `test_repeat` only for that suite and requires each added CPT test to pass in both
+runs.
 Keep `c8_ids` distinct within each ledger row. Never assign one CPT ID to multiple migrated or
 added test rows.
 
@@ -740,11 +748,9 @@ Replace each placeholder below with the actual baseline, worktree path, and modu
    When the project root is not a Git repository, use the filesystem snapshot path recorded before
    Step 3 instead.
 2. Change only `test_run_mode` from `migrate_only` to `run` in
-   `.camunda-migration/validation/step2-inventory.json`. When deferred verification starts and the
-   initial inventory has no `test_suites`, add one C7 suite entry for each independently runnable
-   suite. Record its exact C7 command and every Test Inventory ID. Keep the Test Inventory, scope,
-   run ID, and source snapshot unchanged. Do not run `init`, because it clears earlier validation
-   checks.
+   `.camunda-migration/validation/step2-inventory.json`. Keep the Test Inventory, `test_suites`,
+   scope, run ID, and source snapshot unchanged. Do not run `init`, because it clears earlier
+   validation checks.
 3. When any reserved suite entry requires Docker, the skill records the Docker probe before running
    the first Docker-dependent suite:
    `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info`.

@@ -1546,7 +1546,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             "app:com.example.AddedCptTest#Scenario: place order (3DS)"
         )
         mapping = gate.read_test_mapping(self.root, required=True)
-        mapping["tests"].append({"status": "added", "c8_ids": [added_id]})
+        mapping["tests"].append({"status": "added", "suite": "unit", "c8_ids": [added_id]})
         write_json(self.root / gate.TEST_MAPPING, mapping)
         junit = (
             "<testsuite>"
@@ -1787,7 +1787,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "approved_by": "migration owner",
                 },
             },
-            {"status": "added", "c8_ids": [self.c8_test_id]},
+            {"status": "added", "suite": "unit", "c8_ids": [self.c8_test_id]},
         ]
         write_json(self.root / gate.TEST_MAPPING, mapping)
 
@@ -1983,25 +1983,10 @@ class ValidationEvidenceTest(unittest.TestCase):
             summary["issues"],
         )
 
-    def test_missing_test_run_mode_rejects_malformed_inventory_without_heading(self):
-        self.assert_missing_test_run_mode_rejects_malformed_inventory(None)
-
-    def test_missing_test_run_mode_rejects_malformed_inventory_with_renamed_heading(self):
-        self.assert_missing_test_run_mode_rejects_malformed_inventory("## Test Cases")
-
     def test_missing_test_run_mode_rejects_malformed_inventory_after_empty_table(self):
         self.assert_missing_test_run_mode_rejects_malformed_inventory(
             None,
             include_empty_table=True,
-        )
-
-    def test_missing_test_run_mode_rejects_malformed_inventory_with_blank_test_id(self):
-        self.assert_missing_test_run_mode_rejects_malformed_inventory(None, "")
-
-    def test_missing_test_run_mode_rejects_malformed_cucumber_inventory_without_heading(self):
-        self.assert_missing_test_run_mode_rejects_malformed_inventory(
-            None,
-            "app:src/test/resources/features/order.feature#Order is paid@L12",
         )
 
     def test_test_inventory_parses_cucumber_feature_path_ids(self):
@@ -2481,10 +2466,10 @@ class ValidationEvidenceTest(unittest.TestCase):
         mapping = gate.read_test_mapping(self.root, required=True)
         mapping["tests"].extend(
             [
-                {"status": "added", "c8_ids": [self.c8_test_id]},
-                {"status": "added", "c8_ids": [added_cpt_id]},
-                {"status": "added", "c8_ids": [added_cpt_id]},
-                {"status": "added", "c8_ids": [added_cpt_id, added_cpt_id]},
+                {"status": "added", "suite": "unit", "c8_ids": [self.c8_test_id]},
+                {"status": "added", "suite": "unit", "c8_ids": [added_cpt_id]},
+                {"status": "added", "suite": "unit", "c8_ids": [added_cpt_id]},
+                {"status": "added", "suite": "unit", "c8_ids": [added_cpt_id, added_cpt_id]},
             ]
         )
         write_json(self.root / gate.TEST_MAPPING, mapping)
@@ -2610,6 +2595,65 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
 
+    def test_added_cpt_tests_select_test_repeat_only_for_their_suite(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        self.plan["modules"][0]["test_suites"].append(
+            {"name": "integration", "requires_docker": False}
+        )
+        added_test = {
+            "status": "added",
+            "suite": "integration",
+            "c8_ids": ["app:com.example.OrderIT#testOrder"],
+        }
+        write_json(
+            self.root / gate.TEST_MAPPING,
+            {
+                "schema_version": 1,
+                "baseline": {"suites": []},
+                "tests": [added_test],
+                "freeze": {"files": {}},
+                "test_changes": [],
+                "mock_changes": [],
+            },
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertIn(("module", "app", "test_repeat", "integration"), plan.required)
+        self.assertIn(("module", "app", "tests", "unit"), plan.required)
+        self.assertNotIn(("module", "app", "test_repeat", "unit"), plan.required)
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        del mapping["tests"][0]["suite"]
+        self.assertIn(
+            "Added CPT tests need the name of the suite that runs them",
+            gate.test_parity_issues(plan, {}, mapping),
+        )
+
+    def test_every_ledger_read_checks_its_c7_snapshot_binding(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mapping = gate.read_test_mapping(self.root, required=True)
+        for field, message in (
+            ("source_digest", "belongs to a different C7 source snapshot"),
+            ("commit", "C7 commit differs from the Step 2 snapshot"),
+        ):
+            with self.subTest(field=field):
+                edited = json.loads(json.dumps(mapping))
+                edited["baseline"][field] = "edited"
+                write_json(self.root / gate.TEST_MAPPING, edited)
+                with self.assertRaisesRegex(gate.EvidenceError, message):
+                    gate.read_test_mapping(self.root)
+                plan = gate.requirements(self.root, self.plan)
+                self.assertTrue(
+                    any(message in issue for issue in plan.issues), plan.issues
+                )
+
     def test_added_only_cpt_ledger_enables_validation_gates(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
@@ -2619,7 +2663,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         mapping = {
             "schema_version": 1,
             "baseline": {"suites": []},
-            "tests": [{"status": "added", "c8_ids": [added_test_id]}],
+            "tests": [{"status": "added", "suite": "unit", "c8_ids": [added_test_id]}],
             "freeze": {"files": {}},
             "test_changes": [],
             "mock_changes": [],
@@ -2674,7 +2718,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         mapping = {
             "schema_version": 1,
             "baseline": {"suites": []},
-            "tests": [{"status": "added", "c8_ids": []}],
+            "tests": [{"status": "added", "suite": "unit", "c8_ids": []}],
             "freeze": {"files": {}},
             "test_changes": [],
             "mock_changes": [],
@@ -2709,7 +2753,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             },
         )
         added_test_id = "app:com.example.AddedTest#testAdded"
-        mapping["tests"].append({"status": "added", "c8_ids": [added_test_id]})
+        mapping["tests"].append({"status": "added", "suite": "unit", "c8_ids": [added_test_id]})
         write_json(self.root / gate.TEST_MAPPING, mapping)
         added_test_file = self.root / "app/src/test/java/com/example/AddedTest.java"
         added_test_file.parent.mkdir(parents=True, exist_ok=True)
@@ -4044,7 +4088,6 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         inventory_path = self.root / gate.INVENTORY
         inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-        suite = inventory.pop("test_suites")[0]
         inventory["test_run_mode"] = "migrate_only"
         write_json(inventory_path, inventory)
         with redirect_stdout(StringIO()):
@@ -4060,11 +4103,58 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIn(self.c7_test_file_path, inventory["source_files"])
 
         inventory["test_run_mode"] = "run"
-        inventory["test_suites"] = [suite]
         write_json(inventory_path, inventory)
         contract = gate.validate_source_snapshot_test_contract(self.root, inventory)
         self.assertEqual([self.c7_test_id], [test["id"] for test in contract["tests"]])
         gate.verify_unchanged_source(self.root, inventory)
+
+        added_suite = dict(
+            inventory["test_suites"][0],
+            name="integration",
+            test_source_roots=["app/src/it/java"],
+        )
+        (self.root / "app/src/it/java").mkdir(parents=True)
+        inventory["test_suites"].append(added_suite)
+        write_json(inventory_path, inventory)
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "changed after the Step 2 snapshot"
+        ):
+            gate.validate_source_snapshot_test_contract(self.root, inventory)
+
+    def test_test_run_mode_may_only_change_from_migrate_only_to_run(self):
+        snapshot = {"mode": "migrate_only", "tests": [], "modules": ["app"], "suites": []}
+        self.assertTrue(
+            gate.source_test_contract_matches_snapshot(dict(snapshot, mode="run"), snapshot)
+        )
+        self.assertFalse(
+            gate.source_test_contract_matches_snapshot(
+                snapshot, dict(snapshot, mode="run")
+            )
+        )
+        self.assertFalse(
+            gate.source_test_contract_matches_snapshot(
+                dict(snapshot, mode="run", suites=[{"name": "unit"}]), snapshot
+            )
+        )
+
+    def test_test_inventory_table_outside_its_section_is_rejected(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        report_path = self.root / gate.REPORT
+        report = report_path.read_text(encoding="utf-8")
+        for heading in (None, "## Test Cases"):
+            with self.subTest(heading=heading):
+                moved = (
+                    report.replace("## Test Inventory\n\n", "")
+                    if heading is None
+                    else report.replace("## Test Inventory", heading)
+                )
+                report_path.write_text(moved, encoding="utf-8")
+                with self.assertRaisesRegex(
+                    gate.EvidenceError, "must be under the Test Inventory heading"
+                ):
+                    gate.test_report_inventory(self.root, required=False)
 
     def test_migrate_only_rejects_malformed_test_inventory(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -4119,26 +4209,6 @@ class ValidationEvidenceTest(unittest.TestCase):
                     summary["issues"],
                 )
 
-    def test_unheaded_partial_inventory_rejects_rows_after_table_break(self):
-        self.write_scope(test_run_mode="run")
-        self.complete_required_checks()
-        (self.root / gate.REPORT).write_text(
-            "# Migration report\n\n"
-            "| Test ID | File | Test kind | Disposition |\n"
-            "|---|---|---|---|\n\n"
-            "|  | app/src/test/java/com/example/OrderTest.java "
-            "| process test | Migrate |\n",
-            encoding="utf-8",
-        )
-
-        self.assertEqual(1, self.audit())
-        summary = self.summary()
-        self.assertEqual("NOT READY", summary["gate"])
-        self.assertTrue(
-            any("Test Inventory" in issue for issue in summary["issues"]),
-            summary["issues"],
-        )
-
     def test_test_inventory_ignores_table_in_following_section(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
@@ -4174,69 +4244,6 @@ class ValidationEvidenceTest(unittest.TestCase):
         tests = gate.test_report_inventory(self.root)
 
         self.assertEqual([self.c7_test_id], [test["id"] for test in tests])
-
-    def test_deferred_baseline_check_detects_suite_contract_changes(self):
-        key = ("module", "app", "c7_baseline", "unit")
-        suite = {
-            "module": "app",
-            "name": "unit",
-            "command": ["mvn", "-pl", "app", "test"],
-            "test_ids": ["app:com.example.OrderTest#testOrder"],
-            "reports": ["target/surefire-reports/TEST-*.xml"],
-            "coverage_reports": [],
-            "test_source_roots": [],
-            "test_resource_roots": [],
-            "migrate_test_ids": ["app:com.example.OrderTest#testOrder"],
-        }
-        inventory = {
-            "run_id": "deferred-run",
-            "source_snapshot_sha256": "source-snapshot",
-            "source_snapshot_test_contract": {
-                "mode": "migrate_only",
-                "tests": [],
-                "modules": ["app"],
-                "suites": [],
-            },
-        }
-        write_json(self.root / gate.INVENTORY, inventory)
-        reference = gate.check_reference(key)
-        write_json(
-            self.root / reference,
-            {
-                "run_id": inventory["run_id"],
-                "type": key[0],
-                "target": key[1],
-                "kind": key[2],
-                "scenario": key[3],
-                "method": "command",
-                "command": suite["command"],
-                "exit_code": 0,
-                "result": "passed",
-                "reason": None,
-                "source_digest": "source-snapshot",
-                "output": "C7 baseline recorded",
-                "step2_suite_contract_sha256": gate.test_suite_snapshot_digest(suite),
-            },
-        )
-        evidence = {"checks": [reference]}
-        plan = Namespace(
-            allowed={key},
-            required={},
-            source_digest="current-source",
-            test_contract={"mode": "run", "suites": {("app", "unit"): suite}},
-        )
-        issues = []
-        gate.load_checks(self.root, evidence, plan, issues)
-        self.assertEqual([], issues)
-
-        changed_suite = dict(suite, command=["mvn", "-pl", "app", "verify"])
-        plan.test_contract["suites"][("app", "unit")] = changed_suite
-        issues = []
-        gate.load_checks(self.root, evidence, plan, issues)
-        self.assertIn(
-            f"{key}: C7 baseline suite contract changed after recording",
-            issues,
-        )
 
     def test_migrate_only_rejects_test_and_uninspectable_commands_for_non_test_checks(self):
         lint_key = ("model", "models/converted-c8-process.bpmn", "lint", None)

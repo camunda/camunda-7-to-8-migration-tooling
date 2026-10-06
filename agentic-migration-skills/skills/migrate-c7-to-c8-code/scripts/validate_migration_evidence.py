@@ -962,24 +962,14 @@ def source_test_contract(test_contract):
 
 
 def source_test_contract_matches_snapshot(current, snapshot):
-    if current == snapshot:
-        return True
-    if (
-        not isinstance(current, dict)
-        or not isinstance(snapshot, dict)
-        or snapshot.get("mode") != "migrate_only"
-        or current.get("mode") != "run"
-    ):
+    """Only test_run_mode may change after Step 2, and only from migrate_only to run."""
+    if not isinstance(current, dict) or not isinstance(snapshot, dict):
+        return current == snapshot
+    if current.get("mode") != snapshot.get("mode") and (
+        snapshot.get("mode"), current.get("mode")
+    ) != ("migrate_only", "run"):
         return False
-    if (
-        current.get("tests") != snapshot.get("tests")
-        or current.get("modules") != snapshot.get("modules")
-    ):
-        return False
-    return (
-        current.get("suites") == snapshot.get("suites")
-        or snapshot.get("suites") == []
-    )
+    return dict(current, mode=None) == dict(snapshot, mode=None)
 
 
 def test_suite_snapshot(suite):
@@ -996,13 +986,6 @@ def test_suite_snapshot(suite):
         if roots:
             snapshot[root_type] = roots
     return snapshot
-
-
-def test_suite_snapshot_digest(suite):
-    content = json.dumps(
-        test_suite_snapshot(suite), sort_keys=True, separators=(",", ":")
-    )
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def test_contract_snapshot(test_contract, *, include_modules):
@@ -1610,231 +1593,109 @@ def test_id_parts(test_id):
     return module, class_name, method
 
 
-def looks_like_test_inventory_id(value):
-    return ":" in value and "#" in value
-
-
 def markdown_table_separator(row):
     return bool(row) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in row)
 
 
-def looks_like_test_inventory_file(value):
-    return bool(
-        "/" in value
-        or "\\" in value
-        or (
-            value
-            and not any(character.isspace() for character in value)
-            and Path(value).suffix
-        )
+INVENTORY_COLUMNS = {"test id", "file", "test kind", "handling"}
+TEST_INVENTORY_HEADING = re.compile(r"^#{1,6}\s+test inventory\b", re.IGNORECASE)
+MARKDOWN_HEADING = re.compile(r"^#{1,6}\s+")
+
+
+def test_inventory_section(lines):
+    """Return the table lines under the single Test Inventory heading, or None."""
+    starts = [
+        index for index, line in enumerate(lines)
+        if TEST_INVENTORY_HEADING.match(line.strip())
+    ]
+    if len(starts) > 1:
+        raise EvidenceError("MIGRATION_REPORT.md has more than one Test Inventory section")
+    start = starts[0] + 1 if starts else len(lines)
+    end = next(
+        (
+            index for index in range(start, len(lines))
+            if MARKDOWN_HEADING.match(lines[index].strip())
+        ),
+        len(lines),
     )
-
-
-def test_inventory_row_after_table_break(lines, start, names):
-    index = start
-    while index < len(lines) and not lines[index].strip():
-        index += 1
-    if index == len(lines) or re.match(r"^#{1,6}\s+", lines[index].strip()):
-        return False
-
-    row = markdown_cells(lines[index])
-    while markdown_table_separator(row):
-        index += 1
-        while index < len(lines) and not lines[index].strip():
-            index += 1
-        if index == len(lines):
-            return False
-        row = markdown_cells(lines[index])
-    if not row:
-        return False
-
-    values = [plain_markdown_cell(cell) for cell in row]
-    if any(
-        looks_like_test_inventory_id(value)
-        or looks_like_test_inventory_file(value)
-        or re.sub(r"[\s_-]+", " ", value.casefold()).startswith(
-            ("migrate", "report only")
-        )
-        for value in values
-    ):
-        return True
-    if len(values) != len(names) or not any(values):
-        return False
-    next_index = index + 1
-    while next_index < len(lines) and not lines[next_index].strip():
-        next_index += 1
-    return not (
-        next_index < len(lines)
-        and markdown_table_separator(markdown_cells(lines[next_index]))
-    )
-
-
-def test_inventory_table_candidate(lines):
-    expected_columns = {"test id", "file", "test kind", "handling"}
-    index = 0
-    while index < len(lines):
-        cells = markdown_cells(lines[index])
-        if not cells:
-            index += 1
+    for index, line in enumerate(lines):
+        if start <= index < end:
             continue
-        names = [plain_markdown_cell(cell).casefold() for cell in cells]
-        name_set = set(names)
-        if expected_columns.issubset(name_set):
-            index += 1
-            while index < len(lines) and markdown_cells(lines[index]):
-                index += 1
-            continue
-
-        values = [plain_markdown_cell(cell) for cell in cells]
-        test_id_columns = [
-            column
-            for column, value in enumerate(values)
-            if looks_like_test_inventory_id(value)
-        ]
-        if test_id_columns and any(
-            column not in test_id_columns
-            and ("/" in value or "\\" in value or Path(value).suffix)
-            for column, value in enumerate(values)
-        ):
-            return True
-
-        recognized_column_count = len(expected_columns & name_set)
-        if recognized_column_count < 2:
-            index += 1
-            continue
-        candidate_inventory_shape = (
-            "file" in name_set and recognized_column_count >= 3
-        )
-        test_id_headers = {
-            column for column, name in enumerate(names) if name == "test id"
-        }
-        row_index = index + 1
-        while row_index < len(lines):
-            row = markdown_cells(lines[row_index])
-            if not row:
-                if (
-                    recognized_column_count >= 2
-                    and test_inventory_row_after_table_break(
-                        lines, row_index, names
-                    )
-                ):
-                    return True
-                break
-            if markdown_table_separator(row):
-                row_index += 1
-                continue
-            row_values = [plain_markdown_cell(cell) for cell in row]
-            if candidate_inventory_shape and any(row_values):
-                return True
-            if any(
-                value
-                and (
-                    column in test_id_headers
-                    or looks_like_test_inventory_id(value)
-                )
-                for column, value in enumerate(row_values)
-            ):
-                return True
-            row_index += 1
-        index = row_index
-    return False
+        names = {plain_markdown_cell(cell).casefold() for cell in markdown_cells(line)}
+        if INVENTORY_COLUMNS.issubset(names):
+            raise EvidenceError(
+                "MIGRATION_REPORT.md Test Inventory table must be under the Test Inventory heading"
+            )
+    if not starts:
+        return None
+    return [line for line in lines[start:end] if markdown_cells(line)]
 
 
 def test_report_inventory(root, *, required=True):
     path = root / REPORT
-    if not path.is_file():
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    table = test_inventory_section(lines)
+    if not table:
         if required:
             raise EvidenceError(
                 "test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory"
             )
         return []
-    lines = path.read_text(encoding="utf-8").splitlines()
-    if test_inventory_table_candidate(lines):
-        raise EvidenceError(
-            "MIGRATION_REPORT.md Test Inventory table has no valid header"
-        )
-    columns = None
+    names = [plain_markdown_cell(cell).casefold() for cell in markdown_cells(table[0])]
+    if not INVENTORY_COLUMNS.issubset(names):
+        raise EvidenceError("MIGRATION_REPORT.md Test Inventory table has no valid header")
+    columns = {name: position for position, name in enumerate(names)}
     rows = []
-    for index, line in enumerate(lines):
-        cells = markdown_cells(line)
-        if not cells:
+    for line in table[1:]:
+        row = markdown_cells(line)
+        if markdown_table_separator(row):
             continue
-        names = [plain_markdown_cell(cell).casefold() for cell in cells]
-        if not {"test id", "file", "test kind", "handling"}.issubset(names):
-            continue
-        if columns is not None:
-            raise EvidenceError("MIGRATION_REPORT.md has more than one Test Inventory table")
-        columns = {name: position for position, name in enumerate(names)}
-        for row_index, candidate in enumerate(lines[index + 1:], start=index + 1):
-            row = markdown_cells(candidate)
-            if not row:
-                if test_inventory_row_after_table_break(
-                    lines, row_index, names
-                ):
-                    raise EvidenceError(
-                        "MIGRATION_REPORT.md Test Inventory has rows after a blank line"
-                    )
-                break
-            if markdown_table_separator(row):
-                continue
-            if len(row) != len(names):
-                raise EvidenceError("Test Inventory row does not match its table header")
-            values = [plain_markdown_cell(cell) for cell in row]
-            test_id = values[columns["test id"]]
-            file_path = values[columns["file"]]
-            test_kind = values[columns["test kind"]]
-            handling_text = re.sub(
-                r"[\s_-]+", " ", values[columns["handling"]].casefold()
-            ).strip()
-            if handling_text.startswith("migrate"):
-                handling = "Migrate"
-            elif handling_text.startswith("report only"):
-                handling = "Report only"
-            else:
-                raise EvidenceError(
-                    f"{test_id}: unsupported Test Inventory handling "
-                    f"{values[columns['handling']]!r}"
-                )
-            module, class_name, method = test_id_parts(test_id)
-            if not test_kind:
-                raise EvidenceError(f"{test_id}: Test Inventory kind is empty")
-            if not file_path:
-                raise EvidenceError(f"{test_id}: Test Inventory file path is empty")
-            source_file = project_path(root, file_path, "Test Inventory file")
-            module_root = project_path(root, module, "Test Inventory module")
-            try:
-                source_file.relative_to(module_root)
-            except ValueError as exc:
-                raise EvidenceError(
-                    f"{test_id}: Test Inventory file is outside its module"
-                ) from exc
-            rows.append(
-                {
-                    "id": test_id,
-                    "module": module,
-                    "file": Path(file_path).as_posix(),
-                    "class_name": class_name,
-                    "method": method,
-                    "test_kind": test_kind,
-                    "handling": handling,
-                    "models": values[columns["models"]]
-                    if "models" in columns
-                    else "",
-                }
-            )
-    if columns is None:
-        if required:
+        if len(row) != len(names):
             raise EvidenceError(
-                "test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory"
+                "Test Inventory row does not match its table header; "
+                "put other tables under their own heading"
             )
-        if any(
-            re.match(r"^#{1,6}\s+test inventory(?:\s|$)", line.strip(), re.IGNORECASE)
-            for line in lines
-        ):
+        values = [plain_markdown_cell(cell) for cell in row]
+        test_id = values[columns["test id"]]
+        file_path = values[columns["file"]]
+        test_kind = values[columns["test kind"]]
+        handling_text = re.sub(
+            r"[\s_-]+", " ", values[columns["handling"]].casefold()
+        ).strip()
+        if handling_text.startswith("migrate"):
+            handling = "Migrate"
+        elif handling_text.startswith("report only"):
+            handling = "Report only"
+        else:
             raise EvidenceError(
-                "MIGRATION_REPORT.md Test Inventory has no valid table"
+                f"{test_id}: unsupported Test Inventory handling "
+                f"{values[columns['handling']]!r}"
             )
-        return []
+        module, class_name, method = test_id_parts(test_id)
+        if not test_kind:
+            raise EvidenceError(f"{test_id}: Test Inventory kind is empty")
+        if not file_path:
+            raise EvidenceError(f"{test_id}: Test Inventory file path is empty")
+        source_file = project_path(root, file_path, "Test Inventory file")
+        module_root = project_path(root, module, "Test Inventory module")
+        try:
+            source_file.relative_to(module_root)
+        except ValueError as exc:
+            raise EvidenceError(
+                f"{test_id}: Test Inventory file is outside its module"
+            ) from exc
+        rows.append(
+            {
+                "id": test_id,
+                "module": module,
+                "file": Path(file_path).as_posix(),
+                "class_name": class_name,
+                "method": method,
+                "test_kind": test_kind,
+                "handling": handling,
+                "models": values[columns["models"]] if "models" in columns else "",
+            }
+        )
     ids = [row["id"] for row in rows]
     if len(ids) != len(set(ids)):
         raise EvidenceError("Test Inventory IDs must be unique")
@@ -2119,6 +1980,15 @@ def read_test_mapping(root, required=False):
         or baseline.get("coverage", {}) != coverage
     ):
         raise EvidenceError("C7 coverage aggregate differs from its suite records")
+    if baseline.get("source_digest") or baseline["suites"]:
+        inventory = read_json(root / INVENTORY)
+        if baseline.get("source_digest") != inventory.get("source_snapshot_sha256"):
+            raise EvidenceError(
+                "Test parity ledger belongs to a different C7 source snapshot; "
+                "restore that baseline before resetting the source snapshot"
+            )
+        if baseline.get("commit") != inventory.get("source_snapshot_commit"):
+            raise EvidenceError("Test parity ledger C7 commit differs from the Step 2 snapshot")
     return mapping
 
 
@@ -2717,12 +2587,13 @@ def test_validation_enabled(contract, migrated_test_ids, mapping):
     )
 
 
-def module_has_added_cpt_tests(module, mapping):
+def suite_has_added_cpt_tests(module, suite_name, mapping):
     if mapping is None:
         return False
     return any(
         isinstance(test, dict)
         and test.get("status") == "added"
+        and test.get("suite") == suite_name
         and isinstance(test.get("c8_ids"), list)
         and any(
             isinstance(c8_id, str) and c8_id.startswith(f"{module}:")
@@ -2761,8 +2632,7 @@ def suite_has_cpt_tests(suite, mapping):
             and any(isinstance(c8_id, str) and c8_id for c8_id in c8_ids)
         ):
             return True
-    module = suite.get("module")
-    return isinstance(module, str) and module_has_added_cpt_tests(module, mapping)
+    return suite_has_added_cpt_tests(suite.get("module"), suite.get("name"), mapping)
 
 
 def normalized_mock(value):
@@ -3119,6 +2989,8 @@ def test_parity_issues(plan, checks, mapping):
         ):
             issues.append("Added CPT tests need one or more c8_ids")
             continue
+        if not isinstance(test.get("suite"), str) or not test["suite"]:
+            issues.append("Added CPT tests need the name of the suite that runs them")
         if len(c8_ids) != len(set(c8_ids)):
             issues.append("Added CPT tests need distinct c8_ids")
         for c8_id in dict.fromkeys(c8_ids):
@@ -3645,7 +3517,7 @@ def requirements(root, evidence):
             step2_suite = tests["suites"].get(suite_key)
             if test_enabled and (
                 step2_suite and suite_has_cpt_tests(step2_suite, mapping)
-                or module_has_added_cpt_tests(path, mapping)
+                or suite_has_added_cpt_tests(path, name, mapping)
             ):
                 check_kind = "test_repeat"
             else:
@@ -4166,20 +4038,9 @@ def empty_test_mapping(inventory):
 
 
 def ensure_test_mapping(root, inventory):
-    mapping = read_test_mapping(root)
-    if mapping is None:
-        mapping = empty_test_mapping(inventory)
-    baseline = mapping["baseline"]
-    if not baseline.get("source_digest"):
+    mapping = read_test_mapping(root) or empty_test_mapping(inventory)
+    if not mapping["baseline"].get("source_digest"):
         mapping["baseline"] = empty_test_mapping(inventory)["baseline"]
-        baseline = mapping["baseline"]
-    if baseline.get("source_digest") != inventory.get("source_snapshot_sha256"):
-        raise EvidenceError(
-            "Test parity ledger belongs to a different C7 source snapshot; "
-            "restore that baseline before resetting the source snapshot"
-        )
-    if baseline.get("commit") != inventory.get("source_snapshot_commit"):
-        raise EvidenceError("Test parity ledger C7 commit differs from the Step 2 snapshot")
     return mapping
 
 
@@ -4476,13 +4337,6 @@ def record_c7_baseline(root, args):
         "coverage_available": bool(coverage_paths),
         "output": output,
     }
-    source_test_contract_snapshot = inventory.get("source_snapshot_test_contract")
-    if (
-        isinstance(source_test_contract_snapshot, dict)
-        and source_test_contract_snapshot.get("mode") == "migrate_only"
-        and source_test_contract_snapshot.get("suites") == []
-    ):
-        check["step2_suite_contract_sha256"] = test_suite_snapshot_digest(suite)
     write_check_log(root, key, check)
     if args.action == "run" and result == "passed":
         status_counts = {
@@ -4935,25 +4789,6 @@ def load_checks(root, evidence, plan, issues):
                 and check.get("source_digest") == inventory.get("source_snapshot_sha256")
             ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
-            source_test_contract_snapshot = inventory.get(
-                "source_snapshot_test_contract"
-            )
-            if (
-                key[2] == "c7_baseline"
-                and plan.test_contract["mode"] == "run"
-                and isinstance(source_test_contract_snapshot, dict)
-                and source_test_contract_snapshot.get("mode") == "migrate_only"
-                and source_test_contract_snapshot.get("suites") == []
-            ):
-                suite = plan.test_contract["suites"].get((key[1], key[3]))
-                if (
-                    suite is None
-                    or check.get("step2_suite_contract_sha256")
-                    != test_suite_snapshot_digest(suite)
-                ):
-                    raise EvidenceError(
-                        f"{key}: C7 baseline suite contract changed after recording"
-                    )
             if (
                 mapping is not None
                 and key not in plan.allowed
