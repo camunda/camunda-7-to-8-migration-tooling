@@ -162,7 +162,7 @@ It also shows module test commands from project documentation and the CI invento
 | Option | What happens |
 |---|---|
 | **Run tests (recommended)** | The skill runs the Camunda 7 baseline before migration changes any files. It migrates the tests and runs the CPT tests. The safeguards check test parity, test freeze, mock boundaries, repeat runs, and process coverage. The `MIGRATION_REPORT.md` Test Parity table records the comparison. The validation gate reports `READY` or `NOT READY`. |
-| **Migrate tests only** | The skill migrates the tests and compiles their test sources. It does not run the Camunda 7 baseline, CPT tests, or Step 4 process-scenario runs. `MIGRATION_REPORT.md` marks test verification as not verified and provides a verification plan. The validation gate reports `NOT READY`. |
+| **Migrate tests only** | The skill migrates the tests and compiles their test sources. It runs no test suites. Test-source compilation is the only test check. The Camunda 7 baseline, CPT tests, and Step 4 process-scenario runs are skipped. `MIGRATION_REPORT.md` marks test verification as not verified and provides a verification plan. The validation gate reports `NOT READY`. |
 
 By default, CPT starts the Camunda 8 runtime in Docker through Testcontainers. You can configure a
 remote CPT runtime instead.

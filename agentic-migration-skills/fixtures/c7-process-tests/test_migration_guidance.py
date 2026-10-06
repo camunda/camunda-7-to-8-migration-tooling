@@ -2719,6 +2719,19 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual(1, readme.count("fixtures/c7-process-tests"))
         self.assertIn("inventories JUnit 3/4/5", readme)
 
+    def test_readme_clarifies_tests_only_does_not_run_test_suites(self):
+        readme = (
+            REPO_ROOT / "agentic-migration-skills/README.md"
+        ).read_text(encoding="utf-8")
+        tests_only = next(
+            line
+            for line in readme.splitlines()
+            if line.startswith("| **Migrate tests only** |")
+        )
+
+        self.assertIn("runs no test suites", tests_only.lower())
+        self.assertIn("test-source compilation is the only test check", tests_only.lower())
+
     def test_w3_walkthrough_matches_remote_engine_parity(self):
         readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
         walkthrough = normalized(
