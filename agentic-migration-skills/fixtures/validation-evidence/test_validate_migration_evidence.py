@@ -1529,14 +1529,15 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_test_freeze_tracks_inventory_files_and_custom_suite_roots(self):
         inventory_file = "app/legacy-tests/com/example/OrderTest.java"
-        cpt_file = "app/custom-tests/java/com/example/OrderCptTest.java"
-        resource_root = "app/custom-test-resources"
-        for root_path in ("app/custom-tests", resource_root):
+        source_root = "app/target/generated-test-sources"
+        cpt_file = f"{source_root}/java/com/example/OrderCptTest.java"
+        resource_root = "app/target/generated-test-resources"
+        for root_path in (source_root, resource_root):
             (self.root / root_path).mkdir(parents=True, exist_ok=True)
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
             test_file_path=inventory_file,
-            test_source_roots=["app/custom-tests"],
+            test_source_roots=[source_root],
             test_resource_roots=[resource_root],
         )
 
@@ -1560,20 +1561,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         mapping = gate.read_test_mapping(self.root, required=True)
         frozen = mapping["freeze"]["files"]
         self.assertIn(cpt_file, frozen)
-        self.assertIn(cpt_resource.relative_to(self.root).as_posix(), frozen)
+        resource_file = cpt_resource.relative_to(self.root).as_posix()
+        self.assertIn(resource_file, frozen)
         self.assertIn("app/src/test/resources/order.bpmn", frozen)
         self.assertNotIn(unrelated_source.relative_to(self.root).as_posix(), frozen)
 
-        cpt_path = self.root / cpt_file
-        cpt_path.write_text("class OrderCptTest { void weakened() {} }\n", encoding="utf-8")
-        issues = gate.validate_test_freeze(self.root, plan, mapping)
-        self.assertTrue(
-            any(
-                f"{cpt_file}: frozen test file changed without an approved" in issue
-                for issue in issues
-            ),
-            issues,
-        )
+        for path in (cpt_file, resource_file):
+            frozen_path = self.root / path
+            original = frozen_path.read_text(encoding="utf-8")
+            frozen_path.write_text(original + "changed\n", encoding="utf-8")
+            issues = gate.validate_test_freeze(self.root, plan, mapping)
+            self.assertTrue(
+                any(
+                    f"{path}: frozen test file changed without an approved" in issue
+                    for issue in issues
+                ),
+                issues,
+            )
+            frozen_path.write_text(original, encoding="utf-8")
 
     def test_test_suite_roots_are_locked_by_source_snapshot(self):
         self.configure_test_run(

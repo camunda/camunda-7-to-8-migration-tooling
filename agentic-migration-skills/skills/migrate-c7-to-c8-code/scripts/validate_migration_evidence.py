@@ -513,15 +513,18 @@ def source_without_comments(text, suffix):
     return "".join(characters)
 
 
-def scan_module(root, module, module_paths, hashes):
-    path = project_path(root, module, "module", must_exist=True)
-    if not path.is_dir():
-        raise EvidenceError(f"Module directory is missing: {module}")
-    nested = {
-        project_path(root, other, "module")
-        for other in module_paths
-        if other != module and project_path(root, other, "module").is_relative_to(path)
-    }
+def nested_module_paths(root, module, path, module_paths):
+    nested = set()
+    for other in module_paths:
+        if other == module:
+            continue
+        other_path = project_path(root, other, "module")
+        if other_path.is_relative_to(path):
+            nested.add(other_path)
+    return nested
+
+
+def scan_source_directory(root, module, path, nested, hashes, skip_directories):
     hits = {}
 
     def walk_error(error):
@@ -531,11 +534,11 @@ def scan_module(root, module, module_paths, hashes):
         directory = Path(current)
         for name in directories:
             candidate = directory / name
-            if name not in SKIP_SOURCE_DIRS and candidate not in nested and candidate.is_symlink():
+            if name not in skip_directories and candidate not in nested and candidate.is_symlink():
                 raise EvidenceError(f"Cannot scan symlinked source directory: {candidate}")
         directories[:] = sorted(
             name for name in directories
-            if name not in SKIP_SOURCE_DIRS and directory / name not in nested
+            if name not in skip_directories and directory / name not in nested
         )
         for name in sorted(files):
             file = directory / name
@@ -556,6 +559,19 @@ def scan_module(root, module, module_paths, hashes):
                 column = match.start() - scan_text.rfind("\n", 0, match.start())
                 hits[f"{relative}:{line}:{column}"] = match.group(0).casefold().strip("'\"`")
     return hits
+
+
+def scan_module(root, module, module_paths, hashes):
+    path = project_path(root, module, "module", must_exist=True)
+    if not path.is_dir():
+        raise EvidenceError(f"Module directory is missing: {module}")
+    nested = nested_module_paths(root, module, path, module_paths)
+    return scan_source_directory(root, module, path, nested, hashes, SKIP_SOURCE_DIRS)
+
+
+def scan_test_root(root, module, module_paths, path, hashes):
+    nested = nested_module_paths(root, module, path, module_paths)
+    return scan_source_directory(root, module, path, nested, hashes, ())
 
 
 def valid_migrated_caller_location(root, module, location, hashes):
@@ -1340,6 +1356,8 @@ def current_test_files(root, plan):
     for module in modules:
         hashes = {}
         scan_module(root, module, module_paths, hashes)
+        for test_root in sorted(roots_by_module[module]):
+            scan_test_root(root, module, module_paths, root / test_root, hashes)
         for path, digest in hashes.items():
             relative_path = Path(path)
             if (
