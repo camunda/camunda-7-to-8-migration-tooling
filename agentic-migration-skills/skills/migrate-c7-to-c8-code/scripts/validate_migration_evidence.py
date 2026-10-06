@@ -1786,17 +1786,24 @@ def mapped_migrated_test_ids(mapping):
     }
 
 
+def suite_report_only_test_ids(suite, contract):
+    inventory_tests = {test["id"]: test for test in contract["tests"]}
+    return [
+        test_id
+        for test_id in suite["test_ids"]
+        if inventory_tests.get(test_id, {}).get("handling") == "Report only"
+    ]
+
+
 def suite_requires_c7_baseline(suite, contract, mapping):
     if suite["migrate_test_ids"]:
         return True
     if mapping is None:
         return False
     rows = test_rows_by_id(mapping)
-    inventory_tests = {test["id"]: test for test in contract["tests"]}
     return any(
-        inventory_tests.get(test_id, {}).get("handling") == "Report only"
-        and rows.get(test_id, {}).get("status") == "migrated"
-        for test_id in suite["test_ids"]
+        rows.get(test_id, {}).get("status") == "migrated"
+        for test_id in suite_report_only_test_ids(suite, contract)
     )
 
 
@@ -3400,11 +3407,14 @@ def record_c7_baseline(root, args):
     suite = contract["suites"].get(suite_key)
     if key[0] != "module" or key[2] != "c7_baseline" or suite is None:
         raise EvidenceError(f"Unexpected C7 baseline check: {key}")
-    mapping = ensure_test_mapping(root, inventory)
-    if not suite_requires_c7_baseline(suite, contract, mapping):
+    if (
+        not suite["migrate_test_ids"]
+        and not suite_report_only_test_ids(suite, contract)
+    ):
         raise EvidenceError(
-            f"{key}: the suite has no Test Inventory tests requiring a C7 baseline"
+            f"{key}: the suite has no Test Inventory tests marked Migrate or Report only"
         )
+    mapping = ensure_test_mapping(root, inventory)
     command = list(getattr(args, "command", []) or [])
     if command and command[0] == "--":
         command = command[1:]

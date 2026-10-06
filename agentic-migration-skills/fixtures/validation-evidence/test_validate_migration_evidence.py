@@ -1511,6 +1511,21 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual("passed", recorded_test["c7_result"])
 
+    def test_c7_baseline_can_be_captured_before_mapping_report_only_tests(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+
+        self.assertEqual(0, self.record_c7_baseline())
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        recorded_test = next(
+            test for test in mapping["tests"] if test.get("c7_id") == self.c7_test_id
+        )
+        self.assertEqual("manual", recorded_test["status"])
+        self.assertEqual("passed", recorded_test["c7_result"])
+
     def test_all_report_only_migrated_tests_require_validation(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
