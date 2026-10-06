@@ -1827,6 +1827,89 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
 
+    def test_added_only_cpt_ledger_enables_validation_gates(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        added_test_id = "app:com.example.OrderCptTest#testOrder"
+        mapping = {
+            "schema_version": 1,
+            "baseline": {"suites": []},
+            "tests": [{"status": "added", "c8_ids": [added_test_id]}],
+            "freeze": {"files": {}},
+            "test_changes": [],
+            "mock_changes": [],
+        }
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        added_test_file = self.root / "app/src/test/java/com/example/OrderCptTest.java"
+        added_test_file.parent.mkdir(parents=True, exist_ok=True)
+        added_test_file.write_text("class OrderCptTest {}\n", encoding="utf-8")
+
+        plan = gate.requirements(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+        )
+
+        self.assertEqual(set(), gate.mapped_migrated_test_ids(mapping))
+        self.assertEqual({added_test_id}, gate.expected_cpt_test_ids(mapping))
+        self.assertNotIn(("module", "app", "c7_baseline", "unit"), plan.required)
+        self.assertIn(("module", "app", "test_repeat", "unit"), plan.required)
+        self.assertNotIn(("module", "app", "tests", "unit"), plan.required)
+        self.assertIn(("project", ".", "test_freeze", None), plan.required)
+        self.assertIn(("project", ".", "test_parity", None), plan.required)
+        self.assertIn(("project", ".", "coverage_parity", None), plan.required)
+        self.assertIn(
+            "app/src/test/java/com/example/OrderCptTest.java",
+            gate.current_test_files(self.root, plan, mapping),
+        )
+
+        self.assertEqual(
+            0, self.submit(("project", ".", "test_freeze", None), command=[])
+        )
+        self.assertEqual(
+            0,
+            self.submit(
+                ("module", "app", "test_repeat", "unit"),
+                command=self.cpt_command(first_coverage='{"processCoverages":[]}'),
+            ),
+        )
+        self.assertEqual(
+            0, self.submit(("project", ".", "test_parity", None), command=[])
+        )
+        self.assertEqual(
+            0, self.submit(("project", ".", "coverage_parity", None), command=[])
+        )
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+    def test_added_entry_without_c8_ids_is_still_validated(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        mapping = {
+            "schema_version": 1,
+            "baseline": {"suites": []},
+            "tests": [{"status": "added", "c8_ids": []}],
+            "freeze": {"files": {}},
+            "test_changes": [],
+            "mock_changes": [],
+        }
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+        )
+        parity_issues = gate.test_parity_issues(plan, {}, mapping)
+
+        self.assertIn(("project", ".", "test_parity", None), plan.required)
+        self.assertTrue(
+            any("Added CPT tests need one or more c8_ids" in issue for issue in parity_issues),
+            parity_issues,
+        )
+
     def test_added_cpt_test_keeps_post_migration_checks_after_retirement(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'

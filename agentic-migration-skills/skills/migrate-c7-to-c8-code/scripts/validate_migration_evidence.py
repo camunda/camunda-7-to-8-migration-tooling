@@ -1758,9 +1758,15 @@ def mapped_migrated_test_ids(mapping):
     }
 
 
-def test_validation_enabled(contract, migrated_test_ids):
+def test_validation_enabled(contract, migrated_test_ids, mapping):
+    has_added_tests = mapping is not None and any(
+        isinstance(test, dict) and test.get("status") == "added"
+        for test in mapping["tests"]
+    )
     return contract["mode"] == "run" and (
         bool(migrated_test_ids)
+        or bool(expected_cpt_test_ids(mapping))
+        or has_added_tests
         or any(test["handling"] == "Migrate" for test in contract["tests"])
     )
 
@@ -2558,7 +2564,7 @@ def requirements(root, evidence):
             issues.append(str(exc))
             mapping = None
             migrated_test_ids = set()
-    test_enabled = test_validation_enabled(tests, migrated_test_ids)
+    test_enabled = test_validation_enabled(tests, migrated_test_ids, mapping)
     if test_enabled:
         test_by_id = {test["id"]: test for test in tests["tests"]}
         for test_id in migrated_test_ids:
@@ -4436,7 +4442,7 @@ def report(root):
             try:
                 mapping = read_test_mapping(root)
                 test_validation = test_validation_enabled(
-                    plan.test_contract, mapped_migrated_test_ids(mapping)
+                    plan.test_contract, mapped_migrated_test_ids(mapping), mapping
                 )
                 if test_validation:
                     if mapping is None:
