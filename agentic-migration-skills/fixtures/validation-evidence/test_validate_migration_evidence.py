@@ -1278,6 +1278,59 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertIn(report_only_cpt_id, mapped_c8_ids)
 
+    def test_captured_migrated_report_only_test_requires_repeat_in_its_suite(self):
+        report_only_id = "app:com.example.OrderSpec#legacy"
+        c7_junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderTest" name="testOrder" />'
+            '<testcase classname="com.example.OrderSpec" name="legacy" />'
+            "</testsuite>"
+        )
+        self.configure_test_run(c7_junit)
+        self.add_report_only_inventory_test(
+            report_only_id,
+            "app/src/test/groovy/com/example/OrderSpec.groovy",
+            "Spock feature",
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        migrated_test = next(
+            test for test in mapping["tests"] if test.get("c7_id") == self.c7_test_id
+        )
+        migrated_test.update(
+            status="retired",
+            c8_ids=[],
+            retirement={
+                "reason": "The behavior is no longer required.",
+                "approved_by": "operator",
+            },
+        )
+        report_only_test = next(
+            test for test in mapping["tests"] if test.get("c7_id") == report_only_id
+        )
+        report_only_test.update(
+            status="migrated",
+            c8_ids=["app:com.example.OrderCptSpec#legacy"],
+            mocks={"c7": [], "c8": []},
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+        )
+
+        self.assertNotIn(
+            report_only_id,
+            plan.test_contract["suites"][("app", "unit")]["test_ids"],
+        )
+        self.assertIn(
+            report_only_id,
+            mapping["baseline"]["suites"][0]["test_results"],
+        )
+        self.assertIn(("module", "app", "test_repeat", "unit"), plan.required)
+
     def test_all_report_only_migrated_tests_require_validation(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
@@ -1973,6 +2026,85 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertFalse(
             gate.suite_has_cpt_tests(
                 {"module": "app", "test_ids": [retired_test_id]}, mapping
+            )
+        )
+
+    def test_captured_report_only_tests_are_scoped_to_their_baseline_suite(self):
+        test_id = "app:com.example.OrderSpec#legacy"
+        mapping = {
+            "baseline": {
+                "suites": [
+                    {
+                        "module": "app",
+                        "suite": "unit",
+                        "result": "passed",
+                        "test_results": {
+                            test_id: {
+                                "result": "passed",
+                                "invocations": ["passed"],
+                            }
+                        },
+                    }
+                ]
+            },
+            "tests": [
+                {
+                    "c7_id": test_id,
+                    "handling": "Report only",
+                    "status": "migrated",
+                    "c8_ids": ["app:com.example.OrderCptSpec#legacy"],
+                }
+            ],
+        }
+
+        cases = (
+            ({"module": "app", "name": "unit", "test_ids": []}, True),
+            ({"module": "app", "name": "integration", "test_ids": []}, False),
+            ({"module": "other", "name": "unit", "test_ids": []}, False),
+        )
+        for suite, expected in cases:
+            with self.subTest(suite=suite):
+                self.assertEqual(expected, gate.suite_has_cpt_tests(suite, mapping))
+
+    def test_baseline_capture_does_not_infer_membership_for_migrated_tests(self):
+        captured_test_id = "app:com.example.SharedTest#testShared"
+        declared_test_id = "app:com.example.UnitTest#testUnit"
+        mapping = {
+            "baseline": {
+                "suites": [
+                    {
+                        "module": "app",
+                        "suite": "unit",
+                        "result": "passed",
+                        "test_results": {
+                            captured_test_id: {
+                                "result": "passed",
+                                "invocations": ["passed"],
+                            }
+                        },
+                    }
+                ]
+            },
+            "tests": [
+                {
+                    "c7_id": captured_test_id,
+                    "handling": "Migrate",
+                    "status": "migrated",
+                    "c8_ids": ["app:com.example.SharedCptTest#testShared"],
+                },
+                {
+                    "c7_id": declared_test_id,
+                    "handling": "Migrate",
+                    "status": "retired",
+                    "c8_ids": [],
+                },
+            ],
+        }
+
+        self.assertFalse(
+            gate.suite_has_cpt_tests(
+                {"module": "app", "name": "unit", "test_ids": [declared_test_id]},
+                mapping,
             )
         )
 

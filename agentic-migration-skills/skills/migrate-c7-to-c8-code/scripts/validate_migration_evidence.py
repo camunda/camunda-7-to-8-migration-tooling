@@ -1790,7 +1790,22 @@ def suite_has_cpt_tests(suite, mapping):
     if mapping is None:
         return False
     rows = test_rows_by_id(mapping)
-    for test_id in suite.get("test_ids", suite.get("migrate_test_ids", [])):
+    test_ids = set(suite.get("test_ids", suite.get("migrate_test_ids", [])))
+    for baseline_suite in mapping.get("baseline", {}).get("suites", []):
+        if (
+            baseline_suite.get("module") != suite.get("module")
+            or baseline_suite.get("suite") != suite.get("name")
+        ):
+            continue
+        for test_id in baseline_suite.get("test_results", {}):
+            test = rows.get(test_id)
+            if (
+                test_id not in test_ids
+                and isinstance(test, dict)
+                and test.get("handling") == "Report only"
+            ):
+                test_ids.add(test_id)
+    for test_id in test_ids:
         test = rows.get(test_id)
         c8_ids = test.get("c8_ids") if isinstance(test, dict) else None
         if (
