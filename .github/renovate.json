@@ -6,6 +6,9 @@
     "maintenance/0.2",
     "maintenance/0.3",
   ],
+  "ignorePaths": [
+    "agentic-migration-skills/fixtures/**"
+  ],
   "packageRules": [
     {
       "description": "Ignore SNAPSHOT versions for all packages.",
