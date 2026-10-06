@@ -318,11 +318,11 @@ selected for migration, use these phases in this order:
 
 | Phase | Action |
 |---|---|
-| C7 baseline | Before Step 3, run each suite containing a `Migrate` test or a `Report only` test selected for migration. |
+| C7 baseline | Run each suite containing a `Migrate` test or a `Report only` test selected for migration before Step 3 changes any file. |
 | Models | Convert the model copies, including test models. |
 | Tests | Migrate the in-scope tests. Review recipe changes before accepting them. |
 | Freeze | Record hashes for test source files and test resources. |
-| Production code | Migrate production code until the frozen tests pass. |
+| Production code | Migrate production code. This phase ends after every frozen test passes. |
 
 When the selected mode is `migrate_only`, do not run a test command. Follow the declined-test path
 in `validation-evidence.md`.
@@ -330,7 +330,7 @@ in `validation-evidence.md`.
 Keep the Test Inventory in `MIGRATION_REPORT.md`. Keep the machine-readable test mode and suite
 commands in `.camunda-migration/validation/step2-inventory.json`:
 
-For a **Run tests** run, include `test_suites`:
+A **Run tests** inventory includes `test_suites`:
 
 ```json
 {
@@ -349,7 +349,7 @@ For a **Run tests** run, include `test_suites`:
 }
 ```
 
-For a **Migrate tests only** run, the inventory can omit `test_suites`:
+A **Migrate tests only** inventory can omit `test_suites`:
 
 ```json
 {
@@ -367,15 +367,15 @@ Assign every `Migrate` test to at least one suite. Use a distinct `name` for eac
 The validator uses `command` for the Camunda 7 baseline. It runs the command without a shell.
 Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
 
-Set `reports` to a list of module-relative globs when the build uses custom JUnit report paths.
+Where the build uses custom JUnit report paths, set `reports` to a list of module-relative globs.
 The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
-In the Step 2 inventory, set `coverage_reports` on the matching `test_suites[]` entry to
-module-relative globs when Camunda 7 coverage reports use another path.
+Where Camunda 7 coverage reports use another path, set `coverage_reports` on the matching Step 2
+inventory `test_suites[]` entry to module-relative globs.
 The default Camunda 7 coverage paths are `target/process-test-coverage/**/report.json` and
 `target/process_test_coverage/**/*.json`.
 Where a suite uses custom test source or resource directories, list each project-relative path in
 `test_source_roots` or `test_resource_roots`. Each path must remain inside that suite's module.
-Each configured root must exist as a directory when the freeze check runs.
+When the freeze check runs, each configured root must exist as a directory.
 Where a configured root uses generated files under `target` or `build`, generate those files before
 `init`.
 
@@ -400,11 +400,11 @@ The validator maps each invocation to `<module>:<fully qualified class>#<method>
 part can be a framework display name, including spaces and punctuation, such as a Cucumber scenario
 or Spock feature name. The validator preserves a report name that exactly matches a C7 Test
 Inventory ID or mapped CPT test ID. It removes parameter and repeat suffixes from other JUnit
-report names before matching them. It marks a method `passed` only when every invocation passes.
+report names before matching them. The table below maps invocation results to the method result.
 
-The baseline check passes when it captures a fresh report for every suite test ID. A failed or
+When the baseline check captures a fresh report for every suite test ID, the check passes. A failed or
 skipped C7 test remains visible in the ledger. A C7 test that did not pass is not required to pass
-parity. The C7 command can exit nonzero while the baseline check records valid reports. The ledger
+parity. The baseline check can record valid reports from a C7 command that exits nonzero. The ledger
 retains the individual test results.
 
 | Invocation results | Method result |
@@ -415,10 +415,9 @@ retains the individual test results.
 | No invocation errored or failed and one or more skipped | `skipped` |
 
 The validator copies JUnit reports to `.camunda-migration/validation/baseline/`. It records one
-result for each Test Inventory ID in the suite. It records the Step 2 Git commit when the project
-uses Git. It stores the C7 test results in `test-mapping.json`.
-The validator also records a Report only test found in a fresh C7 report even when the suite omits
-its ID.
+result for each Test Inventory ID in the suite. Where the project uses Git, it records the Step 2 Git commit. It stores the C7 test results in `test-mapping.json`.
+Where a fresh C7 report contains a `Report only` test that the suite omits, the validator also
+records that test.
 
 Where Camunda 7 process-test-coverage reports exist, the validator copies and parses their JSON
 reports. It records covered flow-node and sequence-flow IDs under each `modelKey`. It maps those IDs
@@ -526,23 +525,22 @@ Migrate it or record an approved retirement before claiming `READY`.
 
 When a ledger edit changes a test check's digest, the validator ignores that stale record. Record each still-required check again.
 The validator includes frozen test-file hashes and approved `test_changes` in assertion-strength and
-mock-boundary review digests. Record each required review again when either the hashes or approvals
-change.
+mock-boundary review digests. When the hashes or approvals change, record each required review again.
 
-For a retired test, set `retirement.reason` and `retirement.approved_by`. The validator rejects a
+Set `retirement.reason` and `retirement.approved_by` on each retired test. The validator rejects a
 retired test without both values.
 
 When all C7 tests are retired and no migrated or added `c8_ids` remain, the validator still checks
 the C7 baseline and retired disposition. It does not require `test_freeze` or `test_repeat`. It
 skips target coverage comparison because no CPT tests remain.
 
-For an added test, set `c8_ids`. The validator requires each added CPT test to pass in both runs.
+Set `c8_ids` on each added test. The validator requires each added CPT test to pass in both runs.
 Keep `c8_ids` distinct within each ledger row. Never assign one CPT ID to multiple migrated or
 added test rows.
 
 ## Freeze migrated tests
 
-After test migration, run the freeze check:
+When test migration completes, run the freeze check:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
@@ -557,7 +555,7 @@ The validator stores the original freeze digest in its `test_freeze` check log. 
 unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
 rejects it.
 
-Do not edit a frozen test file while migrating production code. Ask the user before a test file must
+While the skill migrates production code, it does not edit a frozen test file. Ask the user before a test file must
 change. Record each approved change with its path, reason, old hash, new hash, and approver:
 
 ```json
@@ -570,8 +568,8 @@ change. Record each approved change with its path, reason, old hash, new hash, a
 }
 ```
 
-Use `null` for a missing old hash when adding a file. Use `null` for a missing new hash when
-removing a file. The validator rejects each changed hash without a matching approval.
+When the change adds a file, use `null` for the old hash. When the change removes a file, use
+`null` for the new hash. The validator rejects each changed hash without a matching approval.
 
 ## CPT repeat and parity checks
 
@@ -585,7 +583,7 @@ The validator parses and preserves each run's JUnit XML. It compares each test m
 invocation results across the two runs. A difference marks the suite flaky. A failed command also
 fails the repeat check.
 
-After both runs and reviews pass, record the computed parity check:
+When both runs and all reviews pass, record the computed parity check:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_parity
@@ -602,8 +600,7 @@ Record assertion-strength reviews once per migrated test class:
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest --kind assertion_strength --note "Reviewed assertions for examples/web:com.example.OrderTest."
 ```
 
-Compare each C7 assertion with its CPT assertion. Keep equal or stronger assertions. Record a
-reason when a CPT test cannot retain an assertion.
+Compare each C7 assertion with its CPT assertion. Keep equal or stronger assertions. If a CPT test cannot retain an assertion, then record a reason.
 
 Record one mock-boundary review per migrated C7 test:
 
@@ -627,8 +624,8 @@ validator rejects an unapproved new mock.
 
 When one C7 test maps to multiple CPT tests, record `mocks.c8_by_test_id` as an object keyed by
 every ID in `c8_ids`. List each CPT test's mocks under its ID. Set `mocks.c8` to the union of those
-per-test lists. The validator requires this map when a multi-ID test has any C8 mocks. If `mocks.c8`
-is empty, the map is optional.
+per-test lists. When a multi-ID test has any C8 mocks, the validator requires this map. Where `mocks.c8` is
+empty, the map is optional.
 
 ## Coverage parity
 
@@ -639,23 +636,19 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ```
 
 The validator reads C7 process coverage from `target/process-test-coverage/**/report.json`. It reads
-CPT process coverage from `target/process-test-coverage/report.json` by default. Set
-`coverage_reports` to module-relative globs on the matching module's `test_suites[]` entry in
-`validation-evidence.json` when a suite writes CPT coverage to another path. The Step 2 inventory's
+CPT process coverage from `target/process-test-coverage/report.json` by default. Where a suite writes CPT coverage to another path, set `coverage_reports` to module-relative globs
+on the matching module's `test_suites[]` entry in `validation-evidence.json`. The Step 2 inventory's
 `test_suites[].coverage_reports` configures Camunda 7 coverage reports only.
 See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).
 
 The CPT 8.9.21 JSON report stores process entries in `coverages[]`. Newer CPT report schemas use
 `processCoverages[]`. Both arrays contain `processDefinitionId`, `completedElements`, and
-`takenSequenceFlows`. The validator compares the process IDs with C7-covered IDs. It maps a renamed
-process by shared element IDs when that mapping is unique. It ignores a C7-covered ID when no
-converted process contains it. It checks each retained C7-covered ID against both CPT runs.
-The gate reports ambiguity when one C7 process maps to multiple converted processes. It also reports
-ambiguity when multiple C7 process IDs map to the same CPT process ID.
-The gate reports ambiguity when one C7 process ID appears in multiple source models and a covered
-element remains in a converted model.
-The CPT report identifies processes by ID, not by converted model path. The gate reports ambiguity
-when a covered process ID appears in more than one converted model.
+`takenSequenceFlows`. The validator compares the process IDs with C7-covered IDs. Where shared element IDs map a renamed process uniquely, the validator uses that mapping. If no converted process contains a C7-covered ID, then the validator ignores that ID. It checks each retained C7-covered ID against both CPT runs.
+If one C7 process maps to multiple converted processes, then the gate reports ambiguity. If
+multiple C7 process IDs map to the same CPT process ID, then the gate reports ambiguity.
+If one C7 process ID appears in multiple source models and a covered element remains in a
+converted model, then the gate reports ambiguity.
+The CPT report identifies processes by ID, not by converted model path. If a covered process ID appears in more than one converted model, then the gate reports ambiguity.
 The validator marks a process row without C7-covered elements as `CPT coverage`. This status reports
 CPT coverage without claiming parity.
 
