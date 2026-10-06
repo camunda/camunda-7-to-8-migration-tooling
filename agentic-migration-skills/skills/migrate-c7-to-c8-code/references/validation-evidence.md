@@ -129,9 +129,15 @@ When a non-test Maven check needs packaging in `migrate_only`, use a standard li
 `-DskipTests`.
 The recorder accepts `-DskipTests` for standard Maven lifecycle phases and Surefire or Failsafe
 goals. It rejects other Maven test plugin goals.
+The recorder rejects non-empty `MAVEN_ARGS` because those arguments can add goals outside the
+submitted command.
+When Maven JVM options set `maven.test.skip=true`, the recorder rejects module `compile` evidence.
 When a Gradle non-test check needs packaging, select a task whose dependency graph contains no test
 tasks.
-Do not use Gradle `build` or `check` with `-x test` in this mode.
+The recorder inspects a Gradle dry-run task graph and identifies tasks by Gradle's `Test` type.
+When no `Test` task remains after the supplied exclusions, the recorder allows `build` or `check`.
+If a `Test` task remains, then the recorder rejects the command before it runs.
+If the recorder cannot inspect the task graph, then it rejects the command.
 Record the reason as `declined by user (Question 8)`.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:

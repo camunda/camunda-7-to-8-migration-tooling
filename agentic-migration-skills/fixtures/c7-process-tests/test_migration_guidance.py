@@ -717,10 +717,17 @@ class MigrationGuidanceTest(unittest.TestCase):
             r"When the recorder receives module `compile` evidence, it requires successful "
             r"test-source\s+compilation\.",
         )
+        self.assertIn("| Gradle | `build` or `check` |", test_migration)
         self.assertIn(
-            "| Gradle | `build` or `check`, including with `-x test` |",
+            "When no Gradle `Test` task remains in the dry-run graph, the recorder allows the command.",
             test_migration,
         )
+        self.assertIn(
+            "Maven `process-test-classes` or a later standard lifecycle phase qualifies "
+            "with `-DskipTests`.",
+            test_migration,
+        )
+        self.assertIn("| Maven | Non-empty `MAVEN_ARGS` |", test_migration)
         self.assertRegex(
             test_migration,
             r"snapshot\. \(MAY\)\s+Never rebuild the baseline from migrated code\.",
@@ -730,9 +737,14 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("It rejects other Maven test plugin goals.", validation_evidence)
         self.assertIn(
-            "Do not use Gradle `build` or `check` with `-x test` in this mode.",
+            "identifies tasks by Gradle's `Test` type.",
             validation_evidence,
         )
+        self.assertIn(
+            "If the recorder cannot inspect the task graph, then it rejects the command.",
+            validation_evidence,
+        )
+        self.assertIn("rejects non-empty `MAVEN_ARGS`", validation_evidence)
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("## Test-source compilation", report)

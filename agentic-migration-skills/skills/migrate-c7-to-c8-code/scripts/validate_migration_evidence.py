@@ -62,6 +62,7 @@ MAVEN_TEST_SOURCE_COMPILATION_PHASES = {
     "test",
     "prepare-package",
     "package",
+    "process-test-classes",
     "pre-integration-test",
     "integration-test",
     "post-integration-test",
@@ -74,7 +75,74 @@ MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS = {
     "maven-surefire-plugin",
 }
 MAVEN_SKIP_TESTS_PLUGIN_PREFIXES = {"failsafe", "surefire"}
-GRADLE_TEST_TASKS = {"build", "check", "test"}
+GRADLE_TEST_TASKS = {"test"}
+GRADLE_DRY_RUN_OPTIONS = {"--dry-run", "-m"}
+GRADLE_TASK_GRAPH_BEGIN = "__CAMUNDA_MIGRATION_TEST_GRAPH_BEGIN__"
+GRADLE_TASK_GRAPH_TEST = "__CAMUNDA_MIGRATION_TEST_TASK__:"
+GRADLE_TASK_GRAPH_END = "__CAMUNDA_MIGRATION_TEST_GRAPH_END__"
+UNINSPECTABLE_EXECUTABLES = {
+    "ant",
+    "ant.bat",
+    "bazel",
+    "bazelisk",
+    "bash",
+    "buck",
+    "buck2",
+    "bun",
+    "busybox",
+    "chronic",
+    "cmd",
+    "cmd.exe",
+    "command",
+    "cargo",
+    "dash",
+    "doas",
+    "dotnet",
+    "exec",
+    "fish",
+    "flock",
+    "go",
+    "gmake",
+    "gtimeout",
+    "just",
+    "ksh",
+    "make",
+    "mix",
+    "msbuild",
+    "nice",
+    "node",
+    "nodejs",
+    "nohup",
+    "npm",
+    "npx",
+    "perl",
+    "php",
+    "powershell",
+    "pwsh",
+    "pytest",
+    "python",
+    "python2",
+    "python3",
+    "ruby",
+    "rake",
+    "runuser",
+    "sh",
+    "sbt",
+    "setsid",
+    "sudo",
+    "su",
+    "time",
+    "task",
+    "timeout",
+    "tox",
+    "swift",
+    "watch",
+    "xargs",
+    "xcodebuild",
+    "yarn",
+    "zsh",
+}
+ENVIRONMENT_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 MAVEN_OPTIONS_WITH_VALUES = {
     "--activate-profiles", "--define", "--file", "--projects", "--resume-from",
     "--settings", "--threads", "--toolchains", "-D", "-P", "-T", "-f", "-pl", "-rf",
@@ -85,6 +153,77 @@ GRADLE_OPTIONS_WITH_VALUES = {
     "--project-cache-dir", "--project-dir", "--tests", "--warning-mode", "-D", "-I",
     "-P", "-p", "-x",
 }
+
+
+def _command_executable(command):
+    if not command or not isinstance(command[0], str):
+        return None
+    return command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+
+
+def _unwrap_env_command(command):
+    if not command or any(not isinstance(argument, str) for argument in command):
+        return None
+    unwrapped = list(command)
+    environment = os.environ.copy()
+    wrappers = 0
+    while _command_executable(unwrapped) == "env":
+        wrappers += 1
+        if wrappers > 8:
+            return None
+        index = 1
+        options_ended = False
+        while index < len(unwrapped):
+            argument = unwrapped[index]
+            if argument == "--" and not options_ended:
+                options_ended = True
+                index += 1
+                continue
+            if not options_ended and argument in {"-i", "--ignore-environment"}:
+                environment.clear()
+                index += 1
+                continue
+            if not options_ended and argument in {"-u", "--unset"}:
+                if index + 1 >= len(unwrapped):
+                    return None
+                environment.pop(unwrapped[index + 1], None)
+                index += 2
+                continue
+            if not options_ended and argument.startswith("--unset="):
+                environment.pop(argument.partition("=")[2], None)
+                index += 1
+                continue
+            if (
+                not options_ended
+                and argument.startswith("-u")
+                and len(argument) > 2
+            ):
+                environment.pop(argument[2:], None)
+                index += 1
+                continue
+            if not options_ended and argument.startswith("-"):
+                return None
+            if ENVIRONMENT_ASSIGNMENT.match(argument):
+                name, _, value = argument.partition("=")
+                environment[name] = value
+                index += 1
+                continue
+            break
+        if index >= len(unwrapped):
+            return None
+        unwrapped = unwrapped[index:]
+    return unwrapped, environment
+
+
+def _maven_skips_test_compilation(environment):
+    skip_property = re.compile(
+        r"""(?<!\S)['"]?-Dmaven\.test\.skip=(?:true|1|yes)['"]?(?=\s|$)""",
+        flags=re.IGNORECASE,
+    )
+    return any(
+        skip_property.search(environment.get(name, ""))
+        for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")
+    )
 
 
 def _maven_command_details(command):
@@ -173,10 +312,15 @@ def _maven_test_goal_honors_skip_tests(goal):
 
 
 def command_runs_test_suite(command):
-    if not command or not isinstance(command[0], str):
-        return False
-    executable = command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    """Return True for tests, False for non-tests, or None when inspection is needed."""
+    unwrapped = _unwrap_env_command(command)
+    if unwrapped is None:
+        return None
+    command, environment = unwrapped
+    executable = _command_executable(command)
     if executable in MAVEN_EXECUTABLES:
+        if environment.get("MAVEN_ARGS", "").strip():
+            return None
         arguments, skip_tests = _maven_command_details(command)
         for argument in arguments:
             goal = argument.split("@", 1)[0]
@@ -202,14 +346,21 @@ def command_runs_test_suite(command):
                 or task.endswith(("test", "tests"))
             ):
                 return True
-        return False
+        return None
+    if executable in UNINSPECTABLE_EXECUTABLES or (
+        executable.startswith("python")
+        and re.fullmatch(r"python\d+(?:\.\d+)*", executable)
+    ):
+        return None
     return False
 
 
 def command_compiles_test_sources(command):
-    if not command or not isinstance(command[0], str):
+    unwrapped = _unwrap_env_command(command)
+    if unwrapped is None:
         return False
-    executable = command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    command, _ = unwrapped
+    executable = _command_executable(command)
     if executable in MAVEN_EXECUTABLES:
         arguments, skip_tests = _maven_command_details(command)
         phases = {argument.split("@", 1)[0] for argument in arguments if ":" not in argument}
@@ -226,6 +377,73 @@ def command_compiles_test_sources(command):
             if task == "testclasses":
                 return True
     return False
+
+
+def inspect_gradle_test_tasks(command, root, timeout):
+    init_script = f"""
+gradle.taskGraph.whenReady {{ graph ->
+    println("{GRADLE_TASK_GRAPH_BEGIN}")
+    graph.allTasks.findAll {{ task ->
+        task instanceof org.gradle.api.tasks.testing.Test
+    }}.each {{ task ->
+        println("{GRADLE_TASK_GRAPH_TEST}" + task.path)
+    }}
+    println("{GRADLE_TASK_GRAPH_END}")
+}}
+"""
+    with tempfile.TemporaryDirectory(prefix="camunda-migration-gradle-") as temporary:
+        script_path = Path(temporary) / "inspect-test-tasks.gradle"
+        script_path.write_text(init_script, encoding="utf-8")
+        inspection_command = [
+            *command,
+            "--dry-run",
+            "--init-script",
+            str(script_path),
+        ]
+        try:
+            completed = subprocess.run(
+                inspection_command,
+                cwd=root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise EvidenceError(
+                "Question 8 could not inspect the Gradle task graph before the command timeout"
+            ) from exc
+        except OSError as exc:
+            raise EvidenceError(
+                f"Question 8 could not inspect the Gradle task graph: {exc}"
+            ) from exc
+
+    output = completed.stdout or ""
+    if completed.returncode != 0:
+        detail = output.strip()[-1000:]
+        raise EvidenceError(
+            "Question 8 could not inspect the Gradle task graph"
+            f" (exit code {completed.returncode}): {detail}"
+        )
+    lines = output.splitlines()
+    begin_markers = [index for index, line in enumerate(lines) if line == GRADLE_TASK_GRAPH_BEGIN]
+    end_markers = [index for index, line in enumerate(lines) if line == GRADLE_TASK_GRAPH_END]
+    if (
+        len(begin_markers) != 1
+        or len(end_markers) != 1
+        or begin_markers[0] >= end_markers[0]
+    ):
+        raise EvidenceError(
+            "Question 8 could not verify the Gradle task graph inspection output"
+        )
+    tasks = [
+        line[len(GRADLE_TASK_GRAPH_TEST):]
+        for line in lines[begin_markers[0] + 1:end_markers[0]]
+        if line.startswith(GRADLE_TASK_GRAPH_TEST)
+    ]
+    return tasks
 
 
 @dataclass
@@ -1853,6 +2071,7 @@ def record(root, args):
     output = ""
     reason = None
     result = "passed"
+    gradle_task_graph_inspected = False
     if args.action == "run":
         if args.timeout is not None and args.timeout <= 0:
             raise EvidenceError("Command timeout must be positive")
@@ -1866,9 +2085,31 @@ def record(root, args):
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
         if test_run_mode == "migrate_only":
-            if command_runs_test_suite(command):
+            unwrapped_command = _unwrap_env_command(command)
+            direct_command, command_environment = (
+                unwrapped_command if unwrapped_command is not None else (None, {})
+            )
+            executable = _command_executable(direct_command)
+            if (
+                executable in GRADLE_EXECUTABLES
+                and any(argument in GRADLE_DRY_RUN_OPTIONS for argument in direct_command[1:])
+            ):
+                raise EvidenceError(
+                    f"{key}: Question 8 does not accept Gradle dry-run output as check evidence"
+                )
+            test_execution = command_runs_test_suite(command)
+            if test_execution is True:
                 raise EvidenceError(
                     f"{key}: Question 8 selected Migrate tests only; test execution commands are not allowed"
+                )
+            if (
+                key[0] == "module"
+                and key[2] == "compile"
+                and executable in MAVEN_EXECUTABLES
+                and _maven_skips_test_compilation(command_environment)
+            ):
+                raise EvidenceError(
+                    f"{key}: Question 8 Maven options skip test-source compilation"
                 )
             if (
                 key[0] == "module"
@@ -1878,6 +2119,24 @@ def record(root, args):
                 raise EvidenceError(
                     f"{key}: Question 8 Migrate tests only requires test-source compilation evidence"
                 )
+            if test_execution is None:
+                if executable not in GRADLE_EXECUTABLES:
+                    raise EvidenceError(
+                        f"{key}: Question 8 cannot inspect test behavior for this command"
+                    )
+                remaining_test_tasks = inspect_gradle_test_tasks(
+                    command,
+                    root,
+                    args.timeout,
+                )
+                if remaining_test_tasks:
+                    task_list = ", ".join(remaining_test_tasks[:10])
+                    if len(remaining_test_tasks) > 10:
+                        task_list += f", and {len(remaining_test_tasks) - 10} more"
+                    raise EvidenceError(
+                        f"{key}: Question 8 Gradle test tasks remain in the task graph: {task_list}"
+                    )
+                gradle_task_graph_inspected = True
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -1898,6 +2157,8 @@ def record(root, args):
             result = "blocked"
             reason = str(exc)
             output = reason
+        if gradle_task_graph_inspected:
+            output = "Gradle dry-run task graph contained no Test tasks.\n\n" + output
     elif args.action == "review":
         output = args.note
         if not output.strip():

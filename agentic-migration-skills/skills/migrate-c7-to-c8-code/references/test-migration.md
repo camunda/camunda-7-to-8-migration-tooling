@@ -321,19 +321,25 @@ regardless of evidence kind:
 | Maven | A Surefire or Failsafe test goal with `-DskipTests` or `-DskipTests=true` | Allow the known test provider to skip execution. |
 | Maven | Another plugin's `:test` or `:integration-test` goal, even with `-DskipTests` | Reject the goal because the plugin may ignore that property. |
 | Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
-| Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from test-task detection. |
-| Gradle | `build` or `check`, including with `-x test` | Reject the aggregate task because other test tasks can remain in its task graph. |
+| Maven | Non-empty `MAVEN_ARGS` | Reject the command because these arguments can add goals that the recorder cannot inspect. |
+| Maven | JVM options set `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
+| Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from the task graph. |
+| Gradle | `build` or `check` | When no Gradle `Test` task remains in the dry-run graph, the recorder allows the command. |
+| Gradle | A `Test` task remains after exclusions | Reject the command before execution. |
 | Either | A test lifecycle goal or task without an applicable skip option | Reject the command. |
 
 When the recorder receives module `compile` evidence, it requires successful test-source
 compilation.
-Maven `test-compile` or a later standard lifecycle phase with `-DskipTests` qualifies.
+Maven `test-compile` qualifies.
+Maven `process-test-classes` or a later standard lifecycle phase qualifies with `-DskipTests`.
 Gradle requires the explicit `testClasses` task.
 A main-source-only compile does not qualify.
 
 When a non-test check needs Maven packaging, use the standard lifecycle with `-DskipTests`.
-When a non-test Gradle check needs packaging, select a task whose dependency graph contains no test
-tasks. Do not use aggregate `build` or `check` tasks in `migrate_only`.
+When a non-test Gradle check needs packaging, the recorder permits `build` or `check` after task
+graph inspection.
+When the recorder lists a remaining test task, exclude it with `-x <task>` and submit the command
+again.
 For every independently runnable suite, declare separate `test_suites` entries named
 `<suite>-c7-baseline` and `<suite>-c8-migrated`. Set `requires_docker` for each entry according to
 its runtime. These names give the baseline and migrated run separate validation evidence keys.
