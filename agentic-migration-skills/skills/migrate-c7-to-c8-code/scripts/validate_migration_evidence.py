@@ -2806,12 +2806,37 @@ def test_repeat_checks(plan, checks):
     return results
 
 
-def cpt_test_results(test_id, repeat_runs, contract):
+def module_test_suites(contract):
+    return contract.get("cpt_suites") or contract["suites"]
+
+
+def ledger_row_suite_keys(test, contract, mapping):
+    if test.get("status") == "added":
+        return [
+            suite_key
+            for suite_key in module_test_suites(contract)
+            if suite_key[1] == test.get("suite")
+        ]
+    test_id = test.get("c7_id")
+    keys = {
+        suite_key
+        for suite_key, suite in contract["suites"].items()
+        if test_id in suite.get("test_ids", suite.get("migrate_test_ids", []))
+    }
+    for baseline_suite in mapping.get("baseline", {}).get("suites", []):
+        if isinstance(baseline_suite, dict) and test_id in baseline_suite.get(
+            "test_results", {}
+        ):
+            keys.add((baseline_suite.get("module"), baseline_suite.get("suite")))
+    return sorted(key for key in keys if key in contract["suites"])
+
+
+def cpt_test_results(test_id, repeat_runs, suite_keys):
     module, _, _ = test_id_parts(test_id)
     matched = [[], []]
     found = False
-    for suite_key, suite in contract["suites"].items():
-        if suite["module"] != module:
+    for suite_key in suite_keys:
+        if suite_key[0] != module:
             continue
         runs = repeat_runs.get(suite_key)
         if runs is None:
@@ -2960,10 +2985,11 @@ def test_parity_issues(plan, checks, mapping):
         ):
             issues.append(f"{test_id}: migrated test needs distinct c8_ids")
             continue
+        suite_keys = ledger_row_suite_keys(test, contract, mapping)
         for c8_id in c8_ids:
             claim_cpt_id(c8_id, f"migrated C7 test {test_id}")
             try:
-                cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
+                cpt_results = cpt_test_results(c8_id, repeat_runs, suite_keys)
             except EvidenceError as exc:
                 issues.append(str(exc))
                 continue
@@ -2993,10 +3019,18 @@ def test_parity_issues(plan, checks, mapping):
             issues.append("Added CPT tests need the name of the suite that runs them")
         if len(c8_ids) != len(set(c8_ids)):
             issues.append("Added CPT tests need distinct c8_ids")
+        suite_keys = ledger_row_suite_keys(test, contract, mapping)
         for c8_id in dict.fromkeys(c8_ids):
             claim_cpt_id(c8_id, f"added CPT test {added_test_index}")
+            module, _, _ = test_id_parts(c8_id)
+            if (module, test.get("suite")) not in module_test_suites(contract):
+                issues.append(
+                    f"Added CPT test {c8_id} names unknown suite {test.get('suite')} "
+                    f"in module {module}"
+                )
+                continue
             try:
-                cpt_results = cpt_test_results(c8_id, repeat_runs, contract)
+                cpt_results = cpt_test_results(c8_id, repeat_runs, suite_keys)
             except EvidenceError as exc:
                 issues.append(str(exc))
                 continue
@@ -5068,9 +5102,10 @@ def render_test_parity(plan, checks, mapping):
         else:
             c8_ids = [c8_id for c8_id in c8_ids if isinstance(c8_id, str)]
         run_values = [[], []]
+        suite_keys = ledger_row_suite_keys(test, plan.test_contract, mapping)
         for c8_id in c8_ids:
             try:
-                results = cpt_test_results(c8_id, repeat_runs, plan.test_contract)
+                results = cpt_test_results(c8_id, repeat_runs, suite_keys)
             except EvidenceError:
                 results = None
             if results is None:

@@ -2627,6 +2627,31 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertNotIn(("module", "app", "test_repeat", "unit"), plan.required)
 
         mapping = gate.read_test_mapping(self.root, required=True)
+        passing_run = {
+            "test_results": {"app:com.example.OrderIT#testOrder": {"result": "passed"}}
+        }
+        for suite_name in ("integration", "unit"):
+            with self.subTest(suite=suite_name):
+                checks = {
+                    ("module", "app", "test_repeat", suite_name): (
+                        None,
+                        {"test_runs": [passing_run, passing_run]},
+                    )
+                }
+                issues = gate.test_parity_issues(plan, checks, mapping)
+                self.assertEqual(
+                    suite_name != "integration",
+                    "Added CPT test app:com.example.OrderIT#testOrder must pass in both runs"
+                    in issues,
+                    issues,
+                )
+
+        mapping["tests"][0]["suite"] = "missing"
+        self.assertIn(
+            "Added CPT test app:com.example.OrderIT#testOrder names unknown suite "
+            "missing in module app",
+            gate.test_parity_issues(plan, {}, mapping),
+        )
         del mapping["tests"][0]["suite"]
         self.assertIn(
             "Added CPT tests need the name of the suite that runs them",
