@@ -97,10 +97,10 @@ Assign every `Migrate` test to at least one suite. Use a distinct `name` for eac
 The validator uses `command` for the Camunda 7 baseline. It runs the command without a shell.
 Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
 
-Set `reports` to a list of project-relative globs when the build uses custom JUnit report paths.
+Set `reports` to a list of module-relative globs when the build uses custom JUnit report paths.
 The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
 In the Step 2 inventory, set `coverage_reports` on the matching `test_suites[]` entry to
-project-relative globs when Camunda 7 coverage reports use another path.
+module-relative globs when Camunda 7 coverage reports use another path.
 The default Camunda 7 coverage paths are `target/process-test-coverage/**/report.json` and
 `target/process_test_coverage/**/*.json`.
 Where a suite uses custom test source or resource directories, list each project-relative path in
@@ -352,8 +352,8 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 The validator reads C7 process coverage from `target/process-test-coverage/**/report.json`. It reads
 CPT process coverage from `target/process-test-coverage/report.json` by default. Set
-`coverage_reports` on the matching module's `test_suites[]` entry in `validation-evidence.json`
-when a suite writes CPT coverage to another path. The Step 2 inventory's
+`coverage_reports` to module-relative globs on the matching module's `test_suites[]` entry in
+`validation-evidence.json` when a suite writes CPT coverage to another path. The Step 2 inventory's
 `test_suites[].coverage_reports` configures Camunda 7 coverage reports only.
 See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).
 
