@@ -33,7 +33,7 @@ primary Type.
 | External task worker | Fetch the files for the detected operations: `30-glue-code/20-java-spring-external-task-worker/adjusting-the-java-class.md`, `30-glue-code/20-java-spring-external-task-worker/handling-a-bpmn-error.md`, `30-glue-code/20-java-spring-external-task-worker/handling-a-failure.md`, `30-glue-code/20-java-spring-external-task-worker/handling-an-incident.md`, and `30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md`. When Approach A runs, also fetch `30-glue-code/idiomatic-job-worker-cleanup.md`. |
 | Listener or `Flag: global behavior` | `30-glue-code/30-java-spring-listeners/listeners.md` |
 | HTTP connector code | `30-glue-code/outbound-http-rest-connector.md` |
-| Test code | Fetch the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md`, `40-test-assertions/10-assertions/70-executable-entry-points.md` |
+| Test code | Fetch the files that the Test code table below selects |
 
 When Notes identify `FileValue` or `Variables.fileValue(...)`, add
 `10-general/process-variables.md` and `20-client-code/10-process-engine/handle-files-and-documents.md`.
@@ -42,6 +42,22 @@ When Notes identify `camunda:connector`, `http-connector`, or HTTP client code i
 
 Fetch `ALL_IN_ONE.md` only when the inventory spans most of the catalog, or when a path above returns
 404 and the skill needs to find the moved file. (MAY)
+
+### Test code
+
+The Test Inventory in `test-migration.md` selects the test catalog files.
+A selected row is a Test Inventory row with handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)`.
+Fetch test catalog files only for selected rows.
+
+| Test Inventory signal | Catalog path |
+|---|---|
+| Any selected row in the module | `40-test-assertions/20-test-setup/10-junit-harness.md`, `40-test-assertions/20-test-setup/20-deployment.md`, `40-test-assertions/20-test-setup/30-spring-boot-test.md`, and `10-general/dependencies.md` |
+| Assertions in a selected row | `40-test-assertions/10-assertions/80-assertion-mapping.md`. Add the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md`, `40-test-assertions/10-assertions/70-executable-entry-points.md` |
+| `time` modifier | `40-test-assertions/10-assertions/60-job.md` |
+| `mocks` modifier | `40-test-assertions/30-mocks/10-delegate-mocks.md` and `40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md` |
+| Test kind `decision test` | `40-test-assertions/40-decisions/10-decision-tests.md` |
+| `coverage` modifier | `40-test-assertions/50-coverage-and-scenarios/10-coverage.md` |
+| Test kind `scenario test` | `40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md` |
 
 ## Model/Diagram Patterns
 

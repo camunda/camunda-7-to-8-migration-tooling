@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_ProcessTests" targetNamespace="http://camunda.org/examples">
+  <bpmn:message id="Message_Continue" name="ContinueMessage" />
+  <bpmn:process id="order-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Order" name="Start order">
+      <bpmn:outgoing>Flow_Order_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Approve" name="Approve order" camunda:assignee="demo">
+      <bpmn:incoming>Flow_Order_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Order_Approved</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="Boundary_Timer" name="Timer expires" attachedToRef="Task_Approve" cancelActivity="true">
+      <bpmn:outgoing>Flow_Order_Timer</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>P1D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="Task_Escalate" name="Escalate order">
+      <bpmn:incoming>Flow_Order_Timer</bpmn:incoming>
+      <bpmn:outgoing>Flow_Order_Timeout</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Approved" name="Order approved">
+      <bpmn:incoming>Flow_Order_Approved</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Timeout" name="Order timed out">
+      <bpmn:incoming>Flow_Order_Timeout</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Order_Start" sourceRef="Start_Order" targetRef="Task_Approve" />
+    <bpmn:sequenceFlow id="Flow_Order_Approved" sourceRef="Task_Approve" targetRef="End_Approved" />
+    <bpmn:sequenceFlow id="Flow_Order_Timer" sourceRef="Boundary_Timer" targetRef="Task_Escalate" />
+    <bpmn:sequenceFlow id="Flow_Order_Timeout" sourceRef="Task_Escalate" targetRef="End_Timeout" />
+  </bpmn:process>
+  <bpmn:process id="async-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Async" name="Start async process">
+      <bpmn:outgoing>Flow_Async_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Async" name="Run continuation" camunda:class="com.camunda.fixture.tests.NoopDelegate" camunda:asyncBefore="true">
+      <bpmn:incoming>Flow_Async_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Async_Continue</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_AfterAsync" name="Continue after async">
+      <bpmn:incoming>Flow_Async_Continue</bpmn:incoming>
+      <bpmn:outgoing>Flow_Async_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Async" name="Async process complete">
+      <bpmn:incoming>Flow_Async_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Async_Start" sourceRef="Start_Async" targetRef="Task_Async" />
+    <bpmn:sequenceFlow id="Flow_Async_Continue" sourceRef="Task_Async" targetRef="Task_AfterAsync" />
+    <bpmn:sequenceFlow id="Flow_Async_End" sourceRef="Task_AfterAsync" targetRef="End_Async" />
+  </bpmn:process>
+  <bpmn:process id="message-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Message" name="Start message process">
+      <bpmn:outgoing>Flow_Message_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:intermediateCatchEvent id="Message_Catch" name="Wait for continuation">
+      <bpmn:incoming>Flow_Message_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Message_End</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_Continue" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="End_Message" name="Message process complete">
+      <bpmn:incoming>Flow_Message_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Message_Start" sourceRef="Start_Message" targetRef="Message_Catch" />
+    <bpmn:sequenceFlow id="Flow_Message_End" sourceRef="Message_Catch" targetRef="End_Message" />
+  </bpmn:process>
+  <bpmn:process id="failing-process" isExecutable="true">
+    <bpmn:startEvent id="Start_Failure" name="Start failing process">
+      <bpmn:outgoing>Flow_Failure_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Fail" name="Fail process" camunda:class="com.camunda.fixture.tests.FailingDelegate">
+      <bpmn:incoming>Flow_Failure_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Failure_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Failure" name="Failure process complete">
+      <bpmn:incoming>Flow_Failure_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Failure_Start" sourceRef="Start_Failure" targetRef="Task_Fail" />
+    <bpmn:sequenceFlow id="Flow_Failure_End" sourceRef="Task_Fail" targetRef="End_Failure" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="order-process">
+      <bpmndi:BPMNShape id="Start_Order_di" bpmnElement="Start_Order">
+        <dc:Bounds x="160" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Approve_di" bpmnElement="Task_Approve">
+        <dc:Bounds x="256" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Approved_di" bpmnElement="End_Approved">
+        <dc:Bounds x="416" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_Timer_di" bpmnElement="Boundary_Timer">
+        <dc:Bounds x="288" y="142" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Escalate_di" bpmnElement="Task_Escalate">
+        <dc:Bounds x="416" y="220" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Timeout_di" bpmnElement="End_Timeout">
+        <dc:Bounds x="576" y="242" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Order_Start_di" bpmnElement="Flow_Order_Start">
+        <di:waypoint x="196" y="120" />
+        <di:waypoint x="256" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Order_Approved_di" bpmnElement="Flow_Order_Approved">
+        <di:waypoint x="356" y="120" />
+        <di:waypoint x="416" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Order_Timer_di" bpmnElement="Flow_Order_Timer">
+        <di:waypoint x="306" y="178" />
+        <di:waypoint x="306" y="260" />
+        <di:waypoint x="416" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Order_Timeout_di" bpmnElement="Flow_Order_Timeout">
+        <di:waypoint x="516" y="260" />
+        <di:waypoint x="576" y="260" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_2">
+    <bpmndi:BPMNPlane id="BPMNPlane_2" bpmnElement="async-process">
+      <bpmndi:BPMNShape id="Start_Async_di" bpmnElement="Start_Async">
+        <dc:Bounds x="160" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Async_di" bpmnElement="Task_Async">
+        <dc:Bounds x="256" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AfterAsync_di" bpmnElement="Task_AfterAsync">
+        <dc:Bounds x="416" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Async_di" bpmnElement="End_Async">
+        <dc:Bounds x="576" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Async_Start_di" bpmnElement="Flow_Async_Start">
+        <di:waypoint x="196" y="120" />
+        <di:waypoint x="256" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Async_Continue_di" bpmnElement="Flow_Async_Continue">
+        <di:waypoint x="356" y="120" />
+        <di:waypoint x="416" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Async_End_di" bpmnElement="Flow_Async_End">
+        <di:waypoint x="516" y="120" />
+        <di:waypoint x="576" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_3">
+    <bpmndi:BPMNPlane id="BPMNPlane_3" bpmnElement="message-process">
+      <bpmndi:BPMNShape id="Start_Message_di" bpmnElement="Start_Message">
+        <dc:Bounds x="160" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Message_Catch_di" bpmnElement="Message_Catch">
+        <dc:Bounds x="256" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Message_di" bpmnElement="End_Message">
+        <dc:Bounds x="352" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Message_Start_di" bpmnElement="Flow_Message_Start">
+        <di:waypoint x="196" y="120" />
+        <di:waypoint x="256" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Message_End_di" bpmnElement="Flow_Message_End">
+        <di:waypoint x="292" y="120" />
+        <di:waypoint x="352" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_4">
+    <bpmndi:BPMNPlane id="BPMNPlane_4" bpmnElement="failing-process">
+      <bpmndi:BPMNShape id="Start_Failure_di" bpmnElement="Start_Failure">
+        <dc:Bounds x="160" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Fail_di" bpmnElement="Task_Fail">
+        <dc:Bounds x="256" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Failure_di" bpmnElement="End_Failure">
+        <dc:Bounds x="416" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Failure_Start_di" bpmnElement="Flow_Failure_Start">
+        <di:waypoint x="196" y="120" />
+        <di:waypoint x="256" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Failure_End_di" bpmnElement="Flow_Failure_End">
+        <di:waypoint x="356" y="120" />
+        <di:waypoint x="416" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

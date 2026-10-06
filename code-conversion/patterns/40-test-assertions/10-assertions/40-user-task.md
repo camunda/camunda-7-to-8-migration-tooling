@@ -5,6 +5,9 @@
 You can assert that the process is waiting at a user task, and complete it using built-in helpers:
 
 ```java
+import java.util.HashMap;
+import java.util.Map;
+
 @Test
 void testUserTaskIsReachedAndCompleted() {
   ProcessInstance processInstance = runtimeService()
@@ -18,22 +21,30 @@ void testUserTaskIsReachedAndCompleted() {
     .hasName("Approve Request")
     .isAssignedTo("demo");
 
-  complete(task());
+  Map<String, Object> variables = new HashMap<>();
+  variables.put("approved", true);
+  complete(task(), variables);
 
   assertThat(processInstance)
     .hasPassed("UserTask_Approve")
     .isEnded();
+  assertThat(processInstance).variables().containsEntry("approved", true);
 }
 ```
 
 
 ## Camunda 8
 
-With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete jobs](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#complete-user-tasks).
+The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete user tasks](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-user-tasks).
 
 Note that you typically address elements by ID and not by name, which we do for illustration purposes here:
 
 ```java
+import java.util.HashMap;
+import java.util.Map;
+
+import io.camunda.process.test.api.assertions.UserTaskSelectors;
+
 @Autowired
 private CamundaClient client;
 @Autowired
@@ -54,11 +65,14 @@ void testUserTaskIsReachedAndCompleted() {
     .hasName("Approve Request")
     .hasAssignee("demo");
 
-  // Retrieve and complete task using custom methods
-  processTestContext.completeUserTask("Approve Request", variables);
+  // Complete the task by its name selector
+  Map<String, Object> variables = new HashMap<>();
+  variables.put("approved", true);
+  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
-    .isCompleted();
+    .isCompleted()
+    .hasVariable("approved", true);
 }
 ```

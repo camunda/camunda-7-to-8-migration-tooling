@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_Startup_Order"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="startup-order" name="Startup order" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Startup" />
+    <bpmn:sequenceFlow id="Flow_Startup_Wait" sourceRef="StartEvent_Startup" targetRef="Task_StartupWait" />
+    <bpmn:userTask id="Task_StartupWait" name="Wait for startup review">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_Startup_End" sourceRef="Task_StartupWait" targetRef="EndEvent_Startup" />
+    <bpmn:endEvent id="EndEvent_Startup" />
+  </bpmn:process>
+</bpmn:definitions>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  targetNamespace="http://camunda.com/fixture/order/legacy">
+  <bpmn:process id="legacyOrder" name="Legacy order" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_LegacyOrder" name="Start legacy order">
+      <bpmn:outgoing>Flow_Legacy_CheckStock</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_LegacyCheckStock" name="Check stock" camunda:class="com.camunda.fixture.order.CheckStockDelegate">
+      <bpmn:incoming>Flow_Legacy_CheckStock</bpmn:incoming>
+      <bpmn:outgoing>Flow_Legacy_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_LegacyOrder" name="Legacy order complete">
+      <bpmn:incoming>Flow_Legacy_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Legacy_CheckStock" sourceRef="Start_LegacyOrder" targetRef="Task_LegacyCheckStock" />
+    <bpmn:sequenceFlow id="Flow_Legacy_End" sourceRef="Task_LegacyCheckStock" targetRef="End_LegacyOrder" />
+  </bpmn:process>
+</bpmn:definitions>

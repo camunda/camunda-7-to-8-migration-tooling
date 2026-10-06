@@ -126,7 +126,9 @@ These items are not in the catalog:
 - If target compatibility remains unconfirmed, then leave the active code unchanged. Record each
   affected call site as `blocked` with a manual follow-up in `MIGRATION_REPORT.md`. Do not report
   an affected flow as migrated.
-- If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
+- When at least one Test Inventory row has the `Spring` modifier and handling `Migrate to CPT`, the
+  skill selects the CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
+  For Spring test migration, the skill follows `references/test-migration.md`.
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
@@ -427,12 +429,24 @@ The catalog covers listener mappings, including the multi-instance collection li
 
 ## 6. Test Code (NOT fully covered by OpenRewrite)
 
-Catalog: `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
-`30-process-variable`, `40-user-task`, `50-message`, `60-job`).
+Follow `references/test-migration.md` for every Camunda 7 test in the Test Inventory. It defines
+the JUnit 5 and CPT 8.9+ migration, deployment rules, semantic changes, dependency changes, and
+parity checks.
 
-These items are not in the catalog:
+Catalog: the Test code table in `pattern-catalog-sources.md` selects these files from the Test
+Inventory. The catalog is the source of truth for exact API mappings.
 
-- Add per-worker overrides when mocked workers need exceptions.
+- `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
+  `30-process-variable`, `40-user-task`, `50-message`, `60-job`, `70-executable-entry-points`,
+  `80-assertion-mapping`)
+- `40-test-assertions/20-test-setup/` (`10-junit-harness`, `20-deployment`, `30-spring-boot-test`)
+- `40-test-assertions/30-mocks/` (`10-delegate-mocks`, `20-call-activity-and-decision-mocks`)
+- `40-test-assertions/40-decisions/` (`10-decision-tests`)
+- `40-test-assertions/50-coverage-and-scenarios/` (`10-coverage`, `20-scenario-tests`)
+- `10-general/dependencies.md` (Camunda 7 test artifacts and their CPT replacements)
+
+This item is not in the catalog:
+
 - When a large suite on 8.9+ uses one runtime configuration, use CPT shared-runtime mode.
 
 ---
@@ -522,7 +536,7 @@ Use these to classify files during assessment:
 | `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
-| `@Test` + Camunda 7 test rules | Test code |
+| `@Test` with `ProcessEngineRule` or `ProcessEngineExtension`, a JUnit 3 `test*()` method in a `ProcessEngineTestCase` subclass, `AbstractProcessEngineRuleTest`, `StandaloneInMemoryTestConfiguration`, or `BpmnAwareTests`/`ProcessEngineTests` assertions | Test code. Classify the test kind in [test-migration.md](test-migration.md). |
 | `application.properties`/`.yaml` with `camunda.*` keys | Config |
 | `ProcessEnginePlugin`, BPMN parse listeners | Flag: global behavior |
 

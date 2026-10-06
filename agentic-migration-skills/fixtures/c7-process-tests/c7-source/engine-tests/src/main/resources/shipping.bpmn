@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  targetNamespace="http://camunda.com/fixture/shipping">
+  <bpmn:process id="shipping" name="Shipping" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_Shipping" name="Start shipping">
+      <bpmn:outgoing>Flow_Shipping_Ship</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_ShipOrder" name="Ship order" camunda:class="com.camunda.fixture.order.ShipOrderDelegate">
+      <bpmn:incoming>Flow_Shipping_Ship</bpmn:incoming>
+      <bpmn:outgoing>Flow_Ship_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Shipping" name="Shipping complete">
+      <bpmn:incoming>Flow_Ship_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Shipping_Ship" sourceRef="Start_Shipping" targetRef="Task_ShipOrder" />
+    <bpmn:sequenceFlow id="Flow_Ship_End" sourceRef="Task_ShipOrder" targetRef="End_Shipping" />
+  </bpmn:process>
+</bpmn:definitions>

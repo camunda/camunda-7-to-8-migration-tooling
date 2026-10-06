@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_Promotions"
+             name="Promotions"
+             namespace="http://camunda.org/examples">
+  <inputData id="InputData_Region" name="region">
+    <variable id="Variable_Region" name="region" typeRef="string"/>
+  </inputData>
+  <decision id="customerTier" name="Customer tier">
+    <variable id="Variable_CustomerTier" name="customerTier" typeRef="string"/>
+    <informationRequirement id="InformationRequirement_Region">
+      <requiredInput href="#InputData_Region"/>
+    </informationRequirement>
+    <decisionTable id="DecisionTable_CustomerTier" hitPolicy="UNIQUE">
+      <input id="Input_CustomerTier_Region">
+        <inputExpression id="InputExpression_CustomerTier_Region" typeRef="string">
+          <text>region</text>
+        </inputExpression>
+      </input>
+      <output id="Output_CustomerTier" name="customerTier" typeRef="string"/>
+      <rule id="Rule_Europe">
+        <inputEntry id="InputEntry_Europe">
+          <text>"EU"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Europe">
+          <text>"gold"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_NorthAmerica">
+        <inputEntry id="InputEntry_NorthAmerica">
+          <text>"US"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_NorthAmerica">
+          <text>"silver"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="promotions" name="Promotions">
+    <informationRequirement id="InformationRequirement_CustomerTier">
+      <requiredDecision href="#customerTier"/>
+    </informationRequirement>
+    <decisionTable id="DecisionTable_Promotions" hitPolicy="COLLECT">
+      <input id="Input_Promotion_Tier">
+        <inputExpression id="InputExpression_Promotion_Tier" typeRef="string">
+          <text>customerTier</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Promotion" name="promotion" typeRef="string"/>
+      <output id="Output_Bonus" name="bonus" typeRef="string"/>
+      <rule id="Rule_Gold_Travel">
+        <inputEntry id="InputEntry_Gold_Travel">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Gold_Travel">
+          <text>"travel"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Gold_Travel_Bonus">
+          <text>null</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_Gold_Lounge">
+        <inputEntry id="InputEntry_Gold_Lounge">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Gold_Lounge">
+          <text>"lounge"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Gold_Lounge_Bonus">
+          <text>"premium"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_Silver_Newsletter">
+        <inputEntry id="InputEntry_Silver_Newsletter">
+          <text>"silver"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Silver_Newsletter">
+          <text>"newsletter"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Silver_Newsletter_Bonus">
+          <text>"basic"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="uniqueViolation" name="Unique violation">
+    <variable id="Variable_UniqueViolation" name="uniqueViolation" typeRef="string"/>
+    <informationRequirement id="InformationRequirement_UniqueRegion">
+      <requiredInput href="#InputData_Region"/>
+    </informationRequirement>
+    <decisionTable id="DecisionTable_UniqueViolation" hitPolicy="UNIQUE">
+      <input id="Input_UniqueViolation_Region">
+        <inputExpression id="InputExpression_UniqueViolation_Region" typeRef="string">
+          <text>region</text>
+        </inputExpression>
+      </input>
+      <output id="Output_UniqueViolation" name="value" typeRef="string"/>
+      <rule id="Rule_UniqueViolation_First">
+        <inputEntry id="InputEntry_UniqueViolation_First">
+          <text>"EU"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_UniqueViolation_First">
+          <text>"first"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_UniqueViolation_Second">
+        <inputEntry id="InputEntry_UniqueViolation_Second">
+          <text>"EU"</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_UniqueViolation_Second">
+          <text>"second"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>
