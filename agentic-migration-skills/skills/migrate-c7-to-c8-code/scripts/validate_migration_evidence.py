@@ -298,6 +298,23 @@ def source_test_contract(test_contract):
     return test_contract_snapshot(test_contract, include_modules=True)
 
 
+def source_test_contract_matches_snapshot(current, snapshot):
+    if current == snapshot:
+        return True
+    if (
+        not isinstance(current, dict)
+        or not isinstance(snapshot, dict)
+        or snapshot.get("mode") != "migrate_only"
+        or current.get("mode") != "run"
+    ):
+        return False
+    return {
+        key: value for key, value in current.items() if key != "mode"
+    } == {
+        key: value for key, value in snapshot.items() if key != "mode"
+    }
+
+
 def test_contract_snapshot(test_contract, *, include_modules):
     if test_contract is None:
         return None
@@ -903,6 +920,52 @@ def test_id_parts(test_id):
     return module, class_name, method
 
 
+def test_inventory_table_candidate(lines):
+    expected_columns = {"test id", "file", "test kind", "handling"}
+    for index, line in enumerate(lines):
+        cells = markdown_cells(line)
+        if not cells:
+            continue
+        names = {plain_markdown_cell(cell).casefold() for cell in cells}
+        candidate_header = len(expected_columns & names) >= 2
+        values = [plain_markdown_cell(cell) for cell in cells]
+        test_id_columns = []
+        for column, value in enumerate(values):
+            try:
+                test_id_parts(value)
+            except EvidenceError:
+                continue
+            test_id_columns.append(column)
+        if test_id_columns and any(
+            column not in test_id_columns
+            and ("/" in value or "\\" in value or Path(value).suffix)
+            for column, value in enumerate(values)
+        ):
+            return True
+        if not candidate_header:
+            continue
+        for candidate in lines[index + 1:]:
+            row = markdown_cells(candidate)
+            if not row:
+                break
+            if all(re.fullmatch(r":?-{3,}:?", cell) for cell in row):
+                continue
+            if any(
+                _is_test_inventory_id(plain_markdown_cell(cell))
+                for cell in row
+            ):
+                return True
+    return False
+
+
+def _is_test_inventory_id(value):
+    try:
+        test_id_parts(value)
+    except EvidenceError:
+        return False
+    return True
+
+
 def test_report_inventory(root, *, required=True):
     path = root / REPORT
     if not path.is_file():
@@ -979,6 +1042,10 @@ def test_report_inventory(root, *, required=True):
         if required:
             raise EvidenceError(
                 "test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory"
+            )
+        if test_inventory_table_candidate(lines):
+            raise EvidenceError(
+                "MIGRATION_REPORT.md Test Inventory table has no valid header"
             )
         if any(
             re.match(r"^#{1,6}\s+test inventory(?:\s|$)", line.strip(), re.IGNORECASE)
@@ -1064,7 +1131,7 @@ def test_contract(root, inventory):
             "modules": inventory.get("modules", []),
         }
 
-    tests = test_report_inventory(root)
+    tests = test_report_inventory(root, required=False)
     module_paths = set(strings(inventory.get("modules"), "Step 2 modules"))
     test_by_id = {test["id"]: test for test in tests}
     for test in tests:
@@ -1160,9 +1227,9 @@ def validate_source_snapshot_test_contract(root, inventory):
     if "test_run_mode" not in inventory:
         return None
     current_test_contract = test_contract(root, inventory)
-    if (
-        source_test_contract(current_test_contract)
-        != inventory.get("source_snapshot_test_contract")
+    if not source_test_contract_matches_snapshot(
+        source_test_contract(current_test_contract),
+        inventory.get("source_snapshot_test_contract"),
     ):
         raise EvidenceError(
             "Test Inventory or C7 suite commands changed after the Step 2 snapshot"
@@ -2699,8 +2766,10 @@ def requirements(root, evidence):
         }
     if (
         "test_run_mode" in inventory
-        and source_test_contract(tests)
-        != inventory.get("source_snapshot_test_contract")
+        and not source_test_contract_matches_snapshot(
+            source_test_contract(tests),
+            inventory.get("source_snapshot_test_contract"),
+        )
     ):
         issues.append(
             "Test Inventory or C7 suite commands changed after the Step 2 snapshot; "

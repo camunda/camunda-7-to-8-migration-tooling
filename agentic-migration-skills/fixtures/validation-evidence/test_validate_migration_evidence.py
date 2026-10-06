@@ -1883,6 +1883,47 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.issues,
         )
 
+    def assert_missing_test_run_mode_rejects_malformed_inventory(self, heading):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        report_path = self.root / gate.REPORT
+        report = report_path.read_text(encoding="utf-8")
+        malformed_report = report.replace(
+            "| Test ID | File | Test kind | Signals | Models | Handling | Notes |",
+            "| Test ID | File | Test kind | Signals | Models | Disposition | Notes |",
+        )
+        if heading is None:
+            malformed_report = malformed_report.replace("## Test Inventory\n\n", "")
+        else:
+            malformed_report = malformed_report.replace("## Test Inventory", heading)
+        self.assertNotEqual(report, malformed_report)
+        report_path.write_text(malformed_report, encoding="utf-8")
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory.pop("test_run_mode")
+        write_json(inventory_path, inventory)
+        with redirect_stdout(StringIO()):
+            gate.initialize(self.root, reset_source_snapshot=True)
+
+        plan = gate.requirements(self.root, self.plan)
+        if not plan.issues:
+            self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        summary = self.summary()
+        self.assertEqual("NOT READY", summary["gate"])
+        self.assertTrue(
+            any("Test Inventory" in issue for issue in summary["issues"]),
+            summary["issues"],
+        )
+
+    def test_missing_test_run_mode_rejects_malformed_inventory_without_heading(self):
+        self.assert_missing_test_run_mode_rejects_malformed_inventory(None)
+
+    def test_missing_test_run_mode_rejects_malformed_inventory_with_renamed_heading(self):
+        self.assert_missing_test_run_mode_rejects_malformed_inventory("## Test Cases")
+
     def test_c7_baseline_can_be_captured_before_mapping_report_only_tests(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
