@@ -194,6 +194,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         c7_coverage=None,
         *,
         test_file_path="app/src/test/java/com/example/OrderTest.java",
+        test_handling="Migrate",
         test_source_roots=None,
         test_resource_roots=None,
     ):
@@ -236,7 +237,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             "| Test ID | File | Test kind | Signals | Models | Handling | Notes |\n"
             "|---|---|---|---|---|---|---|\n"
             f"| `{self.c7_test_id}` | `{test_file_path}` "
-            "| process test | ProcessEngineRule | order.bpmn | Migrate | — |\n",
+            f"| process test | ProcessEngineRule | order.bpmn | {test_handling} | — |\n",
             encoding="utf-8",
         )
         with redirect_stdout(StringIO()):
@@ -1071,6 +1072,67 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.required,
         )
         self.assertIn(report_only_cpt_id, mapped_c8_ids)
+
+    def test_all_report_only_migrated_tests_require_validation(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        mapping = gate.empty_test_mapping(inventory)
+        mapping["tests"] = [
+            {
+                "c7_id": self.c7_test_id,
+                "test_kind": "process test",
+                "handling": "Report only",
+                "c7_result": None,
+                "c8_ids": [self.c8_test_id],
+                "mocks": {"c7": [], "c8": []},
+                "status": "migrated",
+            }
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(self.root, self.plan)
+        for key in (
+            ("module", "app", "test_repeat", "unit"),
+            ("project", ".", "test_freeze", None),
+            ("project", ".", "test_parity", None),
+            ("project", ".", "coverage_parity", None),
+            ("test", "app:com.example.OrderTest", "assertion_strength", None),
+            ("test", self.c7_test_id, "mock_boundary", None),
+        ):
+            with self.subTest(key=key):
+                self.assertIn(key, plan.required)
+
+        repeat_result = gate.record_test_repeat(
+            self.root,
+            plan,
+            Namespace(
+                target="app",
+                scenario="unit",
+                command=self.cpt_command(),
+                timeout=None,
+            ),
+            mapping,
+        )
+        self.assertEqual("passed", repeat_result["result"])
+        self.assertEqual(
+            {self.c8_test_id},
+            set(repeat_result["test_runs"][0]["test_results"]),
+        )
+        gate.record_test_freeze(self.root, plan, mapping)
+        self.assertIn(self.c7_test_file_path, mapping["freeze"]["files"])
+
+        with redirect_stdout(StringIO()):
+            self.assertEqual(1, gate.report(self.root))
+        issues = json.loads((self.root / gate.SUMMARY).read_text(encoding="utf-8"))[
+            "issues"
+        ]
+        self.assertIn(
+            f"{self.c7_test_id}: mapped CPT test {self.c8_test_id} is missing from both runs",
+            issues,
+        )
 
     def test_test_id_parts_rejects_blank_method_names(self):
         for test_id in ("app:com.example.OrderSpec#", "app:com.example.OrderSpec#  "):
@@ -2341,7 +2403,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             "baseline": {
                 "coverage_available": True,
                 "coverage": {"p": ["TaskA"]},
-            }
+            },
+            "tests": [],
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2393,7 +2456,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "baseline": {
                         "coverage_available": True,
                         "coverage": {"p": ["TaskA"]},
-                    }
+                    },
+                    "tests": [],
                 }
 
                 issues, details = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2444,7 +2508,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             "baseline": {
                 "coverage_available": True,
                 "coverage": {"source-a": ["TaskA"]},
-            }
+            },
+            "tests": [],
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2490,7 +2555,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "source-p1": ["TaskA"],
                     "source-p2": ["TaskB"],
                 },
-            }
+            },
+            "tests": [],
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2532,7 +2598,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             "baseline": {
                 "coverage_available": True,
                 "coverage": {"p": ["TaskA", "TaskB"]},
-            }
+            },
+            "tests": [],
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2574,7 +2641,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "p": ["RemovedTask"],
                     "legacy-p": ["TaskA"],
                 },
-            }
+            },
+            "tests": [],
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)

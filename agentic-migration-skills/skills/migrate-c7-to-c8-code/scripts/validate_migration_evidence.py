@@ -1346,9 +1346,12 @@ def coverage_json(coverage):
     return {process_id: sorted(element_ids) for process_id, element_ids in sorted(coverage.items())}
 
 
-def current_test_files(root, plan):
+def current_test_files(root, plan, mapping=None):
+    migrated_test_ids = mapped_migrated_test_ids(mapping)
     migrated_tests = [
-        test for test in plan.test_contract["tests"] if test["handling"] == "Migrate"
+        test
+        for test in plan.test_contract["tests"]
+        if test["handling"] == "Migrate" or test["id"] in migrated_test_ids
     ]
     modules = sorted({test["module"] for test in migrated_tests})
     files = {}
@@ -1357,7 +1360,9 @@ def current_test_files(root, plan):
     roots_by_module = {module: set() for module in modules}
     for suite in plan.test_contract["suites"].values():
         module = suite["module"]
-        if module not in roots_by_module or not suite["migrate_test_ids"]:
+        if module not in roots_by_module or not suite_has_migrated_tests(
+            suite, migrated_test_ids
+        ):
             continue
         for root_type in ("test_source_roots", "test_resource_roots"):
             for value in suite[root_type]:
@@ -1449,7 +1454,7 @@ def recorded_test_freeze_digest(root, mapping):
 
 def validate_test_freeze(root, plan, mapping):
     issues = []
-    current = current_test_files(root, plan)
+    current = current_test_files(root, plan, mapping)
     frozen = mapping["freeze"]["files"]
     if not current and not frozen:
         issues.append("test_freeze: no migrated test files or resources were found")
@@ -1559,7 +1564,7 @@ def record_test_freeze(root, plan, mapping):
         raise EvidenceError(
             "test_freeze: a validator-owned snapshot cannot be replaced by a new freeze"
         )
-    current = current_test_files(root, plan)
+    current = current_test_files(root, plan, mapping)
     if not current:
         raise EvidenceError("test_freeze: no migrated test files or resources were found")
     mapping["freeze"]["files"] = current
@@ -1615,6 +1620,30 @@ def expected_cpt_test_ids(mapping):
                 c8_id for c8_id in c8_ids if isinstance(c8_id, str) and c8_id
             )
     return expected_ids
+
+
+def mapped_migrated_test_ids(mapping):
+    if mapping is None:
+        return set()
+    return {
+        test_id
+        for test_id, test in test_rows_by_id(mapping).items()
+        if test.get("status") == "migrated"
+    }
+
+
+def test_validation_enabled(contract, migrated_test_ids):
+    return contract["mode"] == "run" and (
+        bool(migrated_test_ids)
+        or any(test["handling"] == "Migrate" for test in contract["tests"])
+    )
+
+
+def suite_has_migrated_tests(suite, migrated_test_ids):
+    return bool(
+        suite.get("migrate_test_ids")
+        or set(suite.get("test_ids", [])) & migrated_test_ids
+    )
 
 
 def normalized_mock(value):
@@ -1926,11 +1955,12 @@ def test_parity_issues(plan, checks, mapping):
 def coverage_parity_issues(plan, checks, mapping):
     issues = []
     contract = plan.test_contract
+    migrated_test_ids = mapped_migrated_test_ids(mapping)
     repeat_runs = test_repeat_checks(plan, checks)
     cpt_coverage = [{}, {}]
     cpt_decisions = [{}, {}]
     for suite_key, suite in contract["suites"].items():
-        if not suite["migrate_test_ids"]:
+        if not suite_has_migrated_tests(suite, migrated_test_ids):
             continue
         runs = repeat_runs.get(suite_key)
         if runs is None:
@@ -2327,21 +2357,25 @@ def requirements(root, evidence):
             "Test Inventory or C7 suite commands changed after the Step 2 snapshot; "
             "restore the C7 baseline before resetting the source snapshot"
         )
-    test_enabled = tests["mode"] == "run" and any(
-        test["handling"] == "Migrate" for test in tests["tests"]
-    )
     migrated_test_ids = set()
-    if test_enabled:
+    if tests["mode"] == "run":
         try:
             mapping = read_test_mapping(root)
-            if mapping is not None:
-                migrated_test_ids = {
-                    test_id
-                    for test_id, test in test_rows_by_id(mapping).items()
-                    if test.get("status") == "migrated"
-                }
+            migrated_test_ids = mapped_migrated_test_ids(mapping)
         except EvidenceError as exc:
             issues.append(str(exc))
+    test_enabled = test_validation_enabled(tests, migrated_test_ids)
+    if test_enabled:
+        test_by_id = {test["id"]: test for test in tests["tests"]}
+        for test_id in migrated_test_ids:
+            if test_id not in test_by_id:
+                issues.append(
+                    f"unmapped CPT test {test_id}: migrated test is missing from the Test Inventory"
+                )
+            elif not tests["test_suites"].get(test_id):
+                issues.append(
+                    f"{test_id}: no Step 2 test suite records this migrated test"
+                )
     source_updates = inventory.get("source_updates")
     if (
         not isinstance(source_updates, dict)
@@ -2412,7 +2446,9 @@ def requirements(root, evidence):
             module_suite_keys.add(suite_key)
             cpt_suites[suite_key] = suite
             step2_suite = tests["suites"].get(suite_key)
-            if test_enabled and step2_suite and step2_suite["migrate_test_ids"]:
+            if test_enabled and step2_suite and suite_has_migrated_tests(
+                step2_suite, migrated_test_ids
+            ):
                 check_kind = "test_repeat"
             else:
                 check_kind = "tests"
@@ -2435,7 +2471,7 @@ def requirements(root, evidence):
         need("project", ".", "docker_info")
     if test_enabled:
         for suite_key, suite in tests["suites"].items():
-            if not suite["migrate_test_ids"]:
+            if not suite_has_migrated_tests(suite, migrated_test_ids):
                 continue
             module, name = suite_key
             if suite_key not in module_suite_keys:
@@ -2443,7 +2479,8 @@ def requirements(root, evidence):
                     f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
                 )
                 need("module", module, "test_repeat", name)
-            need("module", module, "c7_baseline", name)
+            if suite["migrate_test_ids"]:
+                need("module", module, "c7_baseline", name)
         need("project", ".", "test_freeze", method="snapshot")
         need("project", ".", "test_parity", method="computed")
         need("project", ".", "coverage_parity", method="computed")
@@ -4124,6 +4161,7 @@ def report(root):
     checks = {}
     plan = None
     mapping = None
+    test_validation = False
     coverage_output = {
         "baseline_note": "No Camunda 7 coverage baseline.",
         "c7_coverage": {},
@@ -4173,29 +4211,33 @@ def report(root):
             for key, check in checks.items()
         ):
             issues.append("A non-Docker test was classified as Docker unavailable")
-        if plan.test_contract["mode"] == "run" and any(
-            test["handling"] == "Migrate" for test in plan.test_contract["tests"]
-        ):
+        if plan.test_contract["mode"] == "run":
             try:
-                mapping = read_test_mapping(root, required=True)
-                rows = test_rows_by_id(mapping)
-                mapped_c8_ids = mapped_cpt_test_ids(plan.test_contract, rows)
-                issues.extend(validate_test_freeze(root, plan, mapping))
-                issues.extend(test_parity_issues(plan, checks, mapping))
-                coverage_issues, coverage_output = coverage_parity_issues(
-                    plan, checks, mapping
+                mapping = read_test_mapping(root)
+                test_validation = test_validation_enabled(
+                    plan.test_contract, mapped_migrated_test_ids(mapping)
                 )
-                issues.extend(coverage_issues)
-                for test in mapping["tests"]:
-                    if isinstance(test, dict) and test.get("status") == "migrated":
-                        issues.extend(
-                            test_mock_issues(
-                                test,
-                                mapping,
-                                mapped_c8_ids,
-                                plan.source_job_types_by_model,
+                if test_validation:
+                    if mapping is None:
+                        mapping = read_test_mapping(root, required=True)
+                    rows = test_rows_by_id(mapping)
+                    mapped_c8_ids = mapped_cpt_test_ids(plan.test_contract, rows)
+                    issues.extend(validate_test_freeze(root, plan, mapping))
+                    issues.extend(test_parity_issues(plan, checks, mapping))
+                    coverage_issues, coverage_output = coverage_parity_issues(
+                        plan, checks, mapping
+                    )
+                    issues.extend(coverage_issues)
+                    for test in mapping["tests"]:
+                        if isinstance(test, dict) and test.get("status") == "migrated":
+                            issues.extend(
+                                test_mock_issues(
+                                    test,
+                                    mapping,
+                                    mapped_c8_ids,
+                                    plan.source_job_types_by_model,
+                                )
                             )
-                        )
             except EvidenceError as exc:
                 issues.append(str(exc))
     except EvidenceError as exc:
@@ -4204,9 +4246,7 @@ def report(root):
     if path.is_symlink():
         raise EvidenceError("Refusing to replace a symlinked MIGRATION_REPORT.md")
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    if plan is not None and plan.test_contract["mode"] == "run" and any(
-        test["handling"] == "Migrate" for test in plan.test_contract["tests"]
-    ):
+    if plan is not None and test_validation:
         report_mapping = mapping or {
             "tests": [],
             "test_changes": [],

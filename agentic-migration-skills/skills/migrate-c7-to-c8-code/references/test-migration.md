@@ -244,6 +244,8 @@ Use these ledger statuses:
 | `manual` | The Test Inventory marks the test `Report only`. The test is not verified. |
 | `added` | The migration added a CPT test without a C7 source test. |
 
+The validator requires the same repeat, parity, freeze, and review evidence for migrated `Report only` tests.
+
 When a `Report only` test passed in the C7 baseline, its `manual` status does not satisfy parity.
 Migrate it or record an approved retirement before claiming `READY`.
 
