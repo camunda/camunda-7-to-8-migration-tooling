@@ -1592,8 +1592,6 @@ def test_rows_by_id(mapping):
 def mapped_cpt_test_ids(contract, rows):
     mapped_c8_ids = set()
     for inventory_test in contract["tests"]:
-        if inventory_test["handling"] != "Migrate":
-            continue
         test = rows.get(inventory_test["id"])
         if test is None or test.get("status") != "migrated":
             continue
@@ -1603,6 +1601,20 @@ def mapped_cpt_test_ids(contract, rows):
                 c8_id for c8_id in c8_ids if isinstance(c8_id, str) and c8_id
             )
     return mapped_c8_ids
+
+
+def expected_cpt_test_ids(mapping):
+    test_rows_by_id(mapping)
+    expected_ids = set()
+    for test in mapping["tests"]:
+        if test.get("status") not in ("migrated", "added"):
+            continue
+        c8_ids = test.get("c8_ids")
+        if isinstance(c8_ids, list):
+            expected_ids.update(
+                c8_id for c8_id in c8_ids if isinstance(c8_id, str) and c8_id
+            )
+    return expected_ids
 
 
 def normalized_mock(value):
@@ -2215,9 +2227,7 @@ def record_test_repeat(root, plan, args, mapping):
     if not command or not command[0]:
         raise EvidenceError("Supply the CPT test command after --")
 
-    expected_test_ids = mapped_cpt_test_ids(
-        plan.test_contract, test_rows_by_id(mapping)
-    )
+    expected_test_ids = expected_cpt_test_ids(mapping)
     runs = [
         run_cpt_test_suite(
             root,
@@ -2439,7 +2449,7 @@ def requirements(root, evidence):
         need("project", ".", "coverage_parity", method="computed")
         reviewed_classes = set()
         for test in tests["tests"]:
-            if test["handling"] != "Migrate" or test["id"] not in migrated_test_ids:
+            if test["id"] not in migrated_test_ids:
                 continue
             class_target = f"{test['module']}:{test['class_name']}"
             if class_target not in reviewed_classes:
@@ -4055,7 +4065,9 @@ def render_test_coverage(plan, coverage_output):
         )
         removed = sorted(set(c7_elements) - retained)
         exists = bool(converted_processes)
-        if not coverage_output.get("baseline_note", "").startswith("Camunda 7"):
+        if not c7_elements:
+            status = "CPT coverage"
+        elif not coverage_output.get("baseline_note", "").startswith("Camunda 7"):
             status = "not comparable"
         elif not exists:
             status = "converted process absent"

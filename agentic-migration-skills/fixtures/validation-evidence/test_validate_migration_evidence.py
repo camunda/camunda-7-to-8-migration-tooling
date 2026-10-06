@@ -270,6 +270,22 @@ class ValidationEvidenceTest(unittest.TestCase):
         c8_file.parent.mkdir(parents=True, exist_ok=True)
         c8_file.write_text("class OrderCptTest {}\n", encoding="utf-8")
 
+    def add_report_only_inventory_test(self, test_id, file_path, test_kind):
+        source_file = self.root / file_path
+        source_file.parent.mkdir(parents=True, exist_ok=True)
+        source_file.write_text("", encoding="utf-8")
+        (self.root / gate.REPORT).write_text(
+            "# Migration report\n\n"
+            "## Test Inventory\n\n"
+            "| Test ID | File | Test kind | Handling |\n"
+            "|---|---|---|---|\n"
+            f"| `{self.c7_test_id}` | `{self.c7_test_file_path}` | process test | Migrate |\n"
+            f"| `{test_id}` | `{file_path}` | {test_kind} | Report only |\n",
+            encoding="utf-8",
+        )
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+
     def cpt_command(self, first_junit=None, second_junit=None, first_coverage=None, second_coverage=None):
         files = {
             "app/target/surefire-reports/TEST-com.example.OrderCptTest.xml": [
@@ -914,6 +930,147 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("passed", result["result"])
         for run in result["test_runs"]:
             self.assertEqual({self.c8_test_id}, set(run["test_results"]))
+
+    def test_cpt_repeat_preserves_added_display_name_suffixes(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        added_id = (
+            "app:com.example.AddedCptTest#Scenario: place order (3DS)"
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["tests"].append({"status": "added", "c8_ids": [added_id]})
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderCptTest" name="testOrder" />'
+            '<testcase classname="com.example.AddedCptTest" '
+            'name="Scenario: place order (3DS)" />'
+            "</testsuite>"
+        )
+
+        result = gate.record_test_repeat(
+            self.root,
+            gate.requirements(self.root, self.plan),
+            Namespace(
+                target="app",
+                scenario="unit",
+                command=self.cpt_command(first_junit=junit),
+                timeout=None,
+            ),
+            mapping,
+        )
+
+        self.assertEqual("passed", result["result"])
+        for run in result["test_runs"]:
+            self.assertEqual({self.c8_test_id, added_id}, set(run["test_results"]))
+
+    def test_cpt_repeat_preserves_migrated_report_only_display_name_suffixes(self):
+        report_only_id = "app:com.example.OrderSpec#an order can be paid (3DS)"
+        c7_junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderTest" name="testOrder" />'
+            '<testcase classname="com.example.OrderSpec" '
+            'name="an order can be paid (3DS)" />'
+            "</testsuite>"
+        )
+        self.configure_test_run(c7_junit)
+        self.add_report_only_inventory_test(
+            report_only_id,
+            "app/src/test/groovy/com/example/OrderSpec.groovy",
+            "Spock feature",
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        report_only_cpt_id = (
+            "app:com.example.OrderCptSpec#an order can be paid (3DS)"
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        report_only_test = next(
+            test for test in mapping["tests"] if test.get("c7_id") == report_only_id
+        )
+        report_only_test.update(
+            status="migrated",
+            c8_ids=[report_only_cpt_id],
+            mocks={"c7": [], "c8": []},
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.map_test_to_cpt()
+        junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderCptTest" name="testOrder" />'
+            '<testcase classname="com.example.OrderCptSpec" '
+            'name="an order can be paid (3DS)" />'
+            "</testsuite>"
+        )
+
+        result = gate.record_test_repeat(
+            self.root,
+            gate.requirements(self.root, self.plan),
+            Namespace(
+                target="app",
+                scenario="unit",
+                command=self.cpt_command(first_junit=junit),
+                timeout=None,
+            ),
+            gate.read_test_mapping(self.root, required=True),
+        )
+
+        self.assertEqual("passed", result["result"])
+        for run in result["test_runs"]:
+            self.assertEqual(
+                {self.c8_test_id, report_only_cpt_id},
+                set(run["test_results"]),
+            )
+
+    def test_migrated_report_only_tests_require_review_checks(self):
+        report_only_id = "app:com.example.OrderSpec#an order can be paid (3DS)"
+        c7_junit = (
+            "<testsuite>"
+            '<testcase classname="com.example.OrderTest" name="testOrder" />'
+            '<testcase classname="com.example.OrderSpec" '
+            'name="an order can be paid (3DS)" />'
+            "</testsuite>"
+        )
+        self.configure_test_run(c7_junit)
+        self.add_report_only_inventory_test(
+            report_only_id,
+            "app/src/test/groovy/com/example/OrderSpec.groovy",
+            "Spock feature",
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        report_only_cpt_id = (
+            "app:com.example.OrderCptSpec#an order can be paid (3DS)"
+        )
+        mapping = gate.read_test_mapping(self.root, required=True)
+        report_only_test = next(
+            test for test in mapping["tests"] if test.get("c7_id") == report_only_id
+        )
+        report_only_test.update(
+            status="migrated",
+            c8_ids=[report_only_cpt_id],
+            mocks={"c7": [], "c8": []},
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        self.map_test_to_cpt()
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        mapped_c8_ids = gate.mapped_cpt_test_ids(
+            plan.test_contract,
+            gate.test_rows_by_id(gate.read_test_mapping(self.root, required=True)),
+        )
+
+        self.assertIn(
+            ("test", "app:com.example.OrderSpec", "assertion_strength", None),
+            plan.required,
+        )
+        self.assertIn(
+            ("test", report_only_id, "mock_boundary", None),
+            plan.required,
+        )
+        self.assertIn(report_only_cpt_id, mapped_c8_ids)
 
     def test_test_id_parts_rejects_blank_method_names(self):
         for test_id in ("app:com.example.OrderSpec#", "app:com.example.OrderSpec#  "):
@@ -2119,6 +2276,41 @@ class ValidationEvidenceTest(unittest.TestCase):
             gate.requirements(self.root, self.plan), checks, mapping
         )
         self.assertTrue(any("lost C7-covered elements: TaskA" in issue for issue in issues), issues)
+
+    def test_test_coverage_report_labels_cpt_only_processes(self):
+        plan = Namespace(
+            converted_elements={
+                ("models/converted-c8-process.bpmn", "renamed-p"): {"TaskA"},
+                ("models/converted-c8-process.bpmn", "new-p"): {"TaskB"},
+            }
+        )
+        coverage_output = {
+            "baseline_note": "Camunda 7 coverage baseline captured.",
+            "c7_coverage": {"source-p": ["TaskA"]},
+            "cpt_run_1": {
+                "new-p": ["TaskB"],
+                "renamed-p": ["TaskA"],
+            },
+            "cpt_run_2": {
+                "new-p": ["TaskB"],
+                "renamed-p": ["TaskA"],
+            },
+            "process_mappings": {"source-p": ["renamed-p"]},
+            "retained_c7_elements": {"source-p": ["TaskA"]},
+        }
+
+        report = gate.render_test_coverage(plan, coverage_output)
+        statuses = {
+            cells[1].strip(): cells[5].strip()
+            for line in report.splitlines()
+            if line.startswith("| ")
+            for cells in [line.split("|")]
+            if len(cells) > 5
+        }
+
+        self.assertEqual("passed", statuses["source-p"])
+        self.assertEqual("CPT coverage", statuses["new-p"])
+        self.assertEqual("CPT coverage", statuses["renamed-p"])
 
     def test_coverage_parity_fails_when_exact_process_id_is_ambiguous(self):
         run = {
