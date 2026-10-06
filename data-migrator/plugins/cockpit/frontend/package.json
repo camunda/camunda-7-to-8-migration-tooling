@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check:type-escapes": "node scripts/check-type-escapes.mjs",
     "copy": "cpx2 \"dist/**/*\" \"../target/classes/plugin-webapp/migrator-plugin/app/\"",
-    "watch": "npm run build:watch & chokidar \"dist/**/*\" -c \"npm run copy\"",
+    "watch": "npm run build:watch",
     "livereload": "node livereload-server.js",
     "dev": "cross-env NODE_ENV=development rollup -c -w & npm run livereload",
     "dev:full": "cross-env NODE_ENV=development npm-run-all --parallel build:watch livereload"
@@ -30,13 +30,11 @@
     "@rollup/plugin-commonjs": "~29.0.0",
     "@rollup/plugin-node-resolve": "~16.0.0",
     "@rollup/plugin-replace": "~6.0.1",
-    "chokidar-cli": "^3.0.0",
     "cpx2": "^9.0.0",
     "cross-env": "^10.0.0",
     "livereload": "^0.10.0",
     "npm-run-all2": "^9.0.0",
     "rollup": "~4.64.0",
-    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-scss": "~4.0.0",
     "sass": "^1.79.4",
     "typescript": "^7.0.0"

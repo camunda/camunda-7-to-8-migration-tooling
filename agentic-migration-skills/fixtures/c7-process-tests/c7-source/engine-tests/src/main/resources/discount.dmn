@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101/dmn.xsd"
+             xmlns:camunda="http://camunda.org/schema/1.0/dmn"
+             id="Definitions_Discount"
+             name="Discount"
+             namespace="http://camunda.com/fixture/discount">
+  <decision id="discount" name="Discount" camunda:historyTimeToLive="180">
+    <decisionTable id="DecisionTable_Discount" hitPolicy="FIRST">
+      <input id="Input_CustomerType" label="Customer type">
+        <inputExpression id="Expression_CustomerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <output id="Output_DiscountRate" name="discountRate" typeRef="string" />
+      <output id="Output_Segment" name="segment" typeRef="string" />
+      <rule id="Rule_Gold">
+        <inputEntry id="Gold_Input">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="Gold_Discount">
+          <text>"15%"</text>
+        </outputEntry>
+        <outputEntry id="Gold_Segment">
+          <text>"premium"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="uniqueViolation" name="Unique violation" camunda:historyTimeToLive="180">
+    <decisionTable id="DecisionTable_UniqueViolation" hitPolicy="UNIQUE">
+      <input id="Input_UniqueCustomerType" label="Customer type">
+        <inputExpression id="Expression_UniqueCustomerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <output id="Output_UniqueDiscount" name="discount" typeRef="string" />
+      <rule id="Rule_UniqueGoldOne">
+        <inputEntry id="Unique_Gold_Input_One">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="Unique_Gold_Output_One">
+          <text>"first"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_UniqueGoldTwo">
+        <inputEntry id="Unique_Gold_Input_Two">
+          <text>"gold"</text>
+        </inputEntry>
+        <outputEntry id="Unique_Gold_Output_Two">
+          <text>"second"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

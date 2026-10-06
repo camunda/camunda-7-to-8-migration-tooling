@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  targetNamespace="http://camunda.com/fixture/fulfillment">
+  <bpmn:message id="Message_CarrierConfirmed" name="CarrierConfirmed" />
+  <bpmn:process id="fulfillment" name="Fulfillment" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="Start_Fulfillment" name="Start fulfillment">
+      <bpmn:outgoing>Flow_Start_Work</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="CompleteWork" name="Complete work">
+      <bpmn:incoming>Flow_Start_Work</bpmn:incoming>
+      <bpmn:outgoing>Flow_Work_Carrier</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="Boundary_DailyReminder" name="Daily reminder" attachedToRef="CompleteWork" cancelActivity="false">
+      <bpmn:outgoing>Flow_Reminder_Remind</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeCycle>R/P1D</bpmn:timeCycle>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="RemindColleague" name="Remind colleague">
+      <bpmn:incoming>Flow_Reminder_Remind</bpmn:incoming>
+      <bpmn:outgoing>Flow_Remind_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="ColleagueReminded" name="Colleague reminded">
+      <bpmn:incoming>Flow_Remind_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="BookCarrier" name="Book carrier" camunda:type="external" camunda:topic="book-carrier">
+      <bpmn:incoming>Flow_Work_Carrier</bpmn:incoming>
+      <bpmn:outgoing>Flow_Carrier_Message</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:intermediateCatchEvent id="WaitForCarrierConfirmation" name="Wait for carrier confirmation">
+      <bpmn:incoming>Flow_Carrier_Message</bpmn:incoming>
+      <bpmn:outgoing>Flow_Message_Ship</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_CarrierConfirmed" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:callActivity id="ShipOrder" name="Ship order" calledElement="shipping">
+      <bpmn:incoming>Flow_Message_Ship</bpmn:incoming>
+      <bpmn:outgoing>Flow_Ship_End</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="WorkFinished" name="Work finished">
+      <bpmn:incoming>Flow_Ship_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Work" sourceRef="Start_Fulfillment" targetRef="CompleteWork" />
+    <bpmn:sequenceFlow id="Flow_Work_Carrier" sourceRef="CompleteWork" targetRef="BookCarrier" />
+    <bpmn:sequenceFlow id="Flow_Reminder_Remind" sourceRef="Boundary_DailyReminder" targetRef="RemindColleague" />
+    <bpmn:sequenceFlow id="Flow_Remind_End" sourceRef="RemindColleague" targetRef="ColleagueReminded" />
+    <bpmn:sequenceFlow id="Flow_Carrier_Message" sourceRef="BookCarrier" targetRef="WaitForCarrierConfirmation" />
+    <bpmn:sequenceFlow id="Flow_Message_Ship" sourceRef="WaitForCarrierConfirmation" targetRef="ShipOrder" />
+    <bpmn:sequenceFlow id="Flow_Ship_End" sourceRef="ShipOrder" targetRef="WorkFinished" />
+  </bpmn:process>
+</bpmn:definitions>

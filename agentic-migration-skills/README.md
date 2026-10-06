@@ -1,6 +1,6 @@
 # Agentic Migration Skills
 
-[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8. The skill covers Java code, BPMN/DMN models, project documentation, and migration-readiness checks for CI. It uses platform-agnostic instructions for compatible agents on Windows, macOS, and Linux.
+[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8. The skill covers Java code and Camunda 7 test inventories, BPMN/DMN models, project documentation, and migration-readiness checks for CI. It uses platform-agnostic instructions for compatible agents on Windows, macOS, and Linux.
 
 ## Install
 
@@ -104,7 +104,7 @@ The skill separates assessment, model analysis, model conversion, and complete m
 
 | Goal | Select or ask for | Result |
 |---|---|---|
-| Inventory a Camunda 7 project | **Assessment only** | The skill inventories code, models, project documentation, and CI workflows. It writes `MIGRATION_REPORT.md`. It leaves all other project files, including source, models, documentation, and CI, unchanged. |
+| Inventory a Camunda 7 project | **Assessment only** | The skill inventories code and tests, models, project documentation, and CI workflows. It writes `MIGRATION_REPORT.md`. It leaves all other project files, including source, models, documentation, and CI, unchanged. |
 | Analyze BPMN/DMN models | **Models only**, **Diagram Converter CLI** or **Agentic AI**, then **Analyze-only** | The skill reports gaps without editing source models. The CLI uses `--check`. Agentic AI uses a read-only pass. |
 | Convert BPMN/DMN models | **Models only** | Select the Diagram Converter CLI (recommended), Agentic AI, or Online Converter. Each path preserves source models and produces reviewable converted copies. |
 | Migrate Java/Spring code | **Code only** | The skill uses a pattern-guided AI-first approach, or a recipe-assisted OpenRewrite + AI approach. |
@@ -272,6 +272,9 @@ The `fixtures/delegate-transaction-boundaries` path test checks C7
 `camunda:asyncAfter` boundaries before a JavaDelegate.
 The `fixtures/worker-input-bindings` fixture tests explicit single-variable
 bindings and complete-map access without retained Java parameter names.
+The `fixtures/c7-process-tests` fixture inventories JUnit 3/4/5, Spring Boot,
+DMN, scenario, and remote-engine tests, then checks their CPT migration and
+walkthrough reports.
 The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
 a runtime module without a usable SLF4J provider cannot pass logging validation.
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture

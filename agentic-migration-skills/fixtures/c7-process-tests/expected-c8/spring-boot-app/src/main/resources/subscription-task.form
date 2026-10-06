@@ -1,0 +1,22 @@
+{
+  "components": [
+    {
+      "type": "text",
+      "text": "Schedule a welcome call.",
+      "id": "Text_WelcomeCall",
+      "layout": {
+        "row": "row_0",
+        "columns": null
+      }
+    }
+  ],
+  "executionPlatform": "Camunda Cloud",
+  "executionPlatformVersion": "8.9.0",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.32.0"
+  },
+  "schemaVersion": 18,
+  "id": "subscription-task",
+  "type": "default"
+}

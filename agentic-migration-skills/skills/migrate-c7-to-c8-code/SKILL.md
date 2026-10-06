@@ -4,8 +4,9 @@ description: |-
   Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring
   code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService clients,
   execution/task listeners, IncidentHandler implementations, ProcessEnginePlugin
-  registrations, and application config with camunda.* keys). Handles BPMN/DMN
-  models with the camunda: namespace, project documentation, and CI readiness.
+  registrations, and application config with camunda.* keys), Camunda 7 test
+  inventories, BPMN/DMN models with the camunda: namespace, project documentation,
+  and CI readiness.
   Use for code migration, model migration, or both.
 license: Camunda License 1.0
 ---
@@ -239,10 +240,22 @@ Engine REST call, inventory its HTTP topology. Follow
 port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
 consumer actions. Where the management server uses a separate bind address or port, record both.
 
+#### Test Inventory
+
+Run the test inventory during every Step 2 assessment, including Assessment only and code approach C.
+Follow `references/test-migration.md`. Scan declared test source sets, shared test support, and test
+cases, including configured Cucumber scenarios. Include out-of-scope tests. Link each in-scope test
+to its deployed models and record its modifiers. Do not migrate tests or ask a test-migration
+question during Step 2.
+
 #### Model Inventory
 
 Glob for the model files. Record each one in a table with the columns File, Type, Uses `camunda:` ns,
 Notes.
+Include CMMN models deployed by tests in the Model Inventory. Record them as manual redesign. Do not
+offer them for BPMN/DMN conversion.
+Include every model deployed by a test, including models under `src/test/resources`. Link each
+model path from the Test Inventory.
 
 Then parse every original BPMN with a namespace-aware parser and inventory all three Camunda 7 form
 surfaces:
@@ -288,6 +301,8 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 Present the code and model file counts. Present the overall complexity and the recommended code path.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
+Present test counts by test kind. State how many tests are eligible for CPT migration. List every
+`Report only` Test ID and its reason. Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
 
 #### Custom incident notifications
