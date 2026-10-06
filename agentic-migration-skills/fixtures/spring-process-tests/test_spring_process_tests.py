@@ -144,7 +144,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "manual migration",
             "manual redesign",
             "out of scope (Camunda 8)",
-            "Kotlin or Groovy tests that use C7 test APIs",
+            "A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision.",
             "plain Java tests",
             "camunda.cfg.xml",
             "org.camunda.bpm.extension:camunda-bpm-junit5",
@@ -163,8 +163,9 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "| Test ID | File | Test kind | Signals | Models | Handling | Notes |",
             "Camunda 8.9 or later",
             "test migration needs Camunda 8.9 or later",
-            "When the target version is 8.8, the skill still detects every test.",
-            "It sets each in-scope test's handling to Report only",
+            "When the target version is Camunda 8.8, the skill detects every test.",
+            "| Migrate | Report only | `test migration needs Camunda 8.9 or later` |",
+            "| Migrate to CPT | Report only | `test migration needs Camunda 8.9 or later` |",
         ):
             with self.subTest(required=required):
                 self.assertIn(
@@ -200,7 +201,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The skill verifies that a direct service call resolves to a real C7 engine in the test or its shared configuration.",
             "The skill requires a completed task's `processInstanceId` to identify an executed BPMN process before `TaskService.complete(...)` is a process-test signal.",
             "`TaskService.newTask()` without a process instance is not a process-test signal.",
-            "| A model built with `Bpmn.createExecutableProcess()` | Set handling to `Report only`. Record the manual migration reason in Notes. |",
+            "| BPMN model built with the Camunda fluent model API, such as `Bpmn.createExecutableProcess()` | Record the model as programmatically built and note the manual migration reason in `Notes` | Report only |",
             "`@Deployment` is model-resolution evidence, not a test-kind signal by itself.",
             "mocked `RuntimeService`",
             "`ProcessEnginePlugin`",
@@ -265,7 +266,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             normalized_reference,
         )
         self.assertIn(
-            "| Migrate to CPT only with the `Spring` modifier | Report only |",
+            "| Migrate to CPT | Report only |",
             normalized_reference,
         )
         manual_source = MANUAL_SOURCE_TEST.read_text()

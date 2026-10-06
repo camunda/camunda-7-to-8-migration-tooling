@@ -258,6 +258,8 @@ Do not migrate tests during Step 2.
 
 ## Camunda 8.8 target
 
+When the target version is Camunda 8.8, the skill detects every test.
+
 | Default handling | Camunda 8.8 handling | Reason |
 |---|---|---|
 | Migrate | Report only | `test migration needs Camunda 8.9 or later` |
