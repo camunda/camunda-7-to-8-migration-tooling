@@ -1108,27 +1108,28 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(signal=signal):
                 self.assertIn(signal, remote_engine_row)
         self.assertIn(
-            "the skill classifies remote health or metadata probes that run no process "
-            "or decision as out of scope.",
+            "the skill classifies every other test that runs no process or decision as "
+            "out of scope, including a test that only deploys a model.",
             out_of_scope_row,
         )
         self.assertIn(
             "when the shared-engine exception in scope confirmation applies, the skill "
-            "classifies the probe as a remote-engine test instead.",
+            "classifies that test as a remote-engine test instead.",
             out_of_scope_row,
         )
         confirmation_rows = markdown_table(
             TEST_MIGRATION_REFERENCE,
             ["Signal", "Confirmation required"],
         )
-        remote_probe = next(
+        no_process_rule = next(
             row
             for row in confirmation_rows
-            if "only health or metadata calls" in normalized(row["Signal"])
+            if "does not match the shared-engine exception"
+            in normalized(row["Signal"])
         )
         self.assertIn(
             "the skill classifies the test as out of scope",
-            normalized(remote_probe["Confirmation required"]),
+            normalized(no_process_rule["Confirmation required"]),
         )
 
         shared_engine = next(
@@ -1861,6 +1862,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(source_directory=source_directory):
                 self.assertIn("`{}`".format(source_directory), reference)
 
+    def test_step_4_gate_covers_selected_remote_engine_tests(self):
+        tests_gate = normalized(
+            MIGRATION_SKILL.read_text(encoding="utf-8")
+            .split("9. **Tests** —", 1)[1]
+            .split("\n10.", 1)[0]
+        )
+        self.assertIn(
+            "when the target is camunda 8.9 or later, verify that every process test "
+            "with handling `migrate to cpt` and every remote-engine test with handling "
+            "`migrate (lower priority)` were migrated by following "
+            "`references/test-migration.md`.",
+            tests_gate,
+        )
+        self.assertIn(
+            "when the target is camunda 8.8, verify that each such process test and "
+            "remote-engine test keeps `report only` handling with the reason "
+            "`test migration needs camunda 8.9 or later`.",
+            tests_gate,
+        )
+
     def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         for requirement in (
@@ -2123,6 +2144,43 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(1, readme.count("fixtures/c7-process-tests"))
         self.assertIn("inventories JUnit 3/4/5", readme)
+
+    def test_w3_walkthrough_matches_remote_engine_parity(self):
+        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
+        walkthrough = normalized(
+            next(line for line in readme.splitlines() if line.startswith("| W3 |"))
+        )
+        self.assertIn(
+            "migrates selected process, decision, scenario, and remote-engine tests "
+            "with available cpt procedures",
+            walkthrough,
+        )
+        self.assertIn(
+            "marks the paymentworker remote-engine test as migrated",
+            walkthrough,
+        )
+        self.assertIn("keeps the shared-engine test manual", walkthrough)
+
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        payment_test = next(
+            row
+            for row in parity
+            if row["Camunda 7 Test ID"].endswith(
+                "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+            )
+        )
+        shared_engine_test = next(
+            row
+            for row in parity
+            if row["Camunda 7 Test ID"].endswith(
+                "SharedEngineSmokeIT#readsConfiguredSharedEngine"
+            )
+        )
+        self.assertEqual("migrated", payment_test["Verdict"])
+        self.assertEqual("manual", shared_engine_test["Verdict"])
 
     def test_scenario_fixture_covers_retained_mockito_annotations(self):
         source_path = (

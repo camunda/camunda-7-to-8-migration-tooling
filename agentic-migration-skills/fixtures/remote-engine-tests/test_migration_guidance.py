@@ -256,6 +256,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             classification,
         )
         first_client_shape = classification.index("| Engine REST calls through")
+        no_process_boundary = (
+            "| Any other test that does not run a BPMN process or DMN decision on "
+            "Camunda 7, including a test that only deploys a model | Out of scope | "
+            "Do not migrate it to CPT. |"
+        )
         for boundary in (
             "| Test is already classified as manual migration | Report only | "
             "Preserve the existing manual migration verdict and reason. "
@@ -267,6 +272,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| Unit test of an external-task handler that starts no engine",
             "| WireMock or another Engine REST stub",
             "| Load, performance, or end-to-end UI test against Camunda 7",
+            no_process_boundary,
         ):
             with self.subTest(boundary=boundary):
                 self.assertLess(classification.index(boundary), first_client_shape)
@@ -284,6 +290,10 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             )
         shared_engine_index = classification.index(
             "| Test calls an engine that it does not start"
+        )
+        self.assertLess(
+            shared_engine_index,
+            classification.index(no_process_boundary),
         )
         for boundary in (
             "| Test is already classified as manual migration",
@@ -304,15 +314,15 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "Report only | Record `test migration needs Camunda 8.9 or later` in "
             "`MIGRATION_REPORT.md`. |"
         )
-        health_only_boundary = (
-            "| Test makes only health or metadata calls to a local or test-owned "
-            "Camunda 7 engine and runs no process or decision | Out of scope | "
+        no_process_boundary = (
+            "| Any other test that does not run a BPMN process or DMN decision on "
+            "Camunda 7, including a test that only deploys a model | Out of scope | "
             "Do not migrate it to CPT. |"
         )
         self.assertIn(version_gate, classification)
         self.assertIn(
-            "| A test makes only health or metadata calls to a local or test-owned "
-            "Camunda 7 engine and runs no process or decision | The skill classifies "
+            "| Any other test that runs no BPMN process or DMN decision on Camunda 7 "
+            "and does not match the shared-engine exception | The skill classifies "
             "the test as out of scope. |",
             scope_confirmation,
         )
@@ -322,7 +332,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| Unit test of an external-task handler that starts no engine",
             "| WireMock or another Engine REST stub",
             shared_engine_boundary,
-            health_only_boundary,
+            no_process_boundary,
             "| Test is already classified as manual migration | Report only | "
             "Preserve the existing manual migration verdict and reason. "
             "Where the target is Camunda 8.8, append `test migration needs "
@@ -336,7 +346,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 )
         self.assertLess(
             classification.index(shared_engine_boundary),
-            classification.index(health_only_boundary),
+            classification.index(no_process_boundary),
         )
         for client_shape in (
             "| Engine REST calls through",
@@ -347,7 +357,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         ):
             with self.subTest(client_shape=client_shape):
                 self.assertLess(
-                    classification.index(health_only_boundary),
+                    classification.index(no_process_boundary),
                     classification.index(client_shape),
                 )
                 self.assertLess(
@@ -521,7 +531,8 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
     def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
-        rows = REFERENCE.read_text(encoding="utf-8").splitlines()
+        reference_text = REFERENCE.read_text(encoding="utf-8")
+        rows = reference_text.splitlines()
         timer_row = next(
             row
             for row in rows
@@ -532,9 +543,30 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             for row in rows
             if row.startswith("| `POST /job/{id}/execute` for a non-timer job")
         )
+        process_timer_row = next(
+            row
+            for row in rows
+            if row.startswith(
+                "| `execute(job())` or `managementService.executeJob(id)` for a timer"
+            )
+        )
+        waiting_timer_rules = " ".join(
+            reference_text.split("## Waiting, timers, and variables", 1)[1]
+            .split("\n## ", 1)[0]
+            .split()
+        ).lower()
 
         self.assertIn("processTestContext.increaseTime(duration)", timer_row)
-        self.assertIn("timer element is active", timer_row)
+        for timer_rule in (timer_row, process_timer_row, waiting_timer_rules):
+            normalized_rule = " ".join(timer_rule.split()).lower()
+            with self.subTest(timer_rule=timer_rule[:80]):
+                self.assertIn("timer catch event", normalized_rule)
+                self.assertIn("boundary timer", normalized_rule)
+                self.assertIn("attached activity", normalized_rule)
+                self.assertIn(
+                    "does not expose a boundary timer as an active element",
+                    normalized_rule,
+                )
         self.assertIn("The skill does not advance time", non_timer_row)
         self.assertIn("job type", non_timer_row)
 

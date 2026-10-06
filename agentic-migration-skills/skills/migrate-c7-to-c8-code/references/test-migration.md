@@ -54,7 +54,7 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 | 5 | remote-engine test | A test runs a BPMN process or DMN decision on a C7 engine through Engine REST (`/engine-rest`), a service-API REST client such as `camunda-platform-7-rest-client-spring-boot`, `org.camunda.bpm.client.*` or `@ExternalTaskSubscription`. The test may start the C7 engine with a Testcontainers image or Docker Compose. | Migrate (lower priority) |
 | 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate |
 | 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, or `StandaloneInMemoryTestConfiguration`. It may call a real C7 engine's `RuntimeService` to start a process (for example, `startProcessInstanceByKey(...)`), `TaskService` to complete a task with a non-null `processInstanceId`, or `RuntimeService` to correlate a message. It may call a Spring Boot endpoint that starts a process, completes a process-backed task, or correlates a message on a real C7 engine. | Migrate to CPT |
-| 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or tests that use WireMock or another Engine REST stub. The skill classifies remote health or metadata probes that run no process or decision as out of scope. When the shared-engine exception in Scope confirmation applies, the skill classifies the probe as a remote-engine test instead. | Not part of test migration |
+| 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or tests that use WireMock or another Engine REST stub. The skill classifies every other test that runs no process or decision as out of scope, including a test that only deploys a model. When the shared-engine exception in Scope confirmation applies, the skill classifies that test as a remote-engine test instead. | Not part of test migration |
 
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
 
@@ -147,7 +147,7 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
 | A remote-engine test reads a shared engine URL from any configuration source, does not start the engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
-| A test makes only health or metadata calls to a local or test-owned Camunda 7 engine and runs no process or decision | The skill classifies the test as out of scope. |
+| Any other test that runs no BPMN process or DMN decision on Camunda 7 and does not match the shared-engine exception | The skill classifies the test as out of scope. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
 
 When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
@@ -162,7 +162,7 @@ When one test matches multiple test kinds, the skill assigns the first matching 
 | 6 | The test runs a BPMN process or DMN decision against a running Camunda 7 engine remotely | remote-engine test |
 | 7 | The test directly evaluates a DMN decision | decision test |
 | 8 | The test runs a BPMN process | process test |
-| 9 | The test runs no engine-backed process or decision | out of scope |
+| 9 | The test runs no BPMN process or DMN decision on Camunda 7 and does not match the shared-engine exception at order 5 | out of scope |
 
 ## Modifiers
 
@@ -355,7 +355,7 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 | `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").send().join()` | Get the task key with a user-task search. Record a reason before dropping the step. |
 | `complete(externalTask(), vars)` or `fetchAndLock(topic, ...)` followed by `complete` | `processTestContext.completeJob(jobType, vars)` | Use the converted topic as the job type. Use `throwBpmnErrorFromJob` for `handleBpmnError`. |
 | `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion. |
-| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(Duration)` | Assert the timer catch event first. When the timer is a boundary timer, assert the attached task because CPT does not expose the timer as an active element. |
+| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(Duration)` | When the active path contains a timer catch event, the skill asserts that the timer catch event is active before increasing time. When the active path contains a boundary timer, the skill asserts that the attached activity is active instead. CPT does not expose a boundary timer as an active element. |
 | `ClockUtil.setCurrentTime(date)` or `ClockUtil.reset()` | `processTestContext.setTime(instant)` | CPT resets the clock after each test. |
 | `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Get `key` from the converted model's message subscription, not the business key. |
 | `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | |
@@ -783,7 +783,8 @@ The engine is neither local nor a test-owned container.
 
 Classify each Camunda 7 test before changing it.
 Apply the rows from top to bottom. Stop at the first matching row.
-The shared-engine row and the local or test-owned health-only row override every client-shape row below them.
+Only the shared-engine row classifies a test without a BPMN process or DMN decision as remote-engine.
+The no-process row overrides every client-shape row below it.
 
 | Camunda 7 test shape | Classification | Skill action |
 |---|---|---|
@@ -793,7 +794,7 @@ The shared-engine row and the local or test-owned health-only row override every
 | Test is already classified as manual migration | Report only | Preserve the existing manual migration verdict and reason. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to the existing reason. |
 | Test is already classified as manual redesign | Report only | Preserve the existing manual redesign verdict and reason. |
 | Test calls an engine that it does not start, and the engine is neither local nor a test-owned container | Report only | Record `manual` in the parity ledger with the shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
-| Test makes only health or metadata calls to a local or test-owned Camunda 7 engine and runs no process or decision | Out of scope | Do not migrate it to CPT. |
+| Any other test that does not run a BPMN process or DMN decision on Camunda 7, including a test that only deploys a model | Out of scope | Do not migrate it to CPT. |
 | Target is Camunda 8.8 and the test would otherwise be in scope | Report only | Record `test migration needs Camunda 8.9 or later` in `MIGRATION_REPORT.md`. |
 | Engine REST calls through RestAssured, RestTemplate, TestRestTemplate, WebClient, HTTP clients, or generated OpenAPI clients | In scope | Replace Engine REST calls with the matching CPT command or assertion. |
 | Java clients that call Engine REST through a Camunda 7 service API, including `camunda-platform-7-rest-client-spring-boot` | In scope | Replace the client calls with Camunda 8 commands and assertions. |
@@ -851,7 +852,8 @@ Keep Awaitility only for state outside Camunda.
 CPT assertions wait up to 10 seconds by default.
 When the default assertion timeout is too short, the skill sets `CamundaAssert.setAssertionTimeout(Duration)` or `camunda.process-test.assertion.timeout`.
 
-Assert that a timer element is active before using `processTestContext.increaseTime(duration)`.
+When the active path contains a timer catch event, the skill asserts that the timer catch event is active before using `processTestContext.increaseTime(duration)`.
+When the active path contains a boundary timer, the skill asserts that the attached activity is active instead. CPT does not expose a boundary timer as an active element.
 Identify the job type before translating a Camunda 7 `POST /job/{id}/execute` call.
 
 Replace Camunda 7 typed variable values with plain JSON values.
@@ -877,7 +879,7 @@ When a test checks the Orchestration Cluster REST API contract, the skill keeps 
 | `GET /history/activity-instance?processInstanceId=...` | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | Preserve required activity order. |
 | `GET /process-instance/{id}/variables` or `GET /history/variable-instance` | `hasVariable(name, value)` or `hasVariables(map)` | Compare plain JSON values. |
 | `GET /incident?processInstanceId=...` | `hasActiveIncidents()` or `hasNoActiveIncidents()` | Assert the expected incident state. |
-| `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | Assert that the timer element is active first. |
+| `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | When the active path contains a timer catch event, assert that the timer catch event is active first. When the active path contains a boundary timer, assert that the attached activity is active instead. CPT does not expose a boundary timer as an active element. |
 | `POST /job/{id}/execute` for a non-timer job | No time-advancement mapping | The skill identifies the job type and why the test executes it. When the test controls a worker boundary, the skill uses the matching CPT worker command. The skill asserts the resulting process path for an engine-managed continuation. The skill does not advance time. |
 
 Use the [Camunda 7 to Camunda 8 API mapping](https://camunda.github.io/camunda-7-to-8-migration-tooling/) for calls not listed here.

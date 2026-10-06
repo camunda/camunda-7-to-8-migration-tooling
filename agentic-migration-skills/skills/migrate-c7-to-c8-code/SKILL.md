@@ -452,10 +452,11 @@ Assessment-only and analyze-only runs do not claim readiness.
   coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
   there. Record the test command and its exit code there.
 9. **Tests** — when the target is Camunda 8.9 or later, verify that every process test with handling
-   `Migrate to CPT` was migrated by following `references/test-migration.md`. When the target is
-   Camunda 8.8, verify that each such test keeps `Report only` handling with the reason
-   `test migration needs Camunda 8.9 or later`. Run `mvn test` or the Gradle test task and
-   every independent suite in each module.
+   `Migrate to CPT` and every remote-engine test with handling `Migrate (lower priority)` were
+   migrated by following `references/test-migration.md`. When the target is Camunda 8.8, verify that
+   each such process test and remote-engine test keeps `Report only` handling with the reason
+   `test migration needs Camunda 8.9 or later`. Run `mvn test` or the Gradle test task and every
+   independent suite in each module.
    Test each retained domain-library behavior for every supported type and downstream call path.
    Use synthetic fixture values, never production keys or credentials. Continue with other suites
    after a failure. Classify infrastructure failures separately from application failures. A
