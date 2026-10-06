@@ -338,6 +338,8 @@ class ValidationEvidenceTest(unittest.TestCase):
     def complete_required_checks(self):
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        test_run_mode = gate.read_test_run_mode(inventory)
         priorities = {"project": 0, "module": 1, "deployment_set": 2,
                       "timer": 3, "model": 4, "process": 6}
         for key in sorted(
@@ -352,6 +354,16 @@ class ValidationEvidenceTest(unittest.TestCase):
             ),
         ):
             if key == ("project", ".", "docker_info", None):
+                continue
+            if test_run_mode == "migrate_only" and key[2] in gate.TEST_EXECUTION_KINDS:
+                self.assertEqual(
+                    1,
+                    self.submit(
+                        key,
+                        action="block",
+                        reason="declined by user (Question 8)",
+                    ),
+                )
                 continue
             environment = (
                 "local" if key[0] in ("timer", "process") or key[2] in (*gate.RUNTIME_CHECKS, "deployment")
@@ -420,6 +432,67 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
             self.assertEqual("blocked", check["result"])
             self.assertEqual("declined by user (Question 8)", check["reason"])
+
+    def test_migrate_only_does_not_require_docker_probe_for_unrun_suites(self):
+        self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
+        self.write_scope(test_run_mode="migrate_only")
+
+        docker_key = ("project", ".", "docker_info", None)
+        self.assertNotIn(docker_key, gate.requirements(self.root, self.plan).required)
+
+        self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        issues = self.summary()["issues"]
+        self.assertFalse(
+            any("docker_info" in issue or "Docker probe" in issue for issue in issues),
+            issues,
+        )
+
+    def test_deferred_verification_keeps_baseline_and_migrated_runs_distinct(self):
+        self.plan["modules"][0]["test_suites"] = [
+            {"name": "unit-c7-baseline", "requires_docker": False},
+            {"name": "unit-c8-migrated", "requires_docker": False},
+        ]
+        self.write_scope(test_run_mode="migrate_only")
+
+        baseline_key = ("module", "app", "tests", "unit-c7-baseline")
+        migrated_key = ("module", "app", "tests", "unit-c8-migrated")
+        for key in (baseline_key, migrated_key):
+            self.assertEqual(
+                1,
+                self.submit(
+                    key,
+                    action="block",
+                    reason="declined by user (Question 8)",
+                ),
+            )
+
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "run"
+        write_json(self.root / gate.INVENTORY, inventory)
+        for key, output in (
+            (baseline_key, "C7 baseline"),
+            (migrated_key, "C8 migrated"),
+        ):
+            self.assertEqual(
+                0,
+                self.submit(
+                    key,
+                    command=[sys.executable, "-c", f"print({json.dumps(output)})"],
+                ),
+            )
+
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual([], issues)
+        self.assertEqual("C7 baseline\n", checks[baseline_key][1]["output"])
+        self.assertEqual("C8 migrated\n", checks[migrated_key][1]["output"])
+        self.assertNotEqual(checks[baseline_key][2], checks[migrated_key][2])
 
     def test_migrate_only_gate_rejects_previously_passed_test_checks(self):
         self.complete_required_checks()

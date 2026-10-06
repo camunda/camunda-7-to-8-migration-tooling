@@ -14,8 +14,14 @@ The skill ran `docker info` before Question 8. The command failed because Docker
 was stopped. The skill still offered both **Run tests** and **Migrate tests
 only**. The user chose **Migrate tests only**.
 
-The migrated test sources compile. The skill ran no C7 or C8 test command.
-Each test check is blocked because the user declined test execution.
+The migrated test sources compile with the command below. The skill ran no C7 or C8 test command
+during migration. Each test check is blocked because the user declined test execution.
+
+## Test-source compilation
+
+| Scope | Command | Result |
+|---|---|---|
+| Migrated test modules | `mvn -pl engine-tests,spring-boot-app,remote-engine -am test-compile` | passed |
 
 ## Test checks
 
@@ -27,6 +33,13 @@ Each test check is blocked because the user declined test execution.
 | `mock_boundary` | blocked | declined by user (Question 8) |
 | `process_coverage` | blocked | declined by user (Question 8) |
 | `test_execution` | blocked | declined by user (Question 8) |
+
+## Deferred validation checks
+
+| Kind | Scope | Status | Reason |
+|---|---|---|---|
+| `tests` | Every declared module suite | blocked | declined by user (Question 8) |
+| `process_path` | Every Step 4 process scenario | blocked | declined by user (Question 8) |
 
 ## Test parity
 
@@ -56,6 +69,39 @@ unverified because the user selected **Migrate tests only**.
 | `spring-boot-app:com.camunda.fixture.subscription.HousekeepingStartupTest#startsHousekeepingOnDeployment` | `HousekeepingStartupTest#startsHousekeepingOnDeployment` | blocked | declined by user (Question 8) |
 | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#startsSubscriptionWithoutSpring` | `SubscriptionStandaloneTest#startsSubscriptionWithoutSpring` | blocked | declined by user (Question 8) |
 | `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPaymentThroughEngineRest` | `PaymentWorkerIT#chargesPayment` | blocked | declined by user (Question 8) |
+
+## Verify the test migration
+
+Use the C7 baseline commit recorded during Step 2. Create a separate baseline worktree:
+
+```sh
+git worktree add ../c7-baseline <baseline-commit>
+```
+
+Before recording either run, change only `test_run_mode` from `migrate_only` to `run` in
+`.camunda-migration/validation/step2-inventory.json`. Keep the scope, run ID, and source snapshot.
+Do not run `init`, because it clears earlier validation checks.
+
+When a reserved suite entry requires Docker, record the probe before running that suite:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info
+```
+
+Record each C7 suite from the baseline worktree and each C8 suite from the migrated project. Use
+separate evidence keys such as `unit-c7-baseline` and `unit-c8-migrated`. For example:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/pom.xml -pl engine-tests test
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test
+```
+
+Rerun and record every deferred Step 4 process scenario with its existing `process_path` key and
+recorded command.
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . report
+```
 
 ## Readiness
 

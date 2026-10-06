@@ -132,11 +132,11 @@ Ask only when every condition in the first row below applies:
 
 | Scope | Code approach | Target | Test Inventory | Ask Question 8 |
 |---|---|---|---|---|
-| Code only or Code + models | A or B | 8.9 or later | At least one test has handling **Migrate** | Yes |
+| Code only or Code + models | A or B | 8.9 or later | At least one test has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)** | Yes |
 | Assessment only or Models only | Any | Any | Any | No |
 | Any | C | Any | Any | No |
 | Any | A or B | 8.8 | Any | No |
-| Any | A or B | 8.9 or later | No test has handling **Migrate** | No |
+| Any | A or B | 8.9 or later | No test has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)** | No |
 
 Show this context before the options:
 

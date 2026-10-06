@@ -250,9 +250,9 @@ consumer actions. Where the management server uses a separate bind address or po
 
 When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
 Record each test's models in the Model Inventory before Step 3.
-When the Test Inventory includes a test with handling **Migrate**, ask Question 8 in a separate
-prompt when its conditions in `references/interview-questions.md` apply. Wait for the user's answer
-before Step 3.
+When the Test Inventory includes a test with handling **Migrate**, **Migrate to CPT**, or
+**Migrate (lower priority)**, ask Question 8 in a separate prompt when its conditions in
+`references/interview-questions.md` apply. Wait for the user's answer before Step 3.
 
 #### Model Inventory
 

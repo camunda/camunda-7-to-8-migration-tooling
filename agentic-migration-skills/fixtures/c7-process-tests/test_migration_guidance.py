@@ -22,6 +22,10 @@ TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+INTERVIEW_QUESTIONS = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
+)
 SKILL_PATH = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 
 PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;")
@@ -630,6 +634,137 @@ class MigrationGuidanceTest(unittest.TestCase):
                     rows_by_id[legacy_id]["Reason"],
                     "declined by user (Question 8)",
                 )
+
+    def test_question_8_eligibility_covers_every_migrated_handling(self):
+        handling_labels = ("Migrate", MIGRATE_TO_CPT, MIGRATE_LOWER_PRIORITY)
+        at_least_one_migrated = (
+            "At least one test has handling "
+            + ", ".join(f"**{handling}**" for handling in handling_labels[:-1])
+            + f", or **{handling_labels[-1]}**"
+        )
+        no_migrated_tests = (
+            "No test has handling "
+            + ", ".join(f"**{handling}**" for handling in handling_labels[:-1])
+            + f", or **{handling_labels[-1]}**"
+        )
+        question_rows = markdown_table(
+            INTERVIEW_QUESTIONS,
+            ["Scope", "Code approach", "Target", "Test Inventory", "Ask Question 8"],
+        )
+        self.assertEqual(
+            {
+                (
+                    "Code only or Code + models",
+                    "A or B",
+                    "8.9 or later",
+                    at_least_one_migrated,
+                    "Yes",
+                ),
+                ("Assessment only or Models only", "Any", "Any", "Any", "No"),
+                ("Any", "C", "Any", "Any", "No"),
+                ("Any", "A or B", "8.8", "Any", "No"),
+                ("Any", "A or B", "8.9 or later", no_migrated_tests, "No"),
+            },
+            {
+                (
+                    row["Scope"],
+                    row["Code approach"],
+                    row["Target"],
+                    row["Test Inventory"],
+                    row["Ask Question 8"],
+                )
+                for row in question_rows
+            },
+        )
+
+        question_text = INTERVIEW_QUESTIONS.read_text(encoding="utf-8")
+        question_section = question_text.split("## Question 8 - Test Execution", 1)[1].split(
+            "## Question 8 runtime notice", 1
+        )[0]
+        self.assertIn("**Run tests (recommended, default)**", question_section)
+        self.assertIn("**Migrate tests only**", question_section)
+        self.assertIn("Require the user to select an option explicitly.", question_section)
+        test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertIn("Run each Camunda 7 test command before Step 3 changes any file", test_migration)
+        self.assertIn("Compile test sources", test_migration)
+        self.assertIn("Do not run CPT suites or Step 4 process scenarios", test_migration)
+
+        self.assertRegex(
+            SKILL_PATH.read_text(encoding="utf-8"),
+            r"When the Test Inventory includes a test with handling \*\*Migrate\*\*,\s*"
+            r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
+        )
+        self.assertRegex(
+            test_migration,
+            r"at\s+least one test with handling \*\*Migrate\*\*, \*\*Migrate to CPT\*\*, "
+            r"or \*\*Migrate \(lower priority\)\*\*",
+        )
+        self.assertRegex(
+            test_migration,
+            r"inventory includes a test with handling \*\*Migrate\*\*,\s*"
+            r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
+        )
+
+    def test_migrate_only_walkthrough_covers_compile_blockers_and_deferred_plan(self):
+        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
+        self.assertIn("W5", readme)
+        self.assertIn("The report includes a deferred verification plan", readme)
+
+        report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
+        self.assertIn("## Test-source compilation", report)
+        self.assertIn(
+            "mvn -pl engine-tests,spring-boot-app,remote-engine -am test-compile",
+            report,
+        )
+        self.assertRegex(
+            report,
+            r"The skill ran no C7 or C8 test command\s+during migration\.",
+        )
+        test_checks = markdown_table(
+            EXPECTED_TESTS_ONLY,
+            ["Check", "Status", "Reason"],
+        )
+        self.assertTrue(test_checks)
+        self.assertTrue(
+            all(
+                row["Status"] == "blocked"
+                and row["Reason"] == "declined by user (Question 8)"
+                for row in test_checks
+            )
+        )
+        deferred_checks = markdown_table(
+            EXPECTED_TESTS_ONLY,
+            ["Kind", "Scope", "Status", "Reason"],
+        )
+        self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred_checks})
+        self.assertTrue(
+            all(
+                row["Status"] == "blocked"
+                and row["Reason"] == "declined by user (Question 8)"
+                for row in deferred_checks
+            )
+        )
+        parity_rows = markdown_table(
+            EXPECTED_TESTS_ONLY,
+            ["Test ID", "Expected CPT test", "Status", "Reason"],
+        )
+        self.assertTrue(parity_rows)
+        self.assertTrue(
+            all(
+                row["Status"] == "blocked"
+                and row["Reason"] == "declined by user (Question 8)"
+                for row in parity_rows
+            )
+        )
+        self.assertIn("**Verdict:** `needs review`", report)
+        self.assertIn("**Gate:** `NOT READY`", report)
+        self.assertIn("## Verify the test migration", report)
+        self.assertIn("git worktree add ../c7-baseline", report)
+        self.assertIn("test_run_mode", report)
+        self.assertIn("unit-c7-baseline", report)
+        self.assertIn("unit-c8-migrated", report)
+        self.assertIn("--kind docker_info -- docker info", report)
+        self.assertIn("Rerun and record every deferred Step 4 process scenario", report)
 
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))

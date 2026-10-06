@@ -277,12 +277,13 @@ IDs used here. Ask Question 8 from `references/interview-questions.md` only afte
 complete.
 
 Question 8 applies only to code migration with approach A or B, target Camunda 8.9 or later, and at
-least one test with handling **Migrate**. It does not apply to Assessment only, Models only,
-approach C, target 8.8, or an inventory without a test marked **Migrate**.
+least one test with handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**. It
+does not apply to Assessment only, Models only, approach C, target 8.8, or an inventory without a
+test marked with one of these handling values.
 
 When the user selects Assessment only and the inventory includes a test with handling **Migrate**,
-explain both Question 8 options in `MIGRATION_REPORT.md`. Do not ask Question 8 or record a selected
-test run mode.
+**Migrate to CPT**, or **Migrate (lower priority)**, the skill explains both Question 8 options in
+`MIGRATION_REPORT.md`. Do not ask Question 8 or record a selected test run mode.
 
 When the skill presents Question 8, it first shows the number of tests to migrate per test kind.
 It also shows every test with handling **Report only**, with its reason. Show the test commands found
@@ -291,7 +292,8 @@ module, then the skill does not invent one.
 
 CPT starts the Camunda 8 runtime in Docker through Testcontainers by default. Run `docker info` and
 state whether it succeeds. A remote CPT runtime is an alternative. If `docker info` fails, then the
-skill still offers both Question 8 options.
+skill still offers both Question 8 options. When the user selects **Migrate tests only**, the skill
+treats the Docker result as informational because no test suite runs.
 
 | User choice | Baseline step | Migration steps | Test verification |
 |---|---|---|---|
@@ -300,6 +302,9 @@ skill still offers both Question 8 options.
 
 When the user selects **Migrate tests only**, compile each module's test sources with `mvn
 test-compile` or the Gradle `testClasses` task. A main-source-only compile does not count.
+For every independently runnable suite, declare separate `test_suites` entries named
+`<suite>-c7-baseline` and `<suite>-c8-migrated`. Set `requires_docker` for each entry according to
+its runtime. These names give the baseline and migrated run separate validation evidence keys.
 
 Record the user's Question 8 answer in the `MIGRATION_REPORT.md` decision log.
 When the user selects **Migrate tests only**, record `test_run_mode: "migrate_only"` in
@@ -335,18 +340,30 @@ module commands:
 
 1. Create a separate worktree from the Step 2 baseline with
    `git worktree add ../c7-baseline <baseline-commit>`.
-2. Run each Camunda 7 suite in that worktree with its recorded command, such as `mvn test`.
-3. Start Docker or configure the remote CPT runtime. Run each migrated suite with its recorded
-   command, such as `mvn test`.
-4. Record both runs with the validation recorder. Regenerate the gate with
+2. Change only `test_run_mode` from `migrate_only` to `run` in
+   `.camunda-migration/validation/step2-inventory.json`. Keep its scope, run ID, and source snapshot.
+   Do not run `init`, because it clears earlier validation checks.
+3. When any reserved suite entry requires Docker, the skill records the Docker probe before running
+   the first Docker-dependent suite:
+   `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info`.
+   The skill runs each Camunda 7 suite in the separate worktree with its recorded command. The skill
+   runs each migrated suite from the migrated project with its recorded command. When a migrated
+   suite needs a runtime, the skill starts Docker or configures the remote CPT runtime.
+4. Record the baseline and migrated results with their distinct suite names. The suite `unit` uses
+   `unit-c7-baseline` for the C7 run and `unit-c8-migrated` for the C8 run. The C7 command can use
+   `mvn -f ../c7-baseline/pom.xml -pl <module> test`. The migrated command can use
+   `mvn -pl <module> test`.
+5. Rerun every deferred Step 4 process scenario from the migrated project. Record each result with
+   its existing `process_path` key and recorded command.
+6. Regenerate the gate with
    `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . report`.
 
 The verification plan is not test evidence. If either test run is not recorded or a required test
 check does not pass, then the skill does not report the tests as verified.
 
-When the user later asks the skill to verify a **Migrate tests only** run, run the Camunda 7 suite
-from the Step 2 baseline commit in a separate worktree. Never rebuild the baseline from migrated code.
-(MAY)
+When the user later asks the skill to verify a **Migrate tests only** run, the skill follows this
+plan and runs the Camunda 7 suite from the Step 2 baseline commit in a separate worktree. Never
+rebuild the baseline from migrated code. (MAY)
 
 ---
 
