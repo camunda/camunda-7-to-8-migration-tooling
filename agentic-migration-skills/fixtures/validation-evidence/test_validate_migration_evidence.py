@@ -819,6 +819,19 @@ class ValidationEvidenceTest(unittest.TestCase):
             (self.root / "app/target/surefire-reports/TEST-com.example.OrderTest.xml").exists()
         )
 
+    def test_c7_baseline_snapshot_rejects_missing_test_inventory_files(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit)
+        (self.root / self.c7_test_file_path).unlink()
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError, "Test Inventory file is missing"
+        ):
+            gate.initialize(self.root, reset_source_snapshot=True)
+
     def test_c7_baseline_snapshot_tracks_configured_root_contents_under_build_directories(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '

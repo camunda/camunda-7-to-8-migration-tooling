@@ -217,8 +217,8 @@ def file_digest(path):
         raise EvidenceError(f"Cannot read migration input {path}: {exc}") from exc
 
 
-def add_existing_source_file_hash(root, value, label, hashes):
-    path = project_path(root, value, label)
+def add_existing_source_file_hash(root, value, label, hashes, *, must_exist=False):
+    path = project_path(root, value, label, must_exist=must_exist)
     candidate = root
     for part in Path(value).parts:
         candidate = candidate / part
@@ -231,7 +231,9 @@ def add_existing_source_file_hash(root, value, label, hashes):
     hashes[Path(value).as_posix()] = file_digest(path)
 
 
-def collect_source_files(root, modules, models, test_contract=None):
+def collect_source_files(
+    root, modules, models, test_contract=None, *, require_inventory_files=False
+):
     hashes = {}
     module_paths = set(modules)
     for module in modules:
@@ -240,7 +242,11 @@ def collect_source_files(root, modules, models, test_contract=None):
         module_paths = set(test_contract["modules"])
         for test in test_contract["tests"]:
             add_existing_source_file_hash(
-                root, test["file"], "Test Inventory file", hashes
+                root,
+                test["file"],
+                "Test Inventory file",
+                hashes,
+                must_exist=require_inventory_files,
             )
         for suite in test_contract["suites"].values():
             module = suite["module"]
@@ -390,7 +396,11 @@ def initialize(root, reset_source_snapshot=False):
             test_contract(root, inventory) if "test_run_mode" in inventory else None
         )
         source_files = collect_source_files(
-            root, modules, models, current_test_contract
+            root,
+            modules,
+            models,
+            current_test_contract,
+            require_inventory_files=True,
         )
         test_contract_snapshot = (
             source_test_contract(current_test_contract)
