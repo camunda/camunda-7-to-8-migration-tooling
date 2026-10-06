@@ -6,18 +6,23 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 An HTTP topology is the set of application routes, Engine REST calls, health checks, bind addresses,
 and their consumers.
 
+Classify tests that drive a Camunda 7 engine with `test-migration.md` before building this inventory.
+Exclude test-only Engine REST clients and test-owned servers from the production topology.
+The skill excludes dependencies declared only in test scope and plugin executions bound only to test
+phases from production-source evidence.
+
 ## Inventory
 
 Complete this inventory before changing code. Record it in `MIGRATION_REPORT.md`.
 
 | Surface | Record |
 |---|---|
-| Application server | Module, bind address (`server.address`), `server.port`, active profile, and environment overrides. |
-| Management server | Bind address (`management.server.address`), `management.server.port`, exposed endpoints, and active health checks. |
-| Application routes | HTTP method, path, controller or handler, authentication, consumers, and tests. |
-| Camunda 7 Engine routes | Every `/engine-rest` or webapp route and the owning engine module. |
-| Engine REST clients | HTTP method, path, request, response, authentication, caller, and business purpose. |
-| Health checks | Each checked dependency and its health-check client's connection and response timeouts. Include the engine, database, and external services. |
+| Application server | Production module, bind address (`server.address`), `server.port`, active profile, and environment overrides. |
+| Management server | Production bind address (`management.server.address`), `management.server.port`, exposed endpoints, and active health checks. |
+| Application routes | For each production route, record its HTTP method, path, controller or handler, authentication, consumers, and tests. |
+| Camunda 7 Engine routes | Every production `/engine-rest` or webapp route and the owning engine module. |
+| Engine REST clients | For every production call, record its HTTP method, path, request, response, authentication, caller, and business purpose. |
+| Health checks | Each production checked dependency and its health-check client's connection and response timeouts. Include the engine, database, and external services. |
 
 Search Java and Kotlin sources, application configuration, build files, test sources, scripts, and
 deployment configuration. Search for route annotations, servlet registrations, `RestTemplate`,
@@ -32,8 +37,8 @@ the Camunda 7 `/engine-rest` contract.
 | Source surface | Required decision |
 |---|---|
 | Application-owned route | Keep or change the deliberate API. If the migration removes it, record its consumers and a migration plan. |
-| Camunda 7 Engine REST route | Do not recreate or proxy `/engine-rest`. Record the removed route and its consumers. |
-| Call to a Camunda 7 Engine REST route | Use a documented CamundaClient or Orchestration Cluster API operation when one matches. Record a manual follow-up when no replacement is confirmed. |
+| Production Camunda 7 Engine REST route | Do not recreate or proxy `/engine-rest`. Record the removed route and its consumers. |
+| Production call to a Camunda 7 Engine REST route | Use a documented CamundaClient or Orchestration Cluster API operation when one matches. Record a manual follow-up when no replacement is confirmed. |
 | Health check | Preserve the source health scope. Check the real C8 client or cluster and each other source dependency. |
 
 Do not infer a C8 API mapping from a similar URL. Check the selected target version's official API

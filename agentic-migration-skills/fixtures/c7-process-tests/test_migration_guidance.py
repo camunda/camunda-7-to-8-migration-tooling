@@ -18,6 +18,9 @@ EXPECTED_TESTS_ONLY = FIXTURE / "expected-tests-only" / "MIGRATION_REPORT.md"
 MIGRATION_SKILL = (
     REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 )
+SHARED_ENGINE_REASON = (
+    "CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime."
+)
 TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
@@ -51,7 +54,6 @@ MIGRATE_LOWER_PRIORITY = "Migrate (lower priority)"
 MIGRATED_HANDLINGS = ("Migrate", MIGRATE_TO_CPT, MIGRATE_LOWER_PRIORITY)
 REPORT_ONLY_REASONS = {
     "scenario test": "scenario-test migration procedure is defined",
-    "remote-engine test": "remote-engine migration procedure is defined",
 }
 LEGACY_TEST_IDS = {
     "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
@@ -1061,11 +1063,18 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual(len(exception_rows), 1)
         signal = normalized(exception_rows[0]["Signal"])
         requirement = normalized(exception_rows[0]["Confirmation required"])
-        self.assertIn("from an environment variable", signal)
-        self.assertIn("does not run a process or decision", signal)
+        self.assertIn("from any configuration source", signal)
+        self.assertIn("does not start the engine", signal)
+        self.assertIn("neither local nor a test-owned container", signal)
+        self.assertIn("the test runs no process or decision", signal)
         self.assertIn("remote-engine test", requirement)
         self.assertIn("report only", requirement)
-        self.assertIn("shared environment", requirement)
+        self.assertIn(
+            "cpt deletes all runtime data between tests, so the test needs a dedicated "
+            "camunda 8 runtime.",
+            requirement,
+        )
+        self.assertNotIn("shared environment", requirement)
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
@@ -1077,10 +1086,46 @@ class MigrationGuidanceTest(unittest.TestCase):
             self.assertEqual(len(shared_rows), 1)
             self.assertEqual(shared_rows[0]["Test kind"], "remote-engine test")
             self.assertEqual(shared_rows[0]["Handling"], "Report only")
-            self.assertIn("shared environment", normalized(shared_rows[0]["Notes"]))
 
     def test_remote_engine_tests_require_process_or_decision_execution(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        inventory_scope_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Runs a BPMN process or DMN decision on a Camunda 7 engine",
+                "Uses a framework or approach that existed for Camunda 7",
+                "Matches the shared-engine exception in Scope confirmation",
+                "Scope decision",
+            ],
+        )
+        shared_engine_scope_row = next(
+            row
+            for row in inventory_scope_rows
+            if row["Runs a BPMN process or DMN decision on a Camunda 7 engine"] == "No"
+            and row["Matches the shared-engine exception in Scope confirmation"]
+            == "Yes"
+        )
+        no_process_scope_row = next(
+            row
+            for row in inventory_scope_rows
+            if row["Runs a BPMN process or DMN decision on a Camunda 7 engine"] == "No"
+            and row["Matches the shared-engine exception in Scope confirmation"]
+            == "No"
+        )
+        self.assertLess(
+            inventory_scope_rows.index(shared_engine_scope_row),
+            inventory_scope_rows.index(no_process_scope_row),
+        )
+        self.assertIn(
+            "the skill includes the test in scope as `remote-engine test` with "
+            "`report only` handling",
+            normalized(shared_engine_scope_row["Scope decision"]),
+        )
+        self.assertIn(
+            "the skill excludes the test from scope",
+            normalized(no_process_scope_row["Scope decision"]),
+        )
+
         remote_engine_row = next(
             normalized(line)
             for line in reference_text.splitlines()
@@ -1092,28 +1137,36 @@ class MigrationGuidanceTest(unittest.TestCase):
             if line.startswith("| 8 | out of scope |")
         )
         self.assertIn("runs a bpmn process or dmn decision", remote_engine_row)
+        for signal in (
+            "camunda-platform-7-rest-client-spring-boot",
+            "@externaltasksubscription",
+            "the test may start the c7 engine with a testcontainers image or docker compose",
+        ):
+            with self.subTest(signal=signal):
+                self.assertIn(signal, remote_engine_row)
         self.assertIn(
-            "the skill classifies remote health or metadata probes that run no process "
-            "or decision as out of scope.",
+            "the skill classifies every other test that runs no process or decision as "
+            "out of scope, including a test that only deploys a model.",
             out_of_scope_row,
         )
         self.assertIn(
             "when the shared-engine exception in scope confirmation applies, the skill "
-            "classifies the probe as a remote-engine test instead.",
+            "classifies that test as a remote-engine test instead.",
             out_of_scope_row,
         )
         confirmation_rows = markdown_table(
             TEST_MIGRATION_REFERENCE,
             ["Signal", "Confirmation required"],
         )
-        remote_probe = next(
+        no_process_rule = next(
             row
             for row in confirmation_rows
-            if "only health or metadata calls" in normalized(row["Signal"])
+            if "does not match the shared-engine exception"
+            in normalized(row["Signal"])
         )
         self.assertIn(
             "the skill classifies the test as out of scope",
-            normalized(remote_probe["Confirmation required"]),
+            normalized(no_process_rule["Confirmation required"]),
         )
 
         shared_engine = next(
@@ -1122,8 +1175,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             if "shared engine url" in normalized(row["Signal"])
         )
         self.assertIn(
-            "reads a shared engine url from an environment variable and "
-            "does not run a process or decision",
+            "reads a shared engine url from any configuration source, does not start "
+            "the engine, and the engine is neither local nor a test-owned "
+            "container. the test runs no process or decision",
             normalized(shared_engine["Signal"]),
         )
         self.assertIn(
@@ -1141,11 +1195,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             if "shared engine url" in normalized(row["Condition"])
         )
         self.assertEqual("Report only", shared_engine_override["Handling"])
-        self.assertEqual("shared environment", shared_engine_override["Reason or note"])
+        self.assertIn(
+            "record the exact shared-engine reason below",
+            normalized(shared_engine_override["Reason or note"]),
+        )
+        self.assertIn(
+            "append `test migration needs camunda 8.9 or later`",
+            normalized(shared_engine_override["Reason or note"]),
+        )
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path, handling in (
-            (EXPECTED_ASSESSMENT, "Report only"),
+            (EXPECTED_ASSESSMENT, "Migrate (lower priority)"),
             (EXPECTED_ASSESSMENT_88, "Report only"),
         ):
             payment_test = next(
@@ -1157,10 +1218,11 @@ class MigrationGuidanceTest(unittest.TestCase):
             )
             self.assertEqual("remote-engine test", payment_test["Test kind"])
             self.assertEqual(handling, payment_test["Handling"])
-            self.assertIn(
-                "remote-engine migration procedure is defined",
-                normalized(payment_test["Notes"]),
-            )
+            if inventory_path == EXPECTED_ASSESSMENT_88:
+                self.assertIn(
+                    "test migration needs camunda 8.9 or later",
+                    normalized(payment_test["Notes"]),
+                )
 
     def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
@@ -1467,6 +1529,26 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertIn("bodyMarker();", method)
                 self.assertNotIn("afterTarget", method)
 
+
+    def test_c8_test_apis_have_one_precedence_row(self):
+        priority_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Priority", "Test kind", "Detect by", "Handling"],
+        )
+        c8_rows = [
+            row
+            for row in priority_rows
+            if row["Test kind"] == "out of scope (Camunda 8)"
+        ]
+
+        self.assertEqual(1, len(c8_rows))
+        self.assertEqual("1", c8_rows[0]["Priority"])
+        detect_by = normalized(c8_rows[0]["Detect by"])
+        self.assertIn("io.camunda.zeebe.process.test.*", detect_by)
+        self.assertIn("io.camunda.process.test.*", detect_by)
+        self.assertNotIn("without running a c7 engine", detect_by)
+
+
     def test_camunda_8_8_inventory_applies_version_gate(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
@@ -1481,6 +1563,24 @@ class MigrationGuidanceTest(unittest.TestCase):
         for test_id, row in rows_89.items():
             with self.subTest(test_id=test_id):
                 other = rows_88[test_id]
+                is_shared_engine_test = test_id.endswith(
+                    "SharedEngineSmokeIT#readsConfiguredSharedEngine"
+                )
+                if other["Test kind"] == "remote-engine test":
+                    other_notes = normalized(other["Notes"])
+                    self.assertIn(version_reason, other_notes)
+                    if is_shared_engine_test:
+                        self.assertIn(normalized(SHARED_ENGINE_REASON), other_notes)
+                    else:
+                        self.assertNotIn(normalized(SHARED_ENGINE_REASON), other_notes)
+                    self.assertNotIn(
+                        normalized(
+                            "Report only until the remote-engine migration "
+                            "procedure is defined"
+                        ),
+                        other_notes,
+                    )
+
                 if row["Test kind"] == "manual redesign":
                     self.assertEqual(other["Handling"], "Report only")
                     self.assertEqual(other["Notes"], row["Notes"])
@@ -1500,9 +1600,9 @@ class MigrationGuidanceTest(unittest.TestCase):
                     reason = REPORT_ONLY_REASONS.get(row["Test kind"])
                     if (
                         row["Test kind"] == "remote-engine test"
-                        and "shared environment" in normalized(row["Notes"])
+                        and is_shared_engine_test
                     ):
-                        reason = "shared environment"
+                        reason = normalized(SHARED_ENGINE_REASON)
                     if reason is not None:
                         self.assertIn(reason, normalized(other["Notes"]))
                     source_note_id = row["Notes"].split(";", 1)[0].strip()
@@ -1539,6 +1639,14 @@ class MigrationGuidanceTest(unittest.TestCase):
                 expected_handling = "Migrate"
             elif test_kind == "scenario test":
                 expected_handling = MIGRATE_LOWER_PRIORITY
+            elif test_kind == "remote-engine test":
+                expected_handling = (
+                    MIGRATE_LOWER_PRIORITY
+                    if test_id.endswith(
+                        "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+                    )
+                    else "Report only"
+                )
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
             else:
@@ -1553,13 +1661,15 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertIsNotNone(parity_row, "Missing parity row for {}".format(test_id))
                 self.assertEqual(parity_row["Verdict"], "manual")
 
-                reason = REPORT_ONLY_REASONS[test_kind]
                 shared_engine = (
                     test_kind == "remote-engine test"
-                    and "shared environment" in normalized(row["Notes"])
+                    and normalized(SHARED_ENGINE_REASON) in normalized(row["Notes"])
                 )
-                if shared_engine:
-                    reason = "shared environment"
+                reason = (
+                    normalized(SHARED_ENGINE_REASON)
+                    if shared_engine
+                    else REPORT_ONLY_REASONS[test_kind]
+                )
                 self.assertIn(reason, normalized(row["Notes"]))
                 self.assertIn(reason, normalized(parity_row["Notes"]))
                 mapped_ids = TEST_ID_RE.findall(parity_row["CPT Test ID(s)"])
@@ -1595,13 +1705,22 @@ class MigrationGuidanceTest(unittest.TestCase):
             "engine-tests:com.camunda.fixture.order.FluentModelTest#buildsAndStartsModel":
                 ("retired", "model built in Java, migrated by hand later"),
             "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine":
-                ("manual", "shared environment"),
+                ("manual", SHARED_ENGINE_REASON),
         }
         for test_id, (verdict, note) in required_verdicts.items():
             with self.subTest(test_id=test_id):
                 self.assertIn(test_id, parity_by_id)
                 self.assertEqual(parity_by_id[test_id]["Verdict"], verdict)
                 self.assertIn(note.lower(), normalized(parity_by_id[test_id]["Notes"]))
+
+        shared_engine_test_id = (
+            "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine"
+        )
+        self.assertEqual(parity_by_id[shared_engine_test_id]["Verdict"], "manual")
+        self.assertEqual(
+            parity_by_id[shared_engine_test_id]["Notes"],
+            SHARED_ENGINE_REASON,
+        )
 
     def test_lower_priority_scenarios_require_valid_primary_parity_rows(self):
         test_id = (
@@ -1657,6 +1776,27 @@ class MigrationGuidanceTest(unittest.TestCase):
                     ),
                 )
 
+    def test_shared_engine_reason_is_reported_in_both_assessments(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        shared_engine_test_id = (
+            "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine"
+        )
+
+        for assessment_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = {
+                row["Test ID"]: row for row in markdown_table(assessment_path, headers)
+            }
+            with self.subTest(assessment=assessment_path):
+                self.assertIn(shared_engine_test_id, rows)
+                self.assertEqual(rows[shared_engine_test_id]["Handling"], "Report only")
+                expected_notes = "R2; {}".format(SHARED_ENGINE_REASON)
+                if assessment_path == EXPECTED_ASSESSMENT_88:
+                    expected_notes += " test migration needs Camunda 8.9 or later"
+                self.assertEqual(
+                    rows[shared_engine_test_id]["Notes"],
+                    expected_notes,
+                )
+
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
             path.read_text(encoding="utf-8") for path in fixture_files(EXPECTED_C8, "*.java")
@@ -1695,6 +1835,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             [
                 "Runs a BPMN process or DMN decision on a Camunda 7 engine",
                 "Uses a framework or approach that existed for Camunda 7",
+                "Matches the shared-engine exception in Scope confirmation",
                 "Scope decision",
             ],
         )
@@ -1703,6 +1844,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
                     "Uses a framework or approach that existed for Camunda 7": "Yes",
+                    "Matches the shared-engine exception in Scope confirmation": "Any",
                     "Scope decision": (
                         "When both prerequisites are met, the skill includes the "
                         "test in scope."
@@ -1711,14 +1853,24 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
                     "Uses a framework or approach that existed for Camunda 7": "Any",
+                    "Matches the shared-engine exception in Scope confirmation": "Yes",
                     "Scope decision": (
-                        "If a test does not run a BPMN process or DMN decision on a "
-                        "Camunda 7 engine, then the skill excludes the test from scope."
+                        "The skill includes the test in scope as "
+                        "`remote-engine test` with `Report only` handling."
+                    ),
+                },
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
+                    "Uses a framework or approach that existed for Camunda 7": "Any",
+                    "Matches the shared-engine exception in Scope confirmation": "No",
+                    "Scope decision": (
+                        "The skill excludes the test from scope."
                     ),
                 },
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
                     "Uses a framework or approach that existed for Camunda 7": "No",
+                    "Matches the shared-engine exception in Scope confirmation": "Any",
                     "Scope decision": (
                         "If a test does not use a framework or approach that existed "
                         "for Camunda 7, then the skill excludes the test from scope."
@@ -1742,11 +1894,6 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertEqual("Migrate to CPT", process_test_row["Handling"])
         self.assertIn(
-            "while the remote-engine migration procedure is undefined, the skill keeps "
-            "remote-engine test rows at report only.",
-            reference,
-        )
-        self.assertIn(
             "when the target is camunda 8.9 or later, the skill migrates every test with "
             "test kind `decision test`.",
             reference,
@@ -1763,6 +1910,26 @@ class MigrationGuidanceTest(unittest.TestCase):
         ):
             with self.subTest(source_directory=source_directory):
                 self.assertIn("`{}`".format(source_directory), reference)
+
+    def test_step_4_gate_covers_selected_remote_engine_tests(self):
+        tests_gate = normalized(
+            MIGRATION_SKILL.read_text(encoding="utf-8")
+            .split("9. **Tests** —", 1)[1]
+            .split("\n10.", 1)[0]
+        )
+        self.assertIn(
+            "when the target is camunda 8.9 or later, verify that every process test "
+            "with handling `migrate to cpt` and every remote-engine test with handling "
+            "`migrate (lower priority)` were migrated by following "
+            "`references/test-migration.md`.",
+            tests_gate,
+        )
+        self.assertIn(
+            "when the target is camunda 8.8, verify that each such process test and "
+            "remote-engine test keeps `report only` handling with the reason "
+            "`test migration needs camunda 8.9 or later`.",
+            tests_gate,
+        )
 
     def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
@@ -2026,6 +2193,43 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(1, readme.count("fixtures/c7-process-tests"))
         self.assertIn("inventories JUnit 3/4/5", readme)
+
+    def test_w3_walkthrough_matches_remote_engine_parity(self):
+        readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
+        walkthrough = normalized(
+            next(line for line in readme.splitlines() if line.startswith("| W3 |"))
+        )
+        self.assertIn(
+            "migrates selected process, decision, scenario, and remote-engine tests "
+            "with available cpt procedures",
+            walkthrough,
+        )
+        self.assertIn(
+            "marks the paymentworker remote-engine test as migrated",
+            walkthrough,
+        )
+        self.assertIn("keeps the shared-engine test manual", walkthrough)
+
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        payment_test = next(
+            row
+            for row in parity
+            if row["Camunda 7 Test ID"].endswith(
+                "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+            )
+        )
+        shared_engine_test = next(
+            row
+            for row in parity
+            if row["Camunda 7 Test ID"].endswith(
+                "SharedEngineSmokeIT#readsConfiguredSharedEngine"
+            )
+        )
+        self.assertEqual("migrated", payment_test["Verdict"])
+        self.assertEqual("manual", shared_engine_test["Verdict"])
 
     def test_scenario_fixture_covers_retained_mockito_annotations(self):
         source_path = (

@@ -239,9 +239,17 @@ When code scope includes Camunda Platform Scenario tests, follow
 `references/test-migration.md` during Step 2. Record each method's classification and target-version
 handling in the Test Inventory.
 
-When the project contains a Spring web server, application HTTP endpoint, health check, or Camunda 7
-Engine REST call, inventory its HTTP topology. Follow
-`references/http-topology-migration.md`. Ask Question 7 from
+Classify each Camunda 7 test that drives a running engine with `references/test-migration.md` before
+building the HTTP topology inventory. Exclude test-only Engine REST calls and test-owned servers
+from the HTTP topology inventory and Question 7.
+
+Search production code, application configuration, production build files, scripts, and
+deployment configuration.
+The skill excludes dependencies declared only in test scope and plugin executions bound only to
+test phases from production-source evidence.
+Check these production sources for Spring web servers, application HTTP endpoints, health checks,
+and Camunda 7 Engine REST calls. When any of these production sources contains a match, inventory
+its HTTP topology. Follow `references/http-topology-migration.md`. Ask Question 7 from
 `references/interview-questions.md` before Step 3. Record the target application bind address and
 port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
 consumer actions. Where the management server uses a separate bind address or port, record both.
@@ -365,7 +373,8 @@ When code migration includes Camunda Platform Scenario tests, follow
 
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
-The skill follows `references/test-migration.md` for CPT mapping of Camunda 7 decision tests and Spring process-test migration.
+The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine,
+Camunda 7 decision-test CPT mapping, and Spring process-test migration.
 
 When the user selects Approach A, the skill runs this gate for every C7 JavaDelegate before
 `REWRITE_COMMAND`.
@@ -443,10 +452,11 @@ Assessment-only and analyze-only runs do not claim readiness.
   coordinates and versions in `MIGRATION_REPORT.md`. Record the evidence and chosen remediation
   there. Record the test command and its exit code there.
 9. **Tests** — when the target is Camunda 8.9 or later, verify that every process test with handling
-   `Migrate to CPT` was migrated by following `references/test-migration.md`. When the target is
-   Camunda 8.8, verify that each such test keeps `Report only` handling with the reason
-   `test migration needs Camunda 8.9 or later`. Run `mvn test` or the Gradle test task and
-   every independent suite in each module.
+   `Migrate to CPT` and every remote-engine test with handling `Migrate (lower priority)` were
+   migrated by following `references/test-migration.md`. When the target is Camunda 8.8, verify that
+   each such process test and remote-engine test keeps `Report only` handling with the reason
+   `test migration needs Camunda 8.9 or later`. Run `mvn test` or the Gradle test task and every
+   independent suite in each module.
    Test each retained domain-library behavior for every supported type and downstream call path.
    Use synthetic fixture values, never production keys or credentials. Continue with other suites
    after a failure. Classify infrastructure failures separately from application failures. A
@@ -498,8 +508,8 @@ Assessment-only and analyze-only runs do not claim readiness.
     module. A successful compile does not validate the plugin. If startup fails after the launch
     only because no Camunda 8 cluster is reachable, then record that blocker. Record each command
     and exit code in `MIGRATION_REPORT.md` with secret values replaced by `<redacted>`.
-15. **HTTP topology** — when the project contains a Spring web server, application HTTP endpoints,
-    health checks, or Camunda 7 Engine REST calls, follow
+15. **HTTP topology** — when the production-source inventory identifies a Spring web server,
+    application HTTP endpoint, health check, or Camunda 7 Engine REST call, follow
     `references/http-topology-migration.md`. Confirm that the application and cluster use distinct
     ports when they share a host. Test every discovered application endpoint and replacement API
     while the cluster is reachable. When the source includes a health check, verify each remote
