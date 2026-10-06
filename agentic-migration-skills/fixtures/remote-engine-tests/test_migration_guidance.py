@@ -36,7 +36,8 @@ JAVA_PROPERTIES_REMOTE_RUNTIME = re.compile(
     r"[ \t\f]*(?:[=:][ \t\f]*|[ \t\f]+)remote[ \t\f]*\r?$"
 )
 JAVA_PROPERTIES_UNICODE_ESCAPE = re.compile(
-    r"(?<!\\)(?:\\\\)*\\u([0-9a-fA-F]{4})"
+    r"(?<!\\)(?P<escaped_backslashes>(?:\\\\)*)\\u"
+    r"(?P<codepoint>[0-9a-fA-F]{4})"
 )
 YAML_REMOTE_RUNTIME = re.compile(
     r"""(?m)^[ \t]*"""
@@ -83,7 +84,8 @@ def _java_properties_logical_lines(content):
 
 def _unescape_java_properties_unicode_escapes(content):
     return JAVA_PROPERTIES_UNICODE_ESCAPE.sub(
-        lambda match: chr(int(match.group(1), 16)),
+        lambda match: match.group("escaped_backslashes")
+        + chr(int(match.group("codepoint"), 16)),
         content,
     )
 
@@ -282,17 +284,33 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         classification = REFERENCE.read_text(encoding="utf-8").split("## Scope and classification", 1)[1].split(
             "## Runtime and build changes", 1
         )[0]
+        scope_confirmation = REFERENCE.read_text(encoding="utf-8").split(
+            "## Scope confirmation", 1
+        )[1].split("\n## ", 1)[0]
         version_gate = (
             "| Target is Camunda 8.8 and the test would otherwise be in scope | "
             "Report only | Record `test migration needs Camunda 8.9 or later` in "
             "`MIGRATION_REPORT.md`. |"
         )
+        health_only_boundary = (
+            "| Test makes only health or metadata calls to a local or test-owned "
+            "Camunda 7 engine and runs no process or decision | Out of scope | "
+            "Do not migrate it to CPT. |"
+        )
         self.assertIn(version_gate, classification)
+        self.assertIn(
+            "| A test makes only health or metadata calls to a local or test-owned "
+            "Camunda 7 engine and runs no process or decision | The skill classifies "
+            "the test as out of scope. |",
+            scope_confirmation,
+        )
+        shared_engine_boundary = "| Test calls an engine that it does not start"
         for boundary in (
             "| Load, performance, or end-to-end UI test against Camunda 7",
             "| Unit test of an external-task handler that starts no engine",
             "| WireMock or another Engine REST stub",
-            "| Test calls an engine that it does not start",
+            shared_engine_boundary,
+            health_only_boundary,
             "| Test is already classified as manual migration | Report only | "
             "Preserve the existing manual migration verdict and reason. "
             "Where the target is Camunda 8.8, append `test migration needs "
@@ -305,9 +323,25 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                     classification.index(boundary), classification.index(version_gate)
                 )
         self.assertLess(
-            classification.index(version_gate),
-            classification.index("| Engine REST calls through"),
+            classification.index(shared_engine_boundary),
+            classification.index(health_only_boundary),
         )
+        for client_shape in (
+            "| Engine REST calls through",
+            "| Java clients that call Engine REST through",
+            "| `org.camunda.bpm.client.ExternalTaskClient`",
+            "| Testcontainers image `camunda/camunda-bpm-platform`",
+            "| `@SpringBootTest(webEnvironment = RANDOM_PORT)`",
+        ):
+            with self.subTest(client_shape=client_shape):
+                self.assertLess(
+                    classification.index(health_only_boundary),
+                    classification.index(client_shape),
+                )
+                self.assertLess(
+                    classification.index(version_gate),
+                    classification.index(client_shape),
+                )
 
     def test_shared_engine_definition_matches_report_only_boundary(self):
         reference = REFERENCE.read_text(encoding="utf-8")
@@ -733,9 +767,14 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             with self.subTest(setting=setting):
                 self.assertTrue(_contains_remote_runtime_configuration(setting))
 
-        self.assertFalse(
-            _contains_remote_runtime_configuration(r"runtimeMode=\\u0072emote")
-        )
+        for setting in (
+            r"runtimeMode=\\u0072emote",
+            r"runtimeMode=\\\u0072emote",
+            r"runtimeMode=\\\\\u0072emote",
+            r"runtime\u004dode=\\\u0072emote",
+        ):
+            with self.subTest(setting=setting):
+                self.assertFalse(_contains_remote_runtime_configuration(setting))
 
     def test_remote_runtime_guard_detects_java_properties_continuations(self):
         for setting in (

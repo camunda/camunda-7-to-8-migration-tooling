@@ -1498,6 +1498,19 @@ class MigrationGuidanceTest(unittest.TestCase):
         for test_id, row in rows_89.items():
             with self.subTest(test_id=test_id):
                 other = rows_88[test_id]
+                if other["Test kind"] == "remote-engine test":
+                    self.assertIn(
+                        normalized(SHARED_ENGINE_REASON), normalized(other["Notes"])
+                    )
+                    self.assertIn(version_reason, normalized(other["Notes"]))
+                    self.assertNotIn(
+                        normalized(
+                            "Report only until the remote-engine migration "
+                            "procedure is defined"
+                        ),
+                        normalized(other["Notes"]),
+                    )
+
                 if row["Test kind"] == "manual redesign":
                     self.assertEqual(other["Handling"], "Report only")
                     self.assertEqual(other["Notes"], row["Notes"])

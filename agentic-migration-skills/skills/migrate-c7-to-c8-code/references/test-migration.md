@@ -149,7 +149,7 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
 | A remote-engine test reads a shared engine URL from any configuration source, does not start the engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
-| A remote test makes only health or metadata calls and does not run a process or decision, without the shared-engine exception | The skill classifies the test as out of scope. |
+| A test makes only health or metadata calls to a local or test-owned Camunda 7 engine and runs no process or decision | The skill classifies the test as out of scope. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
 
 When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
@@ -785,7 +785,7 @@ The engine is neither local nor a test-owned container.
 
 Classify each Camunda 7 test before changing it.
 Apply the rows from top to bottom. Stop at the first matching row.
-The shared-engine row overrides every client-shape row below it.
+The shared-engine row and the local or test-owned health-only row override every client-shape row below them.
 
 | Camunda 7 test shape | Classification | Skill action |
 |---|---|---|
@@ -795,6 +795,7 @@ The shared-engine row overrides every client-shape row below it.
 | Test is already classified as manual migration | Report only | Preserve the existing manual migration verdict and reason. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to the existing reason. |
 | Test is already classified as manual redesign | Report only | Preserve the existing manual redesign verdict and reason. |
 | Test calls an engine that it does not start, and the engine is neither local nor a test-owned container | Report only | Record `manual` in the parity ledger with the shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
+| Test makes only health or metadata calls to a local or test-owned Camunda 7 engine and runs no process or decision | Out of scope | Do not migrate it to CPT. |
 | Target is Camunda 8.8 and the test would otherwise be in scope | Report only | Record `test migration needs Camunda 8.9 or later` in `MIGRATION_REPORT.md`. |
 | Engine REST calls through RestAssured, RestTemplate, TestRestTemplate, WebClient, HTTP clients, or generated OpenAPI clients | In scope | Replace Engine REST calls with the matching CPT command or assertion. |
 | Java clients that call Engine REST through a Camunda 7 service API, including `camunda-platform-7-rest-client-spring-boot` | In scope | Replace the client calls with Camunda 8 commands and assertions. |
