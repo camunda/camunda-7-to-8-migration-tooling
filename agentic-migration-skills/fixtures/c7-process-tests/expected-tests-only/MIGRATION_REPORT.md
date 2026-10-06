@@ -77,16 +77,32 @@ unverified because the user selected **Migrate tests only**.
 ## Verify the test migration
 
 Baseline filesystem snapshot: `../c7-source-baseline/`
+The Step 2 source snapshot preserves the C7 files before test migration. When Step 2 used a Git
+repository, keep its `.git` metadata in the snapshot so the validator can verify the recorded commit.
 
 1. Change only `test_run_mode` from `migrate_only` to `run` in
    `.camunda-migration/validation/step2-inventory.json`. Do not run `init`.
-2. Record `docker_info` before the first Docker-dependent suite.
-3. Record each C7 baseline with kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`.
+2. Use the baseline preserved before Step 3:
+
+   | Step 2 source | Baseline source |
+   |---|---|
+   | Clean Git working tree | A worktree at the recorded commit. |
+   | Dirty Git working tree or non-Git source | The saved filesystem snapshot. |
+
+3. Record `docker_info` before the first Docker-dependent suite.
+4. Record each C7 baseline with kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`.
    Use each exact Step 2 suite command: `mvn -pl engine-tests,engine-tests-legacy,spring-boot-app test`
    and `mvn -pl remote-engine verify`.
-4. Start Docker. Record the migrated C8 suites with kind `tests` using
-   `mvn -pl engine-tests,spring-boot-app test` and `mvn -pl remote-engine verify`.
-5. Record each `process_path` check. Then run the validator `report` action.
+5. Confirm that `test-mapping.json` and its approved test and mock changes are complete.
+6. Record `test_freeze` after the migrated test sources and resources are final.
+7. Start Docker. Record `test_repeat` for each suite with mapped or added CPT tests, using its
+   exact Step 2 command: `mvn -pl engine-tests test`, `mvn -pl spring-boot-app test`, or
+   `mvn -pl remote-engine verify`. Do not use `tests` for these mapped suites.
+8. Record `assertion_strength` for each migrated test class and `mock_boundary` for each migrated
+   C7 test.
+9. Record the computed `test_parity` and `coverage_parity` checks after the repeat checks pass.
+10. Record each `process_path` check.
+11. Run the validator `report` action.
 
 ## Readiness
 

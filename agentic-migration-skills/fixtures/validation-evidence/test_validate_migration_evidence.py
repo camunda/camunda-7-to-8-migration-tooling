@@ -510,6 +510,40 @@ class ValidationEvidenceTest(unittest.TestCase):
         with redirect_stdout(StringIO()):
             return gate.record(self.root, arguments)
 
+    def maven_effective_pom_runner(self, effective_pom):
+        def run(command, **kwargs):
+            if "help:effective-pom" in command:
+                output = next(
+                    argument.partition("=")[2]
+                    for argument in command
+                    if argument.startswith("-Doutput=")
+                )
+                Path(output).write_text(effective_pom, encoding="utf-8")
+                return subprocess.CompletedProcess(command, 0, "effective POM")
+            return subprocess.CompletedProcess(command, 0, "compiled")
+
+        return run
+
+    def gradle_test_compile_runner(self, graph=None):
+        if graph is None:
+            graph = "\n".join(
+                f"> Task {task} SKIPPED"
+                for task in (
+                    ":app:compileJava",
+                    ":app:processResources",
+                    ":app:classes",
+                    ":app:compileTestJava",
+                    ":app:processTestResources",
+                    ":app:testClasses",
+                )
+            )
+
+        def run(command, **kwargs):
+            output = graph if "--dry-run" in command else "compiled"
+            return subprocess.CompletedProcess(command, 0, output)
+
+        return run
+
     def complete_required_checks(self):
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
@@ -586,8 +620,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                 command_patch = patch.object(
                     gate.subprocess,
                     "run",
-                    return_value=gate.subprocess.CompletedProcess(
-                        options["command"], 0, "compiled"
+                    side_effect=self.maven_effective_pom_runner(
+                        "<project><build><plugins /></build></project>"
                     ),
                 )
             elif key[2] == "c7_baseline":
@@ -667,6 +701,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "compile"],
             ["mvn", "test-compile"],
             ["mvn", "-pl", "other", "test-compile"],
+            ["mvn", "-pl", "app,other", "test-compile"],
+            ["mvn", "-pl", "app", "-am", "test-compile"],
+            ["mvn", "-pl", "app", "-rf", "other", "test-compile"],
             ["gradle", "classes"],
             ["gradle", "testClasses"],
             ["gradle", ":other:testClasses"],
@@ -676,6 +713,12 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "-pl", "app", "-D", "maven.test.skip", "test-compile"],
             ["mvn", "-pl", "app", "--define=maven.test.skip=true", "test-compile"],
             ["mvn", "-pl", "app", "test-compile", "test"],
+            ["gradle", "--dry-run", ":app:testClasses"],
+            ["gradle", "-m", ":app:testClasses"],
+            ["gradle", "-x", ":app:compileTestJava", ":app:testClasses"],
+            ["gradle", "--exclude-task", ":app:compileTestJava", ":app:testClasses"],
+            ["gradle", "-x:app:compileTestJava", ":app:testClasses"],
+            ["gradle", "-x", ":app:testClasses"],
             ["gradle", ":app:testClasses", ":app:test"],
         ):
             with self.subTest(command=command_args):
@@ -688,6 +731,33 @@ class ValidationEvidenceTest(unittest.TestCase):
                     with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
                         self.submit(key, command=command_args)
                     command.assert_not_called()
+        safe_maven_pom = """
+        <project><build><plugins>
+          <plugin><groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <executions>
+              <execution><phase>process-resources</phase>
+                <goals><goal>resources</goal></goals></execution>
+              <execution><phase>process-test-resources</phase>
+                <goals><goal>testResources</goal></goals></execution>
+            </executions>
+          </plugin>
+          <plugin><groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <executions>
+              <execution><phase>compile</phase>
+                <goals><goal>compile</goal></goals></execution>
+              <execution><phase>test-compile</phase>
+                <goals><goal>testCompile</goal></goals></execution>
+            </executions>
+          </plugin>
+          <plugin><groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <executions><execution><phase>test</phase>
+              <goals><goal>test</goal></goals></execution></executions>
+          </plugin>
+        </plugins></build></project>
+        """
         for command_args in (
             ["mvn", "-pl", "app", "test-compile"],
             ["mvn", "-f", "app/pom.xml", "test-compile"],
@@ -697,9 +767,115 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["gradle", "-p", "app", "testClasses"],
         ):
             with self.subTest(command=command_args):
-                completed = gate.subprocess.CompletedProcess(command_args, 0, "compiled")
-                with patch.object(gate.subprocess, "run", return_value=completed):
+                runner = (
+                    self.gradle_test_compile_runner()
+                    if gate.build_tool(command_args) == "gradle"
+                    else self.maven_effective_pom_runner(
+                        safe_maven_pom
+                    )
+                )
+                with patch.object(gate.subprocess, "run", side_effect=runner) as run:
                     self.assertEqual(0, self.submit(key, command=command_args))
+                    self.assertEqual(2, run.call_count)
+                    first_command = run.call_args_list[0].args[0]
+                    if gate.build_tool(command_args) == "gradle":
+                        self.assertIn("--dry-run", first_command)
+                    else:
+                        self.assertIn("help:effective-pom", first_command)
+
+    def test_migrate_only_rejects_unclassified_maven_test_compile_executions(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        effective_poms = (
+            """
+            <project><build><plugins><plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <executions><execution><phase>test-compile</phase>
+                <goals><goal>test</goal></goals>
+              </execution></executions>
+            </plugin></plugins></build></project>
+            """,
+            """
+            <project><build><plugins><plugin>
+              <groupId>org.example</groupId>
+              <artifactId>custom-test-runner</artifactId>
+              <executions><execution><phase>validate</phase>
+                <goals><goal>run</goal></goals>
+              </execution></executions>
+            </plugin></plugins></build></project>
+            """,
+            "<project><packaging>pom</packaging><build><plugins /></build></project>",
+        )
+        for effective_pom in effective_poms:
+            with self.subTest(effective_pom=effective_pom):
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(effective_pom),
+                ) as run:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Question 8|test-source compilation",
+                    ):
+                        self.submit(
+                            key,
+                            command=["mvn", "-pl", "app", "test-compile"],
+                        )
+                    self.assertEqual(1, run.call_count)
+                    self.assertIn("help:effective-pom", run.call_args.args[0])
+
+    def test_migrate_only_fails_closed_when_maven_effective_pom_is_unavailable(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                command_args,
+                1,
+                "help plugin unavailable",
+            ),
+        ) as run:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "could not inspect the effective Maven lifecycle",
+            ):
+                self.submit(key, command=command_args)
+            self.assertEqual(1, run.call_count)
+
+    def test_migrate_only_rejects_unclassified_gradle_test_compile_tasks(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        graphs = (
+            "> Task :app:compileTestJava SKIPPED\n"
+            "> Task :app:testClasses SKIPPED\n"
+            "> Task :app:customTestRunner SKIPPED\n",
+            "> Task :app:compileTestJava SKIPPED\n"
+            "> Task :app:testClasses SKIPPED\n"
+            "> Task :app:generateTestSources SKIPPED\n",
+            "> Task :app:classes SKIPPED\n"
+            "> Task :app:testClasses SKIPPED\n",
+            "",
+        )
+        for graph in graphs:
+            with self.subTest(graph=graph):
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.gradle_test_compile_runner(graph),
+                ) as run:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Migrate tests only|unclassified|test-source compiler|could not classify",
+                    ):
+                        self.submit(
+                            key,
+                            command=["gradle", ":app:testClasses"],
+                        )
+                    self.assertEqual(1, run.call_count)
+                    self.assertIn("--dry-run", run.call_args.args[0])
 
     def test_migrate_only_rejects_maven_test_skip_from_jvm_and_project_options(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -739,7 +915,13 @@ class ValidationEvidenceTest(unittest.TestCase):
         completed = gate.subprocess.CompletedProcess(
             ["mvn", "-pl", "app", "test-compile"], 0, "compiled"
         )
-        with patch.object(gate.subprocess, "run", return_value=completed):
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(
+                "<project><build><plugins /></build></project>"
+            ),
+        ):
             self.assertEqual(
                 0,
                 self.submit(key, command=["mvn", "-pl", "app", "test-compile"]),
@@ -756,6 +938,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         cases = (
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "test"]),
             (("module", "app", "spring_boot_run", None), ["gradle", ":app:integrationTest"]),
+            (("module", "app", "spring_boot_run", None), ["gradle", "--dry-run", ":app:bootRun"]),
+            (("module", "app", "spring_boot_run", None), ["gradle", "-m", ":app:bootRun"]),
             (("module", "app", "executable_jar", None), ["./mvnw", "-pl", "app", "verify"]),
             (("module", "app", "spring_boot_run", None), ["mvnDebug", "-pl", "app", "test"]),
             (("module", "app", "spring_boot_run", None), ["env", "mvn", "-pl", "app", "test"]),
@@ -781,6 +965,14 @@ class ValidationEvidenceTest(unittest.TestCase):
             (
                 ("module", "app", "executable_jar", None),
                 ["gradle", ":app:bootJar", ":app:customTask", "-x", "test"],
+            ),
+            (
+                ("module", "app", "executable_jar", None),
+                ["gradle", ":app:bootJar", "-x", "test", "--dry-run"],
+            ),
+            (
+                ("module", "app", "executable_jar", None),
+                ["gradle", "-m", ":app:bootJar", "-x", "test"],
             ),
             (("module", "app", "spring_boot_run", None), ["gradle", ":other:bootRun"]),
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "other", "spring-boot:run"]),
@@ -822,6 +1014,34 @@ class ValidationEvidenceTest(unittest.TestCase):
                         environment="local",
                     )
                 command.assert_not_called()
+
+    def test_migrate_only_rejects_model_commands_for_a_different_file(self):
+        self.write_scope(test_run_mode="migrate_only")
+        cases = (
+            (
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    ["npx", "bpmnlint", "models/other.bpmn"],
+            ),
+            (
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    ["c8ctl", "bpmn", "lint", "models/other.bpmn"],
+            ),
+            (
+                    ("model", "models/converted-c8-process.bpmn", "deployment", None),
+                    ["c8ctl", "deploy", "models/other.bpmn"],
+            ),
+        )
+        for key, command_args in cases:
+            with self.subTest(command=command_args):
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Migrate tests only",
+                    ):
+                        gate.validate_migrate_only_command(
+                            self.root,
+                            key,
+                            command_args,
+                        )
 
     def test_migrate_only_allows_verified_runtime_and_packaging_commands(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -1818,6 +2038,56 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("passed", results[cucumber_id])
         self.assertEqual("passed", results[spock_id])
         self.assertEqual("passed", results[parameterized_id])
+
+    def test_gradle_cpt_repeat_reruns_tasks_for_fresh_reports(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        passed_result = {
+            "exit_code": 0,
+            "result": "passed",
+            "reason": None,
+            "reports": [],
+            "test_results": {
+                self.c8_test_id: {
+                    "result": "passed",
+                    "invocations": ["passed"],
+                }
+            },
+            "coverage_reports": [],
+            "coverage_by_process": {},
+            "decision_coverage_by_id": {},
+            "coverage_available": False,
+            "output": "",
+        }
+        with patch.object(
+            gate,
+            "run_cpt_test_suite",
+            side_effect=[passed_result, passed_result],
+        ) as run:
+            result = gate.record_test_repeat(
+                self.root,
+                gate.requirements(self.root, self.plan),
+                Namespace(
+                    target="app",
+                    scenario="unit",
+                    command=["gradle", ":app:test"],
+                    timeout=None,
+                ),
+                gate.read_test_mapping(self.root, required=True),
+            )
+
+        self.assertEqual("passed", result["result"])
+        self.assertEqual(
+            ["gradle", ":app:test"],
+            run.call_args_list[0].args[3],
+        )
+        self.assertEqual(
+            ["gradle", ":app:test", "--rerun-tasks"],
+            run.call_args_list[1].args[3],
+        )
 
     def test_cpt_repeat_preserves_mapped_display_name_suffixes(self):
         self.configure_test_run(

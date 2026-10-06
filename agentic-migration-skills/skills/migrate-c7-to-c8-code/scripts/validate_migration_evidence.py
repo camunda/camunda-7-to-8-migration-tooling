@@ -88,6 +88,72 @@ MAVEN_TEST_EXECUTION_GOALS = {
     "verify",
 }
 GRADLE_PACKAGE_TASKS = {"assemble", "bootjar", "build", "jar", "war"}
+GRADLE_TEST_SOURCE_COMPILE_TASKS = {
+    "compiletestgroovy",
+    "compiletestjava",
+    "compiletestkotlin",
+    "compiletestscala",
+}
+GRADLE_TEST_COMPILE_GRAPH_TASKS = {
+    "classes",
+    "compilegroovy",
+    "compilejava",
+    "compilekotlin",
+    "compilescala",
+    "compiletestfixturesgroovy",
+    "compiletestfixturesjava",
+    "compiletestfixtureskotlin",
+    "compiletestfixturesscala",
+    "compiletestgroovy",
+    "compiletestjava",
+    "compiletestkotlin",
+    "compiletestscala",
+    "jar",
+    "kaptgeneratestubskotlin",
+    "kaptgeneratestubstestkotlin",
+    "kaptkotlin",
+    "kapttestkotlin",
+    "processresources",
+    "processtestfixturesresources",
+    "processtestresources",
+    "testclasses",
+    "testfixturesclasses",
+    "testfixturesjar",
+}
+MAVEN_TEST_COMPILE_SAFE_GOALS = {
+    ("org.apache.maven.plugins", "maven-clean-plugin", "clean"),
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "compile"),
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "testcompile"),
+    ("org.apache.maven.plugins", "maven-resources-plugin", "resources"),
+    ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"),
+}
+MAVEN_TEST_COMPILE_PACKAGINGS = {"ejb", "jar", "maven-plugin", "war"}
+MAVEN_DEFAULT_LIFECYCLE_PHASES = (
+    "validate",
+    "initialize",
+    "generate-sources",
+    "process-sources",
+    "generate-resources",
+    "process-resources",
+    "compile",
+    "process-classes",
+    "generate-test-sources",
+    "process-test-sources",
+    "generate-test-resources",
+    "process-test-resources",
+    "test-compile",
+    "process-test-classes",
+    "test",
+    "prepare-package",
+    "package",
+    "pre-integration-test",
+    "integration-test",
+    "post-integration-test",
+    "verify",
+    "install",
+    "deploy",
+)
+MAVEN_CLEAN_LIFECYCLE_PHASES = ("pre-clean", "clean", "post-clean")
 GRADLE_TEST_COMPILE_TASKS = {"testclasses", "testcompile", "testresources"}
 
 
@@ -243,6 +309,8 @@ def parse_build_command(command, tool):
         "project_dirs": [],
         "excluded_tasks": [],
         "properties": {},
+        "cli_options": [],
+        "dry_run": False,
     }
 
     def add_property(value):
@@ -259,32 +327,39 @@ def parse_build_command(command, tool):
             if argument in ("-D", "--define"):
                 value = command[index + 1] if index + 1 < len(command) else ""
                 add_property(value)
+                parsed["cli_options"].extend((argument, value))
                 index += 2
                 continue
             if argument.startswith("-D") and len(argument) > 2:
                 add_property(argument[2:])
+                parsed["cli_options"].append(argument)
                 index += 1
                 continue
             if argument.startswith("--define="):
                 add_property(argument.partition("=")[2])
+                parsed["cli_options"].append(argument)
                 index += 1
                 continue
             if argument in ("-pl", "--projects"):
                 if index + 1 < len(command):
                     parsed["projects"].append(command[index + 1])
+                    parsed["cli_options"].extend((argument, command[index + 1]))
                 index += 2
                 continue
             if argument.startswith(("-pl=", "--projects=")):
                 parsed["projects"].append(argument.partition("=")[2])
+                parsed["cli_options"].append(argument)
                 index += 1
                 continue
             if argument in ("-f", "--file"):
                 if index + 1 < len(command):
                     parsed["pom_files"].append(command[index + 1])
+                    parsed["cli_options"].extend((argument, command[index + 1]))
                 index += 2
                 continue
             if argument.startswith(("-f=", "--file=")):
                 parsed["pom_files"].append(argument.partition("=")[2])
+                parsed["cli_options"].append(argument)
                 index += 1
                 continue
             if argument in {
@@ -292,9 +367,16 @@ def parse_build_command(command, tool):
                 "--threads", "-t", "--toolchains", "-l", "--log-file",
                 "-rf", "--resume-from",
             }:
+                parsed["cli_options"].append(argument)
+                if index + 1 < len(command):
+                    parsed["cli_options"].append(command[index + 1])
                 index += 2
                 continue
         else:
+            if argument in ("-m", "--dry-run") or argument.startswith("--dry-run="):
+                parsed["dry_run"] = True
+                index += 1
+                continue
             if argument in ("-p", "--project-dir"):
                 if index + 1 < len(command):
                     parsed["project_dirs"].append(command[index + 1])
@@ -313,6 +395,16 @@ def parse_build_command(command, tool):
                 parsed["excluded_tasks"].append(argument.partition("=")[2])
                 index += 1
                 continue
+            if argument.startswith("--exclude-task"):
+                parsed["excluded_tasks"].append(
+                    argument[len("--exclude-task"):].lstrip("=")
+                )
+                index += 1
+                continue
+            if argument.startswith("-x") and len(argument) > 2:
+                parsed["excluded_tasks"].append(argument[2:].lstrip("="))
+                index += 1
+                continue
             if argument in {
                 "-D", "-P", "--system-prop", "--project-prop", "-I",
                 "--init-script", "-b", "--build-file", "-c", "--settings-file",
@@ -321,6 +413,8 @@ def parse_build_command(command, tool):
                 index += 2
                 continue
         if argument.startswith("-"):
+            if tool == "maven":
+                parsed["cli_options"].append(argument)
             index += 1
         else:
             parsed["tasks"].append(argument)
@@ -476,30 +570,289 @@ def maven_test_compilation_disabled(root, parsed):
     return False
 
 
+def maven_module_selection_is_exact(root, target, parsed):
+    target_path = project_relative_path(root, target)
+    if target_path is None or not (parsed["projects"] or parsed["pom_files"]):
+        return False
+    if any(
+        option in {
+            "-am",
+            "--also-make",
+            "-amd",
+            "--also-make-dependents",
+            "-rf",
+            "--resume-from",
+        }
+        for option in parsed["cli_options"]
+    ):
+        return False
+
+    if parsed["projects"]:
+        selected = set()
+        excluded = set()
+        for project_list in parsed["projects"]:
+            for selector in project_list.split(","):
+                selector = selector.strip()
+                is_excluded = selector.startswith(("!", "-"))
+                if is_excluded:
+                    selector = selector[1:]
+                module_path = project_relative_path(root, selector)
+                if module_path is None:
+                    return False
+                (excluded if is_excluded else selected).add(module_path)
+        if selected != {target_path} or target_path in excluded:
+            return False
+
+    if parsed["pom_files"]:
+        pom_modules = set()
+        for pom_file in parsed["pom_files"]:
+            pom_path = project_relative_path(root, pom_file)
+            if pom_path is None or Path(pom_path).name != "pom.xml":
+                return False
+            pom_modules.add(Path(pom_path).parent.as_posix() or ".")
+        if pom_modules != {target_path}:
+            return False
+    return maven_module_selected(root, target, parsed)
+
+
+def maven_effective_pom(root, command, parsed, timeout):
+    with tempfile.TemporaryDirectory(
+        prefix=".migrate-only-effective-pom-",
+        dir=root,
+    ) as temporary_directory:
+        output_path = Path(temporary_directory) / "effective-pom.xml"
+        inspection_command = [
+            command[0],
+            *parsed["cli_options"],
+            f"-Doutput={output_path}",
+            "help:effective-pom",
+        ]
+        try:
+            completed = subprocess.run(
+                inspection_command,
+                cwd=root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                timeout=timeout if timeout is not None else 120,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise EvidenceError(
+                "Question 8 could not inspect the effective Maven lifecycle "
+                "before test compilation because `help:effective-pom` timed out"
+            ) from exc
+        except OSError as exc:
+            raise EvidenceError(
+                f"Question 8 could not inspect the effective Maven lifecycle: {exc}"
+            ) from exc
+        if completed.returncode != 0 or not output_path.is_file():
+            raise EvidenceError(
+                "Question 8 could not inspect the effective Maven lifecycle "
+                "before test compilation"
+            )
+        try:
+            return ET.parse(output_path).getroot()
+        except (OSError, ET.ParseError) as exc:
+            raise EvidenceError(
+                "Question 8 could not parse the effective Maven lifecycle "
+                "before test compilation"
+            ) from exc
+
+
+def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
+    extensions_file = root / ".mvn" / "extensions.xml"
+    if extensions_file.exists() or extensions_file.is_symlink():
+        return "Maven core extensions"
+
+    def local_name(element):
+        return element.tag.rsplit("}", 1)[-1]
+
+    def child_text(element, name):
+        child = next(
+            (item for item in element if local_name(item) == name),
+            None,
+        )
+        return (child.text or "").strip() if child is not None else ""
+
+    packaging = child_text(effective_pom, "packaging") or "jar"
+    if packaging.casefold() not in MAVEN_TEST_COMPILE_PACKAGINGS:
+        return f"Maven packaging {packaging} has no verified test-source compiler"
+
+    builds = [
+        child for child in effective_pom if local_name(child) == "build"
+    ]
+    clean_requested = "clean" in {
+        task_leaf(task) for task in parsed["tasks"]
+    }
+    relevant_phases = set(
+        MAVEN_DEFAULT_LIFECYCLE_PHASES[
+            :MAVEN_DEFAULT_LIFECYCLE_PHASES.index("test-compile") + 1
+        ]
+    )
+    if clean_requested:
+        relevant_phases.update(MAVEN_CLEAN_LIFECYCLE_PHASES)
+    known_phases = set(MAVEN_DEFAULT_LIFECYCLE_PHASES)
+    known_phases.update(MAVEN_CLEAN_LIFECYCLE_PHASES)
+
+    for build in builds:
+        if any(
+            local_name(child) == "extensions" and list(child)
+            for child in build
+        ):
+            return "Maven build extensions"
+        for plugins in (
+            child for child in build if local_name(child) == "plugins"
+        ):
+            for plugin in (child for child in plugins if local_name(child) == "plugin"):
+                group_id = child_text(plugin, "groupId") or "org.apache.maven.plugins"
+                artifact_id = child_text(plugin, "artifactId")
+                if child_text(plugin, "extensions").casefold() == "true":
+                    return f"{group_id}:{artifact_id} build extension"
+                for executions in (
+                    child for child in plugin if local_name(child) == "executions"
+                ):
+                    for execution in (
+                        child for child in executions if local_name(child) == "execution"
+                    ):
+                        phase = child_text(execution, "phase").casefold()
+                        if not phase:
+                            continue
+                        if phase not in known_phases:
+                            return f"{group_id}:{artifact_id} at unknown phase {phase}"
+                        if phase not in relevant_phases:
+                            continue
+                        for goals in (
+                            child for child in execution if local_name(child) == "goals"
+                        ):
+                            for goal in (
+                                child for child in goals if local_name(child) == "goal"
+                            ):
+                                goal_name = (goal.text or "").strip().casefold()
+                                identity = (
+                                    group_id.casefold(),
+                                    artifact_id.casefold(),
+                                    goal_name,
+                                )
+                                if identity not in MAVEN_TEST_COMPILE_SAFE_GOALS:
+                                    return (
+                                        f"{group_id}:{artifact_id}:{goal_name} "
+                                        f"at {phase}"
+                                    )
+    return None
+
+
+def verify_maven_test_compile_lifecycle(root, command, parsed, timeout):
+    effective_pom = maven_effective_pom(root, command, parsed, timeout)
+    unclassified = maven_unclassified_test_compile_execution(
+        root,
+        effective_pom,
+        parsed,
+    )
+    if unclassified:
+        raise EvidenceError(
+            "Question 8 cannot verify that Maven test compilation avoids test "
+            f"execution: unclassified effective lifecycle action {unclassified}"
+        )
+
+
+def verify_gradle_test_compile_graph(root, command, timeout):
+    inspection_command = [*command, "--dry-run", "--console=plain"]
+    try:
+        completed = subprocess.run(
+            inspection_command,
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+            timeout=timeout if timeout is not None else 120,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise EvidenceError(
+            "Question 8 could not inspect the Gradle test-source compilation "
+            "task graph because `--dry-run` timed out"
+        ) from exc
+    except OSError as exc:
+        raise EvidenceError(
+            f"Question 8 could not inspect the Gradle test-source compilation task graph: {exc}"
+        ) from exc
+    if completed.returncode != 0:
+        raise EvidenceError(
+            "Question 8 could not inspect the Gradle test-source compilation task graph "
+            f"(exit code {completed.returncode})"
+        )
+
+    tasks = []
+    for line in completed.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("> Task "):
+            stripped = stripped[len("> Task "):]
+        fields = stripped.split()
+        if len(fields) >= 2 and fields[0].startswith(":") and fields[1] == "SKIPPED":
+            tasks.append(fields[0])
+    if not tasks:
+        raise EvidenceError(
+            "Question 8 could not classify the Gradle test-source compilation task graph"
+        )
+    if not any(
+        task_leaf(task) in GRADLE_TEST_SOURCE_COMPILE_TASKS
+        for task in tasks
+    ):
+        raise EvidenceError(
+            "Question 8 Gradle test-source compilation task graph does not include "
+            "a test-source compiler task"
+        )
+    unclassified = sorted(
+        task for task in tasks
+        if task_leaf(task) not in GRADLE_TEST_COMPILE_GRAPH_TASKS
+    )
+    if unclassified:
+        raise EvidenceError(
+            "Question 8 cannot verify that Gradle test-source compilation avoids test "
+            "execution: unclassified task-graph actions "
+            + ", ".join(unclassified)
+        )
+
+
 def task_leaf(task):
     return task.rsplit(":", 1)[-1].casefold()
 
 
-def compiles_test_sources(root, target, command):
+def compiles_test_sources(root, target, command, parsed=None, timeout=None):
     tool = build_tool(command)
     if tool is None:
         return False
-    parsed = parse_build_command(command, tool)
+    parsed = parsed or parse_build_command(command, tool)
     tasks = [task_leaf(task) for task in parsed["tasks"]]
     if tool == "maven":
-        return (
-            maven_module_selected(root, target, parsed)
-            and not maven_test_compilation_disabled(root, parsed)
-            and not maven_pom_skips_test_compilation(root, target)
-            and not maven_project_arguments_present(root)
-            and "test-compile" in tasks
-            and set(tasks) <= {"clean", "test-compile"}
+        if (
+            parsed["dry_run"]
+            or not maven_module_selection_is_exact(root, target, parsed)
+            or maven_test_compilation_disabled(root, parsed)
+            or maven_pom_skips_test_compilation(root, target)
+            or maven_project_arguments_present(root)
+            or "test-compile" not in tasks
+            or set(tasks) - {"clean", "test-compile"}
+        ):
+            return False
+        verify_maven_test_compile_lifecycle(root, command, parsed, timeout)
+        return True
+    if (
+        parsed["dry_run"]
+        or parsed["excluded_tasks"]
+        or not any(
+            task_leaf(task) == "testclasses"
+            and gradle_module_selected(root, target, parsed, task)
+            for task in parsed["tasks"]
         )
-    return any(
-        task_leaf(task) == "testclasses"
-        and gradle_module_selected(root, target, parsed, task)
-        for task in parsed["tasks"]
-    ) and set(tasks) <= {"clean", "testclasses"}
+        or set(tasks) - {"clean", "testclasses"}
+    ):
+        return False
+    verify_gradle_test_compile_graph(root, command, timeout)
+    return True
 
 
 def gradle_task_is_excluded(parsed, task):
@@ -666,8 +1019,26 @@ def java_application_jar(root, key, command):
     )
 
 
-def verified_non_test_command(key, command):
+def normalized_model_target(root, value):
+    if not isinstance(value, str):
+        return None
+    return project_relative_path(root, value.split("#", 1)[0])
+
+
+def verified_non_test_command(root, key, command):
     executable = command_executable(command)
+    model_target = (
+        normalized_model_target(root, key[1])
+        if key[0] == "model"
+        else None
+    )
+
+    def model_target_matches(value):
+        return (
+            model_target is not None
+            and normalized_model_target(root, value) == model_target
+        )
+
     model_suffix = (
         Path(key[1].split("#", 1)[0]).suffix.casefold()
         if key[0] == "model"
@@ -677,17 +1048,18 @@ def verified_non_test_command(key, command):
         executable == "npx"
         and key[0] == "model"
         and key[2] == "lint"
-        and len(command) > 1
+        and len(command) > 2
         and (
             model_suffix == ".bpmn" and command[1].casefold() == "bpmnlint"
             or model_suffix == ".dmn" and command[1].casefold() == "dmnlint"
         )
+        and model_target_matches(command[2])
     ):
         return True
     if executable == "c8ctl" and key[0] == "model":
         return (
             key[2] == "lint"
-            and len(command) > 2
+            and len(command) > 3
             and (
                 model_suffix == ".bpmn"
                 and tuple(argument.casefold() for argument in command[1:3])
@@ -696,22 +1068,34 @@ def verified_non_test_command(key, command):
                 and tuple(argument.casefold() for argument in command[1:3])
                 == ("dmn", "lint")
             )
+            and model_target_matches(command[3])
         ) or (
             key[2] == "deployment"
-            and len(command) > 1
+            and len(command) > 2
             and command[1].casefold() == "deploy"
+            and model_target_matches(command[2])
         )
     return False
 
 
-def validate_migrate_only_command(root, key, command):
+def validate_migrate_only_command(root, key, command, timeout=None):
+    tool = build_tool(command)
+    parsed = parse_build_command(command, tool) if tool is not None else None
+    if parsed and parsed["dry_run"]:
+        if key[0] == "module" and key[2] == "compile":
+            raise EvidenceError(
+                f"{key}: Question 8 Migrate tests only requires actual test-source compilation"
+            )
+        raise EvidenceError(
+            "Question 8 Migrate tests only does not accept Gradle dry-run commands"
+        )
     if key[0] == "module" and key[2] == "compile":
-        if compiles_test_sources(root, key[1], command):
+        if compiles_test_sources(root, key[1], command, parsed, timeout):
             return
         raise EvidenceError(
             f"{key}: Question 8 Migrate tests only requires module-specific "
             "test-source compilation with Maven `test-compile` or Gradle `testClasses`, "
-            "without an enabled `maven.test.skip` property"
+            "without an enabled `maven.test.skip` property or excluded Gradle tasks"
         )
     if shell_command(command):
         raise EvidenceError(
@@ -725,16 +1109,14 @@ def validate_migrate_only_command(root, key, command):
         raise EvidenceError(
             "Question 8 Migrate tests only forbids test-execution commands for every check"
         )
-    if verified_non_test_command(key, command):
+    if verified_non_test_command(root, key, command):
         return
-    tool = build_tool(command)
     if tool is not None:
         if tool == "maven" and maven_project_arguments_present(root):
             raise EvidenceError(
                 "Question 8 cannot verify Maven project arguments from MAVEN_ARGS "
                 "or `.mvn/maven.config`"
             )
-        parsed = parse_build_command(command, tool)
         if has_test_compile_task(parsed, tool):
             raise EvidenceError(
                 "Question 8 Migrate tests only accepts test-source compilation only "
@@ -3337,6 +3719,16 @@ def test_runs_match(first, second):
     )
 
 
+def test_repeat_command(command, run_number):
+    if (
+        run_number == 2
+        and build_tool(command) == "gradle"
+        and "--rerun-tasks" not in command
+    ):
+        return [*command, "--rerun-tasks"]
+    return command
+
+
 def record_test_repeat(root, plan, args, mapping):
     suite_key = (args.target, args.scenario)
     suite_config = plan.test_contract["cpt_suites"].get(suite_key)
@@ -3354,7 +3746,7 @@ def record_test_repeat(root, plan, args, mapping):
             root,
             args.target,
             args.scenario,
-            command,
+            test_repeat_command(command, run_number),
             args.timeout,
             run_number,
             suite_config,
@@ -5579,7 +5971,7 @@ def record(root, args):
         if args.baseline_root is not None:
             raise EvidenceError("--baseline-root is only valid for c7_baseline checks")
         if test_run_mode == "migrate_only":
-            validate_migrate_only_command(root, key, command)
+            validate_migrate_only_command(root, key, command, args.timeout)
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

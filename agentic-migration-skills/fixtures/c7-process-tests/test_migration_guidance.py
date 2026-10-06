@@ -1149,12 +1149,35 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_migrate_only_guidance_and_walkthrough_report(self):
         guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        execution_order = normalized(
+            "When the Test Inventory has a test marked `Migrate`, `Migrate to CPT`, "
+            "or `Migrate (lower priority)` and `test_run_mode` is `run`, follow the phase "
+            "order in `references/test-migration.md`."
+        )
+        for relative_path in (
+            "skills/migrate-c7-to-c8-code/references/composing-code-and-models.md",
+            "skills/migrate-c7-to-c8-code/references/code-migration-approaches.md",
+        ):
+            with self.subTest(reference=relative_path):
+                text = normalized(
+                    (
+                        REPO_ROOT
+                        / "agentic-migration-skills"
+                        / relative_path
+                    ).read_text(encoding="utf-8")
+                )
+                self.assertIn(execution_order, text)
+
         for text in (
             "Compile each module's test sources with a module-specific `mvn -pl <module> test-compile` or Gradle `:<module>:testClasses` task.",
             "A main-source-only compile does not count.",
             "Do not run C7 suites, CPT suites, or Step 4 process scenarios.",
             "the exact reason `declined by user (Question 8)`",
+            "The validator requires a Gradle test-source compiler task and verified Maven packaging.",
             "Copy the full project root, including hidden files, to a sibling directory.",
+            "`git status --porcelain`",
+            "Git repository with a dirty working tree",
+            "When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This option makes Gradle rerun report-generating tasks and write fresh reports.",
             "Never rebuild the C7 baseline from migrated code.",
         ):
             with self.subTest(text=text):
@@ -1168,6 +1191,10 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         for text in (
             "It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle `testClasses` command that selects the recorded module.",
+            "Before Maven test compilation, the validator inspects the effective POM with the command's module, POM, profile, and property options. It refuses unclassified lifecycle goals through `test-compile` and Maven build extensions. It refuses the compile check if Maven cannot generate or parse the effective POM, or if its packaging has no verified test-source compiler.",
+            "Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It requires a test-source compiler task. It accepts only recognized compile, resource, and JAR tasks. It refuses every excluded task and every unclassified task.",
+            "A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.",
+            "It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only when the command's normalized file target matches the selected model.",
             "The command must not enable `maven.test.skip` in the module or an ancestor POM, command-line, or JVM options, including `.mvn/jvm.config`.",
             "It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test checks.",
             "It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.",
@@ -1190,6 +1217,22 @@ class MigrationGuidanceTest(unittest.TestCase):
             "kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`",
             report,
         )
+        deferred_plan = report.split("## Verify the test migration", 1)[1].split(
+            "## Readiness", 1
+        )[0]
+        for check in (
+            "`c7_baseline`",
+            "`test_freeze`",
+            "`test_repeat`",
+            "`assertion_strength`",
+            "`mock_boundary`",
+            "`test_parity`",
+            "`coverage_parity`",
+            "`process_path`",
+        ):
+            with self.subTest(deferred_check=check):
+                self.assertIn(check, deferred_plan)
+        self.assertNotIn("kind `tests`", deferred_plan)
         deferred = markdown_table(EXPECTED_TESTS_ONLY, ["Kind", "Scope", "Status", "Reason"])
         self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred})
         for columns in (["Check", "Status", "Reason"], ["Kind", "Scope", "Status", "Reason"]):

@@ -220,6 +220,14 @@ In `migrate_only` mode, the validation script applies these rules:
   `testClasses` command that selects the recorded module. The command must not enable
   `maven.test.skip` in the module or an ancestor POM, command-line, or JVM options, including
   `.mvn/jvm.config`.
+- Before Maven test compilation, the validator inspects the effective POM with the command's
+  module, POM, profile, and property options. It refuses unclassified lifecycle goals through
+  `test-compile` and Maven build extensions. It refuses the compile check if Maven cannot generate
+  or parse the effective POM, or if its packaging has no verified test-source compiler.
+- Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It
+  requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
+  tasks. It refuses every excluded task and every unclassified task.
+- A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.
 - It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.
 - It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test
   checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
@@ -229,8 +237,8 @@ In `migrate_only` mode, the validation script applies these rules:
 - It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact
   with a `Main-Class` manifest entry.
 - It accepts Maven `help:effective-pom` only for module `configuration` checks. It accepts
-  `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only for matching model
-  checks.
+  `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only when the command's
+  normalized file target matches the selected model.
 - It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for
   `executable_jar` and `external_launcher` checks.
 - It does not require `docker_info`.
