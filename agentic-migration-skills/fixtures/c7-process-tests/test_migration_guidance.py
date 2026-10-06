@@ -766,8 +766,17 @@ class MigrationGuidanceTest(unittest.TestCase):
             report,
         )
         self.assertIsNotNone(baseline_commit)
+        self.assertEqual(
+            "d84e685f57e6eee2af52c9966017c3272fd3a205",
+            baseline_commit.group(1),
+        )
         self.assertIn(
             f"git worktree add ../c7-baseline {baseline_commit.group(1)}",
+            report,
+        )
+        self.assertIn(
+            "mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/"
+            "c7-source/pom.xml -pl engine-tests test",
             report,
         )
         self.assertIn("test_run_mode", report)

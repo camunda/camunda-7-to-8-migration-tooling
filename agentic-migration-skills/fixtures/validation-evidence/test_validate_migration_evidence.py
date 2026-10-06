@@ -446,10 +446,13 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "verify"],
             ["mvnd", "package"],
             ["mvnw", "maven-surefire-plugin:test"],
+            ["mvn", "org.apache.maven.plugins:maven-surefire-plugin:test@unit"],
+            ["mvn", "org.apache.maven.plugins:maven-failsafe-plugin:integration-test@it"],
             ["./gradlew", "test"],
             ["gradle", "check"],
             ["gradle", "build"],
             ["./gradlew", "integrationTest"],
+            ["gradle", "build", "-x", "test", "integrationTest"],
         )
         for command_args in test_commands:
             with self.subTest(command=command_args):
@@ -459,6 +462,32 @@ class ValidationEvidenceTest(unittest.TestCase):
                     with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
                         self.submit(compile_key, command=command_args)
                     command.assert_not_called()
+
+    def test_migrate_only_allows_documented_build_commands_that_skip_tests(self):
+        compile_key = ("module", "app", "compile", None)
+        build_commands = (
+            ["mvn", "package", "-DskipTests"],
+            ["mvn", "-DskipTests=true", "package"],
+            ["gradle", "build", "-x", "test"],
+            ["./gradlew", "build", "--exclude-task", "test"],
+        )
+        for command_args in build_commands:
+            with self.subTest(command=command_args):
+                self.write_scope(test_run_mode="migrate_only")
+                completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
+                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                    self.assertEqual(0, self.submit(compile_key, command=command_args))
+                command.assert_called_once()
+
+    def test_migrate_only_rejects_build_commands_with_false_maven_test_skip(self):
+        compile_key = ("module", "app", "compile", None)
+        command_args = ["mvn", "package", "-DskipTests=false"]
+        self.write_scope(test_run_mode="migrate_only")
+        completed = subprocess.CompletedProcess(command_args, 0, "test command ran")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
+                self.submit(compile_key, command=command_args)
+            command.assert_not_called()
 
     def test_migrate_only_allows_maven_test_source_compilation(self):
         self.write_scope(test_run_mode="migrate_only")

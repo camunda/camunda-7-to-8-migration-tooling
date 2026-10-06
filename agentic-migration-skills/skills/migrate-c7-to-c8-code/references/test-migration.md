@@ -312,8 +312,18 @@ then ask the user before Step 3.
 
 When the user selects **Migrate tests only**, compile each module's test sources with `mvn
 test-compile` or the Gradle `testClasses` task. A main-source-only compile does not count.
-The validation recorder rejects Maven test lifecycle goals and Gradle test tasks in this mode,
-regardless of the recorded evidence kind.
+When the user selects **Migrate tests only**, the validation recorder applies this command policy
+regardless of evidence kind:
+
+| Build tool | Command | Recorder action |
+|---|---|---|
+| Maven | `-DskipTests` or `-DskipTests=true` | Allow the command because it skips tests. |
+| Maven | `-DskipTests=false` or another non-true value | Reject a test lifecycle goal. |
+| Gradle | `-x test` or `--exclude-task test` | If no other test task remains, then allow the command. |
+| Either | A test lifecycle goal or task without an applicable skip option | Reject the command. |
+
+When a non-test check needs Maven packaging, use `-DskipTests`.
+When a non-test check needs a Gradle build, use `-x test`.
 For every independently runnable suite, declare separate `test_suites` entries named
 `<suite>-c7-baseline` and `<suite>-c8-migrated`. Set `requires_docker` for each entry according to
 its runtime. These names give the baseline and migrated run separate validation evidence keys.

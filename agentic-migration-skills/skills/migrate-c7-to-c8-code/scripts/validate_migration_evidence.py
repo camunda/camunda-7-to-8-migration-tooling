@@ -67,7 +67,7 @@ MAVEN_OPTIONS_WITH_VALUES = {
 GRADLE_OPTIONS_WITH_VALUES = {
     "--console", "--exclude-task", "--include-build", "--init-script", "--max-workers",
     "--project-cache-dir", "--project-dir", "--tests", "--warning-mode", "-D", "-I",
-    "-P", "-p",
+    "-P", "-p", "-x",
 }
 
 
@@ -76,38 +76,99 @@ def command_runs_test_suite(command):
         return False
     executable = command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
     if executable in MAVEN_EXECUTABLES:
-        option_values = MAVEN_OPTIONS_WITH_VALUES
-    elif executable in GRADLE_EXECUTABLES:
-        option_values = GRADLE_OPTIONS_WITH_VALUES
-    else:
-        return False
+        arguments = []
+        skip_tests = False
+        index = 1
+        while index < len(command):
+            argument = command[index]
+            property_argument = None
+            if argument in {"-D", "--define"}:
+                if index + 1 < len(command):
+                    property_argument = command[index + 1]
+                    index += 1
+            elif argument.startswith("-D"):
+                property_argument = argument[2:]
+            elif argument.startswith("--define="):
+                property_argument = argument.partition("=")[2]
 
-    arguments = []
-    skip_next = False
-    for argument in command[1:]:
-        if skip_next:
-            skip_next = False
-        elif argument in option_values:
-            skip_next = True
-        elif not argument.startswith("-"):
+            if property_argument is not None:
+                name, separator, value = property_argument.partition("=")
+                if name == "skipTests":
+                    skip_tests = not separator or value.casefold() == "true"
+                index += 1
+                continue
+            if argument in MAVEN_OPTIONS_WITH_VALUES:
+                index += 2
+                continue
+            if argument.startswith("-"):
+                index += 1
+                continue
             arguments.append(argument.casefold())
+            index += 1
 
-    if executable in MAVEN_EXECUTABLES:
+        if skip_tests:
+            return False
         return any(
-            argument in MAVEN_TEST_LIFECYCLE_GOALS
+            (goal := argument.split("@", 1)[0]) in MAVEN_TEST_LIFECYCLE_GOALS
             or (
-                ":" in argument
-                and argument.rsplit(":", 1)[-1] in {"test", "integration-test"}
+                ":" in goal
+                and goal.rsplit(":", 1)[-1] in {"test", "integration-test"}
             )
             for argument in arguments
         )
+    elif executable in GRADLE_EXECUTABLES:
+        arguments = []
+        excluded_task_names = set()
+        excluded_task_paths = set()
+        index = 1
+        while index < len(command):
+            argument = command[index]
+            if argument in {"-x", "--exclude-task"}:
+                if index + 1 < len(command):
+                    excluded_task = command[index + 1]
+                    normalized_task = excluded_task.casefold().lstrip(":")
+                    if ":" in excluded_task:
+                        excluded_task_paths.add(normalized_task)
+                    else:
+                        excluded_task_names.add(normalized_task)
+                    index += 2
+                else:
+                    index += 1
+                continue
+            if argument.startswith("--exclude-task="):
+                excluded_task = argument.partition("=")[2]
+                normalized_task = excluded_task.casefold().lstrip(":")
+                if ":" in excluded_task:
+                    excluded_task_paths.add(normalized_task)
+                else:
+                    excluded_task_names.add(normalized_task)
+                index += 1
+                continue
+            if argument in GRADLE_OPTIONS_WITH_VALUES:
+                index += 2
+                continue
+            if argument.startswith("-"):
+                index += 1
+                continue
+            arguments.append(argument.casefold())
+            index += 1
+    else:
+        return False
 
-    return any(
-        task in GRADLE_TEST_TASKS
-        or (task.startswith("test") and task not in {"testclasses", "testfixturesclasses"})
-        or task.endswith(("test", "tests"))
-        for task in (argument.rsplit(":", 1)[-1] for argument in arguments)
-    )
+    for argument in arguments:
+        task_path = argument.lstrip(":")
+        task = task_path.rsplit(":", 1)[-1]
+        if task_path in excluded_task_paths or task in excluded_task_names:
+            continue
+        if task in {"build", "check"} and "test" in excluded_task_names:
+            continue
+        if (
+            task in GRADLE_TEST_TASKS
+            or (task.startswith("test") and task not in {"testclasses", "testfixturesclasses"})
+            or task.endswith(("test", "tests"))
+        ):
+            return True
+    return False
 
 
 @dataclass
