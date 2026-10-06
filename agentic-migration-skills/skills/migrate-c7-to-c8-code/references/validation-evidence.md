@@ -422,11 +422,11 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 |---|---|
 | Project `.` | `docker_info` before the first Docker-dependent suite, when any suite needs Docker. Use exactly `docker info`. |
 | Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
-| Each module test suite | `test_repeat` for a suite with in-scope migrated tests in `Run tests` mode. The validator runs the suite twice. Use `tests` for other suites. |
+| Each module test suite | `test_repeat` for a suite with mapped migrated or added CPT tests in `Run tests` mode. The validator runs the suite twice. Use `tests` for other suites. |
 | Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |
 | Each migrated test class | `assertion_strength` review. |
 | Each migrated C7 test | `mock_boundary` review. |
-| Project `.` with in-scope migrated tests | `test_freeze`, `test_parity`, and `coverage_parity`. |
+| Project `.` in `Run tests` mode with C7 `Migrate` rows or mapped migrated CPT tests | `test_parity` and `coverage_parity`. Require `test_freeze` only while migrated or added CPT IDs remain. |
 | Spring Boot runtime module | `configuration`, `spring_boot_run`, and `executable_jar`, in addition to module checks. |
 | External runtime module | `configuration` and `external_launcher`, in addition to module checks. |
 | Each converted BPMN/DMN | `lint`, `review`, then `deployment`. The recorder also checks XML parsing and source separation. |

@@ -261,6 +261,10 @@ change.
 For a retired test, set `retirement.reason` and `retirement.approved_by`. The validator rejects a
 retired test without both values.
 
+When all C7 tests are retired and no migrated or added `c8_ids` remain, the validator still checks
+the C7 baseline and retired disposition. It does not require `test_freeze` or `test_repeat`. It
+skips target coverage comparison because no CPT tests remain.
+
 For an added test, set `c8_ids`. The validator requires each added CPT test to pass in both runs.
 Keep `c8_ids` distinct within each ledger row. Never assign one CPT ID to multiple migrated or
 added test rows.
@@ -273,10 +277,10 @@ After test migration, run the freeze check:
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
 ```
 
-The validator hashes each existing file named by a `Migrate` Test Inventory row. It also hashes
-every file under `src/test/` in each module with an in-scope `Migrate` test.
-For suites with migrated tests, it hashes every file under configured `test_source_roots` and
-`test_resource_roots`.
+The validator hashes each existing file named by a migrated Test Inventory row. It also hashes
+every file under `src/test/` in each module with a migrated or added CPT test.
+For each suite with migrated or added CPT tests, it hashes every file under the configured
+`test_source_roots` and `test_resource_roots`.
 The source snapshot also locks the configured root paths before migration starts.
 The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
 unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
@@ -300,7 +304,7 @@ removing a file. The validator rejects each changed hash without a matching appr
 
 ## CPT repeat and parity checks
 
-The `test_repeat` check runs each migrated CPT suite twice:
+The `test_repeat` check runs each CPT suite with mapped migrated or added tests twice:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind test_repeat --scenario unit -- mvn -B -pl examples/web test

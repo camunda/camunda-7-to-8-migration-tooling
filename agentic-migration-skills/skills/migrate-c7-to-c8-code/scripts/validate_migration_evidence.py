@@ -1456,22 +1456,28 @@ def coverage_json(coverage):
 
 
 def current_test_files(root, plan, mapping=None):
+    cpt_test_ids = expected_cpt_test_ids(mapping)
     migrated_test_ids = mapped_migrated_test_ids(mapping)
     migrated_tests = [
         test
         for test in plan.test_contract["tests"]
-        if test["handling"] == "Migrate" or test["id"] in migrated_test_ids
+        if test["id"] in migrated_test_ids
+        or mapping is None and test["handling"] == "Migrate"
     ]
-    modules = sorted({test["module"] for test in migrated_tests})
+    migrated_modules = {test["module"] for test in migrated_tests}
+    module_paths = set(plan.test_contract.get("modules", migrated_modules))
+    cpt_modules = set()
+    for test_id in cpt_test_ids:
+        module, separator, _ = test_id.partition(":")
+        if separator and module in module_paths:
+            cpt_modules.add(module)
+    modules = sorted(migrated_modules | cpt_modules)
     files = {}
-    module_paths = set(plan.test_contract.get("modules", modules))
     inventory_files = {Path(test["file"]).as_posix() for test in migrated_tests}
     roots_by_module = {module: set() for module in modules}
     for suite in plan.test_contract["suites"].values():
         module = suite["module"]
-        if module not in roots_by_module or not suite_has_migrated_tests(
-            suite, migrated_test_ids
-        ):
+        if module not in roots_by_module or not suite_has_cpt_tests(suite, mapping):
             continue
         for root_type in ("test_source_roots", "test_resource_roots"):
             for value in suite[root_type]:
@@ -1567,6 +1573,8 @@ def recorded_test_freeze_digest(root, mapping):
 
 
 def validate_test_freeze(root, plan, mapping):
+    if not expected_cpt_test_ids(mapping):
+        return []
     issues = []
     current = current_test_files(root, plan, mapping)
     frozen = mapping["freeze"]["files"]
@@ -1649,6 +1657,8 @@ def validate_test_freeze(root, plan, mapping):
 
 
 def record_test_freeze(root, plan, mapping):
+    if not expected_cpt_test_ids(mapping):
+        raise EvidenceError("test_freeze: no migrated or added CPT tests remain")
     rows = test_rows_by_id(mapping)
     for test in plan.test_contract["tests"]:
         if test["handling"] != "Migrate":
@@ -1723,6 +1733,8 @@ def mapped_cpt_test_ids(contract, rows):
 
 
 def expected_cpt_test_ids(mapping):
+    if mapping is None:
+        return set()
     test_rows_by_id(mapping)
     expected_ids = set()
     for test in mapping["tests"]:
@@ -1753,11 +1765,29 @@ def test_validation_enabled(contract, migrated_test_ids):
     )
 
 
-def suite_has_migrated_tests(suite, migrated_test_ids):
-    return bool(
-        suite.get("migrate_test_ids")
-        or set(suite.get("test_ids", [])) & migrated_test_ids
+def module_has_cpt_tests(module, mapping):
+    return any(
+        test_id.startswith(f"{module}:")
+        for test_id in expected_cpt_test_ids(mapping)
     )
+
+
+def suite_has_cpt_tests(suite, mapping):
+    if mapping is None:
+        return False
+    rows = test_rows_by_id(mapping)
+    for test_id in suite.get("test_ids", suite.get("migrate_test_ids", [])):
+        test = rows.get(test_id)
+        c8_ids = test.get("c8_ids") if isinstance(test, dict) else None
+        if (
+            isinstance(test, dict)
+            and test.get("status") == "migrated"
+            and isinstance(c8_ids, list)
+            and any(isinstance(c8_id, str) and c8_id for c8_id in c8_ids)
+        ):
+            return True
+    module = suite.get("module")
+    return isinstance(module, str) and module_has_cpt_tests(module, mapping)
 
 
 def normalized_mock(value):
@@ -2104,12 +2134,12 @@ def test_parity_issues(plan, checks, mapping):
 def coverage_parity_issues(plan, checks, mapping):
     issues = []
     contract = plan.test_contract
-    migrated_test_ids = mapped_migrated_test_ids(mapping)
+    has_cpt_tests = bool(expected_cpt_test_ids(mapping))
     repeat_runs = test_repeat_checks(plan, checks)
     cpt_coverage = [{}, {}]
     cpt_decisions = [{}, {}]
     for suite_key, suite in contract["suites"].items():
-        if not suite_has_migrated_tests(suite, migrated_test_ids):
+        if not suite_has_cpt_tests(suite, mapping):
             continue
         runs = repeat_runs.get(suite_key)
         if runs is None:
@@ -2161,6 +2191,9 @@ def coverage_parity_issues(plan, checks, mapping):
         note = "No Camunda 7 coverage baseline."
     else:
         note = "Camunda 7 coverage baseline captured."
+    if not has_cpt_tests:
+        note += " No migrated or added CPT tests remain for target comparison."
+    if baseline.get("coverage_available") is True:
         source_coverage = baseline.get("coverage")
         if not isinstance(source_coverage, dict):
             issues.append("C7 coverage baseline is not an object")
@@ -2234,15 +2267,16 @@ def coverage_parity_issues(plan, checks, mapping):
                     c7_processes_by_cpt_process.setdefault(converted_process, set()).add(
                         process_id
                     )
-                for run_index in range(2):
-                    missing = expected - cpt_coverage[run_index].get(
-                        converted_process, set()
-                    )
-                    if missing:
-                        issues.append(
-                            f"{model}#{converted_process}: CPT run {run_index + 1} "
-                            "lost C7-covered elements: " + ", ".join(sorted(missing))
+                if has_cpt_tests:
+                    for run_index in range(2):
+                        missing = expected - cpt_coverage[run_index].get(
+                            converted_process, set()
                         )
+                        if missing:
+                            issues.append(
+                                f"{model}#{converted_process}: CPT run {run_index + 1} "
+                                "lost C7-covered elements: " + ", ".join(sorted(missing))
+                            )
             retained_c7_elements[process_id] = sorted(retained)
         for converted_process in sorted(ambiguous_cpt_process_ids):
             model_paths = sorted(converted_model_paths_by_cpt_process[converted_process])
@@ -2507,12 +2541,15 @@ def requirements(root, evidence):
             "restore the C7 baseline before resetting the source snapshot"
         )
     migrated_test_ids = set()
+    mapping = None
     if tests["mode"] == "run":
         try:
             mapping = read_test_mapping(root)
             migrated_test_ids = mapped_migrated_test_ids(mapping)
         except EvidenceError as exc:
             issues.append(str(exc))
+            mapping = None
+            migrated_test_ids = set()
     test_enabled = test_validation_enabled(tests, migrated_test_ids)
     if test_enabled:
         test_by_id = {test["id"]: test for test in tests["tests"]}
@@ -2595,8 +2632,9 @@ def requirements(root, evidence):
             module_suite_keys.add(suite_key)
             cpt_suites[suite_key] = suite
             step2_suite = tests["suites"].get(suite_key)
-            if test_enabled and step2_suite and suite_has_migrated_tests(
-                step2_suite, migrated_test_ids
+            if test_enabled and (
+                step2_suite and suite_has_cpt_tests(step2_suite, mapping)
+                or module_has_cpt_tests(path, mapping)
             ):
                 check_kind = "test_repeat"
             else:
@@ -2620,17 +2658,20 @@ def requirements(root, evidence):
         need("project", ".", "docker_info")
     if test_enabled:
         for suite_key, suite in tests["suites"].items():
-            if not suite_has_migrated_tests(suite, migrated_test_ids):
+            has_cpt_tests = suite_has_cpt_tests(suite, mapping)
+            if not has_cpt_tests and not suite["migrate_test_ids"]:
                 continue
             module, name = suite_key
             if suite_key not in module_suite_keys:
                 issues.append(
                     f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
                 )
-                need("module", module, "test_repeat", name)
+                if has_cpt_tests:
+                    need("module", module, "test_repeat", name)
             if suite["migrate_test_ids"]:
                 need("module", module, "c7_baseline", name)
-        need("project", ".", "test_freeze", method="snapshot")
+        if expected_cpt_test_ids(mapping):
+            need("project", ".", "test_freeze", method="snapshot")
         need("project", ".", "test_parity", method="computed")
         need("project", ".", "coverage_parity", method="computed")
         reviewed_classes = set()
@@ -3758,14 +3799,16 @@ def prerequisites(plan, key):
             check for check in plan.required if check[2] == "c7_baseline"
         )
     if category == "module" and kind == "test_repeat":
-        dependencies.extend(
-            (
-                ("project", ".", "test_freeze", None),
-                ("module", target, "c7_baseline", scenario),
-            )
-        )
+        freeze_check = ("project", ".", "test_freeze", None)
+        baseline_check = ("module", target, "c7_baseline", scenario)
+        if freeze_check in plan.required:
+            dependencies.append(freeze_check)
+        if baseline_check in plan.required:
+            dependencies.append(baseline_check)
     if category == "project" and kind in ("test_parity", "coverage_parity"):
-        dependencies.append(("project", ".", "test_freeze", None))
+        freeze_check = ("project", ".", "test_freeze", None)
+        if freeze_check in plan.required:
+            dependencies.append(freeze_check)
         dependencies.extend(
             check for check in plan.required if check[2] in ("c7_baseline", "test_repeat")
         )
@@ -3868,6 +3911,12 @@ def load_checks(root, evidence, plan, issues):
                 and check.get("source_digest") == inventory.get("source_snapshot_sha256")
             ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
+            if (
+                mapping is not None
+                and key not in plan.allowed
+                and obsolete_test_check_key(key, plan, mapping)
+            ):
+                continue
             if mapping is not None and key[2] in TEST_LEDGER_CHECK_KINDS:
                 digest_kind = (
                     "freeze"
@@ -4048,6 +4097,17 @@ def report_text(existing, gate, issues):
 
 
 def obsolete_test_check_key(key, plan, mapping):
+    if key == ("project", ".", "test_freeze", None):
+        return not expected_cpt_test_ids(mapping)
+    if (
+        key[0] == "module"
+        and key[2] == "test_repeat"
+        and key[3] is not None
+        and (key[1], key[3]) in plan.test_contract["suites"]
+    ):
+        return not suite_has_cpt_tests(
+            plan.test_contract["suites"][(key[1], key[3])], mapping
+        )
     if key[0] != "test" or key[3] is not None:
         return False
     rows = test_rows_by_id(mapping)

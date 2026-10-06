@@ -27,6 +27,13 @@ def write_json(path, data):
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def migrated_test_rows(*test_ids):
+    return [
+        {"c7_id": test_id, "status": "migrated", "c8_ids": [test_id]}
+        for test_id in test_ids
+    ]
+
+
 def bpmn(process_id, timer=False, extra=""):
     start = (
         '<bpmn:timerEventDefinition><bpmn:timeCycle>R/PT1H</bpmn:timeCycle>'
@@ -1779,27 +1786,83 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertNotIn(("test", self.c7_test_id, "mock_boundary", None), plan.required)
         self.assertIn(("project", ".", "test_parity", None), plan.required)
 
-        self.assertEqual(
-            0,
-            self.submit(("project", ".", "test_freeze", None), command=[]),
-        )
-        self.assertEqual(
-            0,
-            self.submit(
-                ("module", "app", "test_repeat", "unit"),
-                command=self.cpt_command(first_coverage='{"processCoverages":[]}'),
-            ),
-        )
-        self.assertEqual(
-            0,
-            self.submit(("project", ".", "test_parity", None), command=[]),
-        )
-        self.assertEqual(
-            0,
-            self.submit(("project", ".", "coverage_parity", None), command=[]),
-        )
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
+
+    def test_approved_retirement_without_cpt_artifacts_keeps_c7_parity(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            c7_coverage=(
+                '{"suites":[{"coverage":[{"source":"FLOW_NODE",'
+                '"modelKey":"p","definitionKey":"Start"}]}]}'
+            ),
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        test.update(
+            status="retired",
+            c8_ids=[],
+            retirement={
+                "reason": "The behavior is no longer required.",
+                "approved_by": "operator",
+            },
+        )
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        (self.root / self.c7_test_file_path).unlink()
+        (self.root / "app/src/test/resources/order.bpmn").unlink()
+
+        plan = gate.requirements(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+        )
+
+        self.assertIn(("module", "app", "c7_baseline", "unit"), plan.required)
+        self.assertIn(("project", ".", "test_parity", None), plan.required)
+        self.assertIn(("project", ".", "coverage_parity", None), plan.required)
+        self.assertNotIn(("project", ".", "test_freeze", None), plan.required)
+        self.assertNotIn(("module", "app", "test_repeat", "unit"), plan.required)
+        self.assertEqual({}, gate.current_test_files(self.root, plan, mapping))
+
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+    def test_added_cpt_test_keeps_post_migration_checks_after_retirement(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        mapping = gate.read_test_mapping(self.root, required=True)
+        test = next(item for item in mapping["tests"] if item["c7_id"] == self.c7_test_id)
+        test.update(
+            status="retired",
+            c8_ids=[],
+            retirement={
+                "reason": "The behavior is no longer required.",
+                "approved_by": "operator",
+            },
+        )
+        added_test_id = "app:com.example.AddedTest#testAdded"
+        mapping["tests"].append({"status": "added", "c8_ids": [added_test_id]})
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        added_test_file = self.root / "app/src/test/java/com/example/AddedTest.java"
+        added_test_file.parent.mkdir(parents=True, exist_ok=True)
+        added_test_file.write_text("class AddedTest {}\n", encoding="utf-8")
+
+        plan = gate.requirements(
+            self.root,
+            json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8")),
+        )
+
+        self.assertIn(("module", "app", "c7_baseline", "unit"), plan.required)
+        self.assertIn(("project", ".", "test_parity", None), plan.required)
+        self.assertIn(("project", ".", "coverage_parity", None), plan.required)
+        self.assertIn(("project", ".", "test_freeze", None), plan.required)
+        self.assertIn(("module", "app", "test_repeat", "unit"), plan.required)
+        self.assertIn(
+            "app/src/test/java/com/example/AddedTest.java",
+            gate.current_test_files(self.root, plan, mapping),
+        )
 
     def test_retiring_migrated_test_replaces_stale_test_evidence(self):
         self.configure_test_run(
@@ -1859,13 +1922,20 @@ class ValidationEvidenceTest(unittest.TestCase):
             },
         )
         write_json(self.root / gate.TEST_MAPPING, mapping)
+        (self.root / "app/src/test/java/com/example/OrderCptTest.java").unlink()
+        (self.root / "app/src/test/resources/order.bpmn").unlink()
 
         evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
         stale_issues = []
+        plan = gate.requirements(self.root, evidence)
         stale_checks = gate.load_checks(
-            self.root, evidence, gate.requirements(self.root, evidence), stale_issues
+            self.root, evidence, plan, stale_issues
         )
         self.assertEqual([], stale_issues)
+        self.assertNotIn(("project", ".", "test_freeze", None), plan.required)
+        self.assertNotIn(("module", "app", "test_repeat", "unit"), plan.required)
+        self.assertNotIn(("project", ".", "test_freeze", None), stale_checks)
+        self.assertNotIn(("module", "app", "test_repeat", "unit"), stale_checks)
         self.assertNotIn(
             ("test", class_target, "assertion_strength", None), stale_checks
         )
@@ -1873,16 +1943,6 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("test", self.c7_test_id, "mock_boundary", None), stale_checks
         )
 
-        self.assertEqual(
-            0,
-            self.submit(
-                ("module", "app", "test_repeat", "unit"),
-                command=self.cpt_command(
-                    first_coverage='{"processCoverages":[]}',
-                    second_coverage='{"processCoverages":[]}',
-                ),
-            ),
-        )
         self.assertEqual(
             0,
             self.submit(("project", ".", "test_parity", None), command=[]),
@@ -1897,12 +1957,10 @@ class ValidationEvidenceTest(unittest.TestCase):
         issues = []
         checks = gate.load_checks(self.root, evidence, plan, issues)
         self.assertEqual([], issues)
+        self.assertNotIn(("project", ".", "test_freeze", None), checks)
+        self.assertNotIn(("module", "app", "test_repeat", "unit"), checks)
         self.assertNotIn(("test", class_target, "assertion_strength", None), checks)
         self.assertNotIn(("test", self.c7_test_id, "mock_boundary", None), checks)
-        self.assertEqual(
-            "passed",
-            checks[("module", "app", "test_repeat", "unit")][1]["result"],
-        )
 
     def test_approved_test_changes_invalidate_assertion_and_mock_reviews(self):
         self.configure_test_run(
@@ -2726,7 +2784,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "coverage_available": True,
                 "coverage": {"p": ["TaskA"]},
             },
-            "tests": [],
+            "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2779,7 +2837,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "coverage_available": True,
                         "coverage": {"p": ["TaskA"]},
                     },
-                    "tests": [],
+                    "tests": migrated_test_rows(
+                        "app:com.example.OrderTest#testOrder"
+                    ),
                 }
 
                 issues, details = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2831,7 +2891,10 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "coverage_available": True,
                 "coverage": {"source-a": ["TaskA"]},
             },
-            "tests": [],
+            "tests": migrated_test_rows(
+                "app:com.example.OrderTest#testOrder",
+                "worker:com.example.OtherTest#testOther",
+            ),
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2878,7 +2941,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "source-p2": ["TaskB"],
                 },
             },
-            "tests": [],
+            "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2921,7 +2984,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "coverage_available": True,
                 "coverage": {"p": ["TaskA", "TaskB"]},
             },
-            "tests": [],
+            "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
@@ -2964,7 +3027,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     "legacy-p": ["TaskA"],
                 },
             },
-            "tests": [],
+            "tests": migrated_test_rows("app:com.example.OrderTest#testOrder"),
         }
 
         issues, _ = gate.coverage_parity_issues(plan, checks, mapping)
