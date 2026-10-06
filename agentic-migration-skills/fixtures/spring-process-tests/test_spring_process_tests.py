@@ -189,7 +189,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
         self.assertIn(
-            "When the skill migrates Camunda 7 decision tests or Spring process tests, it follows `references/test-migration.md` for their migration.",
+            "The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine, Camunda 7 decision-test CPT mapping, and Spring process-test migration.",
             " ".join(skill.split()),
         )
 
@@ -318,7 +318,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertIn("mocked `RuntimeService`", rows[-1][2])
         self.assertEqual(rows[3][3], "Migrate (lower priority)")
-        self.assertEqual(rows[4][3], "Report only")
+        self.assertEqual(rows[4][3], "Migrate (lower priority)")
         self.assertEqual(rows[5][3], "Migrate")
         self.assertEqual(rows[6][3], "Migrate to CPT")
         self.assertIn(

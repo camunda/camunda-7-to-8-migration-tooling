@@ -27,8 +27,8 @@ The skill inventories every test method declared or inherited by each concrete t
 It records each test's test kind and handling, including tests marked out of scope.
 Apply the table from top to bottom. The first matching row assigns one test kind and handling.
 The skill classifies tests by executed engine behavior, not assertion type.
+When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps the test in scope.
 The skill classifies an embedded Engine REST call from a `@SpringBootTest` as a remote-engine test, not a process test.
-When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps that test in scope.
 The skill records assertion gaps in the Test Inventory's Notes column for migration review.
 The skill verifies that a direct service call resolves to a real C7 engine in the test or its
 shared configuration.

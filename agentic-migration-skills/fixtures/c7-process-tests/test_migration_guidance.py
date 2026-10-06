@@ -911,13 +911,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             readme,
         )
         self.assertIn(
-            "the test parity table marks the paymentworker remote-engine test as migrated, "
-            "keeps the shared-engine test manual because cpt deletes runtime data between tests",
+            "the test parity table maps migrated tests to their cpt equivalents, marks the "
+            "paymentworker remote-engine test as migrated, keeps the shared-engine test "
+            "manual because cpt deletes runtime data between tests",
             readme,
         )
         self.assertIn(
-            "records the engine-backed jgiven test as `manual` "
-            "with no cpt mapping,",
+            "records the engine-backed jgiven test as `manual` with no cpt mapping.",
             readme,
         )
         self.assertIn(
@@ -1045,8 +1045,9 @@ class MigrationGuidanceTest(unittest.TestCase):
         )[0]
 
         self.assertIn(
-            "when the skill migrates camunda 7 decision tests or spring process tests, "
-            "it follows `references/test-migration.md` for their migration.",
+            "the skill follows `references/test-migration.md` for tests that drive a running "
+            "camunda 7 engine, camunda 7 decision-test cpt mapping, and spring process-test "
+            "migration.",
             code_migration,
         )
 
