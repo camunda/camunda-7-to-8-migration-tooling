@@ -46,6 +46,68 @@ TARGET_VERSION = re.compile(r"8\.\d+\.\d+\Z")
 TEST_EXECUTION_KINDS = {"tests", "process_path"}
 TEST_RUN_MODES = {"run", "migrate_only"}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
+MAVEN_EXECUTABLES = {"mvn", "mvn.cmd", "mvnw", "mvnw.cmd", "mvnd", "mvnd.bat", "mvnd.cmd"}
+GRADLE_EXECUTABLES = {
+    "gradle", "gradle.bat", "gradle.cmd", "gradlew", "gradlew.bat", "gradlew.cmd",
+}
+MAVEN_TEST_LIFECYCLE_GOALS = {
+    "test",
+    "integration-test",
+    "verify",
+    "package",
+    "install",
+    "deploy",
+}
+GRADLE_TEST_TASKS = {"build", "check", "test"}
+MAVEN_OPTIONS_WITH_VALUES = {
+    "--activate-profiles", "--define", "--file", "--projects", "--resume-from",
+    "--settings", "--threads", "--toolchains", "-D", "-P", "-T", "-f", "-pl", "-rf",
+    "-s", "-t",
+}
+GRADLE_OPTIONS_WITH_VALUES = {
+    "--console", "--exclude-task", "--include-build", "--init-script", "--max-workers",
+    "--project-cache-dir", "--project-dir", "--tests", "--warning-mode", "-D", "-I",
+    "-P", "-p",
+}
+
+
+def command_runs_test_suite(command):
+    if not command or not isinstance(command[0], str):
+        return False
+    executable = command[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    if executable in MAVEN_EXECUTABLES:
+        option_values = MAVEN_OPTIONS_WITH_VALUES
+    elif executable in GRADLE_EXECUTABLES:
+        option_values = GRADLE_OPTIONS_WITH_VALUES
+    else:
+        return False
+
+    arguments = []
+    skip_next = False
+    for argument in command[1:]:
+        if skip_next:
+            skip_next = False
+        elif argument in option_values:
+            skip_next = True
+        elif not argument.startswith("-"):
+            arguments.append(argument.casefold())
+
+    if executable in MAVEN_EXECUTABLES:
+        return any(
+            argument in MAVEN_TEST_LIFECYCLE_GOALS
+            or (
+                ":" in argument
+                and argument.rsplit(":", 1)[-1] in {"test", "integration-test"}
+            )
+            for argument in arguments
+        )
+
+    return any(
+        task in GRADLE_TEST_TASKS
+        or (task.startswith("test") and task not in {"testclasses", "testfixturesclasses"})
+        or task.endswith(("test", "tests"))
+        for task in (argument.rsplit(":", 1)[-1] for argument in arguments)
+    )
 
 
 @dataclass
@@ -1625,12 +1687,13 @@ def record(root, args):
     key = (args.type, args.target, args.kind, args.scenario)
     if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
-    if read_test_run_mode(read_json(root / INVENTORY)) == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
+    test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
+    if test_run_mode == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
         if args.action == "run":
             raise EvidenceError(
                 f"{key}: Question 8 selected Migrate tests only; test commands are not allowed"
             )
-        if args.action == "block" and args.reason.strip() != QUESTION_8_DECLINE_REASON:
+        if args.action == "block" and args.reason != QUESTION_8_DECLINE_REASON:
             raise EvidenceError(
                 f"{key}: use the exact Question 8 reason {QUESTION_8_DECLINE_REASON!r}"
             )
@@ -1684,6 +1747,10 @@ def record(root, args):
             raise EvidenceError("Executable path cannot be empty")
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
+        if test_run_mode == "migrate_only" and command_runs_test_suite(command):
+            raise EvidenceError(
+                f"{key}: Question 8 selected Migrate tests only; test execution commands are not allowed"
+            )
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

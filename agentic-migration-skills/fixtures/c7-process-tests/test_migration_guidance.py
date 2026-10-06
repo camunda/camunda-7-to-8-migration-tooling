@@ -708,7 +708,8 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_migrate_only_walkthrough_covers_compile_blockers_and_deferred_plan(self):
         readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
         self.assertIn("W5", readme)
-        self.assertIn("The report includes a deferred verification plan", readme)
+        self.assertIn("deferred verification plan", readme)
+        self.assertIn("filesystem snapshot path", readme)
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("## Test-source compilation", report)
@@ -759,12 +760,25 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Verdict:** `needs review`", report)
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
-        self.assertIn("git worktree add ../c7-baseline", report)
+        self.assertNotIn("<baseline-commit>", report)
+        baseline_commit = re.search(
+            r"(?m)^Baseline commit: `([0-9a-f]{40})`$",
+            report,
+        )
+        self.assertIsNotNone(baseline_commit)
+        self.assertIn(
+            f"git worktree add ../c7-baseline {baseline_commit.group(1)}",
+            report,
+        )
         self.assertIn("test_run_mode", report)
         self.assertIn("unit-c7-baseline", report)
         self.assertIn("unit-c8-migrated", report)
         self.assertIn("--kind docker_info -- docker info", report)
         self.assertIn("Rerun and record every deferred Step 4 process scenario", report)
+        test_migration = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").lower()
+        self.assertIn("not a git repository", test_migration)
+        self.assertIn("copy the full project root", test_migration)
+        self.assertIn("filesystem snapshot", test_migration)
 
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))

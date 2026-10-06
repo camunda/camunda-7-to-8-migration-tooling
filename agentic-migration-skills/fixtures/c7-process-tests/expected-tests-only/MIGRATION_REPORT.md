@@ -72,10 +72,12 @@ unverified because the user selected **Migrate tests only**.
 
 ## Verify the test migration
 
-Use the C7 baseline commit recorded during Step 2. Create a separate baseline worktree:
+Baseline commit: `ddccb16535e7268bb7c37feec8bb4a8b7c1ac679`
+
+Create a separate baseline worktree:
 
 ```sh
-git worktree add ../c7-baseline <baseline-commit>
+git worktree add ../c7-baseline ddccb16535e7268bb7c37feec8bb4a8b7c1ac679
 ```
 
 Before recording either run, change only `test_run_mode` from `migrate_only` to `run` in
