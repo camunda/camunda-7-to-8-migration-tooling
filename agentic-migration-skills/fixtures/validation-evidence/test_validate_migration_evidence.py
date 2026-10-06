@@ -544,6 +544,21 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         return run
 
+    def gradle_task_graph_runner(self, tasks, archives=()):
+        output = []
+        for path, task_type in tasks:
+            output.append(f"> Task {path} SKIPPED")
+            output.append(f"NWF-TASK\t{path}\t{task_type}")
+        for task, path in archives:
+            output.append(f"NWF-ARCHIVE\t{task}\t{path}")
+        graph = "\n".join(output)
+
+        def run(command, **kwargs):
+            result = graph if "--dry-run" in command else "verified"
+            return subprocess.CompletedProcess(command, 0, result)
+
+        return run
+
     def complete_required_checks(self):
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
@@ -805,6 +820,15 @@ class ValidationEvidenceTest(unittest.TestCase):
               </execution></executions>
             </plugin></plugins></build></project>
             """,
+            """
+            <project><build><plugins><plugin>
+              <groupId>org.example</groupId>
+              <artifactId>custom-test-runner</artifactId>
+              <executions><execution>
+                <goals><goal>run</goal></goals>
+              </execution></executions>
+            </plugin></plugins></build></project>
+            """,
             "<project><packaging>pom</packaging><build><plugins /></build></project>",
         )
         for effective_pom in effective_poms:
@@ -824,6 +848,32 @@ class ValidationEvidenceTest(unittest.TestCase):
                         )
                     self.assertEqual(1, run.call_count)
                     self.assertIn("help:effective-pom", run.call_args.args[0])
+
+    def test_migrate_only_rejects_unknown_maven_default_phase_executions(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        effective_pom = """
+        <project><build><plugins><plugin>
+          <groupId>org.example</groupId>
+          <artifactId>custom-test-runner</artifactId>
+          <executions><execution>
+            <goals><goal>run</goal></goals>
+          </execution></executions>
+        </plugin></plugins></build></project>
+        """
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(effective_pom),
+        ) as run:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "without a known default phase|unclassified",
+            ):
+                self.submit(key, command=command_args)
+            self.assertEqual(1, run.call_count)
+            self.assertIn("help:effective-pom", run.call_args.args[0])
 
     def test_migrate_only_fails_closed_when_maven_effective_pom_is_unavailable(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -1046,6 +1096,18 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_migrate_only_allows_verified_runtime_and_packaging_commands(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
         self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        (self.root / "settings.gradle").write_text("include 'app'\n", encoding="utf-8")
+        (self.root / "app/build.gradle").write_text("", encoding="utf-8")
+        safe_maven_pom = (
+            "<project><packaging>jar</packaging>"
+            "<build><plugins /></build></project>"
+        )
+        safe_gradle_tasks = (
+            (":app:compileJava", "other"),
+            (":app:classes", "other"),
+            (":app:bootJar", "other"),
+        )
         cases = (
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "spring-boot:run"]),
             (("module", "app", "spring_boot_run", None), ["gradle", ":app:bootRun"]),
@@ -1054,26 +1116,128 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         for key, command_args in cases:
             with self.subTest(key=key, command=command_args):
-                completed = gate.subprocess.CompletedProcess(command_args, 0, "verified")
-                with patch.object(gate.subprocess, "run", return_value=completed):
+                if "package" in command_args:
+                    runner = self.maven_effective_pom_runner(safe_maven_pom)
+                elif "bootJar" in " ".join(command_args):
+                    runner = self.gradle_task_graph_runner(safe_gradle_tasks)
+                else:
+                    runner = lambda command, **kwargs: subprocess.CompletedProcess(
+                        command, 0, "verified"
+                    )
+                with patch.object(gate.subprocess, "run", side_effect=runner):
                     self.assertEqual(
                         0,
                         self.submit(key, command=command_args, environment="local"),
                     )
 
+    def test_migrate_only_rejects_maven_packaging_with_unclassified_test_goal(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        key = ("module", "app", "executable_jar", None)
+        command_args = ["mvn", "-pl", "app", "package", "-DskipTests"]
+        effective_poms = (
+            """
+            <project><build><plugins><plugin>
+              <groupId>org.example</groupId>
+              <artifactId>custom-test-runner</artifactId>
+              <executions><execution><phase>test</phase>
+                <goals><goal>run</goal></goals>
+              </execution></executions>
+            </plugin></plugins></build></project>
+            """,
+            """
+            <project><build><plugins><plugin>
+              <groupId>org.example</groupId>
+              <artifactId>custom-test-runner</artifactId>
+              <executions><execution>
+                <goals><goal>run</goal></goals>
+              </execution></executions>
+            </plugin></plugins></build></project>
+            """,
+            """
+            <project><build><plugins><plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <configuration><skipTests>false</skipTests></configuration>
+              <executions><execution><phase>test</phase>
+                <goals><goal>test</goal></goals>
+              </execution></executions>
+            </plugin></plugins></build></project>
+            """,
+        )
+        for effective_pom in effective_poms:
+            with self.subTest(effective_pom=effective_pom):
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(effective_pom),
+                ) as run:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "unclassified|known default phase",
+                    ):
+                        self.submit(
+                            key,
+                            command=command_args,
+                            environment="local",
+                        )
+                    self.assertEqual(1, run.call_count)
+                    self.assertIn("help:effective-pom", run.call_args.args[0])
+
+    def test_migrate_only_rejects_gradle_packaging_with_custom_test_task(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "settings.gradle").write_text("include 'app'\n", encoding="utf-8")
+        (self.root / "app/build.gradle").write_text("", encoding="utf-8")
+        key = ("module", "app", "executable_jar", None)
+        command_args = ["gradle", ":app:bootJar", "-x", "test"]
+        task_graph = self.gradle_task_graph_runner(
+            (
+                (":app:compileJava", "other"),
+                (":app:classes", "other"),
+                (":app:integrationTest", "test"),
+                (":app:verifyBuild", "test"),
+                (":app:bootJar", "other"),
+            )
+        )
+
+        with patch.object(gate.subprocess, "run", side_effect=task_graph) as invoked:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "integrationTest|test execution|unclassified",
+            ):
+                self.submit(key, command=command_args, environment="local")
+            self.assertEqual(1, invoked.call_count)
+            self.assertIn("--dry-run", invoked.call_args.args[0])
+
     def test_migrate_only_allows_module_executable_jar_with_main_class(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
         self.write_scope(test_run_mode="migrate_only")
-        artifact = self.root / "app/target/application.jar"
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        artifact = self.root / "app/target/app-1.0.jar"
         artifact.parent.mkdir(parents=True)
         with zipfile.ZipFile(artifact, "w") as archive:
             archive.writestr(
                 "META-INF/MANIFEST.MF",
                 "Manifest-Version: 1.0\nMain-Class: com.example.Application\n",
             )
-        command_args = ["java", "-jar", "app/target/application.jar"]
-        completed = gate.subprocess.CompletedProcess(command_args, 0, "started")
-        with patch.object(gate.subprocess, "run", return_value=completed):
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        command_args = ["java", "-jar", "app/target/app-1.0.jar"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(effective_pom),
+        ):
             self.assertEqual(
                 0,
                 self.submit(
@@ -1082,6 +1246,80 @@ class ValidationEvidenceTest(unittest.TestCase):
                     environment="local",
                 ),
             )
+
+    def test_migrate_only_rejects_maven_test_runner_jar_renamed_as_application(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        artifact = self.root / "app/target/application.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: org.junit.platform.console.ConsoleLauncher\n",
+            )
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        command_args = ["java", "-jar", "app/target/application.jar"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(effective_pom),
+        ) as invoked:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "configured|application artifact",
+            ):
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                )
+            self.assertEqual(1, invoked.call_count)
+            self.assertIn("help:effective-pom", invoked.call_args.args[0])
+
+    def test_migrate_only_rejects_gradle_test_runner_jar_renamed_as_application(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/build.gradle").write_text("", encoding="utf-8")
+        (self.root / "app/gradlew").write_text("", encoding="utf-8")
+        artifact = self.root / "app/build/libs/application.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: org.junit.platform.console.ConsoleLauncher\n",
+            )
+        command_args = ["java", "-jar", "app/build/libs/application.jar"]
+        runner = self.gradle_task_graph_runner(
+            ((":tasks", "other"),),
+            (
+                (
+                    ":testJar",
+                    self.root / "app" / "build" / "libs" / "application.jar",
+                ),
+            ),
+        )
+        with patch.object(gate.subprocess, "run", side_effect=runner) as invoked:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "configured|application artifact",
+            ):
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                )
+            self.assertEqual(1, invoked.call_count)
+            self.assertIn("--init-script", invoked.call_args.args[0])
 
     def test_migrate_only_rejects_unverified_external_launcher_commands(self):
         self.plan["modules"][0]["runtime_mode"] = "external-launcher"
@@ -1109,8 +1347,36 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("NOT READY", summary["gate"])
         self.assertTrue(summary["issues"])
         self.assertTrue(
-            all(gate.QUESTION_8_DECLINE_REASON in issue for issue in summary["issues"]), summary["issues"]
+            all(gate.QUESTION_8_DECLINE_REASON in issue for issue in summary["issues"]),
+            summary["issues"],
         )
+
+    def test_migrate_only_allows_gradle_configured_module_jar(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/build.gradle").write_text("", encoding="utf-8")
+        (self.root / "app/gradlew").write_text("", encoding="utf-8")
+        artifact = self.root / "app/build/libs/app-1.0.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: com.example.Application\n",
+            )
+        command_args = ["java", "-jar", "app/build/libs/app-1.0.jar"]
+        runner = self.gradle_task_graph_runner(
+            ((":tasks", "other"),),
+            ((":bootJar", artifact),),
+        )
+        with patch.object(gate.subprocess, "run", side_effect=runner):
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                ),
+            )
 
     def test_migrate_only_gate_rejects_previously_passed_test_checks(self):
         self.complete_required_checks()
@@ -1125,6 +1391,20 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.write_scope(test_run_mode="run")
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
+
+    def test_deferred_run_transition_preserves_plan_source_digest(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_run_mode="migrate_only",
+        )
+        before = gate.requirements(self.root, self.plan).source_digest
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "run"
+        write_json(self.root / gate.INVENTORY, inventory)
+
+        after = gate.requirements(self.root, self.plan).source_digest
+
+        self.assertEqual(before, after)
 
     def test_unknown_test_run_mode_is_rejected(self):
         for mode in ("skip", None, [], {}):

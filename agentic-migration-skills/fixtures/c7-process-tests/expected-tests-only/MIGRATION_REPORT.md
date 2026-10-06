@@ -82,6 +82,7 @@ repository, keep its `.git` metadata in the snapshot so the validator can verify
 
 1. Change only `test_run_mode` from `migrate_only` to `run` in
    `.camunda-migration/validation/step2-inventory.json`. Do not run `init`.
+   The validator checks this permitted mode transition separately and keeps earlier code and model checks current.
 2. Use the baseline preserved before Step 3:
 
    | Step 2 source | Baseline source |
@@ -96,7 +97,8 @@ repository, keep its `.git` metadata in the snapshot so the validator can verify
 5. Confirm that `test-mapping.json` and its approved test and mock changes are complete.
 6. Record `test_freeze` after the migrated test sources and resources are final.
 7. Start Docker. Record `test_repeat` for suites with mapped or added CPT tests, using their exact
-   Step 2 commands: `mvn -pl engine-tests,spring-boot-app test` and `mvn -pl remote-engine verify`.
+   migrated CPT commands recorded here: `mvn -pl engine-tests,spring-boot-app test` and
+   `mvn -pl remote-engine verify`. These can differ from the Step 2 C7 baseline commands above.
    Do not use `tests` for mapped suites.
 8. Record `assertion_strength` for each migrated test class and `mock_boundary` for each migrated
    C7 test.

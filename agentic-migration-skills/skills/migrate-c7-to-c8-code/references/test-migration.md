@@ -341,10 +341,13 @@ When the user selects **Migrate tests only**, apply these rules:
 
 - Compile each module's test sources with a module-specific `mvn -pl <module> test-compile` or
   Gradle `:<module>:testClasses` task. A main-source-only compile does not count.
-- The validator inspects the effective Maven lifecycle or Gradle task graph before it accepts test-source compilation.
-- The validator requires a Gradle test-source compiler task and verified Maven packaging.
+- The validator inspects the effective Maven lifecycle and Gradle task graph before it accepts
+  test-source compilation or packaging.
+- The validator requires a test-source compiler task for Gradle compilation.
+- The validator matches each `java -jar` path to the module's configured Maven or Gradle archive output.
 - The validator rejects Gradle dry runs, excluded tasks, and unclassified task-graph actions.
 - Where a non-test check needs packaging, package with `-DskipTests` (Maven) or `-x test` (Gradle).
+  The validator inspects the Maven lifecycle or Gradle task graph before it accepts the command.
   Record why in `MIGRATION_REPORT.md`.
 - Record each module `tests` check and each process `process_path` check with the `block` action and
   the exact reason `declined by user (Question 8)`.
@@ -753,8 +756,9 @@ the Test Inventory, project documentation, and CI inventory:
    complete before recording the remaining checks.
 6. Record `test_freeze` after the migrated test sources and resources are final.
 7. Start Docker or configure a remote CPT runtime. Record `test_repeat` for each suite with mapped
-   or added CPT tests. Use the exact Step 2 suite command. Do not use `tests` for a suite with mapped
-   CPT tests.
+   or added CPT tests. Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`.
+   This command can differ from the Step 2 C7 baseline command. Do not use `tests` for a suite with
+   mapped CPT tests.
 8. Record `assertion_strength` for each migrated test class and `mock_boundary` for each migrated
    C7 test.
 9. Record the computed `test_parity` and `coverage_parity` checks after the repeat checks pass.

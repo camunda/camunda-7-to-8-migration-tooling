@@ -222,8 +222,9 @@ In `migrate_only` mode, the validation script applies these rules:
   `.mvn/jvm.config`.
 - Before Maven test compilation, the validator inspects the effective POM with the command's
   module, POM, profile, and property options. It refuses unclassified lifecycle goals through
-  `test-compile` and Maven build extensions. It refuses the compile check if Maven cannot generate
-  or parse the effective POM, or if its packaging has no verified test-source compiler.
+  `test-compile`, including goals without a known default phase, and Maven build extensions. It
+  refuses the compile check if Maven cannot generate or parse the effective POM, or if its
+  packaging has no verified test-source compiler.
 - Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It
   requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
   tasks. It refuses every excluded task and every unclassified task.
@@ -235,12 +236,19 @@ In `migrate_only` mode, the validation script applies these rules:
 - It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's
   `spring_boot_run` check.
 - It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact
-  with a `Main-Class` manifest entry.
-- It accepts Maven `help:effective-pom` only for module `configuration` checks. It accepts
-  `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only when the command's
-  normalized file target matches the selected model.
+  with a `Main-Class` manifest entry, and its path matches the module's configured Maven or Gradle
+  archive output.
+- Before accepting Maven `package`, the validator inspects the effective lifecycle through
+  `package`. It rejects unclassified goals, goals without a known default phase, and Maven build
+  extensions. It allows the standard Surefire test goal only when `-DskipTests` is enabled and the
+  effective POM does not override that setting.
+- Before accepting Gradle packaging, the validator inspects the `--dry-run` task graph and checks
+  each task's Gradle `Test` type. It rejects each unexcluded test task, including custom test tasks.
+- It accepts a user-submitted Maven `help:effective-pom` command only for module `configuration`
+  checks. It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only
+  when the command's normalized file target matches the selected model.
 - It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for
-  `executable_jar` and `external_launcher` checks.
+  `executable_jar` and `external_launcher` checks after the lifecycle or task-graph inspection passes.
 - It does not require `docker_info`.
 
 These packaging flags are the only exception to the rule against commands that skip tests.

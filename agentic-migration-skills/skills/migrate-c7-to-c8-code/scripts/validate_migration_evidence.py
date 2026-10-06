@@ -155,6 +155,31 @@ MAVEN_DEFAULT_LIFECYCLE_PHASES = (
 )
 MAVEN_CLEAN_LIFECYCLE_PHASES = ("pre-clean", "clean", "post-clean")
 GRADLE_TEST_COMPILE_TASKS = {"testclasses", "testcompile", "testresources"}
+MAVEN_PACKAGING_SAFE_GOALS = MAVEN_TEST_COMPILE_SAFE_GOALS | {
+    ("org.apache.maven.plugins", "maven-ear-plugin", "ear"),
+    ("org.apache.maven.plugins", "maven-ejb-plugin", "ejb"),
+    ("org.apache.maven.plugins", "maven-jar-plugin", "jar"),
+    ("org.apache.maven.plugins", "maven-war-plugin", "war"),
+    ("org.springframework.boot", "spring-boot-maven-plugin", "repackage"),
+}
+MAVEN_SKIP_TEST_GOALS = {
+    ("org.apache.maven.plugins", "maven-surefire-plugin", "test"),
+}
+MAVEN_GOAL_DEFAULT_PHASES = {
+    ("org.apache.maven.plugins", "maven-clean-plugin", "clean"): "clean",
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "compile"): "compile",
+    ("org.apache.maven.plugins", "maven-compiler-plugin", "testcompile"): "test-compile",
+    ("org.apache.maven.plugins", "maven-ear-plugin", "ear"): "package",
+    ("org.apache.maven.plugins", "maven-ejb-plugin", "ejb"): "package",
+    ("org.apache.maven.plugins", "maven-failsafe-plugin", "integration-test"): "integration-test",
+    ("org.apache.maven.plugins", "maven-failsafe-plugin", "verify"): "verify",
+    ("org.apache.maven.plugins", "maven-jar-plugin", "jar"): "package",
+    ("org.apache.maven.plugins", "maven-resources-plugin", "resources"): "process-resources",
+    ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"): "process-test-resources",
+    ("org.apache.maven.plugins", "maven-surefire-plugin", "test"): "test",
+    ("org.apache.maven.plugins", "maven-war-plugin", "war"): "package",
+    ("org.springframework.boot", "spring-boot-maven-plugin", "repackage"): "package",
+}
 
 
 @dataclass
@@ -641,7 +666,7 @@ def maven_effective_pom(root, command, parsed, timeout):
         except subprocess.TimeoutExpired as exc:
             raise EvidenceError(
                 "Question 8 could not inspect the effective Maven lifecycle "
-                "before test compilation because `help:effective-pom` timed out"
+                "because `help:effective-pom` timed out"
             ) from exc
         except OSError as exc:
             raise EvidenceError(
@@ -649,19 +674,25 @@ def maven_effective_pom(root, command, parsed, timeout):
             ) from exc
         if completed.returncode != 0 or not output_path.is_file():
             raise EvidenceError(
-                "Question 8 could not inspect the effective Maven lifecycle "
-                "before test compilation"
+                "Question 8 could not inspect the effective Maven lifecycle"
             )
         try:
             return ET.parse(output_path).getroot()
         except (OSError, ET.ParseError) as exc:
             raise EvidenceError(
-                "Question 8 could not parse the effective Maven lifecycle "
-                "before test compilation"
+                "Question 8 could not parse the effective Maven lifecycle"
             ) from exc
 
 
-def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
+def maven_unclassified_lifecycle_execution(
+    root,
+    effective_pom,
+    parsed,
+    last_phase,
+    safe_goals,
+    *,
+    skipped_test_goals=frozenset(),
+):
     extensions_file = root / ".mvn" / "extensions.xml"
     if extensions_file.exists() or extensions_file.is_symlink():
         return "Maven core extensions"
@@ -676,8 +707,23 @@ def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
         )
         return (child.text or "").strip() if child is not None else ""
 
+    def test_execution_skip_configuration_is_safe(plugin, execution):
+        for owner in (plugin, execution):
+            for configuration in (
+                child for child in owner if local_name(child) == "configuration"
+            ):
+                for option in (
+                    child
+                    for child in configuration
+                    if local_name(child) in {"skip", "skipTests"}
+                ):
+                    value = (option.text or "").strip().casefold()
+                    if value not in {"true", "${skiptests}"}:
+                        return False
+        return True
+
     packaging = child_text(effective_pom, "packaging") or "jar"
-    if packaging.casefold() not in MAVEN_TEST_COMPILE_PACKAGINGS:
+    if last_phase == "test-compile" and packaging.casefold() not in MAVEN_TEST_COMPILE_PACKAGINGS:
         return f"Maven packaging {packaging} has no verified test-source compiler"
 
     builds = [
@@ -688,7 +734,7 @@ def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
     }
     relevant_phases = set(
         MAVEN_DEFAULT_LIFECYCLE_PHASES[
-            :MAVEN_DEFAULT_LIFECYCLE_PHASES.index("test-compile") + 1
+            :MAVEN_DEFAULT_LIFECYCLE_PHASES.index(last_phase) + 1
         ]
     )
     if clean_requested:
@@ -717,12 +763,6 @@ def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
                         child for child in executions if local_name(child) == "execution"
                     ):
                         phase = child_text(execution, "phase").casefold()
-                        if not phase:
-                            continue
-                        if phase not in known_phases:
-                            return f"{group_id}:{artifact_id} at unknown phase {phase}"
-                        if phase not in relevant_phases:
-                            continue
                         for goals in (
                             child for child in execution if local_name(child) == "goals"
                         ):
@@ -735,12 +775,49 @@ def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
                                     artifact_id.casefold(),
                                     goal_name,
                                 )
-                                if identity not in MAVEN_TEST_COMPILE_SAFE_GOALS:
+                                effective_phase = phase or MAVEN_GOAL_DEFAULT_PHASES.get(identity)
+                                if not effective_phase:
                                     return (
                                         f"{group_id}:{artifact_id}:{goal_name} "
-                                        f"at {phase}"
+                                        "without a known default phase"
                                     )
+                                if effective_phase not in known_phases:
+                                    return (
+                                        f"{group_id}:{artifact_id} at unknown phase "
+                                        f"{effective_phase}"
+                                    )
+                                if effective_phase not in relevant_phases:
+                                    continue
+                                if identity in safe_goals:
+                                    continue
+                                if (
+                                    identity in skipped_test_goals
+                                    and property_is_true(parsed, "skipTests")
+                                ):
+                                    if test_execution_skip_configuration_is_safe(
+                                        plugin,
+                                        execution,
+                                    ):
+                                        continue
+                                    return (
+                                        f"{group_id}:{artifact_id}:{goal_name} "
+                                        f"at {effective_phase} overrides `-DskipTests`"
+                                    )
+                                return (
+                                    f"{group_id}:{artifact_id}:{goal_name} "
+                                    f"at {effective_phase}"
+                                )
     return None
+
+
+def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
+    return maven_unclassified_lifecycle_execution(
+        root,
+        effective_pom,
+        parsed,
+        "test-compile",
+        MAVEN_TEST_COMPILE_SAFE_GOALS,
+    )
 
 
 def verify_maven_test_compile_lifecycle(root, command, parsed, timeout):
@@ -754,6 +831,23 @@ def verify_maven_test_compile_lifecycle(root, command, parsed, timeout):
         raise EvidenceError(
             "Question 8 cannot verify that Maven test compilation avoids test "
             f"execution: unclassified effective lifecycle action {unclassified}"
+        )
+
+
+def verify_maven_packaging_lifecycle(root, command, parsed, timeout):
+    effective_pom = maven_effective_pom(root, command, parsed, timeout)
+    unclassified = maven_unclassified_lifecycle_execution(
+        root,
+        effective_pom,
+        parsed,
+        "package",
+        MAVEN_PACKAGING_SAFE_GOALS,
+        skipped_test_goals=MAVEN_SKIP_TEST_GOALS,
+    )
+    if unclassified:
+        raise EvidenceError(
+            "Question 8 cannot verify that Maven packaging avoids test execution: "
+            f"unclassified effective lifecycle action {unclassified}"
         )
 
 
@@ -886,23 +980,207 @@ def has_test_compile_task(parsed, tool):
     return any(task_leaf(task) in GRADLE_TEST_COMPILE_TASKS for task in parsed["tasks"])
 
 
-def migrate_only_packaging_exception(root, key, parsed, tool):
+def gradle_inspection_context(root, target, executable_hint=None):
+    root = root.resolve(strict=True)
+    target_path = project_relative_path(root, target)
+    if target_path is None:
+        raise EvidenceError(
+            f"Question 8 cannot establish a Gradle project for module {target}"
+        )
+    module_root = (root / target_path).resolve(strict=True)
+
+    def has_build_file(directory, names):
+        for name in names:
+            path = directory / name
+            if path.is_symlink():
+                raise EvidenceError(f"Question 8 refuses symlinked Gradle configuration: {path}")
+            if path.is_file():
+                return True
+        return False
+
+    settings = has_build_file(root, ("settings.gradle", "settings.gradle.kts"))
+    root_build = has_build_file(root, ("build.gradle", "build.gradle.kts"))
+    module_build = has_build_file(module_root, ("build.gradle", "build.gradle.kts"))
+    if settings:
+        gradle_root = root
+        project_path = ":" if target_path == "." else ":" + target_path.replace("/", ":")
+    elif module_build:
+        gradle_root = module_root
+        project_path = ":"
+    elif target_path == "." and root_build:
+        gradle_root = root
+        project_path = ":"
+    else:
+        raise EvidenceError(
+            f"Question 8 cannot establish Gradle build configuration for module {target}"
+        )
+
+    wrapper = gradle_root / "gradlew"
+    if wrapper.is_symlink():
+        raise EvidenceError(f"Question 8 refuses a symlinked Gradle wrapper: {wrapper}")
+    executable = (
+        str(wrapper)
+        if wrapper.is_file()
+        else executable_hint or shutil.which("gradle")
+    )
+    if not executable:
+        raise EvidenceError("Question 8 cannot inspect the configured Gradle build")
+    return gradle_root, project_path, executable
+
+
+def gradle_inspection(root, target, command, timeout):
+    gradle_root, project_path, executable = gradle_inspection_context(
+        root,
+        target,
+        command[0] if command else None,
+    )
+    init_script = """import org.gradle.api.tasks.bundling.AbstractArchiveTask
+
+gradle.projectsEvaluated {
+    def selectedPath = gradle.startParameter.projectProperties.get("nwfModulePath")
+    def selectedProject = gradle.rootProject.findProject(selectedPath)
+    if (selectedProject == null) {
+        println("NWF-PROJECT-ERROR")
+    } else {
+        selectedProject.tasks.withType(AbstractArchiveTask).each { task ->
+            println("NWF-ARCHIVE\\t${task.path}\\t${task.archiveFile.get().asFile.canonicalPath}")
+        }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    graph.allTasks.each { task ->
+        def isTestTask = task instanceof org.gradle.api.tasks.testing.Test
+        println("NWF-TASK\\t${task.path}\\t${isTestTask ? 'test' : 'other'}")
+    }
+}
+"""
+    with tempfile.TemporaryDirectory(
+        prefix=".migrate-only-gradle-inspection-",
+        dir=root,
+    ) as temporary_directory:
+        init_path = Path(temporary_directory) / "inspect.gradle"
+        try:
+            init_path.write_text(init_script, encoding="utf-8")
+        except OSError as exc:
+            raise EvidenceError(f"Question 8 cannot create Gradle inspection script: {exc}") from exc
+        inspection_command = (
+            [executable, f"{project_path}:tasks"]
+            if command is None
+            else list(command)
+        )
+        inspection_command.extend(
+            (
+                "--init-script",
+                str(init_path),
+                f"-PnwfModulePath={project_path}",
+                "--dry-run",
+                "--console=plain",
+            )
+        )
+        try:
+            completed = subprocess.run(
+                inspection_command,
+                cwd=gradle_root if command is None else root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                timeout=timeout if timeout is not None else 120,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise EvidenceError(
+                "Question 8 Gradle task-graph inspection timed out"
+            ) from exc
+        except OSError as exc:
+            raise EvidenceError(
+                f"Question 8 cannot inspect the Gradle task graph: {exc}"
+            ) from exc
+        if completed.returncode != 0:
+            raise EvidenceError(
+                "Question 8 cannot inspect the Gradle task graph "
+                f"(exit code {completed.returncode})"
+            )
+
+    task_records = []
+    archive_records = []
+    dry_run_tasks = []
+    for line in completed.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("> Task "):
+            stripped = stripped[len("> Task "):]
+        fields = stripped.split()
+        if len(fields) >= 2 and fields[0].startswith(":") and fields[1] == "SKIPPED":
+            dry_run_tasks.append(fields[0])
+        if stripped.startswith("NWF-TASK\t"):
+            fields = stripped.split("\t", 2)
+            if len(fields) == 3 and fields[2] in {"test", "other"}:
+                task_records.append((fields[1], fields[2] == "test"))
+        elif stripped.startswith("NWF-ARCHIVE\t"):
+            fields = stripped.split("\t", 2)
+            if len(fields) == 3:
+                archive_records.append((fields[1], Path(fields[2])))
+
+    if not task_records or set(dry_run_tasks) != {path for path, _ in task_records}:
+        raise EvidenceError(
+            "Question 8 cannot verify the complete Gradle task graph"
+        )
+    return task_records, archive_records
+
+
+def verify_gradle_packaging_task_graph(root, target, command, parsed, timeout):
+    task_records, _ = gradle_inspection(root, target, command, timeout)
+    task_paths = {path for path, _ in task_records}
+    requested_packages = {
+        task
+        for task in parsed["tasks"]
+        if task_leaf(task) in GRADLE_PACKAGE_TASKS
+        and gradle_module_selected(root, target, parsed, task)
+    }
+    if not requested_packages.intersection(task_paths):
+        raise EvidenceError(
+            f"Question 8 cannot verify that Gradle ran a packaging task for module {target}"
+        )
+    unexcluded_test_tasks = sorted(
+        path
+        for path, is_test_task in task_records
+        if (
+            is_test_task
+            or (
+                "test" in task_leaf(path)
+                and task_leaf(path) not in GRADLE_TEST_COMPILE_GRAPH_TASKS
+            )
+        )
+        and not gradle_task_is_excluded(parsed, path)
+    )
+    if unexcluded_test_tasks:
+        raise EvidenceError(
+            "Question 8 cannot verify that Gradle packaging avoids test execution: "
+            "unexcluded test tasks " + ", ".join(unexcluded_test_tasks)
+        )
+
+
+def migrate_only_packaging_exception(root, key, parsed, tool, command, timeout):
     if key[0] != "module" or key[2] not in {"executable_jar", "external_launcher"}:
         return False
     if tool == "maven":
         tasks = {task_leaf(task) for task in parsed["tasks"]}
-        return (
+        accepted = (
             "package" in tasks
             and tasks <= {"clean", "package"}
-            and maven_module_selected(root, key[1], parsed)
+            and maven_module_selection_is_exact(root, key[1], parsed)
             and property_is_true(parsed, "skipTests")
             and not property_is_true(parsed, "maven.test.skip")
         )
+        if accepted:
+            verify_maven_packaging_lifecycle(root, command, parsed, timeout)
+        return accepted
     packaging_tasks = [
         task for task in parsed["tasks"] if task_leaf(task) in GRADLE_PACKAGE_TASKS
     ]
     task_names = {task_leaf(task) for task in parsed["tasks"]}
-    return (
+    accepted = (
         bool(packaging_tasks)
         and task_names <= {"clean", "assemble", "bootjar", "jar", "war"}
         and all(gradle_module_selected(root, key[1], parsed, task) for task in packaging_tasks)
@@ -914,6 +1192,9 @@ def migrate_only_packaging_exception(root, key, parsed, tool):
             for task in parsed["tasks"]
         )
     )
+    if accepted:
+        verify_gradle_packaging_task_graph(root, key[1], command, parsed, timeout)
+    return accepted
 
 
 def is_spring_boot_run_task(task, tool):
@@ -970,7 +1251,127 @@ def test_runner_command(command):
     return "test" in executable
 
 
-def java_application_jar(root, key, command):
+def maven_module_effective_pom(root, module, timeout):
+    module_path = project_relative_path(root, module)
+    if module_path is None:
+        raise EvidenceError(
+            f"Question 8 cannot establish the Maven module path for {module}"
+        )
+    module_root = root / module_path
+    pom = module_root / "pom.xml"
+    if pom.is_symlink():
+        raise EvidenceError(f"Question 8 refuses a symlinked Maven POM: {pom}")
+    if not pom.is_file():
+        raise EvidenceError(
+            f"Question 8 cannot establish the Maven artifact for module {module}"
+        )
+    if maven_project_arguments_present(root):
+        raise EvidenceError(
+            "Question 8 cannot inspect Maven artifact configuration when "
+            "MAVEN_ARGS or `.mvn/maven.config` adds unverified arguments"
+        )
+    wrapper = root / "mvnw"
+    if wrapper.is_symlink():
+        raise EvidenceError(f"Question 8 refuses a symlinked Maven wrapper: {wrapper}")
+    executable = str(wrapper) if wrapper.is_file() else "mvn"
+    command = [executable, "-f", pom.relative_to(root).as_posix()]
+    parsed = parse_build_command(command, "maven")
+    return maven_effective_pom(root, command, parsed, timeout)
+
+
+def maven_module_application_jar_path(root, module, effective_pom):
+    def local_name(element):
+        return element.tag.rsplit("}", 1)[-1]
+
+    def child_text(element, name):
+        child = next(
+            (item for item in element if local_name(item) == name),
+            None,
+        )
+        return (child.text or "").strip() if child is not None else ""
+
+    module_root = (root / module).resolve(strict=True)
+    packaging = child_text(effective_pom, "packaging") or "jar"
+    if packaging.casefold() != "jar":
+        raise EvidenceError(
+            f"Question 8 cannot establish an executable JAR for Maven packaging {packaging}"
+        )
+    build = next(
+        (child for child in effective_pom if local_name(child) == "build"),
+        None,
+    )
+    artifact_id = child_text(effective_pom, "artifactId")
+    version = child_text(effective_pom, "version")
+    directory = child_text(build, "directory") if build is not None else ""
+    final_name = child_text(build, "finalName") if build is not None else ""
+    if not final_name:
+        if not artifact_id or not version or "${" in artifact_id or "${" in version:
+            raise EvidenceError(
+                "Question 8 cannot resolve the Maven module's configured artifact name"
+            )
+        final_name = f"{artifact_id}-{version}"
+    if (
+        "${" in final_name
+        or Path(final_name).name != final_name
+        or final_name in {"", ".", ".."}
+    ):
+        raise EvidenceError(
+            "Question 8 cannot resolve the Maven module's configured artifact name"
+        )
+    output_directory = Path(directory or "target")
+    if not output_directory.is_absolute():
+        output_directory = module_root / output_directory
+    output_directory = output_directory.resolve(strict=False)
+    try:
+        output_directory.relative_to(module_root)
+    except ValueError as exc:
+        raise EvidenceError(
+            "Question 8 refuses a Maven artifact directory outside its module"
+        ) from exc
+    artifact = (output_directory / f"{final_name}.jar").resolve(strict=False)
+    try:
+        artifact.relative_to(module_root)
+    except ValueError as exc:
+        raise EvidenceError(
+            "Question 8 refuses a Maven artifact outside its module"
+        ) from exc
+    return artifact
+
+
+def configured_module_application_jar_paths(root, module, timeout):
+    module_path = project_relative_path(root, module)
+    if module_path is None:
+        raise EvidenceError(
+            f"Question 8 cannot establish the build configuration for module {module}"
+        )
+    module_root = root / module_path
+    pom = module_root / "pom.xml"
+    if pom.is_symlink():
+        raise EvidenceError(f"Question 8 refuses a symlinked Maven POM: {pom}")
+    if pom.is_file():
+        effective_pom = maven_module_effective_pom(root, module_path, timeout)
+        return {
+            maven_module_application_jar_path(root, module_path, effective_pom)
+        }
+    task_records, archive_records = gradle_inspection(
+        root,
+        module_path,
+        None,
+        timeout,
+    )
+    if not task_records or not archive_records:
+        raise EvidenceError(
+            f"Question 8 cannot establish a configured Maven or Gradle artifact for module {module}"
+        )
+    return {
+        path.resolve(strict=False)
+        for task, path in archive_records
+        if task_leaf(task) in {"bootjar", "jar"}
+        if path.suffix.casefold() == ".jar"
+    }
+
+
+def java_application_jar(root, key, command, timeout=None):
     if (
         key[0] != "module"
         or key[2] != "executable_jar"
@@ -1004,6 +1405,16 @@ def java_application_jar(root, key, command):
     ):
         raise EvidenceError(
             f"{key}: Question 8 cannot establish that the Java JAR is a module build artifact"
+        )
+    configured_artifacts = configured_module_application_jar_paths(
+        root,
+        key[1],
+        timeout,
+    )
+    if jar_path not in configured_artifacts:
+        raise EvidenceError(
+            f"{key}: Question 8 cannot establish that the Java JAR is the "
+            "module's configured application artifact"
         )
     try:
         with zipfile.ZipFile(jar_path) as archive:
@@ -1183,7 +1594,14 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             else {task_leaf(task) for task in parsed["tasks"]} & GRADLE_PACKAGE_TASKS
         )
         if packaging_tasks:
-            if migrate_only_packaging_exception(root, key, parsed, tool):
+            if migrate_only_packaging_exception(
+                root,
+                key,
+                parsed,
+                tool,
+                command,
+                timeout,
+            ):
                 return
             option = "`-DskipTests`" if tool == "maven" else "`-x test`"
             raise EvidenceError(
@@ -1220,7 +1638,7 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             "Question 8 Migrate tests only cannot verify Maven or Gradle goals "
             "as non-test commands for this check"
         )
-    if java_application_jar(root, key, command):
+    if java_application_jar(root, key, command, timeout):
         return
     raise EvidenceError(
         "Question 8 Migrate tests only rejects unverified executable commands"
@@ -4408,13 +4826,16 @@ def requirements(root, evidence):
             raise EvidenceError(f"Cannot scan symlinked build configuration: {file}")
         if file.is_file():
             hashes[name] = file_digest(file)
+    plan_test_contract = test_contract_snapshot(tests, include_modules=False)
+    if plan_test_contract is not None:
+        plan_test_contract["mode"] = None
     snapshot = {
         "modules": modules,
         "models": models,
         "deployment_sets": declared_sets,
         "source_update_locations": source_update_locations,
         "active_timer_update_decision": decision,
-        "test_contract": test_contract_snapshot(tests, include_modules=False),
+        "test_contract": plan_test_contract,
         "files": hashes,
     }
     source_digest = hashlib.sha256(
