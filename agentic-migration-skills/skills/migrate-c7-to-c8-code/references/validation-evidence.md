@@ -240,8 +240,8 @@ In `migrate_only` mode, the validation script applies these rules:
   archive output.
 - Before accepting Maven `package`, the validator inspects the effective lifecycle through
   `package`. It rejects unclassified goals, goals without a known default phase, and Maven build
-  extensions. It allows the standard Surefire test goal only when `-DskipTests` is enabled and the
-  effective POM does not override that setting.
+  extensions and packaging types outside the verified set. It allows the standard Surefire test
+  goal only when `-DskipTests` is enabled and the effective POM does not override that setting.
 - Before accepting Gradle packaging, the validator inspects the `--dry-run` task graph and checks
   each task's Gradle `Test` type. It rejects each unexcluded test task, including custom test tasks.
 - It accepts a user-submitted Maven `help:effective-pom` command only for module `configuration`

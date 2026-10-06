@@ -128,6 +128,9 @@ MAVEN_TEST_COMPILE_SAFE_GOALS = {
     ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"),
 }
 MAVEN_TEST_COMPILE_PACKAGINGS = {"ejb", "jar", "maven-plugin", "war"}
+MAVEN_PACKAGING_LIFECYCLE_PACKAGINGS = (
+    MAVEN_TEST_COMPILE_PACKAGINGS | {"ear", "pom"}
+)
 MAVEN_DEFAULT_LIFECYCLE_PHASES = (
     "validate",
     "initialize",
@@ -725,6 +728,11 @@ def maven_unclassified_lifecycle_execution(
     packaging = child_text(effective_pom, "packaging") or "jar"
     if last_phase == "test-compile" and packaging.casefold() not in MAVEN_TEST_COMPILE_PACKAGINGS:
         return f"Maven packaging {packaging} has no verified test-source compiler"
+    if (
+        last_phase == "package"
+        and packaging.casefold() not in MAVEN_PACKAGING_LIFECYCLE_PACKAGINGS
+    ):
+        return f"Maven packaging {packaging} has no verified package lifecycle"
 
     builds = [
         child for child in effective_pom if local_name(child) == "build"
@@ -748,6 +756,30 @@ def maven_unclassified_lifecycle_execution(
             for child in build
         ):
             return "Maven build extensions"
+        if (
+            last_phase == "package"
+            and property_is_true(parsed, "skipTests")
+        ):
+            for management in (
+                child for child in build if local_name(child) == "pluginManagement"
+            ):
+                for plugins in (
+                    child for child in management if local_name(child) == "plugins"
+                ):
+                    for plugin in (
+                        child for child in plugins if local_name(child) == "plugin"
+                    ):
+                        group_id = child_text(plugin, "groupId") or "org.apache.maven.plugins"
+                        artifact_id = child_text(plugin, "artifactId")
+                        if any(
+                            group_id.casefold() == skipped_group
+                            and artifact_id.casefold() == skipped_artifact
+                            for skipped_group, skipped_artifact, _ in MAVEN_SKIP_TEST_GOALS
+                        ) and not test_execution_skip_configuration_is_safe(plugin, plugin):
+                            return (
+                                f"{group_id}:{artifact_id} pluginManagement "
+                                "overrides `-DskipTests`"
+                            )
         for plugins in (
             child for child in build if local_name(child) == "plugins"
         ):
@@ -980,7 +1012,7 @@ def has_test_compile_task(parsed, tool):
     return any(task_leaf(task) in GRADLE_TEST_COMPILE_TASKS for task in parsed["tasks"])
 
 
-def gradle_inspection_context(root, target, executable_hint=None):
+def gradle_inspection_context(root, target, executable_hint=None, project_dirs=()):
     root = root.resolve(strict=True)
     target_path = project_relative_path(root, target)
     if target_path is None:
@@ -1001,7 +1033,18 @@ def gradle_inspection_context(root, target, executable_hint=None):
     settings = has_build_file(root, ("settings.gradle", "settings.gradle.kts"))
     root_build = has_build_file(root, ("build.gradle", "build.gradle.kts"))
     module_build = has_build_file(module_root, ("build.gradle", "build.gradle.kts"))
-    if settings:
+    selected_project_dirs = {
+        project_relative_path(root, project_dir)
+        for project_dir in project_dirs
+    }
+    if project_dirs:
+        if selected_project_dirs != {target_path} or not module_build:
+            raise EvidenceError(
+                f"Question 8 cannot verify the Gradle project directory for module {target}"
+            )
+        gradle_root = module_root
+        project_path = ":"
+    elif settings:
         gradle_root = root
         project_path = ":" if target_path == "." else ":" + target_path.replace("/", ":")
     elif module_build:
@@ -1029,10 +1072,12 @@ def gradle_inspection_context(root, target, executable_hint=None):
 
 
 def gradle_inspection(root, target, command, timeout):
+    parsed = parse_build_command(command, "gradle") if command else None
     gradle_root, project_path, executable = gradle_inspection_context(
         root,
         target,
         command[0] if command else None,
+        parsed["project_dirs"] if parsed is not None else (),
     )
     init_script = """import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
@@ -1133,7 +1178,7 @@ def verify_gradle_packaging_task_graph(root, target, command, parsed, timeout):
     task_records, _ = gradle_inspection(root, target, command, timeout)
     task_paths = {path for path, _ in task_records}
     requested_packages = {
-        task
+        f":{task}" if parsed["project_dirs"] and not task.startswith(":") else task
         for task in parsed["tasks"]
         if task_leaf(task) in GRADLE_PACKAGE_TASKS
         and gradle_module_selected(root, target, parsed, task)

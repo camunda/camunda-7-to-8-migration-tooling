@@ -1203,7 +1203,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
             "It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's `spring_boot_run` check.",
             "It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact with a `Main-Class` manifest entry, and its path matches the module's configured Maven or Gradle archive output.",
-            "Before accepting Maven `package`, the validator inspects the effective lifecycle through `package`. It rejects unclassified goals, goals without a known default phase, and Maven build extensions. It allows the standard Surefire test goal only when `-DskipTests` is enabled and the effective POM does not override that setting.",
+            "Before accepting Maven `package`, the validator inspects the effective lifecycle through `package`. It rejects unclassified goals, goals without a known default phase, and Maven build extensions and packaging types outside the verified set. It allows the standard Surefire test goal only when `-DskipTests` is enabled and the effective POM does not override that setting.",
             "Before accepting Gradle packaging, the validator inspects the `--dry-run` task graph and checks each task's Gradle `Test` type. It rejects each unexcluded test task, including custom test tasks.",
             "It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for `executable_jar` and `external_launcher` checks after the lifecycle or task-graph inspection passes.",
         ):

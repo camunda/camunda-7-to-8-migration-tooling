@@ -1108,18 +1108,29 @@ class ValidationEvidenceTest(unittest.TestCase):
             (":app:classes", "other"),
             (":app:bootJar", "other"),
         )
+        safe_gradle_project_dir_tasks = (
+            (":compileJava", "other"),
+            (":classes", "other"),
+            (":bootJar", "other"),
+        )
         cases = (
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "spring-boot:run"]),
             (("module", "app", "spring_boot_run", None), ["gradle", ":app:bootRun"]),
             (("module", "app", "executable_jar", None), ["mvn", "-pl", "app", "package", "-DskipTests"]),
             (("module", "app", "executable_jar", None), ["gradle", ":app:bootJar", "-x", "test"]),
+            (("module", "app", "executable_jar", None), ["gradle", "-p", "app", "bootJar", "-x", "test"]),
         )
         for key, command_args in cases:
             with self.subTest(key=key, command=command_args):
                 if "package" in command_args:
                     runner = self.maven_effective_pom_runner(safe_maven_pom)
                 elif "bootJar" in " ".join(command_args):
-                    runner = self.gradle_task_graph_runner(safe_gradle_tasks)
+                    tasks = (
+                        safe_gradle_project_dir_tasks
+                        if "-p" in command_args
+                        else safe_gradle_tasks
+                    )
+                    runner = self.gradle_task_graph_runner(tasks)
                 else:
                     runner = lambda command, **kwargs: subprocess.CompletedProcess(
                         command, 0, "verified"
@@ -1164,6 +1175,13 @@ class ValidationEvidenceTest(unittest.TestCase):
                 <goals><goal>test</goal></goals>
               </execution></executions>
             </plugin></plugins></build></project>
+            """,
+            """
+            <project><build><pluginManagement><plugins><plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <configuration><skipTests>false</skipTests></configuration>
+            </plugin></plugins></pluginManagement></build></project>
             """,
         )
         for effective_pom in effective_poms:
