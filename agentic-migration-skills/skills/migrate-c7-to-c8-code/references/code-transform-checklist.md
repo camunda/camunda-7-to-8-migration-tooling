@@ -429,12 +429,20 @@ The catalog covers listener mappings, including the multi-instance collection li
 
 ## 6. Test Code (NOT fully covered by OpenRewrite)
 
-Catalog: `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
-`30-process-variable`, `40-user-task`, `50-message`, `60-job`).
+Catalog: the Test code table in `pattern-catalog-sources.md` selects these files from the Test
+Inventory.
 
-These items are not in the catalog:
+- `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
+  `30-process-variable`, `40-user-task`, `50-message`, `60-job`, `70-executable-entry-points`,
+  `80-assertion-mapping`)
+- `40-test-assertions/20-test-setup/` (`10-junit-harness`, `20-deployment`, `30-spring-boot-test`)
+- `40-test-assertions/30-mocks/` (`10-delegate-mocks`, `20-call-activity-and-decision-mocks`)
+- `40-test-assertions/40-decisions/` (`10-decision-tests`)
+- `40-test-assertions/50-coverage-and-scenarios/` (`10-coverage`, `20-scenario-tests`)
+- `10-general/dependencies.md` (Camunda 7 test artifacts and their CPT replacements)
 
-- Add per-worker overrides when mocked workers need exceptions.
+This item is not in the catalog:
+
 - When a large suite on 8.9+ uses one runtime configuration, use CPT shared-runtime mode.
 
 ---
