@@ -246,8 +246,10 @@ The `fixtures/user-tasks` walkthrough covers a message-start process with a
 form-free user task and a user task carrying assignment and form metadata.
 The `fixtures/validation-evidence` tests preserve a nine-module, ten-model report that claimed
 readiness despite failed and missing checks. They generate synthetic logs in a temporary directory
-and test command capture, run isolation, process coverage, and timer safety. Its
-`live-timer-fixture/` Maven reactor combines the two-module `Sample` deployment case with an
+and test command capture, run isolation, process coverage, and timer safety. The regressions also
+cover JUnit baselines, test parity, frozen tests, repeat runs, mock approvals, and coverage drops.
+The `fixtures/validation-evidence/live-timer-fixture/` Maven reactor combines the two-module
+`Sample` deployment case with an
 already-active timer that receives two date updates through fresh child process instances on a
 disposable Camunda 8.9.21 target. Run it
 with Java 21 and Docker:

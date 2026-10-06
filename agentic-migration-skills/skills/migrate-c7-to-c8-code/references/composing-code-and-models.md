@@ -6,8 +6,13 @@ Use this when the scope is Code + models.
 
 ## Execution Order
 
-The two paths are independent.
-Run models first because the diagrams define the job types and listeners that the code must implement. (SHOULD)
+When the Test Inventory has a test marked `Migrate` and `test_run_mode` is `run`, use the
+phase order in `references/test-migration.md`.
+
+Follow that reference for the baseline, test mapping, freeze, and parity checks.
+
+When no in-scope test requires that order, the code and model paths are independent.
+Run models first because the diagrams define job types and listeners for the code. (SHOULD)
 Follow the user's preference.
 
 ## Cross-Check After Both Complete
