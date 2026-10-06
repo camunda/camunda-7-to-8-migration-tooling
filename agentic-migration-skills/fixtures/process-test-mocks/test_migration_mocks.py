@@ -375,7 +375,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         )
         step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
         self.assertIn(
-            "When the skill reaches Step 2, it follows `references/test-migration.md` to build the Test Inventory.",
+            "When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.",
             step_two,
         )
         self.assertNotIn("detect mock signals", step_two)
@@ -596,11 +596,14 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             "## Parity ledger", 1
         )[0]
         normalized_guidance = worker_guidance.lower()
+        mock_boundary_guidance = guidance.split("## Mock boundary", 1)[1].split(
+            "## C7 mock API mapping", 1
+        )[0]
+        normalized_mock_boundary_guidance = mock_boundary_guidance.lower()
 
         self.assertIn(
-            "when a c7 test mocks a whole delegate or listener, the skill uses the matching "
-            "cpt job mock",
-            normalized_guidance,
+            "a whole-component mock must not start the real c8 worker for the mocked component.",
+            normalized_mock_boundary_guidance,
         )
         self.assertIn(
             "when a c7 test mocks an expression service or a service used by a delegate or "
@@ -613,7 +616,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             normalized_guidance,
         )
         self.assertIn(
-            "the skill does not open the real worker for that component",
+            "where a spring test mocks a job type, the test disables its real worker",
             normalized_guidance,
         )
 

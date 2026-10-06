@@ -111,7 +111,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             inventory_lines,
             [
                 "#### Test Inventory",
-                "For Step 2, follow `references/test-migration.md` for the Test Inventory procedure.",
+                "When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.",
             ],
         )
 
@@ -151,6 +151,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "| Modifier | Detect by | Used by |",
             "mocks",
             "org.camunda.community.mockito.*",
+            "When test source uses `org.camunda.community.mockito.*`, the skill records `mocks` in that test's `Signals` column.",
             "coverage",
             "time",
             "Spring",
@@ -196,7 +197,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The first matching row assigns one test kind and handling.",
             "The skill classifies tests by executed engine behavior, not assertion type.",
             "Test rules, extensions, dependencies, and API references alone do not prove that a test executed a BPMN process or DMN decision.",
-            "A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.",
+            "When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps that test in scope.",
             "The skill records assertion gaps in the Test Inventory's Notes column for migration review.",
             "The skill verifies that a direct service call resolves to a real C7 engine in the test or its shared configuration.",
             "The skill requires a completed task's `processInstanceId` to identify an executed BPMN process before `TaskService.complete(...)` is a process-test signal.",
@@ -254,8 +255,8 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             rows[6][2],
         )
         self.assertIn("mocked `RuntimeService`", rows[-1][2])
-        self.assertEqual(rows[3][3], "Report only")
-        self.assertEqual(rows[4][3], "Report only")
+        self.assertEqual(rows[3][3], "Migrate (lower priority)")
+        self.assertEqual(rows[4][3], "Migrate (lower priority)")
         self.assertEqual(rows[5][3], "Migrate")
         self.assertEqual(rows[6][3], "Migrate to CPT")
         self.assertIn(
@@ -335,7 +336,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             with self.subTest(artifact=artifact):
                 self.assertIn(artifact, reference)
         self.assertIn(
-            "If any test outside the migrated set or production code still uses a dependency, the skill keeps it.",
+            "If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.",
             reference,
         )
 
@@ -697,7 +698,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         reference = " ".join(REFERENCE.read_text().split())
 
         self.assertIn(
-            "If the application has no usable worker bootstrap, the skill sets the test's handling to `Report only`.",
+            "If the application has no usable worker bootstrap, then the skill sets the test's handling to `Report only`.",
             reference,
         )
         self.assertIn(

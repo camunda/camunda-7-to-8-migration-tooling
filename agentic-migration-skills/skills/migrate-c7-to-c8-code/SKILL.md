@@ -222,12 +222,6 @@ C7 baseline with the command in `references/validation-evidence.md`.
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
 
-#### Test Inventory
-
-When the skill reaches Step 2, it follows `references/test-migration.md` to build the Test Inventory.
-Build the inventory from the original C7 test source before Step 3 changes that source.
-Inventory every test method and assign its test kind.
-
 #### Code Inventory
 
 Classify every Camunda 7 related Java file and config file into a table with the columns File, Type,
@@ -259,6 +253,10 @@ its HTTP topology. Follow `references/http-topology-migration.md`. Ask Question 
 `references/interview-questions.md` before Step 3. Record the target application bind address and
 port, the Camunda REST base address, and the authentication mode. Record the endpoint decisions and
 consumer actions. Where the management server uses a separate bind address or port, record both.
+
+#### Test Inventory
+
+When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
 
 #### Model Inventory
 

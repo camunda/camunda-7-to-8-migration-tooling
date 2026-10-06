@@ -525,26 +525,7 @@ When a test needs a resource set that differs from the application's deployment,
 
 ## Workers and mocks
 
-The skill keeps each C7 test's mock boundary.
-
-When a C7 test mocks a service called by a delegate, the skill mocks the same service in the CPT
-test. The skill runs the real C8 worker.
-
-When a C7 test mocks a delegate bean, the skill disables the matching C8 worker. The skill mocks
-its job type through `CamundaProcessTestContext`.
-
-The skill sets `camunda.client.worker.override.<job-type-or-worker-name>.enabled=false` to disable
-the real worker. The skill uses the job type with `processTestContext.mockJobWorker("<job-type>")`.
-
-The skill registers the mocked job worker before the test starts a process. The skill gives it the
-same completion variables, BPMN error, or failure outcome as the C7 mock.
-
-If the C7 test ran a delegate for real, then the skill keeps the C8 worker real. The skill asks
-the user before it changes this boundary.
-
-```java
-processTestContext.mockJobWorker("ship-order").thenComplete();
-```
+Follow [Mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping).
 
 ## Endpoint-driven tests
 
@@ -803,6 +784,9 @@ A `mocks` signal alone does not qualify a `Report only` test for migration.
 When test source uses mock operations from `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`,
 or `camunda-bpm-mockito` (`org.camunda.bpm.extension.mockito`), the skill recognizes the APIs as
 equivalent C7 mock APIs.
+When test source uses `org.camunda.community.mockito.*`, the skill records `mocks` in that test's
+`Signals` column.
+The skill recognizes those APIs as equivalent C7 mock APIs.
 Where a C7 test uses `org.camunda.bpm.engine.test.mock.Mocks`, configure `MockExpressionManager`
 in its test engine.
 
@@ -817,12 +801,14 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
 | A C7 process-flow test already mocks a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. This existing C7 decision mock is a same-boundary migration and needs no additional approval. |
 | A C7 process-flow test does not mock a business-rule task | No CPT decision mock by default | Ask the user before adding a CPT decision mock. Record an approved addition in `mock_changes`. |
-| No component; project code ran for the task | No CPT mock | Do not add a mock without user approval. |
+| No component; project code ran for the task | No CPT mock | Keep the corresponding C8 worker real. Ask the user before changing this boundary. |
 
 Never derive a job type from a C7 bean name. If the converted copy has no matching job type, then do
 not invent one. If the converted copy omits a C7 listener, then the skill records that mock in `mocks.c7`.
 The skill leaves `mocks.c8` without a corresponding mock.
 If the real worker cannot run, then the skill asks the user before it adds a mock.
+The skill registers CPT job mocks before the test starts a process.
+A whole-component mock must not start the real C8 worker for the mocked component.
 
 ## C7 mock API mapping
 
@@ -896,9 +882,6 @@ client.newWorker().jobType(type).handler(handler).open();
 Where the mapped worker is a Spring bean, CPT starts it through the Spring process application's
 client-created event.
 The skill does not open a second worker.
-
-When a C7 test mocks a whole delegate or listener, the skill uses the matching CPT job mock.
-The skill does not open the real worker for that component.
 
 CPT closes its injected client after each test. Closing the client also closes workers that the test
 opened through it.
