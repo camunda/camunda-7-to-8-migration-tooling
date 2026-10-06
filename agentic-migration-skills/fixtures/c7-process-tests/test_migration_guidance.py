@@ -1100,6 +1100,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             if line.startswith("| 8 | out of scope |")
         )
         self.assertIn("runs a bpmn process or dmn decision", remote_engine_row)
+        for signal in (
+            "camunda-platform-7-rest-client-spring-boot",
+            "@externaltasksubscription",
+            "the test may start the c7 engine with a testcontainers image or docker compose",
+        ):
+            with self.subTest(signal=signal):
+                self.assertIn(signal, remote_engine_row)
         self.assertIn(
             "the skill classifies remote health or metadata probes that run no process "
             "or decision as out of scope.",
@@ -1484,6 +1491,26 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertIn("bodyMarker();", method)
                 self.assertNotIn("afterTarget", method)
 
+
+    def test_c8_test_apis_have_one_precedence_row(self):
+        priority_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Priority", "Test kind", "Detect by", "Handling"],
+        )
+        c8_rows = [
+            row
+            for row in priority_rows
+            if row["Test kind"] == "out of scope (Camunda 8)"
+        ]
+
+        self.assertEqual(1, len(c8_rows))
+        self.assertEqual("1", c8_rows[0]["Priority"])
+        detect_by = normalized(c8_rows[0]["Detect by"])
+        self.assertIn("io.camunda.zeebe.process.test.*", detect_by)
+        self.assertIn("io.camunda.process.test.*", detect_by)
+        self.assertNotIn("without running a c7 engine", detect_by)
+
+
     def test_camunda_8_8_inventory_applies_version_gate(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
@@ -1498,17 +1525,22 @@ class MigrationGuidanceTest(unittest.TestCase):
         for test_id, row in rows_89.items():
             with self.subTest(test_id=test_id):
                 other = rows_88[test_id]
+                is_shared_engine_test = test_id.endswith(
+                    "SharedEngineSmokeIT#readsConfiguredSharedEngine"
+                )
                 if other["Test kind"] == "remote-engine test":
-                    self.assertIn(
-                        normalized(SHARED_ENGINE_REASON), normalized(other["Notes"])
-                    )
-                    self.assertIn(version_reason, normalized(other["Notes"]))
+                    other_notes = normalized(other["Notes"])
+                    self.assertIn(version_reason, other_notes)
+                    if is_shared_engine_test:
+                        self.assertIn(normalized(SHARED_ENGINE_REASON), other_notes)
+                    else:
+                        self.assertNotIn(normalized(SHARED_ENGINE_REASON), other_notes)
                     self.assertNotIn(
                         normalized(
                             "Report only until the remote-engine migration "
                             "procedure is defined"
                         ),
-                        normalized(other["Notes"]),
+                        other_notes,
                     )
 
                 if row["Test kind"] == "manual redesign":
@@ -1528,7 +1560,10 @@ class MigrationGuidanceTest(unittest.TestCase):
                         normalized(other["Notes"]),
                     )
                     reason = REPORT_ONLY_REASONS.get(row["Test kind"])
-                    if row["Test kind"] == "remote-engine test":
+                    if (
+                        row["Test kind"] == "remote-engine test"
+                        and is_shared_engine_test
+                    ):
                         reason = normalized(SHARED_ENGINE_REASON)
                     if reason is not None:
                         self.assertIn(reason, normalized(other["Notes"]))
@@ -1808,11 +1843,6 @@ class MigrationGuidanceTest(unittest.TestCase):
             if row["Test kind"] == "process test"
         )
         self.assertEqual("Migrate to CPT", process_test_row["Handling"])
-        self.assertIn(
-            "the skill keeps scenario test rows at report only until their migration "
-            "procedures are defined.",
-            reference,
-        )
         self.assertIn(
             "when the target is camunda 8.9 or later, the skill migrates every test with "
             "test kind `decision test`.",

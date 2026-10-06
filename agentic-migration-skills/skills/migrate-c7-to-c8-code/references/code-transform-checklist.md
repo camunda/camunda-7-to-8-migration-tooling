@@ -128,7 +128,8 @@ These items are not in the catalog:
   an affected flow as migrated.
 - When at least one Test Inventory row has the `Spring` modifier and handling `Migrate to CPT`, the
   skill selects the CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
-  For Spring test migration, the skill follows `references/test-migration.md`.
+  For Spring test migration, the skill follows `references/test-migration.md`, including its
+  [Spring Process Test artifact selection](test-migration.md#runtime-and-build-changes).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`

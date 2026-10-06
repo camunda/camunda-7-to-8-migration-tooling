@@ -54,7 +54,12 @@ YAML_REMOTE_RUNTIME_INDIRECTION = re.compile(
     r"""(?:runtime-mode|camunda\.process-test\.runtime-mode)(?P=key_quote)"""
     r"""[ \t]*:[ \t]*(?:![^\s#]+[ \t]+)?[&*][^\s#]+"""
 )
-YAML_DOUBLE_QUOTED_SCALAR = re.compile(r'"(?:\\.|[^"\\])*"')
+YAML_DOUBLE_QUOTED_SCALAR = re.compile(
+    r'"(?:\\(?:\r\n|\r|\n|[^\r\n])|[^"\\\r\n])*"'
+)
+YAML_DOUBLE_QUOTED_LINE_CONTINUATION = re.compile(
+    r"(?<!\\)(?P<escaped_backslashes>(?:\\\\)*)\\(?:\r\n|\r|\n)[ \t]*"
+)
 YAML_UNICODE_ESCAPE = re.compile(
     r"(?<!\\)(?P<escaped_backslashes>(?:\\\\)*)\\"
     r"(?P<escape>x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
@@ -99,6 +104,9 @@ def _unescape_yaml_double_quoted_unicode_escapes(content):
             return escape.group("escaped_backslashes") + chr(codepoint)
 
         value = match.group(0)[1:-1]
+        value = YAML_DOUBLE_QUOTED_LINE_CONTINUATION.sub(
+            lambda continuation: continuation.group("escaped_backslashes"), value
+        )
         value = YAML_UNICODE_ESCAPE.sub(unescape_escape, value)
         return f'"{value}"'
 
@@ -107,6 +115,7 @@ def _unescape_yaml_double_quoted_unicode_escapes(content):
 
 def _contains_remote_runtime_configuration(content):
     yaml_content = _unescape_yaml_double_quoted_unicode_escapes(content)
+    yaml_content = yaml_content.replace("\r\n", "\n").replace("\r", "\n")
     return (
         any(
             JAVA_PROPERTIES_REMOTE_RUNTIME.search(
@@ -158,9 +167,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         camunda_8_row = next(
             line
             for line in test_kinds.splitlines()
-            if line.startswith("| 9 | out of scope (Camunda 8) |")
+            if line.startswith("| 1 | out of scope (Camunda 8) |")
         )
 
+        self.assertIn(
+            "Zeebe Process Test (`io.camunda.zeebe.process.test.*`)", camunda_8_row
+        )
         self.assertIn("CPT (`io.camunda.process.test.*`)", camunda_8_row)
 
     def test_shared_engine_test_requires_explicit_opt_in(self):
@@ -383,7 +395,8 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         self.assertIn(shared_reason, shared_scope_rule)
         self.assertIn(
-            "For shared-engine tests, record this exact reason in `MIGRATION_REPORT.md`:",
+            "When a test uses a shared engine, the skill records this exact reason in "
+            "`MIGRATION_REPORT.md`:",
             reference,
         )
         self.assertIn(
@@ -522,7 +535,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
 
         self.assertIn("processTestContext.increaseTime(duration)", timer_row)
         self.assertIn("timer element is active", timer_row)
-        self.assertIn("Do not advance time", non_timer_row)
+        self.assertIn("The skill does not advance time", non_timer_row)
         self.assertIn("job type", non_timer_row)
 
     def test_cpt_artifacts_and_remote_runtime_configuration_match_target(self):
@@ -822,6 +835,34 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             r'runtime-mode: "\\\u0072emote"',
             r"runtime-mode: \u0072emote",
             r'runtime-mode: "\u0072emote-ish"',
+        ):
+            with self.subTest(setting=setting):
+                self.assertFalse(_contains_remote_runtime_configuration(setting))
+
+    def test_remote_runtime_guard_detects_yaml_escaped_line_continuations(self):
+        for line_break in ("\n", "\r\n", "\r"):
+            nested_key = line_break.join(
+                ("camunda:", "  process-test:", "    runtime-mode:")
+            )
+            for first_line in (r"\u0072e", "re"):
+                setting = (
+                    nested_key
+                    + ' "'
+                    + first_line
+                    + "\\"
+                    + line_break
+                    + '      mote"'
+                )
+                with self.subTest(
+                    line_break=repr(line_break), first_line=first_line
+                ):
+                    self.assertTrue(
+                        _contains_remote_runtime_configuration(setting)
+                    )
+
+        for setting in (
+            'runtime-mode: "re\\\\\n  mote"',
+            'runtime-mode: "re\n  mote"',
         ):
             with self.subTest(setting=setting):
                 self.assertFalse(_contains_remote_runtime_configuration(setting))
