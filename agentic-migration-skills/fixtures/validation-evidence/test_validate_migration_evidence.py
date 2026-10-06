@@ -4047,6 +4047,75 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.issues,
         )
 
+    def test_run_mode_rejects_nonempty_rows_after_test_inventory_table_break(self):
+        self.write_scope(test_run_mode="run")
+        self.complete_required_checks()
+
+        rows = (
+            "|  | app/src/test/java/com/example/OrderTest.java | process test | Migrate |",
+            "| invalid-test-id | app/src/test/java/com/example/OrderTest.java "
+            "| process test | Migrate |",
+            "| app/src/test/java/com/example/OrderTest.java | process test | Migrate |",
+            "|---|---|---|---|\n"
+            "|  | app/src/test/java/com/example/OrderTest.java | process test | Migrate |",
+        )
+        for row in rows:
+            with self.subTest(row=row):
+                (self.root / gate.REPORT).write_text(
+                    "# Migration report\n\n"
+                    "## Test Inventory\n\n"
+                    "| Test ID | File | Test kind | Handling |\n"
+                    "|---|---|---|---|\n\n"
+                    f"{row}\n",
+                    encoding="utf-8",
+                )
+
+                self.assertEqual(1, self.audit())
+                summary = self.summary()
+                self.assertEqual("NOT READY", summary["gate"])
+                self.assertTrue(
+                    any("Test Inventory" in issue for issue in summary["issues"]),
+                    summary["issues"],
+                )
+
+    def test_unheaded_partial_inventory_rejects_rows_after_table_break(self):
+        self.write_scope(test_run_mode="run")
+        self.complete_required_checks()
+        (self.root / gate.REPORT).write_text(
+            "# Migration report\n\n"
+            "| Test ID | File | Test kind | Disposition |\n"
+            "|---|---|---|---|\n\n"
+            "|  | app/src/test/java/com/example/OrderTest.java "
+            "| process test | Migrate |\n",
+            encoding="utf-8",
+        )
+
+        self.assertEqual(1, self.audit())
+        summary = self.summary()
+        self.assertEqual("NOT READY", summary["gate"])
+        self.assertTrue(
+            any("Test Inventory" in issue for issue in summary["issues"]),
+            summary["issues"],
+        )
+
+    def test_test_inventory_ignores_table_in_following_section(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        report_path = self.root / gate.REPORT
+        report_path.write_text(
+            report_path.read_text(encoding="utf-8")
+            + "\n## Other evidence\n\n"
+            "| ID | Path | Kind | Status |\n"
+            "|---|---|---|---|\n"
+            "| other | app/src/test/java/OtherTest.java | process test | passed |\n",
+            encoding="utf-8",
+        )
+
+        tests = gate.test_report_inventory(self.root)
+
+        self.assertEqual([self.c7_test_id], [test["id"] for test in tests])
+
     def test_deferred_baseline_check_detects_suite_contract_changes(self):
         key = ("module", "app", "c7_baseline", "unit")
         suite = {

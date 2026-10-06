@@ -1131,6 +1131,61 @@ def looks_like_test_inventory_id(value):
     return ":" in value and "#" in value
 
 
+def markdown_table_separator(row):
+    return bool(row) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in row)
+
+
+def looks_like_test_inventory_file(value):
+    return bool(
+        "/" in value
+        or "\\" in value
+        or (
+            value
+            and not any(character.isspace() for character in value)
+            and Path(value).suffix
+        )
+    )
+
+
+def test_inventory_row_after_table_break(lines, start, names):
+    index = start
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+    if index == len(lines) or re.match(r"^#{1,6}\s+", lines[index].strip()):
+        return False
+
+    row = markdown_cells(lines[index])
+    while markdown_table_separator(row):
+        index += 1
+        while index < len(lines) and not lines[index].strip():
+            index += 1
+        if index == len(lines):
+            return False
+        row = markdown_cells(lines[index])
+    if not row:
+        return False
+
+    values = [plain_markdown_cell(cell) for cell in row]
+    if any(
+        looks_like_test_inventory_id(value)
+        or looks_like_test_inventory_file(value)
+        or re.sub(r"[\s_-]+", " ", value.casefold()).startswith(
+            ("migrate", "report only")
+        )
+        for value in values
+    ):
+        return True
+    if len(values) != len(names) or not any(values):
+        return False
+    next_index = index + 1
+    while next_index < len(lines) and not lines[next_index].strip():
+        next_index += 1
+    return not (
+        next_index < len(lines)
+        and markdown_table_separator(markdown_cells(lines[next_index]))
+    )
+
+
 def test_inventory_table_candidate(lines):
     expected_columns = {"test id", "file", "test kind", "handling"}
     index = 0
@@ -1174,8 +1229,15 @@ def test_inventory_table_candidate(lines):
         while row_index < len(lines):
             row = markdown_cells(lines[row_index])
             if not row:
+                if (
+                    recognized_column_count >= 2
+                    and test_inventory_row_after_table_break(
+                        lines, row_index + 1, names
+                    )
+                ):
+                    return True
                 break
-            if all(re.fullmatch(r":?-{3,}:?", cell) for cell in row):
+            if markdown_table_separator(row):
                 row_index += 1
                 continue
             row_values = [plain_markdown_cell(cell) for cell in row]
@@ -1220,11 +1282,17 @@ def test_report_inventory(root, *, required=True):
         if columns is not None:
             raise EvidenceError("MIGRATION_REPORT.md has more than one Test Inventory table")
         columns = {name: position for position, name in enumerate(names)}
-        for candidate in lines[index + 1:]:
+        for row_index, candidate in enumerate(lines[index + 1:], start=index + 1):
             row = markdown_cells(candidate)
             if not row:
+                if test_inventory_row_after_table_break(
+                    lines, row_index + 1, names
+                ):
+                    raise EvidenceError(
+                        "MIGRATION_REPORT.md Test Inventory has rows after a blank line"
+                    )
                 break
-            if all(re.fullmatch(r":?-{3,}:?", cell) for cell in row):
+            if markdown_table_separator(row):
                 continue
             if len(row) != len(names):
                 raise EvidenceError("Test Inventory row does not match its table header")
