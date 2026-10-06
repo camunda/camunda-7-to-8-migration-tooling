@@ -245,6 +245,8 @@ from the HTTP topology inventory and Question 7.
 
 Search production code, application configuration, production build files, scripts, and
 deployment configuration.
+The skill excludes dependencies declared only in test scope and plugin executions bound only to
+test phases from production-source evidence.
 Check these production sources for Spring web servers, application HTTP endpoints, health checks,
 and Camunda 7 Engine REST calls. When any of these production sources contains a match, inventory
 its HTTP topology. Follow `references/http-topology-migration.md`. Ask Question 7 from

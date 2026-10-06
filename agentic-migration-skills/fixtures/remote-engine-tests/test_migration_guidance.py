@@ -310,6 +310,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             for row in scope_confirmation.splitlines()
             if row.startswith("| A remote-engine test reads a shared engine URL")
         )
+        shared_precedence_rule = next(
+            row
+            for row in scope_confirmation.splitlines()
+            if row.startswith("| 5 |")
+        )
         handling_overrides = reference.split("## Handling overrides", 1)[1].split(
             "\n## ", 1
         )[0]
@@ -334,6 +339,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 self.assertIn(boundary, shared_engine_definition)
                 self.assertIn(boundary, report_only_rule)
 
+        for name, rule in (
+            ("scope confirmation", shared_scope_rule),
+            ("scope precedence", shared_precedence_rule),
+            ("handling override", shared_override_rule),
+            ("report-only classification", report_only_rule),
+        ):
+            with self.subTest(rule=name):
+                self.assertIn("does not start", " ".join(rule.lower().split()))
+                self.assertIn(
+                    "neither local nor a test-owned container",
+                    " ".join(rule.lower().split()),
+                )
+
     def test_skill_classifies_test_engine_calls_before_http_topology(self):
         code_inventory = " ".join(
             SKILL.read_text().split("#### Code Inventory", 1)[1].split(
@@ -352,6 +370,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "scripts, and deployment configuration",
             code_inventory,
         )
+        test_only_build_filter = (
+            "The skill excludes dependencies declared only in test scope and plugin "
+            "executions bound only to test phases from production-source evidence."
+        )
+        self.assertIn(test_only_build_filter, code_inventory)
         self.assertIn(
             "When any of these production sources contains a match, inventory its HTTP topology.",
             code_inventory,
@@ -377,6 +400,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "Exclude test-only Engine REST clients and test-owned servers from the production topology.",
             http_topology,
         )
+        self.assertIn(test_only_build_filter, http_topology)
 
     def test_step_3_http_topology_gate_uses_production_sources(self):
         step_3_topology = SKILL.read_text().split("15. **HTTP topology**", 1)[1].split(
@@ -552,6 +576,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             reference,
         )
         self.assertIn("mockJobWorker(type).thenComplete(vars)", reference)
+
+    def test_plain_java_workers_are_closed_after_each_test(self):
+        worker_guidance = REFERENCE.read_text(encoding="utf-8").split(
+            "## Worker behavior", 1
+        )[1].split("\n## ", 1)[0]
+
+        self.assertIn(
+            "Without Spring, open the migrated worker in `@BeforeEach` with the "
+            "injected `CamundaClient`.",
+            worker_guidance,
+        )
+        self.assertIn("Store each returned `JobWorker` in a field.", worker_guidance)
+        self.assertIn("Close each stored `JobWorker` in `@AfterEach`.", worker_guidance)
 
     def test_direct_user_task_completion_sends_variables(self):
         row = next(

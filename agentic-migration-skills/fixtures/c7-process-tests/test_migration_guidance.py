@@ -1065,7 +1065,9 @@ class MigrationGuidanceTest(unittest.TestCase):
         signal = normalized(exception_rows[0]["Signal"])
         requirement = normalized(exception_rows[0]["Confirmation required"])
         self.assertIn("from an environment variable", signal)
-        self.assertIn("does not run a process or decision", signal)
+        self.assertIn("does not start the engine", signal)
+        self.assertIn("neither local nor a test-owned container", signal)
+        self.assertIn("the test runs no process or decision", signal)
         self.assertIn("remote-engine test", requirement)
         self.assertIn("report only", requirement)
         self.assertIn(
@@ -1129,8 +1131,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             if "shared engine url" in normalized(row["Signal"])
         )
         self.assertIn(
-            "reads a shared engine url from an environment variable and "
-            "does not run a process or decision",
+            "reads a shared camunda 7 engine url from an environment variable, does "
+            "not start that engine, and the engine is neither local nor a test-owned "
+            "container. the test runs no process or decision",
             normalized(shared_engine["Signal"]),
         )
         self.assertIn(
@@ -1148,11 +1151,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             if "shared engine url" in normalized(row["Condition"])
         )
         self.assertEqual("Report only", shared_engine_override["Handling"])
-        self.assertEqual("shared environment", shared_engine_override["Reason or note"])
+        self.assertIn(
+            "record the exact shared-engine reason below",
+            normalized(shared_engine_override["Reason or note"]),
+        )
+        self.assertIn(
+            "append `test migration needs camunda 8.9 or later`",
+            normalized(shared_engine_override["Reason or note"]),
+        )
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path, handling in (
-            (EXPECTED_ASSESSMENT, "Report only"),
+            (EXPECTED_ASSESSMENT, "Migrate (lower priority)"),
             (EXPECTED_ASSESSMENT_88, "Report only"),
         ):
             payment_test = next(
@@ -1164,10 +1174,11 @@ class MigrationGuidanceTest(unittest.TestCase):
             )
             self.assertEqual("remote-engine test", payment_test["Test kind"])
             self.assertEqual(handling, payment_test["Handling"])
-            self.assertIn(
-                "remote-engine migration procedure is defined",
-                normalized(payment_test["Notes"]),
-            )
+            if inventory_path == EXPECTED_ASSESSMENT_88:
+                self.assertIn(
+                    "test migration needs camunda 8.9 or later",
+                    normalized(payment_test["Notes"]),
+                )
 
     def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")

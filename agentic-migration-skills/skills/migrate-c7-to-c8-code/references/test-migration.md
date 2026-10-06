@@ -148,9 +148,23 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
-| A remote-engine test reads a shared engine URL from an environment variable and does not run a process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
+| A remote-engine test reads a shared engine URL from an environment variable, does not start the engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
 | A remote test makes only health or metadata calls and does not run a process or decision, without the shared-engine exception | The skill classifies the test as out of scope. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
+
+When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
+
+| Order | Matching signal | Test kind |
+|---|---|---|
+| 1 | The test uses a Camunda 8 test API | out of scope (Camunda 8) |
+| 2 | The test uses CMMN or unsupported engine internals. `ClockUtil` timer control does not trigger this signal by itself. | manual redesign |
+| 3 | JGiven or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle, or the Camunda 7 Quarkus extension. The test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | manual migration |
+| 4 | The test uses camunda-platform-scenario | scenario test |
+| 5 | The test reads a shared Camunda 7 engine URL from an environment variable, does not start that engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | remote-engine test |
+| 6 | The test runs a BPMN process or DMN decision against a running Camunda 7 engine remotely | remote-engine test |
+| 7 | The test directly evaluates a DMN decision | decision test |
+| 8 | The test runs a BPMN process | process test |
+| 9 | The test runs no engine-backed process or decision | out of scope |
 
 ## Modifiers
 
@@ -258,7 +272,7 @@ Do not migrate tests during Step 2.
 
 | Condition | Handling | Reason or note |
 |---|---|---|
-| A remote-engine test reads a shared engine URL from an environment variable and does not start the engine | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
+| A remote-engine test reads a shared engine URL from an environment variable, does not start the engine, and the engine is neither local nor a test-owned container | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
 
 ## Camunda 8.8 target
 
@@ -827,6 +841,8 @@ CPT deletes runtime data between tests, so never point remote mode at a shared o
 Run migrated job workers for real when the Camunda 7 test ran a real external-task worker.
 In a Spring Boot test, let the Spring harness start the `@JobWorker` beans.
 Without Spring, open the migrated worker in `@BeforeEach` with the injected `CamundaClient`.
+Store each returned `JobWorker` in a field.
+Close each stored `JobWorker` in `@AfterEach`.
 
 When the Camunda 7 test itself called `/external-task/fetchAndLock` and completed the task, no real worker ran.
 Use `processTestContext.completeJob(type, variables)` or `processTestContext.mockJobWorker(type).thenComplete(variables)` for that boundary.

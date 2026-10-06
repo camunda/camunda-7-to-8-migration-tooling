@@ -8,6 +8,8 @@ and their consumers.
 
 Classify tests that drive a Camunda 7 engine with `test-migration.md` before building this inventory.
 Exclude test-only Engine REST clients and test-owned servers from the production topology.
+The skill excludes dependencies declared only in test scope and plugin executions bound only to test
+phases from production-source evidence.
 
 ## Inventory
 
